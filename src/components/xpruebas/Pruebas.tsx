@@ -985,10 +985,10 @@ export default function Pruebas() {
                     
                     <!-- Botones de acción -->
                     <div style="display: flex; gap: 12px; justify-content: flex-end;">
-                        <button id="cancelDelete" style="background: #6b7280; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
+                        <button id="cancelDelete" style="background: var(--muted-foreground); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
                             Cancelar
                         </button>
-                        <button id="previewDelete" style="background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
+                        <button id="previewDelete" style="background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
                             🔍 Vista Previa
                         </button>
                         <button id="executeDelete" style="background: #dc2626; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; display: none;">
@@ -1222,7 +1222,7 @@ export default function Pruebas() {
                               .join("")}
                         </div>
                         <div style="margin-top: 8px; display: flex; gap: 8px;">
-                            <button id="selectallEmpreas" style="padding: 4px 8px; font-size: 12px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            <button id="selectallEmpreas" style="padding: 4px 8px; font-size: 12px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer;">
                                 Todas
                             </button>
                             <button id="clearallEmpreas" style="padding: 4px 8px; font-size: 12px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer;">
@@ -1233,7 +1233,7 @@ export default function Pruebas() {
                     
                     <!-- Botones de acción -->
                     <div style="display: flex; gap: 12px; justify-content: flex-end;">
-                        <button id="cancelExport" style="background: #6b7280; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
+                        <button id="cancelExport" style="background: var(--muted-foreground); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
                             Cancelar
                         </button>
                         <button id="executeExport" style="background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
@@ -1464,7 +1464,7 @@ export default function Pruebas() {
                             </div>
                             
                             <div style="display: flex; gap: 12px; justify-content: flex-end;">
-                                <button id="cancelImport" style="background: #6b7280; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
+                                <button id="cancelImport" style="background: var(--muted-foreground); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
                                     Cancelar
                                 </button>
                                 <button id="executeImport" style="background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">
@@ -1953,16 +1953,16 @@ export default function Pruebas() {
   const getColorClasses = (color: string) => {
     const colorMap = {
       blue: {
-        bg: "bg-blue-100 dark:bg-blue-900/30",
-        hover: "hover:bg-blue-200 dark:hover:bg-blue-900/50",
-        text: "text-blue-600",
-        border: "border-blue-400",
+        bg: "bg-[var(--primary)]/10",
+        hover: "hover:bg-[var(--primary)]/20",
+        text: "text-[var(--primary)]",
+        border: "border-[var(--primary)]/40",
       },
       green: {
-        bg: "bg-green-100 dark:bg-green-900/30",
-        hover: "hover:bg-green-200 dark:hover:bg-green-900/50",
+        bg: "bg-green-500/10",
+        hover: "hover:bg-green-500/20",
         text: "text-green-600",
-        border: "border-green-400",
+        border: "border-green-500/40",
       },
       yellow: {
         bg: "bg-yellow-100 dark:bg-yellow-900/30",
@@ -2149,7 +2149,7 @@ export default function Pruebas() {
                 disabled={!selectedFile || uploadStatus === "uploading"}
                 className={`w-full px-4 py-3 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center ${
                   !selectedFile || uploadStatus === "uploading"
-                    ? "bg-gray-400 text-gray-600 cursor-not-allowed"
+                    ? "bg-[var(--muted-foreground)] text-[var(--muted-foreground)] cursor-not-allowed"
                     : "bg-purple-600 hover:bg-purple-700 text-white"
                 }`}
               >
@@ -2167,7 +2167,7 @@ export default function Pruebas() {
               </button>
 
               {uploadStatus === "uploading" && (
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-[var(--input-border)] rounded-full h-2">
                   <div
                     className="bg-purple-600 h-2 rounded-full transition-all duration-300"
                     style={{ width: `${uploadProgress}%` }}
@@ -2194,7 +2194,7 @@ export default function Pruebas() {
                       onClick={() =>
                         navigator.clipboard.writeText(uploadedImageUrl)
                       }
-                      className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                      className="text-xs px-2 py-1 bg-[var(--primary)] text-white rounded hover:bg-[var(--primary)]/80 transition-colors"
                     >
                       Copiar URL
                     </button>
@@ -2235,7 +2235,7 @@ export default function Pruebas() {
             disabled={movimientosLoading}
             className={`px-4 py-2 rounded-lg font-medium border transition-colors duration-200 ${
               movimientosLoading
-                ? "bg-gray-400 text-gray-700 cursor-not-allowed border-transparent"
+                ? "bg-[var(--muted-foreground)] text-[var(--muted-foreground)] cursor-not-allowed border-transparent"
                 : "bg-amber-600 hover:bg-amber-700 text-white border-amber-700"
             }`}
           >
@@ -2300,7 +2300,7 @@ export default function Pruebas() {
                       }
                       className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center ${
                         exportingCompanyId === company.id
-                          ? "bg-gray-400 text-gray-700 cursor-not-allowed"
+                          ? "bg-[var(--muted-foreground)] text-[var(--muted-foreground)] cursor-not-allowed"
                           : "bg-amber-600 hover:bg-amber-700 text-white"
                       }`}
                     >
@@ -2322,7 +2322,7 @@ export default function Pruebas() {
                       }
                       className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center ${
                         importingCompanyId === company.id
-                          ? "bg-gray-400 text-gray-700 cursor-not-allowed"
+                          ? "bg-[var(--muted-foreground)] text-[var(--muted-foreground)] cursor-not-allowed"
                           : "bg-emerald-600 hover:bg-emerald-700 text-white"
                       }`}
                     >
@@ -2659,7 +2659,7 @@ GMAIL_APP_PASSWORD=abcd-efgh-ijkl-mnop`}
           </h4>
           <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
             Para una guía paso a paso completa, consulta el archivo{" "}
-            <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">
+            <code className="bg-[var(--input-border)] px-1 rounded">
               GMAIL_SETUP.md
             </code>{" "}
             en la raíz del proyecto.

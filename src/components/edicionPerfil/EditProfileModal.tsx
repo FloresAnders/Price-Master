@@ -453,7 +453,7 @@ export default function EditProfileModal({
                           type="button"
                           onClick={imageUpload.cancelSelection}
                           disabled={isFormLocked}
-                          className="inline-flex items-center gap-2 rounded-md border border-[var(--input-border)] px-3 py-1 text-sm text-[var(--foreground)] bg-transparent hover:bg-[var(--muted)] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                          className="inline-flex items-center gap-2 rounded-lg border border-[var(--input-border)] px-3 py-2 text-sm text-[var(--foreground)] bg-[var(--muted)]/30 hover:bg-[var(--muted)]/50 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           <X className="w-4 h-4 text-[var(--muted-foreground)]" />
                           Cancelar
@@ -464,7 +464,7 @@ export default function EditProfileModal({
                         type="button"
                         onClick={imageUpload.openFileDialog}
                         disabled={isFormLocked}
-                        className="inline-flex items-center gap-2 rounded-md border border-[var(--input-border)] px-3 py-1 text-sm text-[var(--foreground)] bg-transparent hover:bg-[var(--muted)] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex items-center gap-2 rounded-lg border border-[var(--primary)] px-3 py-2 text-sm text-[var(--primary)] bg-[var(--primary)]/10 hover:bg-[var(--primary)]/20 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {imageUpload.isUploading ? (
                           <Loader2 className="w-4 h-4 animate-spin text-[var(--muted-foreground)]" />
@@ -502,13 +502,13 @@ export default function EditProfileModal({
                 </div>
 
                 {profileError && (
-                  <div className="rounded-md border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-700">
+                  <div className="rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-700">
                     {profileError}
                   </div>
                 )}
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <label className="flex flex-col gap-1 text-sm text-[var(--foreground)]">
+                  <label className="flex flex-col gap-2 text-sm font-medium text-[var(--foreground)]">
                     Nombre de usuario
                     <input
                       type="text"
@@ -517,11 +517,11 @@ export default function EditProfileModal({
                       required
                       autoComplete="username"
                       disabled={isFormLocked}
-                      className="w-full rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-all disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   </label>
 
-                  <label className="flex flex-col gap-1 text-sm text-[var(--foreground)]">
+                  <label className="flex flex-col gap-2 text-sm font-medium text-[var(--foreground)]">
                     Nombre completo
                     <input
                       type="text"
@@ -529,12 +529,12 @@ export default function EditProfileModal({
                       onChange={handleChange("fullName")}
                       autoComplete="name"
                       disabled={isFormLocked}
-                      className="w-full rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-all disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   </label>
                 </div>
 
-                <label className="flex flex-col gap-1 text-sm text-[var(--foreground)]">
+                <label className="flex flex-col gap-2 text-sm font-medium text-[var(--foreground)]">
                   Correo electrónico
                   <input
                     type="email"
@@ -542,7 +542,7 @@ export default function EditProfileModal({
                     onChange={handleChange("email")}
                     autoComplete="email"
                     disabled={isFormLocked}
-                    className="w-full rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-all disabled:cursor-not-allowed disabled:opacity-60"
                   />
                 </label>
 
@@ -567,7 +567,7 @@ export default function EditProfileModal({
                     type="button"
                     onClick={() => setShowChangePassword(!showChangePassword)}
                     disabled={isFormLocked}
-                    className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] hover:bg-[var(--muted)] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] hover:bg-[var(--input-bg)]/80 hover:border-[var(--primary)] transition-all disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <span className="text-sm text-[var(--foreground)]">
                       {showChangePassword
@@ -583,7 +583,7 @@ export default function EditProfileModal({
 
                   {showChangePassword && (
                     <div className="space-y-4 p-4 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/50">
-                      <label className="flex flex-col gap-1 text-sm text-[var(--foreground)]">
+                      <label className="flex flex-col gap-2 text-sm font-medium text-[var(--foreground)]">
                         Contraseña actual
                         <div className="relative">
                           <input
@@ -592,7 +592,7 @@ export default function EditProfileModal({
                             onChange={handleChange("currentPassword")}
                             autoComplete="current-password"
                             disabled={isFormLocked}
-                            className="w-full rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
+                            className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-all disabled:cursor-not-allowed disabled:opacity-60"
                             placeholder="Ingresa tu contraseña actual"
                             required={showChangePassword}
                           />
@@ -618,7 +618,7 @@ export default function EditProfileModal({
                         </div>
                       </label>
 
-                      <label className="flex flex-col gap-1 text-sm text-[var(--foreground)]">
+                      <label className="flex flex-col gap-2 text-sm font-medium text-[var(--foreground)]">
                         Nueva contraseña
                         <div className="relative">
                           <input
@@ -627,7 +627,7 @@ export default function EditProfileModal({
                             onChange={handleChange("password")}
                             autoComplete="new-password"
                             disabled={isFormLocked}
-                            className="w-full rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
+                            className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-all disabled:cursor-not-allowed disabled:opacity-60"
                             placeholder="Ingresa tu nueva contraseña"
                             required={showChangePassword}
                           />
@@ -651,7 +651,7 @@ export default function EditProfileModal({
                         </div>
                       </label>
 
-                      <label className="flex flex-col gap-1 text-sm text-[var(--foreground)]">
+                      <label className="flex flex-col gap-2 text-sm font-medium text-[var(--foreground)]">
                         Confirmar nueva contraseña
                         <div className="relative">
                           <input
@@ -660,7 +660,7 @@ export default function EditProfileModal({
                             onChange={handleChange("passwordConfirm")}
                             autoComplete="new-password"
                             disabled={isFormLocked}
-                            className="w-full rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
+                            className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-all disabled:cursor-not-allowed disabled:opacity-60"
                             placeholder="Confirma tu nueva contraseña"
                             required={showChangePassword}
                           />
@@ -698,7 +698,7 @@ export default function EditProfileModal({
                 </div>
 
                 {showOwnerInfo && (
-                  <div className="rounded-md border border-dashed border-[var(--input-border)] bg-[var(--card-bg)]/60 px-3 py-3 text-sm">
+                  <div className="rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--card-bg)]/60 px-3 py-3 text-sm">
                     <div className="flex items-start gap-2">
                       <Info className="mt-0.5 h-4 w-4 text-[var(--primary)]" />
                       <div>
@@ -738,16 +738,16 @@ export default function EditProfileModal({
                 )}
 
                 {error && (
-                  <div className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-600">
+                  <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-600">
                     {error}
                   </div>
                 )}
 
-                <div className="flex justify-center gap-4 pt-4">
+                <div className="flex justify-center gap-3 pt-6">
                   <button
                     type="button"
                     onClick={onClose}
-                    className="inline-flex items-center gap-2 rounded-lg border border-[var(--input-border)] px-4 py-2 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]"
+                    className="inline-flex items-center gap-2 rounded-lg border border-[var(--input-border)] px-5 py-2.5 text-sm font-medium text-[var(--foreground)] bg-[var(--muted)]/20 transition-all hover:bg-[var(--muted)]/40 hover:border-[var(--input-border)]"
                   >
                     <X className="w-4 h-4 text-[var(--muted-foreground)]" />
                     Cancelar
@@ -755,7 +755,7 @@ export default function EditProfileModal({
                   <button
                     type="submit"
                     disabled={!hasChanges || isSaving || profileLoading}
-                    className="inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-medium text-[var(--button-text)] transition-colors hover:bg-[var(--button-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-5 py-2.5 text-sm font-medium text-[var(--button-text)] transition-all hover:bg-[var(--button-hover)] shadow-lg hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
                   >
                     {isSaving ? (
                       <>

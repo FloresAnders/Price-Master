@@ -538,24 +538,24 @@ function MobileScanContent() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
-          <Smartphone className="w-6 h-6 text-blue-400" />
+          <Smartphone className="w-6 h-6 text-[var(--primary)]" />
           <h1 className="text-xl font-bold">Escáner Móvil</h1>
         </div>
         <div className="flex items-center gap-4"></div>
       </div>
       {/* Status Messages */}
       {(error || (cameraActive && !isDecodingImage && scannerError)) && (
-        <div className="bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-600 rounded-lg p-3 mb-4 flex items-center gap-2">
-          <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
-          <span className="text-red-800 dark:text-red-200">
+        <div className="bg-red-500/10 border border-red-500/40 rounded-lg p-3 mb-4 flex items-center gap-2">
+          <AlertCircle className="w-5 h-5 text-red-600" />
+          <span className="text-red-600">
             {error || (cameraActive && !isDecodingImage ? scannerError : null)}
           </span>
         </div>
       )}
       {success && (
-        <div className="bg-green-100 dark:bg-green-900/50 border border-green-300 dark:border-green-600 rounded-lg p-3 mb-4 flex items-center gap-2">
-          <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
-          <span className="text-green-800 dark:text-green-200">{success}</span>
+        <div className="bg-green-500/10 border border-green-500/40 rounded-lg p-3 mb-4 flex items-center gap-2">
+          <Check className="w-5 h-5 text-green-600" />
+          <span className="text-green-600">{success}</span>
         </div>
       )}
       <div className="mb-6">
@@ -580,13 +580,13 @@ function MobileScanContent() {
           {/* Show loading message on server-side */}
           {!isClient && (
             <div
-              className="relative bg-gray-900 dark:bg-black rounded-lg overflow-hidden"
+              className="relative bg-[var(--background)] rounded-lg overflow-hidden"
               style={{ aspectRatio: "16/9" }}
             >
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
-                  <QrCode className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
-                  <p className="text-gray-500 dark:text-gray-400">
+                  <QrCode className="w-16 h-16 text-[var(--muted-foreground)] mx-auto mb-2" />
+                  <p className="text-[var(--muted-foreground)]">
                     Cargando...
                   </p>
                 </div>
@@ -605,12 +605,12 @@ function MobileScanContent() {
             value={code}
             onChange={(e) => setCode(e.target.value)}
             placeholder="Ingresa el código de barras"
-            className="w-full bg-input-bg border border-input-border rounded-lg px-4 py-3 text-foreground placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500"
+            className="w-full bg-input-bg border border-input-border rounded-lg px-4 py-3 text-foreground placeholder-[var(--muted-foreground)] focus:outline-none focus:border-[var(--primary)]"
           />
           <button
             type="submit"
             disabled={!code.trim()}
-            className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed px-4 py-3 rounded-lg text-white font-semibold flex items-center justify-center gap-2"
+            className="w-full bg-[var(--primary)] hover:bg-[var(--primary)]/80 disabled:bg-[var(--muted-foreground)] disabled:cursor-not-allowed px-4 py-3 rounded-lg text-white font-semibold flex items-center justify-center gap-2"
           >
             <Check className="w-4 h-4" />
             Enviar Código
@@ -631,11 +631,11 @@ function MobileScanContent() {
                   key={index}
                   className="bg-input-bg rounded px-3 py-2 flex items-center gap-2"
                 >
-                  <Check className="w-4 h-4 text-green-500 dark:text-green-400" />
+                  <Check className="w-4 h-4 text-green-600" />
                   <div className="flex flex-col flex-1 min-w-0">
                     <span className="font-mono text-sm">{scan.code}</span>
                     {scan.productName && (
-                      <span className="text-xs text-blue-600 dark:text-blue-400 truncate">
+                      <span className="text-xs text-[var(--primary)] truncate">
                         📝 {scan.productName}
                       </span>
                     )}
@@ -644,10 +644,10 @@ function MobileScanContent() {
                   {scan.hasImages && (
                     <button
                       onClick={() => handleShowImages(scan.code)}
-                      className="p-1 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+                      className="p-1 rounded-md hover:bg-[var(--primary)]/10 transition-colors"
                       title="Ver imágenes"
                     >
-                      <ImageIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      <ImageIcon className="w-4 h-4 text-[var(--primary)]" />
                     </button>
                   )}
                 </div>
@@ -664,7 +664,7 @@ function MobileScanContent() {
                 ? "Nombre del Producto (Requerido)"
                 : "Nombre del Producto (Opcional)"}
             </h3>
-            <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
+            <p className="text-[var(--muted-foreground)] text-sm mb-4">
               Código:{" "}
               <span className="font-mono bg-input-bg px-2 py-1 rounded">
                 {pendingCode}
@@ -680,7 +680,7 @@ function MobileScanContent() {
                   ? "Ingresa el nombre del producto (requerido)"
                   : "Ingresa el nombre del producto (opcional)"
               }
-              className="w-full bg-input-bg border border-input-border rounded-lg px-4 py-3 text-foreground placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500 mb-4"
+              className="w-full bg-input-bg border border-input-border rounded-lg px-4 py-3 text-foreground placeholder-[var(--muted-foreground)] focus:outline-none focus:border-[var(--primary)] mb-4"
               autoFocus
               onKeyDown={(e) => {
                 if (
@@ -700,7 +700,7 @@ function MobileScanContent() {
               type="button"
               onClick={handleCameraCapture}
               // isOnline eliminado, botón siempre habilitado
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed px-4 py-3 rounded-lg text-white font-semibold flex items-center justify-center gap-2 mb-4"
+              className="w-full bg-[var(--primary)] hover:bg-[var(--primary)]/80 disabled:bg-[var(--muted-foreground)] disabled:cursor-not-allowed px-4 py-3 rounded-lg text-white font-semibold flex items-center justify-center gap-2 mb-4"
             >
               <Camera className="w-4 h-4" />
               Agregar Imagen
@@ -708,10 +708,10 @@ function MobileScanContent() {
 
             {/* Images count display */}
             {uploadedImagesCount > 0 && (
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800 mb-4">
+              <div className="bg-[var(--primary)]/10 rounded-lg p-3 border border-[var(--primary)]/40 mb-4">
                 <div className="flex items-center gap-2">
-                  <Camera className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  <span className="text-blue-800 dark:text-blue-200 text-sm">
+                  <Camera className="w-4 h-4 text-[var(--primary)]" />
+                  <span className="text-[var(--primary)] text-sm">
                     Se {uploadedImagesCount === 1 ? "agregó" : "agregaron"}{" "}
                     {uploadedImagesCount} imagen
                     {uploadedImagesCount > 1 ? "es" : ""}
@@ -723,7 +723,7 @@ function MobileScanContent() {
             <div className="flex gap-3">
               <button
                 onClick={handleNameCancel}
-                className="flex-1 bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 px-4 py-2 rounded-lg text-white font-medium"
+                className="flex-1 bg-[var(--muted-foreground)] hover:bg-[var(--muted-foreground)]/80 px-4 py-2 rounded-lg text-white font-medium"
               >
                 Cancelar
               </button>
@@ -732,7 +732,7 @@ function MobileScanContent() {
                 disabled={
                   (requestProductName && !productName.trim()) || isDecodingImage
                 }
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-white font-medium"
+                className="flex-1 bg-[var(--primary)] hover:bg-[var(--primary)]/80 disabled:bg-[var(--muted-foreground)] disabled:cursor-not-allowed px-4 py-2 rounded-lg text-white font-medium"
               >
                 Enviar
               </button>
@@ -746,22 +746,22 @@ function MobileScanContent() {
         <div className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center p-4 z-50">
           <div className="bg-card-bg rounded-lg w-full h-full max-w-none max-h-none overflow-hidden flex flex-col">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-600 flex-shrink-0">
+            <div className="flex items-center justify-between p-6 border-b border-[var(--input-border)] flex-shrink-0">
               <h3 className="text-xl font-semibold text-foreground">
                 📷 Imágenes del Código
               </h3>
               <button
                 onClick={handleCloseImagesModal}
-                className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                className="p-2 rounded-md hover:bg-[var(--muted)]/50 transition-colors"
                 aria-label="Cerrar modal"
               >
-                <X className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+                <X className="w-6 h-6 text-[var(--muted-foreground)]" />
               </button>
             </div>
 
             {/* Current Code Display */}
-            <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-600 flex-shrink-0">
-              <p className="text-gray-600 dark:text-gray-300 text-sm">
+            <div className="px-6 py-3 border-b border-[var(--input-border)] flex-shrink-0">
+              <p className="text-[var(--muted-foreground)] text-sm">
                 Código:{" "}
                 <span className="font-mono bg-input-bg px-3 py-1 rounded text-base">
                   {currentImageCode}
@@ -798,7 +798,7 @@ function MobileScanContent() {
                         alt={`Imagen ${index + 1} del código ${currentImageCode}`}
                         width={400}
                         height={300}
-                        className="w-full h-auto max-h-96 object-contain rounded-lg border border-gray-200 dark:border-gray-600 shadow-lg transition-transform group-hover:scale-105 cursor-pointer"
+                        className="w-full h-auto max-h-96 object-contain rounded-lg border border-[var(--input-border)] shadow-lg transition-transform group-hover:scale-105 cursor-pointer"
                         onClick={() => handleOpenImageModal(imageUrl, index)}
                         title="Clic para ver en pantalla completa"
                         onError={(e) => {
@@ -815,8 +815,8 @@ function MobileScanContent() {
               ) : (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center">
-                    <ImageIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <p className="text-lg text-gray-600 dark:text-gray-300">
+                    <ImageIcon className="w-16 h-16 text-[var(--muted-foreground)] mx-auto mb-4" />
+                    <p className="text-lg text-[var(--muted-foreground)]">
                       No hay imágenes disponibles
                     </p>
                   </div>
@@ -825,10 +825,10 @@ function MobileScanContent() {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-6 border-t border-gray-200 dark:border-gray-600 flex-shrink-0">
+            <div className="p-6 border-t border-[var(--input-border)] flex-shrink-0">
               <button
                 onClick={handleCloseImagesModal}
-                className="w-full bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 px-6 py-3 rounded-lg text-white font-medium text-lg transition-colors"
+                className="w-full bg-[var(--muted-foreground)] hover:bg-[var(--muted-foreground)]/80 px-6 py-3 rounded-lg text-white font-medium text-lg transition-colors"
               >
                 Cerrar
               </button>

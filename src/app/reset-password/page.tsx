@@ -151,7 +151,7 @@ function ResetPasswordContent() {
           <p className="text-[var(--muted-foreground)] mb-6">{error}</p>
           <button
             onClick={() => router.push("/")}
-            className="w-full px-4 py-2 bg-[var(--button-bg)] text-[var(--button-text)] rounded-lg hover:bg-[var(--button-hover)] flex items-center justify-center space-x-2"
+            className="w-full px-4 py-2 bg-[var(--primary)] text-[var(--button-text)] rounded-lg hover:bg-[var(--button-hover)] flex items-center justify-center space-x-2"
           >
             <ArrowLeft className="w-5 h-5" />
             <span>Volver al Login</span>
@@ -197,9 +197,9 @@ function ResetPasswordContent() {
         {/* Form */}
         <form onSubmit={handleSubmit}>
           {error && (
-            <div className="mb-4 p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg flex items-start space-x-2">
-              <AlertCircle className="w-5 h-5 text-[var(--error)] flex-shrink-0 mt-0.5" />
-              <span className="text-red-700 dark:text-red-400 text-sm">
+            <div className="mb-4 p-4 bg-red-500/10 border border-red-500/40 rounded-lg flex items-start space-x-2">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <span className="text-red-600 text-sm">
                 {error}
               </span>
             </div>
@@ -310,7 +310,7 @@ function ResetPasswordContent() {
             <button
               type="button"
               onClick={() => router.push("/")}
-              className="w-full px-4 py-2 border border-[var(--border)] text-[var(--foreground)] rounded-lg hover:bg-[var(--hover-bg)] flex items-center justify-center space-x-2"
+              className="w-full px-4 py-2 border border-[var(--border)] text-[var(--foreground)] rounded-lg hover:bg-[var(--muted)] flex items-center justify-center space-x-2"
               disabled={loading}
             >
               <ArrowLeft className="w-5 h-5" />
