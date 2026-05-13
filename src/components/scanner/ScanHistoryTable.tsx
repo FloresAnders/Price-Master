@@ -11,6 +11,7 @@ import {
   Search,
   Eye,
   Calendar,
+  CalendarDays,
   MapPin,
   RefreshCw,
   Image as ImageIcon,
@@ -163,6 +164,61 @@ export default function ScanHistoryTable() {
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
 
+  // Calendar popovers (same UX/style as Fondo General)
+  const [calendarFromOpen, setCalendarFromOpen] = useState(false);
+  const [calendarToOpen, setCalendarToOpen] = useState(false);
+  const [calendarFromMonth, setCalendarFromMonth] = useState(() => {
+    const m = new Date();
+    m.setDate(1);
+    m.setHours(0, 0, 0, 0);
+    return m;
+  });
+  const [calendarToMonth, setCalendarToMonth] = useState(() => {
+    const m = new Date();
+    m.setDate(1);
+    m.setHours(0, 0, 0, 0);
+    return m;
+  });
+
+  const fromCalendarRef = useRef<HTMLDivElement | null>(null);
+  const toCalendarRef = useRef<HTMLDivElement | null>(null);
+  const fromButtonRef = useRef<HTMLButtonElement | null>(null);
+  const toButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  const dateKeyFromDate = (d: Date) =>
+    `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  const todayKey = dateKeyFromDate(new Date());
+  const formatKeyToDisplay = (key: string) => {
+    const [y, m, d] = key.split("-");
+    if (!y || !m || !d) return key;
+    return `${d}/${m}/${y}`;
+  };
+
+  useEffect(() => {
+    if (!calendarFromOpen && !calendarToOpen) return;
+
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+
+      const clickedFrom =
+        (fromButtonRef.current && fromButtonRef.current.contains(target)) ||
+        (fromCalendarRef.current && fromCalendarRef.current.contains(target));
+      const clickedTo =
+        (toButtonRef.current && toButtonRef.current.contains(target)) ||
+        (toCalendarRef.current && toCalendarRef.current.contains(target));
+
+      if (clickedFrom || clickedTo) return;
+
+      setCalendarFromOpen(false);
+      setCalendarToOpen(false);
+    };
+
+    window.addEventListener("mousedown", handler);
+    return () => window.removeEventListener("mousedown", handler);
+  }, [calendarFromOpen, calendarToOpen]);
+
   // Image modal states
   const [showImagesModal, setShowImagesModal] = useState(false);
   const [currentImageCode, setCurrentImageCode] = useState("");
@@ -221,6 +277,9 @@ export default function ScanHistoryTable() {
 
     setStartDate(start.toISOString().split("T")[0]);
     setEndDate(end.toISOString().split("T")[0]);
+
+    setCalendarFromOpen(false);
+    setCalendarToOpen(false);
   };
 
   const setThisWeek = () => {
@@ -231,6 +290,9 @@ export default function ScanHistoryTable() {
 
     setStartDate(start.toISOString().split("T")[0]);
     setEndDate(today.toISOString().split("T")[0]);
+
+    setCalendarFromOpen(false);
+    setCalendarToOpen(false);
   };
 
   const setThisMonth = () => {
@@ -239,6 +301,9 @@ export default function ScanHistoryTable() {
 
     setStartDate(start.toISOString().split("T")[0]);
     setEndDate(today.toISOString().split("T")[0]);
+
+    setCalendarFromOpen(false);
+    setCalendarToOpen(false);
   };
 
   // Handle copy
@@ -594,9 +659,9 @@ export default function ScanHistoryTable() {
   // Verificar si el usuario tiene permiso para ver el historial de escaneos
   if (!hasPermission(user?.permissions, "scanhistory")) {
     return (
-      <div className="flex items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
+      <div className="flex items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border-2 border-[var(--input-border)]">
         <div className="text-center">
-          <LockIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <LockIcon className="w-12 h-12 text-[var(--muted-foreground)] mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">
             Acceso Restringido
           </h3>
@@ -612,7 +677,7 @@ export default function ScanHistoryTable() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-3 sm:p-4 md:p-6 barcode-mobile">
+    <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-3 sm:p-4 md:p-6 barcode-mobile border-2 border-[var(--input-border)]">
       {/* notifications are rendered globally by ToastProvider */}
 
       {/* Verificar permisos del usuario */}
@@ -632,13 +697,13 @@ export default function ScanHistoryTable() {
           {/* Header */}
           <div className="mb-6">
             <div className="flex items-center gap-2 sm:gap-3 mb-4 flex-wrap">
-              <History className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+              <History className="w-5 h-5 sm:w-6 sm:h-6 text-[var(--primary)]" />
               <h2 className="text-xl sm:text-2xl font-bold text-[var(--foreground)]">
                 Historial de Escaneos
               </h2>
               {user.permissions.scanhistoryEmpresas &&
                 user.permissions.scanhistoryEmpresas.length > 0 && (
-                  <span className="text-xs sm:text-sm bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">
+                  <span className="text-xs sm:text-sm bg-[var(--muted)] text-[var(--foreground)] px-2 py-1 rounded border-2 border-[var(--input-border)]">
                     Limitado a:{" "}
                     {user.permissions.scanhistoryEmpresas.join(", ")}
                   </span>
@@ -648,7 +713,7 @@ export default function ScanHistoryTable() {
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setShowMobileScannerModal(true)}
-                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-[var(--success)] text-white rounded-lg hover:opacity-90 transition-all flex items-center justify-center gap-2 text-sm sm:text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60"
                 title="Abrir Escáner Móvil"
               >
                 <Smartphone className="w-4 h-4" />
@@ -657,7 +722,7 @@ export default function ScanHistoryTable() {
               </button>
               <button
                 onClick={handleRefreshHistory}
-                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
+                className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-[var(--button-bg)] text-[var(--button-text)] rounded-lg hover:bg-[var(--button-hover)] transition-all flex items-center justify-center gap-2 text-sm sm:text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={loading}
               >
                 <RefreshCw
@@ -669,7 +734,7 @@ export default function ScanHistoryTable() {
                 <>
                   <button
                     onClick={clearHistory}
-                    className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
+                    className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-[var(--error)] text-white rounded-lg hover:opacity-90 transition-all flex items-center justify-center gap-2 text-sm sm:text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60"
                   >
                     <span className="hidden sm:inline">Limpiar Todo</span>
                     <span className="sm:hidden">Limpiar</span>
@@ -681,7 +746,7 @@ export default function ScanHistoryTable() {
 
           {loading && (
             <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-b-[var(--primary)] mx-auto"></div>
               <p className="text-[var(--muted-foreground)] mt-2">
                 Cargando historial...
               </p>
@@ -701,7 +766,7 @@ export default function ScanHistoryTable() {
                       placeholder="Buscar en el historial..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] text-[var(--foreground)] focus:outline-none focus:border-blue-500"
+                      className="w-full pl-10 pr-4 py-2 border-2 border-[var(--input-border)] rounded-lg bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
                     />
                   </div>
 
@@ -713,7 +778,7 @@ export default function ScanHistoryTable() {
                       <select
                         value={selectedLocation}
                         onChange={(e) => setSelectedLocation(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] text-[var(--foreground)] focus:outline-none focus:border-blue-500"
+                        className="w-full pl-10 pr-4 py-2 border-2 border-[var(--input-border)] rounded-lg bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
                       >
                         <option value="all">
                           Todas las empresas permitidas
@@ -730,30 +795,342 @@ export default function ScanHistoryTable() {
                       </select>
                     </div>
 
-                    {/* Start date filter */}
-                    <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[var(--muted-foreground)]" />
-                      <input
-                        type="date"
-                        value={startDate}
-                        onChange={(e) => setStartDate(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] text-[var(--foreground)] focus:outline-none focus:border-blue-500"
-                        placeholder="Fecha inicio"
-                        title="Filtrar desde fecha"
-                      />
+                    {/* Start date filter (Fondo General calendar style) */}
+                    <div className="relative min-w-0">
+                      <button
+                        type="button"
+                        ref={fromButtonRef}
+                        onClick={() => {
+                          setCalendarFromOpen((prev) => {
+                            const next = !prev;
+                            if (next) {
+                              const base = startDate
+                                ? new Date(`${startDate}T00:00:00`)
+                                : new Date();
+                              const m = new Date(base);
+                              m.setDate(1);
+                              m.setHours(0, 0, 0, 0);
+                              setCalendarFromMonth(new Date(m));
+                            }
+                            return next;
+                          });
+                          setCalendarToOpen(false);
+                        }}
+                        className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                        title="Seleccionar fecha desde"
+                        aria-label="Seleccionar fecha desde"
+                      >
+                        <span className="truncate text-sm font-medium">
+                          {startDate ? formatKeyToDisplay(startDate) : "dd/mm/yyyy"}
+                        </span>
+                        <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded border border-[var(--input-border)] bg-[var(--muted)]/20 text-[var(--muted-foreground)]">
+                          <CalendarDays className="h-4 w-4" />
+                        </span>
+                      </button>
+
+                      {calendarFromOpen && (
+                        <div
+                          ref={fromCalendarRef}
+                          className="absolute left-0 top-full mt-1 sm:mt-2 z-50 w-full min-w-[280px] sm:w-72"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-2 sm:p-3 text-[var(--foreground)] shadow-lg">
+                            <div className="mb-2 flex items-center justify-between">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const m = new Date(calendarFromMonth);
+                                  m.setMonth(m.getMonth() - 1);
+                                  setCalendarFromMonth(new Date(m));
+                                }}
+                                className="p-1 rounded hover:bg-[var(--muted)]"
+                                title="Mes anterior"
+                                aria-label="Mes anterior"
+                              >
+                                <ChevronLeft className="w-4 h-4" />
+                              </button>
+                              <div className="text-sm font-semibold capitalize">
+                                {calendarFromMonth.toLocaleString("es-CR", {
+                                  month: "long",
+                                  year: "numeric",
+                                })}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const m = new Date(calendarFromMonth);
+                                  m.setMonth(m.getMonth() + 1);
+                                  setCalendarFromMonth(new Date(m));
+                                }}
+                                className="p-1 rounded hover:bg-[var(--muted)]"
+                                title="Mes siguiente"
+                                aria-label="Mes siguiente"
+                              >
+                                <ChevronRight className="w-4 h-4" />
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-7 gap-1 text-center text-xs text-[var(--muted-foreground)]">
+                              {["D", "L", "M", "M", "J", "V", "S"].map(
+                                (d, i) => (
+                                  <div key={`${d}-${i}`} className="py-1">
+                                    {d}
+                                  </div>
+                                ),
+                              )}
+                            </div>
+
+                            <div className="mt-2 grid grid-cols-7 gap-1 text-sm">
+                              {(() => {
+                                const cells: React.ReactNode[] = [];
+                                const year = calendarFromMonth.getFullYear();
+                                const month = calendarFromMonth.getMonth();
+                                const first = new Date(year, month, 1);
+                                const start = first.getDay();
+                                const daysInMonth = new Date(
+                                  year,
+                                  month + 1,
+                                  0,
+                                ).getDate();
+
+                                for (let i = 0; i < start; i++) {
+                                  cells.push(<div key={`pad-f-${i}`} />);
+                                }
+
+                                for (let day = 1; day <= daysInMonth; day++) {
+                                  const d = new Date(year, month, day);
+                                  const key = dateKeyFromDate(d);
+                                  const enabled = key <= todayKey;
+                                  const isSelected = startDate === key;
+
+                                  if (enabled) {
+                                    cells.push(
+                                      <button
+                                        key={key}
+                                        type="button"
+                                        onClick={() => {
+                                          setStartDate(key);
+                                          if (endDate && key > endDate) {
+                                            setEndDate(key);
+                                          }
+                                          setCalendarFromOpen(false);
+                                        }}
+                                        className={`py-1 rounded ${
+                                          isSelected
+                                            ? "bg-[var(--accent)] text-white"
+                                            : "hover:bg-[var(--muted)]"
+                                        }`}
+                                      >
+                                        {day}
+                                      </button>,
+                                    );
+                                  } else {
+                                    cells.push(
+                                      <div
+                                        key={key}
+                                        className="py-1 text-[var(--muted-foreground)] opacity-60"
+                                      >
+                                        {day}
+                                      </div>,
+                                    );
+                                  }
+                                }
+
+                                return cells;
+                              })()}
+                            </div>
+
+                            <div className="mt-3 flex justify-between">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setStartDate("");
+                                  setCalendarFromOpen(false);
+                                }}
+                                className="px-2 py-1 rounded border border-[var(--input-border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                              >
+                                Limpiar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setCalendarFromOpen(false)}
+                                className="px-2 py-1 rounded border border-[var(--input-border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                              >
+                                Cerrar
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
-                    {/* End date filter */}
-                    <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[var(--muted-foreground)]" />
-                      <input
-                        type="date"
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] text-[var(--foreground)] focus:outline-none focus:border-blue-500"
-                        placeholder="Fecha fin"
-                        title="Filtrar hasta fecha"
-                      />
+                    {/* End date filter (Fondo General calendar style) */}
+                    <div className="relative min-w-0">
+                      <button
+                        type="button"
+                        ref={toButtonRef}
+                        onClick={() => {
+                          setCalendarToOpen((prev) => {
+                            const next = !prev;
+                            if (next) {
+                              const base = endDate
+                                ? new Date(`${endDate}T00:00:00`)
+                                : new Date();
+                              const m = new Date(base);
+                              m.setDate(1);
+                              m.setHours(0, 0, 0, 0);
+                              setCalendarToMonth(new Date(m));
+                            }
+                            return next;
+                          });
+                          setCalendarFromOpen(false);
+                        }}
+                        className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                        title="Seleccionar fecha hasta"
+                        aria-label="Seleccionar fecha hasta"
+                      >
+                        <span className="truncate text-sm font-medium">
+                          {endDate ? formatKeyToDisplay(endDate) : "dd/mm/yyyy"}
+                        </span>
+                        <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded border border-[var(--input-border)] bg-[var(--muted)]/20 text-[var(--muted-foreground)]">
+                          <CalendarDays className="h-4 w-4" />
+                        </span>
+                      </button>
+
+                      {calendarToOpen && (
+                        <div
+                          ref={toCalendarRef}
+                          className="absolute left-0 top-full mt-1 sm:mt-2 z-50 w-full min-w-[280px] sm:w-72"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-2 sm:p-3 text-[var(--foreground)] shadow-lg">
+                            <div className="mb-2 flex items-center justify-between">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const m = new Date(calendarToMonth);
+                                  m.setMonth(m.getMonth() - 1);
+                                  setCalendarToMonth(new Date(m));
+                                }}
+                                className="p-1 rounded hover:bg-[var(--muted)]"
+                                title="Mes anterior"
+                                aria-label="Mes anterior"
+                              >
+                                <ChevronLeft className="w-4 h-4" />
+                              </button>
+                              <div className="text-sm font-semibold capitalize">
+                                {calendarToMonth.toLocaleString("es-CR", {
+                                  month: "long",
+                                  year: "numeric",
+                                })}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const m = new Date(calendarToMonth);
+                                  m.setMonth(m.getMonth() + 1);
+                                  setCalendarToMonth(new Date(m));
+                                }}
+                                className="p-1 rounded hover:bg-[var(--muted)]"
+                                title="Mes siguiente"
+                                aria-label="Mes siguiente"
+                              >
+                                <ChevronRight className="w-4 h-4" />
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-7 gap-1 text-center text-xs text-[var(--muted-foreground)]">
+                              {["D", "L", "M", "M", "J", "V", "S"].map(
+                                (d, i) => (
+                                  <div key={`${d}-${i}`} className="py-1">
+                                    {d}
+                                  </div>
+                                ),
+                              )}
+                            </div>
+
+                            <div className="mt-2 grid grid-cols-7 gap-1 text-sm">
+                              {(() => {
+                                const cells: React.ReactNode[] = [];
+                                const year = calendarToMonth.getFullYear();
+                                const month = calendarToMonth.getMonth();
+                                const first = new Date(year, month, 1);
+                                const start = first.getDay();
+                                const daysInMonth = new Date(
+                                  year,
+                                  month + 1,
+                                  0,
+                                ).getDate();
+
+                                for (let i = 0; i < start; i++) {
+                                  cells.push(<div key={`pad-t-${i}`} />);
+                                }
+
+                                for (let day = 1; day <= daysInMonth; day++) {
+                                  const d = new Date(year, month, day);
+                                  const key = dateKeyFromDate(d);
+                                  const enabled = key <= todayKey;
+                                  const isSelected = endDate === key;
+
+                                  if (enabled) {
+                                    cells.push(
+                                      <button
+                                        key={key}
+                                        type="button"
+                                        onClick={() => {
+                                          setEndDate(key);
+                                          if (startDate && key < startDate) {
+                                            setStartDate(key);
+                                          }
+                                          setCalendarToOpen(false);
+                                        }}
+                                        className={`py-1 rounded ${
+                                          isSelected
+                                            ? "bg-[var(--accent)] text-white"
+                                            : "hover:bg-[var(--muted)]"
+                                        }`}
+                                      >
+                                        {day}
+                                      </button>,
+                                    );
+                                  } else {
+                                    cells.push(
+                                      <div
+                                        key={key}
+                                        className="py-1 text-[var(--muted-foreground)] opacity-60"
+                                      >
+                                        {day}
+                                      </div>,
+                                    );
+                                  }
+                                }
+
+                                return cells;
+                              })()}
+                            </div>
+
+                            <div className="mt-3 flex justify-between">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEndDate("");
+                                  setCalendarToOpen(false);
+                                }}
+                                className="px-2 py-1 rounded border border-[var(--input-border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                              >
+                                Limpiar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setCalendarToOpen(false)}
+                                className="px-2 py-1 rounded border border-[var(--input-border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                              >
+                                Cerrar
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -765,37 +1142,37 @@ export default function ScanHistoryTable() {
                     <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
                       <button
                         onClick={() => setDateRange(0)}
-                        className="px-3 py-1.5 sm:py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
+                        className="px-3 py-1.5 sm:py-1 text-xs rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] transition-all hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20"
                       >
                         Hoy
                       </button>
                       <button
                         onClick={() => setDateRange(1)}
-                        className="px-3 py-1.5 sm:py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
+                        className="px-3 py-1.5 sm:py-1 text-xs rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] transition-all hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20"
                       >
                         Ayer
                       </button>
                       <button
                         onClick={() => setDateRange(7)}
-                        className="px-3 py-1.5 sm:py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
+                        className="px-3 py-1.5 sm:py-1 text-xs rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] transition-all hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20"
                       >
                         Últimos 7 días
                       </button>
                       <button
                         onClick={() => setThisWeek()}
-                        className="px-3 py-1.5 sm:py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
+                        className="px-3 py-1.5 sm:py-1 text-xs rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] transition-all hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20"
                       >
                         Esta semana
                       </button>
                       <button
                         onClick={() => setDateRange(30)}
-                        className="px-3 py-1.5 sm:py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
+                        className="px-3 py-1.5 sm:py-1 text-xs rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] transition-all hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20"
                       >
                         Últimos 30 días
                       </button>
                       <button
                         onClick={() => setThisMonth()}
-                        className="px-3 py-1.5 sm:py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
+                        className="px-3 py-1.5 sm:py-1 text-xs rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] transition-all hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20"
                       >
                         Este mes
                       </button>
@@ -815,7 +1192,7 @@ export default function ScanHistoryTable() {
                           setStartDate("");
                           setEndDate("");
                         }}
-                        className="px-4 py-2 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors flex items-center gap-2"
+                        className="px-4 py-2 text-sm rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] transition-all flex items-center gap-2 hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20"
                       >
                         <X className="w-4 h-4" />
                         Limpiar filtros
@@ -828,62 +1205,62 @@ export default function ScanHistoryTable() {
               {/* Stats */}
               {scanHistory.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3 sm:p-4">
+                  <div className="bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-lg p-3 sm:p-4">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                      <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
-                      <span className="text-xs sm:text-sm font-medium text-blue-800 dark:text-blue-300">
+                      <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--primary)]" />
+                      <span className="text-xs sm:text-sm font-medium text-[var(--foreground)]">
                         Total Escaneos
                       </span>
                     </div>
-                    <p className="text-xl sm:text-2xl font-bold text-blue-600 mt-1">
+                    <p className="text-xl sm:text-2xl font-bold text-[var(--foreground)] mt-1">
                       {scanHistory.length}
                     </p>
                   </div>
 
-                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-3 sm:p-4">
+                  <div className="bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-lg p-3 sm:p-4">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                      <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
-                      <span className="text-xs sm:text-sm font-medium text-green-800 dark:text-green-300">
+                      <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--primary)]" />
+                      <span className="text-xs sm:text-sm font-medium text-[var(--foreground)]">
                         Con Nombre
                       </span>
                     </div>
-                    <p className="text-xl sm:text-2xl font-bold text-green-600 mt-1">
+                    <p className="text-xl sm:text-2xl font-bold text-[var(--foreground)] mt-1">
                       {scanHistory.filter((entry) => entry.productName).length}
                     </p>
                   </div>
 
-                  <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg p-3 sm:p-4">
+                  <div className="bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-lg p-3 sm:p-4">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                      <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
-                      <span className="text-xs sm:text-sm font-medium text-purple-800 dark:text-purple-300">
+                      <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--primary)]" />
+                      <span className="text-xs sm:text-sm font-medium text-[var(--foreground)]">
                         Con Imágenes
                       </span>
                     </div>
-                    <p className="text-xl sm:text-2xl font-bold text-purple-600 mt-1">
+                    <p className="text-xl sm:text-2xl font-bold text-[var(--foreground)] mt-1">
                       {scanHistory.filter((entry) => entry.hasImages).length}
                     </p>
                   </div>
 
-                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3 sm:p-4">
+                  <div className="bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-lg p-3 sm:p-4">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                      <Search className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
-                      <span className="text-xs sm:text-sm font-medium text-amber-800 dark:text-amber-300">
+                      <Search className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--primary)]" />
+                      <span className="text-xs sm:text-sm font-medium text-[var(--foreground)]">
                         Filtrados
                       </span>
                     </div>
-                    <p className="text-xl sm:text-2xl font-bold text-amber-600 mt-1">
+                    <p className="text-xl sm:text-2xl font-bold text-[var(--foreground)] mt-1">
                       {filteredHistory.length}
                     </p>
                   </div>
 
-                  <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg p-3 sm:p-4 col-span-2 sm:col-span-1">
+                  <div className="bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-lg p-3 sm:p-4 col-span-2 sm:col-span-1">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                      <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
-                      <span className="text-xs sm:text-sm font-medium text-orange-800 dark:text-orange-300">
+                      <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--primary)]" />
+                      <span className="text-xs sm:text-sm font-medium text-[var(--foreground)]">
                         Con Ubicación
                       </span>
                     </div>
-                    <p className="text-xl sm:text-2xl font-bold text-orange-600 mt-1">
+                    <p className="text-xl sm:text-2xl font-bold text-[var(--foreground)] mt-1">
                       {
                         scanHistory.filter((entry) => entry.ownercompanie)
                           .length
@@ -913,17 +1290,17 @@ export default function ScanHistoryTable() {
                   {filteredHistory.map((entry, index) => (
                     <div
                       key={`${entry.code}-${entry.id || index}`}
-                      className="scan-history-row flex flex-col p-3 sm:p-4 bg-[var(--muted)] hover:bg-[var(--hover-bg)] rounded-lg border border-[var(--input-border)] transition-colors space-y-3"
+                      className="scan-history-row flex flex-col p-3 sm:p-4 bg-[var(--card-bg)] hover:bg-[var(--muted)] rounded-lg border-2 border-[var(--input-border)] hover:border-[var(--accent)]/60 transition-all duration-150 space-y-3"
                     >
                       <div className="flex-1 min-w-0 w-full">
                         <div className="flex flex-col gap-2 mb-2 w-full">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-mono text-base sm:text-lg font-medium text-[var(--foreground)] break-all">
+                            <span className="font-mono text-base sm:text-lg font-semibold text-[var(--foreground)] break-all px-2 py-1 rounded-md border border-[var(--input-border)] bg-[var(--muted)]/20">
                               {entry.code}
                             </span>
                             <button
                               onClick={() => handleCopy(entry.code)}
-                              className="p-2 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-md transition-colors flex-shrink-0"
+                              className="p-2 rounded-md border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--primary)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-all flex-shrink-0"
                               title="Copiar código"
                             >
                               <Copy className="w-4 h-4" />
@@ -938,7 +1315,7 @@ export default function ScanHistoryTable() {
                                   );
                                   notify("¡Nombre copiado!", "blue");
                                 }}
-                                className="text-sm sm:text-base text-[var(--foreground)] font-medium bg-blue-100 dark:bg-blue-900/30 px-3 py-2 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors cursor-pointer uppercase text-left break-words whitespace-normal leading-relaxed"
+                                className="text-sm sm:text-base text-[var(--foreground)] font-medium px-3 py-2 rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-all cursor-pointer uppercase text-left break-words whitespace-normal leading-relaxed"
                                 title="Clic para copiar nombre"
                               >
                                 {entry.productName.toUpperCase()}
@@ -947,7 +1324,7 @@ export default function ScanHistoryTable() {
 
                             {/* Ubicación - en la misma línea */}
                             {entry.ownercompanie && (
-                              <span className="text-sm sm:text-base text-[var(--foreground)] bg-green-100 dark:bg-green-900/30 px-3 py-2 rounded flex items-center gap-2 flex-shrink-0">
+                              <span className="text-sm sm:text-base text-[var(--foreground)] px-3 py-2 rounded-lg border border-[var(--input-border)] bg-[var(--muted)]/10 flex items-center gap-2 flex-shrink-0">
                                 <MapPin className="w-4 h-4 flex-shrink-0" />
                                 <span className="font-medium whitespace-nowrap">
                                   {entry.ownercompanie}
@@ -958,7 +1335,7 @@ export default function ScanHistoryTable() {
                               {entry.hasImages && (
                                 <button
                                   onClick={() => handleShowImages(entry.code)}
-                                  className="p-2 text-purple-600 hover:bg-purple-100 dark:hover:bg-purple-900/30 rounded-md transition-colors"
+                                  className="p-2 rounded-md border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--primary)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-all"
                                   title="Ver imágenes"
                                 >
                                   <ImageIcon className="w-4 h-4" />
@@ -977,10 +1354,11 @@ export default function ScanHistoryTable() {
                                         code: entry.code,
                                       });
                                     }}
-                                    className="w-5 h-5 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500 dark:focus:ring-green-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                                    style={{ accentColor: "var(--success)" }}
+                                    className="w-5 h-5 rounded border-2 border-[var(--input-border)] bg-[var(--card-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                                     title="Procesar y eliminar código"
                                   />
-                                  <span className="text-xs text-green-700 dark:text-green-300">
+                                  <span className="text-xs text-[var(--muted-foreground)]">
                                     Procesar
                                   </span>
                                 </label>
@@ -988,21 +1366,21 @@ export default function ScanHistoryTable() {
                             </div>
                             {confirmProcess && (
                               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 px-2 sm:px-0">
-                                <div className="bg-white dark:bg-gray-900 rounded-lg shadow-lg w-full max-w-sm flex flex-col items-center p-4 sm:p-8 gap-4 mx-2 sm:mx-auto">
+                                <div className="bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-lg shadow-lg w-full max-w-sm flex flex-col items-center p-4 sm:p-8 gap-4 mx-2 sm:mx-auto">
                                   <div className="mb-2 sm:mb-4 w-full flex justify-center">
-                                    <span className="inline-block bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded-full px-3 py-1 text-sm font-semibold">
+                                    <span className="inline-block bg-[var(--muted)] text-[var(--foreground)] border-2 border-[var(--input-border)] rounded-full px-3 py-1 text-sm font-semibold">
                                       Confirmar procesamiento
                                     </span>
                                   </div>
                                   <div className="text-center mb-4 sm:mb-6 break-words w-full">
-                                    <p className="text-base sm:text-lg font-medium text-gray-800 dark:text-gray-100 mb-2">
+                                    <p className="text-base sm:text-lg font-medium text-[var(--foreground)] mb-2">
                                       ¿Procesar el código{" "}
-                                      <span className="font-mono text-green-700 dark:text-green-300 break-all">
+                                      <span className="font-mono text-[var(--success)] break-all">
                                         {confirmProcess.code}
                                       </span>
                                       ?
                                     </p>
-                                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                                    <p className="text-xs sm:text-sm text-[var(--muted-foreground)]">
                                       Esta acción eliminará el código y sus
                                       imágenes asociadas.
                                     </p>
@@ -1018,13 +1396,13 @@ export default function ScanHistoryTable() {
                                         );
                                         setConfirmProcess(null);
                                       }}
-                                      className="w-full sm:w-auto px-4 sm:px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+                                      className="w-full sm:w-auto px-4 sm:px-6 py-2 bg-[var(--success)] hover:opacity-90 text-white rounded-lg font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60"
                                     >
                                       Procesar
                                     </button>
                                     <button
                                       onClick={() => setConfirmProcess(null)}
-                                      className="w-full sm:w-auto px-4 sm:px-6 py-2 bg-gray-400 hover:bg-gray-500 text-white rounded-lg font-medium transition-colors"
+                                      className="w-full sm:w-auto px-4 sm:px-6 py-2 rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60"
                                     >
                                       Cancelar
                                     </button>
@@ -1299,9 +1677,9 @@ export default function ScanHistoryTable() {
             <div className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center p-4 z-50">
               <div className="bg-[var(--card-bg)] rounded-lg w-full max-w-lg mx-auto max-h-[90vh] overflow-auto">
                 {/* Modal Header */}
-                <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-600">
+                <div className="flex items-center justify-between p-6 border-b-2 border-[var(--input-border)]">
                   <div className="flex items-center gap-3">
-                    <Smartphone className="w-6 h-6 text-green-600" />
+                    <Smartphone className="w-6 h-6 text-[var(--success)]" />
                     <h3 className="text-xl font-semibold text-[var(--foreground)]">
                       Escáner Móvil
                     </h3>
@@ -1312,9 +1690,9 @@ export default function ScanHistoryTable() {
                       setQrCodeDataUrl("");
                       setRequestProductNameModal(true);
                     }}
-                    className="p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    className="p-2 rounded-md hover:bg-[var(--muted)] transition-colors"
                   >
-                    <X className="w-6 h-6 text-gray-500 dark:text-gray-400" />
+                    <X className="w-6 h-6 text-[var(--muted-foreground)]" />
                   </button>
                 </div>
 
@@ -1322,8 +1700,8 @@ export default function ScanHistoryTable() {
                 <div className="p-6">
                   <div className="text-center space-y-4">
                     {/* Configuración desde PC para móvil */}
-                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800 max-w-md mx-auto space-y-4">
-                      <h4 className="text-base font-semibold text-blue-800 dark:text-blue-200 mb-3">
+                    <div className="bg-[var(--muted)] rounded-xl p-4 border-2 border-[var(--input-border)] max-w-md mx-auto space-y-4">
+                      <h4 className="text-base font-semibold text-[var(--foreground)] mb-3">
                         Configuración para Móvil
                       </h4>
 
@@ -1335,13 +1713,14 @@ export default function ScanHistoryTable() {
                           onChange={(e) =>
                             setRequestProductNameModal(e.target.checked)
                           }
-                          className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 mt-0.5"
+                          style={{ accentColor: "var(--primary)" }}
+                          className="w-5 h-5 rounded border-2 border-[var(--input-border)] bg-[var(--input-bg)] focus:ring-2 focus:ring-cyan-500 mt-0.5"
                         />
                         <div className="text-left">
-                          <div className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">
+                          <div className="text-sm font-medium text-[var(--foreground)] mb-1">
                             Solicitar nombres de productos en móvil
                           </div>
-                          <p className="text-xs text-blue-600 dark:text-blue-400 leading-relaxed">
+                          <p className="text-xs text-[var(--muted-foreground)] leading-relaxed">
                             {requestProductNameModal
                               ? "El móvil pedirá ingresar nombres opcionales para cada código escaneado"
                               : "El móvil solo enviará códigos de barras sin solicitar nombres"}
@@ -1351,7 +1730,7 @@ export default function ScanHistoryTable() {
                     </div>
 
                     {/* QR Code o Link */}
-                    <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-6 mb-6">
+                    <div className="bg-[var(--muted)] border-2 border-[var(--input-border)] rounded-lg p-6 mb-6">
                       <p className="text-sm text-[var(--muted-foreground)] mb-4">
                         Escanea este código QR con tu teléfono o haz clic en el
                         botón para abrir el escáner móvil:
@@ -1398,8 +1777,8 @@ export default function ScanHistoryTable() {
                               <p className="text-xs text-[var(--muted-foreground)] mb-2">
                                 O ingresa manualmente esta URL en tu móvil:
                               </p>
-                              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-2">
-                                <code className="text-xs text-gray-700 dark:text-gray-300 break-all">
+                              <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg p-2">
+                                <code className="text-xs text-[var(--foreground)] break-all">
                                   {mobileScanUrl}
                                 </code>
                               </div>
@@ -1412,7 +1791,7 @@ export default function ScanHistoryTable() {
                                 onClick={() => {
                                   window.open(mobileScanUrl, "_blank");
                                 }}
-                                className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 font-medium"
+                                className="w-full px-4 py-3 bg-[var(--success)] text-white rounded-lg hover:opacity-90 transition-all flex items-center justify-center gap-2 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60"
                               >
                                 <Smartphone className="w-5 h-5" />
                                 Abrir Escáner en Nueva Pestaña
@@ -1427,7 +1806,7 @@ export default function ScanHistoryTable() {
                                     "green",
                                   );
                                 }}
-                                className="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-[var(--foreground)] rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
+                                className="w-full px-4 py-2 rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-all flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60"
                               >
                                 <Copy className="w-4 h-4" />
                                 Copiar Enlace
@@ -1465,14 +1844,14 @@ export default function ScanHistoryTable() {
                 </div>
 
                 {/* Modal Footer */}
-                <div className="p-6 border-t border-gray-200 dark:border-gray-600">
+                <div className="p-6 border-t-2 border-[var(--input-border)]">
                   <button
                     onClick={() => {
                       setShowMobileScannerModal(false);
                       setQrCodeDataUrl("");
                       setRequestProductNameModal(true);
                     }}
-                    className="w-full bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 px-6 py-3 rounded-lg text-white font-medium text-lg transition-colors"
+                    className="w-full bg-[var(--button-bg)] hover:bg-[var(--button-hover)] px-6 py-3 rounded-lg text-[var(--button-text)] font-medium text-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60"
                   >
                     Cerrar
                   </button>

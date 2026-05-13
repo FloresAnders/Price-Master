@@ -3734,13 +3734,18 @@ export function FondoSection({
     history?: any[];
   } | null>(null);
   // sortAsc: when true we show oldest first (so newest appears at the bottom).
-  // Default true per UX: the most recent movement should appear below.
+  // Default (new UX): show most recent movement at the TOP.
   const [sortAsc, setSortAsc] = useState(() => {
     if (typeof window !== "undefined") {
+      // Migration note:
+      // Older builds wrote the default value to localStorage even if the user never toggled.
+      // We only respect the saved value if the user explicitly interacted with the toggle.
+      const touched = localStorage.getItem("fondogeneral-sortAscTouched");
       const saved = localStorage.getItem("fondogeneral-sortAsc");
-      return saved !== null ? JSON.parse(saved) : true;
+      if (touched === "true" && saved !== null) return JSON.parse(saved);
+      return false;
     }
-    return true;
+    return false;
   });
 
   // Date range filters (YYYY-MM-DD). Only query the remote range when BOTH are set.
@@ -10392,7 +10397,17 @@ export function FondoSection({
                             <button
                               type="button"
                               onClick={() =>
-                                setSortAsc((prev: boolean) => !prev)
+                                setSortAsc((prev: boolean) => {
+                                  try {
+                                    localStorage.setItem(
+                                      "fondogeneral-sortAscTouched",
+                                      "true",
+                                    );
+                                  } catch {
+                                    // ignore storage errors
+                                  }
+                                  return !prev;
+                                })
                               }
                               title={
                                 sortAsc
@@ -10637,7 +10652,9 @@ export function FondoSection({
                             <tr
                               key={fe.id}
                               className={`transition-colors hover:bg-[var(--muted)]/35 [&>td]:border-b [&>td]:border-cyan-900/35 ${
-                                isMostRecent ? "bg-[var(--muted)]/20" : ""
+                                isMostRecent
+                                  ? "bg-gray-500/10 hover:bg-gray-500/20"
+                                  : ""
                               } ${isMovementLocked(fe) ? "opacity-60" : ""}`}
                             >
                               <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">

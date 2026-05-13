@@ -607,7 +607,7 @@ export default function CalculoHorasPrecios() {
             <table className="w-full border-collapse border-2 border-[var(--input-border)]">
               <thead>
                 <tr>
-                  <th className="border border-[var(--input-border)] p-2 font-bold text-center text-[var(--foreground)] min-w-[90px] sticky left-0 z-20 text-xs h-10 bg-gradient-to-b from-cyan-500/10 to-blue-500/10">
+                  <th className="border border-[var(--input-border)] p-2 font-bold text-center text-[var(--foreground)] min-w-[90px] sticky left-0 z-20 text-xs h-10 bg-slate-400/10">
                     Nombre
                   </th>
                   {daysToShow.map((day) => {
@@ -626,14 +626,14 @@ export default function CalculoHorasPrecios() {
                       <th
                         key={day}
                         className={
-                          "border border-[var(--input-border)] p-2 font-bold text-center transition-all text-xs min-w-[32px] h-10 " +
+                          "border border-[var(--input-border)] p-2 font-bold text-center transition-all text-xs min-w-[32px] h-10 bg-slate-400/10 " +
                           (isToday
-                            ? "bg-gradient-to-b from-cyan-500 to-blue-500 text-white shadow-md"
+                            ? "bg-gradient-to-b from-green-500 to-green-600 text-white shadow-md"
                             : "text-[var(--foreground)] hover:bg-[var(--muted)]")
                         }
                       >
                         <span
-                          className="relative group"
+                          className="relative group "
                           style={{ cursor: "pointer" }}
                         >
                           {day}
@@ -655,7 +655,7 @@ export default function CalculoHorasPrecios() {
                   : [selectedEmployee]
                 ).map((name) => (
                   <tr key={name}>
-                    <td className="border border-[var(--input-border)] p-2 font-medium bg-[var(--muted)] text-[var(--foreground)] min-w-[90px] sticky left-0 z-10 text-xs h-10">
+                    <td className="border border-[var(--input-border)] p-2 font-medium text-[var(--foreground)] min-w-[90px] sticky left-0 z-10 text-xs h-10 bg-slate-400/10">
                       {(() => {
                         const totalSeconds = daysToShow.reduce(
                           (acc, day) =>

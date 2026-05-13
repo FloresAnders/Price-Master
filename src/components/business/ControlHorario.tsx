@@ -2401,7 +2401,7 @@ export default function ControlHorario({
               <thead>
                 <tr>
                   <th
-                    className="border border-[var(--input-border)] p-2 font-bold text-center text-[var(--foreground)] min-w-[80px] sm:min-w-[100px] sticky left-0 z-20 text-xs bg-gradient-to-b from-cyan-500/10 to-blue-500/10"
+                    className="border border-[var(--input-border)] p-2 font-bold text-center text-[var(--foreground)] min-w-[80px] sm:min-w-[100px] sticky left-0 z-20 text-xs bg-slate-400/10"
                     style={{
                       minWidth: "80px",
                       left: 0,
@@ -2431,9 +2431,9 @@ export default function ControlHorario({
                     return (
                       <th
                         key={day}
-                        className={`border border-[var(--input-border)] p-2 font-bold text-center transition-all text-xs relative${
+                        className={`border border-[var(--input-border)] p-2 font-bold text-center transition-all text-xs relative bg-slate-400/10 ${
                           isToday
-                            ? " bg-gradient-to-b from-cyan-500 to-blue-500 text-white shadow-md"
+                            ? " bg-gradient-to-b from-green-500 to-green-600 text-white shadow-md"
                             : " hover:bg-[var(--muted)]"
                         }`}
                         style={{
@@ -2458,7 +2458,7 @@ export default function ControlHorario({
                 ).map((name, index) => (
                   <tr key={`${name}-${index}`}>
                     <td
-                      className="border border-[var(--input-border)] p-2 font-semibold text-[var(--foreground)] min-w-[80px] sm:min-w-[100px] sticky left-0 z-10 group cursor-pointer text-xs bg-gradient-to-r from-cyan-500/5 to-blue-500/5 hover:bg-gradient-to-r hover:from-cyan-500/10 hover:to-blue-500/10 transition-colors"
+                      className="border border-[var(--input-border)] p-2 font-semibold text-[var(--foreground)] min-w-[80px] sm:min-w-[100px] sticky left-0 z-10 group cursor-pointer text-xs bg-slate-400/10 hover:bg-slate-400/20 transition-colors"
                       style={{
                         minWidth: "80px",
                         left: 0,
