@@ -114,6 +114,53 @@ const AUTO_ADJUSTMENT_MANAGER = "SISTEMA";
 const AUTO_ADJUSTMENT_CLOSING_TYPE = "AJUSTE CIERRE";
 
 const CIERRE_FONDO_VENTAS_PROVIDER_NAME = "CIERRE FONDO VENTAS";
+const INGRESO_DESDE_FONDO_VENTAS_NAME = "INGRESO DESDE FONDO VENTAS";
+
+const normalizeMovementLabel = (value: unknown): string =>
+  String(value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, " ");
+
+type LastCreatedCooldownPayload = {
+  at: number;
+  kind?: "INGRESO_DESDE_FONDO_VENTAS";
+  prevAt?: number;
+};
+
+const parseLastCreatedCooldown = (
+  raw: string | null,
+): LastCreatedCooldownPayload | null => {
+  if (!raw) return null;
+
+  // Legacy: milliseconds as a plain string
+  const legacy = Number(raw);
+  if (Number.isFinite(legacy) && legacy > 0) return { at: legacy };
+
+  try {
+    const parsed = JSON.parse(raw) as any;
+    if (!parsed || typeof parsed !== "object") return null;
+    const at = Number(parsed.at);
+    if (!Number.isFinite(at) || at <= 0) return null;
+    const payload: LastCreatedCooldownPayload = { at };
+    if (parsed.kind === "INGRESO_DESDE_FONDO_VENTAS") {
+      payload.kind = "INGRESO_DESDE_FONDO_VENTAS";
+    }
+    const prevAt = Number(parsed.prevAt);
+    if (Number.isFinite(prevAt) && prevAt > 0) payload.prevAt = prevAt;
+    return payload;
+  } catch {
+    return null;
+  }
+};
+
+const getEffectiveLastCreatedAtMs = (
+  payload: LastCreatedCooldownPayload | null,
+): number => {
+  if (!payload) return 0;
+  if (payload.kind === "INGRESO_DESDE_FONDO_VENTAS") return payload.prevAt ?? 0;
+  return payload.at;
+};
 
 type ClosingGuardKind = "FONDO_GENERAL" | "FONDO_VENTAS";
 
@@ -122,6 +169,24 @@ const isAutoAdjustmentProvider = (code: unknown): boolean =>
   typeof code === "string" &&
   (code === AUTO_ADJUSTMENT_PROVIDER_CODE ||
     code === AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY);
+
+const isIngresoDesdeFondoVentasMovement = (
+  movement: Partial<FondoEntry>,
+  providerDisplayName?: string,
+) => {
+  const providerCode = normalizeMovementLabel(movement.providerCode);
+  const providerName = normalizeMovementLabel(providerDisplayName);
+  const type = normalizeMovementLabel(movement.paymentType);
+  const notes = normalizeMovementLabel(movement.notes);
+  const target = normalizeMovementLabel(INGRESO_DESDE_FONDO_VENTAS_NAME);
+
+  return (
+    providerCode === target ||
+    providerName === target ||
+    type === target ||
+    notes.includes(target)
+  );
+};
 
 export const isFondoMovementType = (
   value: string,
@@ -6009,16 +6074,38 @@ export function FondoSection({
           const fingerprint = fingerprintParts.join("|");
           const payload = { at: savedAtMs, fingerprint };
           lastMovementDedupeRef.current = payload;
-          lastMovementCreatedAtRef.current = savedAtMs;
+          // NOTE: "INGRESO DESDE FONDO VENTAS" no debe activar el cooldown de 1 minuto
+          // para el siguiente movimiento. Detectar también por nombre visible del proveedor.
+          const provider = providers.find((p) => p.code === entry.providerCode);
+          const providerDisplayName = provider?.name || entry.providerCode;
+          const isIngresoDesdeFV = isIngresoDesdeFondoVentasMovement(
+            entry,
+            providerDisplayName,
+          );
+          const shouldMarkCreatedCooldown = !isIngresoDesdeFV;
+          if (shouldMarkCreatedCooldown) lastMovementCreatedAtRef.current = savedAtMs;
           if (typeof window !== "undefined") {
             const key = `fondogeneral-lastMovementDedupe:${normalizedCompany}:${accountKey}`;
             const createdKey = `fondogeneral-lastMovementCreatedAt:${normalizedCompany}:${accountKey}`;
-            try {
-              localStorage.setItem(key, JSON.stringify(payload));
-              localStorage.setItem(createdKey, String(savedAtMs));
-            } catch {
-              // ignore storage errors
-            }
+              try {
+                localStorage.setItem(key, JSON.stringify(payload));
+                if (shouldMarkCreatedCooldown) {
+                  localStorage.setItem(createdKey, JSON.stringify({ at: savedAtMs }));
+                } else {
+                  const previous = parseLastCreatedCooldown(
+                    localStorage.getItem(createdKey),
+                  );
+                  const prevAt = getEffectiveLastCreatedAtMs(previous);
+                  const ignorePayload: LastCreatedCooldownPayload = {
+                    at: savedAtMs,
+                    kind: "INGRESO_DESDE_FONDO_VENTAS",
+                    ...(prevAt > 0 ? { prevAt } : {}),
+                  };
+                  localStorage.setItem(createdKey, JSON.stringify(ignorePayload));
+                }
+              } catch {
+                // ignore storage errors
+              }
           }
         }
       } catch {
@@ -6214,9 +6301,12 @@ export function FondoSection({
           let lastCreatedAtMs = lastMovementCreatedAtRef.current;
           if (typeof window !== "undefined") {
             try {
-              const stored = Number(localStorage.getItem(createdKey));
-              if (Number.isFinite(stored) && stored > 0) {
-                lastCreatedAtMs = Math.max(lastCreatedAtMs, stored);
+              const payload = parseLastCreatedCooldown(
+                localStorage.getItem(createdKey),
+              );
+              const effectiveAt = getEffectiveLastCreatedAtMs(payload);
+              if (effectiveAt > 0) {
+                lastCreatedAtMs = Math.max(lastCreatedAtMs, effectiveAt);
               }
             } catch {
               // ignore
@@ -6224,20 +6314,33 @@ export function FondoSection({
           }
 
           // Admins/Superadmins are exempt from the 1-minute cooldown.
-          if (
-            !isAdminUser &&
-            !isSuperAdminUser &&
-            lastCreatedAtMs > 0 &&
-            nowMs - lastCreatedAtMs < k91_xad
-          ) {
-            const remainingMs = k91_xad - (nowMs - lastCreatedAtMs);
-            const remainingSec = Math.ceil(remainingMs / 1000);
-            showToast(
-              `Espere ${formatToastWaitTime(remainingSec)} para agregar otro movimiento.`,
-              "warning",
-              5000,
-            );
-            return;
+          // Additionally, if the NEW movement is "INGRESO DESDE FONDO VENTAS",
+          // it should NOT be blocked by a prior movement's cooldown.
+          const providerForSelected = providers.find(
+            (p) => p.code === selectedProvider,
+          );
+          const providerDisplayForSelected = providerForSelected?.name || selectedProvider;
+          const newIsIngresoDesdeFV = isIngresoDesdeFondoVentasMovement(
+            { providerCode: selectedProvider, paymentType, notes: trimmedNotes },
+            providerDisplayForSelected,
+          );
+
+          if (!newIsIngresoDesdeFV) {
+            if (
+              !isAdminUser &&
+              !isSuperAdminUser &&
+              lastCreatedAtMs > 0 &&
+              nowMs - lastCreatedAtMs < k91_xad
+            ) {
+              const remainingMs = k91_xad - (nowMs - lastCreatedAtMs);
+              const remainingSec = Math.ceil(remainingMs / 1000);
+              showToast(
+                `Espere ${formatToastWaitTime(remainingSec)} para agregar otro movimiento.`,
+                "warning",
+                5000,
+              );
+              return;
+            }
           }
 
           const fingerprintParts = [
