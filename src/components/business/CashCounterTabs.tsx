@@ -206,30 +206,14 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
             <p className="text-[11px] text-white/35 tracking-wide">{cur === "CRC" ? "Colones" : "Dólares"}</p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          {[
-            { icon: Eraser, label: "Limpiar", action: () => { if (confirm("¿Seguro?")) { const r: BillsMap = {}; denoms.forEach((d) => { r[d.value] = 0; }); ntf(r, 0, cur, 0, 0); } } },
-            { icon: Download, label: "Exportar", action: () => { const c = JSON.stringify({ name: data.name, bills, extraAmount: extra, currency: cur, aperturaCaja: ap, ventaActual: vt }); const b = new Blob([c], { type: "application/json" }); const u = URL.createObjectURL(b); const a = document.createElement("a"); a.href = u; a.download = `${data.name}.json`; a.click(); URL.revokeObjectURL(u); } },
-            { icon: Upload, label: "Importar", action: () => { const inp = document.createElement("input"); inp.type = "file"; inp.accept = "application/json"; inp.onchange = (ev) => { const f = (ev.target as HTMLInputElement).files?.[0]; if (!f) return; new FileReader().onload = (e) => { try { const p = JSON.parse(e.target?.result as string); if (p && typeof p.name === "string" && typeof p.extraAmount === "number" && (p.currency === "CRC" || p.currency === "USD") && typeof p.bills === "object") { ntf(p.bills, p.extraAmount, p.currency, p.aperturaCaja || 0, p.ventaActual || 0); } else alert("JSON inválido."); } catch { alert("Error."); } }; (new FileReader()).readAsText(f); }; inp.click(); } },
-            { icon: DollarSign, label: "Moneda", action: onCurrencyOpen },
-            { icon: Trash2, label: "Eliminar", action: () => { if (confirm("¿Eliminar?")) onDelete(id); } },
-          ].map((b) => (
-            <button key={b.label} onClick={b.action} className="w-8 h-8 rounded-lg bg-[#0d1117]/95 hover:bg-[#111722] border border-white/10 hover:border-cyan-400/30 flex items-center justify-center text-white/55 hover:text-cyan-100 transition-all" aria-label={b.label}>
-              <b.icon className="w-4 h-4" />
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* ── Layout ── */}
-      <div className="flex flex-col xl:flex-row gap-6">
-        {/* Main */}
-        <div className="flex-1 min-w-0 space-y-5">
-
-          {/* ── Summary Cards ── */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-3">
+      <div className="flex flex-col lg:flex-row gap-6 max-w-[1400px] mx-auto lg:items-start">
+        {/* Summary Cards (left) */}
+        <div className="w-full lg:w-[280px] flex-shrink-0">
+          <div className="space-y-3">
             {[
-              { label: "Total general", value: fmt(t), helper: "↑ +12.5% vs ayer", icon: TrendingUp, iconColor: "text-emerald-300", bgColor: "from-emerald-500/20 to-teal-500/10", borderColor: "border-emerald-400/25" },
               { label: "Total billetes", value: `${Object.values(bills).reduce((a, b) => a + b, 0)}`, helper: "Billetes registrados", icon: Wallet, iconColor: "text-cyan-300", bgColor: "from-cyan-500/20 to-blue-500/10", borderColor: "border-cyan-400/25" },
               { label: "Denominaciones", value: `${Object.values(bills).filter((v) => v > 0).length}`, helper: "Tipos de billetes", icon: Coins, iconColor: "text-amber-300", bgColor: "from-amber-500/20 to-orange-500/10", borderColor: "border-amber-400/25" },
               { label: "Última actualización", value: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }), helper: "por Administrador", icon: Layers, iconColor: "text-violet-300", bgColor: "from-violet-500/20 to-fuchsia-500/10", borderColor: "border-violet-400/25" },
@@ -247,6 +231,10 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
               </motion.div>
             ))}
           </div>
+        </div>
+        
+        {/* Main */}
+        <div className="flex-1 min-w-0 space-y-5">
 
           {/* ── Resumen Caja ── */}
           {ap > 0 && vt > 0 && (
@@ -354,18 +342,18 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
         </div>
 
         {/* ── Sidebar ── */}
-        <div className="w-full xl:w-[19.5rem] flex-shrink-0">
-          <div className="xl:sticky xl:top-6 space-y-3">
-            <div className="rounded-2xl border border-white/10 bg-[linear-gradient(165deg,rgba(13,17,23,0.96),rgba(16,22,31,0.86))] backdrop-blur-xl p-5 shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
+        <div className="w-full lg:w-[19.5rem] flex-shrink-0">
+          <div className="lg:sticky lg:top-20 z-20 space-y-3">
+            <div className="rounded-2xl border border-white/10 bg-[linear-gradient(165deg,rgba(13,17,23,0.96),rgba(16,22,31,0.86))] backdrop-blur-xl p-5 shadow-[0_12px_40px_rgba(0,0,0,0.35)] text-center">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500/18 to-cyan-500/12 border border-emerald-400/25 flex items-center justify-center mx-auto mb-4 shadow-[0_10px_35px_rgba(16,185,129,0.12)]">
                 <Wallet className="w-7 h-7 text-emerald-400" />
               </div>
               <p className="text-[10px] text-white/30 uppercase tracking-[0.18em] mb-1.5">Resumen</p>
               <p className="text-[2rem] leading-none font-semibold text-white tracking-tight">{fmt(t)}</p>
-              <div className="mt-4 pt-4 border-t border-white/10 space-y-2 text-xs">
-                <div className="flex justify-between"><span className="text-white/45">Billetes</span><span className="text-white/90 font-medium">{fmt(t - extra)}</span></div>
-                <div className="flex justify-between"><span className="text-white/45">Extra</span><span className="text-white/90 font-medium">{fmt(extra)}</span></div>
-                <div className="flex justify-between"><span className="text-white/45">Activas</span><span className="text-white/90 font-medium">{Object.values(bills).filter((c) => c > 0).length}/{denoms.length}</span></div>
+              <div className="mt-4 pt-4 border-t border-white/10 space-y-3 text-xs">
+                <div className="text-center"><span className="text-white/45 block mb-0.5">Billetes</span><span className="text-white/90 font-medium">{fmt(t - extra)}</span></div>
+                <div className="text-center"><span className="text-white/45 block mb-0.5">Extra</span><span className="text-white/90 font-medium">{fmt(extra)}</span></div>
+                <div className="text-center"><span className="text-white/45 block mb-0.5">Activas</span><span className="text-white/90 font-medium">{Object.values(bills).filter((c) => c > 0).length}/{denoms.length}</span></div>
               </div>
             </div>
 
@@ -383,6 +371,24 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
                   className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#111722] hover:bg-[#172133] text-white/75 hover:text-white text-xs font-medium transition-all duration-200 border border-white/10">
                   <TrendingUp className="w-3.5 h-3.5" /> {showBD ? "Ocultar Desglose" : "Ver Desglose"}
                 </motion.button>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="rounded-2xl border border-white/10 bg-[#0d1117]/92 backdrop-blur-xl p-4">
+              <p className="text-[10px] text-white/30 uppercase tracking-[0.16em] mb-3">Herramientas</p>
+              <div className="flex items-center justify-center gap-2">
+                {[
+                  { icon: Eraser, label: "Limpiar", color: "text-amber-400 hover:text-amber-300", border: "border-amber-400/20 hover:border-amber-400/40", bg: "bg-amber-500/10 hover:bg-amber-500/20", action: () => { if (confirm("¿Seguro?")) { const r: BillsMap = {}; denoms.forEach((d) => { r[d.value] = 0; }); ntf(r, 0, cur, 0, 0); } } },
+                  { icon: Download, label: "Exportar", color: "text-emerald-400 hover:text-emerald-300", border: "border-emerald-400/20 hover:border-emerald-400/40", bg: "bg-emerald-500/10 hover:bg-emerald-500/20", action: () => { const c = JSON.stringify({ name: data.name, bills, extraAmount: extra, currency: cur, aperturaCaja: ap, ventaActual: vt }); const b = new Blob([c], { type: "application/json" }); const u = URL.createObjectURL(b); const a = document.createElement("a"); a.href = u; a.download = `${data.name}.json`; a.click(); URL.revokeObjectURL(u); } },
+                  { icon: Upload, label: "Importar", color: "text-blue-400 hover:text-blue-300", border: "border-blue-400/20 hover:border-blue-400/40", bg: "bg-blue-500/10 hover:bg-blue-500/20", action: () => { const inp = document.createElement("input"); inp.type = "file"; inp.accept = "application/json"; inp.onchange = (ev) => { const f = (ev.target as HTMLInputElement).files?.[0]; if (!f) return; new FileReader().onload = (e) => { try { const p = JSON.parse(e.target?.result as string); if (p && typeof p.name === "string" && typeof p.extraAmount === "number" && (p.currency === "CRC" || p.currency === "USD") && typeof p.bills === "object") { ntf(p.bills, p.extraAmount, p.currency, p.aperturaCaja || 0, p.ventaActual || 0); } else alert("JSON inválido."); } catch { alert("Error."); } }; (new FileReader()).readAsText(f); }; inp.click(); } },
+                  { icon: DollarSign, label: "Moneda", color: "text-yellow-400 hover:text-yellow-300", border: "border-yellow-400/20 hover:border-yellow-400/40", bg: "bg-yellow-500/10 hover:bg-yellow-500/20", action: onCurrencyOpen },
+                  { icon: Trash2, label: "Eliminar", color: "text-rose-400 hover:text-rose-300", border: "border-rose-400/20 hover:border-rose-400/40", bg: "bg-rose-500/10 hover:bg-rose-500/20", action: () => { if (confirm("¿Eliminar?")) onDelete(id); } },
+                ].map((b) => (
+                  <button key={b.label} onClick={b.action} className={`w-8 h-8 rounded-lg ${b.bg} border ${b.border} flex items-center justify-center ${b.color} transition-all`} aria-label={b.label}>
+                    <b.icon className="w-4 h-4" />
+                  </button>
+                ))}
               </div>
             </div>
 
