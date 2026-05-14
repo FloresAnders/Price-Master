@@ -161,7 +161,9 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
             <ArrowRight className="home-menu-card-arrow text-sky-200" />
           </div>
           <span className="home-menu-card-title">Semana Proveedores</span>
-          <span className="home-menu-card-desc">Ver realizar/recibir pedidos</span>
+          <span className="home-menu-card-desc">
+            Ver realizar/recibir pedidos
+          </span>
         </div>
       </button>
     );
@@ -234,39 +236,62 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
                   style={todayStyle}
                 >
                   <div className="flex items-baseline justify-between gap-2">
-                    <div className="text-xs font-semibold text-white">{d.code}</div>
+                    <div className="text-xs font-semibold text-white">
+                      {d.code}
+                    </div>
                     <div className="text-[10px] text-slate-400">
                       {d.date.getDate()}/{d.date.getMonth() + 1}
                     </div>
                   </div>
-                  <div className="text-[10px] text-slate-400 mb-2">{d.label}</div>
+                  <div className="text-[10px] text-slate-400 mb-2">
+                    {d.label}
+                  </div>
 
                   {!hasAny ? (
-                    <div className="text-[10px] text-slate-400">Sin visitas</div>
+                    <div className="text-[10px] text-slate-400">
+                      Sin visitas
+                    </div>
                   ) : (
                     <div className="space-y-2">
                       {createList.length > 0 && (
                         <div>
-                          <div className="text-[10px] font-semibold text-white">Realizar</div>
-                          <div className="text-[10px] text-slate-400 break-words">{createText}</div>
+                          <div className="text-[10px] font-semibold text-white">
+                            Realizar
+                          </div>
+                          <div className="text-[10px] text-slate-400 break-words">
+                            {createText}
+                          </div>
                         </div>
                       )}
                       {receiveList.length > 0 && (
                         <div>
-                          <div className="text-[10px] font-semibold text-white">Recibir</div>
+                          <div className="text-[10px] font-semibold text-white">
+                            Recibir
+                          </div>
                           <div className="mt-0.5 text-[10px] text-slate-400">
                             <div className="space-y-0.5">
                               {receiveText.map((row) => (
-                                <div key={row.name} className="flex items-baseline justify-between gap-2">
-                                  <span className="min-w-0 flex-1 truncate">{row.name}</span>
+                                <div
+                                  key={row.name}
+                                  className="flex items-baseline justify-between gap-2"
+                                >
+                                  <span className="min-w-0 flex-1 truncate">
+                                    {row.name}
+                                  </span>
                                   <span className="flex-none tabular-nums">
-                                    {row.amount > 0 ? formatAmount(row.amount) : ""}
+                                    {row.amount > 0
+                                      ? formatAmount(row.amount)
+                                      : ""}
                                   </span>
                                 </div>
                               ))}
                               <div className="mt-1 pt-1 border-t border-slate-700/60 flex items-baseline justify-between gap-2">
-                                <span className="font-semibold text-white">TOTAL</span>
-                                <span className={`flex-none tabular-nums font-semibold ${receiveTotalClassName}`}>
+                                <span className="font-semibold text-white">
+                                  TOTAL
+                                </span>
+                                <span
+                                  className={`flex-none tabular-nums font-semibold ${receiveTotalClassName}`}
+                                >
                                   {formatAmount(receiveTotal)}
                                 </span>
                               </div>
@@ -286,9 +311,7 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
   }
 
   return (
-    <div
-      className="supplier-week-card p-4 sm:p-6 col-span-1 sm:col-span-2 md:col-span-3 lg:col-span-4"
-    >
+    <div className="supplier-week-card p-4 sm:p-6 col-span-1 sm:col-span-2 md:col-span-3 lg:col-span-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div className="min-w-0">
           <h3 className="text-lg font-semibold text-white">
@@ -361,7 +384,7 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
                 // Navegación por hash (sin recargar la página)
                 window.location.hash = "#agregarproveedor";
               }}
-              className="px-3 py-2 rounded-md text-sm font-semibold bg-[var(--hover-bg)] border border-[var(--input-border)] text-[var(--foreground)] whitespace-nowrap"
+              className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-sky-950 hover:border-white/20"
               aria-label="Agregar proveedor"
             >
               Agregar
@@ -371,7 +394,7 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
           <button
             type="button"
             onClick={onPrevWeek}
-            className="px-3 py-2 rounded-md text-sm font-semibold bg-[var(--hover-bg)] border border-[var(--input-border)] text-[var(--foreground)] whitespace-nowrap"
+            className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-sky-950 hover:border-white/20"
             aria-label="Semana anterior"
           >
             &lt;
@@ -379,7 +402,7 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
           <button
             type="button"
             onClick={onNextWeek}
-            className="px-3 py-2 rounded-md text-sm font-semibold bg-[var(--hover-bg)] border border-[var(--input-border)] text-[var(--foreground)] whitespace-nowrap"
+            className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-sky-950 hover:border-white/20"
             aria-label="Semana siguiente"
           >
             &gt;
@@ -388,7 +411,7 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
       </div>
 
       {/* Control de pedido (solo en /#SupplierWeek) */}
-      <div className="bg-[var(--hover-bg)] rounded-lg p-3 sm:p-4 mb-4 border">
+      <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-slate-900/60 px-5 py-4 text-sm font-medium text-slate-200 transition-all hover:border-cyan-400/30 p-3 mb-4">
         <form
           className="w-full"
           onSubmit={(e) => {
@@ -397,7 +420,7 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
             handleSaveControlPedido();
           }}
         >
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 ">
             <div className="">
               <div className="text-xs text-[var(--muted-foreground)] mb-1">
                 Día seleccionado
@@ -414,7 +437,7 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
                 Proveedor
               </div>
               <select
-                className="w-full bg-[var(--background)] border border-[var(--input-border)] rounded-md px-3 py-2 text-sm text-[var(--foreground)]"
+                className="h-11 w-full min-w-0 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm font-medium text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/60 focus-visible:ring-2 focus-visible:ring-[var(--accent)]/60 focus-visible:ring-offset-1"
                 value={selectedProviderCode}
                 onChange={(e) => {
                   setSelectedProviderCode(e.target.value);
@@ -422,7 +445,7 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
                 }}
                 disabled={!selectedDay || eligibleProviders.length === 0}
               >
-                <option value="">
+                <option value="" className="">
                   {!selectedDay
                     ? "Selecciona un día"
                     : eligibleProviders.length === 0
@@ -440,19 +463,8 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
             <div className="flex flex-col gap-2 justify-between">
               <div className="flex flex-col sm:flex-row items-start justify-start gap-2">
                 <div className="w-full sm:flex-1 min-w-0">
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min={0}
-                    step="0.01"
-                    className="w-full bg-[var(--background)] border border-[var(--input-border)] rounded-md px-3 py-2 text-sm text-[var(--foreground)]"
-                    value={orderAmount}
-                    onChange={(e) => setOrderAmount(e.target.value)}
-                    disabled={!selectedProviderCode || orderSaving}
-                  />
-
                   <div className="mt-2 flex flex-wrap items-start justify-start gap-2">
-                    <div className="text-xs text-[var(--muted-foreground)]">
+                    <div className="text-xs text-[var(--muted-foreground)] mb-1">
                       Monto
                     </div>
 
@@ -479,12 +491,22 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
                       </div>
                     )}
                   </div>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step="0.01"
+                    className="w-full bg-[var(--background)] border border-[var(--input-border)] rounded-md px-3 py-2 text-sm text-[var(--foreground)]"
+                    value={orderAmount}
+                    onChange={(e) => setOrderAmount(e.target.value)}
+                    disabled={!selectedProviderCode || orderSaving}
+                  />
                 </div>
 
                 <button
                   type="submit"
                   disabled={!canSave}
-                  className="w-full sm:w-auto px-4 py-2 min-w-[120px] whitespace-nowrap rounded-md text-sm font-semibold bg-[var(--primary)] text-[var(--primary-foreground)] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex flex-col justify-between rounded-xl border border-white/10 bg-slate-900/60 px-5 py-4 text-sm font-medium text-slate-200 transition-all hover:border-cyan-400/30 hover:bg-sky-950/70"
                 >
                   {orderSaving ? "Guardando..." : "Guardar"}
                 </button>
@@ -593,7 +615,7 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
                   setSelectedProviderCode("");
                   setSelectedReceiveDateKey(null);
                 }}
-                className="rounded-lg border border-[var(--input-border)] p-2 bg-[var(--muted)] text-left cursor-pointer w-full"
+                className="flex flex-col justify-between rounded-xl border border-white/10 bg-slate-900/60 px-5 py-4 text-sm font-medium text-slate-200 transition-all hover:border-cyan-400/30 hover:bg-sky-950/70"
                 style={{ ...todayStyle, ...selectionStyle }}
               >
                 <div className="flex items-baseline justify-between gap-2">

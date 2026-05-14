@@ -745,7 +745,7 @@ export default function EmpleadosProximamente() {
                         {!canManageEmployees && (
                           <button
                             type="button"
-                            className="mt-3 w-full px-3 py-2 rounded bg-[var(--button-bg)] text-[var(--button-text)] hover:bg-[var(--button-hover)]"
+                            className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-sky-950 hover:border-white/20"
                             onClick={() => openEmpleadoModal(modalEmp, true)}
                           >
                             Ver información
