@@ -383,34 +383,36 @@ export default function EditProfileModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-[var(--card-bg)] text-[var(--foreground)] rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto border border-[var(--input-border)]">
+      <div className="rounded-xl border border-cyan-700 bg-cyan-950 shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto text-[var(--foreground)]">
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-[var(--foreground)] flex items-center gap-3">
-              <UserIcon className="w-5 h-5 text-[var(--primary)]" />
+              <span className="flex h-7 w-7 items-center justify-center rounded border border-cyan-700/35 bg-cyan-900/25 text-cyan-100/80">
+                <UserIcon className="w-5 h-5" />
+              </span>
               Editar Perfil
             </h2>
             <button
               onClick={onClose}
-              className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+              className="text-cyan-100/70 hover:text-[var(--foreground)] transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          <div className="p-4 bg-[var(--card-bg)] rounded">
+          <div className="rounded-xl border border-cyan-700/25 bg-cyan-950/10 p-3 sm:p-4">
             {!user ? (
-              <p className="text-sm text-[var(--muted-foreground)]">
+              <p className="text-sm text-cyan-100/60">
                 No se pudo cargar la información del usuario.
               </p>
             ) : profileLoading ? (
               <div className="flex items-center justify-center py-10">
-                <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+                <Loader2 className="h-6 w-6 animate-spin text-cyan-100/70" />
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="flex flex-col items-center gap-3">
-                  <div className="w-24 h-24 rounded-full bg-[var(--input-bg)] border border-[var(--input-border)] flex items-center justify-center overflow-hidden">
+                  <div className="w-24 h-24 rounded-full border border-cyan-700/35 bg-cyan-950/25 flex items-center justify-center overflow-hidden">
                     {imageUpload.imagePreview ? (
                       // Show preview of selected image
                       // eslint-disable-next-line @next/next/no-img-element
@@ -428,12 +430,12 @@ export default function EditProfileModal({
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span className="text-xl font-semibold text-[var(--foreground)]">
+                      <span className="text-xl font-semibold text-cyan-100/80">
                         {initials}
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-[var(--muted-foreground)]">
+                  <div className="text-xs text-cyan-100/60">
                     {imageUpload.hasSelectedFile
                       ? "Vista previa - Guardar para aplicar"
                       : "Foto de perfil"}
@@ -453,9 +455,9 @@ export default function EditProfileModal({
                           type="button"
                           onClick={imageUpload.cancelSelection}
                           disabled={isFormLocked}
-                          className="inline-flex items-center gap-2 rounded-lg border border-[var(--input-border)] px-3 py-2 text-sm text-[var(--foreground)] bg-[var(--muted)]/30 hover:bg-[var(--muted)]/50 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                          className="inline-flex items-center gap-2 h-11 rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-cyan-100/70 outline-none transition-colors hover:border-cyan-500/45 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          <X className="w-4 h-4 text-[var(--muted-foreground)]" />
+                          <X className="w-4 h-4" />
                           Cancelar
                         </button>
                       </>
@@ -464,12 +466,12 @@ export default function EditProfileModal({
                         type="button"
                         onClick={imageUpload.openFileDialog}
                         disabled={isFormLocked}
-                        className="inline-flex items-center gap-2 rounded-lg border border-[var(--primary)] px-3 py-2 text-sm text-[var(--primary)] bg-[var(--primary)]/10 hover:bg-[var(--primary)]/20 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex items-center gap-2 h-11 rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-cyan-100/70 outline-none transition-colors hover:border-cyan-500/45 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {imageUpload.isUploading ? (
-                          <Loader2 className="w-4 h-4 animate-spin text-[var(--muted-foreground)]" />
+                          <Loader2 className="w-4 h-4 animate-spin text-cyan-100/70" />
                         ) : (
-                          <Camera className="w-4 h-4 text-[var(--muted-foreground)]" />
+                          <Camera className="w-4 h-4 text-cyan-100/70" />
                         )}
                         {imageUpload.isUploading ? "Subiendo..." : "Cambiar"}
                       </button>
@@ -479,12 +481,12 @@ export default function EditProfileModal({
                         type="button"
                         onClick={imageUpload.deleteImage}
                         disabled={isFormLocked}
-                        className="inline-flex items-center gap-2 rounded-md border border-red-500/40 px-3 py-1 text-sm text-red-600 bg-transparent hover:bg-red-500/10 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex items-center gap-2 h-11 rounded border border-red-500/40 bg-red-500/10 px-3 text-sm text-red-400 outline-none transition-colors hover:border-red-500/60 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {imageUpload.isDeleting ? (
-                          <Loader2 className="w-4 h-4 animate-spin text-red-600" />
+                          <Loader2 className="w-4 h-4 animate-spin text-red-400" />
                         ) : (
-                          <Trash2 className="w-4 h-4 text-red-600" />
+                          <Trash2 className="w-4 h-4 text-red-400" />
                         )}
                         {imageUpload.isDeleting ? "Eliminando..." : "Eliminar"}
                       </button>
@@ -496,19 +498,19 @@ export default function EditProfileModal({
                   <p className="text-sm font-medium text-[var(--foreground)]">
                     Datos del usuario
                   </p>
-                  <p className="text-xs text-[var(--muted-foreground)]">
+                  <p className="text-xs text-cyan-100/60">
                     Rol actual: <span className="capitalize">{roleLabel}</span>
                   </p>
                 </div>
 
                 {profileError && (
-                  <div className="rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-700">
+                  <div className="rounded border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-700">
                     {profileError}
                   </div>
                 )}
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <label className="flex flex-col gap-2 text-sm font-medium text-[var(--foreground)]">
+                  <label className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-cyan-100/70">
                     Nombre de usuario
                     <input
                       type="text"
@@ -517,11 +519,11 @@ export default function EditProfileModal({
                       required
                       autoComplete="username"
                       disabled={isFormLocked}
-                      className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-all disabled:cursor-not-allowed disabled:opacity-60"
+                      className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   </label>
 
-                  <label className="flex flex-col gap-2 text-sm font-medium text-[var(--foreground)]">
+                  <label className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-cyan-100/70">
                     Nombre completo
                     <input
                       type="text"
@@ -529,12 +531,12 @@ export default function EditProfileModal({
                       onChange={handleChange("fullName")}
                       autoComplete="name"
                       disabled={isFormLocked}
-                      className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-all disabled:cursor-not-allowed disabled:opacity-60"
+                      className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   </label>
                 </div>
 
-                <label className="flex flex-col gap-2 text-sm font-medium text-[var(--foreground)]">
+                <label className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-cyan-100/70">
                   Correo electrónico
                   <input
                     type="email"
@@ -542,7 +544,7 @@ export default function EditProfileModal({
                     onChange={handleChange("email")}
                     autoComplete="email"
                     disabled={isFormLocked}
-                    className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-all disabled:cursor-not-allowed disabled:opacity-60"
+                    className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                   />
                 </label>
 
@@ -550,13 +552,15 @@ export default function EditProfileModal({
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Lock className="w-4 h-4 text-[var(--primary)]" />
+                      <span className="flex h-7 w-7 items-center justify-center rounded border border-cyan-700/35 bg-cyan-900/25 text-cyan-100/80">
+                        <Lock className="w-4 h-4" />
+                      </span>
                       <span className="text-sm font-medium text-[var(--foreground)]">
                         Contraseña
                       </span>
                     </div>
                     {hasPassword && (
-                      <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                      <span className="text-xs text-green-400 flex items-center gap-1">
                         <Check className="w-3 h-3" />
                         Contraseña configurada
                       </span>
@@ -567,32 +571,32 @@ export default function EditProfileModal({
                     type="button"
                     onClick={() => setShowChangePassword(!showChangePassword)}
                     disabled={isFormLocked}
-                    className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] hover:bg-[var(--input-bg)]/80 hover:border-[var(--primary)] transition-all disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full flex items-center justify-between h-11 rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-cyan-100/70 outline-none transition-colors hover:border-cyan-500/45 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    <span className="text-sm text-[var(--foreground)]">
+                    <span>
                       {showChangePassword
                         ? "Ocultar cambio de contraseña"
                         : "Cambiar contraseña"}
                     </span>
                     {showChangePassword ? (
-                      <ChevronUp className="w-4 h-4 text-[var(--muted-foreground)]" />
+                      <ChevronUp className="w-4 h-4" />
                     ) : (
-                      <ChevronDown className="w-4 h-4 text-[var(--muted-foreground)]" />
+                      <ChevronDown className="w-4 h-4" />
                     )}
                   </button>
 
                   {showChangePassword && (
-                    <div className="space-y-4 p-4 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/50">
-                      <label className="flex flex-col gap-2 text-sm font-medium text-[var(--foreground)]">
+                    <div className="space-y-4 rounded-xl border border-cyan-700/25 bg-cyan-950/10 p-3 sm:p-4">
+                      <label className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-cyan-100/70">
                         Contraseña actual
-                        <div className="relative">
+                        <div className="relative w-full">
                           <input
                             type={showCurrentPassword ? "text" : "password"}
                             value={formData.currentPassword}
                             onChange={handleChange("currentPassword")}
                             autoComplete="current-password"
                             disabled={isFormLocked}
-                            className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-all disabled:cursor-not-allowed disabled:opacity-60"
+                            className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 pr-10 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                             placeholder="Ingresa tu contraseña actual"
                             required={showChangePassword}
                           />
@@ -602,7 +606,7 @@ export default function EditProfileModal({
                               setShowCurrentPassword((prev) => !prev)
                             }
                             disabled={isFormLocked}
-                            className="absolute inset-y-0 right-0 flex items-center px-3 text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+                            className="absolute inset-y-0 right-0 flex items-center px-3 text-cyan-100/70 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
                             aria-label={
                               showCurrentPassword
                                 ? "Ocultar contraseña actual"
@@ -618,16 +622,16 @@ export default function EditProfileModal({
                         </div>
                       </label>
 
-                      <label className="flex flex-col gap-2 text-sm font-medium text-[var(--foreground)]">
+                      <label className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-cyan-100/70">
                         Nueva contraseña
-                        <div className="relative">
+                        <div className="relative w-full">
                           <input
                             type={showPassword ? "text" : "password"}
                             value={formData.password}
                             onChange={handleChange("password")}
                             autoComplete="new-password"
                             disabled={isFormLocked}
-                            className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-all disabled:cursor-not-allowed disabled:opacity-60"
+                            className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 pr-10 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                             placeholder="Ingresa tu nueva contraseña"
                             required={showChangePassword}
                           />
@@ -635,7 +639,7 @@ export default function EditProfileModal({
                             type="button"
                             onClick={() => setShowPassword((prev) => !prev)}
                             disabled={isFormLocked}
-                            className="absolute inset-y-0 right-0 flex items-center px-3 text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+                            className="absolute inset-y-0 right-0 flex items-center px-3 text-cyan-100/70 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
                             aria-label={
                               showPassword
                                 ? "Ocultar nueva contraseña"
@@ -651,16 +655,16 @@ export default function EditProfileModal({
                         </div>
                       </label>
 
-                      <label className="flex flex-col gap-2 text-sm font-medium text-[var(--foreground)]">
+                      <label className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-cyan-100/70">
                         Confirmar nueva contraseña
-                        <div className="relative">
+                        <div className="relative w-full">
                           <input
                             type={showPasswordConfirm ? "text" : "password"}
                             value={formData.passwordConfirm}
                             onChange={handleChange("passwordConfirm")}
                             autoComplete="new-password"
                             disabled={isFormLocked}
-                            className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent transition-all disabled:cursor-not-allowed disabled:opacity-60"
+                            className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 pr-10 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                             placeholder="Confirma tu nueva contraseña"
                             required={showChangePassword}
                           />
@@ -670,7 +674,7 @@ export default function EditProfileModal({
                               setShowPasswordConfirm((prev) => !prev)
                             }
                             disabled={isFormLocked}
-                            className="absolute inset-y-0 right-0 flex items-center px-3 text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+                            className="absolute inset-y-0 right-0 flex items-center px-3 text-cyan-100/70 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
                             aria-label={
                               showPasswordConfirm
                                 ? "Ocultar confirmación"
@@ -686,8 +690,8 @@ export default function EditProfileModal({
                         </div>
                       </label>
 
-                      <div className="text-xs text-[var(--muted-foreground)] flex items-start gap-2 mt-2">
-                        <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                      <div className="text-xs text-cyan-100/60 flex items-start gap-2 mt-2">
+                        <Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-cyan-100/70" />
                         <span>
                           Asegúrate de que tu nueva contraseña sea segura y
                           diferente a la actual.
@@ -698,26 +702,28 @@ export default function EditProfileModal({
                 </div>
 
                 {showOwnerInfo && (
-                  <div className="rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--card-bg)]/60 px-3 py-3 text-sm">
+                  <div className="rounded-xl border border-cyan-700/25 bg-cyan-950/10 p-3 sm:p-4 text-sm">
                     <div className="flex items-start gap-2">
-                      <Info className="mt-0.5 h-4 w-4 text-[var(--primary)]" />
+                      <span className="flex h-7 w-7 items-center justify-center rounded border border-cyan-700/35 bg-cyan-900/25 text-cyan-100/80 mt-0.5">
+                        <Info className="h-4 w-4" />
+                      </span>
                       <div>
                         <p className="font-medium text-[var(--foreground)]">
                           Usuario Encargado
                         </p>
                         {ownerLoading ? (
-                          <p className="text-[var(--muted-foreground)]">
+                          <p className="text-cyan-100/60">
                             Cargando información…
                           </p>
                         ) : (
                           <>
-                            <p className="text-[var(--muted-foreground)]">
+                            <p className="text-cyan-100/60">
                               {ownerDisplayName}
                               {ownerEmail ? ` · ${ownerEmail}` : ""}
                             </p>
                             {baseUser?.ownercompanie &&
                               ownerDisplayName !== baseUser.ownercompanie && (
-                                <p className="text-xs text-[var(--muted-foreground)] mt-1">
+                                <p className="text-xs text-cyan-100/60 mt-1">
                                   Empresa asignada:{" "}
                                   <span className="font-medium text-[var(--foreground)]">
                                     {baseUser.ownercompanie}
@@ -726,7 +732,7 @@ export default function EditProfileModal({
                               )}
                             {baseUser?.ownercompanie &&
                               ownerDisplayName === baseUser.ownercompanie && (
-                                <p className="text-xs text-[var(--muted-foreground)] mt-1">
+                                <p className="text-xs text-cyan-100/60 mt-1">
                                   Empresa asignada vinculada a este usuario.
                                 </p>
                               )}
@@ -738,7 +744,7 @@ export default function EditProfileModal({
                 )}
 
                 {error && (
-                  <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-600">
+                  <div className="rounded border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-400">
                     {error}
                   </div>
                 )}
@@ -747,15 +753,15 @@ export default function EditProfileModal({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="inline-flex items-center gap-2 rounded-lg border border-[var(--input-border)] px-5 py-2.5 text-sm font-medium text-[var(--foreground)] bg-[var(--muted)]/20 transition-all hover:bg-[var(--muted)]/40 hover:border-[var(--input-border)]"
+                    className="inline-flex items-center gap-2 h-11 rounded border border-cyan-700/35 bg-cyan-950/25 px-5 text-sm text-cyan-100/70 outline-none transition-colors hover:border-cyan-500/45 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    <X className="w-4 h-4 text-[var(--muted-foreground)]" />
+                    <X className="w-4 h-4" />
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={!hasChanges || isSaving || profileLoading}
-                    className="inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-5 py-2.5 text-sm font-medium text-[var(--button-text)] transition-all hover:bg-[var(--button-hover)] shadow-lg hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
+                    className="inline-flex items-center gap-2 h-11 rounded border border-[var(--accent)] bg-[var(--accent)] px-5 text-sm font-medium text-[var(--button-text)] outline-none transition-colors hover:border-[var(--accent)]/80 hover:bg-[var(--accent)]/90 disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
                   >
                     {isSaving ? (
                       <>
@@ -764,7 +770,7 @@ export default function EditProfileModal({
                       </>
                     ) : (
                       <>
-                        <Check className="w-4 h-4 text-[var(--button-text)]" />
+                        <Check className="w-4 h-4" />
                         Guardar cambios
                       </>
                     )}
