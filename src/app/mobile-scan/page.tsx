@@ -559,9 +559,9 @@ function MobileScanContent() {
         </div>
       )}
       <div className="mb-6">
-        <div className="bg-card-bg rounded-lg p-4">
+        <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-4">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">Escanear con Cámara</h2>
+            <h2 className="text-lg font-semibold text-slate-100">Escanear con Cámara</h2>
           </div>
           {/* Usar CameraScanner component */}
           {isClient && (
@@ -595,8 +595,8 @@ function MobileScanContent() {
           )}
         </div>
       </div>
-      <div className="bg-card-bg rounded-lg p-4 mb-6">
-        <h2 className="text-lg font-semibold mb-4">
+      <div className="rounded-2xl border border-white/10 bg-slate-950 p-4 mb-6">
+        <h2 className="text-lg font-semibold mb-4 text-slate-100">
           Introducir Código Manualmente
         </h2>
         <form onSubmit={handleManualSubmit} className="space-y-4">
@@ -605,12 +605,16 @@ function MobileScanContent() {
             value={code}
             onChange={(e) => setCode(e.target.value)}
             placeholder="Ingresa el código de barras"
-            className="w-full bg-input-bg border border-input-border rounded-lg px-4 py-3 text-foreground placeholder-[var(--muted-foreground)] focus:outline-none focus:border-[var(--primary)]"
+            className="w-full rounded-lg border border-white/10 bg-slate-900/80 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/30 focus:ring-1 focus:ring-cyan-400/20 placeholder-slate-400"
           />
           <button
             type="submit"
             disabled={!code.trim()}
-            className="w-full bg-[var(--primary)] hover:bg-[var(--primary)]/80 disabled:bg-[var(--muted-foreground)] disabled:cursor-not-allowed px-4 py-3 rounded-lg text-white font-semibold flex items-center justify-center gap-2"
+            className={`w-full flex items-center justify-center gap-2 rounded-lg border text-sm font-medium px-4 py-3 transition ${
+              !code.trim()
+                ? "border-white/10 bg-slate-900/50 text-slate-400 cursor-not-allowed"
+                : "border-white/10 bg-slate-900/50 text-slate-200 hover:bg-slate-900/80 hover:border-white/20"
+            }`}
           >
             <Check className="w-4 h-4" />
             Enviar Código
@@ -618,8 +622,8 @@ function MobileScanContent() {
         </form>
       </div>
       {lastScanned.length > 0 && (
-        <div className="bg-card-bg rounded-lg p-4">
-          <h2 className="text-lg font-semibold mb-3">
+        <div className="rounded-2xl border border-white/10 bg-slate-950 p-4">
+          <h2 className="text-lg font-semibold mb-3 text-slate-100">
             Códigos Enviados Recientemente
           </h2>
           <div className="space-y-2">
@@ -629,13 +633,13 @@ function MobileScanContent() {
               .map((scan, index) => (
                 <div
                   key={index}
-                  className="bg-input-bg rounded px-3 py-2 flex items-center gap-2"
+                  className="rounded-lg border border-white/10 bg-slate-900/50 px-3 py-2 flex items-center gap-2"
                 >
                   <Check className="w-4 h-4 text-green-600" />
                   <div className="flex flex-col flex-1 min-w-0">
-                    <span className="font-mono text-sm">{scan.code}</span>
+                    <span className="font-mono text-sm text-slate-200">{scan.code}</span>
                     {scan.productName && (
-                      <span className="text-xs text-[var(--primary)] truncate">
+                      <span className="text-xs text-cyan-400 truncate">
                         📝 {scan.productName}
                       </span>
                     )}
@@ -658,15 +662,15 @@ function MobileScanContent() {
       {/* Product Name Modal */}
       {showNameModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-card-bg rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4 text-foreground">
+          <div className="rounded-2xl border border-white/10 bg-slate-950 p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4 text-slate-100">
               {requestProductName
                 ? "Nombre del Producto (Requerido)"
                 : "Nombre del Producto (Opcional)"}
             </h3>
-            <p className="text-[var(--muted-foreground)] text-sm mb-4">
+            <p className="text-slate-400 text-sm mb-4">
               Código:{" "}
-              <span className="font-mono bg-input-bg px-2 py-1 rounded">
+              <span className="font-mono bg-slate-900/80 px-2 py-1 rounded text-slate-200">
                 {pendingCode}
               </span>
             </p>
@@ -680,7 +684,7 @@ function MobileScanContent() {
                   ? "Ingresa el nombre del producto (requerido)"
                   : "Ingresa el nombre del producto (opcional)"
               }
-              className="w-full bg-input-bg border border-input-border rounded-lg px-4 py-3 text-foreground placeholder-[var(--muted-foreground)] focus:outline-none focus:border-[var(--primary)] mb-4"
+              className="w-full rounded-lg border border-white/10 bg-slate-900/80 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/30 focus:ring-1 focus:ring-cyan-400/20 placeholder-slate-400 mb-4"
               autoFocus
               onKeyDown={(e) => {
                 if (
@@ -699,8 +703,7 @@ function MobileScanContent() {
             <button
               type="button"
               onClick={handleCameraCapture}
-              // isOnline eliminado, botón siempre habilitado
-              className="w-full bg-[var(--primary)] hover:bg-[var(--primary)]/80 disabled:bg-[var(--muted-foreground)] disabled:cursor-not-allowed px-4 py-3 rounded-lg text-white font-semibold flex items-center justify-center gap-2 mb-4"
+              className="w-full flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-900/80 hover:border-white/20 mb-4"
             >
               <Camera className="w-4 h-4" />
               Agregar Imagen
@@ -708,10 +711,10 @@ function MobileScanContent() {
 
             {/* Images count display */}
             {uploadedImagesCount > 0 && (
-              <div className="bg-[var(--primary)]/10 rounded-lg p-3 border border-[var(--primary)]/40 mb-4">
+              <div className="rounded-lg border border-cyan-400/20 bg-cyan-500/10 p-3 mb-4">
                 <div className="flex items-center gap-2">
-                  <Camera className="w-4 h-4 text-[var(--primary)]" />
-                  <span className="text-[var(--primary)] text-sm">
+                  <Camera className="w-4 h-4 text-cyan-400" />
+                  <span className="text-cyan-300 text-sm">
                     Se {uploadedImagesCount === 1 ? "agregó" : "agregaron"}{" "}
                     {uploadedImagesCount} imagen
                     {uploadedImagesCount > 1 ? "es" : ""}
@@ -723,7 +726,7 @@ function MobileScanContent() {
             <div className="flex gap-3">
               <button
                 onClick={handleNameCancel}
-                className="flex-1 bg-[var(--muted-foreground)] hover:bg-[var(--muted-foreground)]/80 px-4 py-2 rounded-lg text-white font-medium"
+                className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-900/80 hover:border-white/20"
               >
                 Cancelar
               </button>
@@ -732,7 +735,11 @@ function MobileScanContent() {
                 disabled={
                   (requestProductName && !productName.trim()) || isDecodingImage
                 }
-                className="flex-1 bg-[var(--primary)] hover:bg-[var(--primary)]/80 disabled:bg-[var(--muted-foreground)] disabled:cursor-not-allowed px-4 py-2 rounded-lg text-white font-medium"
+                className={`flex-1 flex items-center justify-center gap-2 rounded-lg border text-sm font-medium px-4 py-3 transition ${
+                  (requestProductName && !productName.trim()) || isDecodingImage
+                    ? "border-white/10 bg-slate-900/50 text-slate-400 cursor-not-allowed"
+                    : "border-white/10 bg-slate-900/50 text-slate-200 hover:bg-slate-900/80 hover:border-white/20"
+                }`}
               >
                 Enviar
               </button>
@@ -744,26 +751,26 @@ function MobileScanContent() {
       {/* Images Modal */}
       {showImagesModal && (
         <div className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center p-4 z-50">
-          <div className="bg-card-bg rounded-lg w-full h-full max-w-none max-h-none overflow-hidden flex flex-col">
+          <div className="rounded-2xl border border-white/10 bg-slate-950 w-full h-full max-w-none max-h-none overflow-hidden flex flex-col">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-[var(--input-border)] flex-shrink-0">
-              <h3 className="text-xl font-semibold text-foreground">
+            <div className="flex items-center justify-between p-6 border-b border-white/10 flex-shrink-0">
+              <h3 className="text-xl font-semibold text-slate-100">
                 📷 Imágenes del Código
               </h3>
               <button
                 onClick={handleCloseImagesModal}
-                className="p-2 rounded-md hover:bg-[var(--muted)]/50 transition-colors"
+                className="p-2 rounded-md hover:bg-slate-900/50 transition-colors"
                 aria-label="Cerrar modal"
               >
-                <X className="w-6 h-6 text-[var(--muted-foreground)]" />
+                <X className="w-6 h-6 text-slate-400" />
               </button>
             </div>
 
             {/* Current Code Display */}
-            <div className="px-6 py-3 border-b border-[var(--input-border)] flex-shrink-0">
-              <p className="text-[var(--muted-foreground)] text-sm">
+            <div className="px-6 py-3 border-b border-white/10 flex-shrink-0">
+              <p className="text-slate-400 text-sm">
                 Código:{" "}
-                <span className="font-mono bg-input-bg px-3 py-1 rounded text-base">
+                <span className="font-mono bg-slate-900/80 px-3 py-1 rounded text-base text-slate-200">
                   {currentImageCode}
                 </span>
               </p>
@@ -774,8 +781,8 @@ function MobileScanContent() {
               {loadingImages ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <span className="text-lg text-gray-600 dark:text-gray-300">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mx-auto mb-4"></div>
+                    <span className="text-lg text-slate-300">
                       Cargando imágenes...
                     </span>
                   </div>
@@ -783,8 +790,8 @@ function MobileScanContent() {
               ) : imageLoadError ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center">
-                    <AlertCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <p className="text-lg text-gray-600 dark:text-gray-300">
+                    <AlertCircle className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+                    <p className="text-lg text-slate-300">
                       {imageLoadError}
                     </p>
                   </div>
@@ -798,7 +805,7 @@ function MobileScanContent() {
                         alt={`Imagen ${index + 1} del código ${currentImageCode}`}
                         width={400}
                         height={300}
-                        className="w-full h-auto max-h-96 object-contain rounded-lg border border-[var(--input-border)] shadow-lg transition-transform group-hover:scale-105 cursor-pointer"
+                        className="w-full h-auto max-h-96 object-contain rounded-lg border border-white/10 shadow-lg transition-transform group-hover:scale-105 cursor-pointer"
                         onClick={() => handleOpenImageModal(imageUrl, index)}
                         title="Clic para ver en pantalla completa"
                         onError={(e) => {
@@ -815,8 +822,8 @@ function MobileScanContent() {
               ) : (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center">
-                    <ImageIcon className="w-16 h-16 text-[var(--muted-foreground)] mx-auto mb-4" />
-                    <p className="text-lg text-[var(--muted-foreground)]">
+                    <ImageIcon className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+                    <p className="text-lg text-slate-400">
                       No hay imágenes disponibles
                     </p>
                   </div>
@@ -825,10 +832,10 @@ function MobileScanContent() {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-6 border-t border-[var(--input-border)] flex-shrink-0">
+            <div className="p-6 border-t border-white/10 flex-shrink-0">
               <button
                 onClick={handleCloseImagesModal}
-                className="w-full bg-[var(--muted-foreground)] hover:bg-[var(--muted-foreground)]/80 px-6 py-3 rounded-lg text-white font-medium text-lg transition-colors"
+                className="w-full flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-6 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-900/80 hover:border-white/20"
               >
                 Cerrar
               </button>

@@ -27,6 +27,7 @@ import {
   RefreshCw,
   Trash2,
   Plus,
+  Camera,
 } from "lucide-react";
 import { CustomIcon } from "@/icons/icons";
 import { useState, useEffect, useRef } from "react";
@@ -1017,6 +1018,15 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 <span className="absolute top-0 right-0 inline-flex w-2 h-2 bg-red-500 rounded-full transform translate-x-1 -translate-y-1" />
               )}
             </button>
+
+            {/* Mobile scanner button (only visible on mobile) */}
+            <Link
+              href="/mobile-scan?rpn=t"
+              className="lg:hidden p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
+              title="Escanear"
+            >
+              <Camera className="w-5 h-5 text-[var(--foreground)]" />
+            </Link>
 
             {/* Mobile hamburger menu button */}
             <button

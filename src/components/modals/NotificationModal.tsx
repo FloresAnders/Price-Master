@@ -200,10 +200,10 @@ export default function NotificationModal({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       {showScanner ? (
-        <div className="bg-[var(--background)] rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-auto">
+        <div className="rounded-2xl border border-white/10 bg-slate-950 w-full max-w-lg max-h-[90vh] overflow-auto">
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-[var(--foreground)]">
+              <h2 className="text-xl font-semibold text-slate-100">
                 Escanear Código para{" "}
                 {selectedSolicitud?.productName || "Producto"}
               </h2>
@@ -232,7 +232,7 @@ export default function NotificationModal({
             />
 
             <div className="mt-4 pt-4 border-t border-[var(--input-border)]">
-              <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
+              <label className="block text-sm font-semibold text-slate-300 mb-3">
                 Agregar código manualmente
               </label>
               <div className="flex gap-2">
@@ -249,12 +249,12 @@ export default function NotificationModal({
                     }
                   }}
                   placeholder="Escribe o pega el código"
-                  className="flex-1 px-3 py-2 rounded border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)]"
+                  className="flex-1 rounded-lg border border-white/10 bg-slate-900/80 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/30 focus:ring-1 focus:ring-cyan-400/20 placeholder-slate-400"
                 />
                 <button
                   type="button"
                   onClick={submitManualCode}
-                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                  className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-900/80 hover:border-white/20"
                 >
                   Agregar
                 </button>
@@ -272,33 +272,33 @@ export default function NotificationModal({
           </div>
         </div>
       ) : showVerificationModal ? (
-        <div className="bg-[var(--background)] rounded-lg shadow-xl w-full sm:max-w-md">
+        <div className="rounded-2xl border border-white/10 bg-slate-950 w-full sm:max-w-md">
           <div className="p-6">
-            <h2 className="text-xl font-semibold text-[var(--foreground)] mb-4">
+            <h2 className="text-xl font-semibold text-slate-100 mb-4">
               Verificar Código Escaneado
             </h2>
             <div className="mb-4">
-              <p className="text-[var(--foreground)]">
+              <p className="text-slate-200">
                 <strong>Producto:</strong>{" "}
                 {selectedSolicitud?.productName || "Sin nombre"}
               </p>
-              <p className="text-[var(--foreground)]">
+              <p className="text-slate-200">
                 <strong>Código:</strong> {scannedCode}
               </p>
             </div>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
+              <label className="block text-sm font-semibold text-slate-300 mb-3">
                 Notas (opcional)
               </label>
               <input
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Ej: caja dañada, falta etiqueta, etc."
-                className="w-full px-3 py-2 rounded border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)]"
+                className="w-full rounded-lg border border-white/10 bg-slate-900/80 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/30 focus:ring-1 focus:ring-cyan-400/20 placeholder-slate-400"
               />
               {notes.trim() ? (
-                <div className="mt-2 text-xs text-[var(--muted-foreground)]">
+                <div className="mt-2 text-xs text-slate-400">
                   Se enviará como parte del nombre del producto.
                 </div>
               ) : null}
@@ -306,13 +306,17 @@ export default function NotificationModal({
 
             <div className="mb-4">
               <div className="flex items-center justify-between gap-3">
-                <div className="text-sm text-[var(--foreground)]">
+                <div className="text-sm text-slate-200">
                   Imágenes:{" "}
                   <span className="font-semibold">{uploadedImagesCount}</span>
                 </div>
 
                 <label
-                  className={`px-3 py-2 rounded text-sm text-white ${uploadingImages ? "bg-gray-400" : "bg-blue-500 hover:bg-blue-600"} cursor-pointer`}
+                  className={`flex items-center justify-center gap-2 rounded-lg border text-sm font-medium transition px-4 py-3 ${
+                    uploadingImages
+                      ? "border-white/10 bg-slate-900/50 text-slate-400 cursor-not-allowed"
+                      : "border-white/10 bg-slate-900/50 text-slate-200 hover:bg-slate-900/80 hover:border-white/20 cursor-pointer"
+                  }`}
                 >
                   {uploadingImages ? "Subiendo..." : "Agregar imagen"}
                   <input
@@ -331,7 +335,7 @@ export default function NotificationModal({
                 </label>
               </div>
               {uploadError ? (
-                <div className="mt-2 text-sm text-red-600">{uploadError}</div>
+                <div className="mt-2 text-sm text-red-400">{uploadError}</div>
               ) : null}
             </div>
 
@@ -345,7 +349,7 @@ export default function NotificationModal({
                   setUploadedImagesCount(0);
                   setUploadError(null);
                 }}
-                className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+                className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-900/80 hover:border-white/20"
               >
                 Cancelar
               </button>
@@ -390,7 +394,11 @@ export default function NotificationModal({
                     console.error("Error enviando código:", err);
                   }
                 }}
-                className={`px-4 py-2 text-white rounded ${uploadingImages ? "bg-gray-400 cursor-not-allowed" : "bg-blue-500 hover:bg-blue-600"}`}
+                className={`flex items-center justify-center gap-2 rounded-lg border text-sm font-medium px-4 py-3 transition ${
+                  uploadingImages
+                    ? "border-white/10 bg-slate-900/50 text-slate-400 cursor-not-allowed"
+                    : "border-white/10 bg-slate-900/50 text-slate-200 hover:bg-slate-900/80 hover:border-white/20"
+                }`}
               >
                 Enviar
               </button>
@@ -398,10 +406,10 @@ export default function NotificationModal({
           </div>
         </div>
       ) : (
-        <div className="bg-[var(--background)] rounded-lg shadow-xl w-full sm:max-w-md md:max-w-lg max-h-[80vh] overflow-auto">
+        <div className="rounded-2xl border border-white/10 bg-slate-950 w-full sm:max-w-md md:max-w-lg max-h-[80vh] overflow-auto">
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-[var(--foreground)]">
+              <h2 className="text-xl font-semibold text-slate-100">
                 Solicitudes de tu empresa
               </h2>
               <button
@@ -415,15 +423,15 @@ export default function NotificationModal({
             </div>
 
             {loading ? (
-              <div className="text-[var(--muted-foreground)]">
+              <div className="text-slate-400">
                 Cargando solicitudes...
               </div>
             ) : !user ? (
-              <div className="text-[var(--muted-foreground)]">
+              <div className="text-slate-400">
                 Inicia sesión para ver las solicitudes.
               </div>
             ) : solicitudes.length === 0 ? (
-              <div className="p-4 bg-[var(--card-bg)] border border-[var(--input-border)] rounded">
+              <div className="p-4 rounded-lg border border-white/10 bg-slate-900/50">
                 No hay solicitudes para {user.ownercompanie || "tu empresa"}.
               </div>
             ) : (
@@ -431,17 +439,17 @@ export default function NotificationModal({
                 {solicitudes.map((s) => (
                   <div
                     key={s.id}
-                    className="p-3 border border-[var(--input-border)] rounded bg-[var(--card-bg)]"
+                    className="p-3 rounded-lg border border-white/10 bg-slate-900/50"
                   >
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3">
-                        <div className="font-semibold text-[var(--foreground)] break-words">
+                        <div className="font-semibold text-slate-200 break-words">
                           {s.productName || s.name || "Sin nombre"}
                         </div>
                       </div>
 
                       <div className="flex flex-col gap-2">
-                        <div className="text-xs text-[var(--muted-foreground)]">
+                        <div className="text-xs text-slate-400">
                           {formatDate(s.createdAt)}
                         </div>
                         <button
@@ -449,7 +457,7 @@ export default function NotificationModal({
                             setSelectedSolicitud(s);
                             setShowScanner(true);
                           }}
-                          className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+                          className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-900/80 hover:border-white/20"
                         >
                           Abrir Escáner
                         </button>
@@ -463,7 +471,7 @@ export default function NotificationModal({
             <div className="mt-6 flex justify-end">
               <button
                 onClick={onClose}
-                className="px-4 py-2 bg-[var(--hover-bg)] text-[var(--foreground)] rounded hover:bg-[var(--muted)]"
+                className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-900/80 hover:border-white/20"
               >
                 Cerrar
               </button>

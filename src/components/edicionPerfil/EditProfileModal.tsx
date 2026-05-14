@@ -382,37 +382,37 @@ export default function EditProfileModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="rounded-xl border border-cyan-700 bg-cyan-950 shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto text-[var(--foreground)]">
+    <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4 w-full">
+      <div className="rounded-2xl border border-white/10 bg-slate-950 shadow-xl w-max max-w-md max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-[var(--foreground)] flex items-center gap-3">
-              <span className="flex h-7 w-7 items-center justify-center rounded border border-cyan-700/35 bg-cyan-900/25 text-cyan-100/80">
+            <h2 className="text-xl font-semibold text-slate-100 flex items-center gap-3">
+              <span className="flex h-7 w-7 items-center justify-center rounded border border-white/10 bg-slate-900/50 text-cyan-400">
                 <UserIcon className="w-5 h-5" />
               </span>
               Editar Perfil
             </h2>
             <button
               onClick={onClose}
-              className="text-cyan-100/70 hover:text-[var(--foreground)] transition-colors"
+              className="text-slate-400 hover:text-slate-100 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          <div className="rounded-xl border border-cyan-700/25 bg-cyan-950/10 p-3 sm:p-4">
+          <div className="rounded-lg border border-white/10 bg-slate-900/50 p-3 sm:p-4">
             {!user ? (
-              <p className="text-sm text-cyan-100/60">
+              <p className="text-sm text-slate-400">
                 No se pudo cargar la información del usuario.
               </p>
             ) : profileLoading ? (
               <div className="flex items-center justify-center py-10">
-                <Loader2 className="h-6 w-6 animate-spin text-cyan-100/70" />
+                <Loader2 className="h-6 w-6 animate-spin text-slate-300" />
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="flex flex-col items-center gap-3">
-                  <div className="w-24 h-24 rounded-full border border-cyan-700/35 bg-cyan-950/25 flex items-center justify-center overflow-hidden">
+                  <div className="w-24 h-24 rounded-full border border-white/10 bg-slate-900/50 flex items-center justify-center overflow-hidden">
                     {imageUpload.imagePreview ? (
                       // Show preview of selected image
                       // eslint-disable-next-line @next/next/no-img-element
@@ -430,12 +430,12 @@ export default function EditProfileModal({
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span className="text-xl font-semibold text-cyan-100/80">
+                      <span className="text-xl font-semibold text-slate-300">
                         {initials}
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-cyan-100/60">
+                  <div className="text-xs text-slate-400">
                     {imageUpload.hasSelectedFile
                       ? "Vista previa - Guardar para aplicar"
                       : "Foto de perfil"}
@@ -455,7 +455,7 @@ export default function EditProfileModal({
                           type="button"
                           onClick={imageUpload.cancelSelection}
                           disabled={isFormLocked}
-                          className="inline-flex items-center gap-2 h-11 rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-cyan-100/70 outline-none transition-colors hover:border-cyan-500/45 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+                          className="inline-flex items-center gap-2 h-11 rounded border border-white/10 bg-slate-900/50 px-3 text-sm text-slate-300 outline-none transition-colors hover:border-white/20 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           <X className="w-4 h-4" />
                           Cancelar
@@ -466,12 +466,12 @@ export default function EditProfileModal({
                         type="button"
                         onClick={imageUpload.openFileDialog}
                         disabled={isFormLocked}
-                        className="inline-flex items-center gap-2 h-11 rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-cyan-100/70 outline-none transition-colors hover:border-cyan-500/45 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex items-center gap-2 h-11 rounded border border-white/10 bg-slate-900/50 px-3 text-sm text-slate-300 outline-none transition-colors hover:border-white/20 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {imageUpload.isUploading ? (
-                          <Loader2 className="w-4 h-4 animate-spin text-cyan-100/70" />
+                          <Loader2 className="w-4 h-4 animate-spin text-slate-300" />
                         ) : (
-                          <Camera className="w-4 h-4 text-cyan-100/70" />
+                          <Camera className="w-4 h-4 text-slate-300" />
                         )}
                         {imageUpload.isUploading ? "Subiendo..." : "Cambiar"}
                       </button>
@@ -481,7 +481,7 @@ export default function EditProfileModal({
                         type="button"
                         onClick={imageUpload.deleteImage}
                         disabled={isFormLocked}
-                        className="inline-flex items-center gap-2 h-11 rounded border border-red-500/40 bg-red-500/10 px-3 text-sm text-red-400 outline-none transition-colors hover:border-red-500/60 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex items-center gap-2 h-11 rounded border border-red-400/20 bg-red-500/10 px-3 text-sm text-red-400 outline-none transition-colors hover:border-red-400/40 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {imageUpload.isDeleting ? (
                           <Loader2 className="w-4 h-4 animate-spin text-red-400" />
@@ -495,22 +495,22 @@ export default function EditProfileModal({
                 </div>
 
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-[var(--foreground)]">
+                  <p className="text-sm font-medium text-slate-200">
                     Datos del usuario
                   </p>
-                  <p className="text-xs text-cyan-100/60">
+                  <p className="text-xs text-slate-400">
                     Rol actual: <span className="capitalize">{roleLabel}</span>
                   </p>
                 </div>
 
                 {profileError && (
-                  <div className="rounded border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-700">
+                  <div className="rounded border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-400">
                     {profileError}
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <label className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-cyan-100/70">
+                <div className="flex flex-col gap-4">
+                  <label className="flex flex-col gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-300">
                     Nombre de usuario
                     <input
                       type="text"
@@ -519,11 +519,11 @@ export default function EditProfileModal({
                       required
                       autoComplete="username"
                       disabled={isFormLocked}
-                      className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="h-11 w-full rounded border border-white/10 bg-slate-900/80 px-3 text-sm text-slate-100 outline-none transition-colors placeholder:text-slate-400 hover:border-white/20 focus:border-cyan-400/30 focus:ring-1 focus:ring-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   </label>
 
-                  <label className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-cyan-100/70">
+                  <label className="flex flex-col gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-300">
                     Nombre completo
                     <input
                       type="text"
@@ -531,12 +531,12 @@ export default function EditProfileModal({
                       onChange={handleChange("fullName")}
                       autoComplete="name"
                       disabled={isFormLocked}
-                      className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="h-11 w-full rounded border border-white/10 bg-slate-900/80 px-3 text-sm text-slate-100 outline-none transition-colors placeholder:text-slate-400 hover:border-white/20 focus:border-cyan-400/30 focus:ring-1 focus:ring-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
                     />
                   </label>
                 </div>
 
-                <label className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-cyan-100/70">
+                <label className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-300">
                   Correo electrónico
                   <input
                     type="email"
@@ -544,7 +544,7 @@ export default function EditProfileModal({
                     onChange={handleChange("email")}
                     autoComplete="email"
                     disabled={isFormLocked}
-                    className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="h-11 w-full rounded border border-white/10 bg-slate-900/80 px-3 text-sm text-slate-100 outline-none transition-colors placeholder:text-slate-400 hover:border-white/20 focus:border-cyan-400/30 focus:ring-1 focus:ring-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
                   />
                 </label>
 
@@ -552,10 +552,10 @@ export default function EditProfileModal({
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="flex h-7 w-7 items-center justify-center rounded border border-cyan-700/35 bg-cyan-900/25 text-cyan-100/80">
+                      <span className="flex h-7 w-7 items-center justify-center rounded border border-white/10 bg-slate-900/50 text-cyan-400">
                         <Lock className="w-4 h-4" />
                       </span>
-                      <span className="text-sm font-medium text-[var(--foreground)]">
+                      <span className="text-sm font-medium text-slate-200">
                         Contraseña
                       </span>
                     </div>
@@ -571,7 +571,7 @@ export default function EditProfileModal({
                     type="button"
                     onClick={() => setShowChangePassword(!showChangePassword)}
                     disabled={isFormLocked}
-                    className="w-full flex items-center justify-between h-11 rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-cyan-100/70 outline-none transition-colors hover:border-cyan-500/45 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full flex items-center justify-between h-11 rounded border border-white/10 bg-slate-900/50 px-3 text-sm text-slate-300 outline-none transition-colors hover:border-white/20 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <span>
                       {showChangePassword
@@ -586,8 +586,8 @@ export default function EditProfileModal({
                   </button>
 
                   {showChangePassword && (
-                    <div className="space-y-4 rounded-xl border border-cyan-700/25 bg-cyan-950/10 p-3 sm:p-4">
-                      <label className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-cyan-100/70">
+                    <div className="space-y-4 rounded-lg border border-white/10 bg-slate-900/50 p-3 sm:p-4">
+                      <label className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-300">
                         Contraseña actual
                         <div className="relative w-full">
                           <input
@@ -596,7 +596,7 @@ export default function EditProfileModal({
                             onChange={handleChange("currentPassword")}
                             autoComplete="current-password"
                             disabled={isFormLocked}
-                            className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 pr-10 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                            className="h-11 w-full rounded border border-white/10 bg-slate-900/80 px-3 pr-10 text-sm text-slate-100 outline-none transition-colors placeholder:text-slate-400 hover:border-white/20 focus:border-cyan-400/30 focus:ring-1 focus:ring-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
                             placeholder="Ingresa tu contraseña actual"
                             required={showChangePassword}
                           />
@@ -606,7 +606,7 @@ export default function EditProfileModal({
                               setShowCurrentPassword((prev) => !prev)
                             }
                             disabled={isFormLocked}
-                            className="absolute inset-y-0 right-0 flex items-center px-3 text-cyan-100/70 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+                            className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
                             aria-label={
                               showCurrentPassword
                                 ? "Ocultar contraseña actual"
@@ -622,7 +622,7 @@ export default function EditProfileModal({
                         </div>
                       </label>
 
-                      <label className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-cyan-100/70">
+                      <label className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-300">
                         Nueva contraseña
                         <div className="relative w-full">
                           <input
@@ -631,7 +631,7 @@ export default function EditProfileModal({
                             onChange={handleChange("password")}
                             autoComplete="new-password"
                             disabled={isFormLocked}
-                            className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 pr-10 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                            className="h-11 w-full rounded border border-white/10 bg-slate-900/80 px-3 pr-10 text-sm text-slate-100 outline-none transition-colors placeholder:text-slate-400 hover:border-white/20 focus:border-cyan-400/30 focus:ring-1 focus:ring-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
                             placeholder="Ingresa tu nueva contraseña"
                             required={showChangePassword}
                           />
@@ -639,7 +639,7 @@ export default function EditProfileModal({
                             type="button"
                             onClick={() => setShowPassword((prev) => !prev)}
                             disabled={isFormLocked}
-                            className="absolute inset-y-0 right-0 flex items-center px-3 text-cyan-100/70 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+                            className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
                             aria-label={
                               showPassword
                                 ? "Ocultar nueva contraseña"
@@ -655,7 +655,7 @@ export default function EditProfileModal({
                         </div>
                       </label>
 
-                      <label className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-cyan-100/70">
+                      <label className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-300">
                         Confirmar nueva contraseña
                         <div className="relative w-full">
                           <input
@@ -664,7 +664,7 @@ export default function EditProfileModal({
                             onChange={handleChange("passwordConfirm")}
                             autoComplete="new-password"
                             disabled={isFormLocked}
-                            className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 pr-10 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                            className="h-11 w-full rounded border border-white/10 bg-slate-900/80 px-3 pr-10 text-sm text-slate-100 outline-none transition-colors placeholder:text-slate-400 hover:border-white/20 focus:border-cyan-400/30 focus:ring-1 focus:ring-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
                             placeholder="Confirma tu nueva contraseña"
                             required={showChangePassword}
                           />
@@ -674,7 +674,7 @@ export default function EditProfileModal({
                               setShowPasswordConfirm((prev) => !prev)
                             }
                             disabled={isFormLocked}
-                            className="absolute inset-y-0 right-0 flex items-center px-3 text-cyan-100/70 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+                            className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
                             aria-label={
                               showPasswordConfirm
                                 ? "Ocultar confirmación"
@@ -690,8 +690,8 @@ export default function EditProfileModal({
                         </div>
                       </label>
 
-                      <div className="text-xs text-cyan-100/60 flex items-start gap-2 mt-2">
-                        <Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-cyan-100/70" />
+                      <div className="text-xs text-slate-400 flex items-start gap-2 mt-2">
+                        <Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-slate-400" />
                         <span>
                           Asegúrate de que tu nueva contraseña sea segura y
                           diferente a la actual.
@@ -702,37 +702,37 @@ export default function EditProfileModal({
                 </div>
 
                 {showOwnerInfo && (
-                  <div className="rounded-xl border border-cyan-700/25 bg-cyan-950/10 p-3 sm:p-4 text-sm">
+                  <div className="rounded-lg border border-white/10 bg-slate-900/50 p-3 sm:p-4 text-sm">
                     <div className="flex items-start gap-2">
-                      <span className="flex h-7 w-7 items-center justify-center rounded border border-cyan-700/35 bg-cyan-900/25 text-cyan-100/80 mt-0.5">
+                      <span className="flex h-7 w-7 items-center justify-center rounded border border-white/10 bg-slate-900/50 text-cyan-400 mt-0.5">
                         <Info className="h-4 w-4" />
                       </span>
                       <div>
-                        <p className="font-medium text-[var(--foreground)]">
+                        <p className="font-medium text-slate-200">
                           Usuario Encargado
                         </p>
                         {ownerLoading ? (
-                          <p className="text-cyan-100/60">
+                          <p className="text-slate-400">
                             Cargando información…
                           </p>
                         ) : (
                           <>
-                            <p className="text-cyan-100/60">
+                            <p className="text-slate-400">
                               {ownerDisplayName}
                               {ownerEmail ? ` · ${ownerEmail}` : ""}
                             </p>
                             {baseUser?.ownercompanie &&
                               ownerDisplayName !== baseUser.ownercompanie && (
-                                <p className="text-xs text-cyan-100/60 mt-1">
+                                <p className="text-xs text-slate-400 mt-1">
                                   Empresa asignada:{" "}
-                                  <span className="font-medium text-[var(--foreground)]">
+                                  <span className="font-medium text-slate-200">
                                     {baseUser.ownercompanie}
                                   </span>
                                 </p>
                               )}
                             {baseUser?.ownercompanie &&
                               ownerDisplayName === baseUser.ownercompanie && (
-                                <p className="text-xs text-cyan-100/60 mt-1">
+                                <p className="text-xs text-slate-400 mt-1">
                                   Empresa asignada vinculada a este usuario.
                                 </p>
                               )}
@@ -753,7 +753,7 @@ export default function EditProfileModal({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="inline-flex items-center gap-2 h-11 rounded border border-cyan-700/35 bg-cyan-950/25 px-5 text-sm text-cyan-100/70 outline-none transition-colors hover:border-cyan-500/45 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center gap-2 h-11 rounded border border-white/10 bg-slate-900/50 px-5 text-sm text-slate-300 outline-none transition-colors hover:border-white/20 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <X className="w-4 h-4" />
                     Cancelar
@@ -761,11 +761,11 @@ export default function EditProfileModal({
                   <button
                     type="submit"
                     disabled={!hasChanges || isSaving || profileLoading}
-                    className="inline-flex items-center gap-2 h-11 rounded border border-[var(--accent)] bg-[var(--accent)] px-5 text-sm font-medium text-[var(--button-text)] outline-none transition-colors hover:border-[var(--accent)]/80 hover:bg-[var(--accent)]/90 disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
+                    className="inline-flex items-center gap-2 h-11 rounded border border-cyan-400 bg-cyan-600 px-5 text-sm font-medium text-white outline-none transition-colors hover:border-cyan-400/80 hover:bg-cyan-600/90 disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
                   >
                     {isSaving ? (
                       <>
-                        <Loader2 className="h-4 w-4 animate-spin text-[var(--button-text)]" />
+                        <Loader2 className="h-4 w-4 animate-spin text-white" />
                         Guardando…
                       </>
                     ) : (

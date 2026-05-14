@@ -47,16 +47,16 @@ export default function ConfigurationModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-[var(--background)] rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div className="rounded-2xl border border-white/10 bg-slate-950 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-semibold text-[var(--foreground)] flex items-center gap-3">
-              <Settings className="w-6 h-6 text-blue-600" />
+            <h2 className="text-2xl font-semibold text-slate-100 flex items-center gap-3">
+              <Settings className="w-6 h-6 text-cyan-400" />
               Configuración del Sistema
             </h2>
             <button
               onClick={onClose}
-              className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+              className="text-slate-400 hover:text-slate-100 transition-colors"
             >
               <X className="w-6 h-6" />
             </button>
@@ -64,18 +64,18 @@ export default function ConfigurationModal({
 
           {/* User Information */}
           <div className="mb-6">
-            <h3 className="text-lg font-medium text-[var(--foreground)] mb-4 flex items-center gap-2">
-              <User className="w-5 h-5 text-blue-500" />
+            <h3 className="text-lg font-medium text-slate-100 mb-4 flex items-center gap-2">
+              <User className="w-5 h-5 text-cyan-400" />
               Información del Usuario
             </h3>
-            <div className="bg-[var(--hover-bg)] rounded-lg p-4">
+            <div className="rounded-lg border border-white/10 bg-slate-900/50 p-4">
               <div className="flex items-center gap-3 mb-4">
-                <User className="w-8 h-8 text-[var(--muted-foreground)]" />
+                <User className="w-8 h-8 text-slate-400" />
                 <div>
-                  <div className="font-medium text-[var(--foreground)]">
+                  <div className="font-medium text-slate-200">
                     {user?.name}
                   </div>
-                  <div className="text-sm text-[var(--muted-foreground)]">
+                  <div className="text-sm text-slate-400">
                     Usuario activo: <strong>{user?.name}</strong>
                   </div>
                 </div>
@@ -85,27 +85,27 @@ export default function ConfigurationModal({
 
           {/* Session Management */}
           <div className="mb-6">
-            <h3 className="text-lg font-medium text-[var(--foreground)] mb-4 flex items-center gap-2">
-              <Shield className="w-5 h-5 text-green-500" />
+            <h3 className="text-lg font-medium text-slate-100 mb-4 flex items-center gap-2">
+              <Shield className="w-5 h-5 text-cyan-400" />
               Gestión de Sesión
             </h3>
             <div className="space-y-4">
               <TokenInfo isOpen={true} onClose={() => {}} inline={true} />
 
               {/* Toggle para FloatingSessionTimer */}
-              <div className="bg-[var(--hover-bg)] rounded-lg p-4">
+              <div className="rounded-lg border border-white/10 bg-slate-900/50 p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     {showSessionTimer ? (
-                      <Timer className="w-5 h-5 text-blue-500" />
+                      <Timer className="w-5 h-5 text-cyan-400" />
                     ) : (
-                      <TimerOff className="w-5 h-5 text-gray-500" />
+                      <TimerOff className="w-5 h-5 text-slate-500" />
                     )}
                     <div>
-                      <div className="font-medium text-[var(--foreground)]">
+                      <div className="font-medium text-slate-200">
                         Temporizador Flotante
                       </div>
-                      <div className="text-sm text-[var(--muted-foreground)]">
+                      <div className="text-sm text-slate-400">
                         {showSessionTimer ? "Visible en pantalla" : "Oculto"}
                       </div>
                     </div>
@@ -121,8 +121,8 @@ export default function ConfigurationModal({
                       <div
                         className={`block w-12 h-6 rounded-full transition-colors duration-200 ease-in-out ${
                           showSessionTimer
-                            ? "bg-blue-600 shadow-lg"
-                            : "bg-gray-300 dark:bg-gray-600"
+                            ? "bg-cyan-600 shadow-lg"
+                            : "bg-slate-600"
                         }`}
                       ></div>
                       <div
@@ -133,7 +133,7 @@ export default function ConfigurationModal({
                     </div>
                   </label>
                 </div>
-                <div className="mt-3 text-xs text-[var(--muted-foreground)]">
+                <div className="mt-3 text-xs text-slate-400">
                   {showSessionTimer
                     ? "El temporizador de sesión se muestra en la esquina inferior derecha"
                     : "Activa para mostrar el temporizador de sesión flotante"}
@@ -141,17 +141,17 @@ export default function ConfigurationModal({
               </div>
 
               {/* Toggle para Calculadora Siempre Visible */}
-              <div className="bg-[var(--hover-bg)] rounded-lg p-4">
+              <div className="rounded-lg border border-white/10 bg-slate-900/50 p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Calculator
-                      className={`w-5 h-5 ${showCalculator ? "text-green-500" : "text-gray-500"}`}
+                      className={`w-5 h-5 ${showCalculator ? "text-cyan-400" : "text-slate-500"}`}
                     />
                     <div>
-                      <div className="font-medium text-[var(--foreground)]">
+                      <div className="font-medium text-slate-200">
                         Mostrar Siempre la Calculadora
                       </div>
-                      <div className="text-sm text-[var(--muted-foreground)]">
+                      <div className="text-sm text-slate-400">
                         {showCalculator
                           ? "Calculadora visible en todas las páginas"
                           : "Calculadora oculta"}
@@ -169,8 +169,8 @@ export default function ConfigurationModal({
                       <div
                         className={`block w-12 h-6 rounded-full transition-colors duration-200 ease-in-out ${
                           showCalculator
-                            ? "bg-green-600 shadow-lg"
-                            : "bg-gray-300 dark:bg-gray-600"
+                            ? "bg-cyan-600 shadow-lg"
+                            : "bg-slate-600"
                         }`}
                       ></div>
                       <div
@@ -181,7 +181,7 @@ export default function ConfigurationModal({
                     </div>
                   </label>
                 </div>
-                <div className="mt-3 text-xs text-[var(--muted-foreground)]">
+                <div className="mt-3 text-xs text-slate-400">
                   {showCalculator
                     ? "La calculadora estará disponible en todas las páginas como botón flotante"
                     : "Activa para mostrar la calculadora flotante en toda la aplicación"}
@@ -189,17 +189,17 @@ export default function ConfigurationModal({
               </div>
 
               {/* Toggle para mostrar/ocultar tarjeta semanal de proveedores en Home */}
-              <div className="bg-[var(--hover-bg)] rounded-lg p-4">
+              <div className="rounded-lg border border-white/10 bg-slate-900/50 p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Settings
-                      className={`w-5 h-5 ${showSupplierWeekInMenu ? "text-green-500" : "text-gray-500"}`}
+                      className={`w-5 h-5 ${showSupplierWeekInMenu ? "text-cyan-400" : "text-slate-500"}`}
                     />
                     <div>
-                      <div className="font-medium text-[var(--foreground)]">
+                      <div className="font-medium text-slate-200">
                         Mostrar en menu la tarjeta de Semana Proveedores
                       </div>
-                      <div className="text-sm text-[var(--muted-foreground)]">
+                      <div className="text-sm text-slate-400">
                         {showSupplierWeekInMenu
                           ? "Tarjeta visible en el Home (si tienes permisos)"
                           : "Tarjeta oculta en el Home"}
@@ -219,8 +219,8 @@ export default function ConfigurationModal({
                       <div
                         className={`block w-12 h-6 rounded-full transition-colors duration-200 ease-in-out ${
                           showSupplierWeekInMenu
-                            ? "bg-green-600 shadow-lg"
-                            : "bg-gray-300 dark:bg-gray-600"
+                            ? "bg-cyan-600 shadow-lg"
+                            : "bg-slate-600"
                         }`}
                       />
                       <div
@@ -233,7 +233,7 @@ export default function ConfigurationModal({
                     </div>
                   </label>
                 </div>
-                <div className="mt-3 text-xs text-[var(--muted-foreground)]">
+                <div className="mt-3 text-xs text-slate-400">
                   {showSupplierWeekInMenu
                     ? "Se muestra la tarjeta de Semana actual (proveedores) en el menú principal"
                     : "Activa para mostrar la tarjeta semanal de proveedores en el Home"}
@@ -241,17 +241,17 @@ export default function ConfigurationModal({
               </div>
 
               {/* Toggle para habilitar ordenar el menú del Home */}
-              <div className="bg-[var(--hover-bg)] rounded-lg p-4">
+              <div className="rounded-lg border border-white/10 bg-slate-900/50 p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <GripVertical
-                      className={`w-5 h-5 ${enableHomeMenuSortMobile ? "text-green-500" : "text-gray-500"}`}
+                      className={`w-5 h-5 ${enableHomeMenuSortMobile ? "text-cyan-400" : "text-slate-500"}`}
                     />
                     <div>
-                      <div className="font-medium text-[var(--foreground)]">
+                      <div className="font-medium text-slate-200">
                         Ordenar menú
                       </div>
-                      <div className="text-sm text-[var(--muted-foreground)]">
+                      <div className="text-sm text-slate-400">
                         {enableHomeMenuSortMobile
                           ? "Arrastra para reordenar las tarjetas del Home"
                           : "Desactivado para evitar toques accidentales"}
@@ -271,8 +271,8 @@ export default function ConfigurationModal({
                       <div
                         className={`block w-12 h-6 rounded-full transition-colors duration-200 ease-in-out ${
                           enableHomeMenuSortMobile
-                            ? "bg-green-600 shadow-lg"
-                            : "bg-gray-300 dark:bg-gray-600"
+                            ? "bg-cyan-600 shadow-lg"
+                            : "bg-slate-600"
                         }`}
                       />
                       <div
@@ -285,7 +285,7 @@ export default function ConfigurationModal({
                     </div>
                   </label>
                 </div>
-                <div className="mt-3 text-xs text-[var(--muted-foreground)]">
+                <div className="mt-3 text-xs text-slate-400">
                   Aplica en todas las pantallas.
                 </div>
               </div>
@@ -293,14 +293,14 @@ export default function ConfigurationModal({
           </div>
 
           {/* Actions Section */}
-          <div className="border-t border-[var(--input-border)] pt-6">
-            <h3 className="text-lg font-medium text-[var(--foreground)] mb-4">
+          <div className="border-t border-white/10 pt-6">
+            <h3 className="text-lg font-medium text-slate-100 mb-4">
               Acciones
             </h3>
             <div className="flex gap-3">
               <button
                 onClick={onClose}
-                className="px-4 py-2 bg-[var(--hover-bg)] text-[var(--foreground)] rounded-lg hover:bg-[var(--muted)] transition-colors"
+                className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-900/80 hover:border-white/20"
               >
                 Cerrar
               </button>
@@ -309,7 +309,7 @@ export default function ConfigurationModal({
                   onClose();
                   onLogoutClick();
                 }}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center gap-2"
+                className="flex items-center justify-center gap-2 rounded-lg border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm font-medium text-red-400 transition hover:bg-red-500/20 hover:border-red-400/40"
               >
                 <LogOut className="w-4 h-4" />
                 Cerrar Sesión
