@@ -79,6 +79,17 @@ export default function UsersEditorSection({
     return Boolean(editMode[key]);
   };
 
+  const fieldClassName =
+    "w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 sm:px-4 text-sm font-medium text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/60 focus-visible:ring-2 focus-visible:ring-[var(--accent)]/60 focus-visible:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed";
+  const passwordFieldClassName =
+    `${fieldClassName} pr-10`;
+  const primaryButtonClassName =
+    "rounded-lg bg-[var(--accent)] px-4 py-2.5 text-xs font-medium text-white transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:px-5 sm:py-3 sm:text-sm";
+  const secondaryButtonClassName =
+    "rounded-lg border border-[var(--input-border)] bg-[var(--muted)]/50 px-4 py-2.5 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--muted)] hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50 sm:px-5 sm:py-3 sm:text-sm";
+  const dangerButtonClassName =
+    "rounded-lg bg-red-600 px-4 py-2.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-5 sm:py-3 sm:text-sm";
+
   return (
     <div className="space-y-3 sm:space-y-4">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
@@ -92,7 +103,7 @@ export default function UsersEditorSection({
         </div>
         <button
           onClick={addUser}
-          className="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-xs sm:text-sm w-full sm:w-auto flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap"
+          className={`${primaryButtonClassName} w-full sm:w-auto flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap`}
         >
           <UserPlus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           <span>Agregar Usuario</span>
@@ -131,11 +142,7 @@ export default function UsersEditorSection({
                         updateUser(index, "name", e.target.value)
                       }
                       disabled={disableInputs}
-                      className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
-                      style={{
-                        background: "var(--input-bg)",
-                        color: "var(--foreground)",
-                      }}
+                      className={fieldClassName}
                       placeholder="Nombre de usuario"
                     />
                   </div>
@@ -150,11 +157,7 @@ export default function UsersEditorSection({
                         updateUser(index, "fullName", e.target.value)
                       }
                       disabled={disableInputs}
-                      className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
-                      style={{
-                        background: "var(--input-bg)",
-                        color: "var(--foreground)",
-                      }}
+                      className={fieldClassName}
                       placeholder="Nombre completo"
                     />
                   </div>
@@ -170,20 +173,12 @@ export default function UsersEditorSection({
                           updateUser(index, "email", e.target.value)
                         }
                         disabled={disableInputs}
-                        className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
-                        style={{
-                          background: "var(--input-bg)",
-                          color: "var(--foreground)",
-                        }}
+                        className={fieldClassName}
                         placeholder="correo@ejemplo.com"
                       />
                     ) : (
                       <div
-                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md"
-                        style={{
-                          background: "var(--muted)",
-                          color: "var(--foreground)",
-                        }}
+                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2.5 text-[var(--foreground)]"
                       >
                         <span className="text-xs sm:text-sm break-all">
                           {user.email || "Sin correo"}
@@ -199,7 +194,7 @@ export default function UsersEditorSection({
                             });
                           }}
                           disabled={disableInputs}
-                          className="text-[10px] sm:text-xs px-2 py-1 bg-[var(--primary)] text-white rounded hover:bg-[var(--button-hover)] transition-colors whitespace-nowrap flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className={`${primaryButtonClassName} flex items-center justify-center gap-1 whitespace-nowrap px-3 py-1.5 sm:px-3.5 sm:py-2`}
                           title="Cambiar correo"
                         >
                           <Mail className="w-3 h-3" />
@@ -225,17 +220,13 @@ export default function UsersEditorSection({
                       );
                       return (
                         <>
-                          <select
+                            <select
                             value={user.ownercompanie || ""}
                             onChange={(e) =>
                               updateUser(index, "ownercompanie", e.target.value)
                             }
                             disabled={disableInputs}
-                            className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
-                            style={{
-                              background: "var(--input-bg)",
-                              color: "var(--foreground)",
-                            }}
+                            className={fieldClassName}
                           >
                             <option value="">Seleccionar empresa</option>
                             {allowedEmpresas.map((empresa) => (
@@ -264,20 +255,16 @@ export default function UsersEditorSection({
                       Contraseña:
                     </label>
                     {!user.id ? (
-                      <input
-                        type="text"
-                        value={user.password || ""}
-                        onChange={(e) =>
-                          updateUser(index, "password", e.target.value)
-                        }
-                        disabled={disableInputs}
-                        className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
-                        style={{
-                          background: "var(--input-bg)",
-                          color: "var(--foreground)",
-                        }}
-                        placeholder="Contraseña"
-                      />
+                        <input
+                          type="text"
+                          value={user.password || ""}
+                          onChange={(e) =>
+                            updateUser(index, "password", e.target.value)
+                          }
+                          disabled={disableInputs}
+                          className={fieldClassName}
+                          placeholder="Contraseña"
+                        />
                     ) : changePasswordMode[getUserKey(user, index)] ? (
                       <div className="space-y-1.5 sm:space-y-2">
                         <div className="relative">
@@ -292,11 +279,7 @@ export default function UsersEditorSection({
                               updateUser(index, "password", e.target.value)
                             }
                             disabled={disableInputs}
-                            className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 pr-10 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
-                            style={{
-                              background: "var(--input-bg)",
-                              color: "var(--foreground)",
-                            }}
+                            className={passwordFieldClassName}
                             placeholder="Nueva contraseña"
                           />
                           <button
@@ -339,22 +322,14 @@ export default function UsersEditorSection({
                             }));
                           }}
                           disabled={isSaving}
-                          className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="text-[10px] sm:text-xs px-3 sm:px-3.5 py-1.5 sm:py-2 text-[var(--foreground)] hover:text-[var(--accent)] bg-[var(--muted)]/50 hover:bg-[var(--muted)] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium border border-[var(--input-border)]"
                         >
                           Cancelar
                         </button>
                       </div>
                     ) : (
-                      <div
-                        className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 sm:gap-0 px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md"
-                        style={{
-                          background: "var(--muted)",
-                          color: "var(--foreground)",
-                        }}
-                      >
-                        <span className="text-xs sm:text-sm">
-                          Contraseña configurada
-                        </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs sm:text-sm">********</span>
                         <button
                           type="button"
                           onClick={() => {
@@ -365,15 +340,13 @@ export default function UsersEditorSection({
                             }));
                           }}
                           disabled={disableInputs}
-                          className="text-[10px] sm:text-xs px-2 py-1 bg-[var(--primary)] text-white rounded hover:bg-[var(--button-hover)] transition-colors whitespace-nowrap flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className={secondaryButtonClassName + " px-3 py-1.5"}
                         >
-                          <Edit className="w-3 h-3" />
-                          Cambiar
+                          Cambiar contraseña
                         </button>
                       </div>
                     )}
                   </div>
-
                   <div>
                     <label className="block text-xs sm:text-sm font-medium mb-1">
                       Rol:
@@ -384,11 +357,7 @@ export default function UsersEditorSection({
                         updateUser(index, "role", e.target.value as any)
                       }
                       disabled={disableInputs}
-                      className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
-                      style={{
-                        background: "var(--input-bg)",
-                        color: "var(--foreground)",
-                      }}
+                      className={fieldClassName}
                     >
                       {!(currentUser?.role === "superadmin" && !user.id) && (
                         <option value="user">Usuario</option>
@@ -421,11 +390,7 @@ export default function UsersEditorSection({
                             )
                           }
                           disabled={disableInputs}
-                          className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
-                          style={{
-                            background: "var(--input-bg)",
-                            color: "var(--foreground)",
-                          }}
+                            className={fieldClassName}
                           placeholder="Máx. empresas"
                         />
                       </div>
@@ -445,7 +410,10 @@ export default function UsersEditorSection({
                           updateUser(index, "isActive", e.target.checked)
                         }
                         disabled={disableInputs}
-                        className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 bg-[var(--background)] border-[var(--border)] rounded focus:ring-blue-500"
+                        className="w-4 h-4 sm:w-5 sm:h-5 rounded border border-[var(--input-border)] cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)]/60 focus-visible:ring-offset-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{
+                          accentColor: "var(--primary)",
+                        }}
                       />
                       <span className="text-xs sm:text-sm">Usuario activo</span>
                     </div>
@@ -493,8 +461,8 @@ export default function UsersEditorSection({
                     disabled={!user.id || isSaving}
                     className={
                       isEditing
-                        ? "px-3 py-1.5 sm:px-4 sm:py-2 bg-[var(--secondary)] text-white rounded-md hover:opacity-90 transition-colors flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                        : "px-3 py-1.5 sm:px-4 sm:py-2 bg-[var(--primary)] text-white rounded-md hover:bg-[var(--button-hover)] transition-colors flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        ? `${secondaryButtonClassName} flex items-center justify-center gap-1.5 sm:gap-2`
+                        : `${primaryButtonClassName} flex items-center justify-center gap-1.5 sm:gap-2`
                     }
                     title={
                       !user.id
@@ -519,7 +487,7 @@ export default function UsersEditorSection({
                         // Keep edit mode enabled if save fails.
                       }
                     }}
-                    className="px-3 py-1.5 sm:px-4 sm:py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`${primaryButtonClassName} flex items-center justify-center gap-1.5 sm:gap-2`}
                     disabled={!isEditing || isSaving}
                     title={
                       !isEditing
@@ -532,7 +500,7 @@ export default function UsersEditorSection({
                   </button>
                   <button
                     onClick={() => removeUser(index)}
-                    className="px-3 py-2 sm:px-4 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={dangerButtonClassName}
                     disabled={
                       !isEditing ||
                       isSaving ||

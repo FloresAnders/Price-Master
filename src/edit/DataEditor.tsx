@@ -1166,7 +1166,7 @@ export default function DataEditor() {
               <button
                 onClick={() => setAllUserPermissions(index, true)}
                 disabled={isDisabled}
-                className="text-xs sm:text-sm px-3 py-2 bg-[var(--success)] text-white rounded-md hover:bg-[var(--button-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                className="text-xs sm:text-sm px-4 sm:px-5 py-2 sm:py-2.5 bg-[var(--accent)] text-white rounded-lg hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap font-medium flex items-center justify-center gap-1.5"
               >
                 <span className="hidden sm:inline">Habilitar Todo</span>
                 <span className="sm:hidden flex items-center gap-1">
@@ -1177,7 +1177,7 @@ export default function DataEditor() {
               <button
                 onClick={() => setAllUserPermissions(index, false)}
                 disabled={isDisabled}
-                className="text-xs sm:text-sm px-3 py-2 bg-[var(--error)] text-white rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                className="text-xs sm:text-sm px-4 sm:px-5 py-2 sm:py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap font-medium flex items-center justify-center gap-1.5"
               >
                 <span className="hidden sm:inline">Deshabilitar Todo</span>
                 <span className="sm:hidden flex items-center gap-1">
@@ -1189,7 +1189,7 @@ export default function DataEditor() {
                 onClick={() =>
                   setShowPermissions((prev) => ({ ...prev, [key]: !prev[key] }))
                 }
-                className="text-xs sm:text-sm px-3 py-2 bg-[var(--primary)] text-white rounded-md hover:bg-[var(--button-hover)] transition-colors whitespace-nowrap"
+                className="text-xs sm:text-sm px-4 sm:px-5 py-2 sm:py-2.5 bg-[var(--accent)] text-white rounded-lg hover:bg-[var(--accent-hover)] transition-colors whitespace-nowrap font-medium flex items-center justify-center gap-1.5"
               >
                 {showPermissions[key] ? (
                   <span className="hidden sm:inline">Vista Compacta</span>
@@ -1220,7 +1220,7 @@ export default function DataEditor() {
               .map(([permission, hasAccess]) => (
                 <div
                   key={permission}
-                  className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border-2 rounded-lg transition-all ${
+                  className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border rounded-lg transition-colors ${
                     hasAccess
                       ? "border-[var(--success)] bg-[var(--muted)] hover:opacity-90"
                       : "border-[var(--border)] bg-[var(--card-bg)] hover:opacity-90"
@@ -1253,7 +1253,7 @@ export default function DataEditor() {
                         return updated;
                       });
                     }}
-                    className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--success)] border-2 rounded focus:ring-[var(--success)] focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-4 h-4 sm:w-5 sm:h-5 text-[var(--success)] border rounded focus-visible:ring-[var(--accent)]/60 focus-visible:ring-2 focus-visible:ring-offset-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{
                       backgroundColor: "var(--input-bg)",
                       borderColor: "var(--input-border)",
@@ -1336,7 +1336,7 @@ export default function DataEditor() {
                         return updated;
                       });
                     }}
-                    className="w-3 h-3 disabled:opacity-50"
+                    className="w-3 h-3 sm:w-4 sm:h-4 rounded border border-current cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)]/60 focus-visible:ring-offset-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   <span className="hidden sm:inline">
                     {getPermissionLabel(permission)}
@@ -1380,7 +1380,7 @@ export default function DataEditor() {
                 .map((empresa) => (
                   <label
                     key={empresa.id || empresa.name}
-                    className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer text-sm hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                    className="flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 border border-[var(--input-border)] rounded-lg cursor-pointer text-sm hover:bg-[var(--muted)]/30 transition-colors bg-[var(--card-bg)]/50"
                   >
                     <input
                       type="checkbox"
@@ -1423,7 +1423,7 @@ export default function DataEditor() {
                           return updated;
                         });
                       }}
-                      className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
+                      className="w-4 h-4 sm:w-5 sm:h-5 rounded border border-[var(--input-border)] cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)]/60 focus-visible:ring-offset-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                     <span
                       className="flex-1 truncate"

@@ -191,7 +191,7 @@ export default function ChangeEmailModal({
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
                   disabled={busy}
-                  className="w-full rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full h-10 px-3 sm:px-4 py-2 sm:py-2.5 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/60 focus-visible:ring-offset-1 transition-colors hover:border-[var(--accent)]/40 disabled:cursor-not-allowed disabled:opacity-60"
                   placeholder="correo@ejemplo.com"
                   autoComplete="email"
                 />
@@ -206,7 +206,7 @@ export default function ChangeEmailModal({
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   disabled={busy}
-                  className="w-full rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full h-10 px-3 sm:px-4 py-2 sm:py-2.5 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/60 focus-visible:ring-offset-1 transition-colors hover:border-[var(--accent)]/40 disabled:cursor-not-allowed disabled:opacity-60"
                   placeholder="000000"
                   inputMode="numeric"
                 />
@@ -226,7 +226,7 @@ export default function ChangeEmailModal({
                 type="button"
                 onClick={sendCode}
                 disabled={busy}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm text-white hover:bg-[var(--button-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-2.5 text-sm font-medium text-white hover:bg-[var(--accent-hover)] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isSending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -241,7 +241,7 @@ export default function ChangeEmailModal({
                   type="button"
                   onClick={sendCode}
                   disabled={busy}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--muted)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--muted)]/30 px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors disabled:cursor-not-allowed disabled:opacity-60 font-medium"
                   title="Reenviar código"
                 >
                   {isSending ? (
@@ -254,8 +254,8 @@ export default function ChangeEmailModal({
                 <button
                   type="button"
                   onClick={confirmChange}
-                  disabled={busy}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm text-white hover:bg-[var(--button-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={busy || !isValidEmail(newEmail) || !code}
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--accent-hover)] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isConfirming ? (
                     <Loader2 className="h-4 w-4 animate-spin" />

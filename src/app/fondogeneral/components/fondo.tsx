@@ -1844,7 +1844,7 @@ export function ProviderSection({ id }: { id?: string }) {
                                 }
                                 value={getCompanyKey(emp)}
                               >
-                                {getCompanyLabel(emp)}
+                                  : "border-[var(--accent)] bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] hover:border-[var(--accent-hover)] hover:shadow-md hover:shadow-sky-950/25 active:translate-y-0 active:scale-[0.99]"
                               </option>
                             ))}
                           </>
@@ -9543,10 +9543,10 @@ export function FondoSection({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar factura, notas..."
-              className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 py-2 pl-3 pr-11 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)]"
+              className="h-11 w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] py-2 pl-3 pr-11 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] hover:border-[var(--accent)]/60 focus-visible:ring-2 focus-visible:ring-[var(--accent)]/60 focus-visible:ring-offset-1"
               aria-label="Buscar movimientos"
             />
-            <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded border border-cyan-700/35 bg-cyan-900/25 text-cyan-100/80">
+            <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded border border-[var(--input-border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)]">
               <Search className="h-4 w-4" />
             </span>
           </div>
@@ -9900,7 +9900,7 @@ export function FondoSection({
                 Filtro
               </label>
               <select
-                className="h-11 w-full min-w-0 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm font-medium text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/60 focus:border-[var(--accent)]"
+                className="h-11 w-full min-w-0 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm font-medium text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/60 focus-visible:ring-2 focus-visible:ring-[var(--accent)]/60 focus-visible:ring-offset-1"
                 value={quickRange || ""}
                 onChange={(e) => {
                   const v = e.target.value;
@@ -10032,7 +10032,7 @@ export function FondoSection({
                   (accountKey === "FondoGeneral" && pendingCierreDeCaja) ||
                   !entriesHydrated
                     ? "cursor-not-allowed border-[var(--input-border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)] opacity-70"
-                    : "border-[var(--accent)] bg-transparent text-[var(--foreground)] hover:-translate-y-0.5 hover:border-cyan-300/70 hover:bg-transparent hover:shadow-md hover:shadow-sky-950/25 active:translate-y-0 active:scale-[0.99]"
+                    : "border-[var(--accent)] bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] hover:border-[var(--accent-hover)] hover:shadow-md hover:shadow-sky-950/25 active:translate-y-0 active:scale-[0.99]"
                 }`}
               >
                 <Plus className="h-4 w-4 flex-shrink-0" />
