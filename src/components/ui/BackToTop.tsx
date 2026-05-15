@@ -24,6 +24,7 @@ export default function BackToTop({
 }: BackToTopProps) {
   const [visible, setVisible] = useState(false);
   const [isSmallScreen, setIsSmallScreen] = useState(false);
+  const [isCashCounterView, setIsCashCounterView] = useState(false);
 
   const threshold = useMemo(
     () => clamp01(showAfterProgress),
@@ -44,6 +45,18 @@ export default function BackToTop({
     // Safari < 14
     media.addListener(update);
     return () => media.removeListener(update);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const updateRouteState = () => {
+      setIsCashCounterView(window.location.hash === "#cashcounter");
+    };
+
+    updateRouteState();
+    window.addEventListener("hashchange", updateRouteState);
+    return () => window.removeEventListener("hashchange", updateRouteState);
   }, []);
 
   useEffect(() => {
@@ -91,7 +104,17 @@ export default function BackToTop({
     });
   };
 
-  const effectiveOffset = isSmallScreen ? mobileOffsetPx : offsetPx;
+  const effectiveRightOffset = isCashCounterView
+    ? 80
+    : isSmallScreen
+      ? mobileOffsetPx
+      : offsetPx;
+
+  const effectiveBottomOffset = isCashCounterView
+    ? 24
+    : isSmallScreen
+      ? mobileOffsetPx
+      : offsetPx;
 
   return (
     <button
@@ -109,8 +132,8 @@ export default function BackToTop({
           : "opacity-0 pointer-events-none translate-y-2")
       }
       style={{
-        right: `calc(${effectiveOffset}px + env(safe-area-inset-right, 0px))`,
-        bottom: `calc(${effectiveOffset}px + env(safe-area-inset-bottom, 0px))`,
+        right: `calc(${effectiveRightOffset}px + env(safe-area-inset-right, 0px))`,
+        bottom: `calc(${effectiveBottomOffset}px + env(safe-area-inset-bottom, 0px))`,
       }}
     >
       <span className="h-11 w-11 inline-flex items-center justify-center">

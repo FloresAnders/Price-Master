@@ -2023,7 +2023,7 @@ export default function XmlPage() {
 
             <div className="flex flex-col sm:flex-row justify-center gap-2 mt-5 w-full">
               <button
-                className="px-4 py-2 rounded bg-[var(--button-bg)] text-[var(--button-text)] hover:bg-[var(--button-hover)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 justify-center w-full sm:w-auto"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded border border-cyan-700/35 bg-cyan-950/25 text-[var(--foreground)] hover:border-cyan-500/45 hover:bg-cyan-900/25 transition-colors disabled:opacity-60 disabled:cursor-not-allowed w-full sm:w-auto"
                 onClick={() => {
                   if (exportOptionsLoading) return;
                   setExportOptionsOpen(false);
@@ -2036,7 +2036,7 @@ export default function XmlPage() {
               </button>
 
               <button
-                className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 justify-center w-full sm:w-auto disabled:opacity-60 disabled:cursor-not-allowed"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded border border-cyan-700/35 bg-cyan-950/25 text-[var(--foreground)] hover:border-cyan-500/45 hover:bg-cyan-900/25 transition-colors disabled:opacity-60 disabled:cursor-not-allowed w-full sm:w-auto"
                 onClick={() => {
                   void (async () => {
                     if (exportOptionsLoading) return;
@@ -2061,7 +2061,7 @@ export default function XmlPage() {
               </button>
 
               <button
-                className="px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2 justify-center w-full sm:w-auto disabled:opacity-60 disabled:cursor-not-allowed"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded border border-cyan-700/35 bg-cyan-950/25 text-[var(--foreground)] hover:border-cyan-500/45 hover:bg-cyan-900/25 transition-colors disabled:opacity-60 disabled:cursor-not-allowed w-full sm:w-auto"
                 onClick={() => {
                   void (async () => {
                     if (exportOptionsLoading) return;
@@ -2109,7 +2109,7 @@ export default function XmlPage() {
                   type="button"
                   onClick={onPickFiles}
                   disabled={!isReady || Boolean(dbError) || addLoading}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded bg-[var(--primary)] text-white hover:bg-[var(--button-hover)] transition-colors w-full sm:w-52 h-11 whitespace-nowrap"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded border border-cyan-700/35 bg-cyan-950/25 text-[var(--foreground)] hover:border-cyan-500/45 hover:bg-cyan-900/25 transition-colors w-full sm:w-52 h-11 whitespace-nowrap disabled:opacity-60"
                 >
                   <Upload className="w-4 h-4" />
                   {pickFilesLabel}
@@ -2135,7 +2135,7 @@ export default function XmlPage() {
                         type="button"
                         onClick={onExport}
                         disabled={exportDisabled}
-                        className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 w-full h-11 whitespace-nowrap"
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded border border-cyan-700/35 bg-cyan-950/25 text-[var(--foreground)] hover:border-cyan-500/45 hover:bg-cyan-900/25 transition-colors disabled:opacity-50 w-full h-11 whitespace-nowrap"
                         title="Exporta las facturas cargadas"
                       >
                         <Download className="w-4 h-4" />
@@ -2164,7 +2164,7 @@ export default function XmlPage() {
                     files.length === 0 ||
                     confirmLoading
                   }
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors disabled:opacity-50 w-full sm:w-52 h-11 whitespace-nowrap"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded border border-cyan-700/35 bg-cyan-950/25 text-[var(--foreground)] hover:border-cyan-500/45 hover:bg-cyan-900/25 transition-colors disabled:opacity-50 w-full sm:w-52 h-11 whitespace-nowrap"
                 >
                   <Trash2 className="w-4 h-4" />
                   Limpiar todo
@@ -2221,13 +2221,13 @@ export default function XmlPage() {
                 setIsDragging(false);
               }}
               onDrop={onDrop}
-              className={`mt-4 rounded-lg border-2 border-dashed p-6 transition-colors ${
+              className={`mt-4 rounded-lg border-2 border-dashed p-6 transition-colors bg-slate-900${
                 isDragging
-                  ? "border-blue-500 bg-blue-500/10"
-                  : "border-[var(--border)] bg-[var(--muted)]"
+                  ? "border-blue-500 bg-blue-500/10 bg-slate-900"
+                  : "border-[var(--border)] bg-[var(--muted)] bg-slate-900"
               }`}
             >
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 text-center">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 text-center ">
                 <Upload className="w-5 h-5 text-[var(--muted-foreground)]" />
                 <div className="text-sm text-[var(--muted-foreground)]">
                   Arrastra y suelta archivos XML aquí, o usa “{pickFilesLabel}”.
@@ -2574,7 +2574,7 @@ export default function XmlPage() {
                       <button
                         type="button"
                         onClick={() => setXmlModalItemId(item.id)}
-                        className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors w-full sm:w-auto"
+                        className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded border border-cyan-700/35 bg-cyan-950/25 text-[var(--foreground)] hover:border-cyan-500/45 hover:bg-cyan-900/25 transition-colors w-full sm:w-auto"
                         aria-label={`Ver XML de ${item.fileName}`}
                         title="Ver XML"
                         disabled={!item.rawXml}
@@ -2585,7 +2585,7 @@ export default function XmlPage() {
                       <button
                         type="button"
                         onClick={() => onRequestRemove(item.id, item.fileName)}
-                        className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors w-full sm:w-auto disabled:opacity-50"
+                        className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded border border-cyan-700/35 bg-cyan-950/25 text-[var(--foreground)] hover:border-cyan-500/45 hover:bg-cyan-900/25 transition-colors w-full sm:w-auto disabled:opacity-50"
                         aria-label={`Eliminar ${item.fileName}`}
                         title="Eliminar"
                         disabled={addLoading}
@@ -2604,7 +2604,7 @@ export default function XmlPage() {
                     </summary>
 
                     <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      <div className="p-4 rounded border border-[var(--border)] bg-[var(--muted)]">
+                      <div className="p-4 rounded border border-[var(--border)] bg-slate-950/80">
                         <div className="font-semibold text-[var(--foreground)] mb-2">
                           Encabezado
                         </div>
@@ -2669,7 +2669,7 @@ export default function XmlPage() {
                         </div>
                       </div>
 
-                      <div className="p-4 rounded border border-[var(--border)] bg-[var(--muted)]">
+                      <div className="p-4 rounded border border-[var(--border)] bg-slate-950/80">
                         <div className="font-semibold text-[var(--foreground)] mb-2">
                           Resumen
                         </div>
@@ -2899,7 +2899,7 @@ export default function XmlPage() {
                           )}
                       </div>
 
-                      <div className="p-4 rounded border border-[var(--border)] bg-[var(--muted)]">
+                      <div className="p-4 rounded border border-[var(--border)] bg-slate-950/80">
                         <div className="font-semibold text-[var(--foreground)] mb-2">
                           Emisor
                         </div>
@@ -2945,7 +2945,7 @@ export default function XmlPage() {
                         </div>
                       </div>
 
-                      <div className="p-4 rounded border border-[var(--border)] bg-[var(--muted)]">
+                      <div className="p-4 rounded border border-[var(--border)] bg-slate-950/80">
                         <div className="font-semibold text-[var(--foreground)] mb-2">
                           Receptor
                         </div>
@@ -3053,7 +3053,7 @@ export default function XmlPage() {
                                   });
                                 }}
                                 disabled={addLoading}
-                                className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded border border-red-500/40 text-red-600 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                                className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded border border-cyan-700/35 bg-cyan-950/25 text-[var(--foreground)] hover:border-cyan-500/45 hover:bg-cyan-900/25 transition-colors disabled:opacity-50"
                                 title="Eliminar todos los XML de este receptor"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -3088,8 +3088,8 @@ export default function XmlPage() {
         >
           <div className="absolute inset-0 bg-black/60" />
 
-          <div className="relative w-full max-w-4xl bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--border)]">
+          <div className="relative w-full max-w-4xl bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg shadow-2xl overflow-hidden bg-slate-900">
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--border)] ">
               <div className="min-w-0">
                 <div className="text-sm text-[var(--muted-foreground)]">
                   XML puro
@@ -3101,7 +3101,7 @@ export default function XmlPage() {
               <button
                 type="button"
                 onClick={() => setXmlModalItemId(null)}
-                className="inline-flex items-center justify-center w-9 h-9 rounded border border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors"
+                className="inline-flex items-center justify-center w-9 h-9 rounded border border-cyan-700/35 bg-cyan-950/25 text-[var(--foreground)] hover:border-cyan-500/45 hover:bg-cyan-900/25 transition-colors"
                 aria-label="Cerrar"
                 title="Cerrar"
               >
@@ -3110,7 +3110,7 @@ export default function XmlPage() {
             </div>
 
             <div className="p-4">
-              <div className="max-h-[70vh] overflow-auto rounded border border-[var(--border)] bg-[var(--muted)] p-3">
+              <div className="max-h-[70vh] overflow-auto rounded border border-[var(--border)] bg-[var(--muted)] p-3 bg-slate-900">
                 <pre className="text-xs whitespace-pre-wrap break-words text-[var(--foreground)]">
                   {xmlModalFormatted || xmlModalItem.rawXml || "Sin contenido"}
                 </pre>
