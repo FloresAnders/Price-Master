@@ -1,6 +1,5 @@
 "use client";
 import Image from "next/image";
-import Fireworks from "fireworks-js";
 import React, {
   useCallback,
   useEffect,
@@ -61,7 +60,6 @@ import {
   getAccessibleHomeMenuFavoriteOptions,
   HomeMenuFavoriteOption,
   HomeMenuFavoriteGroup,
-  HomeMenuMaintenanceTab,
 } from "./homeMenuFavoritesCatalog";
 import {
   addHomeMenuFavorite,
@@ -815,6 +813,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     canChangeSupplierWeekCompany,
     currentUser,
     assignedCompanyForProviders,
+    isSupplierWeekRoute,
   ]);
 
   const companyForProviders = supplierWeekCompany;
@@ -854,6 +853,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   }, [
     showExpandedSupplierWeek,
     canChangeSupplierWeekCompany,
+    isSupplierWeekRoute,
     weeklyProvidersLoading,
     weeklyProvidersError,
     weeklyProviders,
@@ -931,7 +931,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     return () => {
       cancelled = true;
     };
-  }, [showExpandedSupplierWeek, companyForProviders]);
+  }, [showExpandedSupplierWeek, companyForProviders, isSupplierWeekRoute]);
 
   type VisitDay = "D" | "L" | "M" | "MI" | "J" | "V" | "S";
   const WEEK_DAY_CODES: VisitDay[] = ["D", "L", "M", "MI", "J", "V", "S"];
@@ -1274,7 +1274,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     } catch {
       setCachedControlEntries([]);
     }
-  }, [controlPedidoCacheKey, controlPedidoEnabled, showExpandedSupplierWeek]);
+  }, [controlPedidoCacheKey, controlPedidoEnabled, showExpandedSupplierWeek, isSupplierWeekRoute]);
 
   // weekModel is computed above (needs weeklyProviders)
 
@@ -1303,7 +1303,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     setSelectedProviderCode("");
     setSelectedReceiveDateKey(null);
     setOrderAmount("");
-  }, [showExpandedSupplierWeek, companyForProviders]);
+  }, [showExpandedSupplierWeek, companyForProviders, isSupplierWeekRoute]);
 
   const selectedDay = selectedCreateDateKey
     ? weekModel.days.find((d) => d.dateKey === selectedCreateDateKey) || null
@@ -1331,35 +1331,35 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     ),
   );
 
-  const computeDefaultReceiveDateKey = (
-    providerCode: string,
-    createDate: Date,
-  ): number => {
-    const provider = (weekModel.visitProviders || []).find(
-      (p) => p.code === providerCode,
-    );
-    const receiveDays = provider?.visit?.receiveOrderDays || [];
-
-    if (!provider || receiveDays.length === 0) return dateToKey(createDate);
-
-    const createCode = visitDayFromDate(createDate) as VisitDay;
-    if (receiveDays.includes(createCode)) return dateToKey(createDate);
-
-    let candidate = nextBusinessDay(createDate);
-    if (receiveDays.length > 0) {
-      let guard = 0;
-      while (guard < 14) {
-        const code = visitDayFromDate(candidate) as VisitDay;
-        if (receiveDays.includes(code)) break;
-        candidate = nextBusinessDay(candidate);
-        guard++;
-      }
-    }
-
-    return dateToKey(candidate);
-  };
-
   useEffect(() => {
+    const computeDefaultReceiveDateKey = (
+      providerCode: string,
+      createDate: Date,
+    ): number => {
+      const provider = (weekModel.visitProviders || []).find(
+        (p) => p.code === providerCode,
+      );
+      const receiveDays = provider?.visit?.receiveOrderDays || [];
+
+      if (!provider || receiveDays.length === 0) return dateToKey(createDate);
+
+      const createCode = visitDayFromDate(createDate) as VisitDay;
+      if (receiveDays.includes(createCode)) return dateToKey(createDate);
+
+      let candidate = nextBusinessDay(createDate);
+      if (receiveDays.length > 0) {
+        let guard = 0;
+        while (guard < 14) {
+          const code = visitDayFromDate(candidate) as VisitDay;
+          if (receiveDays.includes(code)) break;
+          candidate = nextBusinessDay(candidate);
+          guard++;
+        }
+      }
+
+      return dateToKey(candidate);
+    };
+
     if (!selectedDay || !selectedProviderCode) {
       setSelectedReceiveDateKey(null);
       return;
@@ -1373,7 +1373,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     setSelectedReceiveDateKey(
       computeDefaultReceiveDateKey(selectedProviderCode, selectedDay.date),
     );
-  }, [selectedDay?.dateKey, selectedProviderCode, isImmediateDeliveryProvider]);
+  }, [selectedDay, selectedDay?.dateKey, selectedProviderCode, isImmediateDeliveryProvider, weekModel]);
 
   const formatAmount = (amount: number) => {
     if (!Number.isFinite(amount)) return String(amount);
