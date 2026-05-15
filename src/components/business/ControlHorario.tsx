@@ -694,7 +694,29 @@ export default function ControlHorario({
     incompleteDaysToastTimerRef.current = window.setTimeout(() => {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
-
+  
+      // Only show alerts for current fortnight
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth();
+      const currentDay = today.getDate();
+  
+      // Check if viewing current month
+      if (year !== currentYear || month !== currentMonth) {
+        return;
+      }
+  
+      // Determine if selected period is current fortnight
+      const isCurrentFirst = currentDay <= 15;
+      const selectedIsFirst = selectedPeriod === "1-15" && !fullMonthView;
+      const selectedIsSecond = selectedPeriod === "16-30" && !fullMonthView;
+  
+      const isCurrentQuincena = isCurrentFirst ? selectedIsFirst : selectedIsSecond;
+  
+      if (!isCurrentQuincena) {
+        return;
+      }
+  
       const daysInMonth = new Date(year, month + 1, 0).getDate();
       const isMonthly = fullMonthView || selectedPeriod === "monthly";
       const startDay = isMonthly ? 1 : selectedPeriod === "1-15" ? 1 : 16;
@@ -733,7 +755,7 @@ export default function ControlHorario({
       try {
         const storedRaw = sessionStorage.getItem(storageKey);
         const now = Date.now();
-        const DUP_WINDOW_MS = 1500;
+        const DUP_WINDOW_MS = 3000;
 
         if (storedRaw) {
           // Nuevo formato: JSON con { sig, at }
