@@ -567,13 +567,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
   const canShowAdminSidebar = Boolean(
     isHomeRoute ||
-      (activeTab &&
-        activeTab !== "fondogeneral" &&
-        activeTab !== "agregarproveedor" &&
-        activeTab !== "reportes" &&
-        activeTab !== "recetas" &&
-        activeTab !== "agregarproducto" &&
-        visibleTabs.length > 0),
+    (activeTab &&
+      activeTab !== "fondogeneral" &&
+      activeTab !== "agregarproveedor" &&
+      activeTab !== "reportes" &&
+      activeTab !== "recetas" &&
+      activeTab !== "agregarproducto" &&
+      visibleTabs.length > 0),
   );
 
   // El sidebar inicia cerrado; el usuario lo abre manualmente.
@@ -585,9 +585,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       ? adminSidebarExpandedWidth
       : adminSidebarCollapsedWidth;
 
-    const sidebarWidth = canShowAdminSidebar
-      ? `${currentWidth}px`
-      : "0px";
+    const sidebarWidth = canShowAdminSidebar ? `${currentWidth}px` : "0px";
 
     document.documentElement.style.setProperty(
       "--admin-sidebar-width",
@@ -678,6 +676,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       console.error("Error during logout:", error);
     }
   };
+  const isHome = pathname === "/" && window.location.hash === "";
 
   return (
     <>
@@ -688,9 +687,28 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           suppressHydrationWarning
         >
           {/* Logo and title */}
-          <div>
+          <div className="flex items-center">
+            {!isHome && (
+              <Link
+                href="/#"
+                onClick={(e) => {
+                  // Force full navigation to home to ensure page reload and clear any hash
+                  e.preventDefault();
+                  window.location.href = "/#";
+                }}
+                className="lg:hidden inline-flex items-center justify-center rounded-md p-1 hover:bg-[var(--hover-bg)] transition-colors"
+              >
+                <Image
+                  src="/android-chrome-512x512.png"
+                  alt="Time Master Logo"
+                  width={32}
+                  height={32}
+                  className="rounded"
+                />
+              </Link>
+            )}
             {!canShowAdminSidebar && pathname !== "/home" && (
-              <div>
+              <div className="hidden lg:block">
                 <Link
                   href="/#"
                   onClick={(e) => {
@@ -1359,9 +1377,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             aria-orientation="vertical"
             title="Arrastra para ensanchar el menú (desplegado)"
             className={`absolute right-0 top-0 h-full w-2 cursor-col-resize bg-transparent hover:bg-[var(--accent)]/10 ${
-              showAdminSidebar
-                ? "opacity-100"
-                : "opacity-0 pointer-events-none"
+              showAdminSidebar ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
             onPointerDown={(event) => {
               if (event.button !== 0) return;
@@ -1411,9 +1427,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             aria-orientation="vertical"
             title="Arrastra para ensanchar el menú (contraído)"
             className={`absolute right-0 top-0 h-full w-2 cursor-col-resize bg-transparent hover:bg-[var(--accent)]/10 ${
-              showAdminSidebar
-                ? "opacity-0 pointer-events-none"
-                : "opacity-100"
+              showAdminSidebar ? "opacity-0 pointer-events-none" : "opacity-100"
             }`}
             onPointerDown={(event) => {
               if (event.button !== 0) return;
