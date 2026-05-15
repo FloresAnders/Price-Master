@@ -95,8 +95,8 @@ export default function Footer() {
 
         {/* GitHub Modal */}
         {isGitHubModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
-            <div className="bg-[var(--card-bg)] rounded-lg shadow-lg p-6 max-w-md w-full relative animate-fade-in">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 px-3 sm:px-0 backdrop-blur-sm">
+            <div className="bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-xl shadow-2xl p-4 sm:p-6 max-w-md w-full relative animate-fade-in mx-2 sm:mx-auto">
               <button
                 className="absolute top-2 right-2 text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] text-2xl font-bold focus:outline-none"
                 onClick={() => setIsGitHubModalOpen(false)}
@@ -104,43 +104,23 @@ export default function Footer() {
               >
                 ×
               </button>
-              <div className="flex flex-col items-center gap-4">
-                <h2 className="text-xl font-bold text-[var(--foreground)] mb-2">
+              <div className="flex flex-col items-center gap-4 pt-2">
+                <div className="inline-flex items-center rounded-full border-2 border-[var(--input-border)] bg-[var(--muted)] px-3 py-1 text-xs font-semibold tracking-wide text-[var(--foreground)]">
+                  Equipo
+                </div>
+                <h2 className="text-xl font-bold text-[var(--foreground)] mb-1 text-center">
                   Equipo de Desarrollo
                 </h2>
-                <p className="text-[var(--tab-text)] mb-6">
+                <p className="text-[var(--tab-text)] mb-6 text-center text-sm leading-relaxed">
                   Conoce más sobre los desarrolladores del proyecto
                 </p>
               </div>
               <div className="space-y-4">
                 <a
-                  href="https://github.com/FloresAnders/Price-Master"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center space-x-3 p-3 bg-[var(--input-bg)] hover:bg-[var(--input-border)] rounded-lg transition-colors cursor-pointer"
-                  onClick={() => setIsGitHubModalOpen(false)}
-                >
-                  <svg
-                    className="w-5 h-5 text-[var(--foreground)]"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M10 0C4.477 0 0 4.484 0 10.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0110 4.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.942.359.31.678.921.678 1.856 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0020 10.017C20 4.484 15.522 0 10 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <span className="text-[var(--foreground)] font-medium">
-                    Anders Flores M
-                  </span>
-                </a>
-
-                <a
                   href="https://github.com/alchacas1"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center space-x-3 p-3 bg-[var(--input-bg)] hover:bg-[var(--input-border)] rounded-lg transition-colors cursor-pointer"
+                  className="flex items-center justify-center space-x-3 rounded-xl border-2 border-[var(--input-border)] bg-[var(--card-bg)] p-3 shadow-sm cursor-pointer"
                   onClick={() => setIsGitHubModalOpen(false)}
                 >
                   <svg
@@ -158,10 +138,31 @@ export default function Footer() {
                     Alvaro Chaves C
                   </span>
                 </a>
-
+                <a
+                  href="https://github.com/FloresAnders/Price-Master"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center space-x-3  rounded-xl border-2 border-[var(--input-border)] bg-[var(--card-bg)] p-3 shadow-sm cursor-pointer "
+                  onClick={() => setIsGitHubModalOpen(false)}
+                >
+                  <svg
+                    className="w-5 h-5 text-[var(--foreground)]"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 0C4.477 0 0 4.484 0 10.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0110 4.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.942.359.31.678.921.678 1.856 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0020 10.017C20 4.484 15.522 0 10 0z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <span className="text-[var(--foreground)] font-medium">
+                    Anders Flores M
+                  </span>
+                </a>
                 <button
                   onClick={() => setIsGitHubModalOpen(false)}
-                  className="w-full bg-[var(--input-bg)] hover:bg-[var(--input-border)] text-[var(--foreground)] rounded-lg py-2 px-4 transition-colors duration-200"
+                  className="w-full rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] py-2 px-4 font-medium text-[var(--foreground)] transition-all duration-200 hover:border-cyan-500 hover:bg-[var(--muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60"
                 >
                   Cerrar
                 </button>
@@ -208,20 +209,23 @@ export default function Footer() {
         </nav>
         {/* News Modal */}
         {isNewsModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
-            <div className="bg-[var(--card-bg)] rounded-lg shadow-lg p-6 max-w-md w-full relative animate-fade-in max-h-[90vh] overflow-hidden">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 px-3 sm:px-0 backdrop-blur-sm">
+            <div className="bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-xl shadow-2xl p-4 sm:p-6 max-w-md w-full relative animate-fade-in max-h-[90vh] overflow-hidden mx-2 sm:mx-auto">
               <button
-                className="absolute top-1 right-2 text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] text-2xl font-bold focus:outline-none"
+                className="absolute top-2 right-2 text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] text-2xl font-bold focus:outline-none"
                 onClick={() => setIsNewsModalOpen(false)}
                 aria-label="Cerrar"
               >
                 ×
               </button>
-              <div className="flex flex-col items-center gap-4">
-                <h2 className="text-xl font-bold text-[var(--foreground)] mb-2">
+              <div className="flex flex-col items-center gap-4 pt-2">
+                <div className="inline-flex items-center rounded-full border-2 border-[var(--input-border)] bg-[var(--muted)] px-3 py-1 text-xs font-semibold tracking-wide text-[var(--foreground)]">
+                  Actualizaciones
+                </div>
+                <h2 className="text-xl font-bold text-[var(--foreground)] mb-1 text-center">
                   Últimos Cambios
                 </h2>
-                <p className="text-[var(--tab-text)] -mt-2 mb-2 text-center">
+                <p className="text-[var(--tab-text)] -mt-2 mb-2 text-center text-sm leading-relaxed">
                   Novedades de la versión{" "}
                   <span className="font-semibold">v{version}</span>
                 </p>
@@ -230,7 +234,7 @@ export default function Footer() {
                   {releaseNotes.map((item, idx) => (
                     <div
                       key={`${idx}-${item.date}-${item.title}`}
-                      className="rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] p-3"
+                      className="rounded-xl border-2 border-[var(--input-border)] bg-[var(--card-bg)] p-3 shadow-sm"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -251,7 +255,7 @@ export default function Footer() {
 
                 <button
                   onClick={() => setIsNewsModalOpen(false)}
-                  className="w-full bg-[var(--input-bg)] hover:bg-[var(--input-border)] text-[var(--foreground)] rounded-lg py-2 px-4 transition-colors duration-200"
+                  className="w-full rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] py-2 px-4 font-medium text-[var(--foreground)] transition-all duration-200 hover:border-cyan-500 hover:bg-[var(--muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60"
                 >
                   Cerrar
                 </button>
@@ -261,8 +265,8 @@ export default function Footer() {
         )}
         {/* About Modal */}
         {isAboutModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
-            <div className="bg-[var(--card-bg)] rounded-lg shadow-lg p-6 max-w-md w-full relative animate-fade-in">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 px-3 sm:px-0 backdrop-blur-sm">
+            <div className="bg-[var(--card-bg)] border-2 border-[var(--input-border)] rounded-xl shadow-2xl p-4 sm:p-6 max-w-md w-full relative animate-fade-in mx-2 sm:mx-auto">
               <button
                 className="absolute top-2 right-2 text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] text-2xl font-bold focus:outline-none"
                 onClick={() => setIsAboutModalOpen(false)}
@@ -270,11 +274,14 @@ export default function Footer() {
               >
                 ×
               </button>
-              <div className="flex flex-col items-center gap-4">
-                <h2 className="text-xl font-bold text-[var(--foreground)] mb-2">
+              <div className="flex flex-col items-center gap-4 pt-2">
+                <div className="inline-flex items-center rounded-full border-2 border-[var(--input-border)] bg-[var(--muted)] px-3 py-1 text-xs font-semibold tracking-wide text-[var(--foreground)]">
+                  Información
+                </div>
+                <h2 className="text-xl font-bold text-[var(--foreground)] mb-1 text-center">
                   Sobre el Proyecto
                 </h2>
-                <p className="text-[var(--tab-text)] mb-4 text-center">
+                <p className="text-[var(--tab-text)] mb-4 text-center text-sm leading-relaxed">
                   Somos un grupo de programadores jóvenes y entusiastas que
                   creemos en el poder de la tecnología para mejorar la vida
                   diaria. Este proyecto nació de la pasión por aprender,
@@ -285,7 +292,7 @@ export default function Footer() {
                 </p>
                 <button
                   onClick={() => setIsAboutModalOpen(false)}
-                  className="w-full bg-[var(--input-bg)] hover:bg-[var(--input-border)] text-[var(--foreground)] rounded-lg py-2 px-4 transition-colors duration-200"
+                  className="w-full rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] py-2 px-4 font-medium text-[var(--foreground)] transition-all duration-200 hover:border-cyan-500 hover:bg-[var(--muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60"
                 >
                   Cerrar
                 </button>
@@ -294,7 +301,7 @@ export default function Footer() {
           </div>
         )}
         {/* Copyright + Logo */}
-        <div className="w-full text-[11px] sm:text-xs text-[var(--foreground)] opacity-80 border-t border-[var(--input-border)] pt-2 pb-2 sm:pb-1">
+        <div className="w-full text-[11px] sm:text-xs text-[var(--foreground)] opacity-80 pb-2 sm:pb-1">
           <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 flex flex-col sm:flex-row sm:items-center sm:justify-center gap-2 sm:gap-3">
             <div className="text-center">
               <div className="flex flex-col items-center sm:flex-row sm:items-center sm:justify-center sm:gap-2 sm:flex-nowrap">

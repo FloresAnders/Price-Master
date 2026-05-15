@@ -1065,7 +1065,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
         {/* Mobile navigation menu */}
         {showMobileMenu && (
-          <div className="lg:hidden border-t border-[var(--input-border)] bg-[var(--background)] p-4">
+          <div className="lg:hidden border-t border-[var(--input-border)] bg-[var(--background)] p-4 ">
             {/* Main tabs - only show when NOT in fondo sections */}
             {!isFondoSection && !isRecetasSection && (
               <div className="grid grid-cols-2 gap-2">
@@ -1556,7 +1556,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             </div>
           </div>
 
-          <div className="border-t border-[var(--input-border)] p-2">
+          <div className="p-2">
             <button
               type="button"
               onClick={() => setShowAdminSidebar((prev) => !prev)}
