@@ -324,8 +324,6 @@ export default function EmpleadosProximamente() {
     ).sort();
   }, [visibleEmpresas]);
 
-  const visibleEmpresaIdsKey = visibleEmpresaIds.join("|");
-
   // Load empleados docs from the new collection for the currently visible empresas
   useEffect(() => {
     if (!canUse) return;
@@ -363,7 +361,7 @@ export default function EmpleadosProximamente() {
     return () => {
       cancelled = true;
     };
-  }, [canUse, visibleEmpresaIdsKey]);
+  }, [canUse, visibleEmpresaIds]);
 
   const searchNorm = normalizeStr(search);
 
