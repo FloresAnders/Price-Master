@@ -1047,6 +1047,7 @@ export default function DataEditor() {
           "mantenimiento",
           "solicitud",
           "scanhistory",
+          "facturasCredito",
         ];
 
         if (!updated[userIndex].permissions) {
@@ -1113,8 +1114,8 @@ export default function DataEditor() {
       mantenimiento: "Mantenimiento",
       solicitud: "Solicitud",
       scanhistory: "Historial de Escaneos",
-    };
-    return labels[permission] || permission;
+      facturasCredito: "Facturas Crédito",
+    };    return labels[permission] || permission;
   };
 
   // Función para obtener descripciones de permisos
@@ -1132,8 +1133,8 @@ export default function DataEditor() {
       solicitud:
         "Permite gestionar solicitudes dentro del módulo de mantenimiento",
       scanhistory: "Ver historial completo de escaneos realizados",
-    };
-    return descriptions[permission] || permission;
+      facturasCredito: "Gestión de facturas a crédito",
+    };    return descriptions[permission] || permission;
   };
 
   // Función para renderizar la lista de permisos editables

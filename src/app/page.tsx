@@ -134,6 +134,11 @@ const AgregarProductoTab = dynamic(
   { ssr: false },
 );
 
+const FacturasCreditoPage = dynamic(
+  () => import("@/components/facturas/FacturasCreditoPage"),
+  { ssr: false },
+);
+
 // 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders", "edit", "scanhistory", "solicitud", "agregarproveedor", "reportes"
 type ActiveTab =
   | "scanner"
@@ -146,6 +151,7 @@ type ActiveTab =
   | "timingcontrol"
   | "controlhorario"
   | "empleados"
+  | "facturas"
   | "funciones"
   | "calculohorasprecios"
   | "supplierorders"
@@ -291,6 +297,7 @@ export default function HomePage() {
           "fondogeneral",
           "agregarproveedor",
           "reportes",
+          "facturas",
           "configuracion",
           ...(isSuperAdmin ? ["pruebas"] : []),
         ];
@@ -343,6 +350,7 @@ export default function HomePage() {
           "fondogeneral",
           "agregarproveedor",
           "reportes",
+          "facturas",
           "configuracion",
           ...(isSuperAdmin ? ["pruebas"] : []),
         ];
@@ -438,6 +446,11 @@ export default function HomePage() {
 
               {/* REPORTES */}
               {activeTab === "reportes" && <ReportesPage />}
+
+              {/* FACTURAS (en mantenimiento) */}
+              {activeTab === "facturas" && (
+                <FacturasCreditoPage /> /* Placeholder component, replace with actual implementation when ready */
+              )}
 
               {/* CONFIGURACION */}
               {activeTab === "configuracion" && (

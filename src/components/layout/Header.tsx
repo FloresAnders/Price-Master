@@ -100,6 +100,7 @@ type ActiveTab =
   | "converter"
   | "xml"
   | "cashcounter"
+  | "facturas"
   | "recetas"
   | "agregarproducto"
   | "timingcontrol"
@@ -458,6 +459,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       icon: FileCode,
       description: "Cargar archivos XML",
       permission: "xml" as keyof UserPermissions,
+    },
+    {
+      id: "facturas" as ActiveTab,
+      name: "Facturas",
+      icon: FileCode,
+      description: "Gestión de facturas a crédito",
+      permission: "facturasCredito" as keyof UserPermissions,
     },
     {
       id: "cashcounter" as ActiveTab,
