@@ -1,20 +1,20 @@
 {
-  "version": "1.4.49",
+  "version": "1.5.0",
   "versionstorage": "1.1.12",
   "notasDeSistemas": "1.1.17",
   "releaseNotes": [
     {
       "date": "2026-05-07",
-      "title": "Correccion en el encargado del cierre ",
-    "description": "Se corrigio un error en el encargado del cierre, ahora se ha implementado una función que permite asignar correctamente el encargado del cierre de cada turno. Esto garantiza que la información sea precisa y que el proceso de cierre se realice de manera eficiente, evitando confusiones y mejorando la gestión de los turnos."
+      "title": "Cambio en la interfaz de usuario",
+      "description": "Se ha actualizado la interfaz de usuario para mejorar la experiencia del usuario y facilitar la navegación."
     }
   ],
   "systemNotes": [
     {
       "date": "2026-05-07",
-      "title": "Correccion en el encargado del cierre ",
-     "description": "Se corrigio un error en el encargado del cierre, ahora se ha implementado una función que permite asignar correctamente el encargado del cierre de cada turno. Esto garantiza que la información sea precisa y que el proceso de cierre se realice de manera eficiente, evitando confusiones y mejorando la gestión de los turnos."
-   }
+      "title": "Cambio en la interfaz de usuario",
+      "description": "Se ha actualizado la interfaz de usuario para mejorar la experiencia del usuario y facilitar la navegación."
+    }
   ],
   "_comment": "hacer una pagina de 'en mantenimiento' para secciones en desarrollo y a exepcion de un usuario admin"
 }
