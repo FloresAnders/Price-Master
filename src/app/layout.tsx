@@ -131,7 +131,7 @@ export default function RootLayout({
                   <VersionCheckInitializer />
                   <ReminderNotificationsInitializer />
                   <SystemNotesInitializer />
-                  <HeaderWrapper />
+                  <HeaderWrapper /> 
                   <main role="main" className="flex-1 flex flex-col w-full lg:pl-[var(--admin-sidebar-width)] transition-[padding] duration-300">
                     <div className="w-full" suppressHydrationWarning>
                       {children}

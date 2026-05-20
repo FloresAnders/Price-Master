@@ -23,8 +23,17 @@ type FacturaEntry = {
 
 const STORAGE_KEY = "facturasCredito_list_v1";
 
+function readStoredEntries(): FacturaEntry[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as FacturaEntry[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function FacturasCreditoPage() {
-  const [entries, setEntries] = useState<FacturaEntry[]>([]);
+  const [entries, setEntries] = useState<FacturaEntry[]>(() => (typeof window === "undefined" ? [] : readStoredEntries()));
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -41,15 +50,6 @@ export default function FacturasCreditoPage() {
   const SHARED_COMPANY_STORAGE_KEY = "fg_selected_company_shared";
   const company = typeof window !== "undefined" ? localStorage.getItem(SHARED_COMPANY_STORAGE_KEY) || "" : "";
   const { providers, loading: providersLoading } = useProviders(company || undefined);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setEntries(JSON.parse(raw) as FacturaEntry[]);
-    } catch {
-      setEntries([]);
-    }
-  }, []);
 
   useEffect(() => {
     try {
