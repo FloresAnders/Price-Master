@@ -123,7 +123,7 @@ export default function RootLayout({
         className="bg-background text-foreground transition-colors duration-500 min-h-screen flex flex-col"
         suppressHydrationWarning
       >
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <AuthWrapper>
             <PermissionsManager>
               <ToastProvider>

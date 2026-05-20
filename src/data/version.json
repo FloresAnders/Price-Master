@@ -1,8 +1,13 @@
 {
-  "version": "1.5.0",
-  "versionstorage": "1.1.13",
+  "version": "1.5.1",
+  "versionstorage": "1.1.16",
   "notasDeSistemas": "1.1.18",
   "releaseNotes": [
+    {
+      "date": "2026-05-20",
+      "title": "Corrección de errores menores",
+      "description": "Se han corregido varios errores menores para mejorar la estabilidad y el rendimiento de la aplicación."
+    },
     {
       "date": "2026-05-19",
       "title": "Cambio en la interfaz de usuario",
