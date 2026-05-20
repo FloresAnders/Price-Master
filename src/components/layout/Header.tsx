@@ -94,7 +94,7 @@ const getCreatedAtDate = (value: any): Date | null => {
   return parsed;
 };
 
-type ActiveTab =
+export type ActiveTab =
   | "scanner"
   | "calculator"
   | "converter"

@@ -163,9 +163,9 @@ export default function FacturasCreditoPage() {
             <button
               type="button"
               onClick={openNew}
-              className="inline-flex items-center gap-2 rounded border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white hover:opacity-95"
+              className="inline-flex items-center gap-2 rounded border border-[var(--accent)] bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:opacity-95" disabled
             >
-              <Plus className="w-4 h-4" /> Agregar
+              <Plus className="w-4 h-4"/> Agregar
             </button>
           </div>
         </div>
@@ -173,7 +173,8 @@ export default function FacturasCreditoPage() {
         <div className="space-y-3">
           {entries.length === 0 ? (
             <div className="rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--card-bg)]/60 p-6 text-center text-[var(--muted-foreground)]">
-              No hay facturas o notas registradas.
+              {/*No hay facturas o notas registradas. */}
+              En mantenimiento: sección para registrar facturas de crédito y notas de crédito. Próximamente podrás llevar un control detallado de tus facturas, con opciones para agregar, editar y eliminar registros fácilmente. ¡Mantente atento a las actualizaciones! <CalendarDays className="w-5 h-5 inline-block ml-2" />
             </div>
           ) : (
             <div className="overflow-hidden rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/80 text-white shadow-sm">

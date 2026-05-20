@@ -2,29 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import Header from "./Header";
-
-type ActiveTab =
-  | "scanner"
-  | "calculator"
-  | "converter"
-  | "xml"
-  | "cashcounter"
-  | "recetas"
-  | "agregarproducto"
-  | "timingcontrol"
-  | "controlhorario"
-  | "empleados"
-  | "funciones"
-  | "calculohorasprecios"
-  | "supplierorders"
-  | "histoscans"
-  | "scanhistory"
-  | "edit"
-  | "solicitud"
-  | "fondogeneral"
-  | "agregarproveedor"
-  | "reportes";
+import Header, { type ActiveTab } from "./Header";
 
 export default function HeaderWrapper() {
   const [activeTab, setActiveTab] = useState<ActiveTab | null>(null);
@@ -62,6 +40,7 @@ export default function HeaderWrapper() {
         "controlhorario",
         "empleados",
         "funciones",
+        "facturas",
         "recetas",
         "agregarproducto",
         "calculohorasprecios",

@@ -1,10 +1,10 @@
 {
   "version": "1.5.0",
-  "versionstorage": "1.1.12",
-  "notasDeSistemas": "1.1.17",
+  "versionstorage": "1.1.13",
+  "notasDeSistemas": "1.1.18",
   "releaseNotes": [
     {
-      "date": "2026-05-07",
+      "date": "2026-05-19",
       "title": "Cambio en la interfaz de usuario",
       "description": "Se ha actualizado la interfaz de usuario para mejorar la experiencia del usuario y facilitar la navegación."
     }
