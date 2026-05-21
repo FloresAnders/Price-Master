@@ -306,14 +306,14 @@ export default function PriceCalculator() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-10rem)] w-full items-center justify-center px-4 py-8">
-      <div className="w-full max-w-4xl">
-        <div className="text-center mb-8">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/10 text-cyan-300">
-            <LockIcon className="h-6 w-6" />
+    <div className="flex min-h-[calc(100vh-10rem)] items-start justify-center w-full max-w-7xl mx-auto px-2 sm:px-4 pt-0 pb-4 sm:pt-1 lg:pt-2">
+      <div className="w-full max-w-7xl mx-auto sm:px-4">
+        <div className="text-center">
+          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/10 text-cyan-300">
+            <LockIcon className="w-6" />
           </div>
-          <h2 className="text-2xl font-bold text-white">Calculadora de Precios</h2>
-          <p className="mt-2 text-sm text-slate-400">
+          <h2 className="text-2xl font-bold text-white leading-tight">Calculadora de Precios</h2>
+          <p className="mt-1 text-sm text-slate-400">
             Calcula IVA, descuento, utilidad y precio final desde una sola vista
           </p>
         </div>

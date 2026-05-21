@@ -1738,7 +1738,8 @@ export function ProviderSection({ id }: { id?: string }) {
 
   if (!fondoTypesLoaded) {
     return (
-      <div id={id}>s
+      <div id={id}>
+        s
         <div className="p-8 bg-[var(--card-bg)] border border-[var(--input-border)] rounded text-center space-y-3">
           <div className="flex justify-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)]"></div>
