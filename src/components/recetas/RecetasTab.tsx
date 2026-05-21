@@ -531,7 +531,7 @@ export function RecetasTab() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg shadow p-4 sm:p-6">
+    <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg shadow p-4 sm:p-6 w-full max-w-7xl mx-auto px-2 py-3 sm:px-4 sm:py-6 lg:py-8">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
         <div>
           <h2 className="text-sm sm:text-base font-medium text-[var(--muted-foreground)]">
