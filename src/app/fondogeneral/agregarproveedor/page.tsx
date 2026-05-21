@@ -44,10 +44,8 @@ export default function AgregarProveedorPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto py-8 px-4">
-      <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl p-6">
-        <ProviderSection />
-      </div>
+    <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl p-6">
+      <ProviderSection />
     </div>
   );
 }

@@ -1738,7 +1738,7 @@ export function ProviderSection({ id }: { id?: string }) {
 
   if (!fondoTypesLoaded) {
     return (
-      <div id={id} className="mt-10">
+      <div id={id}>s
         <div className="p-8 bg-[var(--card-bg)] border border-[var(--input-border)] rounded text-center space-y-3">
           <div className="flex justify-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)]"></div>
@@ -1755,7 +1755,7 @@ export function ProviderSection({ id }: { id?: string }) {
   }
 
   return (
-    <div id={id} className="mt-3 sm:mt-6 lg:mt-10" style={{ color: "#ffffff" }}>
+    <div id={id}>
       <div className="mb-3 sm:mb-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -1843,8 +1843,9 @@ export function ProviderSection({ id }: { id?: string }) {
                                   `admin-company-${index}`
                                 }
                                 value={getCompanyKey(emp)}
+                                className="border-[var(--accent)] bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] hover:border-[var(--accent-hover)] hover:shadow-md hover:shadow-sky-950/25 active:translate-y-0 active:scale-[0.99]"
                               >
-                                  : "border-[var(--accent)] bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] hover:border-[var(--accent-hover)] hover:shadow-md hover:shadow-sky-950/25 active:translate-y-0 active:scale-[0.99]"
+                                {getCompanyLabel(emp)}
                               </option>
                             ))}
                           </>
@@ -6096,29 +6097,33 @@ export function FondoSection({
             providerDisplayName,
           );
           const shouldMarkCreatedCooldown = !isIngresoDesdeFV;
-          if (shouldMarkCreatedCooldown) lastMovementCreatedAtRef.current = savedAtMs;
+          if (shouldMarkCreatedCooldown)
+            lastMovementCreatedAtRef.current = savedAtMs;
           if (typeof window !== "undefined") {
             const key = `fondogeneral-lastMovementDedupe:${normalizedCompany}:${accountKey}`;
             const createdKey = `fondogeneral-lastMovementCreatedAt:${normalizedCompany}:${accountKey}`;
-              try {
-                localStorage.setItem(key, JSON.stringify(payload));
-                if (shouldMarkCreatedCooldown) {
-                  localStorage.setItem(createdKey, JSON.stringify({ at: savedAtMs }));
-                } else {
-                  const previous = parseLastCreatedCooldown(
-                    localStorage.getItem(createdKey),
-                  );
-                  const prevAt = getEffectiveLastCreatedAtMs(previous);
-                  const ignorePayload: LastCreatedCooldownPayload = {
-                    at: savedAtMs,
-                    kind: "INGRESO_DESDE_FONDO_VENTAS",
-                    ...(prevAt > 0 ? { prevAt } : {}),
-                  };
-                  localStorage.setItem(createdKey, JSON.stringify(ignorePayload));
-                }
-              } catch {
-                // ignore storage errors
+            try {
+              localStorage.setItem(key, JSON.stringify(payload));
+              if (shouldMarkCreatedCooldown) {
+                localStorage.setItem(
+                  createdKey,
+                  JSON.stringify({ at: savedAtMs }),
+                );
+              } else {
+                const previous = parseLastCreatedCooldown(
+                  localStorage.getItem(createdKey),
+                );
+                const prevAt = getEffectiveLastCreatedAtMs(previous);
+                const ignorePayload: LastCreatedCooldownPayload = {
+                  at: savedAtMs,
+                  kind: "INGRESO_DESDE_FONDO_VENTAS",
+                  ...(prevAt > 0 ? { prevAt } : {}),
+                };
+                localStorage.setItem(createdKey, JSON.stringify(ignorePayload));
               }
+            } catch {
+              // ignore storage errors
+            }
           }
         }
       } catch {
@@ -6327,9 +6332,14 @@ export function FondoSection({
           const providerForSelected = providers.find(
             (p) => p.code === selectedProvider,
           );
-          const providerDisplayForSelected = providerForSelected?.name || selectedProvider;
+          const providerDisplayForSelected =
+            providerForSelected?.name || selectedProvider;
           const newIsIngresoDesdeFV = isIngresoDesdeFondoVentasMovement(
-            { providerCode: selectedProvider, paymentType, notes: trimmedNotes },
+            {
+              providerCode: selectedProvider,
+              paymentType,
+              notes: trimmedNotes,
+            },
             providerDisplayForSelected,
           );
 

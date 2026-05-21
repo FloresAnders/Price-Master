@@ -134,8 +134,8 @@ const AgregarProductoTab = dynamic(
   { ssr: false },
 );
 
-const FacturasCreditoPage = dynamic(
-  () => import("@/components/facturas/FacturasCreditoPage"),
+const FacturasPage = dynamic(
+  () => import("@/components/facturas/FacturasPage"),
   { ssr: false },
 );
 
@@ -449,7 +449,7 @@ export default function HomePage() {
 
               {/* FACTURAS (en mantenimiento) */}
               {activeTab === "facturas" && (
-                <FacturasCreditoPage /> /* Placeholder component, replace with actual implementation when ready */
+                <FacturasPage /> /* Placeholder component, replace with actual implementation when ready */
               )}
 
               {/* CONFIGURACION */}
