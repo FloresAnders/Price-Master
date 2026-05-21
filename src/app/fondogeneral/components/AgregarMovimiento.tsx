@@ -383,7 +383,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
               <div className="grid grid-cols-2 gap-2">
                 {(["FCO", "FCR"] as const).map((option) => {
                   const active = invoiceDocType === option;
-                  const disabled = invoiceDisabled;
+                  const disabled = invoiceDisabled || Boolean(editingEntryId);
                   return (
                     <button
                       key={option}

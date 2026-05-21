@@ -54,6 +54,7 @@ import { FondoMovementTypesService } from "../../../services/fondo-movement-type
 import { SchedulesService } from "../../../services/schedules";
 import { generateMovementNotificationEmail } from "../../../services/email-templates/notificacion-movimiento";
 import { generateEgresoProviderCreatedEmail } from "../../../services/email-templates/proveedor-egreso-creado";
+import { FacturasService, type FacturaMovement } from "../../../services/facturas";
 import {
   findLatestMovementByInvoiceNumber,
   sendDuplicateInvoiceAlertEmail,
@@ -763,9 +764,11 @@ export const sanitizeFondoEntries = (
       id,
       providerCode,
       invoiceNumber,
+      invoiceDocType: normalizeInvoiceDocType((entry as any).invoiceDocType),
       paymentType,
       currency,
       accountId,
+      empresa: typeof (entry as any).empresa === "string" ? (entry as any).empresa : undefined,
       // Si los tipos no están cargados, preservar los montos originales
       amountEgreso: typesLoaded
         ? isEgresoType(paymentType) || isGastoType(paymentType)
@@ -6271,11 +6274,18 @@ export function FondoSection({
     if (isEgreso && (Number.isNaN(egresoValue) || egresoValue <= 0)) return;
     if (isIngreso && (Number.isNaN(ingresoValue) || ingresoValue <= 0)) return;
 
+    const effectiveInvoiceDocType = normalizeInvoiceDocType(invoiceDocType);
+
     // Validar que no quede saldo negativo en la moneda del movimiento.
     // Nota: este límite de “saldo insuficiente” solo aplica para usuarios regulares.
     // Admin/Superadmin pueden registrar egresos que dejen saldo negativo.
     // En edición se revierte primero el impacto del movimiento original.
-    if (isEgreso && !isAdminUser && !isSuperAdminUser) {
+    if (
+      isEgreso &&
+      effectiveInvoiceDocType !== "FCR" &&
+      !isAdminUser &&
+      !isSuperAdminUser
+    ) {
       const currentBalance =
         movementCurrency === "USD"
           ? ledgerSnapshot.currentUSD
@@ -6533,6 +6543,8 @@ export function FondoSection({
             providerCode: selectedProvider,
             invoiceNumber: paddedInvoice,
             invoiceDocType: normalizeInvoiceDocType(invoiceDocType),
+            accountId: accountKey,
+            empresa: company,
             paymentType,
             amountEgreso: isEgreso ? egresoValue : 0,
             amountIngreso: isEgreso ? 0 : ingresoValue,
@@ -6572,6 +6584,31 @@ export function FondoSection({
         setFondoEntries(updatedEntries);
         if (saved.ledgerSnapshot) {
           setLedgerSnapshot(saved.ledgerSnapshot);
+        }
+
+        // Mantener una copia en Facturas (best-effort)
+        if (updatedEntry) {
+          const normalizedCompany = (company || "").trim();
+          if (normalizedCompany.length > 0) {
+            const facturaCopy: FacturaMovement = {
+              id: updatedEntry.id,
+              empresa: normalizedCompany,
+              accountId: accountKey,
+              providerCode: updatedEntry.providerCode,
+              invoiceNumber: updatedEntry.invoiceNumber,
+              invoiceDocType: normalizeInvoiceDocType(
+                (updatedEntry as any).invoiceDocType,
+              ),
+              paymentType: updatedEntry.paymentType,
+              amountEgreso: updatedEntry.amountEgreso,
+              amountIngreso: updatedEntry.amountIngreso,
+              manager: updatedEntry.manager,
+              notes: updatedEntry.notes,
+              createdAt: updatedEntry.createdAt,
+              currency: updatedEntry.currency,
+            };
+            void FacturasService.upsertMovement(normalizedCompany, facturaCopy);
+          }
         }
         if (saved.confirmed) {
           showToast("Movimiento editado correctamente", "success", 3000);
@@ -6704,9 +6741,11 @@ export function FondoSection({
         const movementId = `${dateKey}-${timeKey}_${accountKey}`;
         const entry: FondoEntry = {
           id: movementId,
+          empresa: company,
+          accountId: accountKey,
           providerCode: selectedProvider,
           invoiceNumber: paddedInvoice,
-          invoiceDocType: normalizeInvoiceDocType(invoiceDocType),
+          invoiceDocType: effectiveInvoiceDocType,
           paymentType,
           amountEgreso: isEgreso ? egresoValue : 0,
           amountIngreso: isIngreso ? ingresoValue : 0,
@@ -6715,6 +6754,64 @@ export function FondoSection({
           createdAt: iso,
           currency: movementCurrency,
         };
+
+        // Crédito (FCR): se registra solo en Facturas y NO afecta el Fondo.
+        if (effectiveInvoiceDocType === "FCR") {
+          const normalizedCompany = (company || "").trim();
+          if (normalizedCompany.length === 0) {
+            showToast(
+              "No se pudo registrar la factura: falta empresa.",
+              "error",
+              5000,
+            );
+            return;
+          }
+
+          const facturaCopy: FacturaMovement = {
+            id: entry.id,
+            empresa: normalizedCompany,
+            accountId: accountKey,
+            providerCode: entry.providerCode,
+            invoiceNumber: entry.invoiceNumber,
+            invoiceDocType: "FCR",
+            paymentType: entry.paymentType,
+            amountEgreso: entry.amountEgreso,
+            amountIngreso: entry.amountIngreso,
+            manager: entry.manager,
+            notes: entry.notes,
+            createdAt: entry.createdAt,
+            currency: entry.currency,
+          };
+
+          await FacturasService.upsertMovement(normalizedCompany, facturaCopy);
+
+          try {
+            await ProvidersService.incrementMovementCount(
+              normalizedCompany,
+              selectedProvider,
+            );
+          } catch (err) {
+            console.warn(
+              "[FG] Could not increment provider movement count (FCR):",
+              err,
+            );
+          }
+
+          // Notificación por correo (mismo comportamiento)
+          sendMovementNotification(entry, "create").catch((err) => {
+            console.error(
+              "[NOTIFICATION] Error en notificación de movimiento (FCR):",
+              err,
+            );
+          });
+
+          showToast("Factura a crédito registrada", "success", 3000);
+          resetFondoForm();
+          if (!movementAutoCloseLocked) {
+            setMovementModalOpen(false);
+          }
+          return;
+        }
 
         // Preparar la lista actualizada ANTES de persistir
         const updatedEntries = [entry, ...fondoEntries];
@@ -6747,6 +6844,30 @@ export function FondoSection({
               "[FG] Could not increment provider movement count:",
               err,
             );
+          }
+
+          // Mantener copia en Facturas (best-effort)
+          try {
+            if (normalizedCompany.length > 0) {
+              const facturaCopy: FacturaMovement = {
+                id: entry.id,
+                empresa: normalizedCompany,
+                accountId: accountKey,
+                providerCode: entry.providerCode,
+                invoiceNumber: entry.invoiceNumber,
+                invoiceDocType: "FCO",
+                paymentType: entry.paymentType,
+                amountEgreso: entry.amountEgreso,
+                amountIngreso: entry.amountIngreso,
+                manager: entry.manager,
+                notes: entry.notes,
+                createdAt: entry.createdAt,
+                currency: entry.currency,
+              };
+              await FacturasService.upsertMovement(normalizedCompany, facturaCopy);
+            }
+          } catch (err) {
+            console.warn("[FG] Could not upsert Facturas copy:", err);
           }
         }
 
