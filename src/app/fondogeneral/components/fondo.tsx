@@ -281,6 +281,8 @@ export type FondoEntry = {
   id: string;
   providerCode: string;
   invoiceNumber: string;
+  // Tipo de factura: contado (FCO) o crédito (FCR)
+  invoiceDocType?: "FCO" | "FCR";
   paymentType: FondoMovementType;
   amountEgreso: number;
   amountIngreso: number;
@@ -301,6 +303,9 @@ export type FondoEntry = {
   auditDetails?: string;
 };
 
+const normalizeInvoiceDocType = (value: unknown): "FCO" | "FCR" =>
+  value === "FCR" ? "FCR" : "FCO";
+
 /**
  * Simplifica un registro de auditoría guardando solo los campos que cambiaron.
  * @param before Estado anterior del movimiento
@@ -320,6 +325,7 @@ const getChangedFields = (
   const fieldsToCheck = [
     "providerCode",
     "invoiceNumber",
+    "invoiceDocType",
     "paymentType",
     "amountEgreso",
     "amountIngreso",
@@ -3248,6 +3254,7 @@ export function FondoSection({
   const [movementCurrency, setMovementCurrency] = useState<"CRC" | "USD">(
     "CRC",
   );
+  const [invoiceDocType, setInvoiceDocType] = useState<"FCO" | "FCR">("FCO");
   const [providerError, setProviderError] = useState("");
   const [invoiceError, setInvoiceError] = useState("");
   const [amountError, setAmountError] = useState("");
@@ -5391,6 +5398,7 @@ export function FondoSection({
   const resetFondoForm = useCallback(() => {
     setSelectedProvider("");
     setInvoiceNumber("");
+    setInvoiceDocType("FCO");
     setEgreso("");
     setIngreso("");
     setManager("");
@@ -6079,6 +6087,7 @@ export function FondoSection({
           const fingerprintParts = [
             `provider=${entry.providerCode || ""}`,
             `invoice=${entry.invoiceNumber || ""}`,
+            `invoiceDocType=${normalizeInvoiceDocType((entry as any).invoiceDocType)}`,
             `type=${entry.paymentType || ""}`,
             `egreso=${Math.trunc(entry.amountEgreso || 0)}`,
             `ingreso=${Math.trunc(entry.amountIngreso || 0)}`,
@@ -6367,6 +6376,7 @@ export function FondoSection({
           const fingerprintParts = [
             `provider=${selectedProvider || ""}`,
             `invoice=${paddedInvoice || ""}`,
+            `invoiceDocType=${normalizeInvoiceDocType(invoiceDocType)}`,
             `type=${paymentType || ""}`,
             `egreso=${Math.trunc(isEgreso ? egresoValue : 0)}`,
             `ingreso=${Math.trunc(isIngreso ? ingresoValue : 0)}`,
@@ -6493,6 +6503,7 @@ export function FondoSection({
             {
               providerCode: e.providerCode,
               invoiceNumber: e.invoiceNumber,
+              invoiceDocType: normalizeInvoiceDocType((e as any).invoiceDocType),
               paymentType: e.paymentType,
               amountEgreso: e.amountEgreso,
               amountIngreso: e.amountIngreso,
@@ -6503,6 +6514,7 @@ export function FondoSection({
             {
               providerCode: selectedProvider,
               invoiceNumber: paddedInvoice,
+              invoiceDocType: normalizeInvoiceDocType(invoiceDocType),
               paymentType,
               amountEgreso: isEgreso ? egresoValue : 0,
               amountIngreso: isEgreso ? 0 : ingresoValue,
@@ -6520,6 +6532,7 @@ export function FondoSection({
             ...e,
             providerCode: selectedProvider,
             invoiceNumber: paddedInvoice,
+            invoiceDocType: normalizeInvoiceDocType(invoiceDocType),
             paymentType,
             amountEgreso: isEgreso ? egresoValue : 0,
             amountIngreso: isEgreso ? 0 : ingresoValue,
@@ -6693,6 +6706,7 @@ export function FondoSection({
           id: movementId,
           providerCode: selectedProvider,
           invoiceNumber: paddedInvoice,
+          invoiceDocType: normalizeInvoiceDocType(invoiceDocType),
           paymentType,
           amountEgreso: isEgreso ? egresoValue : 0,
           amountIngreso: isIngreso ? ingresoValue : 0,
@@ -6811,6 +6825,7 @@ export function FondoSection({
       : entry.paymentType;
     setPaymentType(correctPaymentType);
     setInvoiceNumber(entry.invoiceNumber);
+    setInvoiceDocType(normalizeInvoiceDocType((entry as any).invoiceDocType));
     setManager(entry.manager);
     setNotes(entry.notes ?? "");
     setMovementCurrency((entry.currency as "CRC" | "USD") ?? "CRC");
@@ -10172,6 +10187,8 @@ export function FondoSection({
               selectedProviderExists={selectedProviderExists}
               invoiceNumber={invoiceNumber}
               onInvoiceNumberChange={handleInvoiceNumberChange}
+              invoiceDocType={invoiceDocType}
+              onInvoiceDocTypeChange={setInvoiceDocType}
               invoiceValid={invoiceValid}
               invoiceDisabled={invoiceDisabled}
               paymentType={paymentType}
