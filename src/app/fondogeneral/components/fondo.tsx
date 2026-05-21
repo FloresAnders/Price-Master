@@ -3227,7 +3227,19 @@ export function FondoSection({
     [],
   );
 
-  const movementProviders = isCajaNegra ? cajaNegraProviders : providers;
+  const movementProviders: Array<{
+    code: string;
+    name: string;
+    type?: FondoMovementType;
+    correonotifi?: string;
+  }> = isCajaNegra
+    ? cajaNegraProviders
+    : (providers as Array<{
+        code: string;
+        name: string;
+        type?: FondoMovementType;
+        correonotifi?: string;
+      }>);
   const movementProvidersLoading = isCajaNegra ? false : providersLoading;
 
   const [fondoTypesLoaded, setFondoTypesLoaded] = useState(false);
@@ -6918,12 +6930,8 @@ export function FondoSection({
     setEditingEntryId(entry.id);
     setSelectedProvider(entry.providerCode);
     // Determine the correct payment type: use provider's type if exists, else entry's type
-    const provider = movementProviders.find(
-      (p) => p.code === entry.providerCode,
-    );
-    const correctPaymentType = provider?.type
-      ? (provider.type as FondoEntry["paymentType"])
-      : entry.paymentType;
+    const correctPaymentType =
+      providerTypesMap.get(entry.providerCode) ?? entry.paymentType;
     setPaymentType(correctPaymentType);
     setInvoiceNumber(entry.invoiceNumber);
     setManager(entry.manager);

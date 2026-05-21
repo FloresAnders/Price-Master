@@ -6,7 +6,7 @@
     {
       "date": "2026-05-21",
       "title": "Implementacion de caja negra",
-    "description": "Se ha implementado una nueva cuenta 'Caja Negra' para manejar dineros extra del Fondo General, proporcionando mayor control y transparencia en las finanzas, esta opcion funcinara de manera similar a las cuentas de Fondo General, pero con un enfoque específico en la gestión de fondos adicionales. Todo retiro para diana del fondo se agrega a esta cuenta hasta que entregue el dinero a diana, en ese momento se eliminara el monto de esta cuenta."
+    "description": "Se ha implementado una nueva cuenta 'Caja Negra' para manejar dineros extra del Fondo General, proporcionando mayor control y transparencia en las finanzas, esta opcion funcinara de manera similar a las cuentas de Fondo General, pero con un enfoque específico en la gestión de fondos adicionales. Todo retiro para diana del fondo se agrega a esta cuenta hasta que entregue el dinero a diana, en ese momento se eliminara el monto de esta cuenta.."
     }
   ],
   "systemNotes": [
