@@ -6263,8 +6263,10 @@ export function FondoSection({
     if (isIngreso && (Number.isNaN(ingresoValue) || ingresoValue <= 0)) return;
 
     // Validar que no quede saldo negativo en la moneda del movimiento.
+    // Nota: este límite de “saldo insuficiente” solo aplica para usuarios regulares.
+    // Admin/Superadmin pueden registrar egresos que dejen saldo negativo.
     // En edición se revierte primero el impacto del movimiento original.
-    if (isEgreso) {
+    if (isEgreso && !isAdminUser && !isSuperAdminUser) {
       const currentBalance =
         movementCurrency === "USD"
           ? ledgerSnapshot.currentUSD
