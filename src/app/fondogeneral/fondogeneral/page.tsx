@@ -82,7 +82,6 @@ export default function FondoPage() {
   const { user, loading } = useAuth();
   const permissions =
     user?.permissions || getDefaultPermissions(user?.role || "user");
-  const hideAccountTabs = user?.role === "user";
   const hasGeneralAccess = Boolean(permissions.fondogeneral);
   const availableTabs = useMemo<FondoTab[]>(() => {
     if (!hasGeneralAccess) return [];
@@ -243,33 +242,12 @@ export default function FondoPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
-                  <div className="rounded-lg border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-2 text-center sm:min-w-[112px]">
-                    <div className="text-lg font-semibold leading-none text-[var(--foreground)]">
-                      {availableTabs.length}
-                    </div>
-                    <div className="mt-1 text-[11px] font-medium uppercase text-[var(--muted-foreground)]">
-                      Cuentas
-                    </div>
-                  </div>
-                  <div className="rounded-lg border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-2 text-center sm:min-w-[112px]">
-                    <div className="text-lg font-semibold leading-none text-[var(--foreground)]">
-                      {activeTab ? TAB_VISUALS[activeTab.id].shortLabel : "-"}
-                    </div>
-                    <div className="mt-1 text-[11px] font-medium uppercase text-[var(--muted-foreground)]">
-                      Activa
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {(!hideAccountTabs || (activeTab && companySelectorSlot)) && (
-                <div className="flex min-w-0 flex-col gap-3 p-2 sm:p-3 xl:flex-row xl:items-start xl:justify-between">
-                  {!hideAccountTabs && (
+                {availableTabs.length >= 2 && user?.role === "user" ? (
+                  <div className="flex items-center gap-3">
                     <div
                       role="tablist"
                       aria-label="Cuentas"
-                      className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:flex xl:flex-nowrap xl:items-center"
+                      className="flex items-center gap-2"
                     >
                       {availableTabs.map((tab) => {
                         const isActive = effectiveActive === tab.id;
@@ -286,14 +264,14 @@ export default function FondoPage() {
                               setCompanySelectorSlot(null);
                               setActive(tab.id);
                             }}
-                            className={`group relative flex min-h-[64px] items-center gap-3 rounded-lg border px-3 py-2 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)] lg:min-w-[180px] ${
+                            className={`group relative flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)] ${
                               isActive
                                 ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--foreground)] shadow-sm"
                                 : "border-transparent bg-transparent text-[var(--muted-foreground)] hover:border-[var(--input-border)] hover:bg-[var(--card-bg)] hover:text-[var(--foreground)]"
                             }`}
                           >
                             <span
-                              className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg border ${
+                              className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border ${
                                 isActive ? visual.activeTone : visual.tone
                               }`}
                             >
@@ -301,11 +279,11 @@ export default function FondoPage() {
                                 <img
                                   src={visual.logoSrc}
                                   alt={tab.label}
-                                  className="h-8 w-8 object-contain"
+                                  className="h-6 w-6 object-contain"
                                   draggable={false}
                                 />
                               ) : Icon ? (
-                                <Icon className="h-5 w-5" />
+                                <Icon className="h-4 w-4" />
                               ) : null}
                             </span>
                             <span className="min-w-0 flex-1">
@@ -323,7 +301,106 @@ export default function FondoPage() {
                         );
                       })}
                     </div>
-                  )}
+                    <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+                      <div className="rounded-lg border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-2 text-center sm:min-w-[112px]">
+                        <div className="text-lg font-semibold leading-none text-[var(--foreground)]">
+                          {availableTabs.length}
+                        </div>
+                        <div className="mt-1 text-[11px] font-medium uppercase text-[var(--muted-foreground)]">
+                          Cuentas
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-2 text-center sm:min-w-[112px]">
+                        <div className="text-lg font-semibold leading-none text-[var(--foreground)]">
+                          {activeTab ? TAB_VISUALS[activeTab.id].shortLabel : "-"}
+                        </div>
+                        <div className="mt-1 text-[11px] font-medium uppercase text-[var(--muted-foreground)]">
+                          Activa
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+                    <div className="rounded-lg border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-2 text-center sm:min-w-[112px]">
+                      <div className="text-lg font-semibold leading-none text-[var(--foreground)]">
+                        {availableTabs.length}
+                      </div>
+                      <div className="mt-1 text-[11px] font-medium uppercase text-[var(--muted-foreground)]">
+                        Cuentas
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-2 text-center sm:min-w-[112px]">
+                      <div className="text-lg font-semibold leading-none text-[var(--foreground)]">
+                        {activeTab ? TAB_VISUALS[activeTab.id].shortLabel : "-"}
+                      </div>
+                      <div className="mt-1 text-[11px] font-medium uppercase text-[var(--muted-foreground)]">
+                        Activa
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {availableTabs.length > 0 && (availableTabs.length < 2 || user?.role !== "user") && (
+                <div className="flex min-w-0 flex-col gap-3 p-2 sm:p-3 xl:flex-row xl:items-start xl:justify-between">
+                  <div
+                    role="tablist"
+                    aria-label="Cuentas"
+                    className="grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:flex xl:flex-nowrap xl:items-center"
+                  >
+                    {availableTabs.map((tab) => {
+                      const isActive = effectiveActive === tab.id;
+                      const visual = TAB_VISUALS[tab.id];
+                      const Icon = visual.icon;
+                      return (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          role="tab"
+                          tabIndex={isActive ? 0 : -1}
+                          aria-selected={isActive}
+                          onClick={() => {
+                            setCompanySelectorSlot(null);
+                            setActive(tab.id);
+                          }}
+                          className={`group relative flex min-h-[64px] items-center gap-3 rounded-lg border px-3 py-2 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)] lg:min-w-[180px] ${
+                            isActive
+                              ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--foreground)] shadow-sm"
+                              : "border-transparent bg-transparent text-[var(--muted-foreground)] hover:border-[var(--input-border)] hover:bg-[var(--card-bg)] hover:text-[var(--foreground)]"
+                          }`}
+                        >
+                          <span
+                            className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg border ${
+                              isActive ? visual.activeTone : visual.tone
+                            }`}
+                          >
+                            {visual.logoSrc ? (
+                              <img
+                                src={visual.logoSrc}
+                                alt={tab.label}
+                                className="h-8 w-8 object-contain"
+                                draggable={false}
+                              />
+                            ) : Icon ? (
+                              <Icon className="h-5 w-5" />
+                            ) : null}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-semibold">
+                              {tab.label}
+                            </span>
+                            <span className="mt-0.5 block truncate text-xs text-[var(--muted-foreground)]">
+                              {visual.helper}
+                            </span>
+                          </span>
+                          {isActive && (
+                            <span className="absolute bottom-1 left-3 right-3 h-0.5 rounded-full bg-[var(--accent)]" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
 
                   {activeTab && companySelectorSlot && (
                     <div className="w-full min-w-0 xl:w-[380px] xl:flex-shrink-0">

@@ -3214,16 +3214,13 @@ export function FondoSection({
       {
         code: "INGRESO DESDE FG POR RETIRO DIANA",
         name: "INGRESO DESDE FG POR RETIRO DIANA",
-        type: "INGRESO DESDE FG POR RETIRO DIANA",
       },
       { 
         code: "RETIRO DIANA", 
-        name: "RETIRO DIANA", 
-        type: "RETIRO DIANA" },
+        name: "RETIRO DIANA" },
       {
         code: "SALIDA A FONDO GENERAL",
         name: "SALIDA A FONDO GENERAL",
-        type: "SALIDA A FONDO GENERAL",
       },
     ],
     [],
@@ -5381,9 +5378,9 @@ export function FondoSection({
       };
     }
 
-    // Solo cargar empleados de la empresa si estamos en fondogeneral (namespace 'fg')
+    // Solo cargar empleados de la empresa si estamos en fondogeneral (fg) o cajanegra (cn)
     // Para otros fondos (BCR, BN, BAC), no cargar empleados
-    if (namespace !== "fg") {
+    if (namespace !== "fg" && namespace !== "cn") {
       setEmployeesLoading(false);
       return () => {
         isActive = false;
@@ -6904,7 +6901,7 @@ export function FondoSection({
     const provider = movementProviders.find(
       (p) => p.code === entry.providerCode,
     );
-    const correctPaymentType = provider
+    const correctPaymentType = provider?.type
       ? (provider.type as FondoEntry["paymentType"])
       : entry.paymentType;
     setPaymentType(correctPaymentType);
@@ -7727,6 +7724,12 @@ export function FondoSection({
       if (prov && prov.type && isFondoMovementType(prov.type)) {
         nextPaymentType = prov.type as FondoEntry["paymentType"];
         setPaymentType(nextPaymentType);
+      } else if (isCajaNegra) {
+        const upper = (prov?.code || value).toUpperCase();
+        nextPaymentType = upper.includes("INGRESO")
+          ? (FONDO_INGRESO_TYPES[0] as FondoEntry["paymentType"])
+          : (FONDO_EGRESO_TYPES[0] as FondoEntry["paymentType"]);
+        setPaymentType(nextPaymentType);
       } else {
         // fallback to default when provider has no type or it's invalid
         nextPaymentType = "COMPRA INVENTARIO";
@@ -7821,6 +7824,13 @@ export function FondoSection({
         const prov = movementProviders.find((p) => p.code === selectedProvider);
         if (prov && prov.type && isFondoMovementType(prov.type)) {
           setPaymentType(prov.type as FondoEntry["paymentType"]);
+        } else if (isCajaNegra) {
+          const upper = (prov?.code || selectedProvider).toUpperCase();
+          setPaymentType(
+            upper.includes("INGRESO")
+              ? (FONDO_INGRESO_TYPES[0] as FondoEntry["paymentType"])
+              : (FONDO_EGRESO_TYPES[0] as FondoEntry["paymentType"]),
+          );
         } else {
           setPaymentType("COMPRA INVENTARIO");
         }
@@ -10746,7 +10756,9 @@ export function FondoSection({
                               ? "AJUSTE CIERRE"
                               : fe.paymentType === "INFORMATIVO" && providerType
                                 ? providerType
-                                : fe.paymentType;
+                                : !providerType
+                                  ? "INFORMATIVO"
+                                  : fe.paymentType;
                           const isSuccessfulClosing =
                             isAutoAdjustment && movementAmount === 0;
                           const amountPrefix = isEntryEgreso ? "-" : "+";
