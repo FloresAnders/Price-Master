@@ -22,7 +22,12 @@ import { FirestoreService } from "./firestore";
 import movimientosFondosDocs from "@/data/movimientosFondosDocs.json";
 
 export type MovementCurrencyKey = "CRC" | "USD";
-export type MovementAccountKey = "FondoGeneral" | "BCR" | "BN" | "BAC";
+export type MovementAccountKey =
+  | "FondoGeneral"
+  | "BCR"
+  | "BN"
+  | "BAC"
+  | "CajaNegra";
 
 export type MovementRecordBase = {
   id: string;
@@ -31,7 +36,13 @@ export type MovementRecordBase = {
   currency: MovementCurrencyKey;
 };
 
-const ACCOUNT_KEYS: MovementAccountKey[] = ["FondoGeneral", "BCR", "BN", "BAC"];
+const ACCOUNT_KEYS: MovementAccountKey[] = [
+  "FondoGeneral",
+  "BCR",
+  "BN",
+  "BAC",
+  "CajaNegra",
+];
 const CURRENCY_KEYS: MovementCurrencyKey[] = ["CRC", "USD"];
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -151,11 +162,21 @@ const DEFAULT_ACCOUNT_LABELS: Record<MovementAccountKey, string> = {
   BCR: "BCR",
   BN: "BN",
   BAC: "BAC",
+  CajaNegra: "Caja Negra",
 };
 
 export class MovimientosFondosService {
   static readonly COLLECTION_NAME = "MovimientosFondos";
   static readonly MOVEMENTS_SUBCOLLECTION = "movements";
+  static readonly CAJA_NEGRA_SUBCOLLECTION = "cajanegra";
+
+  private static resolveMovementsSubcollection(
+    accountId?: MovementAccountKey,
+  ): string {
+    return accountId === "CajaNegra"
+      ? this.CAJA_NEGRA_SUBCOLLECTION
+      : this.MOVEMENTS_SUBCOLLECTION;
+  }
 
   static buildMovementStorageKey(identifier: string): string {
     return `${MOVEMENT_STORAGE_PREFIX}_${identifier && identifier.length > 0 ? identifier : "global"}`;
@@ -673,19 +694,22 @@ export class MovimientosFondosService {
     await FirestoreService.delete(this.COLLECTION_NAME, docId);
   }
 
-  private static movementsCollectionRef(docId: string) {
+  private static movementsCollectionRef(docId: string, accountId?: MovementAccountKey) {
     return collection(
       db,
       this.COLLECTION_NAME,
       docId,
-      this.MOVEMENTS_SUBCOLLECTION,
+      this.resolveMovementsSubcollection(accountId),
     );
   }
 
-  static async countMovements(docId: string): Promise<number> {
+  static async countMovements(
+    docId: string,
+    options?: { accountId?: MovementAccountKey },
+  ): Promise<number> {
     if (!docId) return 0;
     const snapshot = await getCountFromServer(
-      this.movementsCollectionRef(docId),
+      this.movementsCollectionRef(docId, options?.accountId),
     );
     return snapshot.data().count;
   }
@@ -693,10 +717,19 @@ export class MovimientosFondosService {
   static async upsertMovement<T extends Partial<MovementRecordBase>>(
     docId: string,
     movement: T & { id: string },
+    options?: { accountId?: MovementAccountKey },
   ): Promise<void> {
     if (!docId) return;
     if (!movement?.id) return;
-    const movementRef = doc(this.movementsCollectionRef(docId), movement.id);
+    const resolvedAccountId =
+      (movement as any)?.accountId &&
+      this.isMovementAccountKey((movement as any).accountId)
+        ? ((movement as any).accountId as MovementAccountKey)
+        : options?.accountId;
+    const movementRef = doc(
+      this.movementsCollectionRef(docId, resolvedAccountId),
+      movement.id,
+    );
     // Do not duplicate id (docId already contains it). Keep the stored document clean.
     const record = { ...(movement as Record<string, unknown>) };
     delete (record as any).id;
@@ -706,10 +739,14 @@ export class MovimientosFondosService {
   static async deleteMovement(
     docId: string,
     movementId: string,
+    options?: { accountId?: MovementAccountKey },
   ): Promise<void> {
     if (!docId) return;
     if (!movementId) return;
-    const movementRef = doc(this.movementsCollectionRef(docId), movementId);
+    const movementRef = doc(
+      this.movementsCollectionRef(docId, options?.accountId),
+      movementId,
+    );
     await deleteDoc(movementRef);
   }
 
@@ -725,8 +762,12 @@ export class MovimientosFondosService {
     docId: string,
     ledger: MovementStorage<TStorage>,
     change:
-      | { type: "upsert"; movement: TMovement & { id: string } }
-      | { type: "delete"; movementId: string }
+      | {
+          type: "upsert";
+          movement: TMovement & { id: string };
+          accountId?: MovementAccountKey;
+        }
+      | { type: "delete"; movementId: string; accountId?: MovementAccountKey }
       | { type: "none" },
   ): Promise<void> {
     if (!docId) return;
@@ -742,7 +783,15 @@ export class MovimientosFondosService {
           "[MovimientosFondosService.commitLedgerAndMovement] upsert requires movement.id",
         );
       }
-      const movementRef = doc(this.movementsCollectionRef(docId), movement.id);
+      const resolvedAccountId =
+        (movement as any)?.accountId &&
+        this.isMovementAccountKey((movement as any).accountId)
+          ? ((movement as any).accountId as MovementAccountKey)
+          : change.accountId;
+      const movementRef = doc(
+        this.movementsCollectionRef(docId, resolvedAccountId),
+        movement.id,
+      );
       const record = { ...(movement as Record<string, unknown>) };
       delete (record as any).id;
       batch.set(movementRef, stripUndefinedDeep(record) as any);
@@ -753,7 +802,10 @@ export class MovimientosFondosService {
           "[MovimientosFondosService.commitLedgerAndMovement] delete requires movementId",
         );
       }
-      const movementRef = doc(this.movementsCollectionRef(docId), movementId);
+      const movementRef = doc(
+        this.movementsCollectionRef(docId, change.accountId),
+        movementId,
+      );
       batch.delete(movementRef);
     }
 
@@ -773,6 +825,7 @@ export class MovimientosFondosService {
     options?: {
       pageSize?: number;
       cursor?: QueryDocumentSnapshot<DocumentData> | null;
+      accountId?: MovementAccountKey;
     },
   ): Promise<{
     items: Array<T & { id: string }>;
@@ -791,11 +844,11 @@ export class MovimientosFondosService {
     ];
     const q: Query<DocumentData> = cursor
       ? query(
-          this.movementsCollectionRef(docId),
+          this.movementsCollectionRef(docId, options?.accountId),
           ...constraints,
           startAfter(cursor),
         )
-      : query(this.movementsCollectionRef(docId), ...constraints);
+      : query(this.movementsCollectionRef(docId, options?.accountId), ...constraints);
 
     const snap: QuerySnapshot<DocumentData> = await getDocs(q);
     if (snap.empty) {
@@ -820,6 +873,7 @@ export class MovimientosFondosService {
       endIsoExclusive: string;
       pageSize?: number;
       cursor?: QueryDocumentSnapshot<DocumentData> | null;
+      accountId?: MovementAccountKey;
     },
   ): Promise<{
     items: Array<T & { id: string }>;
@@ -847,11 +901,11 @@ export class MovimientosFondosService {
 
     const q: Query<DocumentData> = cursor
       ? query(
-          this.movementsCollectionRef(docId),
+          this.movementsCollectionRef(docId, options.accountId),
           ...constraints,
           startAfter(cursor),
         )
-      : query(this.movementsCollectionRef(docId), ...constraints);
+      : query(this.movementsCollectionRef(docId, options.accountId), ...constraints);
 
     const snap: QuerySnapshot<DocumentData> = await getDocs(q);
     if (snap.empty) {
@@ -874,6 +928,7 @@ export class MovimientosFondosService {
     options?: {
       pageSize?: number;
       maxPages?: number;
+      accountId?: MovementAccountKey;
     },
   ): Promise<Array<T & { id: string }>> {
     if (!docId) return [];
@@ -891,11 +946,11 @@ export class MovimientosFondosService {
       ];
       const q: Query<DocumentData> = cursor
         ? query(
-            this.movementsCollectionRef(docId),
+            this.movementsCollectionRef(docId, options?.accountId),
             ...constraints,
             startAfter(cursor),
           )
-        : query(this.movementsCollectionRef(docId), ...constraints);
+        : query(this.movementsCollectionRef(docId, options?.accountId), ...constraints);
       const snap: QuerySnapshot<DocumentData> = await getDocs(q);
       if (snap.empty) break;
 
@@ -913,7 +968,7 @@ export class MovimientosFondosService {
   static async listMovementsByOriginalEntryId<T = unknown>(
     docId: string,
     originalEntryId: string,
-    options?: { limitCount?: number },
+    options?: { limitCount?: number; accountId?: MovementAccountKey },
   ): Promise<Array<T & { id: string }>> {
     if (!docId) return [];
     const key = String(originalEntryId || "").trim();
@@ -921,7 +976,7 @@ export class MovimientosFondosService {
 
     const limitCount = Math.max(1, Math.min(options?.limitCount ?? 25, 200));
     const q: Query<DocumentData> = query(
-      this.movementsCollectionRef(docId),
+      this.movementsCollectionRef(docId, options?.accountId),
       where("originalEntryId", "==", key),
       limit(limitCount),
     );

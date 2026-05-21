@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, {
   useState,
@@ -590,6 +590,7 @@ const NAMESPACE_PERMISSIONS: Record<string, keyof UserPermissions> = {
   bcr: "fondogeneralBCR",
   bn: "fondogeneralBN",
   bac: "fondogeneralBAC",
+  cn: "cajaNegra",
 };
 
 const NAMESPACE_DESCRIPTIONS: Record<string, string> = {
@@ -597,6 +598,7 @@ const NAMESPACE_DESCRIPTIONS: Record<string, string> = {
   bcr: "la cuenta BCR",
   bn: "la cuenta BN",
   bac: "la cuenta BAC",
+  cn: "la Caja Negra",
 };
 
 const ACCOUNT_KEY_BY_NAMESPACE: Record<string, MovementAccountKey> = {
@@ -604,6 +606,7 @@ const ACCOUNT_KEY_BY_NAMESPACE: Record<string, MovementAccountKey> = {
   bcr: "BCR",
   bn: "BN",
   bac: "BAC",
+  cn: "CajaNegra",
 };
 
 const MOVEMENT_ACCOUNT_KEYS: MovementAccountKey[] = [
@@ -611,6 +614,7 @@ const MOVEMENT_ACCOUNT_KEYS: MovementAccountKey[] = [
   "BCR",
   "BN",
   "BAC",
+  "CajaNegra",
 ];
 
 const isMovementAccountKey = (value: unknown): value is MovementAccountKey =>
@@ -3201,7 +3205,33 @@ export function FondoSection({
     [namespace],
   );
 
-  // Estado para tipos de movimientos dinámicos
+  // Caja Negra: proveedores fijos y detecci�n
+
+  // Caja Negra: proveedores fijos y detecci�n
+  const isCajaNegra = accountKey === "CajaNegra";
+  const cajaNegraProviders = useMemo(
+    () => [
+      {
+        code: "INGRESO DESDE FG POR RETIRO DIANA",
+        name: "INGRESO DESDE FG POR RETIRO DIANA",
+        type: "INGRESO DESDE FG POR RETIRO DIANA",
+      },
+      { 
+        code: "RETIRO DIANA", 
+        name: "RETIRO DIANA", 
+        type: "RETIRO DIANA" },
+      {
+        code: "SALIDA A FONDO GENERAL",
+        name: "SALIDA A FONDO GENERAL",
+        type: "SALIDA A FONDO GENERAL",
+      },
+    ],
+    [],
+  );
+
+  const movementProviders = isCajaNegra ? cajaNegraProviders : providers;
+  const movementProvidersLoading = isCajaNegra ? false : providersLoading;
+
   const [fondoTypesLoaded, setFondoTypesLoaded] = useState(false);
   const [, setIngresoTypes] = useState<string[]>([]);
   const [, setGastoTypes] = useState<string[]>([]);
@@ -3898,6 +3928,12 @@ export function FondoSection({
     >
   >({});
 
+  const buildV2MovementsCacheKey = useCallback(
+    (docKey: string, targetAccountKey: MovementAccountKey) =>
+      `${docKey}::${targetAccountKey}`,
+    [],
+  );
+
   const buildLocalDayIsoRange = useCallback((isoDateKey: string) => {
     const [yStr, mStr, dStr] = String(isoDateKey || "").split("-");
     const y = Number(yStr);
@@ -3975,16 +4011,30 @@ export function FondoSection({
       ? MovimientosFondosService.buildLegacyOwnerMovementsKey(resolvedOwnerId)
       : null;
 
-    if (v2MovementsCacheRef.current[companyKey]?.loaded) return companyKey;
-    if (legacyOwnerKey && v2MovementsCacheRef.current[legacyOwnerKey]?.loaded)
+    const targetAccountKey = accountKeyRef.current;
+    const companyCacheKey = buildV2MovementsCacheKey(
+      companyKey,
+      targetAccountKey,
+    );
+    const legacyCacheKey = legacyOwnerKey
+      ? buildV2MovementsCacheKey(legacyOwnerKey, targetAccountKey)
+      : null;
+
+    if (v2MovementsCacheRef.current[companyCacheKey]?.loaded) return companyKey;
+    if (
+      legacyOwnerKey &&
+      legacyCacheKey &&
+      v2MovementsCacheRef.current[legacyCacheKey]?.loaded
+    )
       return legacyOwnerKey;
 
     return companyKey || legacyOwnerKey || "";
-  }, [company, resolvedOwnerId]);
+  }, [company, resolvedOwnerId, buildV2MovementsCacheKey]);
 
   const rebuildEntriesFromV2Cache = useCallback(
     (docKey: string, targetAccountKey: MovementAccountKey) => {
-      const cached = v2MovementsCacheRef.current[docKey];
+      const cacheKey = buildV2MovementsCacheKey(docKey, targetAccountKey);
+      const cached = v2MovementsCacheRef.current[cacheKey];
       if (!cached?.loaded) return;
 
       const scopedEntries = cached.movements.filter((rawEntry) => {
@@ -4010,7 +4060,7 @@ export function FondoSection({
         applyLedgerStateFromStorage(state);
       }
     },
-    [applyLedgerStateFromStorage],
+    [applyLedgerStateFromStorage, buildV2MovementsCacheKey],
   );
 
   const ensureV2MovementsLoaded = useCallback(
@@ -4018,10 +4068,11 @@ export function FondoSection({
       if (!docKey) return;
 
       const targetAccountKey = accountKeyRef.current;
+      const cacheKey = buildV2MovementsCacheKey(docKey, targetAccountKey);
       const { queryKey, startIso, endIsoExclusive } =
         resolveActiveMovementsQuery();
 
-      const cached = v2MovementsCacheRef.current[docKey] ?? {
+      const cached = v2MovementsCacheRef.current[cacheKey] ?? {
         loaded: false,
         movements: [] as FondoEntry[],
         cursor: null as QueryDocumentSnapshot<DocumentData> | null,
@@ -4096,7 +4147,7 @@ export function FondoSection({
         endIsoExclusive,
       };
 
-      v2MovementsCacheRef.current[docKey] = nextCache;
+      v2MovementsCacheRef.current[cacheKey] = nextCache;
       beginMovementsLoading();
 
       try {
@@ -4108,6 +4159,7 @@ export function FondoSection({
               endIsoExclusive,
               pageSize: remoteBatchSize,
               cursor: shouldReset ? null : nextCache.cursor,
+              accountId: targetAccountKey,
             },
           );
 
@@ -4115,7 +4167,7 @@ export function FondoSection({
           ? (pageResult.items as FondoEntry[])
           : [...nextCache.movements, ...(pageResult.items as FondoEntry[])];
 
-        v2MovementsCacheRef.current[docKey] = {
+        v2MovementsCacheRef.current[cacheKey] = {
           ...nextCache,
           loaded: true,
           movements: mergedMovements,
@@ -4124,9 +4176,9 @@ export function FondoSection({
           loading: false,
         };
       } finally {
-        const latest = v2MovementsCacheRef.current[docKey];
+        const latest = v2MovementsCacheRef.current[cacheKey];
         if (latest) {
-          v2MovementsCacheRef.current[docKey] = {
+          v2MovementsCacheRef.current[cacheKey] = {
             ...latest,
             loading: false,
           };
@@ -4141,6 +4193,7 @@ export function FondoSection({
       beginMovementsLoading,
       endMovementsLoading,
       resolveActiveMovementsQuery,
+      buildV2MovementsCacheKey,
       pageSize,
       currentDailyKey,
       todayKey,
@@ -4154,7 +4207,8 @@ export function FondoSection({
     if (!entriesHydrated) return;
     const docKey = resolveV2DocKey();
     if (!docKey) return;
-    const cached = v2MovementsCacheRef.current[docKey];
+    const cacheKey = buildV2MovementsCacheKey(docKey, accountKey);
+    const cached = v2MovementsCacheRef.current[cacheKey];
     if (!cached?.loaded || cached.loading || cached.exhausted) return;
 
     if (pageSize === "daily") return;
@@ -4177,6 +4231,8 @@ export function FondoSection({
     pageSize,
     pageIndex,
     fondoEntries.length,
+    accountKey,
+    buildV2MovementsCacheKey,
     resolveV2DocKey,
     ensureV2MovementsLoaded,
   ]);
@@ -4364,12 +4420,14 @@ export function FondoSection({
     if (filterProviderCode === "all") {
       setProviderFilter("");
     } else {
-      const option = providers.find((p) => p.code === filterProviderCode);
+      const option = movementProviders.find(
+        (p) => p.code === filterProviderCode,
+      );
       setProviderFilter(
         option ? `${option.name} (${option.code})` : filterProviderCode,
       );
     }
-  }, [filterProviderCode, providers]);
+  }, [filterProviderCode, movementProviders]);
 
   // Sincronizar filtro de tipo con selección
   useEffect(() => {
@@ -4765,7 +4823,12 @@ export function FondoSection({
             // Prefer V2 movements subcollection to avoid document overwrites/truncation.
             let v2Movements: FondoEntry[] = [];
             try {
-              const cached = v2MovementsCacheRef.current[docKey];
+              const targetAccountKey = accountKeyRef.current;
+              const cacheKey = buildV2MovementsCacheKey(
+                docKey,
+                targetAccountKey,
+              );
+              const cached = v2MovementsCacheRef.current[cacheKey];
               if (cached?.loaded) {
                 v2Movements = Array.isArray(cached.movements)
                   ? cached.movements
@@ -4773,7 +4836,7 @@ export function FondoSection({
               } else {
                 // Default remote load: only the active day/range (today unless both Desde/Hasta are set).
                 await ensureV2MovementsLoaded(docKey);
-                const next = v2MovementsCacheRef.current[docKey];
+                const next = v2MovementsCacheRef.current[cacheKey];
                 v2Movements = Array.isArray(next?.movements)
                   ? (next!.movements as FondoEntry[])
                   : [];
@@ -4821,7 +4884,11 @@ export function FondoSection({
 
                   // After migration, load only the active day/range.
                   await ensureV2MovementsLoaded(docKey);
-                  const next = v2MovementsCacheRef.current[docKey];
+                  const cacheKey = buildV2MovementsCacheKey(
+                    docKey,
+                    accountKeyRef.current,
+                  );
+                  const next = v2MovementsCacheRef.current[cacheKey];
                   v2Movements = Array.isArray(next?.movements)
                     ? (next!.movements as FondoEntry[])
                     : [];
@@ -5001,7 +5068,8 @@ export function FondoSection({
     if (!entriesHydrated) return;
     const docKey = resolveV2DocKey();
     if (!docKey) return;
-    const cached = v2MovementsCacheRef.current[docKey];
+    const cacheKey = buildV2MovementsCacheKey(docKey, accountKey);
+    const cached = v2MovementsCacheRef.current[cacheKey];
     if (!cached?.loaded) return;
 
     const scopedEntries = cached.movements.filter((rawEntry) => {
@@ -5032,6 +5100,7 @@ export function FondoSection({
     accountKey,
     entriesHydrated,
     applyLedgerStateFromStorage,
+    buildV2MovementsCacheKey,
     resolveV2DocKey,
   ]);
 
@@ -5093,13 +5162,18 @@ export function FondoSection({
 
   useEffect(() => {
     if (!selectedProvider) return;
-    const exists = providers.some((p) => p.code === selectedProvider);
+    const exists = movementProviders.some((p) => p.code === selectedProvider);
     const isEditingSameProvider =
       editingEntryId && editingProviderCode === selectedProvider;
     if (!exists && !isEditingSameProvider) {
       setSelectedProvider("");
     }
-  }, [providers, selectedProvider, editingEntryId, editingProviderCode]);
+  }, [
+    movementProviders,
+    selectedProvider,
+    editingEntryId,
+    editingProviderCode,
+  ]);
 
   useEffect(() => {
     // Reset cached results when switching company/account.
@@ -5602,7 +5676,8 @@ export function FondoSection({
                 ? change?.upsert?.id
                 : null;
           if (!targetId) return null;
-          const cached = v2MovementsCacheRef.current[companyKey];
+          const cacheKey = buildV2MovementsCacheKey(companyKey, accountKey);
+          const cached = v2MovementsCacheRef.current[cacheKey];
           return cached?.movements?.find((m) => m.id === targetId) ?? null;
         };
 
@@ -5667,8 +5742,16 @@ export function FondoSection({
 
         let cacheUpdater: (() => void) | null = null;
         let movementChange:
-          | { type: "upsert"; movement: FondoEntry & { id: string } }
-          | { type: "delete"; movementId: string }
+          | {
+              type: "upsert";
+              movement: FondoEntry & { id: string };
+              accountId?: MovementAccountKey;
+            }
+          | {
+              type: "delete";
+              movementId: string;
+              accountId?: MovementAccountKey;
+            }
           | { type: "none" } = { type: "none" };
 
         if (operationType === "delete") {
@@ -5678,11 +5761,16 @@ export function FondoSection({
               "[PERSIST-IMMEDIATE] delete requires change.deleteId",
             );
           }
-          movementChange = { type: "delete", movementId: deleteId };
+          movementChange = {
+            type: "delete",
+            movementId: deleteId,
+            accountId: accountKey,
+          };
           cacheUpdater = () => {
-            const cached = v2MovementsCacheRef.current[companyKey];
+            const cacheKey = buildV2MovementsCacheKey(companyKey, accountKey);
+            const cached = v2MovementsCacheRef.current[cacheKey];
             if (cached?.loaded) {
-              v2MovementsCacheRef.current[companyKey] = {
+              v2MovementsCacheRef.current[cacheKey] = {
                 ...cached,
                 loaded: true,
                 movements: cached.movements.filter((m) => m.id !== deleteId),
@@ -5706,15 +5794,20 @@ export function FondoSection({
             currency: normalizedCurrency,
             empresa: normalizedCompany,
           };
-          movementChange = { type: "upsert", movement: storedMovement };
+          movementChange = {
+            type: "upsert",
+            movement: storedMovement,
+            accountId: accountKey,
+          };
           cacheUpdater = () => {
-            const cached = v2MovementsCacheRef.current[companyKey];
+            const cacheKey = buildV2MovementsCacheKey(companyKey, accountKey);
+            const cached = v2MovementsCacheRef.current[cacheKey];
             if (cached?.loaded) {
               const next = [
                 storedMovement,
                 ...cached.movements.filter((m) => m.id !== storedMovement.id),
               ];
-              v2MovementsCacheRef.current[companyKey] = {
+              v2MovementsCacheRef.current[cacheKey] = {
                 ...cached,
                 loaded: true,
                 movements: next,
@@ -6213,6 +6306,9 @@ export function FondoSection({
 
     let hasErrors = false;
 
+    const effectiveInvoiceNumber =
+      isCajaNegra && !editingEntryId ? getTodayInvoiceMMDD() : invoiceNumber;
+
     if (!selectedProvider) {
       setProviderError("Selecciona un proveedor");
       hasErrors = true;
@@ -6229,7 +6325,7 @@ export function FondoSection({
       hasErrors = true;
     }
 
-    if (!/^[0-9]{1,4}$/.test(invoiceNumber)) {
+    if (!/^[0-9]{1,4}$/.test(effectiveInvoiceNumber)) {
       setInvoiceError("Ingresa un número de factura válido (1-4 dígitos)");
       hasErrors = true;
     } else {
@@ -6304,7 +6400,7 @@ export function FondoSection({
       }
     }
 
-    const paddedInvoice = invoiceNumber.padStart(4, "0");
+    const paddedInvoice = effectiveInvoiceNumber.padStart(4, "0");
 
     // Dedupe window only for NEW movements (edits remain allowed)
     if (!editingEntryId) {
@@ -6332,7 +6428,7 @@ export function FondoSection({
           // Admins/Superadmins are exempt from the 1-minute cooldown.
           // Additionally, if the NEW movement is "INGRESO DESDE FONDO VENTAS",
           // it should NOT be blocked by a prior movement's cooldown.
-          const providerForSelected = providers.find(
+          const providerForSelected = movementProviders.find(
             (p) => p.code === selectedProvider,
           );
           const providerDisplayForSelected =
@@ -6805,7 +6901,9 @@ export function FondoSection({
     setEditingEntryId(entry.id);
     setSelectedProvider(entry.providerCode);
     // Determine the correct payment type: use provider's type if exists, else entry's type
-    const provider = providers.find((p) => p.code === entry.providerCode);
+    const provider = movementProviders.find(
+      (p) => p.code === entry.providerCode,
+    );
     const correctPaymentType = provider
       ? (provider.type as FondoEntry["paymentType"])
       : entry.paymentType;
@@ -7191,7 +7289,7 @@ export function FondoSection({
   }, []);
 
   const isProviderSelectDisabled =
-    !company || providersLoading || providers.length === 0;
+    !company || movementProvidersLoading || movementProviders.length === 0;
   // Detectar si estamos editando un movimiento EXISTENTE de CIERRE FONDO VENTAS (bloquear cambio de proveedor)
   // Solo aplica cuando editamos, no cuando creamos un nuevo movimiento
   const isEditingCierreFondoVentas = useMemo(() => {
@@ -7211,20 +7309,20 @@ export function FondoSection({
 
   const providersMap = useMemo(() => {
     const map = new Map<string, string>();
-    providers.forEach((p) => map.set(p.code, p.name));
+    movementProviders.forEach((p) => map.set(p.code, p.name));
     return map;
-  }, [providers]);
+  }, [movementProviders]);
   const providerTypesMap = useMemo(() => {
     const map = new Map<string, FondoMovementType>();
-    providers.forEach((p) => {
+    movementProviders.forEach((p) => {
       if (p.type && isFondoMovementType(p.type)) {
         map.set(p.code, p.type);
       }
     });
     return map;
-  }, [providers]);
+  }, [movementProviders]);
   const selectedProviderExists = selectedProvider
-    ? providers.some((p) => p.code === selectedProvider)
+    ? movementProviders.some((p) => p.code === selectedProvider)
     : false;
 
   // reset page when filters change so user sees first page of filtered results
@@ -7579,12 +7677,19 @@ export function FondoSection({
     return `${dd}${mm}`;
   };
 
+  const getTodayInvoiceMMDD = (date: Date = new Date()) => {
+    const dd = String(date.getDate()).padStart(2, "0");
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    return `${mm}${dd}`;
+  };
+
   const selectedProviderData = useMemo(() => {
     if (!selectedProvider) return null;
-    return providers.find((p) => p.code === selectedProvider) ?? null;
-  }, [providers, selectedProvider]);
+    return movementProviders.find((p) => p.code === selectedProvider) ?? null;
+  }, [movementProviders, selectedProvider]);
 
   const isInvoiceAutoDateLocked = useMemo(() => {
+    if (isCajaNegra) return true;
     if (!selectedProvider) return false;
     if (isAutoAdjustmentProvider(selectedProvider)) return true;
     if (selectedProvider.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME)
@@ -7593,19 +7698,19 @@ export function FondoSection({
       selectedProviderData?.name?.toUpperCase() ===
       CIERRE_FONDO_VENTAS_PROVIDER_NAME
     );
-  }, [selectedProvider, selectedProviderData]);
+  }, [isCajaNegra, selectedProvider, selectedProviderData]);
 
   // Si el proveedor es un cierre/ajuste automático, usar DDMM como N° factura y bloquear edición.
   useEffect(() => {
     if (!isInvoiceAutoDateLocked) return;
     // Al editar un movimiento existente, no sobrescribir el N° factura guardado.
     if (editingEntryId) return;
-    const today = getTodayInvoiceDDMM();
+    const today = isCajaNegra ? getTodayInvoiceMMDD() : getTodayInvoiceDDMM();
     if (invoiceNumber !== today) {
       setInvoiceNumber(today);
       setInvoiceError("");
     }
-  }, [isInvoiceAutoDateLocked, editingEntryId, invoiceNumber]);
+  }, [isInvoiceAutoDateLocked, editingEntryId, invoiceNumber, isCajaNegra]);
 
   const handleProviderChange = (value: string) => {
     setSelectedProvider(value);
@@ -7614,8 +7719,9 @@ export function FondoSection({
     let nextPaymentType: FondoEntry["paymentType"] = "COMPRA INVENTARIO";
     let shouldAutoDateInvoice = false;
     try {
-      const prov = providers.find((p) => p.code === value);
+      const prov = movementProviders.find((p) => p.code === value);
       shouldAutoDateInvoice =
+        isCajaNegra ||
         isAutoAdjustmentProvider(value) ||
         prov?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME;
       if (prov && prov.type && isFondoMovementType(prov.type)) {
@@ -7633,7 +7739,9 @@ export function FondoSection({
     }
 
     if (shouldAutoDateInvoice) {
-      setInvoiceNumber(getTodayInvoiceDDMM());
+      setInvoiceNumber(
+        isCajaNegra ? getTodayInvoiceMMDD() : getTodayInvoiceDDMM(),
+      );
       setInvoiceError("");
     }
 
@@ -7700,13 +7808,17 @@ export function FondoSection({
   const openCreateMovementDrawer = useCallback(() => {
     resetFondoForm();
     setMovementCurrency(currencyEnabled.CRC ? "CRC" : "USD");
+    if (isCajaNegra) {
+      setInvoiceNumber(getTodayInvoiceMMDD());
+      setInvoiceError("");
+    }
     // If a provider is already selected, derive paymentType from it so the form
     // doesn't stay with the reset default ('COMPRA INVENTARIO'). This prevents
     // cases where the UI shows a provider whose configured type (e.g. 'OTROS INGRESOS')
     // is ignored because resetFondoForm set the paymentType to the default.
     if (selectedProvider) {
       try {
-        const prov = providers.find((p) => p.code === selectedProvider);
+        const prov = movementProviders.find((p) => p.code === selectedProvider);
         if (prov && prov.type && isFondoMovementType(prov.type)) {
           setPaymentType(prov.type as FondoEntry["paymentType"]);
         } else {
@@ -7720,7 +7832,15 @@ export function FondoSection({
     if (mode === "ingreso") setPaymentType(FONDO_INGRESO_TYPES[0]);
     if (mode === "egreso") setPaymentType(FONDO_EGRESO_TYPES[0]);
     setMovementModalOpen(true);
-  }, [resetFondoForm, currencyEnabled.CRC, selectedProvider, providers, mode]);
+  }, [
+    resetFondoForm,
+    currencyEnabled.CRC,
+    selectedProvider,
+    movementProviders,
+    mode,
+    isCajaNegra,
+    getTodayInvoiceMMDD,
+  ]);
 
   const confirmOpenCreateMovementNow = useCallback(() => {
     setConfirmOpenCreateMovement(false);
@@ -9449,7 +9569,7 @@ export function FondoSection({
                 <Search className="h-4 w-4 text-cyan-100/80" />
                 <span className={providerFilter ? "" : "text-cyan-100/70"}>
                   {providerFilter ||
-                    (providersLoading ? "Cargando..." : "Proveedor")}
+                    (movementProvidersLoading ? "Cargando..." : "Proveedor")}
                 </span>
               </span>
               <span className="text-cyan-100/80">⌄</span>
@@ -9467,7 +9587,7 @@ export function FondoSection({
                 >
                   Todos los proveedores
                 </button>
-                {providers.map((p) => (
+                {movementProviders.map((p) => (
                   <button
                     key={p.code}
                     type="button"
@@ -10159,8 +10279,8 @@ export function FondoSection({
             <AgregarMovimiento
               selectedProvider={selectedProvider}
               onProviderChange={handleProviderChange}
-              providers={providers}
-              providersLoading={providersLoading}
+              providers={movementProviders}
+              providersLoading={movementProvidersLoading}
               isProviderSelectDisabled={
                 isProviderSelectDisabled || isEditingCierreFondoVentas
               }
@@ -10207,12 +10327,15 @@ export function FondoSection({
         </Box>
       </Drawer>
 
-      {!providersLoading && providers.length === 0 && company && (
-        <p className="text-sm text-[var(--muted-foreground)] mt-3">
-          Registra un proveedor para poder asociarlo a los movimientos del
-          fondo.
-        </p>
-      )}
+      {!isCajaNegra &&
+        !movementProvidersLoading &&
+        movementProviders.length === 0 &&
+        company && (
+          <p className="text-sm text-[var(--muted-foreground)] mt-3">
+            Registra un proveedor para poder asociarlo a los movimientos del
+            fondo.
+          </p>
+        )}
 
       {!isSuperAdminUser &&
         !managerOptionsLoading &&

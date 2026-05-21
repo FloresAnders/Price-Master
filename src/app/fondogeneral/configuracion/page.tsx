@@ -27,9 +27,16 @@ const ACCOUNT_LABELS: Record<MovementAccountKey, string> = {
   BCR: "Cuenta BCR",
   BN: "Cuenta BN",
   BAC: "Cuenta BAC",
+  CajaNegra: "Caja Negra",
 };
 
-const ALL_ACCOUNTS: MovementAccountKey[] = ["FondoGeneral", "BCR", "BN", "BAC"];
+const ALL_ACCOUNTS: MovementAccountKey[] = [
+  "FondoGeneral",
+  "BCR",
+  "BN",
+  "BAC",
+  "CajaNegra",
+];
 const ALL_CURRENCIES: MovementCurrencyKey[] = ["CRC", "USD"];
 
 const CURRENCY_INFO: Record<
@@ -75,6 +82,7 @@ const createAccountState = (): AccountStateMap => ({
   BCR: { CRC: createCurrencyState(), USD: createCurrencyState() },
   BN: { CRC: createCurrencyState(), USD: createCurrencyState() },
   BAC: { CRC: createCurrencyState(), USD: createCurrencyState() },
+  CajaNegra: { CRC: createCurrencyState(), USD: createCurrencyState() },
 });
 
 const createSnapshotCurrencyState = (): SnapshotCurrencyState => ({
@@ -97,6 +105,10 @@ const createSnapshotState = (): SnapshotState => ({
     USD: createSnapshotCurrencyState(),
   },
   BAC: {
+    CRC: createSnapshotCurrencyState(),
+    USD: createSnapshotCurrencyState(),
+  },
+  CajaNegra: {
     CRC: createSnapshotCurrencyState(),
     USD: createSnapshotCurrencyState(),
   },

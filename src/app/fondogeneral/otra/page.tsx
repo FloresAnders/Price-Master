@@ -68,6 +68,7 @@ const ACCOUNT_LABELS: Record<MovementAccountKey, string> = {
   BCR: "Cuenta BCR",
   BN: "Cuenta BN",
   BAC: "Cuenta BAC",
+  CajaNegra: "Caja Negra",
 };
 
 const ACCOUNT_ORDER: MovementAccountKey[] = [
@@ -75,6 +76,7 @@ const ACCOUNT_ORDER: MovementAccountKey[] = [
   "BCR",
   "BN",
   "BAC",
+  "CajaNegra",
 ];
 const MOVEMENT_ACCOUNT_SET = new Set<MovementAccountKey>(ACCOUNT_ORDER);
 const ALL_COMPANIES_VALUE = "__all_companies__";

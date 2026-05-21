@@ -15,11 +15,11 @@ import { FondoSection } from "../components/fondo";
 import { useAuth } from "@/hooks/useAuth";
 import { getDefaultPermissions } from "@/utils/permissions";
 
-type TabId = "fondo" | "bcr" | "bn" | "bac";
+type TabId = "fondo" | "bcr" | "bn" | "bac" | "cajanegra";
 type FondoTab = {
   id: TabId;
   label: string;
-  namespace: "fg" | "bcr" | "bn" | "bac";
+  namespace: "fg" | "bcr" | "bn" | "bac" | "cn";
 };
 
 const TAB_VISUALS: Record<
@@ -65,6 +65,14 @@ const TAB_VISUALS: Record<
     activeTone:
       "bg-gradient-to-br from-blue-500/25 to-blue-700/20 border-blue-300/70 shadow-xl shadow-blue-400/30",
   },
+  cajanegra: {
+    icon: Banknote,
+    shortLabel: "Caja",
+    helper: "Dineros extra",
+    tone: "bg-gradient-to-br from-blue-500/15 to-blue-700/10 border-blue-400/35 shadow-lg shadow-blue-500/20",
+    activeTone:
+      "bg-gradient-to-br from-blue-500/25 to-blue-700/20 border-blue-300/70 shadow-xl shadow-blue-400/30",
+  },
 };
 
 // Clave para persistir la selección del tab de cuenta en localStorage
@@ -88,19 +96,25 @@ export default function FondoPage() {
       list.push({ id: "bn", label: "Cuenta BN", namespace: "bn" });
     if (permissions.fondogeneralBAC)
       list.push({ id: "bac", label: "Cuenta BAC", namespace: "bac" });
+    if (permissions.cajaNegra)
+      list.push({ id: "cajanegra", label: "Caja Negra", namespace: "cn" });
     return list;
   }, [
     hasGeneralAccess,
     permissions.fondogeneralBCR,
     permissions.fondogeneralBN,
     permissions.fondogeneralBAC,
+    permissions.cajaNegra,
   ]);
 
   const [active, setActiveState] = useState<TabId | "">(() => {
     if (typeof window === "undefined") return "fondo";
     try {
       const stored = localStorage.getItem(ACCOUNT_TAB_STORAGE_KEY);
-      if (stored && ["fondo", "bcr", "bn", "bac"].includes(stored)) {
+      if (
+        stored &&
+        ["fondo", "bcr", "bn", "bac", "cajanegra"].includes(stored)
+      ) {
         return stored as TabId;
       }
     } catch {

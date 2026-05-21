@@ -172,6 +172,7 @@ export interface UserPermissions {
   fondogeneralBCR?: boolean; // Fondo General - Acceso a la cuenta BCR
   fondogeneralBN?: boolean; // Fondo General - Acceso a la cuenta BN
   fondogeneralBAC?: boolean; // Fondo General - Acceso a la cuenta BAC
+  cajaNegra?: boolean; // Caja Negra - Manejo de dineros extra del Fondo General
   solicitud?: boolean; // Solicitud - Permiso extra en sección de Mantenimiento
   scanhistory: boolean; // Historial General de Escaneos - Ver historial completo de escaneos
   scanhistoryEmpresas?: string[]; // Empresas específicas para historial de escaneos (almacena company names)

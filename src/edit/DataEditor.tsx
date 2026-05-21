@@ -1045,6 +1045,7 @@ export default function DataEditor() {
           "calculohorasprecios",
           "supplierorders",
           "mantenimiento",
+          "cajaNegra",
           "solicitud",
           "scanhistory",
           "facturasCredito",
@@ -1112,6 +1113,7 @@ export default function DataEditor() {
       calculohorasprecios: "Calculo Horas Precios",
       supplierorders: "Órdenes Proveedor",
       mantenimiento: "Mantenimiento",
+      cajaNegra: "Caja Negra",
       solicitud: "Solicitud",
       scanhistory: "Historial de Escaneos",
       facturasCredito: "Facturas Crédito",
@@ -1130,6 +1132,7 @@ export default function DataEditor() {
       calculohorasprecios: "Cálculo de horas y precios (planilla)",
       supplierorders: "Gestión de órdenes de proveedores",
       mantenimiento: "Acceso al panel de administración",
+      cajaNegra: "Manejar dineros extra del Fondo General",
       solicitud:
         "Permite gestionar solicitudes dentro del módulo de mantenimiento",
       scanhistory: "Ver historial completo de escaneos realizados",

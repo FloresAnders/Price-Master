@@ -1,17 +1,12 @@
 {
-  "version": "1.5.3",
+  "version": "1.5.4",
   "versionstorage": "1.1.16",
   "notasDeSistemas": "1.1.18",
   "releaseNotes": [
     {
-      "date": "2026-05-20",
-      "title": "Corrección de errores menores",
-      "description": "Se han corregido varios errores menores para mejorar la estabilidad y el rendimiento de la aplicación."
-    },
-    {
-      "date": "2026-05-19",
-      "title": "Cambio en la interfaz de usuario",
-      "description": "Se ha actualizado la interfaz de usuario para mejorar la experiencia del usuario y facilitar la navegación."
+      "date": "2026-05-21",
+      "title": "Implementacion de caja negra",
+    "description": "Se ha implementado una nueva cuenta 'Caja Negra' para manejar dineros extra del Fondo General, proporcionando mayor control y transparencia en las finanzas, esta opcion funcinara de manera similar a las cuentas de Fondo General, pero con un enfoque específico en la gestión de fondos adicionales. Todo retiro para diana del fondo se agrega a esta cuenta hasta que entregue el dinero a diana, en ese momento se eliminara el monto de esta cuenta."
     }
   ],
   "systemNotes": [
