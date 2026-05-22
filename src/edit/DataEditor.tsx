@@ -1,7 +1,13 @@
 // src/edit/DataEditor.tsx
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import useToast from "../hooks/useToast";
 import {
   Download,
@@ -78,10 +84,7 @@ const getStoredMaintenanceTab = (): DataFile => {
 const normalizeUserId = (value?: string | null): string =>
   typeof value === "string" ? value.trim() : "";
 
-const getVisibleUsersForActor = (
-  users: User[],
-  currentUser: User,
-): User[] => {
+const getVisibleUsersForActor = (users: User[], currentUser: User): User[] => {
   if (currentUser.role === "superadmin") {
     return users.filter((user) => {
       const role = user.role;
@@ -124,7 +127,11 @@ const getVisibleUsersForActor = (
 
   return users.filter((user) => {
     if (!user) return false;
-    if (user.id && currentUser.id && String(user.id) === String(currentUser.id)) {
+    if (
+      user.id &&
+      currentUser.id &&
+      String(user.id) === String(currentUser.id)
+    ) {
       return true;
     }
     if (user.role !== "admin" && user.role !== "user") {
@@ -1168,7 +1175,8 @@ export default function DataEditor() {
       solicitud: "Solicitud",
       scanhistory: "Historial de Escaneos",
       facturasCredito: "Facturas Crédito",
-    };    return labels[permission] || permission;
+    };
+    return labels[permission] || permission;
   };
 
   // Función para obtener descripciones de permisos
@@ -1188,7 +1196,8 @@ export default function DataEditor() {
         "Permite gestionar solicitudes dentro del módulo de mantenimiento",
       scanhistory: "Ver historial completo de escaneos realizados",
       facturasCredito: "Gestión de facturas a crédito",
-    };    return descriptions[permission] || permission;
+    };
+    return descriptions[permission] || permission;
   };
 
   // Función para renderizar la lista de permisos editables
@@ -1304,7 +1313,10 @@ export default function DataEditor() {
                           [permission]: checked,
                         } as any;
 
-                        updated[index] = { ...current, permissions: nextPermissions };
+                        updated[index] = {
+                          ...current,
+                          permissions: nextPermissions,
+                        };
                         return updated;
                       });
                     }}
@@ -1387,7 +1399,10 @@ export default function DataEditor() {
                           [permission]: checked,
                         } as any;
 
-                        updated[index] = { ...current, permissions: nextPermissions };
+                        updated[index] = {
+                          ...current,
+                          permissions: nextPermissions,
+                        };
                         return updated;
                       });
                     }}
@@ -1464,7 +1479,9 @@ export default function DataEditor() {
                             ? Array.from(
                                 new Set([...currentList, empresa.name]),
                               )
-                            : currentList.filter((l: string) => l !== empresa.name);
+                            : currentList.filter(
+                                (l: string) => l !== empresa.name,
+                              );
 
                           const nextPermissions = {
                             ...basePermissions,
