@@ -55,7 +55,10 @@ import { FondoMovementTypesService } from "../../../services/fondo-movement-type
 import { SchedulesService } from "../../../services/schedules";
 import { generateMovementNotificationEmail } from "../../../services/email-templates/notificacion-movimiento";
 import { generateEgresoProviderCreatedEmail } from "../../../services/email-templates/proveedor-egreso-creado";
-import { FacturasService, type FacturaMovement } from "../../../services/facturas";
+import {
+  FacturasService,
+  type FacturaMovement,
+} from "../../../services/facturas";
 import {
   findLatestMovementByInvoiceNumber,
   sendDuplicateInvoiceAlertEmail,
@@ -773,7 +776,10 @@ export const sanitizeFondoEntries = (
       paymentType,
       currency,
       accountId,
-      empresa: typeof (entry as any).empresa === "string" ? (entry as any).empresa : undefined,
+      empresa:
+        typeof (entry as any).empresa === "string"
+          ? (entry as any).empresa
+          : undefined,
       // Si los tipos no están cargados, preservar los montos originales
       amountEgreso: typesLoaded
         ? isEgresoType(paymentType) || isGastoType(paymentType)
@@ -3225,9 +3231,10 @@ export function FondoSection({
         code: "INGRESO DESDE FG POR RETIRO DIANA",
         name: "INGRESO DESDE FG POR RETIRO DIANA",
       },
-      { 
-        code: "RETIRO DIANA", 
-        name: "RETIRO DIANA" },
+      {
+        code: "RETIRO DIANA",
+        name: "RETIRO DIANA",
+      },
       {
         code: "SALIDA A FONDO GENERAL",
         name: "SALIDA A FONDO GENERAL",
@@ -6638,7 +6645,9 @@ export function FondoSection({
             {
               providerCode: e.providerCode,
               invoiceNumber: e.invoiceNumber,
-              invoiceDocType: normalizeInvoiceDocType((e as any).invoiceDocType),
+              invoiceDocType: normalizeInvoiceDocType(
+                (e as any).invoiceDocType,
+              ),
               paymentType: e.paymentType,
               amountEgreso: e.amountEgreso,
               amountIngreso: e.amountIngreso,
@@ -6713,24 +6722,25 @@ export function FondoSection({
 
         // Mantener una copia en Facturas (best-effort)
         if (updatedEntry) {
+          const facturaEntry = updatedEntry as FondoEntry;
           const normalizedCompany = (company || "").trim();
           if (normalizedCompany.length > 0) {
             const facturaCopy: FacturaMovement = {
-              id: updatedEntry.id,
+              id: String(facturaEntry.id),
               empresa: normalizedCompany,
               accountId: accountKey,
-              providerCode: updatedEntry.providerCode,
-              invoiceNumber: updatedEntry.invoiceNumber,
+              providerCode: facturaEntry.providerCode,
+              invoiceNumber: facturaEntry.invoiceNumber,
               invoiceDocType: normalizeInvoiceDocType(
-                (updatedEntry as any).invoiceDocType,
+                (facturaEntry as any).invoiceDocType,
               ),
-              paymentType: updatedEntry.paymentType,
-              amountEgreso: updatedEntry.amountEgreso,
-              amountIngreso: updatedEntry.amountIngreso,
-              manager: updatedEntry.manager,
-              notes: updatedEntry.notes,
-              createdAt: updatedEntry.createdAt,
-              currency: updatedEntry.currency,
+              paymentType: facturaEntry.paymentType,
+              amountEgreso: facturaEntry.amountEgreso,
+              amountIngreso: facturaEntry.amountIngreso,
+              manager: facturaEntry.manager,
+              notes: facturaEntry.notes,
+              createdAt: facturaEntry.createdAt,
+              currency: facturaEntry.currency === "USD" ? "USD" : "CRC",
             };
             void FacturasService.upsertMovement(normalizedCompany, facturaCopy);
           }
@@ -6905,7 +6915,7 @@ export function FondoSection({
             manager: entry.manager,
             notes: entry.notes,
             createdAt: entry.createdAt,
-            currency: entry.currency,
+            currency: entry.currency === "USD" ? "USD" : "CRC",
           };
 
           await FacturasService.upsertMovement(normalizedCompany, facturaCopy);
@@ -6987,9 +6997,12 @@ export function FondoSection({
                 manager: entry.manager,
                 notes: entry.notes,
                 createdAt: entry.createdAt,
-                currency: entry.currency,
+                currency: entry.currency === "USD" ? "USD" : "CRC",
               };
-              await FacturasService.upsertMovement(normalizedCompany, facturaCopy);
+              await FacturasService.upsertMovement(
+                normalizedCompany,
+                facturaCopy,
+              );
             }
           } catch (err) {
             console.warn("[FG] Could not upsert Facturas copy:", err);
@@ -9601,7 +9614,7 @@ export function FondoSection({
     if (!showCompanySelector) return null;
 
     return (
-      <div className="flex w-full min-w-0 flex-col gap-3 text-sm text-[var(--foreground)] xl:flex-row xl:items-end xl:gap-4">
+      <div className="flex w-full min-w-0 flex-col gap-3 text-sm text-[var(--foreground)] xl:flex-row xl:items-end xl:gap-4 border">
         <div className="min-w-0 flex-1">
           <p className="text-[11px] uppercase tracking-wide text-[var(--muted-foreground)] ">
             Empresa actual
@@ -10001,7 +10014,7 @@ export function FondoSection({
         </div>
 
         <div className="grid grid-cols-1 gap-3 border-t border-[var(--input-border)] pt-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
-          <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(150px,180px)_minmax(150px,180px)_minmax(150px,170px)_44px] lg:items-end">
+          <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-[minmax(150px,180px)_minmax(150px,180px)_minmax(150px,170px)_44px] xl:items-end">
             <div className="relative min-w-0">
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
                 Desde
@@ -10436,7 +10449,7 @@ export function FondoSection({
                   (accountKey === "FondoGeneral" && pendingCierreDeCaja) ||
                   !entriesHydrated
                     ? "cursor-not-allowed border-[var(--input-border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)] opacity-70"
-: "border-cyan-500/50 bg-transparent text-cyan-300 hover:-translate-y-0.5 hover:border-cyan-400/70 hover:bg-cyan-500/10 hover:shadow-md hover:shadow-cyan-950/25 active:translate-y-0 active:scale-[0.99]"
+                    : "border-cyan-500/50 bg-transparent text-cyan-300 hover:-translate-y-0.5 hover:border-cyan-400/70 hover:bg-cyan-500/10 hover:shadow-md hover:shadow-cyan-950/25 active:translate-y-0 active:scale-[0.99]"
                 }`}
               >
                 <Plus className="h-4 w-4 flex-shrink-0" />
@@ -10648,870 +10661,883 @@ export function FondoSection({
             )
           ) : (
             <div className="overflow-hidden rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/80 text-white shadow-sm">
-            <div className="flex flex-col items-start justify-between gap-3 border-b border-[var(--input-border)] bg-[var(--muted)]/10 px-3 py-3 text-xs text-[var(--muted-foreground)] sm:flex-row sm:items-center">
-              <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
-                <span className="text-xs font-semibold uppercase tracking-wide">
-                  Mostrar
-                </span>
-                <select
-                  value={
-                    pageSize === "all"
-                      ? "all"
-                      : pageSize === "daily"
-                        ? "daily"
-                        : String(pageSize)
-                  }
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (v === "all") setPageSize("all");
-                    else if (v === "daily") setPageSize("daily");
-                    else setPageSize(Number.parseInt(v, 10) || 10);
-                  }}
-                  className="h-9 min-w-0 flex-1 rounded border border-cyan-700/35 bg-cyan-950/25 px-2 text-xs text-[var(--foreground)] outline-none transition-colors hover:border-cyan-500/45 sm:flex-initial"
-                >
-                  <option value="daily">Diariamente</option>
-                  <option value="5">5</option>
-                  <option value="10">10</option>
-                  <option value="15">15</option>
-                  <option value="all">Todos</option>
-                </select>
-                {isFondoMovementsLoading && (
-                  <span className="ml-2 inline-flex items-center gap-2 text-[10px] sm:text-xs text-[var(--muted-foreground)]">
-                    <span className="h-3.5 w-3.5 rounded-full border-2 border-[var(--muted-foreground)] border-t-transparent animate-spin" />
-                    Cargando...
+              <div className="flex flex-col items-start justify-between gap-3 border-b border-[var(--input-border)] bg-[var(--muted)]/10 px-3 py-3 text-xs text-[var(--muted-foreground)] sm:flex-row sm:items-center">
+                <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
+                  <span className="text-xs font-semibold uppercase tracking-wide">
+                    Mostrar
                   </span>
-                )}
-              </div>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
-                <div className="flex flex-col items-start gap-2 text-[var(--muted-foreground)] sm:flex-row sm:items-center sm:gap-3">
-                  <label className="flex cursor-pointer items-center gap-2 rounded border border-cyan-700/35 bg-cyan-950/25 px-2.5 py-2 transition-colors hover:border-cyan-500/45">
-                    <input
-                      aria-label="Recordar filtros"
-                      title="Recordar filtros"
-                      className="h-4 w-4 cursor-pointer accent-[var(--accent)]"
-                      type="checkbox"
-                      checked={rememberFilters}
-                      onChange={(e) => setRememberFilters(e.target.checked)}
-                    />
-                    <span className="whitespace-nowrap text-xs">
-                      Recordar ajustes
+                  <select
+                    value={
+                      pageSize === "all"
+                        ? "all"
+                        : pageSize === "daily"
+                          ? "daily"
+                          : String(pageSize)
+                    }
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === "all") setPageSize("all");
+                      else if (v === "daily") setPageSize("daily");
+                      else setPageSize(Number.parseInt(v, 10) || 10);
+                    }}
+                    className="h-9 min-w-0 flex-1 rounded border border-cyan-700/35 bg-cyan-950/25 px-2 text-xs text-[var(--foreground)] outline-none transition-colors hover:border-cyan-500/45 sm:flex-initial"
+                  >
+                    <option value="daily">Diariamente</option>
+                    <option value="5">5</option>
+                    <option value="10">10</option>
+                    <option value="15">15</option>
+                    <option value="all">Todos</option>
+                  </select>
+                  {isFondoMovementsLoading && (
+                    <span className="ml-2 inline-flex items-center gap-2 text-[10px] sm:text-xs text-[var(--muted-foreground)]">
+                      <span className="h-3.5 w-3.5 rounded-full border-2 border-[var(--muted-foreground)] border-t-transparent animate-spin" />
+                      Cargando...
                     </span>
-                  </label>
-                  {isAdminUser && (
-                    <label className="flex cursor-pointer items-center gap-2 rounded border border-cyan-700/35 bg-cyan-950/25 px-2.5 py-2 transition-colors hover:border-cyan-500/45">
-                      <input
-                        aria-label="Mantener filtros entre empresas"
-                        title="Mantener filtros entre empresas"
-                        className="h-4 w-4 cursor-pointer accent-[var(--accent)]"
-                        type="checkbox"
-                        checked={keepFiltersAcrossCompanies}
-                        onChange={(e) =>
-                          setKeepFiltersAcrossCompanies(e.target.checked)
-                        }
-                      />
-                      <span className="whitespace-nowrap text-xs">
-                        Mantener entre empresas
-                      </span>
-                    </label>
                   )}
                 </div>
-                <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
-                  <button
-                    type="button"
-                    onClick={handlePrevPage}
-                    disabled={disablePrevButton}
-                    className="h-9 flex-1 rounded border border-[var(--input-border)] px-3 text-xs font-medium transition-colors hover:border-[var(--accent)] hover:bg-[var(--muted)] disabled:cursor-not-allowed disabled:opacity-45 sm:flex-initial"
-                  >
-                    Ant
-                  </button>
-                  <div className="rounded border border-cyan-700/35 bg-cyan-950/25 px-2 py-2 text-[10px] font-medium text-[var(--foreground)] sm:text-xs whitespace-nowrap">
-                    {isDailyMode
-                      ? formatGroupLabel(currentDailyKey)
-                      : `${Math.min(pageIndex + 1, totalPages)}/${totalPages}`}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
+                  <div className="flex flex-col items-start gap-2 text-[var(--muted-foreground)] sm:flex-row sm:items-center sm:gap-3">
+                    <label className="flex cursor-pointer items-center gap-2 rounded border border-cyan-700/35 bg-cyan-950/25 px-2.5 py-2 transition-colors hover:border-cyan-500/45">
+                      <input
+                        aria-label="Recordar filtros"
+                        title="Recordar filtros"
+                        className="h-4 w-4 cursor-pointer accent-[var(--accent)]"
+                        type="checkbox"
+                        checked={rememberFilters}
+                        onChange={(e) => setRememberFilters(e.target.checked)}
+                      />
+                      <span className="whitespace-nowrap text-xs">
+                        Recordar ajustes
+                      </span>
+                    </label>
+                    {isAdminUser && (
+                      <label className="flex cursor-pointer items-center gap-2 rounded border border-cyan-700/35 bg-cyan-950/25 px-2.5 py-2 transition-colors hover:border-cyan-500/45">
+                        <input
+                          aria-label="Mantener filtros entre empresas"
+                          title="Mantener filtros entre empresas"
+                          className="h-4 w-4 cursor-pointer accent-[var(--accent)]"
+                          type="checkbox"
+                          checked={keepFiltersAcrossCompanies}
+                          onChange={(e) =>
+                            setKeepFiltersAcrossCompanies(e.target.checked)
+                          }
+                        />
+                        <span className="whitespace-nowrap text-xs">
+                          Mantener entre empresas
+                        </span>
+                      </label>
+                    )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleNextPage}
-                    disabled={disableNextButton}
-                    className="h-9 flex-1 rounded border border-[var(--input-border)] px-3 text-xs font-medium transition-colors hover:border-[var(--accent)] hover:bg-[var(--muted)] disabled:cursor-not-allowed disabled:opacity-45 sm:flex-initial"
-                  >
-                    Sig
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div className="max-h-[28rem] overflow-y-auto sm:max-h-[36rem]">
-              {(fromFilter || toFilter) && (
-                <div className="px-2 sm:px-3 py-2">
-                  <div className="text-xs sm:text-sm text-[var(--muted-foreground)] flex flex-col sm:flex-row sm:items-center gap-2">
-                    <span>
-                      Filtro: {fromFilter ? formatGroupLabel(fromFilter) : "—"}
-                      {toFilter ? ` → ${formatGroupLabel(toFilter)}` : ""}
-                    </span>
+                  <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
                     <button
                       type="button"
-                      onClick={() => {
-                        setFromFilter(null);
-                        setToFilter(null);
-                        setPageIndex(0);
-                        setPageSize("daily");
-                      }}
-                      className="px-2 py-1 border border-[var(--input-border)] rounded text-[var(--muted-foreground)] hover:bg-[var(--muted)] text-xs self-start"
+                      onClick={handlePrevPage}
+                      disabled={disablePrevButton}
+                      className="h-9 flex-1 rounded border border-[var(--input-border)] px-3 text-xs font-medium transition-colors hover:border-[var(--accent)] hover:bg-[var(--muted)] disabled:cursor-not-allowed disabled:opacity-45 sm:flex-initial"
                     >
-                      Limpiar
+                      Ant
+                    </button>
+                    <div className="rounded border border-cyan-700/35 bg-cyan-950/25 px-2 py-2 text-[10px] font-medium text-[var(--foreground)] sm:text-xs whitespace-nowrap">
+                      {isDailyMode
+                        ? formatGroupLabel(currentDailyKey)
+                        : `${Math.min(pageIndex + 1, totalPages)}/${totalPages}`}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleNextPage}
+                      disabled={disableNextButton}
+                      className="h-9 flex-1 rounded border border-[var(--input-border)] px-3 text-xs font-medium transition-colors hover:border-[var(--accent)] hover:bg-[var(--muted)] disabled:cursor-not-allowed disabled:opacity-45 sm:flex-initial"
+                    >
+                      Sig
                     </button>
                   </div>
                 </div>
-              )}
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[900px] border-separate border-spacing-0 text-xs sm:text-sm">
-                  <colgroup>
-                    <col style={{ width: columnWidths.hora }} />
-                    <col style={{ width: columnWidths.motivo }} />
-                    <col style={{ width: columnWidths.tipo }} />
-                    <col style={{ width: columnWidths.factura }} />
-                    <col style={{ width: columnWidths.monto }} />
-                    <col style={{ width: columnWidths.encargado }} />
-                    <col style={{ width: columnWidths.editar }} />
-                  </colgroup>
-                  <thead className="sticky top-0 z-10 bg-cyan-950/35 text-xs uppercase tracking-wide text-cyan-50/80">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-semibold">
-                        <div className="relative pr-2">
-                          <div className="flex items-center gap-2">
-                            <Clock className="w-4 h-4" />
-                            Hora
-                          </div>
-                          <div
-                            onMouseDown={(e) => startResizing(e, "hora")}
-                            className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                            style={{ touchAction: "none" }}
-                          >
+              </div>
+              <div className="max-h-[28rem] overflow-y-auto sm:max-h-[36rem]">
+                {(fromFilter || toFilter) && (
+                  <div className="px-2 sm:px-3 py-2">
+                    <div className="text-xs sm:text-sm text-[var(--muted-foreground)] flex flex-col sm:flex-row sm:items-center gap-2">
+                      <span>
+                        Filtro:{" "}
+                        {fromFilter ? formatGroupLabel(fromFilter) : "—"}
+                        {toFilter ? ` → ${formatGroupLabel(toFilter)}` : ""}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFromFilter(null);
+                          setToFilter(null);
+                          setPageIndex(0);
+                          setPageSize("daily");
+                        }}
+                        className="px-2 py-1 border border-[var(--input-border)] rounded text-[var(--muted-foreground)] hover:bg-[var(--muted)] text-xs self-start"
+                      >
+                        Limpiar
+                      </button>
+                    </div>
+                  </div>
+                )}
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[900px] border-separate border-spacing-0 text-xs sm:text-sm">
+                    <colgroup>
+                      <col style={{ width: columnWidths.hora }} />
+                      <col style={{ width: columnWidths.motivo }} />
+                      <col style={{ width: columnWidths.tipo }} />
+                      <col style={{ width: columnWidths.factura }} />
+                      <col style={{ width: columnWidths.monto }} />
+                      <col style={{ width: columnWidths.encargado }} />
+                      <col style={{ width: columnWidths.editar }} />
+                    </colgroup>
+                    <thead className="sticky top-0 z-10 bg-cyan-950/35 text-xs uppercase tracking-wide text-cyan-50/80">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-semibold">
+                          <div className="relative pr-2">
+                            <div className="flex items-center gap-2">
+                              <Clock className="w-4 h-4" />
+                              Hora
+                            </div>
                             <div
-                              style={{
-                                width: 2,
-                                height: "70%",
-                                background: "rgba(255,255,255,0.18)",
-                                borderRadius: 3,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      </th>
-                      <th className="px-3 py-2 text-left font-semibold">
-                        <div className="relative pr-2">
-                          <div className="flex items-center gap-2">
-                            <Layers className="w-4 h-4" />
-                            Motivo
-                          </div>
-                          <div
-                            onMouseDown={(e) => startResizing(e, "motivo")}
-                            className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                            style={{ touchAction: "none" }}
-                          >
-                            <div
-                              style={{
-                                width: 2,
-                                height: "70%",
-                                background: "rgba(255,255,255,0.18)",
-                                borderRadius: 3,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      </th>
-                      <th className="px-3 py-2 text-left font-semibold">
-                        <div className="relative pr-2">
-                          <div className="flex items-center gap-2">
-                            <Tag className="w-4 h-4" />
-                            Tipo
-                          </div>
-                          <div
-                            onMouseDown={(e) => startResizing(e, "tipo")}
-                            className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                            style={{ touchAction: "none" }}
-                          >
-                            <div
-                              style={{
-                                width: 2,
-                                height: "70%",
-                                background: "rgba(255,255,255,0.18)",
-                                borderRadius: 3,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      </th>
-                      <th className="px-3 py-2 text-left font-semibold">
-                        <div className="relative pr-2">
-                          <div className="flex items-center gap-2">
-                            <FileText className="w-4 h-4" />
-                            N° factura
-                          </div>
-                          <div
-                            onMouseDown={(e) => startResizing(e, "factura")}
-                            className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                            style={{ touchAction: "none" }}
-                          >
-                            <div
-                              style={{
-                                width: 2,
-                                height: "70%",
-                                background: "rgba(255,255,255,0.18)",
-                                borderRadius: 3,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      </th>
-                      <th className="px-3 py-2 text-left font-semibold">
-                        <div className="relative pr-2">
-                          <div className="flex items-center gap-2">
-                            <Banknote className="w-4 h-4" />
-                            Monto
-                          </div>
-                          <div
-                            onMouseDown={(e) => startResizing(e, "monto")}
-                            className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                            style={{ touchAction: "none" }}
-                          >
-                            <div
-                              style={{
-                                width: 2,
-                                height: "70%",
-                                background: "rgba(255,255,255,0.18)",
-                                borderRadius: 3,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      </th>
-                      <th className="px-3 py-2 text-left font-semibold">
-                        <div className="relative pr-2">
-                          <div className="flex items-center gap-2">
-                            <UserCircle className="w-4 h-4" />
-                            Encargado
-                          </div>
-                          <div
-                            onMouseDown={(e) => startResizing(e, "encargado")}
-                            className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                            style={{ touchAction: "none" }}
-                          >
-                            <div
-                              style={{
-                                width: 2,
-                                height: "70%",
-                                background: "rgba(255,255,255,0.18)",
-                                borderRadius: 3,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      </th>
-                      <th className="px-3 py-2 text-left font-semibold">
-                        <div className="relative pr-2">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setSortAsc((prev: boolean) => {
-                                  try {
-                                    localStorage.setItem(
-                                      "fondogeneral-sortAscTouched",
-                                      "true",
-                                    );
-                                  } catch {
-                                    // ignore storage errors
-                                  }
-                                  return !prev;
-                                })
-                              }
-                              title={
-                                sortAsc
-                                  ? "Mostrar más reciente arriba"
-                                  : "Mostrar más reciente abajo"
-                              }
-                              aria-label="Invertir orden de movimientos"
-                              className="p-1 border border-[var(--input-border)] rounded hover:bg-[var(--muted)]"
+                              onMouseDown={(e) => startResizing(e, "hora")}
+                              className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
+                              style={{ touchAction: "none" }}
                             >
-                              <ArrowUpDown className="w-4 h-4" />
-                            </button>
+                              <div
+                                style={{
+                                  width: 2,
+                                  height: "70%",
+                                  background: "rgba(255,255,255,0.18)",
+                                  borderRadius: 3,
+                                }}
+                              />
+                            </div>
                           </div>
-                          <div
-                            onMouseDown={(e) => startResizing(e, "editar")}
-                            className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                            style={{ touchAction: "none" }}
-                          >
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold">
+                          <div className="relative pr-2">
+                            <div className="flex items-center gap-2">
+                              <Layers className="w-4 h-4" />
+                              Motivo
+                            </div>
                             <div
-                              style={{
-                                width: 2,
-                                height: "70%",
-                                background: "rgba(255,255,255,0.18)",
-                                borderRadius: 3,
-                              }}
-                            />
+                              onMouseDown={(e) => startResizing(e, "motivo")}
+                              className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
+                              style={{ touchAction: "none" }}
+                            >
+                              <div
+                                style={{
+                                  width: 2,
+                                  height: "70%",
+                                  background: "rgba(255,255,255,0.18)",
+                                  borderRadius: 3,
+                                }}
+                              />
+                            </div>
                           </div>
-                        </div>
-                      </th>
-                    </tr>
-                  </thead>
-                  {Array.from(groupedByDay.entries()).map(
-                    ([dayKey, entries]) => (
-                      <tbody key={dayKey}>
-                        {entries.map((fe) => {
-                          // the newest entry is the first element in fondoEntries (inserted at index 0)
-                          const isMostRecent = fe.id === fondoEntries[0]?.id;
-                          const providerName =
-                            providersMap.get(fe.providerCode) ??
-                            fe.providerCode;
-                          const providerType = providerTypesMap.get(
-                            fe.providerCode,
-                          );
-                          const entryCurrency =
-                            (fe.currency as "CRC" | "USD") || "CRC";
-                          const normalizedIngreso = Math.trunc(
-                            fe.amountIngreso || 0,
-                          );
-                          const normalizedEgreso = Math.trunc(
-                            fe.amountEgreso || 0,
-                          );
-                          let isEntryEgreso =
-                            isEgresoType(fe.paymentType) ||
-                            isGastoType(fe.paymentType);
-                          if (normalizedIngreso > 0 && normalizedEgreso === 0) {
-                            isEntryEgreso = false;
-                          } else if (
-                            normalizedEgreso > 0 &&
-                            normalizedIngreso === 0
-                          ) {
-                            isEntryEgreso = true;
-                          }
-                          const movementAmount = isEntryEgreso
-                            ? normalizedEgreso
-                            : normalizedIngreso;
-                          const balanceAfter =
-                            entryCurrency === "USD"
-                              ? (balanceAfterByIdUSD.get(fe.id) ??
-                                Math.trunc(currentBalanceUSD))
-                              : (balanceAfterByIdCRC.get(fe.id) ??
-                                Math.trunc(currentBalanceCRC));
-                          // compute the balance immediately before this movement was applied (in the movement currency)
-                          const previousBalance = isEntryEgreso
-                            ? balanceAfter + normalizedEgreso
-                            : balanceAfter - normalizedIngreso;
-                          const recordedAt = new Date(fe.createdAt);
-                          const formattedDate = Number.isNaN(
-                            recordedAt.getTime(),
-                          )
-                            ? "Sin fecha"
-                            : dateTimeFormatter.format(recordedAt);
-                          const isAutoAdjustment = isAutoAdjustmentProvider(
-                            fe.providerCode,
-                          );
-                          const providerNameUpper = String(providerName)
-                            .trim()
-                            .toUpperCase();
-                          const isGeneralClosingRow =
-                            providerNameUpper ===
-                              AUTO_ADJUSTMENT_PROVIDER_CODE ||
-                            providerNameUpper ===
-                              AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY ||
-                            hasGeneralClosingAdjustmentNotes(fe.notes);
-                          const displayPaymentType =
-                            (isAutoAdjustment || isGeneralClosingRow) &&
-                            !hasGeneralClosingNoDiffNotes(fe.notes) &&
-                            fe.paymentType !== "INFORMATIVO"
-                              ? "AJUSTE CIERRE"
-                              : fe.paymentType === "INFORMATIVO" && providerType
-                                ? providerType
-                                : !providerType
-                                  ? "INFORMATIVO"
-                                  : fe.paymentType;
-                          const isSuccessfulClosing =
-                            isAutoAdjustment && movementAmount === 0;
-                          const amountPrefix = isEntryEgreso ? "-" : "+";
-                          // prepare tooltip text for edited entries
-                          let auditTooltip: string | undefined;
-                          let parsedAudit: any | null = null;
-                          if (fe.isAudit && fe.auditDetails) {
-                            try {
-                              const parsed = JSON.parse(fe.auditDetails) as any;
-                              // normalize to history array for backward compatibility
-                              let history: any[] = [];
-                              if (Array.isArray(parsed?.history)) {
-                                history = parsed.history;
-                              } else if (parsed?.before && parsed?.after) {
-                                history = [
-                                  {
-                                    at: parsed.at ?? fe.createdAt,
-                                    before: parsed.before,
-                                    after: parsed.after,
-                                  },
-                                ];
-                              }
-                              parsedAudit = { history };
-
-                              // build tooltip from accumulated history (show each change timestamp + small summary)
-                              const lines: string[] = history.map((h) => {
-                                const at = h?.at
-                                  ? dateTimeFormatter.format(new Date(h.at))
-                                  : "—";
-                                const before = h?.before ?? {};
-                                const after = h?.after ?? {};
-                                const parts: string[] = [];
-
-                                // Con el nuevo formato simplificado, mostramos todos los campos presentes
-                                if (
-                                  "providerCode" in before ||
-                                  "providerCode" in after
-                                ) {
-                                  parts.push(
-                                    `Proveedor: ${before.providerCode ?? "—"} → ${
-                                      after.providerCode ?? "—"
-                                    }`,
-                                  );
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold">
+                          <div className="relative pr-2">
+                            <div className="flex items-center gap-2">
+                              <Tag className="w-4 h-4" />
+                              Tipo
+                            </div>
+                            <div
+                              onMouseDown={(e) => startResizing(e, "tipo")}
+                              className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
+                              style={{ touchAction: "none" }}
+                            >
+                              <div
+                                style={{
+                                  width: 2,
+                                  height: "70%",
+                                  background: "rgba(255,255,255,0.18)",
+                                  borderRadius: 3,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold">
+                          <div className="relative pr-2">
+                            <div className="flex items-center gap-2">
+                              <FileText className="w-4 h-4" />
+                              N° factura
+                            </div>
+                            <div
+                              onMouseDown={(e) => startResizing(e, "factura")}
+                              className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
+                              style={{ touchAction: "none" }}
+                            >
+                              <div
+                                style={{
+                                  width: 2,
+                                  height: "70%",
+                                  background: "rgba(255,255,255,0.18)",
+                                  borderRadius: 3,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold">
+                          <div className="relative pr-2">
+                            <div className="flex items-center gap-2">
+                              <Banknote className="w-4 h-4" />
+                              Monto
+                            </div>
+                            <div
+                              onMouseDown={(e) => startResizing(e, "monto")}
+                              className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
+                              style={{ touchAction: "none" }}
+                            >
+                              <div
+                                style={{
+                                  width: 2,
+                                  height: "70%",
+                                  background: "rgba(255,255,255,0.18)",
+                                  borderRadius: 3,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold">
+                          <div className="relative pr-2">
+                            <div className="flex items-center gap-2">
+                              <UserCircle className="w-4 h-4" />
+                              Encargado
+                            </div>
+                            <div
+                              onMouseDown={(e) => startResizing(e, "encargado")}
+                              className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
+                              style={{ touchAction: "none" }}
+                            >
+                              <div
+                                style={{
+                                  width: 2,
+                                  height: "70%",
+                                  background: "rgba(255,255,255,0.18)",
+                                  borderRadius: 3,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </th>
+                        <th className="px-3 py-2 text-left font-semibold">
+                          <div className="relative pr-2">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setSortAsc((prev: boolean) => {
+                                    try {
+                                      localStorage.setItem(
+                                        "fondogeneral-sortAscTouched",
+                                        "true",
+                                      );
+                                    } catch {
+                                      // ignore storage errors
+                                    }
+                                    return !prev;
+                                  })
                                 }
-                                if (
-                                  "invoiceNumber" in before ||
-                                  "invoiceNumber" in after
-                                ) {
-                                  parts.push(
-                                    `Factura: ${before.invoiceNumber ?? "—"} → ${
-                                      after.invoiceNumber ?? "—"
-                                    }`,
-                                  );
+                                title={
+                                  sortAsc
+                                    ? "Mostrar más reciente arriba"
+                                    : "Mostrar más reciente abajo"
                                 }
-                                if (
-                                  "paymentType" in before ||
-                                  "paymentType" in after
-                                ) {
-                                  parts.push(
-                                    `Tipo: ${before.paymentType ?? "—"} → ${
-                                      after.paymentType ?? "—"
-                                    }`,
-                                  );
-                                }
-
-                                // Manejar cambio de moneda
-                                if (
-                                  "currency" in before ||
-                                  "currency" in after
-                                ) {
-                                  const beforeCur =
-                                    before.currency || entryCurrency || "CRC";
-                                  const afterCur =
-                                    after.currency || entryCurrency || "CRC";
-                                  if (beforeCur !== afterCur) {
-                                    parts.push(
-                                      `Moneda: ${beforeCur} → ${afterCur}`,
-                                    );
-                                  }
-                                }
-
-                                // Manejar montos (pueden estar en amountEgreso o amountIngreso)
-                                if (
-                                  "amountEgreso" in before ||
-                                  "amountEgreso" in after ||
-                                  "amountIngreso" in before ||
-                                  "amountIngreso" in after
-                                ) {
-                                  const beforeAmt = Number(
-                                    before.amountEgreso ||
-                                      before.amountIngreso ||
-                                      0,
-                                  );
-                                  const afterAmt = Number(
-                                    after.amountEgreso ||
-                                      after.amountIngreso ||
-                                      0,
-                                  );
-                                  const beforeCur =
-                                    (before.currency as "CRC" | "USD") ||
-                                    entryCurrency ||
-                                    "CRC";
-                                  const afterCur =
-                                    (after.currency as "CRC" | "USD") ||
-                                    entryCurrency ||
-                                    "CRC";
-                                  parts.push(
-                                    `Monto: ${formatByCurrency(
-                                      beforeCur,
-                                      beforeAmt,
-                                    )} → ${formatByCurrency(afterCur, afterAmt)}`,
-                                  );
-                                }
-
-                                if ("manager" in before || "manager" in after) {
-                                  parts.push(
-                                    `Encargado: ${before.manager ?? "—"} → ${
-                                      after.manager ?? "—"
-                                    }`,
-                                  );
-                                }
-                                if ("notes" in before || "notes" in after) {
-                                  parts.push(
-                                    `Notas: "${before.notes ?? ""}" → "${
-                                      after.notes ?? ""
-                                    }"`,
-                                  );
-                                }
-
-                                return `${at}: ${
-                                  parts.join("; ") ||
-                                  "Editado (sin cambios detectados)"
-                                } `;
-                              });
-                              auditTooltip = lines.join("\n");
-                            } catch {
-                              auditTooltip = "Editado";
-                              parsedAudit = null;
+                                aria-label="Invertir orden de movimientos"
+                                className="p-1 border border-[var(--input-border)] rounded hover:bg-[var(--muted)]"
+                              >
+                                <ArrowUpDown className="w-4 h-4" />
+                              </button>
+                            </div>
+                            <div
+                              onMouseDown={(e) => startResizing(e, "editar")}
+                              className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
+                              style={{ touchAction: "none" }}
+                            >
+                              <div
+                                style={{
+                                  width: 2,
+                                  height: "70%",
+                                  background: "rgba(255,255,255,0.18)",
+                                  borderRadius: 3,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </th>
+                      </tr>
+                    </thead>
+                    {Array.from(groupedByDay.entries()).map(
+                      ([dayKey, entries]) => (
+                        <tbody key={dayKey}>
+                          {entries.map((fe) => {
+                            // the newest entry is the first element in fondoEntries (inserted at index 0)
+                            const isMostRecent = fe.id === fondoEntries[0]?.id;
+                            const providerName =
+                              providersMap.get(fe.providerCode) ??
+                              fe.providerCode;
+                            const providerType = providerTypesMap.get(
+                              fe.providerCode,
+                            );
+                            const entryCurrency =
+                              (fe.currency as "CRC" | "USD") || "CRC";
+                            const normalizedIngreso = Math.trunc(
+                              fe.amountIngreso || 0,
+                            );
+                            const normalizedEgreso = Math.trunc(
+                              fe.amountEgreso || 0,
+                            );
+                            let isEntryEgreso =
+                              isEgresoType(fe.paymentType) ||
+                              isGastoType(fe.paymentType);
+                            if (
+                              normalizedIngreso > 0 &&
+                              normalizedEgreso === 0
+                            ) {
+                              isEntryEgreso = false;
+                            } else if (
+                              normalizedEgreso > 0 &&
+                              normalizedIngreso === 0
+                            ) {
+                              isEntryEgreso = true;
                             }
-                          }
-                          return (
-                            <tr
-                              key={fe.id}
-                              className={`transition-colors hover:bg-[var(--muted)]/35 [&>td]:border-b [&>td]:border-cyan-900/35 ${
-                                isMostRecent
-                                  ? "bg-gray-500/10 hover:bg-gray-500/20"
-                                  : ""
-                              } ${isMovementLocked(fe) ? "opacity-60" : ""}`}
-                            >
-                              <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                                {formattedDate}
-                              </td>
-                              <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                                <div className="flex items-center gap-2">
-                                  <div className="font-semibold text-[var(--foreground)]">
-                                    {providerName}
-                                  </div>
-                                  {fe.isAudit && (
-                                    <div
-                                      role="button"
-                                      tabIndex={0}
-                                      onClick={() => {
-                                        if (parsedAudit) {
-                                          setAuditModalData(parsedAudit);
-                                          setAuditModalOpen(true);
-                                        }
-                                      }}
-                                      onKeyDown={(e) => {
-                                        if (
-                                          (e.key === "Enter" ||
-                                            e.key === " ") &&
-                                          parsedAudit
-                                        ) {
-                                          setAuditModalData(parsedAudit);
-                                          setAuditModalOpen(true);
-                                        }
-                                      }}
-                                      title={auditTooltip}
-                                      className="inline-flex cursor-pointer items-center gap-1.5 rounded border border-yellow-500/25 bg-yellow-500/10 px-2 py-0.5 text-[11px] text-yellow-300 transition-colors hover:bg-yellow-500/20"
-                                    >
-                                      <Pencil className="w-3 h-3 text-yellow-300" />
-                                      <span>Editado</span>
+                            const movementAmount = isEntryEgreso
+                              ? normalizedEgreso
+                              : normalizedIngreso;
+                            const balanceAfter =
+                              entryCurrency === "USD"
+                                ? (balanceAfterByIdUSD.get(fe.id) ??
+                                  Math.trunc(currentBalanceUSD))
+                                : (balanceAfterByIdCRC.get(fe.id) ??
+                                  Math.trunc(currentBalanceCRC));
+                            // compute the balance immediately before this movement was applied (in the movement currency)
+                            const previousBalance = isEntryEgreso
+                              ? balanceAfter + normalizedEgreso
+                              : balanceAfter - normalizedIngreso;
+                            const recordedAt = new Date(fe.createdAt);
+                            const formattedDate = Number.isNaN(
+                              recordedAt.getTime(),
+                            )
+                              ? "Sin fecha"
+                              : dateTimeFormatter.format(recordedAt);
+                            const isAutoAdjustment = isAutoAdjustmentProvider(
+                              fe.providerCode,
+                            );
+                            const providerNameUpper = String(providerName)
+                              .trim()
+                              .toUpperCase();
+                            const isGeneralClosingRow =
+                              providerNameUpper ===
+                                AUTO_ADJUSTMENT_PROVIDER_CODE ||
+                              providerNameUpper ===
+                                AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY ||
+                              hasGeneralClosingAdjustmentNotes(fe.notes);
+                            const displayPaymentType =
+                              (isAutoAdjustment || isGeneralClosingRow) &&
+                              !hasGeneralClosingNoDiffNotes(fe.notes) &&
+                              fe.paymentType !== "INFORMATIVO"
+                                ? "AJUSTE CIERRE"
+                                : fe.paymentType === "INFORMATIVO" &&
+                                    providerType
+                                  ? providerType
+                                  : !providerType
+                                    ? "INFORMATIVO"
+                                    : fe.paymentType;
+                            const isSuccessfulClosing =
+                              isAutoAdjustment && movementAmount === 0;
+                            const amountPrefix = isEntryEgreso ? "-" : "+";
+                            // prepare tooltip text for edited entries
+                            let auditTooltip: string | undefined;
+                            let parsedAudit: any | null = null;
+                            if (fe.isAudit && fe.auditDetails) {
+                              try {
+                                const parsed = JSON.parse(
+                                  fe.auditDetails,
+                                ) as any;
+                                // normalize to history array for backward compatibility
+                                let history: any[] = [];
+                                if (Array.isArray(parsed?.history)) {
+                                  history = parsed.history;
+                                } else if (parsed?.before && parsed?.after) {
+                                  history = [
+                                    {
+                                      at: parsed.at ?? fe.createdAt,
+                                      before: parsed.before,
+                                      after: parsed.after,
+                                    },
+                                  ];
+                                }
+                                parsedAudit = { history };
+
+                                // build tooltip from accumulated history (show each change timestamp + small summary)
+                                const lines: string[] = history.map((h) => {
+                                  const at = h?.at
+                                    ? dateTimeFormatter.format(new Date(h.at))
+                                    : "—";
+                                  const before = h?.before ?? {};
+                                  const after = h?.after ?? {};
+                                  const parts: string[] = [];
+
+                                  // Con el nuevo formato simplificado, mostramos todos los campos presentes
+                                  if (
+                                    "providerCode" in before ||
+                                    "providerCode" in after
+                                  ) {
+                                    parts.push(
+                                      `Proveedor: ${before.providerCode ?? "—"} → ${
+                                        after.providerCode ?? "—"
+                                      }`,
+                                    );
+                                  }
+                                  if (
+                                    "invoiceNumber" in before ||
+                                    "invoiceNumber" in after
+                                  ) {
+                                    parts.push(
+                                      `Factura: ${before.invoiceNumber ?? "—"} → ${
+                                        after.invoiceNumber ?? "—"
+                                      }`,
+                                    );
+                                  }
+                                  if (
+                                    "paymentType" in before ||
+                                    "paymentType" in after
+                                  ) {
+                                    parts.push(
+                                      `Tipo: ${before.paymentType ?? "—"} → ${
+                                        after.paymentType ?? "—"
+                                      }`,
+                                    );
+                                  }
+
+                                  // Manejar cambio de moneda
+                                  if (
+                                    "currency" in before ||
+                                    "currency" in after
+                                  ) {
+                                    const beforeCur =
+                                      before.currency || entryCurrency || "CRC";
+                                    const afterCur =
+                                      after.currency || entryCurrency || "CRC";
+                                    if (beforeCur !== afterCur) {
+                                      parts.push(
+                                        `Moneda: ${beforeCur} → ${afterCur}`,
+                                      );
+                                    }
+                                  }
+
+                                  // Manejar montos (pueden estar en amountEgreso o amountIngreso)
+                                  if (
+                                    "amountEgreso" in before ||
+                                    "amountEgreso" in after ||
+                                    "amountIngreso" in before ||
+                                    "amountIngreso" in after
+                                  ) {
+                                    const beforeAmt = Number(
+                                      before.amountEgreso ||
+                                        before.amountIngreso ||
+                                        0,
+                                    );
+                                    const afterAmt = Number(
+                                      after.amountEgreso ||
+                                        after.amountIngreso ||
+                                        0,
+                                    );
+                                    const beforeCur =
+                                      (before.currency as "CRC" | "USD") ||
+                                      entryCurrency ||
+                                      "CRC";
+                                    const afterCur =
+                                      (after.currency as "CRC" | "USD") ||
+                                      entryCurrency ||
+                                      "CRC";
+                                    parts.push(
+                                      `Monto: ${formatByCurrency(
+                                        beforeCur,
+                                        beforeAmt,
+                                      )} → ${formatByCurrency(afterCur, afterAmt)}`,
+                                    );
+                                  }
+
+                                  if (
+                                    "manager" in before ||
+                                    "manager" in after
+                                  ) {
+                                    parts.push(
+                                      `Encargado: ${before.manager ?? "—"} → ${
+                                        after.manager ?? "—"
+                                      }`,
+                                    );
+                                  }
+                                  if ("notes" in before || "notes" in after) {
+                                    parts.push(
+                                      `Notas: "${before.notes ?? ""}" → "${
+                                        after.notes ?? ""
+                                      }"`,
+                                    );
+                                  }
+
+                                  return `${at}: ${
+                                    parts.join("; ") ||
+                                    "Editado (sin cambios detectados)"
+                                  } `;
+                                });
+                                auditTooltip = lines.join("\n");
+                              } catch {
+                                auditTooltip = "Editado";
+                                parsedAudit = null;
+                              }
+                            }
+                            return (
+                              <tr
+                                key={fe.id}
+                                className={`transition-colors hover:bg-[var(--muted)]/35 [&>td]:border-b [&>td]:border-cyan-900/35 ${
+                                  isMostRecent
+                                    ? "bg-gray-500/10 hover:bg-gray-500/20"
+                                    : ""
+                                } ${isMovementLocked(fe) ? "opacity-60" : ""}`}
+                              >
+                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
+                                  {formattedDate}
+                                </td>
+                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
+                                  <div className="flex items-center gap-2">
+                                    <div className="font-semibold text-[var(--foreground)]">
+                                      {providerName}
                                     </div>
-                                  )}
-                                </div>
-                                {fe.notes && (
-                                  <div className="mt-1 text-xs text-[var(--muted-foreground)] break-words">
-                                    {(() => {
-                                      // Renderizar iconos para movimientos de cierre con ajustes
-                                      if (fe.notes.includes("[ALERT_ICON]")) {
-                                        const parts = fe.notes.split("\n");
-                                        const headerText =
-                                          parts.find(
-                                            (p) => !p.includes("[ALERT_ICON]"),
-                                          ) || "";
-                                        const alertLine =
-                                          parts.find((p) =>
-                                            p.includes("[ALERT_ICON]"),
-                                          ) || "";
-                                        const noteText = alertLine.replace(
-                                          "[ALERT_ICON]",
-                                          "",
-                                        );
-                                        return (
-                                          <div className="flex flex-col gap-1">
-                                            {headerText && (
-                                              <div className="text-[10px] font-semibold text-[var(--foreground)] uppercase tracking-wide">
-                                                {headerText}
+                                    {fe.isAudit && (
+                                      <div
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={() => {
+                                          if (parsedAudit) {
+                                            setAuditModalData(parsedAudit);
+                                            setAuditModalOpen(true);
+                                          }
+                                        }}
+                                        onKeyDown={(e) => {
+                                          if (
+                                            (e.key === "Enter" ||
+                                              e.key === " ") &&
+                                            parsedAudit
+                                          ) {
+                                            setAuditModalData(parsedAudit);
+                                            setAuditModalOpen(true);
+                                          }
+                                        }}
+                                        title={auditTooltip}
+                                        className="inline-flex cursor-pointer items-center gap-1.5 rounded border border-yellow-500/25 bg-yellow-500/10 px-2 py-0.5 text-[11px] text-yellow-300 transition-colors hover:bg-yellow-500/20"
+                                      >
+                                        <Pencil className="w-3 h-3 text-yellow-300" />
+                                        <span>Editado</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                  {fe.notes && (
+                                    <div className="mt-1 text-xs text-[var(--muted-foreground)] break-words">
+                                      {(() => {
+                                        // Renderizar iconos para movimientos de cierre con ajustes
+                                        if (fe.notes.includes("[ALERT_ICON]")) {
+                                          const parts = fe.notes.split("\n");
+                                          const headerText =
+                                            parts.find(
+                                              (p) =>
+                                                !p.includes("[ALERT_ICON]"),
+                                            ) || "";
+                                          const alertLine =
+                                            parts.find((p) =>
+                                              p.includes("[ALERT_ICON]"),
+                                            ) || "";
+                                          const noteText = alertLine.replace(
+                                            "[ALERT_ICON]",
+                                            "",
+                                          );
+                                          return (
+                                            <div className="flex flex-col gap-1">
+                                              {headerText && (
+                                                <div className="text-[10px] font-semibold text-[var(--foreground)] uppercase tracking-wide">
+                                                  {headerText}
+                                                </div>
+                                              )}
+                                              <div className="flex items-center gap-1.5">
+                                                <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
+                                                <span>{noteText}</span>
                                               </div>
-                                            )}
+                                            </div>
+                                          );
+                                        }
+                                        if (
+                                          fe.notes.startsWith("[CHECK_ICON]")
+                                        ) {
+                                          const noteText = fe.notes.replace(
+                                            "[CHECK_ICON]",
+                                            "",
+                                          );
+                                          return (
                                             <div className="flex items-center gap-1.5">
-                                              <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
+                                              <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
                                               <span>{noteText}</span>
                                             </div>
-                                          </div>
-                                        );
-                                      }
-                                      if (fe.notes.startsWith("[CHECK_ICON]")) {
-                                        const noteText = fe.notes.replace(
-                                          "[CHECK_ICON]",
-                                          "",
-                                        );
-                                        return (
-                                          <div className="flex items-center gap-1.5">
-                                            <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
-                                            <span>{noteText}</span>
-                                          </div>
-                                        );
-                                      }
-                                      return fe.notes;
-                                    })()}
-                                  </div>
-                                )}
-                              </td>
-                              <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                                <span className="inline-flex max-w-full items-center rounded border border-[var(--input-border)] bg-[var(--muted)]/15 px-2 py-1 text-xs text-[var(--foreground)]">
-                                  {displayPaymentType === "INFORMATIVO"
-                                    ? "-"
-                                    : formatMovementType(displayPaymentType)}
-                                </span>
-                              </td>
-                              <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                                <span className="font-medium text-[var(--foreground)]">
-                                  #{fe.invoiceNumber}
-                                </span>
-                              </td>
-                              <td className="px-3 py-2 align-top">
-                                {isAutoAdjustment ? (
-                                  (() => {
-                                    const closingRecord = fe.originalEntryId
-                                      ? dailyClosings.find(
-                                          (d) => d.id === fe.originalEntryId,
-                                        )
-                                      : null;
+                                          );
+                                        }
+                                        return fe.notes;
+                                      })()}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
+                                  <span className="inline-flex max-w-full items-center rounded border border-[var(--input-border)] bg-[var(--muted)]/15 px-2 py-1 text-xs text-[var(--foreground)]">
+                                    {displayPaymentType === "INFORMATIVO"
+                                      ? "-"
+                                      : formatMovementType(displayPaymentType)}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
+                                  <span className="font-medium text-[var(--foreground)]">
+                                    #{fe.invoiceNumber}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 align-top">
+                                  {isAutoAdjustment ? (
+                                    (() => {
+                                      const closingRecord = fe.originalEntryId
+                                        ? dailyClosings.find(
+                                            (d) => d.id === fe.originalEntryId,
+                                          )
+                                        : null;
 
-                                    const hasPersistedClosingBalance =
-                                      fe.closingBalanceCRC !== undefined ||
-                                      fe.closingBalanceUSD !== undefined ||
-                                      Boolean(closingRecord);
+                                      const hasPersistedClosingBalance =
+                                        fe.closingBalanceCRC !== undefined ||
+                                        fe.closingBalanceUSD !== undefined ||
+                                        Boolean(closingRecord);
 
-                                    if (!hasPersistedClosingBalance) {
-                                      if (isSuccessfulClosing) {
+                                      if (!hasPersistedClosingBalance) {
+                                        if (isSuccessfulClosing) {
+                                          return (
+                                            <div className="text-center text-[var(--muted-foreground)]">
+                                              —
+                                            </div>
+                                          );
+                                        }
+
                                         return (
-                                          <div className="text-center text-[var(--muted-foreground)]">
-                                            —
+                                          <div className="flex flex-col gap-1 text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                              {isEntryEgreso ? (
+                                                <ArrowUpRight className="w-4 h-4 text-red-500" />
+                                              ) : (
+                                                <ArrowDownRight className="w-4 h-4 text-green-500" />
+                                              )}
+                                              <span
+                                                className={`rounded px-2 py-1 text-xs font-semibold ${
+                                                  isEntryEgreso
+                                                    ? "bg-red-500/10 text-red-400"
+                                                    : "bg-emerald-500/10 text-emerald-400"
+                                                }`}
+                                              >
+                                                {`${amountPrefix} ${formatByCurrency(
+                                                  entryCurrency,
+                                                  movementAmount,
+                                                )}`}
+                                              </span>
+                                            </div>
+                                            <span className="text-xs text-[var(--muted-foreground)]">
+                                              Saldo anterior:{" "}
+                                              {formatByCurrency(
+                                                entryCurrency,
+                                                previousBalance,
+                                              )}
+                                            </span>
                                           </div>
                                         );
                                       }
+
+                                      const closingCRC = Math.trunc(
+                                        fe.closingBalanceCRC ??
+                                          closingRecord?.totalCRC ??
+                                          closingRecord?.recordedBalanceCRC ??
+                                          0,
+                                      );
+                                      const closingUSD = Math.trunc(
+                                        fe.closingBalanceUSD ??
+                                          closingRecord?.totalUSD ??
+                                          closingRecord?.recordedBalanceUSD ??
+                                          0,
+                                      );
 
                                       return (
                                         <div className="flex flex-col gap-1 text-right">
-                                          <div className="flex items-center justify-end gap-2">
-                                            {isEntryEgreso ? (
-                                              <ArrowUpRight className="w-4 h-4 text-red-500" />
-                                            ) : (
-                                              <ArrowDownRight className="w-4 h-4 text-green-500" />
-                                            )}
-                                            <span
-                                              className={`rounded px-2 py-1 text-xs font-semibold ${
-                                                isEntryEgreso
-                                                  ? "bg-red-500/10 text-red-400"
-                                                  : "bg-emerald-500/10 text-emerald-400"
-                                              }`}
-                                            >
-                                              {`${amountPrefix} ${formatByCurrency(
-                                                entryCurrency,
-                                                movementAmount,
-                                              )}`}
-                                            </span>
+                                          {movementAmount !== 0 ? (
+                                            <div className="flex items-center justify-end gap-2">
+                                              {isEntryEgreso ? (
+                                                <ArrowUpRight className="w-4 h-4 text-red-500" />
+                                              ) : (
+                                                <ArrowDownRight className="w-4 h-4 text-green-500" />
+                                              )}
+                                              <span
+                                                className={`rounded px-2 py-1 text-xs font-semibold ${
+                                                  isEntryEgreso
+                                                    ? "bg-red-500/10 text-red-400"
+                                                    : "bg-emerald-500/10 text-emerald-400"
+                                                }`}
+                                              >
+                                                {`${amountPrefix} ${formatByCurrency(
+                                                  entryCurrency,
+                                                  movementAmount,
+                                                )}`}
+                                              </span>
+                                            </div>
+                                          ) : null}
+
+                                          <div className="text-xs text-[var(--muted-foreground)]">
+                                            Saldo al cierre
                                           </div>
-                                          <span className="text-xs text-[var(--muted-foreground)]">
-                                            Saldo anterior:{" "}
-                                            {formatByCurrency(
-                                              entryCurrency,
-                                              previousBalance,
+                                          <div className="text-sm font-semibold text-[var(--foreground)] flex flex-col gap-0.5">
+                                            {currencyEnabled.CRC && (
+                                              <div>
+                                                {formatByCurrency(
+                                                  "CRC",
+                                                  closingCRC,
+                                                )}
+                                              </div>
                                             )}
-                                          </span>
+                                            {currencyEnabled.USD && (
+                                              <div>
+                                                {formatByCurrency(
+                                                  "USD",
+                                                  closingUSD,
+                                                )}
+                                              </div>
+                                            )}
+                                          </div>
                                         </div>
                                       );
-                                    }
-
-                                    const closingCRC = Math.trunc(
-                                      fe.closingBalanceCRC ??
-                                        closingRecord?.totalCRC ??
-                                        closingRecord?.recordedBalanceCRC ??
-                                        0,
-                                    );
-                                    const closingUSD = Math.trunc(
-                                      fe.closingBalanceUSD ??
-                                        closingRecord?.totalUSD ??
-                                        closingRecord?.recordedBalanceUSD ??
-                                        0,
-                                    );
-
-                                    return (
-                                      <div className="flex flex-col gap-1 text-right">
-                                        {movementAmount !== 0 ? (
-                                          <div className="flex items-center justify-end gap-2">
-                                            {isEntryEgreso ? (
-                                              <ArrowUpRight className="w-4 h-4 text-red-500" />
-                                            ) : (
-                                              <ArrowDownRight className="w-4 h-4 text-green-500" />
-                                            )}
-                                            <span
-                                              className={`rounded px-2 py-1 text-xs font-semibold ${
-                                                isEntryEgreso
-                                                  ? "bg-red-500/10 text-red-400"
-                                                  : "bg-emerald-500/10 text-emerald-400"
-                                              }`}
-                                            >
-                                              {`${amountPrefix} ${formatByCurrency(
-                                                entryCurrency,
-                                                movementAmount,
-                                              )}`}
-                                            </span>
-                                          </div>
-                                        ) : null}
-
-                                        <div className="text-xs text-[var(--muted-foreground)]">
-                                          Saldo al cierre
-                                        </div>
-                                        <div className="text-sm font-semibold text-[var(--foreground)] flex flex-col gap-0.5">
-                                          {currencyEnabled.CRC && (
-                                            <div>
-                                              {formatByCurrency(
-                                                "CRC",
-                                                closingCRC,
-                                              )}
-                                            </div>
-                                          )}
-                                          {currencyEnabled.USD && (
-                                            <div>
-                                              {formatByCurrency(
-                                                "USD",
-                                                closingUSD,
-                                              )}
-                                            </div>
-                                          )}
-                                        </div>
+                                    })()
+                                  ) : isSuccessfulClosing ? (
+                                    <div className="text-center text-[var(--muted-foreground)]">
+                                      —
+                                    </div>
+                                  ) : (
+                                    <div className="flex flex-col gap-1 text-right">
+                                      <div className="flex items-center justify-end gap-2">
+                                        {isEntryEgreso ? (
+                                          <ArrowUpRight className="w-4 h-4 text-red-500" />
+                                        ) : (
+                                          <ArrowDownRight className="w-4 h-4 text-green-500" />
+                                        )}
+                                        <span
+                                          className={`rounded px-2 py-1 text-xs font-semibold ${
+                                            isEntryEgreso
+                                              ? "bg-red-500/10 text-red-400"
+                                              : "bg-emerald-500/10 text-emerald-400"
+                                          }`}
+                                        >
+                                          {`${amountPrefix} ${formatByCurrency(
+                                            entryCurrency,
+                                            movementAmount,
+                                          )}`}
+                                        </span>
                                       </div>
-                                    );
-                                  })()
-                                ) : isSuccessfulClosing ? (
-                                  <div className="text-center text-[var(--muted-foreground)]">
-                                    —
-                                  </div>
-                                ) : (
-                                  <div className="flex flex-col gap-1 text-right">
-                                    <div className="flex items-center justify-end gap-2">
-                                      {isEntryEgreso ? (
-                                        <ArrowUpRight className="w-4 h-4 text-red-500" />
-                                      ) : (
-                                        <ArrowDownRight className="w-4 h-4 text-green-500" />
-                                      )}
-                                      <span
-                                        className={`rounded px-2 py-1 text-xs font-semibold ${
-                                          isEntryEgreso
-                                            ? "bg-red-500/10 text-red-400"
-                                            : "bg-emerald-500/10 text-emerald-400"
-                                        }`}
-                                      >
-                                        {`${amountPrefix} ${formatByCurrency(
+                                      <span className="text-xs text-[var(--muted-foreground)]">
+                                        Saldo anterior:{" "}
+                                        {formatByCurrency(
                                           entryCurrency,
-                                          movementAmount,
-                                        )}`}
+                                          previousBalance,
+                                        )}
                                       </span>
                                     </div>
-                                    <span className="text-xs text-[var(--muted-foreground)]">
-                                      Saldo anterior:{" "}
-                                      {formatByCurrency(
-                                        entryCurrency,
-                                        previousBalance,
-                                      )}
-                                    </span>
-                                  </div>
-                                )}
-                              </td>
-                              <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                                {fe.manager}
-                              </td>
-                              <td className="px-3 py-2 align-top">
-                                {!isMovementLocked(fe) && (
-                                  <div className="flex items-center gap-2">
-                                    {(() => {
-                                      const isCierreVentasRow =
-                                        isCierreFondoVentasMovement(fe);
-                                      const isLatestCierreVentas =
-                                        isCierreVentasRow &&
-                                        Boolean(
-                                          latestCierreFondoVentasMovementId,
-                                        ) &&
-                                        fe.id ===
-                                          latestCierreFondoVentasMovementId;
-                                      const canDelete =
-                                        !isAutoAdjustment &&
-                                        (isPrincipalAdmin ||
-                                          (isSuperAdminUser &&
-                                            isCierreVentasRow)) &&
-                                        (!isCierreVentasRow ||
-                                          isLatestCierreVentas);
-                                      const canEdit =
-                                        !isAutoAdjustment &&
-                                        (!isSuperAdminUser ||
-                                          !isCierreVentasRow);
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
+                                  {fe.manager}
+                                </td>
+                                <td className="px-3 py-2 align-top">
+                                  {!isMovementLocked(fe) && (
+                                    <div className="flex items-center gap-2">
+                                      {(() => {
+                                        const isCierreVentasRow =
+                                          isCierreFondoVentasMovement(fe);
+                                        const isLatestCierreVentas =
+                                          isCierreVentasRow &&
+                                          Boolean(
+                                            latestCierreFondoVentasMovementId,
+                                          ) &&
+                                          fe.id ===
+                                            latestCierreFondoVentasMovementId;
+                                        const canDelete =
+                                          !isAutoAdjustment &&
+                                          (isPrincipalAdmin ||
+                                            (isSuperAdminUser &&
+                                              isCierreVentasRow)) &&
+                                          (!isCierreVentasRow ||
+                                            isLatestCierreVentas);
+                                        const canEdit =
+                                          !isAutoAdjustment &&
+                                          (!isSuperAdminUser ||
+                                            !isCierreVentasRow);
 
-                                      return (
-                                        <>
-                                          {canEdit && (
-                                            <button
-                                              type="button"
-                                              className="inline-flex items-center gap-1.5 rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs font-medium text-[var(--foreground)] transition-all duration-150 hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--muted)] disabled:translate-y-0 disabled:opacity-50"
-                                              onClick={() =>
-                                                handleEditMovement(fe)
-                                              }
-                                              disabled={
-                                                editingEntryId === fe.id
-                                              }
-                                              title={
-                                                isAutoAdjustment
-                                                  ? "Los ajustes automáticos no se pueden editar"
-                                                  : "Editar movimiento"
-                                              }
-                                            >
-                                              <Pencil className="w-4 h-4" />
-                                              {editingEntryId === fe.id
-                                                ? "Editando"
-                                                : "Editar"}
-                                            </button>
-                                          )}
+                                        return (
+                                          <>
+                                            {canEdit && (
+                                              <button
+                                                type="button"
+                                                className="inline-flex items-center gap-1.5 rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs font-medium text-[var(--foreground)] transition-all duration-150 hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--muted)] disabled:translate-y-0 disabled:opacity-50"
+                                                onClick={() =>
+                                                  handleEditMovement(fe)
+                                                }
+                                                disabled={
+                                                  editingEntryId === fe.id
+                                                }
+                                                title={
+                                                  isAutoAdjustment
+                                                    ? "Los ajustes automáticos no se pueden editar"
+                                                    : "Editar movimiento"
+                                                }
+                                              >
+                                                <Pencil className="w-4 h-4" />
+                                                {editingEntryId === fe.id
+                                                  ? "Editando"
+                                                  : "Editar"}
+                                              </button>
+                                            )}
 
-                                          {canDelete && (
-                                            <button
-                                              type="button"
-                                              className="inline-flex items-center gap-1.5 rounded border border-red-500/40 bg-red-500/10 px-2.5 py-1.5 text-xs font-medium text-red-400 transition-all duration-150 hover:-translate-y-0.5 hover:border-red-400 hover:bg-red-500/20"
-                                              onClick={() =>
-                                                handleDeleteMovement(fe)
-                                              }
-                                              title={
-                                                isCierreVentasRow &&
-                                                isSuperAdminUser
-                                                  ? 'Eliminar "CIERRE FONDO VENTAS" (superadmin)'
-                                                  : isCierreVentasRow
-                                                    ? "Eliminar último cierre de Fondo Ventas"
-                                                    : "Eliminar movimiento"
-                                              }
-                                            >
-                                              <Trash2 className="w-4 h-4" />
-                                              Eliminar
-                                            </button>
-                                          )}
-                                        </>
-                                      );
-                                    })()}
-                                  </div>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    ),
-                  )}
-                </table>
+                                            {canDelete && (
+                                              <button
+                                                type="button"
+                                                className="inline-flex items-center gap-1.5 rounded border border-red-500/40 bg-red-500/10 px-2.5 py-1.5 text-xs font-medium text-red-400 transition-all duration-150 hover:-translate-y-0.5 hover:border-red-400 hover:bg-red-500/20"
+                                                onClick={() =>
+                                                  handleDeleteMovement(fe)
+                                                }
+                                                title={
+                                                  isCierreVentasRow &&
+                                                  isSuperAdminUser
+                                                    ? 'Eliminar "CIERRE FONDO VENTAS" (superadmin)'
+                                                    : isCierreVentasRow
+                                                      ? "Eliminar último cierre de Fondo Ventas"
+                                                      : "Eliminar movimiento"
+                                                }
+                                              >
+                                                <Trash2 className="w-4 h-4" />
+                                                Eliminar
+                                              </button>
+                                            )}
+                                          </>
+                                        );
+                                      })()}
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      ),
+                    )}
+                  </table>
+                </div>
               </div>
-            </div>
             </div>
           )}
 
@@ -11519,96 +11545,103 @@ export function FondoSection({
           {isSingleDayFilter &&
             filteredEntries.length > 0 &&
             (isAdminUser || isSuperAdminUser) && (
-            <div className="mt-4">
-            <div className="flex justify-center">
-              <div className="w-full max-w-2xl">
-                <div className="px-4 py-3 rounded min-w-[220px] fg-balance-card">
-                  {isSuperAdminUser ? (
-                    <button
-                      type="button"
-                      onClick={() => setSuperAdminTotalsOpen((p) => !p)}
-                      className="w-full flex items-center justify-between gap-3"
-                      aria-expanded={superAdminTotalsOpen}
-                    >
-                      <div className="text-center font-semibold text-sm text-[var(--muted-foreground)] flex-1">
-                        Total del día
-                      </div>
-                      {superAdminTotalsOpen ? (
-                        <ChevronUp className="w-4 h-4 text-[var(--muted-foreground)]" />
+              <div className="mt-4">
+                <div className="flex justify-center">
+                  <div className="w-full max-w-2xl">
+                    <div className="px-4 py-3 rounded min-w-[220px] fg-balance-card">
+                      {isSuperAdminUser ? (
+                        <button
+                          type="button"
+                          onClick={() => setSuperAdminTotalsOpen((p) => !p)}
+                          className="w-full flex items-center justify-between gap-3"
+                          aria-expanded={superAdminTotalsOpen}
+                        >
+                          <div className="text-center font-semibold text-sm text-[var(--muted-foreground)] flex-1">
+                            Total del día
+                          </div>
+                          {superAdminTotalsOpen ? (
+                            <ChevronUp className="w-4 h-4 text-[var(--muted-foreground)]" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-[var(--muted-foreground)]" />
+                          )}
+                        </button>
                       ) : (
-                        <ChevronDown className="w-4 h-4 text-[var(--muted-foreground)]" />
+                        <div className="mb-2 text-center font-semibold text-sm text-[var(--muted-foreground)]">
+                          Total del día
+                        </div>
                       )}
-                    </button>
-                  ) : (
-                    <div className="mb-2 text-center font-semibold text-sm text-[var(--muted-foreground)]">
-                      Total del día
-                    </div>
-                  )}
 
-                  {(!isSuperAdminUser || superAdminTotalsOpen) && (
-                    <div className={isSuperAdminUser ? "mt-3" : ""}>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {(["CRC", "USD"] as ("CRC" | "USD")[]).map(
-                          (currency) => {
-                            const ingreso = totalsByCurrency[currency].ingreso;
-                            const egreso = totalsByCurrency[currency].egreso;
-                            const neto = ingreso - egreso;
-                            return (
-                              <div
-                                key={currency}
-                                className="rounded border border-[var(--input-border)] bg-[var(--card-bg)] p-3"
-                              >
-                                <div className="text-xs uppercase tracking-wide">
-                                  {currency === "CRC" ? "Colones" : "Dólares"}
-                                </div>
-                                <div className="mt-2 text-[var(--foreground)]">
-                                  <div className="flex items-center gap-2">
-                                    <ArrowDownRight className="w-4 h-4 text-green-500" />
-                                    <div>
-                                      Entradas:{" "}
-                                      <span className="font-semibold text-green-500">
-                                        {formatByCurrency(currency, ingreso)}
-                                      </span>
+                      {(!isSuperAdminUser || superAdminTotalsOpen) && (
+                        <div className={isSuperAdminUser ? "mt-3" : ""}>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {(["CRC", "USD"] as ("CRC" | "USD")[]).map(
+                              (currency) => {
+                                const ingreso =
+                                  totalsByCurrency[currency].ingreso;
+                                const egreso =
+                                  totalsByCurrency[currency].egreso;
+                                const neto = ingreso - egreso;
+                                return (
+                                  <div
+                                    key={currency}
+                                    className="rounded border border-[var(--input-border)] bg-[var(--card-bg)] p-3"
+                                  >
+                                    <div className="text-xs uppercase tracking-wide">
+                                      {currency === "CRC"
+                                        ? "Colones"
+                                        : "Dólares"}
+                                    </div>
+                                    <div className="mt-2 text-[var(--foreground)]">
+                                      <div className="flex items-center gap-2">
+                                        <ArrowDownRight className="w-4 h-4 text-green-500" />
+                                        <div>
+                                          Entradas:{" "}
+                                          <span className="font-semibold text-green-500">
+                                            {formatByCurrency(
+                                              currency,
+                                              ingreso,
+                                            )}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <ArrowUpRight className="w-4 h-4 text-red-500" />
+                                        <div>
+                                          Salidas:{" "}
+                                          <span className="font-semibold text-red-500">
+                                            {formatByCurrency(currency, egreso)}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <div className="pt-2">
+                                        <div>
+                                          Neto:{" "}
+                                          <span
+                                            className={`font-semibold ${
+                                              neto > 0
+                                                ? "text-green-500"
+                                                : neto < 0
+                                                  ? "text-red-500"
+                                                  : ""
+                                            }`}
+                                          >
+                                            {formatByCurrency(currency, neto)}
+                                          </span>
+                                        </div>
+                                      </div>
                                     </div>
                                   </div>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <ArrowUpRight className="w-4 h-4 text-red-500" />
-                                    <div>
-                                      Salidas:{" "}
-                                      <span className="font-semibold text-red-500">
-                                        {formatByCurrency(currency, egreso)}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  <div className="pt-2">
-                                    <div>
-                                      Neto:{" "}
-                                      <span
-                                        className={`font-semibold ${
-                                          neto > 0
-                                            ? "text-green-500"
-                                            : neto < 0
-                                              ? "text-red-500"
-                                              : ""
-                                        }`}
-                                      >
-                                        {formatByCurrency(currency, neto)}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          },
-                        )}
-                      </div>
+                                );
+                              },
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
-            </div>
-            </div>
-          )}
+            )}
         </div>
 
         {enabledBalanceCurrencies.length > 0 && (

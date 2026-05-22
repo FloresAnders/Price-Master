@@ -34,6 +34,9 @@ export type MovementRecordBase = {
   createdAt: string;
   accountId: MovementAccountKey;
   currency: MovementCurrencyKey;
+  amount?: number;
+  amountEgreso?: number;
+  amountIngreso?: number;
 };
 
 const ACCOUNT_KEYS: MovementAccountKey[] = [
@@ -575,6 +578,20 @@ export class MovimientosFondosService {
     return 0;
   }
 
+  private static resolveMovementAmount(record: Record<string, unknown>): number {
+    const ingreso = this.sanitizeBalance(record.amountIngreso);
+    const egreso = this.sanitizeBalance(record.amountEgreso);
+    return Math.max(Math.abs(ingreso), Math.abs(egreso));
+  }
+
+  private static normalizeMovementRecord<T extends Record<string, unknown>>(
+    movement: T,
+  ): T & { amount: number } {
+    const normalized = { ...movement } as Record<string, unknown>;
+    normalized.amount = this.resolveMovementAmount(normalized);
+    return normalized as T & { amount: number };
+  }
+
   private static buildAccountBalanceKey(
     accountId: MovementAccountKey,
     currency: MovementCurrencyKey,
@@ -731,7 +748,9 @@ export class MovimientosFondosService {
       movement.id,
     );
     // Do not duplicate id (docId already contains it). Keep the stored document clean.
-    const record = { ...(movement as Record<string, unknown>) };
+    const record = this.normalizeMovementRecord({
+      ...(movement as Record<string, unknown>),
+    });
     delete (record as any).id;
     await setDoc(movementRef, stripUndefinedDeep(record) as any);
   }
@@ -792,7 +811,9 @@ export class MovimientosFondosService {
         this.movementsCollectionRef(docId, resolvedAccountId),
         movement.id,
       );
-      const record = { ...(movement as Record<string, unknown>) };
+      const record = this.normalizeMovementRecord({
+        ...(movement as Record<string, unknown>),
+      });
       delete (record as any).id;
       batch.set(movementRef, stripUndefinedDeep(record) as any);
     } else if (change.type === "delete") {
@@ -1037,6 +1058,7 @@ export class MovimientosFondosService {
             ? record.id.trim()
             : this.buildLegacyMovementId(record, offset + idx);
         // Do not duplicate id inside the document.
+        record.amount = this.resolveMovementAmount(record);
         delete (record as any).id;
         const ref = doc(this.movementsCollectionRef(docId), id);
         batch.set(ref, stripUndefinedDeep(record) as any);
@@ -1071,6 +1093,7 @@ export class MovimientosFondosService {
           movement && typeof movement === "object"
             ? { ...(movement as Record<string, unknown>) }
             : {};
+        record.amount = this.resolveMovementAmount(record);
         delete (record as any).id;
         const ref = doc(this.movementsCollectionRef(docId), id);
         batch.set(ref, stripUndefinedDeep(record) as any);

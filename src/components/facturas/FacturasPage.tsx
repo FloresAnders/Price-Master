@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Plus,
   CalendarDays,
@@ -11,8 +11,12 @@ import {
 } from "lucide-react";
 import { useProviders } from "@/hooks/useProviders";
 import { useAuth } from "@/hooks/useAuth";
+import { useActorOwnership } from "@/hooks/useActorOwnership";
 import useToast from "@/hooks/useToast";
 import { FacturasService, type FacturaMovement } from "@/services/facturas";
+import { EmpresasService } from "@/services/empresas";
+
+import type { Empresas } from "../../types/firestore";
 
 const formatMovementType = (type: string) => {
   const trimmed = String(type || "").trim();
@@ -43,12 +47,19 @@ const formatKeyToDisplay = (key: string): string => {
 export default function FacturasCreditoPage() {
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { ownerIds: actorOwnerIds } = useActorOwnership(user);
   const company = useMemo(
     () => String(user?.ownercompanie || "").trim(),
     [user?.ownercompanie],
   );
+  const [selectedCompany, setSelectedCompany] = useState(company);
 
-  const { providers, loading: providersLoading } = useProviders(company);
+  useEffect(() => {
+    setSelectedCompany(company);
+  }, [company]);
+
+  const { providers, loading: providersLoading } =
+    useProviders(selectedCompany);
 
   const [movements, setMovements] = useState<FacturaMovement[]>([]);
   const [movementsLoading, setMovementsLoading] = useState(false);
@@ -84,8 +95,8 @@ export default function FacturasCreditoPage() {
     return m;
   });
 
-  const [pageSize, setPageSize] = useState<"daily" | "all">("daily");
-  const [pageIndex, setPageIndex] = useState(0);
+  const [, setPageSize] = useState<"daily" | "all">("daily");
+  const [, setPageIndex] = useState(0);
 
   const fromButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const toButtonRef = React.useRef<HTMLButtonElement | null>(null);
@@ -95,16 +106,85 @@ export default function FacturasCreditoPage() {
   const typeDropdownRef = React.useRef<HTMLDivElement | null>(null);
 
   const todayKey = useMemo(() => dateKeyFromDate(new Date()), []);
+  const companySelectId = "facturas-company-select";
+  const [availableCompanies, setAvailableCompanies] = useState<Empresas[]>([]);
+  const [availableCompaniesLoading, setAvailableCompaniesLoading] =
+    useState(false);
+  const [availableCompaniesError, setAvailableCompaniesError] = useState<
+    string | null
+  >(null);
+
+  const getCompanyKey = useCallback(
+    (emp: Empresas) =>
+      String(emp?.name || emp?.ubicacion || emp?.id || "").trim(),
+    [],
+  );
+
+  const getCompanyLabel = useCallback(
+    (emp: Empresas) => {
+      const name = String(emp?.name || "").trim();
+      const ubicacion = String(emp?.ubicacion || "").trim();
+      const key = getCompanyKey(emp);
+
+      if (!name && !ubicacion) return key || "Sin nombre";
+      if (!ubicacion) return name || key || "Sin nombre";
+      if (!name) return ubicacion || key || "Sin nombre";
+
+      const nameLower = name.toLowerCase();
+      const ubicLower = ubicacion.toLowerCase();
+
+      if (nameLower === ubicLower) return name;
+
+      let baseName = name;
+      if (nameLower.includes(ubicLower)) {
+        const escaped = ubicacion.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        baseName = name
+          .replace(new RegExp(escaped, "ig"), " ")
+          .replace(/\s{2,}/g, " ")
+          .trim();
+      }
+
+      return `${ubicacion} - ${baseName || name}`;
+    },
+    [getCompanyKey],
+  );
+
+  const actorOwnerIdSet = useMemo(
+    () => new Set(actorOwnerIds.map((id) => String(id).trim()).filter(Boolean)),
+    [actorOwnerIds],
+  );
+
+  const visibleCompanies = useMemo(() => {
+    if (user?.role === "superadmin") return availableCompanies;
+    if (actorOwnerIdSet.size === 0) return [];
+
+    return availableCompanies.filter((emp) => {
+      const ownerId = String(emp?.ownerId || "").trim();
+      return ownerId ? actorOwnerIdSet.has(ownerId) : false;
+    });
+  }, [availableCompanies, actorOwnerIdSet, user?.role]);
+
+  useEffect(() => {
+    if (visibleCompanies.length === 0) {
+      if (selectedCompany) setSelectedCompany("");
+      return;
+    }
+
+    const selected = String(selectedCompany || "").trim();
+    const exists = visibleCompanies.some((emp) => getCompanyKey(emp) === selected);
+    if (!selected || !exists) {
+      setSelectedCompany(getCompanyKey(visibleCompanies[0]));
+    }
+  }, [getCompanyKey, selectedCompany, visibleCompanies]);
 
   useEffect(() => {
     let cancelled = false;
-    if (!company) {
-      setMovements([]);
+    if (!selectedCompany) {
       return;
     }
 
     setMovementsLoading(true);
-    FacturasService.listMovementsByEmpresa(company, { limit: 800 })
+    FacturasService.listMovementsByEmpresa(selectedCompany, { limit: 800 })
       .then((data) => {
         if (cancelled) return;
         setMovements(data);
@@ -126,7 +206,36 @@ export default function FacturasCreditoPage() {
     return () => {
       cancelled = true;
     };
-  }, [company, showToast]);
+  }, [selectedCompany, showToast]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setAvailableCompaniesLoading(true);
+    setAvailableCompaniesError(null);
+
+    EmpresasService.getAllEmpresas()
+      .then((data) => {
+        if (cancelled) return;
+        setAvailableCompanies(data);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setAvailableCompanies([]);
+        setAvailableCompaniesError(
+          error instanceof Error
+            ? error.message
+            : "No se pudieron cargar las empresas disponibles.",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setAvailableCompaniesLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [setAvailableCompanies]);
 
   useEffect(() => {
     const onMouseDown = (e: MouseEvent) => {
@@ -252,6 +361,73 @@ export default function FacturasCreditoPage() {
       5000,
     );
   };
+  /*-------------------Cambio de empresa-----------------------------------*/
+
+  const sortedOwnerCompanies = useMemo(() => {
+    const normalize = (value: unknown) =>
+      String(value || "")
+        .trim()
+        .toLowerCase();
+
+    const valueKey = (emp: Empresas) =>
+      normalize(emp?.name || emp?.ubicacion || emp?.id || "");
+
+    const score = (emp: Empresas) =>
+      (normalize(emp?.id) ? 2 : 0) +
+      (normalize(emp?.name) ? 1 : 0) +
+      (normalize(emp?.ubicacion) ? 1 : 0);
+
+    const byKey = new Map<string, Empresas>();
+    visibleCompanies.forEach((emp) => {
+      const key = valueKey(emp);
+      if (!key) return;
+      const existing = byKey.get(key);
+      if (!existing || score(emp) > score(existing)) {
+        byKey.set(key, emp);
+      }
+    });
+
+    const deduped = Array.from(byKey.values());
+
+    const ubicacionesWithNamed = new Set<string>();
+    deduped.forEach((emp) => {
+      const name = normalize(emp?.name);
+      const ubicacion = normalize(emp?.ubicacion);
+      if (name && ubicacion) ubicacionesWithNamed.add(ubicacion);
+    });
+
+    const cleaned = deduped.filter((emp) => {
+      const name = normalize(emp?.name);
+      const ubicacion = normalize(emp?.ubicacion);
+      if (!name && ubicacion && ubicacionesWithNamed.has(ubicacion))
+        return false;
+      return true;
+    });
+
+    return cleaned.sort((a, b) =>
+      (a.name || a.ubicacion || "").localeCompare(
+        b.name || b.ubicacion || "",
+        "es",
+        {
+          sensitivity: "base",
+        },
+      ),
+    );
+  }, [visibleCompanies]);
+
+  const currentCompanyLabel = useMemo(() => {
+    const selected = String(selectedCompany || "").trim();
+    if (!selected) return "Sin empresa seleccionada";
+
+    const match = sortedOwnerCompanies.find(
+      (emp) => getCompanyKey(emp) === selected,
+    );
+    return match ? getCompanyLabel(match).split(" - ")[0] : selected;
+  }, [selectedCompany, sortedOwnerCompanies, getCompanyKey, getCompanyLabel]);
+
+  const handleAdminCompanyChange = useCallback((nextCompany: string) => {
+    setSelectedCompany(String(nextCompany || "").trim());
+  }, []);
 
   return (
     <div className="w-full max-w-7xl mx-auto px-2 py-3 sm:px-4 sm:py-6 lg:py-8">
@@ -497,15 +673,7 @@ export default function FacturasCreditoPage() {
                       </div>
 
                       <div className="grid grid-cols-7 gap-1 text-center text-xs text-[var(--muted-foreground)]">
-                        {[
-                          "D",
-                          "L",
-                          "M",
-                          "M",
-                          "J",
-                          "V",
-                          "S",
-                        ].map((d, i) => (
+                        {["D", "L", "M", "M", "J", "V", "S"].map((d, i) => (
                           <div key={`${d}-${i}`} className="py-1">
                             {d}
                           </div>
@@ -654,15 +822,7 @@ export default function FacturasCreditoPage() {
                       </div>
 
                       <div className="grid grid-cols-7 gap-1 text-center text-xs text-[var(--muted-foreground)]">
-                        {[
-                          "D",
-                          "L",
-                          "M",
-                          "M",
-                          "J",
-                          "V",
-                          "S",
-                        ].map((d, i) => (
+                        {["D", "L", "M", "M", "J", "V", "S"].map((d, i) => (
                           <div key={`${d}-${i}`} className="py-1">
                             {d}
                           </div>
@@ -774,17 +934,13 @@ export default function FacturasCreditoPage() {
                       from = to = y;
                     } else if (v === "thisweek") {
                       const day = now.getDay();
-                      const diff =
-                        now.getDate() - day + (day === 0 ? -6 : 1); // Lunes
+                      const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Lunes
                       from = new Date(now.setDate(diff));
                       to = new Date();
                     } else if (v === "lastweek") {
                       const day = now.getDay();
                       const diff =
-                        now.getDate() -
-                        day +
-                        (day === 0 ? -6 : 1) -
-                        7;
+                        now.getDate() - day + (day === 0 ? -6 : 1) - 7;
                       from = new Date(now.getFullYear(), now.getMonth(), diff);
                       to = new Date(
                         now.getFullYear(),
@@ -844,15 +1000,81 @@ export default function FacturasCreditoPage() {
               </div>
             </div>
 
-            <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:w-auto xl:min-w-[348px]">
-              <div className="relative group min-w-0">
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-end xl:w-auto xl:min-w-[348px]">
+              {/* Bloque empresa actual + select */}
+              <div className="flex w-full min-w-0 flex-col gap-1.5 text-sm text-[var(--foreground)] sm:flex-row sm:items-end sm:gap-4">
+                {/* Label empresa actual */}
+                <div className="min-w-0 sm:flex-1">
+                  <p className="text-[11px] uppercase tracking-wide text-[var(--muted-foreground)]">
+                    {user?.role === "user" ? "Empresa asignada" : "Empresa actual"}
+                  </p>
+                  <p
+                    className="truncate text-sm font-semibold text-[var(--foreground)]"
+                    title={currentCompanyLabel}
+                  >
+                    {currentCompanyLabel}
+                  </p>
+                  {availableCompaniesError && (
+                    <p className="text-xs text-red-500 mt-1">
+                      {availableCompaniesError}
+                    </p>
+                  )}
+                </div>
+
+                {user?.role !== "user" && (
+                  <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                    <select
+                      id={companySelectId}
+                      value={company}
+                      onChange={(e) => handleAdminCompanyChange(e.target.value)}
+                      disabled={
+                        availableCompaniesLoading ||
+                        sortedOwnerCompanies.length === 0
+                      }
+                      className="w-full min-w-0 max-w-full truncate rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/60 focus:border-[var(--accent)]"
+                    >
+                      {availableCompaniesLoading && (
+                        <option value="">Cargando empresas...</option>
+                      )}
+                      {!availableCompaniesLoading &&
+                        sortedOwnerCompanies.length === 0 && (
+                          <option value="">Sin empresas disponibles</option>
+                        )}
+                      {!availableCompaniesLoading &&
+                        sortedOwnerCompanies.length > 0 && (
+                          <>
+                            <option value="" disabled hidden>
+                              Selecciona una empresa
+                            </option>
+                            {sortedOwnerCompanies.map((emp, index) => (
+                              <option
+                                key={
+                                  emp.id ||
+                                  emp.name ||
+                                  emp.ubicacion ||
+                                  `company-${index}`
+                                }
+                                value={getCompanyKey(emp)}
+                              >
+                                {getCompanyLabel(emp)}
+                              </option>
+                            ))}
+                          </>
+                        )}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* Botón agregar */}
+              <div className="relative group min-w-0 sm:flex-shrink-0">
                 <button
                   type="button"
                   onClick={handleOpenCreateMovement}
-                  className="flex h-11 w-full items-center justify-center gap-2 rounded border border-[var(--accent)] bg-[var(--accent)] px-3 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-[var(--accent-hover)] hover:border-[var(--accent-hover)] hover:shadow-md hover:shadow-sky-950/25 active:translate-y-0 active:scale-[0.99]"
+                  className="flex h-11 w-full items-center justify-center gap-2 rounded border border-[var(--accent)] bg-[var(--accent)] px-3 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-[var(--accent-hover)] hover:border-[var(--accent-hover)] hover:shadow-md hover:shadow-sky-950/25 active:translate-y-0 active:scale-[0.99] sm:w-auto sm:px-5"
                 >
                   <Plus className="h-4 w-4 flex-shrink-0" />
-                  <span className="truncate">Agregar factura</span>
+                  <span className="truncate">Agregar facturas</span>
                 </button>
               </div>
             </div>
