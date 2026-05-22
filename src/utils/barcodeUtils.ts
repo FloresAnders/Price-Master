@@ -183,6 +183,178 @@ export function preprocessImage(imageData: ImageData): ImageData {
   return processedData;
 }
 
+// --- Realce de bordes (Unsharp Masking) para imágenes borrosas ---
+export function sharpenImage(
+  imageData: ImageData,
+  amount: number = 0.8,
+): ImageData {
+  const { data, width, height } = imageData;
+  const output = new ImageData(
+    new Uint8ClampedArray(data),
+    width,
+    height,
+  );
+
+  // Aplicar blur Gaussiano 3x3
+  const blurred = new Float32Array(data.length);
+  const kernel = [1, 2, 1, 2, 4, 2, 1, 2, 1];
+  const kSum = 16;
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      let r = 0, g = 0, b = 0;
+      let ki = 0;
+      for (let ky = -1; ky <= 1; ky++) {
+        for (let kx = -1; kx <= 1; kx++) {
+          const i = ((y + ky) * width + (x + kx)) * 4;
+          r += data[i] * kernel[ki];
+          g += data[i + 1] * kernel[ki];
+          b += data[i + 2] * kernel[ki];
+          ki++;
+        }
+      }
+      const o = (y * width + x) * 4;
+      blurred[o] = r / kSum;
+      blurred[o + 1] = g / kSum;
+      blurred[o + 2] = b / kSum;
+      blurred[o + 3] = data[o + 3];
+    }
+  }
+
+  // Unsharp masking: original + (original - blurred) * amount
+  for (let i = 0; i < data.length; i += 4) {
+    const rDiff = data[i] - blurred[i];
+    const gDiff = data[i + 1] - blurred[i + 1];
+    const bDiff = data[i + 2] - blurred[i + 2];
+    output.data[i] = Math.max(0, Math.min(255, data[i] + rDiff * amount));
+    output.data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + gDiff * amount));
+    output.data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + bDiff * amount));
+    output.data[i + 3] = data[i + 3];
+  }
+
+  return output;
+}
+
+// --- Binarización por método Otsu para máximo contraste ---
+export function binarizeOtsu(imageData: ImageData): ImageData {
+  const { data, width, height } = imageData;
+  const totalPixels = width * height;
+  const histogram = new Int32Array(256);
+
+  // Calcular histograma en escala de grises
+  for (let i = 0; i < data.length; i += 4) {
+    const gray = Math.round(
+      0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2],
+    );
+    histogram[gray]++;
+  }
+
+  // Calcular probabilidades
+  const prob = new Float64Array(256);
+  for (let i = 0; i < 256; i++) {
+    prob[i] = histogram[i] / totalPixels;
+  }
+
+  // Encontrar umbral óptimo Otsu
+  let bestThreshold = 0;
+  let bestVariance = 0;
+  let sumB = 0;
+  let wB = 0;
+  let sumTotal = 0;
+  for (let i = 0; i < 256; i++) {
+    sumTotal += i * prob[i];
+  }
+
+  for (let t = 0; t < 256; t++) {
+    wB += prob[t];
+    if (wB === 0) continue;
+    const wF = 1 - wB;
+    if (wF === 0) break;
+    sumB += t * prob[t];
+    const meanB = sumB / wB;
+    const meanF = (sumTotal - sumB) / wF;
+    const variance = wB * wF * (meanB - meanF) * (meanB - meanF);
+    if (variance > bestVariance) {
+      bestVariance = variance;
+      bestThreshold = t;
+    }
+  }
+
+  // Aplicar binarización
+  const output = new ImageData(width, height);
+  for (let i = 0; i < data.length; i += 4) {
+    const gray = Math.round(
+      0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2],
+    );
+    const binary = gray < bestThreshold ? 0 : 255;
+    output.data[i] = binary;
+    output.data[i + 1] = binary;
+    output.data[i + 2] = binary;
+    output.data[i + 3] = 255;
+  }
+
+  return output;
+}
+
+// --- Ecualización de histograma adaptativa con límite de contraste (CLAHE-like) ---
+export function enhanceContrast(imageData: ImageData): ImageData {
+  const { data, width, height } = imageData;
+  const output = new ImageData(width, height);
+
+  // Convertir a gris primero
+  const gray = new Uint8Array(width * height);
+  for (let i = 0; i < data.length; i += 4) {
+    gray[i / 4] = Math.round(
+      0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2],
+    );
+  }
+
+  // Ecualización de histograma global con clip
+  const hist = new Int32Array(256);
+  for (let i = 0; i < gray.length; i++) {
+    hist[gray[i]]++;
+  }
+
+  // Clip al 3% para evitar amplificar ruido
+  const clipLimit = Math.floor(gray.length * 0.03);
+  let excess = 0;
+  for (let i = 0; i < 256; i++) {
+    if (hist[i] > clipLimit) {
+      excess += hist[i] - clipLimit;
+      hist[i] = clipLimit;
+    }
+  }
+  const redistrib = Math.floor(excess / 256);
+  for (let i = 0; i < 256; i++) {
+    hist[i] += redistrib;
+  }
+
+  // Calcular CDF
+  const cdf = new Int32Array(256);
+  cdf[0] = hist[0];
+  for (let i = 1; i < 256; i++) {
+    cdf[i] = cdf[i - 1] + hist[i];
+  }
+  const cdfMin = cdf[0];
+  const cdfRange = cdf[255] - cdfMin || 1;
+
+  // Mapear píxeles
+  const lut = new Uint8Array(256);
+  for (let i = 0; i < 256; i++) {
+    lut[i] = Math.round(((cdf[i] - cdfMin) / cdfRange) * 255);
+  }
+
+  for (let i = 0; i < data.length; i += 4) {
+    const idx = i / 4;
+    const enhanced = lut[gray[idx]];
+    output.data[i] = enhanced;
+    output.data[i + 1] = enhanced;
+    output.data[i + 2] = enhanced;
+    output.data[i + 3] = 255;
+  }
+
+  return output;
+}
+
 // --- Decodificación con Quagga2 (imagen estática) ---
 export async function detectWithQuagga2(
   imageData: ImageData,
