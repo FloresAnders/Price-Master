@@ -1537,7 +1537,9 @@ export function ProviderSection({ id }: { id?: string }) {
     const loadTypes = async () => {
       try {
         const types =
-          await FondoMovementTypesService.getMovementTypesByCategoriesWithCache();
+          await FondoMovementTypesService.getMovementTypesByCategoriesWithCache(
+            activeOwnerId,
+          );
 
         if (!isMounted) return;
 
@@ -1568,8 +1570,13 @@ export function ProviderSection({ id }: { id?: string }) {
     };
 
     // Listener para actualizaciones en tiempo real desde el caché
-    const handleFondoTypesUpdate = (_event: Event) => {
-      void _event;
+    const handleFondoTypesUpdate = (event: Event) => {
+      const eventOwnerId = String(
+        (event as CustomEvent<{ ownerId?: string }>).detail?.ownerId || "",
+      ).trim();
+      if (activeOwnerId && eventOwnerId && eventOwnerId !== activeOwnerId) {
+        return;
+      }
       if (!isMounted) return;
 
       console.log("[FondoTypes] Cache updated, reloading types...");
@@ -1594,7 +1601,7 @@ export function ProviderSection({ id }: { id?: string }) {
         handleFondoTypesUpdate,
       );
     };
-  }, []);
+  }, [activeOwnerId]);
 
   const handleAdminCompanyChange = useCallback(
     (value: string) => {
@@ -4379,7 +4386,9 @@ export function FondoSection({
     const loadTypes = async () => {
       try {
         const types =
-          await FondoMovementTypesService.getMovementTypesByCategoriesWithCache();
+          await FondoMovementTypesService.getMovementTypesByCategoriesWithCache(
+            activeOwnerId,
+          );
 
         if (!isMounted) return;
 
@@ -4410,8 +4419,13 @@ export function FondoSection({
     };
 
     // Listener para actualizaciones en tiempo real desde el caché
-    const handleFondoTypesUpdate = (_event: Event) => {
-      void _event;
+    const handleFondoTypesUpdate = (event: Event) => {
+      const eventOwnerId = String(
+        (event as CustomEvent<{ ownerId?: string }>).detail?.ownerId || "",
+      ).trim();
+      if (activeOwnerId && eventOwnerId && eventOwnerId !== activeOwnerId) {
+        return;
+      }
       if (!isMounted) return;
 
       console.log("[FondoTypes] Cache updated, reloading types...");
@@ -4436,7 +4450,7 @@ export function FondoSection({
         handleFondoTypesUpdate,
       );
     };
-  }, []);
+  }, [activeOwnerId]);
 
   // Sincronizar filtro de proveedor con selección
   useEffect(() => {

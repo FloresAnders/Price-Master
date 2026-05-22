@@ -13,6 +13,7 @@
     "start": "next start",
     "lint": "eslint .",
     "migrate": "node scripts/migrate.js",
+    "migrate:fondoMovementTypesByOwner": "node scripts/migrate-fondoMovementTypes-by-owner.js",
     "seed:tiposEgresoXml": "node scripts/seed-tiposEgresoXml.js",
     "svg-icon": "node .\\svg-to-custom-icon.js",
     "convert:tiposEgresoXml": "node scripts/convert-egresos-csv-to-json.js",

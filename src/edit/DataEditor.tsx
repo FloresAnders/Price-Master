@@ -185,6 +185,10 @@ export default function DataEditor() {
     },
     [primaryOwnerId],
   );
+  const fondoTypesOwnerId = useMemo(
+    () => normalizeUserId(resolveOwnerIdForActor()),
+    [resolveOwnerIdForActor],
+  );
   const [passwordVisibility, setPasswordVisibility] = useState<{
     [key: string]: boolean;
   }>({});
@@ -522,7 +526,9 @@ export default function DataEditor() {
       if (currentUser?.role !== "user") {
         try {
           const fondoTypes =
-            await FondoMovementTypesService.getTypesFromCacheOrDB();
+            await FondoMovementTypesService.getTypesFromCacheOrDB(
+              fondoTypesOwnerId,
+            );
           setFondoTypesData(fondoTypes);
           setOriginalFondoTypesData(JSON.parse(JSON.stringify(fondoTypes)));
         } catch (error) {
@@ -541,6 +547,7 @@ export default function DataEditor() {
   }, [
     actorOwnerIdSet,
     currentUser,
+    fondoTypesOwnerId,
     primaryOwnerId,
     resolveOwnerIdForActor,
     showToast,
@@ -564,12 +571,22 @@ export default function DataEditor() {
 
   // Listener para actualizaciones en tiempo real de tipos de fondo
   useEffect(() => {
-    const handleFondoTypesUpdate = async () => {
+    const handleFondoTypesUpdate = async (event: Event) => {
       if (currentUser?.role !== "user") {
         try {
+          const currentScopeOwnerId = normalizeUserId(resolveOwnerIdForActor());
+          const eventOwnerId = normalizeUserId(
+            (event as CustomEvent<{ ownerId?: string }>).detail?.ownerId,
+          );
+          if (eventOwnerId && eventOwnerId !== currentScopeOwnerId) {
+            return;
+          }
+
           console.log("[DataEditor] Fondo types updated, reloading...");
           const fondoTypes =
-            await FondoMovementTypesService.getTypesFromCacheOrDB();
+            await FondoMovementTypesService.getTypesFromCacheOrDB(
+              currentScopeOwnerId,
+            );
           setFondoTypesData(fondoTypes);
           // No actualizar originalFondoTypesData para mantener el tracking de cambios
         } catch (error) {
@@ -711,17 +728,22 @@ export default function DataEditor() {
       if (currentUser?.role !== "user") {
         try {
           const existingFondoTypes =
-            await FondoMovementTypesService.getAllMovementTypes();
+            await FondoMovementTypesService.getAllMovementTypes(
+              fondoTypesOwnerId,
+            );
           for (const ft of existingFondoTypes) {
             if (ft.id)
-              await FondoMovementTypesService.deleteMovementType(ft.id);
+              await FondoMovementTypesService.deleteMovementType(
+                ft.id,
+                fondoTypesOwnerId,
+              );
           }
           for (const fondoType of fondoTypesData) {
             await FondoMovementTypesService.addMovementType({
               category: fondoType.category,
               name: fondoType.name,
               order: fondoType.order,
-            });
+            }, fondoTypesOwnerId);
           }
         } catch (err) {
           console.warn("Error al guardar tipos de movimientos de fondo:", err);
@@ -793,7 +815,7 @@ export default function DataEditor() {
         category,
         name: "",
         order: maxOrder + 1,
-      });
+      }, fondoTypesOwnerId);
 
       // Actualizar el estado local con el ID asignado
       const typeWithId = { ...newType, id: newId };
@@ -819,9 +841,13 @@ export default function DataEditor() {
     // Si el tipo tiene ID, guardar automáticamente en la base de datos
     if (updated[index].id && field === "name") {
       try {
-        await FondoMovementTypesService.updateMovementType(updated[index].id!, {
-          name: value as string,
-        });
+        await FondoMovementTypesService.updateMovementType(
+          updated[index].id!,
+          {
+            name: value as string,
+          },
+          fondoTypesOwnerId,
+        );
         setOriginalFondoTypesData([...updated]);
       } catch (error) {
         console.error("Error updating fondo type:", error);
@@ -841,7 +867,10 @@ export default function DataEditor() {
         try {
           // Eliminar de la base de datos si tiene ID
           if (fondoType.id) {
-            await FondoMovementTypesService.deleteMovementType(fondoType.id);
+            await FondoMovementTypesService.deleteMovementType(
+              fondoType.id,
+              fondoTypesOwnerId,
+            );
           }
 
           const filtered = fondoTypesData.filter((_, i) => i !== index);
@@ -871,16 +900,24 @@ export default function DataEditor() {
       const promises = [];
       if (updated[index - 1].id) {
         promises.push(
-          FondoMovementTypesService.updateMovementType(updated[index - 1].id!, {
-            order: index - 1,
-          }),
+          FondoMovementTypesService.updateMovementType(
+            updated[index - 1].id!,
+            {
+              order: index - 1,
+            },
+            fondoTypesOwnerId,
+          ),
         );
       }
       if (updated[index].id) {
         promises.push(
-          FondoMovementTypesService.updateMovementType(updated[index].id!, {
-            order: index,
-          }),
+          FondoMovementTypesService.updateMovementType(
+            updated[index].id!,
+            {
+              order: index,
+            },
+            fondoTypesOwnerId,
+          ),
         );
       }
       await Promise.all(promises);
@@ -906,16 +943,24 @@ export default function DataEditor() {
       const promises = [];
       if (updated[index].id) {
         promises.push(
-          FondoMovementTypesService.updateMovementType(updated[index].id!, {
-            order: index,
-          }),
+          FondoMovementTypesService.updateMovementType(
+            updated[index].id!,
+            {
+              order: index,
+            },
+            fondoTypesOwnerId,
+          ),
         );
       }
       if (updated[index + 1].id) {
         promises.push(
-          FondoMovementTypesService.updateMovementType(updated[index + 1].id!, {
-            order: index + 1,
-          }),
+          FondoMovementTypesService.updateMovementType(
+            updated[index + 1].id!,
+            {
+              order: index + 1,
+            },
+            fondoTypesOwnerId,
+          ),
         );
       }
       await Promise.all(promises);
@@ -932,7 +977,7 @@ export default function DataEditor() {
       "¿Deseas cargar los tipos de movimientos por defecto? Esta acción agregará los tipos que no existan en la base de datos.",
       async () => {
         try {
-          await FondoMovementTypesService.seedInitialData();
+          await FondoMovementTypesService.seedInitialData(fondoTypesOwnerId);
           showToast(
             "Tipos de movimientos inicializados correctamente",
             "success",
@@ -944,10 +989,12 @@ export default function DataEditor() {
         }
       },
     );
-  }; // Funciones para manejar usuarios
+  };
+
   const addUser = () => {
     const defaultRole: User["role"] =
       currentUser?.role === "superadmin" ? "admin" : "user";
+
     const newUser: User = {
       name: "",
       ownercompanie: "",
@@ -955,6 +1002,7 @@ export default function DataEditor() {
       role: defaultRole,
       isActive: true,
     };
+
     // Añadir campos solicitados: email, fullName y eliminate por defecto false
     (newUser as Partial<User>).email = "";
     (newUser as Partial<User>).fullName = "";

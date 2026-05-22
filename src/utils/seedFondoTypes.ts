@@ -10,12 +10,14 @@ import { FondoMovementTypesService } from "../services/fondo-movement-types";
  * To use this:
  * 1. Go to the DataEditor as a superadmin
  * 2. Open the browser console
- * 3. Run: await window.seedFondoMovementTypes()
+ * 3. Run: await window.seedFondoMovementTypes(ownerId?)
  */
-export async function seedFondoMovementTypes(): Promise<void> {
+export async function seedFondoMovementTypes(
+  ownerId?: string | null,
+): Promise<void> {
   try {
     console.log("Starting seed of fondo movement types...");
-    await FondoMovementTypesService.seedInitialData();
+    await FondoMovementTypesService.seedInitialData(ownerId);
     console.log("✅ Fondo movement types seeded successfully!");
   } catch (error) {
     console.error("❌ Error seeding fondo movement types:", error);
