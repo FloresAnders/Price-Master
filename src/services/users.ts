@@ -272,6 +272,7 @@ export class UsersService {
     const userToCreate: Omit<User, "id" | "createdAt" | "updatedAt"> = {
       ...user,
       ownerId: ownerIdToUse,
+      createdById: enrichedActor?.id || user.createdById,
       eliminate: actor?.role === "admin" ? true : (user.eliminate ?? false),
       // If an admin actor creates another admin, set maxCompanies to -1 so the created admin
       // cannot create companies. A numeric maxCompanies is enforced by EmpresasService when

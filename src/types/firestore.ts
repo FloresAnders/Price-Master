@@ -172,6 +172,7 @@ export interface UserPermissions {
   fondogeneralBCR?: boolean; // Fondo General - Acceso a la cuenta BCR
   fondogeneralBN?: boolean; // Fondo General - Acceso a la cuenta BN
   fondogeneralBAC?: boolean; // Fondo General - Acceso a la cuenta BAC
+  cajaNegra?: boolean; // Caja Negra - Manejo de dineros extra del Fondo General
   solicitud?: boolean; // Solicitud - Permiso extra en sección de Mantenimiento
   scanhistory: boolean; // Historial General de Escaneos - Ver historial completo de escaneos
   scanhistoryEmpresas?: string[]; // Empresas específicas para historial de escaneos (almacena company names)
@@ -189,6 +190,8 @@ export interface User {
   password?: string;
   // si el usuario pertenece a un owner (para multi-tenant)
   ownerId?: string;
+  // id del usuario que creó este registro
+  createdById?: string;
   // Nombre de la empresa dueña asignada (espacio ownercompanie)
   ownercompanie?: string;
   role?: "admin" | "user" | "superadmin";

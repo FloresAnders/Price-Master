@@ -36,6 +36,7 @@ const PERMISSION_LABELS = {
   fondogeneralBCR: "Fondo General - BCR",
   fondogeneralBN: "Fondo General - BN",
   fondogeneralBAC: "Fondo General - BAC",
+  cajaNegra: "Caja Negra",
   solicitud: "Solicitud",
   scanhistory: "Historial de Escaneos",
 };
@@ -63,6 +64,7 @@ const PERMISSION_DESCRIPTIONS = {
     "Permite registrar movimientos del fondo general para la cuenta BN",
   fondogeneralBAC:
     "Permite registrar movimientos del fondo general para la cuenta BAC",
+  cajaNegra: "Manejar dineros extra del Fondo General",
   solicitud: "Permite gestionar solicitudes dentro del módulo de mantenimiento",
   scanhistory: "Ver historial completo de escaneos realizados",
 };

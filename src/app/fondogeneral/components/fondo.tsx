@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, {
   useState,
@@ -39,6 +39,7 @@ import {
   CheckCircle,
   RotateCcw,
   Mail,
+  XCircle,
 } from "lucide-react";
 import { useAuth } from "../../../hooks/useAuth";
 import { useProviders } from "../../../hooks/useProviders";
@@ -597,6 +598,7 @@ const NAMESPACE_PERMISSIONS: Record<string, keyof UserPermissions> = {
   bcr: "fondogeneralBCR",
   bn: "fondogeneralBN",
   bac: "fondogeneralBAC",
+  cn: "cajaNegra",
 };
 
 const NAMESPACE_DESCRIPTIONS: Record<string, string> = {
@@ -604,6 +606,7 @@ const NAMESPACE_DESCRIPTIONS: Record<string, string> = {
   bcr: "la cuenta BCR",
   bn: "la cuenta BN",
   bac: "la cuenta BAC",
+  cn: "la Caja Negra",
 };
 
 const ACCOUNT_KEY_BY_NAMESPACE: Record<string, MovementAccountKey> = {
@@ -611,6 +614,7 @@ const ACCOUNT_KEY_BY_NAMESPACE: Record<string, MovementAccountKey> = {
   bcr: "BCR",
   bn: "BN",
   bac: "BAC",
+  cn: "CajaNegra",
 };
 
 const MOVEMENT_ACCOUNT_KEYS: MovementAccountKey[] = [
@@ -618,6 +622,7 @@ const MOVEMENT_ACCOUNT_KEYS: MovementAccountKey[] = [
   "BCR",
   "BN",
   "BAC",
+  "CajaNegra",
 ];
 
 const isMovementAccountKey = (value: unknown): value is MovementAccountKey =>
@@ -3210,7 +3215,42 @@ export function FondoSection({
     [namespace],
   );
 
-  // Estado para tipos de movimientos dinámicos
+  // Caja Negra: proveedores fijos y detecci�n
+
+  // Caja Negra: proveedores fijos y detecci�n
+  const isCajaNegra = accountKey === "CajaNegra";
+  const cajaNegraProviders = useMemo(
+    () => [
+      {
+        code: "INGRESO DESDE FG POR RETIRO DIANA",
+        name: "INGRESO DESDE FG POR RETIRO DIANA",
+      },
+      { 
+        code: "RETIRO DIANA", 
+        name: "RETIRO DIANA" },
+      {
+        code: "SALIDA A FONDO GENERAL",
+        name: "SALIDA A FONDO GENERAL",
+      },
+    ],
+    [],
+  );
+
+  const movementProviders: Array<{
+    code: string;
+    name: string;
+    type?: FondoMovementType;
+    correonotifi?: string;
+  }> = isCajaNegra
+    ? cajaNegraProviders
+    : (providers as Array<{
+        code: string;
+        name: string;
+        type?: FondoMovementType;
+        correonotifi?: string;
+      }>);
+  const movementProvidersLoading = isCajaNegra ? false : providersLoading;
+
   const [fondoTypesLoaded, setFondoTypesLoaded] = useState(false);
   const [, setIngresoTypes] = useState<string[]>([]);
   const [, setGastoTypes] = useState<string[]>([]);
@@ -3908,6 +3948,12 @@ export function FondoSection({
     >
   >({});
 
+  const buildV2MovementsCacheKey = useCallback(
+    (docKey: string, targetAccountKey: MovementAccountKey) =>
+      `${docKey}::${targetAccountKey}`,
+    [],
+  );
+
   const buildLocalDayIsoRange = useCallback((isoDateKey: string) => {
     const [yStr, mStr, dStr] = String(isoDateKey || "").split("-");
     const y = Number(yStr);
@@ -3985,16 +4031,30 @@ export function FondoSection({
       ? MovimientosFondosService.buildLegacyOwnerMovementsKey(resolvedOwnerId)
       : null;
 
-    if (v2MovementsCacheRef.current[companyKey]?.loaded) return companyKey;
-    if (legacyOwnerKey && v2MovementsCacheRef.current[legacyOwnerKey]?.loaded)
+    const targetAccountKey = accountKeyRef.current;
+    const companyCacheKey = buildV2MovementsCacheKey(
+      companyKey,
+      targetAccountKey,
+    );
+    const legacyCacheKey = legacyOwnerKey
+      ? buildV2MovementsCacheKey(legacyOwnerKey, targetAccountKey)
+      : null;
+
+    if (v2MovementsCacheRef.current[companyCacheKey]?.loaded) return companyKey;
+    if (
+      legacyOwnerKey &&
+      legacyCacheKey &&
+      v2MovementsCacheRef.current[legacyCacheKey]?.loaded
+    )
       return legacyOwnerKey;
 
     return companyKey || legacyOwnerKey || "";
-  }, [company, resolvedOwnerId]);
+  }, [company, resolvedOwnerId, buildV2MovementsCacheKey]);
 
   const rebuildEntriesFromV2Cache = useCallback(
     (docKey: string, targetAccountKey: MovementAccountKey) => {
-      const cached = v2MovementsCacheRef.current[docKey];
+      const cacheKey = buildV2MovementsCacheKey(docKey, targetAccountKey);
+      const cached = v2MovementsCacheRef.current[cacheKey];
       if (!cached?.loaded) return;
 
       const scopedEntries = cached.movements.filter((rawEntry) => {
@@ -4020,7 +4080,7 @@ export function FondoSection({
         applyLedgerStateFromStorage(state);
       }
     },
-    [applyLedgerStateFromStorage],
+    [applyLedgerStateFromStorage, buildV2MovementsCacheKey],
   );
 
   const ensureV2MovementsLoaded = useCallback(
@@ -4028,10 +4088,11 @@ export function FondoSection({
       if (!docKey) return;
 
       const targetAccountKey = accountKeyRef.current;
+      const cacheKey = buildV2MovementsCacheKey(docKey, targetAccountKey);
       const { queryKey, startIso, endIsoExclusive } =
         resolveActiveMovementsQuery();
 
-      const cached = v2MovementsCacheRef.current[docKey] ?? {
+      const cached = v2MovementsCacheRef.current[cacheKey] ?? {
         loaded: false,
         movements: [] as FondoEntry[],
         cursor: null as QueryDocumentSnapshot<DocumentData> | null,
@@ -4106,7 +4167,7 @@ export function FondoSection({
         endIsoExclusive,
       };
 
-      v2MovementsCacheRef.current[docKey] = nextCache;
+      v2MovementsCacheRef.current[cacheKey] = nextCache;
       beginMovementsLoading();
 
       try {
@@ -4118,6 +4179,7 @@ export function FondoSection({
               endIsoExclusive,
               pageSize: remoteBatchSize,
               cursor: shouldReset ? null : nextCache.cursor,
+              accountId: targetAccountKey,
             },
           );
 
@@ -4125,7 +4187,7 @@ export function FondoSection({
           ? (pageResult.items as FondoEntry[])
           : [...nextCache.movements, ...(pageResult.items as FondoEntry[])];
 
-        v2MovementsCacheRef.current[docKey] = {
+        v2MovementsCacheRef.current[cacheKey] = {
           ...nextCache,
           loaded: true,
           movements: mergedMovements,
@@ -4134,9 +4196,9 @@ export function FondoSection({
           loading: false,
         };
       } finally {
-        const latest = v2MovementsCacheRef.current[docKey];
+        const latest = v2MovementsCacheRef.current[cacheKey];
         if (latest) {
-          v2MovementsCacheRef.current[docKey] = {
+          v2MovementsCacheRef.current[cacheKey] = {
             ...latest,
             loading: false,
           };
@@ -4151,6 +4213,7 @@ export function FondoSection({
       beginMovementsLoading,
       endMovementsLoading,
       resolveActiveMovementsQuery,
+      buildV2MovementsCacheKey,
       pageSize,
       currentDailyKey,
       todayKey,
@@ -4164,7 +4227,8 @@ export function FondoSection({
     if (!entriesHydrated) return;
     const docKey = resolveV2DocKey();
     if (!docKey) return;
-    const cached = v2MovementsCacheRef.current[docKey];
+    const cacheKey = buildV2MovementsCacheKey(docKey, accountKey);
+    const cached = v2MovementsCacheRef.current[cacheKey];
     if (!cached?.loaded || cached.loading || cached.exhausted) return;
 
     if (pageSize === "daily") return;
@@ -4187,6 +4251,8 @@ export function FondoSection({
     pageSize,
     pageIndex,
     fondoEntries.length,
+    accountKey,
+    buildV2MovementsCacheKey,
     resolveV2DocKey,
     ensureV2MovementsLoaded,
   ]);
@@ -4223,6 +4289,18 @@ export function FondoSection({
   );
   const [providerFilter, setProviderFilter] = useState("");
   const [isProviderDropdownOpen, setIsProviderDropdownOpen] = useState(false);
+  const [providerSearchInput, setProviderSearchInput] = useState("");
+
+  const filteredProvidersForFilter = useMemo(() => {
+    const search = providerSearchInput.toLowerCase().trim();
+    if (!search) return movementProviders;
+    return movementProviders.filter(
+      (p) =>
+        p.name.toLowerCase().includes(search) ||
+        p.code.toLowerCase().includes(search),
+    );
+  }, [movementProviders, providerSearchInput]);
+
   const initialFilterPaymentType: FondoEntry["paymentType"] | "all" =
     mode === "all"
       ? "all"
@@ -4242,6 +4320,7 @@ export function FondoSection({
   });
   const [typeFilter, setTypeFilter] = useState("");
   const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
+  const [typeSearchInput, setTypeSearchInput] = useState("");
   const [filterEditedOnly, setFilterEditedOnly] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("fondogeneral-filterEditedOnly");
@@ -4373,20 +4452,28 @@ export function FondoSection({
   useEffect(() => {
     if (filterProviderCode === "all") {
       setProviderFilter("");
+      setProviderSearchInput("");
     } else {
-      const option = providers.find((p) => p.code === filterProviderCode);
-      setProviderFilter(
-        option ? `${option.name} (${option.code})` : filterProviderCode,
+      const option = movementProviders.find(
+        (p) => p.code === filterProviderCode,
       );
+      const display = option
+        ? `${option.name} (${option.code})`
+        : filterProviderCode;
+      setProviderFilter(display);
+      setProviderSearchInput(display);
     }
-  }, [filterProviderCode, providers]);
+  }, [filterProviderCode, movementProviders]);
 
   // Sincronizar filtro de tipo con selección
   useEffect(() => {
     if (filterPaymentType === "all") {
       setTypeFilter("");
+      setTypeSearchInput("");
     } else {
-      setTypeFilter(formatMovementType(filterPaymentType));
+      const display = formatMovementType(filterPaymentType);
+      setTypeFilter(display);
+      setTypeSearchInput(display);
     }
   }, [filterPaymentType]);
 
@@ -4775,7 +4862,12 @@ export function FondoSection({
             // Prefer V2 movements subcollection to avoid document overwrites/truncation.
             let v2Movements: FondoEntry[] = [];
             try {
-              const cached = v2MovementsCacheRef.current[docKey];
+              const targetAccountKey = accountKeyRef.current;
+              const cacheKey = buildV2MovementsCacheKey(
+                docKey,
+                targetAccountKey,
+              );
+              const cached = v2MovementsCacheRef.current[cacheKey];
               if (cached?.loaded) {
                 v2Movements = Array.isArray(cached.movements)
                   ? cached.movements
@@ -4783,7 +4875,7 @@ export function FondoSection({
               } else {
                 // Default remote load: only the active day/range (today unless both Desde/Hasta are set).
                 await ensureV2MovementsLoaded(docKey);
-                const next = v2MovementsCacheRef.current[docKey];
+                const next = v2MovementsCacheRef.current[cacheKey];
                 v2Movements = Array.isArray(next?.movements)
                   ? (next!.movements as FondoEntry[])
                   : [];
@@ -4831,7 +4923,11 @@ export function FondoSection({
 
                   // After migration, load only the active day/range.
                   await ensureV2MovementsLoaded(docKey);
-                  const next = v2MovementsCacheRef.current[docKey];
+                  const cacheKey = buildV2MovementsCacheKey(
+                    docKey,
+                    accountKeyRef.current,
+                  );
+                  const next = v2MovementsCacheRef.current[cacheKey];
                   v2Movements = Array.isArray(next?.movements)
                     ? (next!.movements as FondoEntry[])
                     : [];
@@ -5011,7 +5107,8 @@ export function FondoSection({
     if (!entriesHydrated) return;
     const docKey = resolveV2DocKey();
     if (!docKey) return;
-    const cached = v2MovementsCacheRef.current[docKey];
+    const cacheKey = buildV2MovementsCacheKey(docKey, accountKey);
+    const cached = v2MovementsCacheRef.current[cacheKey];
     if (!cached?.loaded) return;
 
     const scopedEntries = cached.movements.filter((rawEntry) => {
@@ -5042,6 +5139,7 @@ export function FondoSection({
     accountKey,
     entriesHydrated,
     applyLedgerStateFromStorage,
+    buildV2MovementsCacheKey,
     resolveV2DocKey,
   ]);
 
@@ -5103,13 +5201,18 @@ export function FondoSection({
 
   useEffect(() => {
     if (!selectedProvider) return;
-    const exists = providers.some((p) => p.code === selectedProvider);
+    const exists = movementProviders.some((p) => p.code === selectedProvider);
     const isEditingSameProvider =
       editingEntryId && editingProviderCode === selectedProvider;
     if (!exists && !isEditingSameProvider) {
       setSelectedProvider("");
     }
-  }, [providers, selectedProvider, editingEntryId, editingProviderCode]);
+  }, [
+    movementProviders,
+    selectedProvider,
+    editingEntryId,
+    editingProviderCode,
+  ]);
 
   useEffect(() => {
     // Reset cached results when switching company/account.
@@ -5317,9 +5420,9 @@ export function FondoSection({
       };
     }
 
-    // Solo cargar empleados de la empresa si estamos en fondogeneral (namespace 'fg')
+    // Solo cargar empleados de la empresa si estamos en fondogeneral (fg) o cajanegra (cn)
     // Para otros fondos (BCR, BN, BAC), no cargar empleados
-    if (namespace !== "fg") {
+    if (namespace !== "fg" && namespace !== "cn") {
       setEmployeesLoading(false);
       return () => {
         isActive = false;
@@ -5613,7 +5716,8 @@ export function FondoSection({
                 ? change?.upsert?.id
                 : null;
           if (!targetId) return null;
-          const cached = v2MovementsCacheRef.current[companyKey];
+          const cacheKey = buildV2MovementsCacheKey(companyKey, accountKey);
+          const cached = v2MovementsCacheRef.current[cacheKey];
           return cached?.movements?.find((m) => m.id === targetId) ?? null;
         };
 
@@ -5678,8 +5782,16 @@ export function FondoSection({
 
         let cacheUpdater: (() => void) | null = null;
         let movementChange:
-          | { type: "upsert"; movement: FondoEntry & { id: string } }
-          | { type: "delete"; movementId: string }
+          | {
+              type: "upsert";
+              movement: FondoEntry & { id: string };
+              accountId?: MovementAccountKey;
+            }
+          | {
+              type: "delete";
+              movementId: string;
+              accountId?: MovementAccountKey;
+            }
           | { type: "none" } = { type: "none" };
 
         if (operationType === "delete") {
@@ -5689,11 +5801,16 @@ export function FondoSection({
               "[PERSIST-IMMEDIATE] delete requires change.deleteId",
             );
           }
-          movementChange = { type: "delete", movementId: deleteId };
+          movementChange = {
+            type: "delete",
+            movementId: deleteId,
+            accountId: accountKey,
+          };
           cacheUpdater = () => {
-            const cached = v2MovementsCacheRef.current[companyKey];
+            const cacheKey = buildV2MovementsCacheKey(companyKey, accountKey);
+            const cached = v2MovementsCacheRef.current[cacheKey];
             if (cached?.loaded) {
-              v2MovementsCacheRef.current[companyKey] = {
+              v2MovementsCacheRef.current[cacheKey] = {
                 ...cached,
                 loaded: true,
                 movements: cached.movements.filter((m) => m.id !== deleteId),
@@ -5717,15 +5834,20 @@ export function FondoSection({
             currency: normalizedCurrency,
             empresa: normalizedCompany,
           };
-          movementChange = { type: "upsert", movement: storedMovement };
+          movementChange = {
+            type: "upsert",
+            movement: storedMovement,
+            accountId: accountKey,
+          };
           cacheUpdater = () => {
-            const cached = v2MovementsCacheRef.current[companyKey];
+            const cacheKey = buildV2MovementsCacheKey(companyKey, accountKey);
+            const cached = v2MovementsCacheRef.current[cacheKey];
             if (cached?.loaded) {
               const next = [
                 storedMovement,
                 ...cached.movements.filter((m) => m.id !== storedMovement.id),
               ];
-              v2MovementsCacheRef.current[companyKey] = {
+              v2MovementsCacheRef.current[cacheKey] = {
                 ...cached,
                 loaded: true,
                 movements: next,
@@ -6225,6 +6347,9 @@ export function FondoSection({
 
     let hasErrors = false;
 
+    const effectiveInvoiceNumber =
+      isCajaNegra && !editingEntryId ? getTodayInvoiceMMDD() : invoiceNumber;
+
     if (!selectedProvider) {
       setProviderError("Selecciona un proveedor");
       hasErrors = true;
@@ -6241,7 +6366,7 @@ export function FondoSection({
       hasErrors = true;
     }
 
-    if (!/^[0-9]{1,4}$/.test(invoiceNumber)) {
+    if (!/^[0-9]{1,4}$/.test(effectiveInvoiceNumber)) {
       setInvoiceError("Ingresa un número de factura válido (1-4 dígitos)");
       hasErrors = true;
     } else {
@@ -6323,7 +6448,7 @@ export function FondoSection({
       }
     }
 
-    const paddedInvoice = invoiceNumber.padStart(4, "0");
+    const paddedInvoice = effectiveInvoiceNumber.padStart(4, "0");
 
     // Dedupe window only for NEW movements (edits remain allowed)
     if (!editingEntryId) {
@@ -6351,7 +6476,7 @@ export function FondoSection({
           // Admins/Superadmins are exempt from the 1-minute cooldown.
           // Additionally, if the NEW movement is "INGRESO DESDE FONDO VENTAS",
           // it should NOT be blocked by a prior movement's cooldown.
-          const providerForSelected = providers.find(
+          const providerForSelected = movementProviders.find(
             (p) => p.code === selectedProvider,
           );
           const providerDisplayForSelected =
@@ -6940,10 +7065,8 @@ export function FondoSection({
     setEditingEntryId(entry.id);
     setSelectedProvider(entry.providerCode);
     // Determine the correct payment type: use provider's type if exists, else entry's type
-    const provider = providers.find((p) => p.code === entry.providerCode);
-    const correctPaymentType = provider
-      ? (provider.type as FondoEntry["paymentType"])
-      : entry.paymentType;
+    const correctPaymentType =
+      providerTypesMap.get(entry.providerCode) ?? entry.paymentType;
     setPaymentType(correctPaymentType);
     setInvoiceNumber(entry.invoiceNumber);
     setInvoiceDocType(normalizeInvoiceDocType((entry as any).invoiceDocType));
@@ -7327,7 +7450,7 @@ export function FondoSection({
   }, []);
 
   const isProviderSelectDisabled =
-    !company || providersLoading || providers.length === 0;
+    !company || movementProvidersLoading || movementProviders.length === 0;
   // Detectar si estamos editando un movimiento EXISTENTE de CIERRE FONDO VENTAS (bloquear cambio de proveedor)
   // Solo aplica cuando editamos, no cuando creamos un nuevo movimiento
   const isEditingCierreFondoVentas = useMemo(() => {
@@ -7347,20 +7470,20 @@ export function FondoSection({
 
   const providersMap = useMemo(() => {
     const map = new Map<string, string>();
-    providers.forEach((p) => map.set(p.code, p.name));
+    movementProviders.forEach((p) => map.set(p.code, p.name));
     return map;
-  }, [providers]);
+  }, [movementProviders]);
   const providerTypesMap = useMemo(() => {
     const map = new Map<string, FondoMovementType>();
-    providers.forEach((p) => {
+    movementProviders.forEach((p) => {
       if (p.type && isFondoMovementType(p.type)) {
         map.set(p.code, p.type);
       }
     });
     return map;
-  }, [providers]);
+  }, [movementProviders]);
   const selectedProviderExists = selectedProvider
-    ? providers.some((p) => p.code === selectedProvider)
+    ? movementProviders.some((p) => p.code === selectedProvider)
     : false;
 
   // reset page when filters change so user sees first page of filtered results
@@ -7715,12 +7838,19 @@ export function FondoSection({
     return `${dd}${mm}`;
   };
 
+  const getTodayInvoiceMMDD = (date: Date = new Date()) => {
+    const dd = String(date.getDate()).padStart(2, "0");
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    return `${mm}${dd}`;
+  };
+
   const selectedProviderData = useMemo(() => {
     if (!selectedProvider) return null;
-    return providers.find((p) => p.code === selectedProvider) ?? null;
-  }, [providers, selectedProvider]);
+    return movementProviders.find((p) => p.code === selectedProvider) ?? null;
+  }, [movementProviders, selectedProvider]);
 
   const isInvoiceAutoDateLocked = useMemo(() => {
+    if (isCajaNegra) return true;
     if (!selectedProvider) return false;
     if (isAutoAdjustmentProvider(selectedProvider)) return true;
     if (selectedProvider.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME)
@@ -7729,19 +7859,19 @@ export function FondoSection({
       selectedProviderData?.name?.toUpperCase() ===
       CIERRE_FONDO_VENTAS_PROVIDER_NAME
     );
-  }, [selectedProvider, selectedProviderData]);
+  }, [isCajaNegra, selectedProvider, selectedProviderData]);
 
   // Si el proveedor es un cierre/ajuste automático, usar DDMM como N° factura y bloquear edición.
   useEffect(() => {
     if (!isInvoiceAutoDateLocked) return;
     // Al editar un movimiento existente, no sobrescribir el N° factura guardado.
     if (editingEntryId) return;
-    const today = getTodayInvoiceDDMM();
+    const today = isCajaNegra ? getTodayInvoiceMMDD() : getTodayInvoiceDDMM();
     if (invoiceNumber !== today) {
       setInvoiceNumber(today);
       setInvoiceError("");
     }
-  }, [isInvoiceAutoDateLocked, editingEntryId, invoiceNumber]);
+  }, [isInvoiceAutoDateLocked, editingEntryId, invoiceNumber, isCajaNegra]);
 
   const handleProviderChange = (value: string) => {
     setSelectedProvider(value);
@@ -7750,12 +7880,19 @@ export function FondoSection({
     let nextPaymentType: FondoEntry["paymentType"] = "COMPRA INVENTARIO";
     let shouldAutoDateInvoice = false;
     try {
-      const prov = providers.find((p) => p.code === value);
+      const prov = movementProviders.find((p) => p.code === value);
       shouldAutoDateInvoice =
+        isCajaNegra ||
         isAutoAdjustmentProvider(value) ||
         prov?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME;
       if (prov && prov.type && isFondoMovementType(prov.type)) {
         nextPaymentType = prov.type as FondoEntry["paymentType"];
+        setPaymentType(nextPaymentType);
+      } else if (isCajaNegra) {
+        const upper = (prov?.code || value).toUpperCase();
+        nextPaymentType = upper.includes("INGRESO")
+          ? (FONDO_INGRESO_TYPES[0] as FondoEntry["paymentType"])
+          : (FONDO_EGRESO_TYPES[0] as FondoEntry["paymentType"]);
         setPaymentType(nextPaymentType);
       } else {
         // fallback to default when provider has no type or it's invalid
@@ -7769,7 +7906,9 @@ export function FondoSection({
     }
 
     if (shouldAutoDateInvoice) {
-      setInvoiceNumber(getTodayInvoiceDDMM());
+      setInvoiceNumber(
+        isCajaNegra ? getTodayInvoiceMMDD() : getTodayInvoiceDDMM(),
+      );
       setInvoiceError("");
     }
 
@@ -7836,15 +7975,26 @@ export function FondoSection({
   const openCreateMovementDrawer = useCallback(() => {
     resetFondoForm();
     setMovementCurrency(currencyEnabled.CRC ? "CRC" : "USD");
+    if (isCajaNegra) {
+      setInvoiceNumber(getTodayInvoiceMMDD());
+      setInvoiceError("");
+    }
     // If a provider is already selected, derive paymentType from it so the form
     // doesn't stay with the reset default ('COMPRA INVENTARIO'). This prevents
     // cases where the UI shows a provider whose configured type (e.g. 'OTROS INGRESOS')
     // is ignored because resetFondoForm set the paymentType to the default.
     if (selectedProvider) {
       try {
-        const prov = providers.find((p) => p.code === selectedProvider);
+        const prov = movementProviders.find((p) => p.code === selectedProvider);
         if (prov && prov.type && isFondoMovementType(prov.type)) {
           setPaymentType(prov.type as FondoEntry["paymentType"]);
+        } else if (isCajaNegra) {
+          const upper = (prov?.code || selectedProvider).toUpperCase();
+          setPaymentType(
+            upper.includes("INGRESO")
+              ? (FONDO_INGRESO_TYPES[0] as FondoEntry["paymentType"])
+              : (FONDO_EGRESO_TYPES[0] as FondoEntry["paymentType"]),
+          );
         } else {
           setPaymentType("COMPRA INVENTARIO");
         }
@@ -7856,7 +8006,15 @@ export function FondoSection({
     if (mode === "ingreso") setPaymentType(FONDO_INGRESO_TYPES[0]);
     if (mode === "egreso") setPaymentType(FONDO_EGRESO_TYPES[0]);
     setMovementModalOpen(true);
-  }, [resetFondoForm, currencyEnabled.CRC, selectedProvider, providers, mode]);
+  }, [
+    resetFondoForm,
+    currencyEnabled.CRC,
+    selectedProvider,
+    movementProviders,
+    mode,
+    isCajaNegra,
+    getTodayInvoiceMMDD,
+  ]);
 
   const confirmOpenCreateMovementNow = useCallback(() => {
     setConfirmOpenCreateMovement(false);
@@ -9572,115 +9730,212 @@ export function FondoSection({
 
       <section className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/70 p-2 sm:p-3 md:p-4 space-y-3 sm:space-y-4">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">
-          {/* Proveedor: estilo parecido al dropdown de Encargado, manteniendo icono y nombre */}
+          {/* Proveedor: busqueda con autocomplete como en el drawer de agregar movimiento */}
           <div className="relative min-w-0">
-            <button
-              type="button"
-              onClick={() => setIsProviderDropdownOpen((prev) => !prev)}
-              className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-[var(--foreground)] outline-none transition-colors hover:border-cyan-500/45 focus:border-[var(--accent)] flex items-center justify-between"
-              title="Filtrar por proveedor"
-              aria-label="Filtrar por proveedor"
-            >
-              <span className="flex items-center gap-2 truncate">
-                <Search className="h-4 w-4 text-cyan-100/80" />
-                <span className={providerFilter ? "" : "text-cyan-100/70"}>
-                  {providerFilter ||
-                    (providersLoading ? "Cargando..." : "Proveedor")}
-                </span>
-              </span>
-              <span className="text-cyan-100/80">⌄</span>
-            </button>
-            {isProviderDropdownOpen && (
-              <div className="absolute z-[9999] mt-2 w-full max-h-56 overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] shadow-2xl shadow-black/70">
+            <div className="relative">
+              {filterProviderCode !== "all" && (
                 <button
                   type="button"
-                  className="w-full rounded px-3 py-2 text-left text-sm text-cyan-100/70 transition-colors hover:bg-cyan-950/80"
-                  onMouseDown={() => {
+                  onMouseDown={(e) => {
+                    e.preventDefault();
                     setFilterProviderCode("all");
                     setProviderFilter("");
-                    setIsProviderDropdownOpen(false);
+                    setProviderSearchInput("");
                   }}
+                  className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-red-400 transition-colors hover:text-red-300"
+                  tabIndex={-1}
                 >
-                  Todos los proveedores
+                  <XCircle className="h-4 w-4" />
                 </button>
-                {providers.map((p) => (
+              )}
+              <input
+                value={providerSearchInput}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setProviderSearchInput(value);
+                  setIsProviderDropdownOpen(true);
+                  if (value.trim() === "") {
+                    setFilterProviderCode("all");
+                    setProviderFilter("");
+                  }
+                }}
+                onFocus={() => setIsProviderDropdownOpen(true)}
+                onBlur={() => {
+                  setTimeout(() => setIsProviderDropdownOpen(false), 200);
+                }}
+                className={`h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)] ${
+                  filterProviderCode !== "all" ? "pl-10 pr-11" : "pr-11"
+                }`}
+                placeholder={
+                  movementProvidersLoading
+                    ? "Cargando proveedores..."
+                    : "Buscar proveedor"
+                }
+              />
+              <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center text-cyan-100/80">
+                <Search className="h-4 w-4" />
+              </span>
+            </div>
+            {isProviderDropdownOpen && !movementProvidersLoading && (
+              <div className="absolute z-[9999] mt-2 w-full max-h-64 overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] shadow-2xl shadow-black/70">
+                {providerSearchInput.trim() === "" && (
                   <button
-                    key={p.code}
                     type="button"
                     className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
-                      filterProviderCode === p.code
+                      filterProviderCode === "all"
                         ? "bg-cyan-500/20 text-cyan-50"
-                        : "text-[var(--foreground)]"
+                        : "text-cyan-100/70"
                     }`}
                     onMouseDown={() => {
-                      setFilterProviderCode(p.code);
-                      setProviderFilter(`${p.name} (${p.code})`);
+                      setFilterProviderCode("all");
+                      setProviderFilter("");
+                      setProviderSearchInput("");
                       setIsProviderDropdownOpen(false);
                     }}
                   >
-                    {p.name} ({p.code})
+                    Todos los proveedores
                   </button>
-                ))}
+                )}
+                {filteredProvidersForFilter.length > 0 ? (
+                  filteredProvidersForFilter.map((p) => (
+                    <button
+                      key={p.code}
+                      type="button"
+                      className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
+                        filterProviderCode === p.code
+                          ? "bg-cyan-500/20 text-cyan-50"
+                          : "text-[var(--foreground)]"
+                      }`}
+                      onMouseDown={() => {
+                        setFilterProviderCode(p.code);
+                        setProviderFilter(`${p.name} (${p.code})`);
+                        setProviderSearchInput(`${p.name} (${p.code})`);
+                        setIsProviderDropdownOpen(false);
+                      }}
+                    >
+                      {p.name} ({p.code})
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-3 py-6 text-center text-sm text-cyan-100/50">
+                    No se encontraron proveedores
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* Tipo de movimiento: estilo acorde a Encargado, sin cambiar nombres ni iconos */}
+          {/* Tipo de movimiento: busqueda con autocomplete */}
           <div className="relative min-w-0">
-            <button
-              type="button"
-              onClick={() => setIsTypeDropdownOpen((prev) => !prev)}
-              className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-[var(--foreground)] outline-none transition-colors hover:border-cyan-500/45 focus:border-[var(--accent)] flex items-center justify-between"
-              title="Filtrar por tipo"
-              aria-label="Filtrar por tipo"
-            >
-              <span className={typeFilter ? "" : "text-cyan-100/70"}>
-                {typeFilter || "Tipo movimiento"}
-              </span>
-              <span className="text-cyan-100/80">⌄</span>
-            </button>
-            {isTypeDropdownOpen && (
-              <div className="absolute z-[9999] mt-2 w-full max-h-56 overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] shadow-2xl shadow-black/70">
+            <div className="relative">
+              {filterPaymentType !== "all" && (
                 <button
                   type="button"
-                  className="w-full rounded px-3 py-2 text-left text-sm text-cyan-100/70 transition-colors hover:bg-cyan-950/80"
-                  onMouseDown={() => {
+                  onMouseDown={(e) => {
+                    e.preventDefault();
                     setFilterPaymentType("all");
                     setTypeFilter("");
-                    setIsTypeDropdownOpen(false);
+                    setTypeSearchInput("");
                   }}
+                  className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-red-400 transition-colors hover:text-red-300"
+                  tabIndex={-1}
                 >
-                  Todos los tipos
+                  <XCircle className="h-4 w-4" />
                 </button>
-                {[
-                  { group: "Ingresos", types: FONDO_INGRESO_TYPES },
-                  { group: "Gastos", types: FONDO_GASTO_TYPES },
-                  { group: "Egresos", types: FONDO_EGRESO_TYPES },
-                ].map(({ group, types }) => (
-                  <React.Fragment key={group}>
-                    <div className="px-3 py-1.5 text-xs font-semibold text-cyan-100/50 uppercase">
-                      {group}
-                    </div>
-                    {types.map((t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
-                          filterPaymentType === t
-                            ? "bg-cyan-500/20 text-cyan-50"
-                            : "text-[var(--foreground)]"
-                        }`}
-                        onMouseDown={() => {
-                          setFilterPaymentType(t);
-                          setTypeFilter(formatMovementType(t));
-                          setIsTypeDropdownOpen(false);
-                        }}
-                      >
-                        {formatMovementType(t)}
-                      </button>
-                    ))}
-                  </React.Fragment>
-                ))}
+              )}
+              <input
+                value={typeSearchInput}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setTypeSearchInput(value);
+                  setIsTypeDropdownOpen(true);
+                  if (value.trim() === "") {
+                    setFilterPaymentType("all");
+                    setTypeFilter("");
+                  }
+                }}
+                onFocus={() => setIsTypeDropdownOpen(true)}
+                onBlur={() => {
+                  setTimeout(() => setIsTypeDropdownOpen(false), 200);
+                }}
+                className={`h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)] ${
+                  filterPaymentType !== "all" ? "pl-10 pr-11" : "pr-11"
+                }`}
+                placeholder="Buscar tipo de movimiento"
+              />
+              <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center text-cyan-100/80">
+                <Search className="h-4 w-4" />
+              </span>
+            </div>
+            {isTypeDropdownOpen && (
+              <div className="absolute z-[9999] mt-2 w-full max-h-64 overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] shadow-2xl shadow-black/70">
+                {typeSearchInput.trim() === "" && (
+                  <button
+                    type="button"
+                    className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
+                      filterPaymentType === "all"
+                        ? "bg-cyan-500/20 text-cyan-50"
+                        : "text-cyan-100/70"
+                    }`}
+                    onMouseDown={() => {
+                      setFilterPaymentType("all");
+                      setTypeFilter("");
+                      setTypeSearchInput("");
+                      setIsTypeDropdownOpen(false);
+                    }}
+                  >
+                    Todos los tipos
+                  </button>
+                )}
+                {(() => {
+                  const search = typeSearchInput.toLowerCase().trim();
+                  const hasFilter = search !== "";
+                  const groups = [
+                    { group: "Ingresos", types: FONDO_INGRESO_TYPES },
+                    { group: "Gastos", types: FONDO_GASTO_TYPES },
+                    { group: "Egresos", types: FONDO_EGRESO_TYPES },
+                  ];
+                  let hasAnyMatch = false;
+                  return groups.map(({ group, types }) => {
+                    const filtered = hasFilter
+                      ? types.filter(
+                          (t) =>
+                            formatMovementType(t)
+                              .toLowerCase()
+                              .includes(search) ||
+                            t.toLowerCase().includes(search),
+                        )
+                      : types;
+                    if (filtered.length === 0) return null;
+                    hasAnyMatch = true;
+                    return (
+                      <React.Fragment key={group}>
+                        <div className="px-3 py-1.5 text-xs font-semibold text-cyan-100/50 uppercase tracking-wider">
+                          {group}
+                        </div>
+                        {filtered.map((t) => (
+                          <button
+                            key={t}
+                            type="button"
+                            className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
+                              filterPaymentType === t
+                                ? "bg-cyan-500/20 text-cyan-50"
+                                : "text-[var(--foreground)]"
+                            }`}
+                            onMouseDown={() => {
+                              setFilterPaymentType(t);
+                              setTypeFilter(formatMovementType(t));
+                              setTypeSearchInput(formatMovementType(t));
+                              setIsTypeDropdownOpen(false);
+                            }}
+                          >
+                            {formatMovementType(t)}
+                          </button>
+                        ))}
+                      </React.Fragment>
+                    );
+                  });
+                })()}
               </div>
             )}
           </div>
@@ -10295,8 +10550,8 @@ export function FondoSection({
             <AgregarMovimiento
               selectedProvider={selectedProvider}
               onProviderChange={handleProviderChange}
-              providers={providers}
-              providersLoading={providersLoading}
+              providers={movementProviders}
+              providersLoading={movementProvidersLoading}
               isProviderSelectDisabled={
                 isProviderSelectDisabled || isEditingCierreFondoVentas
               }
@@ -10345,12 +10600,15 @@ export function FondoSection({
         </Box>
       </Drawer>
 
-      {!providersLoading && providers.length === 0 && company && (
-        <p className="text-sm text-[var(--muted-foreground)] mt-3">
-          Registra un proveedor para poder asociarlo a los movimientos del
-          fondo.
-        </p>
-      )}
+      {!isCajaNegra &&
+        !movementProvidersLoading &&
+        movementProviders.length === 0 &&
+        company && (
+          <p className="text-sm text-[var(--muted-foreground)] mt-3">
+            Registra un proveedor para poder asociarlo a los movimientos del
+            fondo.
+          </p>
+        )}
 
       {!isSuperAdminUser &&
         !managerOptionsLoading &&
@@ -10761,7 +11019,9 @@ export function FondoSection({
                               ? "AJUSTE CIERRE"
                               : fe.paymentType === "INFORMATIVO" && providerType
                                 ? providerType
-                                : fe.paymentType;
+                                : !providerType
+                                  ? "INFORMATIVO"
+                                  : fe.paymentType;
                           const isSuccessfulClosing =
                             isAutoAdjustment && movementAmount === 0;
                           const amountPrefix = isEntryEgreso ? "-" : "+";
