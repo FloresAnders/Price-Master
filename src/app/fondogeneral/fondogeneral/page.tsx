@@ -14,7 +14,7 @@ import {
   Loader2,
   Lock,
   ShieldAlert,
-  WalletCards,
+  Coins,
   type LucideIcon,
 } from "lucide-react";
 import { FondoSection } from "../components/fondo";
@@ -40,7 +40,7 @@ const TAB_VISUALS: Record<
   }
 > = {
   fondo: {
-    icon: WalletCards,
+    icon: Coins,
     shortLabel: "General",
     helper: "Caja principal",
     tone: "bg-gradient-to-br from-blue-500/15 to-blue-700/10 border-blue-400/35 shadow-lg shadow-blue-500/20",
@@ -270,7 +270,7 @@ export default function FondoPage() {
             <div className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-start gap-3 sm:gap-4">
                 <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--accent)]/25 bg-[var(--accent)]/10 sm:h-14 sm:w-14">
-                  <WalletCards className="h-6 w-6 text-[var(--accent)] sm:h-7 sm:w-7" />
+                  <Coins className="h-6 w-6 text-[var(--accent)] sm:h-7 sm:w-7" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
