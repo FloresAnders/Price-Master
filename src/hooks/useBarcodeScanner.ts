@@ -4,6 +4,9 @@ import {
   detectBasicPatternWithOrientation,
   preprocessImage,
   detectWithQuagga2,
+  sharpenImage,
+  binarizeOtsu,
+  enhanceContrast,
 } from "../utils/barcodeUtils";
 import ZBAR_PRIORITY_CONFIG, { logZbarPriority } from "../config/zbar-priority";
 
@@ -109,45 +112,76 @@ export function useBarcodeScanner(
         ctx.drawImage(loadedImg, 0, 0);
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-        let detectedCode = "";
+        let detectedCode: string | null = null;
         let usedMethod = "";
 
-        // 1. ZBar‑WASM (MÁXIMA PRIORIDAD - siempre se intenta PRIMERO)
-        logZbarPriority("ZBAR_START", "Procesando imagen con ZBar-WASM");
-        try {
-          const symbols = await scanImageData(imageData);
-          if (symbols && symbols.length > 0) {
-            const code = symbols[0].decode();
-            if (
-              code &&
-              ZBAR_PRIORITY_CONFIG.VALID_CODE_PATTERN.test(code) &&
-              code.length >= ZBAR_PRIORITY_CONFIG.MIN_CODE_LENGTH &&
-              code.length <= ZBAR_PRIORITY_CONFIG.MAX_CODE_LENGTH
-            ) {
-              detectedCode = code;
-              usedMethod = "ZBar‑WASM (PRIORIDAD MÁXIMA)";
-              logZbarPriority("ZBAR_SUCCESS", "ZBar-WASM detectó código", code);
+        // Helper: intenta ZBar en un ImageData y retorna código si detecta
+        const tryZBar = async (variant: ImageData, label: string): Promise<string | null> => {
+          try {
+            const symbols = await scanImageData(variant);
+            if (symbols && symbols.length > 0) {
+              const c = symbols[0].decode();
+              if (
+                c &&
+                ZBAR_PRIORITY_CONFIG.VALID_CODE_PATTERN.test(c) &&
+                c.length >= ZBAR_PRIORITY_CONFIG.MIN_CODE_LENGTH &&
+                c.length <= ZBAR_PRIORITY_CONFIG.MAX_CODE_LENGTH
+              ) {
+                logZbarPriority("ZBAR_SUCCESS", `ZBar detectó código (${label})`, c);
+                return c;
+              }
             }
+          } catch {
+            // ZBar puede fallar silenciosamente en algunas variantes
           }
-        } catch {
-          logZbarPriority(
-            "ZBAR_PROCESSING",
-            "ZBar-WASM procesando, continuando con fallback",
-          );
+          return null;
+        };
+
+        // 1. ZBar en imagen RAW (intento original)
+        logZbarPriority("ZBAR_START", "Procesando imagen con ZBar-WASM (raw)");
+        detectedCode = await tryZBar(imageData, "raw");
+        if (detectedCode) {
+          usedMethod = "ZBar‑WASM (raw)";
         }
 
-        // 2. Quagga2 (SOLO si ZBar-WASM no detectó nada)
+        // 2. ZBar en imagen SHARPENED (realce de bordes para borrosos)
+        if (!detectedCode) {
+          logZbarPriority("ZBAR_PROCESSING", "ZBar raw falló, intentando sharpened...");
+          const sharpened = sharpenImage(imageData, 0.8);
+          detectedCode = await tryZBar(sharpened, "sharpened");
+          if (detectedCode) {
+            usedMethod = "ZBar‑WASM (sharpened)";
+          }
+        }
+
+        // 3. ZBar en imagen CONTRAST ENHANCED (ecualización adaptativa)
+        if (!detectedCode) {
+          logZbarPriority("ZBAR_PROCESSING", "ZBar sharpened falló, intentando contraste mejorado...");
+          const contrasted = enhanceContrast(imageData);
+          detectedCode = await tryZBar(contrasted, "contrast-enhanced");
+          if (detectedCode) {
+            usedMethod = "ZBar‑WASM (contraste mejorado)";
+          }
+        }
+
+        // 4. ZBar en imagen BINARIZED (Otsu — máximo contraste)
+        if (!detectedCode) {
+          logZbarPriority("ZBAR_PROCESSING", "ZBar contraste falló, intentando binarizado Otsu...");
+          const binarized = binarizeOtsu(imageData);
+          detectedCode = await tryZBar(binarized, "binarized Otsu");
+          if (detectedCode) {
+            usedMethod = "ZBar‑WASM (binarizado Otsu)";
+          }
+        }
+
+        // 5. Quagga2 (SOLO si TODOS los intentos ZBar fallaron)
         if (!detectedCode) {
           logZbarPriority(
             "QUAGGA_FALLBACK",
-            "ZBar-WASM no detectó código, iniciando fallback con Quagga2",
+            "ZBar-WASM no detectó en ninguna variante, iniciando fallback con Quagga2",
           );
           try {
-            // Usar el retraso configurado para dar prioridad absoluta a ZBar-WASM
-            const quaggaResult = await detectWithQuagga2(
-              imageData,
-              ZBAR_PRIORITY_CONFIG.QUAGGA_FALLBACK_DELAY,
-            );
+            const quaggaResult = await detectWithQuagga2(imageData, 0);
             if (quaggaResult) {
               detectedCode = quaggaResult;
               usedMethod = "Quagga 2 (Fallback)";
@@ -170,7 +204,7 @@ export function useBarcodeScanner(
           );
         }
 
-        // 3. Básica (preprocesada y sin preprocesar)
+        // 6. Básica (preprocesada y sin preprocesar)
         if (!detectedCode) {
           const preprocessedData = preprocessImage(imageData);
           const basicResult =
