@@ -68,6 +68,9 @@ type AgregarMovimientoProps = {
   invoiceError?: string;
   amountError?: string;
   managerError?: string;
+  // En el type AgregarMovimientoProps agrega:
+  balanceCRC?: number;
+  balanceUSD?: number;
 };
 
 const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
@@ -110,6 +113,8 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   invoiceError = "",
   amountError = "",
   managerError = "",
+  balanceCRC = 0,
+  balanceUSD = 0,
 }) => {
   const invoiceBorderClass =
     invoiceValid || invoiceNumber.length === 0
@@ -199,6 +204,20 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center gap-3 rounded-lg border border-cyan-700/20 bg-cyan-950/10 px-3 py-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-cyan-100/50">
+          Saldo actual
+        </span>
+        <div className="flex items-center gap-3 ml-auto">
+          <span className="text-xs font-semibold text-emerald-400">
+            ₡ {balanceCRC.toLocaleString("es-CR")}
+          </span>
+          <span className="h-3 w-px bg-cyan-700/40" />
+          <span className="text-xs font-semibold text-blue-400">
+            $ {balanceUSD.toLocaleString("en-US")}
+          </span>
+        </div>
+      </div>
       <section className={sectionClass}>
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">

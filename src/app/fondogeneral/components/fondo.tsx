@@ -10273,7 +10273,7 @@ export function FondoSection({
                   className={`flex h-11 w-full items-center justify-center gap-2 rounded border px-3 text-sm font-semibold shadow-sm transition-all duration-150 ${
                     !pendingCierreDeCaja
                       ? "cursor-not-allowed border-[var(--input-border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)] opacity-70"
-                      : "border-emerald-500/40 bg-emerald-500/15 text-emerald-400 hover:-translate-y-0.5 hover:border-emerald-400/70 hover:bg-emerald-500/25 hover:shadow-md hover:shadow-emerald-950/20 active:translate-y-0 active:scale-[0.99]"
+                      : "border-yellow-600/40 bg-yellow-500/10 text-yellow-400/80 hover:-translate-y-0.5 hover:border-yellow-500/60 hover:bg-yellow-500/20 hover:shadow-md hover:shadow-yellow-950/20 active:translate-y-0 active:scale-[0.99]"
                   }`}
                 >
                   <Banknote className="h-4 w-4 flex-shrink-0" />
@@ -10300,7 +10300,7 @@ export function FondoSection({
                   (accountKey === "FondoGeneral" && pendingCierreDeCaja) ||
                   !entriesHydrated
                     ? "cursor-not-allowed border-[var(--input-border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)] opacity-70"
-                    : "border-[var(--accent)] bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] hover:border-[var(--accent-hover)] hover:shadow-md hover:shadow-sky-950/25 active:translate-y-0 active:scale-[0.99]"
+: "border-cyan-500/50 bg-transparent text-cyan-300 hover:-translate-y-0.5 hover:border-cyan-400/70 hover:bg-cyan-500/10 hover:shadow-md hover:shadow-cyan-950/25 active:translate-y-0 active:scale-[0.99]"
                 }`}
               >
                 <Plus className="h-4 w-4 flex-shrink-0" />
@@ -10457,6 +10457,8 @@ export function FondoSection({
               invoiceError={invoiceError}
               amountError={amountError}
               managerError={managerError}
+              balanceCRC={currentBalanceCRC}
+              balanceUSD={currentBalanceUSD}
             />
           </Box>
         </Box>
@@ -10482,29 +10484,32 @@ export function FondoSection({
           </p>
         )}
 
-      <div className="mt-6">
-        {fondoEntries.length === 0 ? (
-          isFondoMovementsLoading ? (
-            <div className="flex min-h-[180px] flex-col items-center justify-center rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--card-bg)]/60 py-6 text-[var(--muted-foreground)]">
-              <div className="h-7 w-7 animate-spin rounded-full border-2 border-[var(--accent)] border-t-transparent" />
-              <p className="mt-2 text-xs sm:text-sm">Cargando movimientos...</p>
-            </div>
-          ) : (
-            <div className="flex min-h-[180px] flex-col items-center justify-center rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--card-bg)]/60 px-4 py-6 text-center">
-              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded border border-[var(--input-border)] bg-[var(--muted)]/20 text-[var(--muted-foreground)]">
-                <FileText className="h-5 w-5" />
+      <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="min-w-0">
+          {fondoEntries.length === 0 ? (
+            isFondoMovementsLoading ? (
+              <div className="flex min-h-[180px] flex-col items-center justify-center rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--card-bg)]/60 py-6 text-[var(--muted-foreground)]">
+                <div className="h-7 w-7 animate-spin rounded-full border-2 border-[var(--accent)] border-t-transparent" />
+                <p className="mt-2 text-xs sm:text-sm">
+                  Cargando movimientos...
+                </p>
               </div>
-              <p className="text-sm font-medium text-[var(--foreground)]">
-                No hay movimientos aun.
-              </p>
-              <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-                Los registros apareceran aqui cuando se agregue el primer
-                movimiento.
-              </p>
-            </div>
-          )
-        ) : (
-          <div className="overflow-hidden rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/80 text-white shadow-sm">
+            ) : (
+              <div className="flex min-h-[180px] flex-col items-center justify-center rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--card-bg)]/60 px-4 py-6 text-center">
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded border border-[var(--input-border)] bg-[var(--muted)]/20 text-[var(--muted-foreground)]">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <p className="text-sm font-medium text-[var(--foreground)]">
+                  No hay movimientos aun.
+                </p>
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                  Los registros apareceran aqui cuando se agregue el primer
+                  movimiento.
+                </p>
+              </div>
+            )
+          ) : (
+            <div className="overflow-hidden rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/80 text-white shadow-sm">
             <div className="flex flex-col items-start justify-between gap-3 border-b border-[var(--input-border)] bg-[var(--muted)]/10 px-3 py-3 text-xs text-[var(--muted-foreground)] sm:flex-row sm:items-center">
               <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
                 <span className="text-xs font-semibold uppercase tracking-wide">
@@ -11369,15 +11374,14 @@ export function FondoSection({
                 </table>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+            </div>
+          )}
 
-      {/* Totals for the current search / filters */}
-      {isSingleDayFilter &&
-        filteredEntries.length > 0 &&
-        (isAdminUser || isSuperAdminUser) && (
-          <div className="mt-4">
+          {/* Totals for the current search / filters */}
+          {isSingleDayFilter &&
+            filteredEntries.length > 0 &&
+            (isAdminUser || isSuperAdminUser) && (
+            <div className="mt-4">
             <div className="flex justify-center">
               <div className="w-full max-w-2xl">
                 <div className="px-4 py-3 rounded min-w-[220px] fg-balance-card">
@@ -11465,23 +11469,21 @@ export function FondoSection({
                 </div>
               </div>
             </div>
-          </div>
-        )}
+            </div>
+          )}
+        </div>
 
-      <div className="mt-5">
-        <div className="flex justify-center">
-          <div className="w-full max-w-3xl space-y-4">
-            {enabledBalanceCurrencies.length > 0 && (
-              <div className="overflow-hidden rounded-xl border border-cyan-700/35 bg-cyan-950/20 shadow-lg shadow-cyan-950/10">
-                <div className="flex items-center justify-center gap-2 border-b border-cyan-700/25 bg-cyan-950/25 px-4 py-3">
-                  <span className="flex h-8 w-8 items-center justify-center rounded border border-cyan-700/35 bg-cyan-900/25 text-cyan-100/80">
-                    <Banknote className="h-4 w-4" />
-                  </span>
-                  <div className="text-sm font-semibold text-[var(--foreground)]">
-                    Saldo Actual
-                  </div>
+        {enabledBalanceCurrencies.length > 0 && (
+          <aside className="min-w-0 xl:w-[300px]">
+            <div className="xl:sticky xl:top-20">
+              <div className="rounded-2xl border border-white/10 bg-[#0d1117] p-5 text-center">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-400/25 bg-gradient-to-br from-cyan-500/20 to-teal-500/15 shadow-[0_10px_35px_rgba(6,182,212,0.12)]">
+                  <Banknote className="h-7 w-7 text-cyan-400" />
                 </div>
-                <div className="grid grid-cols-1 gap-px bg-cyan-700/25 sm:grid-cols-2">
+                <p className="mb-1.5 text-[10px] uppercase tracking-[0.18em] text-white/30">
+                  Saldo Actual
+                </p>
+                <div className="mt-4 space-y-4 border-t border-white/10 pt-4">
                   {enabledBalanceCurrencies.map((currency) => {
                     const label = currency === "CRC" ? "Colones" : "Dólares";
                     const value =
@@ -11491,12 +11493,12 @@ export function FondoSection({
                     return (
                       <div
                         key={currency}
-                        className="bg-[#11181d] px-5 py-5 text-center sm:px-6"
+                        className="rounded-xl border border-white/10 bg-[#050816] px-4 py-4 text-center"
                       >
-                        <div className="mx-auto mb-3 flex h-9 w-9 items-center justify-center rounded border border-cyan-700/35 bg-cyan-950/35 text-cyan-100/80">
-                          <span className="text-xs font-bold">{currency}</span>
+                        <div className="text-xs uppercase tracking-wide text-white/45">
+                          {label}
                         </div>
-                        <div className="mt-1 text-xl font-bold text-[var(--foreground)] sm:text-2xl">
+                        <div className="mt-2 text-2xl font-semibold leading-none tracking-tight text-white">
                           {formatByCurrency(currency, value)}
                         </div>
                       </div>
@@ -11505,9 +11507,9 @@ export function FondoSection({
                 </div>
                 {/* Registrar cierre moved next to 'Agregar movimiento' per UI changes */}
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+          </aside>
+        )}
       </div>
 
       <AuditHistoryModal
