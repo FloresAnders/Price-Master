@@ -85,7 +85,10 @@ function isNumericFuncionId(value: unknown): boolean {
 function isGeneralFuncionDoc(raw: unknown): boolean {
   if (!raw || typeof raw !== "object") return false;
   const d = raw as Record<string, unknown>;
-  return d.type === "general" || (d.funcionId && d.nombre && !d.empresaId);
+  return (
+    d.type === "general" ||
+    Boolean(d.funcionId && d.nombre && !d.empresaId)
+  );
 }
 
 function isSharedSpecialFuncionDoc(raw: unknown): boolean {

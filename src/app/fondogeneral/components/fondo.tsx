@@ -1155,6 +1155,17 @@ export function ProviderSection({ id }: { id?: string }) {
   const [gastoTypes, setGastoTypes] = useState<string[]>([]);
   const [egresoTypes, setEgresoTypes] = useState<string[]>([]);
 
+  // Helper para determinar la categoría basándose en los tipos del owner
+  const getCategoryForType = (type?: string): "Ingreso" | "Gasto" | "Egreso" | undefined => {
+    if (!type || typeof type !== "string") return undefined;
+    const normalized = type.trim().toUpperCase();
+    if (ingresoTypes.includes(normalized)) return "Ingreso";
+    if (gastoTypes.includes(normalized)) return "Gasto";
+    if (egresoTypes.includes(normalized)) return "Egreso";
+    // Fallback a la función legacy si no se encuentra
+    return undefined;
+  };
+
   const [confirmState, setConfirmState] = useState<{
     open: boolean;
     code: string;
@@ -2232,6 +2243,7 @@ export function ProviderSection({ id }: { id?: string }) {
                 pending.providerType,
                 pending.correonotifi,
                 pending.visit,
+                getCategoryForType(pending.providerType),
               );
             } else {
               await addProvider(
@@ -2239,6 +2251,7 @@ export function ProviderSection({ id }: { id?: string }) {
                 pending.providerType,
                 pending.correonotifi,
                 pending.visit,
+                getCategoryForType(pending.providerType),
               );
 
               await sendEgresoProviderCreatedEmailToOwner(
@@ -2933,6 +2946,7 @@ export function ProviderSection({ id }: { id?: string }) {
                         normalizedProviderType,
                         correonotifi,
                         visit,
+                        getCategoryForType(normalizedProviderType),
                       );
 
                       await sendEgresoProviderCreatedEmailToOwner(
@@ -2941,7 +2955,6 @@ export function ProviderSection({ id }: { id?: string }) {
                       );
                     }
                     setProviderName("");
-                    setProviderType("");
                     setEditingProviderCode(null);
                     setAddNotification(false);
                     setSelectedAdminId("");
@@ -3307,6 +3320,7 @@ export function FondoSection({
     code: string;
     name: string;
     type?: FondoMovementType;
+    category?: "Ingreso" | "Gasto" | "Egreso";
     correonotifi?: string;
   }> = isCajaNegra
     ? cajaNegraProviders
@@ -3314,6 +3328,7 @@ export function FondoSection({
         code: string;
         name: string;
         type?: FondoMovementType;
+        category?: "Ingreso" | "Gasto" | "Egreso";
         correonotifi?: string;
       }>);
   const movementProvidersLoading = isCajaNegra ? false : providersLoading;
@@ -7426,6 +7441,21 @@ export function FondoSection({
     movementProviders.forEach((p) => {
       if (p.type && isFondoMovementType(p.type)) {
         map.set(p.code, p.type);
+        return;
+      }
+
+      if (p.category === "Ingreso") {
+        map.set(p.code, FONDO_INGRESO_TYPES[0]);
+        return;
+      }
+
+      if (p.category === "Gasto") {
+        map.set(p.code, FONDO_GASTO_TYPES[0]);
+        return;
+      }
+
+      if (p.category === "Egreso") {
+        map.set(p.code, FONDO_EGRESO_TYPES[0]);
       }
     });
     return map;
@@ -7835,6 +7865,15 @@ export function FondoSection({
         prov?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME;
       if (prov && prov.type && isFondoMovementType(prov.type)) {
         nextPaymentType = prov.type as FondoEntry["paymentType"];
+        setPaymentType(nextPaymentType);
+      } else if (prov?.category === "Ingreso") {
+        nextPaymentType = FONDO_INGRESO_TYPES[0] as FondoEntry["paymentType"];
+        setPaymentType(nextPaymentType);
+      } else if (prov?.category === "Gasto") {
+        nextPaymentType = FONDO_GASTO_TYPES[0] as FondoEntry["paymentType"];
+        setPaymentType(nextPaymentType);
+      } else if (prov?.category === "Egreso") {
+        nextPaymentType = FONDO_EGRESO_TYPES[0] as FondoEntry["paymentType"];
         setPaymentType(nextPaymentType);
       } else if (isCajaNegra) {
         const upper = (prov?.code || value).toUpperCase();

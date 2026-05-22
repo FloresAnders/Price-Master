@@ -48,7 +48,6 @@ const normalizePathSegment = (value: string): string =>
     .trim();
 
 export class FondoMovementTypesService {
-  private static readonly LEGACY_COLLECTION_NAME = "fondoMovementTypes";
   private static readonly OWNER_COLLECTION_NAME = "fondoMovementTypesByOwner";
   private static readonly OWNER_SUBCOLLECTION_NAME = "types";
 
@@ -101,7 +100,7 @@ export class FondoMovementTypesService {
 
   private static getCollectionRef(ownerId: string | null) {
     if (!ownerId) {
-      return collection(db, this.LEGACY_COLLECTION_NAME);
+      throw new Error("ownerId is required for fondoMovementTypesByOwner");
     }
 
     return collection(db, this.OWNER_COLLECTION_NAME, ownerId, this.OWNER_SUBCOLLECTION_NAME);
@@ -383,6 +382,7 @@ export class FondoMovementTypesService {
     scopeId: string | null,
   ): FondoMovementTypesCachePayload | null {
     if (typeof window === "undefined") return null;
+    if (!scopeId) return null;
 
     try {
       const cached = localStorage.getItem(this.getCacheKey(scopeId));
@@ -424,6 +424,7 @@ export class FondoMovementTypesService {
    */
   private static writeCache(payload: FondoMovementTypesCachePayload): number {
     if (typeof window === "undefined") return 0;
+    if (!payload.scopeId) return 0;
 
     try {
       const version = this.bumpCacheVersion(payload.scopeId);
@@ -440,6 +441,12 @@ export class FondoMovementTypesService {
    */
   static async initializeListener(ownerId?: string | null): Promise<void> {
     const context = await this.resolveStorageContext(ownerId);
+
+    if (!context.scopeId) {
+      console.log("[FondoMovementTypes] No scopeId, skipping listener");
+      return;
+    }
+
     const listenerKey = this.getCacheKey(context.scopeId);
 
     if (globalListener && globalListenerKey === listenerKey) {
@@ -513,10 +520,25 @@ export class FondoMovementTypesService {
    * Obtiene los tipos desde el caché o la base de datos
    * Esta es la función principal que deben usar los componentes
    */
+  static clearUnscopedCache(): void {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.removeItem(CACHE_KEY);
+      localStorage.removeItem(CACHE_VERSION_KEY);
+      console.log("[FondoMovementTypes] Unscoped cache cleared");
+    } catch {
+      // ignore
+    }
+  }
+
   static async getTypesFromCacheOrDB(
     ownerId?: string | null,
   ): Promise<FondoMovementTypeConfig[]> {
     const context = await this.resolveStorageContext(ownerId);
+
+    if (context.scopeId) {
+      this.clearUnscopedCache();
+    }
 
     const cached = this.readCache(context.scopeId);
     if (cached && Array.isArray(cached.types)) {
