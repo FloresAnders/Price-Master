@@ -113,9 +113,31 @@ export default function BarcodeScanner({
     open: boolean;
   };
 
-  const [results, setResults] = useState<ScanResult[]>([]);
+  const STORAGE_KEY = "barcode-scanner-results";
+  // Inicializar desde localStorage para persistir entre módulos y recargas
+  const [results, setResults] = useState<ScanResult[]>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed: ScanResult[] = JSON.parse(stored);
+        // Asegurar que todos los resultados cargados comiencen cerrados (minimizados)
+        return parsed.map((r) => ({ ...r, open: false }));
+      }
+    } catch (e) {
+      console.warn("Error al leer resultados guardados:", e);
+    }
+    return [];
+  });
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Persistir resultados en localStorage cada vez que cambien
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(results));
+    } catch (e) {
+      console.warn("Error al guardar resultados en localStorage:", e);
+    }
+  }, [results]);
   useEffect(() => {
     if (!code || error) return;
 
