@@ -190,6 +190,8 @@ export interface User {
   password?: string;
   // si el usuario pertenece a un owner (para multi-tenant)
   ownerId?: string;
+  // id del usuario que creó este registro
+  createdById?: string;
   // Nombre de la empresa dueña asignada (espacio ownercompanie)
   ownercompanie?: string;
   role?: "admin" | "user" | "superadmin";

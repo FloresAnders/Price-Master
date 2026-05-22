@@ -75,6 +75,72 @@ const getStoredMaintenanceTab = (): DataFile => {
   return validTabs.includes(saved as DataFile) ? (saved as DataFile) : "users";
 };
 
+const normalizeUserId = (value?: string | null): string =>
+  typeof value === "string" ? value.trim() : "";
+
+const getVisibleUsersForActor = (
+  users: User[],
+  currentUser: User,
+): User[] => {
+  if (currentUser.role === "superadmin") {
+    return users.filter((user) => {
+      const role = user.role;
+      return role === "admin" || role === "superadmin";
+    });
+  }
+
+  if (currentUser.role !== "admin") {
+    return users;
+  }
+
+  const visibleAdminIds = new Set<string>();
+  const pendingAdminIds: string[] = [];
+  const currentAdminId = normalizeUserId(currentUser.id);
+
+  if (currentAdminId) pendingAdminIds.push(currentAdminId);
+
+  while (pendingAdminIds.length > 0) {
+    const adminId = pendingAdminIds.shift() as string;
+    if (visibleAdminIds.has(adminId)) continue;
+    visibleAdminIds.add(adminId);
+
+    users.forEach((candidate) => {
+      if (candidate.role !== "admin") return;
+      const creatorId = normalizeUserId(candidate.createdById);
+      const candidateId = normalizeUserId(candidate.id);
+      if (!creatorId || !candidateId) return;
+      if (creatorId === adminId && !visibleAdminIds.has(candidateId)) {
+        pendingAdminIds.push(candidateId);
+      }
+    });
+  }
+
+  const legacyFallbackOwnerIds = new Set<string>();
+  if (currentAdminId) legacyFallbackOwnerIds.add(currentAdminId);
+  if (currentUser.eliminate === true) {
+    const ownerId = normalizeUserId(currentUser.ownerId);
+    if (ownerId) legacyFallbackOwnerIds.add(ownerId);
+  }
+
+  return users.filter((user) => {
+    if (!user) return false;
+    if (user.id && currentUser.id && String(user.id) === String(currentUser.id)) {
+      return true;
+    }
+    if (user.role !== "admin" && user.role !== "user") {
+      return false;
+    }
+
+    const creatorId = normalizeUserId(user.createdById);
+    if (creatorId && visibleAdminIds.has(creatorId)) {
+      return true;
+    }
+
+    const legacyOwnerId = normalizeUserId(user.ownerId);
+    return legacyOwnerId ? legacyFallbackOwnerIds.has(legacyOwnerId) : false;
+  });
+};
+
 export default function DataEditor() {
   const [activeFile, setActiveFile] = useState<DataFile>(
     getStoredMaintenanceTab,
@@ -359,33 +425,18 @@ export default function DataEditor() {
           console.warn("Error ensuring all permissions:", error);
         }
 
-        // Filtrar usuarios para que actores no-superadmin solo vean usuarios
-        // que compartan el mismo ownerId/resolved owner del actor.
+        // Filtrar usuarios usando la jerarquía de creación para respetar admins
+        // hijos y sus usuarios; para datos antiguos se mantiene un fallback por ownerId.
         let usersToShow = users;
         try {
-          if (currentUser.role !== "superadmin") {
-            usersToShow = (users || []).filter((u) => {
-              if (!u) return false;
-              if (
-                u.id &&
-                currentUser.id &&
-                String(u.id) === String(currentUser.id)
-              )
-                return true;
-              if (!u.ownerId) return false;
-              if (actorOwnerIdSet.size > 0) {
-                return actorOwnerIdSet.has(String(u.ownerId));
-              }
-              return (
-                (currentUser.id &&
-                  String(u.ownerId) === String(currentUser.id)) ||
-                (currentUser.ownerId &&
-                  String(u.ownerId) === String(currentUser.ownerId))
-              );
-            });
+          if (
+            currentUser.role === "admin" ||
+            currentUser.role === "superadmin"
+          ) {
+            usersToShow = getVisibleUsersForActor(users || [], currentUser);
           }
         } catch (err) {
-          console.warn("Error filtering users by ownerId:", err);
+          console.warn("Error filtering users by visibility tree:", err);
           usersToShow = users;
         }
 
