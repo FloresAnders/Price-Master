@@ -189,6 +189,14 @@ export default function DataEditor() {
     () => normalizeUserId(resolveOwnerIdForActor()),
     [resolveOwnerIdForActor],
   );
+  const createTempFondoTypeId = useCallback(
+    () => `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    [],
+  );
+  const isTempFondoTypeId = useCallback(
+    (id?: string | null) => String(id || "").startsWith("temp-"),
+    [],
+  );
   const [passwordVisibility, setPasswordVisibility] = useState<{
     [key: string]: boolean;
   }>({});
@@ -804,29 +812,14 @@ export default function DataEditor() {
   const addFondoType = async (category: "INGRESO" | "GASTO" | "EGRESO") => {
     const maxOrder = Math.max(...fondoTypesData.map((t) => t.order ?? 0), -1);
     const newType: FondoMovementTypeConfig = {
+      id: createTempFondoTypeId(),
       category,
       name: "",
       order: maxOrder + 1,
     };
 
-    try {
-      // Agregar a la base de datos inmediatamente
-      const newId = await FondoMovementTypesService.addMovementType({
-        category,
-        name: "",
-        order: maxOrder + 1,
-      }, fondoTypesOwnerId);
-
-      // Actualizar el estado local con el ID asignado
-      const typeWithId = { ...newType, id: newId };
-      setFondoTypesData([...fondoTypesData, typeWithId]);
-      setOriginalFondoTypesData([...originalFondoTypesData, typeWithId]);
-
-      showToast(`Nuevo tipo de ${category} agregado`, "success");
-    } catch (error) {
-      console.error("Error adding fondo type:", error);
-      showToast("Error al agregar el tipo de movimiento", "error");
-    }
+    setFondoTypesData([...fondoTypesData, newType]);
+    showToast(`Nuevo tipo de ${category} agregado. Presiona el check para guardar.`, "info");
   };
 
   const updateFondoType = async (
@@ -837,22 +830,73 @@ export default function DataEditor() {
     const updated = [...fondoTypesData];
     updated[index] = { ...updated[index], [field]: value };
     setFondoTypesData(updated);
+  };
 
-    // Si el tipo tiene ID, guardar automáticamente en la base de datos
-    if (updated[index].id && field === "name") {
-      try {
-        await FondoMovementTypesService.updateMovementType(
-          updated[index].id!,
+  const saveFondoType = async (index: number) => {
+    const current = fondoTypesData[index];
+    if (!current) return;
+
+    const name = String(current.name || "").trim();
+    if (!name) {
+      showToast("El nombre es requerido para guardar.", "error");
+      return;
+    }
+
+    try {
+      if (!current.id || isTempFondoTypeId(current.id)) {
+        const savedId = await FondoMovementTypesService.addMovementType(
           {
-            name: value as string,
+            category: current.category,
+            name,
+            order: current.order ?? index,
           },
           fondoTypesOwnerId,
         );
-        setOriginalFondoTypesData([...updated]);
-      } catch (error) {
-        console.error("Error updating fondo type:", error);
-        showToast("Error al actualizar el tipo", "error");
+
+        const savedItem = {
+          ...current,
+          id: savedId,
+          name,
+          order: current.order ?? index,
+        };
+
+        setFondoTypesData((prev) => {
+          const next = [...prev];
+          next[index] = savedItem;
+          return next;
+        });
+        setOriginalFondoTypesData((prev) => {
+          const next = [...prev];
+          next[index] = savedItem;
+          return next;
+        });
+        showToast("Tipo guardado correctamente", "success");
+        return;
       }
+
+      await FondoMovementTypesService.updateMovementType(
+        current.id,
+        {
+          category: current.category,
+          name,
+          order: current.order ?? index,
+        },
+        fondoTypesOwnerId,
+      );
+
+      const savedItem = { ...current, name };
+      setOriginalFondoTypesData((prev) => {
+        const next = [...prev];
+        const originalIndex = next.findIndex((item) => item.id === current.id);
+        if (originalIndex >= 0) {
+          next[originalIndex] = savedItem;
+        }
+        return next;
+      });
+      showToast("Tipo guardado correctamente", "success");
+    } catch (error) {
+      console.error("Error saving fondo type:", error);
+      showToast("Error al guardar el tipo", "error");
     }
   };
 
@@ -865,8 +909,8 @@ export default function DataEditor() {
       `¿Está seguro de que desea eliminar el tipo "${typeName}"? Esta acción no se puede deshacer.`,
       async () => {
         try {
-          // Eliminar de la base de datos si tiene ID
-          if (fondoType.id) {
+          // Eliminar de la base de datos si tiene ID persistido.
+          if (fondoType.id && !isTempFondoTypeId(fondoType.id)) {
             await FondoMovementTypesService.deleteMovementType(
               fondoType.id,
               fondoTypesOwnerId,
@@ -897,31 +941,16 @@ export default function DataEditor() {
 
     // Guardar cambios de orden en la base de datos
     try {
-      const promises = [];
-      if (updated[index - 1].id) {
-        promises.push(
-          FondoMovementTypesService.updateMovementType(
-            updated[index - 1].id!,
-            {
-              order: index - 1,
-            },
-            fondoTypesOwnerId,
-          ),
-        );
-      }
-      if (updated[index].id) {
-        promises.push(
-          FondoMovementTypesService.updateMovementType(
-            updated[index].id!,
-            {
-              order: index,
-            },
-            fondoTypesOwnerId,
-          ),
-        );
-      }
-      await Promise.all(promises);
-      setOriginalFondoTypesData([...updated]);
+      setOriginalFondoTypesData((prev) => {
+        const next = [...prev];
+        updated.forEach((item, idx) => {
+          const originalIndex = next.findIndex((orig) => orig.id === item.id);
+          if (originalIndex >= 0) {
+            next[originalIndex] = { ...next[originalIndex], order: idx };
+          }
+        });
+        return next;
+      });
     } catch (error) {
       console.error("Error updating order:", error);
       showToast("Error al actualizar el orden", "error");
@@ -940,31 +969,16 @@ export default function DataEditor() {
 
     // Guardar cambios de orden en la base de datos
     try {
-      const promises = [];
-      if (updated[index].id) {
-        promises.push(
-          FondoMovementTypesService.updateMovementType(
-            updated[index].id!,
-            {
-              order: index,
-            },
-            fondoTypesOwnerId,
-          ),
-        );
-      }
-      if (updated[index + 1].id) {
-        promises.push(
-          FondoMovementTypesService.updateMovementType(
-            updated[index + 1].id!,
-            {
-              order: index + 1,
-            },
-            fondoTypesOwnerId,
-          ),
-        );
-      }
-      await Promise.all(promises);
-      setOriginalFondoTypesData([...updated]);
+      setOriginalFondoTypesData((prev) => {
+        const next = [...prev];
+        updated.forEach((item, idx) => {
+          const originalIndex = next.findIndex((orig) => orig.id === item.id);
+          if (originalIndex >= 0) {
+            next[originalIndex] = { ...next[originalIndex], order: idx };
+          }
+        });
+        return next;
+      });
     } catch (error) {
       console.error("Error updating order:", error);
       showToast("Error al actualizar el orden", "error");
@@ -988,6 +1002,17 @@ export default function DataEditor() {
           showToast("Error al inicializar los tipos de movimientos", "error");
         }
       },
+    );
+  };
+
+  const isFondoTypeDirty = (type: FondoMovementTypeConfig) => {
+    if (!type.id || isTempFondoTypeId(type.id)) return true;
+    const original = originalFondoTypesData.find((item) => item.id === type.id);
+    if (!original) return true;
+    return (
+      String(original.name || "") !== String(type.name || "") ||
+      String(original.category || "") !== String(type.category || "") ||
+      Number(original.order ?? 0) !== Number(type.order ?? 0)
     );
   };
 
@@ -2028,9 +2053,11 @@ export default function DataEditor() {
           seedFondoTypes={seedFondoTypes}
           addFondoType={addFondoType}
           updateFondoType={updateFondoType}
+          saveFondoType={saveFondoType}
           removeFondoType={removeFondoType}
           moveFondoTypeUp={moveFondoTypeUp}
           moveFondoTypeDown={moveFondoTypeDown}
+          isFondoTypeDirty={isFondoTypeDirty}
         />
       )}
       {activeFile === "funciones" && currentUser?.role !== "user" && (

@@ -1,4 +1,3 @@
-import { FirestoreService } from "./firestore";
 import { UsersService } from "./users";
 import { FondoMovementTypeConfig } from "../types/firestore";
 import { db } from "@/config/firebase";
@@ -20,14 +19,22 @@ import {
 const CACHE_KEY = "fondoMovementTypes_cache";
 const CACHE_VERSION_KEY = "fondoMovementTypes_version";
 
-type StorageKind = "legacy" | "scoped";
-
 interface FondoMovementTypesCachePayload {
   ownerId: string | null;
   scopeId: string | null;
-  storageKind: StorageKind;
   types: FondoMovementTypeConfig[];
 }
+
+const normalizeCachedTypes = (
+  value: unknown,
+): FondoMovementTypeConfig[] | null => {
+  if (!Array.isArray(value)) return null;
+
+  return value
+    .filter((item): item is FondoMovementTypeConfig => Boolean(item))
+    .map((item) => ({ ...item }))
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+};
 
 // Listener global para detectar cambios en tiempo real
 let globalListener: Unsubscribe | null = null;
@@ -97,21 +104,13 @@ export class FondoMovementTypesService {
       return collection(db, this.LEGACY_COLLECTION_NAME);
     }
 
-    return collection(
-      db,
-      this.OWNER_COLLECTION_NAME,
-      ownerId,
-      this.OWNER_SUBCOLLECTION_NAME,
-    );
+    return collection(db, this.OWNER_COLLECTION_NAME, ownerId, this.OWNER_SUBCOLLECTION_NAME);
   }
 
   private static async readCollectionTypes(
     ownerId: string | null,
   ): Promise<FondoMovementTypeConfig[]> {
-    if (!ownerId) {
-      const types = await FirestoreService.getAll(this.LEGACY_COLLECTION_NAME);
-      return types.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-    }
+    if (!ownerId) return [];
 
     const querySnapshot = await getDocs(
       query(this.getCollectionRef(ownerId), orderBy("order", "asc")),
@@ -122,51 +121,18 @@ export class FondoMovementTypesService {
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   }
 
-  private static async readTypesWithFallback(
+  private static async readTypesFromOwner(
     ownerId?: string | null,
   ): Promise<{
     types: FondoMovementTypeConfig[];
-    storageKind: StorageKind;
     scopeId: string | null;
     resolvedOwnerId: string | null;
   }> {
     const context = await this.resolveStorageContext(ownerId);
-
-    if (context.scopeId) {
-      const scopedTypes = await this.readCollectionTypes(context.scopeId);
-      if (scopedTypes.length > 0) {
-        return {
-          types: scopedTypes,
-          storageKind: "scoped",
-          scopeId: context.scopeId,
-          resolvedOwnerId: context.ownerId,
-        };
-      }
-
-      const legacyTypes = await this.readCollectionTypes(null);
-      if (legacyTypes.length > 0) {
-        return {
-          types: legacyTypes,
-          storageKind: "legacy",
-          scopeId: context.scopeId,
-          resolvedOwnerId: context.ownerId,
-        };
-      }
-
-      return {
-        types: scopedTypes,
-        storageKind: "scoped",
-        scopeId: context.scopeId,
-        resolvedOwnerId: context.ownerId,
-      };
-    }
-
-    const legacyTypes = await this.readCollectionTypes(null);
     return {
-      types: legacyTypes,
-      storageKind: "legacy",
-      scopeId: null,
-      resolvedOwnerId: null,
+      types: context.scopeId ? await this.readCollectionTypes(context.scopeId) : [],
+      scopeId: context.scopeId,
+      resolvedOwnerId: context.ownerId,
     };
   }
 
@@ -200,10 +166,8 @@ export class FondoMovementTypesService {
   /**
    * Get all movement types
    */
-  static async getAllMovementTypes(
-    ownerId?: string | null,
-  ): Promise<FondoMovementTypeConfig[]> {
-    const result = await this.readTypesWithFallback(ownerId);
+  static async getAllMovementTypes(ownerId?: string | null): Promise<FondoMovementTypeConfig[]> {
+    const result = await this.readTypesFromOwner(ownerId);
     return result.types;
   }
 
@@ -227,23 +191,23 @@ export class FondoMovementTypesService {
   ): Promise<FondoMovementTypeConfig | null> {
     const context = await this.resolveStorageContext(ownerId);
 
-    if (context.scopeId) {
-      const scopedDoc = await getDoc(
-        doc(
-          db,
-          this.OWNER_COLLECTION_NAME,
-          context.scopeId,
-          this.OWNER_SUBCOLLECTION_NAME,
-          id,
-        ),
-      );
+    if (!context.scopeId) return null;
 
-      if (scopedDoc.exists()) {
-        return { id: scopedDoc.id, ...scopedDoc.data() } as FondoMovementTypeConfig;
-      }
+    const scopedDoc = await getDoc(
+      doc(
+        db,
+        this.OWNER_COLLECTION_NAME,
+        context.scopeId,
+        this.OWNER_SUBCOLLECTION_NAME,
+        id,
+      ),
+    );
+
+    if (scopedDoc.exists()) {
+      return { id: scopedDoc.id, ...scopedDoc.data() } as FondoMovementTypeConfig;
     }
 
-    return await FirestoreService.getById(this.LEGACY_COLLECTION_NAME, id);
+    return null;
   }
 
   /**
@@ -261,7 +225,7 @@ export class FondoMovementTypesService {
     };
 
     if (!context.scopeId) {
-      return await FirestoreService.add(this.LEGACY_COLLECTION_NAME, typeWithDates);
+      throw new Error("No se pudo resolver el owner para guardar tipos de movimiento de fondo.");
     }
 
     const docRef = await addDoc(this.getCollectionRef(context.scopeId), typeWithDates as any);
@@ -283,7 +247,7 @@ export class FondoMovementTypesService {
     };
 
     if (!context.scopeId) {
-      return await FirestoreService.update(this.LEGACY_COLLECTION_NAME, id, updateData);
+      throw new Error("No se pudo resolver el owner para actualizar tipos de movimiento de fondo.");
     }
 
     const docRef = doc(
@@ -306,7 +270,7 @@ export class FondoMovementTypesService {
     const context = await this.resolveStorageContext(ownerId);
 
     if (!context.scopeId) {
-      return await FirestoreService.delete(this.LEGACY_COLLECTION_NAME, id);
+      throw new Error("No se pudo resolver el owner para eliminar tipos de movimiento de fondo.");
     }
 
     const docRef = doc(
@@ -423,7 +387,31 @@ export class FondoMovementTypesService {
     try {
       const cached = localStorage.getItem(this.getCacheKey(scopeId));
       if (!cached) return null;
-      return JSON.parse(cached) as FondoMovementTypesCachePayload;
+      const parsed = JSON.parse(cached) as unknown;
+
+      if (Array.isArray(parsed)) {
+        return {
+          ownerId: null,
+          scopeId,
+          types: normalizeCachedTypes(parsed) || [],
+        };
+      }
+
+      if (!parsed || typeof parsed !== "object") return null;
+
+      const payload = parsed as Partial<FondoMovementTypesCachePayload> & {
+        types?: unknown;
+      };
+
+      return {
+        ownerId:
+          typeof payload.ownerId === "string" ? payload.ownerId : null,
+        scopeId:
+          typeof payload.scopeId === "string"
+            ? payload.scopeId
+            : scopeId,
+        types: normalizeCachedTypes(payload.types) || [],
+      };
     } catch (error) {
       console.warn("[FondoMovementTypes] Error reading cache:", error);
     }
@@ -482,20 +470,9 @@ export class FondoMovementTypesService {
           } as FondoMovementTypeConfig))
           .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-        const existingCache = this.readCache(context.scopeId);
-        if (
-          context.scopeId &&
-          snapshot.empty &&
-          existingCache &&
-          existingCache.storageKind === "legacy"
-        ) {
-          return;
-        }
-
         const version = this.writeCache({
           ownerId: context.ownerId,
           scopeId: context.scopeId,
-          storageKind: context.scopeId ? "scoped" : "legacy",
           types,
         });
 
@@ -542,19 +519,18 @@ export class FondoMovementTypesService {
     const context = await this.resolveStorageContext(ownerId);
 
     const cached = this.readCache(context.scopeId);
-    if (cached) {
+    if (cached && Array.isArray(cached.types)) {
       console.log("[FondoMovementTypes] Loaded from cache");
       await this.initializeListener(ownerId);
       return cached.types;
     }
 
     console.log("[FondoMovementTypes] Cache miss, fetching from Firestore...");
-    const { types, storageKind } = await this.readTypesWithFallback(ownerId);
+    const { types } = await this.readTypesFromOwner(ownerId);
 
     this.writeCache({
       ownerId: context.ownerId,
       scopeId: context.scopeId,
-      storageKind,
       types,
     });
 
@@ -573,7 +549,7 @@ export class FondoMovementTypesService {
     GASTO: string[];
     EGRESO: string[];
   }> {
-    const types = await this.getTypesFromCacheOrDB(ownerId);
+    const types = (await this.getTypesFromCacheOrDB(ownerId)) || [];
 
     return {
       INGRESO: types

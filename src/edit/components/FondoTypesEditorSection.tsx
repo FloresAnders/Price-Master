@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Check, Plus, Trash2 } from "lucide-react";
 
 import type { FondoMovementTypeConfig } from "../../types/firestore";
 
@@ -16,9 +16,11 @@ type Props = {
     field: keyof FondoMovementTypeConfig,
     value: string | number,
   ) => void | Promise<void>;
+  saveFondoType: (index: number) => void | Promise<void>;
   removeFondoType: (index: number) => void;
   moveFondoTypeUp: (index: number) => void | Promise<void>;
   moveFondoTypeDown: (index: number) => void | Promise<void>;
+  isFondoTypeDirty: (type: FondoMovementTypeConfig) => boolean;
 };
 
 export default function FondoTypesEditorSection({
@@ -26,9 +28,11 @@ export default function FondoTypesEditorSection({
   seedFondoTypes,
   addFondoType,
   updateFondoType,
+  saveFondoType,
   removeFondoType,
   moveFondoTypeUp,
   moveFondoTypeDown,
+  isFondoTypeDirty,
 }: Props) {
   return (
     <div className="space-y-3 sm:space-y-4 lg:space-y-6">
@@ -99,9 +103,25 @@ export default function FondoTypesEditorSection({
                   onChange={(e) =>
                     updateFondoType(originalIndex, "name", e.target.value)
                   }
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    e.preventDefault();
+                    void saveFondoType(originalIndex);
+                  }}
                   className="flex-1 min-w-0 px-2 sm:px-2.5 lg:px-3 py-1.5 sm:py-2 border border-green-300 dark:border-green-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs sm:text-sm"
                   placeholder="Nombre"
                 />
+                {isFondoTypeDirty(type) ? (
+                  <button
+                    type="button"
+                    onClick={() => saveFondoType(originalIndex)}
+                    className="p-1.5 sm:px-2.5 sm:py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors flex-shrink-0 inline-flex items-center justify-center"
+                    title="Guardar"
+                    aria-label="Guardar tipo de movimiento"
+                  >
+                    <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  </button>
+                ) : null}
                 <button
                   onClick={() => removeFondoType(originalIndex)}
                   className="p-1.5 sm:px-2.5 sm:py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex-shrink-0"
@@ -161,9 +181,25 @@ export default function FondoTypesEditorSection({
                   onChange={(e) =>
                     updateFondoType(originalIndex, "name", e.target.value)
                   }
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    e.preventDefault();
+                    void saveFondoType(originalIndex);
+                  }}
                   className="flex-1 min-w-0 px-2 sm:px-2.5 lg:px-3 py-1.5 sm:py-2 border border-orange-300 dark:border-orange-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs sm:text-sm"
                   placeholder="Nombre"
                 />
+                {isFondoTypeDirty(type) ? (
+                  <button
+                    type="button"
+                    onClick={() => saveFondoType(originalIndex)}
+                    className="p-1.5 sm:px-2.5 sm:py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors flex-shrink-0 inline-flex items-center justify-center"
+                    title="Guardar"
+                    aria-label="Guardar tipo de movimiento"
+                  >
+                    <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  </button>
+                ) : null}
                 <button
                   onClick={() => removeFondoType(originalIndex)}
                   className="p-1.5 sm:px-2.5 sm:py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex-shrink-0"
@@ -223,9 +259,25 @@ export default function FondoTypesEditorSection({
                   onChange={(e) =>
                     updateFondoType(originalIndex, "name", e.target.value)
                   }
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    e.preventDefault();
+                    void saveFondoType(originalIndex);
+                  }}
                   className="flex-1 min-w-0 px-2 sm:px-2.5 lg:px-3 py-1.5 sm:py-2 border border-blue-300 dark:border-blue-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-xs sm:text-sm"
                   placeholder="Nombre"
                 />
+                {isFondoTypeDirty(type) ? (
+                  <button
+                    type="button"
+                    onClick={() => saveFondoType(originalIndex)}
+                    className="p-1.5 sm:px-2.5 sm:py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors flex-shrink-0 inline-flex items-center justify-center"
+                    title="Guardar"
+                    aria-label="Guardar tipo de movimiento"
+                  >
+                    <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  </button>
+                ) : null}
                 <button
                   onClick={() => removeFondoType(originalIndex)}
                   className="p-1.5 sm:px-2.5 sm:py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex-shrink-0"
