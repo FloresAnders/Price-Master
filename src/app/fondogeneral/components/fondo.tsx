@@ -9633,7 +9633,7 @@ export function FondoSection({
                 placeholder={
                   movementProvidersLoading
                     ? "Cargando proveedores..."
-                    : "Buscar proveedor"
+                    : "  Buscar proveedor"
                 }
               />
               <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center text-cyan-100/80">
@@ -9725,7 +9725,7 @@ export function FondoSection({
                 className={`h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)] ${
                   filterPaymentType !== "all" ? "pl-10 pr-11" : "pr-11"
                 }`}
-                placeholder="Buscar tipo de movimiento"
+                placeholder="  Buscar tipo de movimiento"
               />
               <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center text-cyan-100/80">
                 <Search className="h-4 w-4" />
