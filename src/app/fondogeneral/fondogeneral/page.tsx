@@ -8,7 +8,7 @@ import React, {
   useState,
 } from "react";
 import {
-  Banknote,
+  Archive,
   Building2,
   Landmark,
   Loader2,
@@ -72,7 +72,7 @@ const TAB_VISUALS: Record<
       "bg-gradient-to-br from-blue-500/25 to-blue-700/20 border-blue-300/70 shadow-xl shadow-blue-400/30",
   },
   cajanegra: {
-    icon: Banknote,
+    icon: Archive,
     shortLabel: "Caja",
     helper: "Dineros extra",
     tone: "bg-gradient-to-br from-blue-500/15 to-blue-700/10 border-blue-400/35 shadow-lg shadow-blue-500/20",
