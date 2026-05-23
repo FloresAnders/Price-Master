@@ -16,6 +16,7 @@ export type FacturaMovement = {
   id: string;
   empresa: string;
   accountId: MovementAccountKey;
+  amount: number;
   amountEgreso: number;
   amountIngreso: number;
   createdAt: string;
@@ -66,6 +67,11 @@ const sanitizeFacturaMovement = (raw: unknown): FacturaMovement | null => {
     return null;
   }
 
+  const amountValue =
+    candidate.amount !== undefined
+      ? Number(candidate.amount)
+      : Number(candidate.amountIngreso || 0) - Number(candidate.amountEgreso || 0);
+  const amount = Math.trunc(amountValue || 0);
   const amountEgreso = Math.trunc(Number(candidate.amountEgreso) || 0);
   const amountIngreso = Math.trunc(Number(candidate.amountIngreso) || 0);
 
@@ -73,6 +79,7 @@ const sanitizeFacturaMovement = (raw: unknown): FacturaMovement | null => {
     id,
     empresa,
     accountId,
+    amount,
     amountEgreso,
     amountIngreso,
     createdAt,

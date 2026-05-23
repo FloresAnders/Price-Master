@@ -1103,14 +1103,15 @@ export default function FacturasCreditoPage() {
                   <th className="px-3 py-2 text-left">Doc</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody>{/* CAMBIAR ACA SI SE QUIERE VER SALDO NEGATIVO */}
                 {filteredMovements.map((m) => {
-                  const amount =
-                    m.amountEgreso > 0 ? -m.amountEgreso : m.amountIngreso;
-                  const amountLabel =
-                    amount < 0
-                      ? `-${Math.abs(amount).toLocaleString("es-CR")}`
-                      : amount.toLocaleString("es-CR");
+                  const amount = Math.abs(Number(m.amount) || 0);
+                  const amountLabel = amount.toLocaleString("es-CR", {
+                    style: "currency",
+                    currency: m.currency,
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  });
                   return (
                     <tr
                       key={m.id}

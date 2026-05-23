@@ -6725,10 +6725,14 @@ export function FondoSection({
           const facturaEntry = updatedEntry as FondoEntry;
           const normalizedCompany = (company || "").trim();
           if (normalizedCompany.length > 0) {
+            const facturaAmount = Math.abs(
+              (facturaEntry.amountIngreso || 0) - (facturaEntry.amountEgreso || 0),
+            );
             const facturaCopy: FacturaMovement = {
               id: String(facturaEntry.id),
               empresa: normalizedCompany,
               accountId: accountKey,
+              amount: facturaAmount,
               providerCode: facturaEntry.providerCode,
               invoiceNumber: facturaEntry.invoiceNumber,
               invoiceDocType: normalizeInvoiceDocType(
@@ -6906,6 +6910,7 @@ export function FondoSection({
             id: entry.id,
             empresa: normalizedCompany,
             accountId: accountKey,
+            amount: Math.abs((entry.amountIngreso || 0) - (entry.amountEgreso || 0)),
             providerCode: entry.providerCode,
             invoiceNumber: entry.invoiceNumber,
             invoiceDocType: "FCR",
@@ -6988,6 +6993,7 @@ export function FondoSection({
                 id: entry.id,
                 empresa: normalizedCompany,
                 accountId: accountKey,
+                amount: Math.abs((entry.amountIngreso || 0) - (entry.amountEgreso || 0)),
                 providerCode: entry.providerCode,
                 invoiceNumber: entry.invoiceNumber,
                 invoiceDocType: "FCO",
