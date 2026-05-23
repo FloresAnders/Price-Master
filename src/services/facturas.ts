@@ -19,14 +19,19 @@ export type FacturaMovement = {
   amount: number;
   amountEgreso: number;
   amountIngreso: number;
+  balanceDue?: number;
   createdAt: string;
   currency: MovementCurrencyKey;
   invoiceNumber: string;
   manager: string;
+  manager2?: string;
   notes: string;
   invoiceDocType: "FCO" | "FCR";
   paymentType: string;
   providerCode: string;
+  paidAmount?: number;
+  paymentStatus?: "PENDIENTE" | "PARCIAL" | "PAGADA";
+  updateAt?: string;
 };
 
 const normalizeEmpresaDocId = (empresa: string): string => {
@@ -53,6 +58,7 @@ const sanitizeFacturaMovement = (raw: unknown): FacturaMovement | null => {
   const invoiceNumber = typeof candidate.invoiceNumber === "string" ? candidate.invoiceNumber : "";
   const createdAt = typeof candidate.createdAt === "string" ? candidate.createdAt : "";
   const manager = typeof candidate.manager === "string" ? candidate.manager : "";
+  const manager2 = typeof candidate.manager2 === "string" ? candidate.manager2 : "";
   const notes = typeof candidate.notes === "string" ? candidate.notes : "";
   const currency: MovementCurrencyKey = candidate.currency === "USD" ? "USD" : "CRC";
   const accountId: MovementAccountKey =
@@ -74,6 +80,15 @@ const sanitizeFacturaMovement = (raw: unknown): FacturaMovement | null => {
   const amount = Math.trunc(amountValue || 0);
   const amountEgreso = Math.trunc(Number(candidate.amountEgreso) || 0);
   const amountIngreso = Math.trunc(Number(candidate.amountIngreso) || 0);
+  const paidAmount = Math.trunc(Number(candidate.paidAmount) || 0);
+  const balanceDue = Math.trunc(Number(candidate.balanceDue) || 0);
+  const paymentStatus =
+    candidate.paymentStatus === "PAGADA" ||
+    candidate.paymentStatus === "PARCIAL"
+      ? candidate.paymentStatus
+      : "PENDIENTE";
+  const updateAt =
+    typeof candidate.updateAt === "string" ? candidate.updateAt : "";
 
   return {
     id,
@@ -86,10 +101,15 @@ const sanitizeFacturaMovement = (raw: unknown): FacturaMovement | null => {
     currency,
     invoiceNumber,
     manager,
+    manager2,
     notes,
     invoiceDocType: normalizeInvoiceDocType(candidate.invoiceDocType),
+    paidAmount: paidAmount > 0 ? paidAmount : undefined,
+    balanceDue: balanceDue > 0 ? balanceDue : undefined,
+    paymentStatus,
     paymentType: typeof candidate.paymentType === "string" ? candidate.paymentType : "",
     providerCode,
+    updateAt: updateAt || undefined,
   };
 };
 
@@ -99,6 +119,16 @@ export class FacturasService {
 
   static buildEmpresaDocId(empresa: string): string {
     return normalizeEmpresaDocId(empresa);
+  }
+
+  static buildMovementRef(empresa: string, movementId: string) {
+    return doc(
+      db,
+      this.COLLECTION_NAME,
+      this.buildEmpresaDocId(empresa),
+      this.MOVEMENTS_SUBCOLLECTION,
+      movementId,
+    );
   }
 
   static async upsertMovement(empresa: string, movement: FacturaMovement): Promise<void> {

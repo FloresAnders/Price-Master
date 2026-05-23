@@ -20,6 +20,7 @@ import {
 import { db } from "@/config/firebase";
 import { FirestoreService } from "./firestore";
 import movimientosFondosDocs from "@/data/movimientosFondosDocs.json";
+import type { FacturaMovement } from "./facturas";
 
 export type MovementCurrencyKey = "CRC" | "USD";
 export type MovementAccountKey =
@@ -37,6 +38,8 @@ export type MovementRecordBase = {
   amount?: number;
   amountEgreso?: number;
   amountIngreso?: number;
+  manager2?: string;
+  updateAt?: string;
 };
 
 const ACCOUNT_KEYS: MovementAccountKey[] = [
@@ -188,6 +191,48 @@ export class MovimientosFondosService {
   static buildCompanyMovementsKey(companyName: string): string {
     const resolved = this.resolveCompanyMovementsDocId(companyName);
     return resolved ?? this.buildMovementStorageKey((companyName || "").trim());
+  }
+
+  static buildMovementRef(
+    docId: string,
+    movementId: string,
+    accountId?: MovementAccountKey,
+  ) {
+    return doc(
+      this.movementsCollectionRef(docId, accountId),
+      movementId,
+    );
+  }
+
+  static buildInvoicePaymentMovement(input: {
+    company: string;
+    invoice: FacturaMovement;
+    paymentAmount: number;
+    updateAt: string;
+    manager2?: string;
+  }): Record<string, unknown> & { id: string } {
+    const invoice = input.invoice;
+    const paymentAmount = Math.max(0, Math.trunc(Number(input.paymentAmount) || 0));
+    const updateAt = String(input.updateAt || new Date().toISOString());
+    const paymentKey = updateAt.replace(/[:.]/g, "-");
+    return {
+      id: `fcr-pago-${invoice.id}-${paymentKey}`,
+      empresa: String(input.company || invoice.empresa || "").trim(),
+      accountId: "FondoGeneral",
+      providerCode: invoice.providerCode,
+      invoiceNumber: invoice.invoiceNumber,
+      invoiceDocType: "FCR",
+      paymentType: invoice.paymentType,
+      amountEgreso: paymentAmount,
+      amountIngreso: 0,
+      amount: paymentAmount,
+      manager: invoice.manager,
+      manager2: String(input.manager2 || "").trim() || undefined,
+      notes: invoice.notes,
+      createdAt: invoice.createdAt,
+      updateAt,
+      currency: invoice.currency,
+    };
   }
 
   /**
