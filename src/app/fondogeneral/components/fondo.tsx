@@ -190,17 +190,40 @@ const isIngresoDesdeFondoVentasMovement = (
   );
 };
 
+const getMovementTypeKey = (value: unknown): string =>
+  typeof value === "string" ? value.trim().toUpperCase() : "";
+
+const includesMovementType = (
+  types: readonly string[],
+  value: unknown,
+): boolean => {
+  const target = getMovementTypeKey(value);
+  if (!target) return false;
+  return types.some((type) => getMovementTypeKey(type) === target);
+};
+
+const getCanonicalFondoMovementType = (
+  value: unknown,
+): FondoMovementType | null => {
+  const target = getMovementTypeKey(value);
+  if (!target) return null;
+  const match = FONDO_TYPE_OPTIONS.find(
+    (type) => getMovementTypeKey(type) === target,
+  );
+  return (match ?? null) as FondoMovementType | null;
+};
+
 export const isFondoMovementType = (
   value: string,
 ): value is FondoMovementType =>
-  FONDO_TYPE_OPTIONS.includes(value as FondoMovementType);
+  getCanonicalFondoMovementType(value) !== null;
 
 export const isIngresoType = (type: FondoMovementType) =>
-  FONDO_INGRESO_TYPES.includes(type);
+  includesMovementType(FONDO_INGRESO_TYPES, type);
 export const isGastoType = (type: FondoMovementType) =>
-  FONDO_GASTO_TYPES.includes(type);
+  includesMovementType(FONDO_GASTO_TYPES, type);
 export const isEgresoType = (type: FondoMovementType) =>
-  FONDO_EGRESO_TYPES.includes(type);
+  includesMovementType(FONDO_EGRESO_TYPES, type);
 
 // Formatea en Titulo Caso cada palabra
 export const formatMovementType = (type: FondoMovementType | string) => {
@@ -265,7 +288,8 @@ const getCanonicalClosingPaymentType = (
 const normalizeStoredType = (value: unknown): FondoMovementType => {
   if (typeof value === "string") {
     const upper = value.toUpperCase().trim();
-    if (isFondoMovementType(upper)) return upper;
+    const canonicalType = getCanonicalFondoMovementType(value);
+    if (canonicalType) return canonicalType;
     // Compatibilidad con valores antiguos
     if (upper === "INGRESO") return "VENTAS";
     if (upper === "EGRESO") return "COMPRA INVENTARIO";
@@ -1158,11 +1182,9 @@ export function ProviderSection({ id }: { id?: string }) {
   // Helper para determinar la categoría basándose en los tipos del owner
   const getCategoryForType = (type?: string): "Ingreso" | "Gasto" | "Egreso" | undefined => {
     if (!type || typeof type !== "string") return undefined;
-    const normalized = type.trim().toUpperCase();
-    if (ingresoTypes.includes(normalized)) return "Ingreso";
-    if (gastoTypes.includes(normalized)) return "Gasto";
-    if (egresoTypes.includes(normalized)) return "Egreso";
-    // Fallback a la función legacy si no se encuentra
+    if (includesMovementType(ingresoTypes, type)) return "Ingreso";
+    if (includesMovementType(gastoTypes, type)) return "Gasto";
+    if (includesMovementType(egresoTypes, type)) return "Egreso";
     return undefined;
   };
 
