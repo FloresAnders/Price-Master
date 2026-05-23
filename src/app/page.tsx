@@ -112,6 +112,10 @@ const ConfiguracionFondoGeneralPage = dynamic(
   () => import("@/app/fondogeneral/configuracion/page"),
   { ssr: false },
 );
+const FacturasPage = dynamic(
+  () => import("@/app/fondogeneral/facturas/FacturasPage"),
+  { ssr: false },
+);
 const SolicitudForm = dynamic(
   () => import("@/components/solicitud/SolicitudForm"),
   { ssr: false },
@@ -154,6 +158,7 @@ type ActiveTab =
   | "solicitud"
   | "fondogeneral"
   | "agregarproveedor"
+  | "facturas"
   | "reportes"
   | "configuracion"
   | "pruebas";
@@ -290,6 +295,7 @@ export default function HomePage() {
           "solicitud",
           "fondogeneral",
           "agregarproveedor",
+          "facturas",
           "reportes",
           "configuracion",
           ...(isSuperAdmin ? ["pruebas"] : []),
@@ -342,6 +348,7 @@ export default function HomePage() {
           "solicitud",
           "fondogeneral",
           "agregarproveedor",
+          "facturas",
           "reportes",
           "configuracion",
           ...(isSuperAdmin ? ["pruebas"] : []),
@@ -435,6 +442,9 @@ export default function HomePage() {
 
               {/* AGREGAR PROVEEDOR */}
               {activeTab === "agregarproveedor" && <AgregarProveedorPage />}
+
+              {/* FACTURAS */}
+              {activeTab === "facturas" && <FacturasPage />}
 
               {/* REPORTES */}
               {activeTab === "reportes" && <ReportesPage />}
