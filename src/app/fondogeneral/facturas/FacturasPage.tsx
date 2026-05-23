@@ -29,6 +29,13 @@ const formatMovementType = (type: string) => {
   return trimmed.replace(/_/g, " ");
 };
 
+const formatInvoiceDocTypeLabel = (value: string) => {
+  const docType = String(value || "").trim().toUpperCase();
+  if (docType === "FCR") return "Factura a Credito";
+  if (docType === "FCO") return "Factura a Contado";
+  return formatMovementType(docType);
+};
+
 const dateKeyFromDate = (date: Date): string => {
   const yyyy = date.getFullYear();
   const mm = String(date.getMonth() + 1).padStart(2, "0");
@@ -152,6 +159,8 @@ export default function FacturasCreditoPage() {
   const [availableCompaniesError, setAvailableCompaniesError] = useState<
     string | null
   >(null);
+  const [companyEmployees, setCompanyEmployees] = useState<string[]>([]);
+  const [employeesLoading, setEmployeesLoading] = useState(false);
 
   const getCompanyKey = useCallback(
     (emp: Empresas) =>
@@ -223,6 +232,27 @@ export default function FacturasCreditoPage() {
     });
   }, [availableCompanies, actorOwnerIdSet, user?.role]);
 
+  const paymentEmployeeOptions = useMemo(() => {
+    const unique = new Set<string>();
+    const add = (value: unknown) => {
+      const name = String(value || "").trim();
+      if (name) unique.add(name);
+    };
+
+    companyEmployees.forEach((name) => add(name));
+
+    if (user?.role === "admin" || user?.role === "superadmin") {
+      add(user?.name);
+      add(user?.email);
+    }
+
+    add(paymentManager2);
+
+    return Array.from(unique).sort((a, b) =>
+      a.localeCompare(b, "es", { sensitivity: "base" }),
+    );
+  }, [companyEmployees, paymentManager2, user?.email, user?.name, user?.role]);
+
   useEffect(() => {
     if (visibleCompanies.length === 0) {
       if (selectedCompany) setSelectedCompany("");
@@ -260,7 +290,7 @@ export default function FacturasCreditoPage() {
       if (preferred) setSelectedCompany(getCompanyKey(preferred));
       else setSelectedCompany(getCompanyKey(visibleCompanies[0]));
     }
-  }, [getCompanyKey, selectedCompany, visibleCompanies.length, user?.ownercompanie, user?.ownerId]);
+  }, [getCompanyKey, selectedCompany, visibleCompanies, user?.ownercompanie, user?.ownerId]);
 
   const selectedPaymentBalance = useMemo(() => {
     if (!paymentTarget) return 0;
@@ -296,11 +326,24 @@ export default function FacturasCreditoPage() {
 
   const submitPayment = useCallback(
     async (mode: "partial" | "full") => {
-      if (!selectedCompany || !paymentTarget) return;
+      if (!selectedCompany) {
+        showToast("Selecciona una empresa antes de registrar el pago.", "error", 4000);
+        return;
+      }
+      if (!paymentTarget) return;
 
-      const totalAmount = Math.max(0, Math.trunc(Number(paymentTarget.amount) || 0));
-      const balance = resolveFacturaBalance(paymentTarget);
-      const enteredAmount = Math.max(0, Math.trunc(Number(paymentAmount) || 0));
+      const totalAmount = Math.max(
+        0,
+        Math.trunc(Number(paymentTarget.amount) || 0),
+      );
+      const balance = Math.max(
+        0,
+        Math.min(totalAmount, resolveFacturaBalance(paymentTarget)),
+      );
+      const enteredAmount = Math.max(
+        0,
+        Math.trunc(Number(paymentAmount) || 0),
+      );
       const paymentAmountToApply = mode === "full" ? balance : enteredAmount;
 
       if (paymentAmountToApply <= 0) {
@@ -452,6 +495,23 @@ export default function FacturasCreditoPage() {
   }, [setAvailableCompanies]);
 
   useEffect(() => {
+    if (!selectedCompany) {
+      setCompanyEmployees([]);
+      setEmployeesLoading(false);
+      return;
+    }
+
+    setEmployeesLoading(true);
+    const match = availableCompanies.find(
+      (emp) => getCompanyKey(emp) === selectedCompany,
+    );
+    const names =
+      match?.empleados?.map((emp) => emp.Empleado).filter(Boolean) ?? [];
+    setCompanyEmployees(names as string[]);
+    setEmployeesLoading(false);
+  }, [availableCompanies, getCompanyKey, selectedCompany]);
+
+  useEffect(() => {
     const onMouseDown = (e: MouseEvent) => {
       const target = e.target as Node;
 
@@ -570,7 +630,7 @@ export default function FacturasCreditoPage() {
 
   const handleOpenCreateMovement = () => {
     showToast(
-      "Para registrar una factura a crédito, cree el movimiento como FCR en Fondo General.",
+      "Para registrar una factura a crédito, cree el movimiento como Factura a Credito en Fondo General.",
       "info",
       5000,
     );
@@ -1239,7 +1299,7 @@ export default function FacturasCreditoPage() {
                   <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                     <select
                       id={companySelectId}
-                      value={company}
+                      value={selectedCompany}
                       onChange={(e) => handleAdminCompanyChange(e.target.value)}
                       disabled={
                         availableCompaniesLoading ||
@@ -1301,7 +1361,7 @@ export default function FacturasCreditoPage() {
               Facturas ({filteredMovements.length})
             </div>
             <div className="text-xs text-[var(--muted-foreground)]">
-              {movementsLoading ? "Cargando..." : company || ""}
+              {movementsLoading ? "Cargando..." : currentCompanyLabel}
             </div>
           </div>
 
@@ -1329,6 +1389,7 @@ export default function FacturasCreditoPage() {
                   });
                   const paymentStatus = resolveFacturaStatus(m);
                   const paymentBalance = resolveFacturaBalance(m);
+                  const isPaid = paymentBalance === 0;
                   return (
                     <tr
                       key={m.id}
@@ -1356,21 +1417,42 @@ export default function FacturasCreditoPage() {
                         {amountLabel} {m.currency}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
-                        <div>{m.invoiceDocType}</div>
-                        <div className="text-xs text-[var(--muted-foreground)]">
-                          {paymentStatus}
-                          {paymentBalance > 0 ? ` · saldo ${paymentBalance.toLocaleString("es-CR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : ""}
+                        <div className="inline-flex items-center gap-2">
+                          <span className="rounded-full border border-slate-500/40 bg-slate-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-slate-200">
+                            {formatInvoiceDocTypeLabel(m.invoiceDocType)}
+                          </span>
+                          <span
+                            className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
+                              paymentStatus === "PAGADA"
+                                ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-100"
+                                : paymentStatus === "PARCIAL"
+                                  ? "border-amber-500/40 bg-amber-500/15 text-amber-100"
+                                  : "border-slate-500/40 bg-slate-500/10 text-slate-200"
+                            }`}
+                          >
+                            {paymentStatus}
+                          </span>
                         </div>
+                        {paymentBalance > 0 && (
+                          <div className="mt-1 text-xs text-[var(--muted-foreground)]">
+                            saldo {paymentBalance.toLocaleString("es-CR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
                         {m.invoiceDocType === "FCR" ? (
                           <button
                             type="button"
                             onClick={() => openPaymentModal(m)}
-                            className="inline-flex items-center gap-1 rounded border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-100 transition-colors hover:bg-amber-500/20"
+                            disabled={isPaid}
+                            className={`inline-flex items-center gap-1 rounded border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                              isPaid
+                                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-100 cursor-not-allowed"
+                                : "border-amber-500/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20"
+                            }`}
                           >
                             <CreditCard className="h-3.5 w-3.5" />
-                            Pagar
+                            {isPaid ? "Pagada" : "Pagar"}
                           </button>
                         ) : (
                           <span className="text-xs text-[var(--muted-foreground)]">-</span>
@@ -1480,13 +1562,26 @@ export default function FacturasCreditoPage() {
                     <span className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
                       Encargado extra
                     </span>
-                    <input
-                      type="text"
+                    <select
                       value={paymentManager2}
                       onChange={(event) => setPaymentManager2(event.target.value)}
-                      placeholder="Nombre del encargado extra"
-                      className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
-                    />
+                      disabled={employeesLoading}
+                      className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <option value="">Sin encargado extra</option>
+                      {employeesLoading && (
+                        <option value="">Cargando empleados...</option>
+                      )}
+                      {!employeesLoading && paymentEmployeeOptions.length === 0 && (
+                        <option value="">No hay empleados registrados</option>
+                      )}
+                      {!employeesLoading &&
+                        paymentEmployeeOptions.map((name) => (
+                          <option key={name} value={name}>
+                            {name}
+                          </option>
+                        ))}
+                    </select>
                   </label>
                 </div>
 

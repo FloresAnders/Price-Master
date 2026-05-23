@@ -431,13 +431,12 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                           : "border-cyan-700/35 bg-cyan-950/25 text-cyan-100/75 hover:border-cyan-500/45 hover:bg-cyan-900/25"
                       } ${disabled ? "cursor-not-allowed opacity-45" : "active:scale-[0.99]"}`}
                     >
-                      {option === "FCO" ? "Contado (FCO)" : "Crédito (FCR)"}
+                      {option === "FCO" ? "Contado" : "Crédito"}
                     </button>
                   );
                 })}
               </div>
             </div>
-            {/*comentar aca */}
             {invoiceError && (
               <p className="mt-1 text-xs text-red-400">{invoiceError}</p>
             )}

@@ -229,7 +229,7 @@ export class MovimientosFondosService {
       manager: invoice.manager,
       manager2: String(input.manager2 || "").trim() || undefined,
       notes: invoice.notes,
-      createdAt: invoice.createdAt,
+      createdAt: updateAt,
       updateAt,
       currency: invoice.currency,
     };
