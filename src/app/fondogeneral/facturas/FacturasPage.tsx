@@ -11,6 +11,11 @@ import {
   CreditCard,
   X,
 } from "lucide-react";
+import Box from "@mui/material/Box";
+import Divider from "@mui/material/Divider";
+import Drawer from "@mui/material/Drawer";
+import IconButton from "@mui/material/IconButton";
+import Typography from "@mui/material/Typography";
 import { writeBatch } from "firebase/firestore";
 import { db } from "@/config/firebase";
 import { useProviders } from "@/hooks/useProviders";
@@ -18,7 +23,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { useActorOwnership } from "@/hooks/useActorOwnership";
 import useToast from "@/hooks/useToast";
 import { FacturasService, type FacturaMovement } from "@/services/facturas";
-import { MovimientosFondosService } from "@/services/movimientos-fondos";
+import {
+  MovimientosFondosService,
+  type MovementCurrencyKey,
+} from "@/services/movimientos-fondos";
 import { EmpresasService } from "@/services/empresas";
 
 import type { Empresas } from "../../../types/firestore";
@@ -32,9 +40,13 @@ const formatMovementType = (type: string) => {
 const formatInvoiceDocTypeLabel = (value: string) => {
   const docType = String(value || "").trim().toUpperCase();
   if (docType === "FCR") return "Factura a Credito";
+  if (docType === "NC") return "Nota de Credito";
   if (docType === "FCO") return "Factura a Contado";
   return formatMovementType(docType);
 };
+
+const buildFacturaMovementId = (): string =>
+  `FAC-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
 const dateKeyFromDate = (date: Date): string => {
   const yyyy = date.getFullYear();
@@ -109,6 +121,20 @@ export default function FacturasCreditoPage() {
   const [paymentNotes, setPaymentNotes] = useState("");
   const [paymentManager2, setPaymentManager2] = useState("");
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+  const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const [createProviderCode, setCreateProviderCode] = useState("");
+  const [createInvoiceNumber, setCreateInvoiceNumber] = useState("");
+  const [createInvoiceDocType, setCreateInvoiceDocType] = useState<
+    "FCR" | "NC"
+  >("FCR");
+  const [createAmount, setCreateAmount] = useState("");
+  const [createCurrency, setCreateCurrency] = useState<MovementCurrencyKey>(
+    "CRC",
+  );
+  const [createNotes, setCreateNotes] = useState("");
+  const [createManager, setCreateManager] = useState("");
+  const [createFormError, setCreateFormError] = useState<string | null>(null);
 
   // Filter state (mirrors Fondo toolbar names)
   const [providerFilter, setProviderFilter] = useState("");
@@ -252,6 +278,119 @@ export default function FacturasCreditoPage() {
       a.localeCompare(b, "es", { sensitivity: "base" }),
     );
   }, [companyEmployees, paymentManager2, user?.email, user?.name, user?.role]);
+
+  const createSelectedProvider = useMemo(
+    () => providers.find((provider) => provider.code === createProviderCode) ?? null,
+    [createProviderCode, providers],
+  );
+
+  const createPaymentType = useMemo(
+    () => String(createSelectedProvider?.type || "").trim(),
+    [createSelectedProvider],
+  );
+
+  const resetCreateForm = useCallback(() => {
+    setCreateProviderCode("");
+    setCreateInvoiceNumber("");
+    setCreateInvoiceDocType("FCR");
+    setCreateAmount("");
+    setCreateCurrency("CRC");
+    setCreateNotes("");
+    setCreateManager(String(user?.name || user?.email || "").trim());
+    setCreateFormError(null);
+  }, [user?.email, user?.name]);
+
+  const handleCloseCreateDrawer = useCallback(() => {
+    setCreateDrawerOpen(false);
+    setCreateFormError(null);
+  }, []);
+
+  const submitCreateMovement = useCallback(async () => {
+    const empresa = String(selectedCompany || "").trim();
+    if (!empresa) {
+      setCreateFormError("Selecciona una empresa antes de guardar la factura.");
+      return;
+    }
+
+    const providerCode = String(createProviderCode || "").trim();
+    if (!providerCode) {
+      setCreateFormError("Selecciona un proveedor.");
+      return;
+    }
+
+    const invoiceNumber = String(createInvoiceNumber || "").trim().toUpperCase();
+    if (!invoiceNumber) {
+      setCreateFormError("Ingresa el numero de factura.");
+      return;
+    }
+
+    const amount = Math.max(0, Math.trunc(Number(createAmount) || 0));
+    if (amount <= 0) {
+      setCreateFormError("Ingresa un monto mayor a cero.");
+      return;
+    }
+
+    const manager = String(createManager || "").trim();
+    if (!manager) {
+      setCreateFormError("Selecciona un encargado.");
+      return;
+    }
+
+    const nowISO = new Date().toISOString();
+    const isCreditNote = createInvoiceDocType === "NC";
+
+    const movement: FacturaMovement = {
+      id: buildFacturaMovementId(),
+      empresa,
+      accountId: "FondoGeneral",
+      amount,
+      amountEgreso: isCreditNote ? 0 : amount,
+      amountIngreso: isCreditNote ? amount : 0,
+      createdAt: nowISO,
+      currency: createCurrency,
+      invoiceNumber,
+      manager,
+      notes: String(createNotes || "").trim(),
+      invoiceDocType: createInvoiceDocType,
+      paymentType: createPaymentType || "FACTURA A CREDITO",
+      providerCode,
+      paidAmount: isCreditNote ? amount : undefined,
+      balanceDue: isCreditNote ? 0 : amount,
+      paymentStatus: isCreditNote ? "PAGADA" : "PENDIENTE",
+    };
+
+    setCreateSubmitting(true);
+    setCreateFormError(null);
+    try {
+      await FacturasService.upsertMovement(empresa, movement);
+      await loadMovements(empresa);
+      showToast(
+        isCreditNote ? "Nota de credito guardada." : "Factura a credito guardada.",
+        "success",
+        3500,
+      );
+      setCreateDrawerOpen(false);
+      resetCreateForm();
+    } catch (error) {
+      console.error("[FACTURAS] Error creating movement:", error);
+      setCreateFormError("No se pudo guardar la factura.");
+    } finally {
+      setCreateSubmitting(false);
+    }
+  }, [
+    createAmount,
+    createCurrency,
+    createInvoiceDocType,
+    createInvoiceNumber,
+    createManager,
+    createNotes,
+    createPaymentType,
+    createProviderCode,
+    loadMovements,
+    resetCreateForm,
+    selectedCompany,
+    showToast,
+  ]);
 
   useEffect(() => {
     if (visibleCompanies.length === 0) {
@@ -629,11 +768,12 @@ export default function FacturasCreditoPage() {
   ]);
 
   const handleOpenCreateMovement = () => {
-    showToast(
-      "Para registrar una factura a crédito, cree el movimiento como Factura a Credito en Fondo General.",
-      "info",
-      5000,
-    );
+    if (!selectedCompany) {
+      showToast("Selecciona una empresa antes de agregar una factura.", "error", 4000);
+      return;
+    }
+    resetCreateForm();
+    setCreateDrawerOpen(true);
   };
   /*-------------------Cambio de empresa-----------------------------------*/
 
@@ -1632,6 +1772,211 @@ export default function FacturasCreditoPage() {
             </div>
           </div>
         )}
+
+        <Drawer
+          anchor="right"
+          open={createDrawerOpen}
+          onClose={handleCloseCreateDrawer}
+          PaperProps={{
+            sx: {
+              width: { xs: "100vw", sm: 460 },
+              maxWidth: "100vw",
+              bgcolor: "#0d1117",
+              color: "#ffffff",
+            },
+          }}
+        >
+          <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                px: 3,
+                py: 2,
+              }}
+            >
+              <Typography variant="h6" component="h3" sx={{ fontWeight: 600 }}>
+                Agregar factura
+              </Typography>
+              <IconButton
+                aria-label="Cerrar"
+                onClick={handleCloseCreateDrawer}
+                sx={{ color: "var(--foreground)" }}
+              >
+                <X className="w-4 h-4" />
+              </IconButton>
+            </Box>
+            <Divider sx={{ borderColor: "var(--input-border)" }} />
+
+            <Box sx={{ flex: 1, overflowY: "auto", px: 3, py: 3 }}>
+              <p className="text-xs text-[var(--muted-foreground)] mb-3">
+                Empresa asignada:{" "}
+                <span className="font-medium text-[var(--foreground)]">
+                  {currentCompanyLabel}
+                </span>
+              </p>
+
+              {createFormError && (
+                <div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                  {createFormError}
+                </div>
+              )}
+
+              <form
+                className="flex flex-col gap-3"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void submitCreateMovement();
+                }}
+              >
+                <select
+                  value={createProviderCode}
+                  onChange={(event) => setCreateProviderCode(event.target.value)}
+                  disabled={createSubmitting || providersLoading}
+                  className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+                >
+                  <option value="">Seleccione un proveedor</option>
+                  {providers
+                    .slice()
+                    .sort((a, b) =>
+                      String(a.name || a.code).localeCompare(String(b.name || b.code), "es", {
+                        sensitivity: "base",
+                      }),
+                    )
+                    .map((provider) => (
+                      <option key={provider.code} value={provider.code}>
+                        {provider.name} ({provider.code})
+                      </option>
+                    ))}
+                </select>
+
+                <input
+                  value={createPaymentType ? formatMovementType(createPaymentType) : ""}
+                  placeholder="Tipo segun proveedor"
+                  readOnly
+                  className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 text-sm text-[var(--foreground)]"
+                />
+
+                <input
+                  value={createInvoiceNumber}
+                  onChange={(event) => setCreateInvoiceNumber(event.target.value.toUpperCase())}
+                  placeholder="Numero de factura"
+                  disabled={createSubmitting}
+                  className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+                />
+
+                <div>
+                  <p className="mb-2 text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
+                    Tipo de documento
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      { value: "FCR", label: "Factura de Credito (FCR)" },
+                      { value: "NC", label: "Nota de Credito (NC)" },
+                    ] as const).map((option) => {
+                      const active = createInvoiceDocType === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setCreateInvoiceDocType(option.value)}
+                          disabled={createSubmitting}
+                          className={`h-10 rounded border px-2 text-xs font-semibold transition-all duration-150 ${
+                            active
+                              ? "border-cyan-300/45 bg-cyan-500/25 text-cyan-50"
+                              : "border-cyan-700/35 bg-cyan-950/25 text-cyan-100/75 hover:border-cyan-500/45"
+                          } ${createSubmitting ? "cursor-not-allowed opacity-60" : "active:scale-[0.99]"}`}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCreateCurrency("CRC")}
+                    disabled={createSubmitting}
+                    className={`h-10 rounded border px-3 text-sm font-semibold transition-all duration-150 ${
+                      createCurrency === "CRC"
+                        ? "border-cyan-300/45 bg-cyan-500/25 text-cyan-50"
+                        : "border-cyan-700/35 bg-cyan-950/25 text-cyan-100/75 hover:border-cyan-500/45"
+                    } ${createSubmitting ? "cursor-not-allowed opacity-60" : "active:scale-[0.99]"}`}
+                  >
+                    Colones (CRC)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCreateCurrency("USD")}
+                    disabled={createSubmitting}
+                    className={`h-10 rounded border px-3 text-sm font-semibold transition-all duration-150 ${
+                      createCurrency === "USD"
+                        ? "border-cyan-300/45 bg-cyan-500/25 text-cyan-50"
+                        : "border-cyan-700/35 bg-cyan-950/25 text-cyan-100/75 hover:border-cyan-500/45"
+                    } ${createSubmitting ? "cursor-not-allowed opacity-60" : "active:scale-[0.99]"}`}
+                  >
+                    Dolares (USD)
+                  </button>
+                </div>
+
+                <input
+                  type="number"
+                  min="1"
+                  value={createAmount}
+                  onChange={(event) => setCreateAmount(event.target.value)}
+                  placeholder="Monto"
+                  disabled={createSubmitting}
+                  className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+                />
+
+                <select
+                  value={createManager}
+                  onChange={(event) => setCreateManager(event.target.value)}
+                  disabled={createSubmitting || employeesLoading}
+                  className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+                >
+                  <option value="">Seleccione un encargado</option>
+                  {paymentEmployeeOptions.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+
+                <textarea
+                  rows={4}
+                  value={createNotes}
+                  onChange={(event) => setCreateNotes(event.target.value)}
+                  placeholder="Observacion"
+                  disabled={createSubmitting}
+                  className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+                />
+
+                <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={handleCloseCreateDrawer}
+                    className="inline-flex items-center justify-center rounded-lg border border-[var(--input-border)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20"
+                    disabled={createSubmitting}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={createSubmitting}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Plus className="h-4 w-4" />
+                    {createSubmitting ? "Guardando..." : "Guardar factura"}
+                  </button>
+                </div>
+              </form>
+            </Box>
+          </Box>
+        </Drawer>
       </div>
     </div>
   );

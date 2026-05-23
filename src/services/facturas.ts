@@ -26,7 +26,7 @@ export type FacturaMovement = {
   manager: string;
   manager2?: string;
   notes: string;
-  invoiceDocType: "FCO" | "FCR";
+  invoiceDocType: "FCO" | "FCR" | "NC";
   paymentType: string;
   providerCode: string;
   paidAmount?: number;
@@ -45,8 +45,11 @@ const normalizeEmpresaDocId = (empresa: string): string => {
     .slice(0, 200);
 };
 
-const normalizeInvoiceDocType = (value: unknown): "FCO" | "FCR" =>
-  value === "FCR" ? "FCR" : "FCO";
+const normalizeInvoiceDocType = (value: unknown): "FCO" | "FCR" | "NC" => {
+  if (value === "FCR") return "FCR";
+  if (value === "NC") return "NC";
+  return "FCO";
+};
 
 const stripUndefinedDeep = <T>(value: T): T => {
   if (value === undefined) return value;
