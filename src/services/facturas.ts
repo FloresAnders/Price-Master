@@ -48,6 +48,27 @@ const normalizeEmpresaDocId = (empresa: string): string => {
 const normalizeInvoiceDocType = (value: unknown): "FCO" | "FCR" =>
   value === "FCR" ? "FCR" : "FCO";
 
+const stripUndefinedDeep = <T>(value: T): T => {
+  if (value === undefined) return value;
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => stripUndefinedDeep(item))
+      .filter((item) => item !== undefined) as T;
+  }
+
+  if (value && typeof value === "object") {
+    const output: Record<string, unknown> = {};
+    Object.entries(value as Record<string, unknown>).forEach(([key, val]) => {
+      const cleaned = stripUndefinedDeep(val);
+      if (cleaned !== undefined) output[key] = cleaned;
+    });
+    return output as T;
+  }
+
+  return value;
+};
+
 const sanitizeFacturaMovement = (raw: unknown): FacturaMovement | null => {
   if (!raw || typeof raw !== "object") return null;
   const candidate = raw as Partial<FacturaMovement> & Record<string, unknown>;
@@ -146,9 +167,10 @@ export class FacturasService {
       ...movement,
       empresa: String(movement.empresa || empresa).trim(),
       invoiceDocType: normalizeInvoiceDocType(movement.invoiceDocType),
+      paymentType: String(movement.paymentType || "").trim(),
     };
 
-    await setDoc(ref, payload, { merge: true });
+    await setDoc(ref, stripUndefinedDeep(payload), { merge: true });
   }
 
   static async listMovementsByEmpresa(

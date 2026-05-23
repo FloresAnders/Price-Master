@@ -37,6 +37,7 @@ import {
   Search,
   AlertTriangle,
   CheckCircle,
+  Info,
   RotateCcw,
   Mail,
   XCircle,
@@ -316,8 +317,10 @@ export type FondoEntry = {
   amountEgreso: number;
   amountIngreso: number;
   manager: string;
+  manager2?: string;
   notes: string;
   createdAt: string;
+  updateAt?: string;
   // OLAP optimization: company name embedded in movement doc
   empresa?: string;
   accountId?: MovementAccountKey;
@@ -334,6 +337,31 @@ export type FondoEntry = {
 
 const normalizeInvoiceDocType = (value: unknown): "FCO" | "FCR" =>
   value === "FCR" ? "FCR" : "FCO";
+
+const isPaidFcrMovement = (entry: Partial<FondoEntry>): boolean => {
+  if (normalizeInvoiceDocType(entry.invoiceDocType) !== "FCR") return false;
+  const hasManager2 =
+    typeof entry.manager2 === "string" && entry.manager2.trim().length > 0;
+  const hasUpdateAt =
+    typeof entry.updateAt === "string" && entry.updateAt.trim().length > 0;
+  return hasManager2 || hasUpdateAt;
+};
+
+const getPrimaryMovementDateISO = (entry: Partial<FondoEntry>): string => {
+  if (isPaidFcrMovement(entry)) {
+    const fromUpdate = String(entry.updateAt || "").trim();
+    if (fromUpdate) return fromUpdate;
+  }
+  return String(entry.createdAt || "").trim();
+};
+
+const getPrimaryMovementManager = (entry: Partial<FondoEntry>): string => {
+  if (isPaidFcrMovement(entry)) {
+    const fromManager2 = String(entry.manager2 || "").trim();
+    if (fromManager2) return fromManager2;
+  }
+  return String(entry.manager || "").trim();
+};
 
 /**
  * Simplifica un registro de auditoría guardando solo los campos que cambiaron.
@@ -758,6 +786,8 @@ export const sanitizeFondoEntries = (
     }
     const manager = coerceIdentifier(entry.manager);
     const createdAt = resolveCreatedAt(entry.createdAt);
+    const manager2 = coerceIdentifier((entry as any).manager2);
+    const updateAt = resolveCreatedAt((entry as any).updateAt);
 
     const closingBalanceCRC = coerceTruncNumber(
       (entry as any).closingBalanceCRC,
@@ -816,8 +846,10 @@ export const sanitizeFondoEntries = (
           : 0
         : amountIngreso,
       manager,
+      manager2,
       notes,
       createdAt,
+      updateAt,
       closingBalanceCRC,
       closingBalanceUSD,
       isAudit: !!entry.isAudit,
@@ -3491,6 +3523,9 @@ export function FondoSection({
   const [dailyClosingHistoryRange, setDailyClosingHistoryRange] =
     useState<string>("today");
   const [expandedClosings, setExpandedClosings] = useState<Set<string>>(
+    new Set(),
+  );
+  const [expandedFcrInfoRows, setExpandedFcrInfoRows] = useState<Set<string>>(
     new Set(),
   );
   const [pendingCierreDeCaja, setPendingCierreDeCaja] = useState(false);
@@ -9504,7 +9539,7 @@ export function FondoSection({
   const daysWithMovements = useMemo(() => {
     const s = new Set<string>();
     fondoEntries.forEach((entry) => {
-      const d = new Date(entry.createdAt);
+      const d = new Date(getPrimaryMovementDateISO(entry));
       if (!Number.isNaN(d.getTime())) s.add(dateKeyFromDate(d));
     });
     return s;
@@ -9517,7 +9552,9 @@ export function FondoSection({
     // date filtering (from/to)
     if (fromFilter || toFilter) {
       base = base.filter((entry) => {
-        const key = dateKeyFromDate(new Date(entry.createdAt));
+        const key = dateKeyFromDate(
+          new Date(getPrimaryMovementDateISO(entry)),
+        );
         if (fromFilter && toFilter) return key >= fromFilter && key <= toFilter;
         if (fromFilter && !toFilter) return key === fromFilter;
         if (!fromFilter && toFilter) return key === toFilter;
@@ -9560,7 +9597,7 @@ export function FondoSection({
             .toLowerCase()
             .includes(q) ||
           provName.toLowerCase().includes(q) ||
-          String(e.manager ?? "")
+          String(getPrimaryMovementManager(e) ?? "")
             .toLowerCase()
             .includes(q) ||
           String(e.paymentType ?? "")
@@ -9586,7 +9623,7 @@ export function FondoSection({
   const earliestEntryKey = useMemo<string | null>(() => {
     let earliest: string | null = null;
     filteredEntries.forEach((entry) => {
-      const date = new Date(entry.createdAt);
+      const date = new Date(getPrimaryMovementDateISO(entry));
       if (Number.isNaN(date.getTime())) return;
       const key = dateKeyFromDate(date);
       if (!earliest || key < earliest) earliest = key;
@@ -9619,7 +9656,8 @@ export function FondoSection({
     if (pageSize === "daily") {
       return filteredEntries.filter(
         (entry) =>
-          dateKeyFromDate(new Date(entry.createdAt)) === currentDailyKey,
+          dateKeyFromDate(new Date(getPrimaryMovementDateISO(entry))) ===
+          currentDailyKey,
       );
     }
     const start = pageIndex * pageSize;
@@ -9678,7 +9716,7 @@ export function FondoSection({
   const groupedByDay = useMemo(() => {
     const map = new Map<string, FondoEntry[]>();
     paginatedEntries.forEach((entry) => {
-      const d = new Date(entry.createdAt);
+      const d = new Date(getPrimaryMovementDateISO(entry));
       // use local date key YYYY-MM-DD
       const key =
         d.getFullYear() +
@@ -11226,12 +11264,26 @@ export function FondoSection({
                             const previousBalance = isEntryEgreso
                               ? balanceAfter + normalizedEgreso
                               : balanceAfter - normalizedIngreso;
-                            const recordedAt = new Date(fe.createdAt);
+                            const isPaidFcrEntry = isPaidFcrMovement(fe);
+                            const primaryManager = getPrimaryMovementManager(fe);
+                            const primaryDateIso = getPrimaryMovementDateISO(fe);
+                            const recordedAt = new Date(primaryDateIso);
                             const formattedDate = Number.isNaN(
                               recordedAt.getTime(),
                             )
                               ? "Sin fecha"
                               : dateTimeFormatter.format(recordedAt);
+                            const originalRegisteredAt = new Date(
+                              fe.createdAt,
+                            );
+                            const formattedOriginalRegisteredAt = Number.isNaN(
+                              originalRegisteredAt.getTime(),
+                            )
+                              ? "Sin fecha"
+                              : dateTimeFormatter.format(originalRegisteredAt);
+                            const isFcrInfoExpanded = expandedFcrInfoRows.has(
+                              fe.id,
+                            );
                             const isAutoAdjustment = isAutoAdjustmentProvider(
                               fe.providerCode,
                             );
@@ -11401,14 +11453,14 @@ export function FondoSection({
                               }
                             }
                             return (
-                              <tr
-                                key={fe.id}
-                                className={`transition-colors hover:bg-[var(--muted)]/35 [&>td]:border-b [&>td]:border-cyan-900/35 ${
-                                  isMostRecent
-                                    ? "bg-gray-500/10 hover:bg-gray-500/20"
-                                    : ""
-                                } ${isMovementLocked(fe) ? "opacity-60" : ""}`}
-                              >
+                              <React.Fragment key={fe.id}>
+                                <tr
+                                  className={`transition-colors hover:bg-[var(--muted)]/35 [&>td]:border-b [&>td]:border-cyan-900/35 ${
+                                    isMostRecent
+                                      ? "bg-gray-500/10 hover:bg-gray-500/20"
+                                      : ""
+                                  } ${isMovementLocked(fe) ? "opacity-60" : ""}`}
+                                >
                                 <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
                                   {formattedDate}
                                 </td>
@@ -11661,7 +11713,7 @@ export function FondoSection({
                                   )}
                                 </td>
                                 <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                                  {fe.manager}
+                                  {primaryManager}
                                 </td>
                                 <td className="px-3 py-2 align-top">
                                   {!isMovementLocked(fe) && (
@@ -11691,26 +11743,59 @@ export function FondoSection({
                                         return (
                                           <>
                                             {canEdit && (
-                                              <button
-                                                type="button"
-                                                className="inline-flex items-center gap-1.5 rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs font-medium text-[var(--foreground)] transition-all duration-150 hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--muted)] disabled:translate-y-0 disabled:opacity-50"
-                                                onClick={() =>
-                                                  handleEditMovement(fe)
-                                                }
-                                                disabled={
-                                                  editingEntryId === fe.id
-                                                }
-                                                title={
-                                                  isAutoAdjustment
-                                                    ? "Los ajustes automáticos no se pueden editar"
-                                                    : "Editar movimiento"
-                                                }
-                                              >
-                                                <Pencil className="w-4 h-4" />
-                                                {editingEntryId === fe.id
-                                                  ? "Editando"
-                                                  : "Editar"}
-                                              </button>
+                                              <>
+                                                <button
+                                                  type="button"
+                                                  className="inline-flex items-center gap-1.5 rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs font-medium text-[var(--foreground)] transition-all duration-150 hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--muted)] disabled:translate-y-0 disabled:opacity-50"
+                                                  onClick={() =>
+                                                    handleEditMovement(fe)
+                                                  }
+                                                  disabled={
+                                                    editingEntryId === fe.id
+                                                  }
+                                                  title={
+                                                    isAutoAdjustment
+                                                      ? "Los ajustes automáticos no se pueden editar"
+                                                      : "Editar movimiento"
+                                                  }
+                                                >
+                                                  <Pencil className="w-4 h-4" />
+                                                  {editingEntryId === fe.id
+                                                    ? "Editando"
+                                                    : "Editar"}
+                                                </button>
+
+                                                {isPaidFcrEntry && (
+                                                  <button
+                                                    type="button"
+                                                    className="inline-flex items-center justify-center rounded border border-emerald-500/40 bg-emerald-500/10 p-1.5 text-emerald-400 transition-all duration-150 hover:-translate-y-0.5 hover:border-emerald-400 hover:bg-emerald-500/20"
+                                                    onClick={() => {
+                                                      setExpandedFcrInfoRows(
+                                                        (prev) => {
+                                                          const next = new Set(
+                                                            prev,
+                                                          );
+                                                          if (
+                                                            next.has(fe.id)
+                                                          ) {
+                                                            next.delete(fe.id);
+                                                          } else {
+                                                            next.add(fe.id);
+                                                          }
+                                                          return next;
+                                                        },
+                                                      );
+                                                    }}
+                                                    title="Ver información de pago FCR"
+                                                    aria-label="Ver información de pago FCR"
+                                                    aria-expanded={
+                                                      isFcrInfoExpanded
+                                                    }
+                                                  >
+                                                    <Info className="w-4 h-4" />
+                                                  </button>
+                                                )}
+                                              </>
                                             )}
 
                                             {canDelete && (
@@ -11739,7 +11824,57 @@ export function FondoSection({
                                     </div>
                                   )}
                                 </td>
-                              </tr>
+                                </tr>
+
+                                {isPaidFcrEntry && isFcrInfoExpanded && (
+                                  <tr className="bg-emerald-500/5 [&>td]:border-b [&>td]:border-cyan-900/35">
+                                    <td colSpan={7} className="px-3 py-2">
+                                      <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 p-3 text-xs text-[var(--foreground)]">
+                                        <div className="mb-2 flex items-center gap-2 text-emerald-300">
+                                          <Info className="w-4 h-4" />
+                                          <span className="font-semibold">
+                                            Detall  e de Factura Credito pagada
+                                          </span>
+                                        </div>
+                                        <div className="grid gap-1.5 sm:grid-cols-2">
+                                          <div>
+                                            <span className="text-[var(--muted-foreground)]">
+                                              Encargado de pago:
+                                            </span>{" "}
+                                            <span className="font-medium">
+                                              {primaryManager || "-"}
+                                            </span>
+                                          </div>
+                                          <div>
+                                            <span className="text-[var(--muted-foreground)]">
+                                              Fecha de pago:
+                                            </span>{" "}
+                                            <span className="font-medium">
+                                              {formattedDate}
+                                            </span>
+                                          </div>
+                                          <div>
+                                            <span className="text-[var(--muted-foreground)]">
+                                              Registró factura:
+                                            </span>{" "}
+                                            <span className="font-medium">
+                                              {fe.manager || "-"}
+                                            </span>
+                                          </div>
+                                          <div>
+                                            <span className="text-[var(--muted-foreground)]">
+                                              Fecha registro factura:
+                                            </span>{" "}
+                                            <span className="font-medium">
+                                              {formattedOriginalRegisteredAt}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
                             );
                           })}
                         </tbody>
