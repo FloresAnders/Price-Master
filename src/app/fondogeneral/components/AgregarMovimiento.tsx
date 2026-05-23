@@ -185,7 +185,10 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
       return a.name.localeCompare(b.name);
     });
 
-  const getProviderCategory = (type?: FondoMovementType, category?: "Ingreso" | "Gasto" | "Egreso") => {
+  const getProviderCategory = (
+    type?: FondoMovementType,
+    category?: "Ingreso" | "Gasto" | "Egreso",
+  ) => {
     if (!type && !category) return null;
     if (type) {
       if (isIngresoType(type)) return "INGRESO" as const;
@@ -351,7 +354,10 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                       >
                         <div className="flex items-center justify-between gap-3">
                           {(() => {
-                            const category = getProviderCategory(p.type, p.category);
+                            const category = getProviderCategory(
+                              p.type,
+                              p.category,
+                            );
                             const isIngreso = category === "INGRESO";
                             const isEgresoProvider = category === "EGRESO";
                             const isGasto = category === "GASTO";
@@ -402,7 +408,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
               disabled={invoiceDisabled}
             />
 
-            <div className="mt-3">
+            {/*<div className="mt-3">
               <label className={labelClass}>
                 <FileText className="h-3.5 w-3.5" />
                 Tipo factura
@@ -415,7 +421,9 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                     <button
                       key={option}
                       type="button"
-                      onClick={() => !disabled && onInvoiceDocTypeChange(option)}
+                      onClick={() =>
+                        !disabled && onInvoiceDocTypeChange(option)
+                      }
                       disabled={disabled}
                       className={`h-10 rounded border px-3 text-sm font-semibold transition-all duration-150 ${
                         active
@@ -428,7 +436,8 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                   );
                 })}
               </div>
-            </div>
+            </div>*/}
+
             {invoiceError && (
               <p className="mt-1 text-xs text-red-400">{invoiceError}</p>
             )}
