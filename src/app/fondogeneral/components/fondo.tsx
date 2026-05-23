@@ -883,7 +883,9 @@ export function ProviderSection({ id }: { id?: string }) {
       return assignedCompany;
     }
   });
-  const company = canSelectCompany ? adminCompany : resolvedCompany || assignedCompany;
+  const company = canSelectCompany
+    ? adminCompany
+    : resolvedCompany || assignedCompany;
   const {
     providers,
     loading: providersLoading,
@@ -1004,6 +1006,22 @@ export function ProviderSection({ id }: { id?: string }) {
         .toLowerCase();
     const getEmpresaCompanyKey = (emp: Empresas) =>
       String(emp?.name || emp?.ubicacion || emp?.id || "").trim();
+    const normalizedAssignedCompany = normalizeCompanyKey(assignedCompany);
+
+    if (authLoading || !user) {
+      setOwnerCompanies([]);
+      setOwnerCompaniesLoading(false);
+      setOwnerCompaniesError(null);
+      return;
+    }
+
+    if (!canSelectCompany && !normalizedAssignedCompany) {
+      setOwnerCompanies([]);
+      setResolvedCompany("");
+      setOwnerCompaniesLoading(false);
+      setOwnerCompaniesError(null);
+      return;
+    }
 
     if (isAdminUser && allowedOwnerIds.size === 0) {
       setOwnerCompanies([]);
@@ -1027,28 +1045,36 @@ export function ProviderSection({ id }: { id?: string }) {
               if (!owner) return false;
               return allowedOwnerIds.has(owner);
             })
-          : empresas;
+          : canSelectCompany
+            ? empresas
+            : empresas.filter((emp) => {
+                const candidates = [emp.name, emp.ubicacion, emp.id]
+                  .map(normalizeCompanyKey)
+                  .filter(Boolean);
+                return candidates.includes(normalizedAssignedCompany);
+              });
         setOwnerCompanies(filtered);
-        setAdminCompany((current) => {
-          const normalizedCurrent = normalizeCompanyKey(current);
-          if (normalizedCurrent.length > 0) {
-            const exists = filtered.some((emp) => {
-              const candidates = [emp.name, emp.ubicacion, emp.id]
-                .map(normalizeCompanyKey)
-                .filter(Boolean);
-              return candidates.includes(normalizedCurrent);
-            });
-            if (exists) return current;
-          }
-          const fallback = filtered[0];
-          return fallback ? getEmpresaCompanyKey(fallback) : "";
-        });
-        if (!canSelectCompany) {
-          setResolvedCompany((current) => {
-            if (current.trim().length > 0) return current;
+        if (canSelectCompany) {
+          setAdminCompany((current) => {
+            const normalizedCurrent = normalizeCompanyKey(current);
+            if (normalizedCurrent.length > 0) {
+              const exists = filtered.some((emp) => {
+                const candidates = [emp.name, emp.ubicacion, emp.id]
+                  .map(normalizeCompanyKey)
+                  .filter(Boolean);
+                return candidates.includes(normalizedCurrent);
+              });
+              if (exists) return current;
+            }
             const fallback = filtered[0];
             return fallback ? getEmpresaCompanyKey(fallback) : "";
           });
+        }
+        if (!canSelectCompany) {
+          const fallback = filtered[0];
+          setResolvedCompany(
+            fallback ? getEmpresaCompanyKey(fallback) : assignedCompany,
+          );
         }
       })
       .catch((err) => {
@@ -1067,7 +1093,15 @@ export function ProviderSection({ id }: { id?: string }) {
     return () => {
       isMounted = false;
     };
-  }, [allowedOwnerIds, allowedOwnerIdsKey, canSelectCompany, isAdminUser]);
+  }, [
+    allowedOwnerIds,
+    allowedOwnerIdsKey,
+    assignedCompany,
+    authLoading,
+    canSelectCompany,
+    isAdminUser,
+    user,
+  ]);
 
   const [providerName, setProviderName] = useState("");
   const [providerType, setProviderType] = useState<FondoMovementType | "">("");
@@ -3087,7 +3121,9 @@ export function FondoSection({
       return assignedCompany;
     }
   });
-  const company = canSelectCompany ? adminCompany : resolvedCompany || assignedCompany;
+  const company = canSelectCompany
+    ? adminCompany
+    : resolvedCompany || assignedCompany;
   const {
     providers,
     loading: providersLoading,
@@ -3160,6 +3196,22 @@ export function FondoSection({
         .toLowerCase();
     const getEmpresaCompanyKey = (emp: Empresas) =>
       String(emp?.name || emp?.ubicacion || emp?.id || "").trim();
+    const normalizedAssignedCompany = normalizeCompanyKey(assignedCompany);
+
+    if (authLoading || !user) {
+      setOwnerCompanies([]);
+      setOwnerCompaniesLoading(false);
+      setOwnerCompaniesError(null);
+      return;
+    }
+
+    if (!canSelectCompany && !normalizedAssignedCompany) {
+      setOwnerCompanies([]);
+      setResolvedCompany("");
+      setOwnerCompaniesLoading(false);
+      setOwnerCompaniesError(null);
+      return;
+    }
 
     if (isAdminUser && allowedOwnerIds.size === 0) {
       setOwnerCompanies([]);
@@ -3183,40 +3235,37 @@ export function FondoSection({
               if (!owner) return false;
               return allowedOwnerIds.has(owner);
             })
-          : (() => {
-              const normalizedAssignedCompany = normalizeCompanyKey(
-                assignedCompany,
-              );
-              if (!normalizedAssignedCompany) return empresas;
-              return empresas.filter((emp) => {
+          : canSelectCompany
+            ? empresas
+            : empresas.filter((emp) => {
                 const candidates = [emp.name, emp.ubicacion, emp.id]
                   .map(normalizeCompanyKey)
                   .filter(Boolean);
                 return candidates.includes(normalizedAssignedCompany);
               });
-            })();
         setOwnerCompanies(filtered);
-        setAdminCompany((current) => {
-          const normalizedCurrent = normalizeCompanyKey(current);
-          if (normalizedCurrent.length > 0) {
-            const exists = filtered.some((emp) => {
-              const candidates = [emp.name, emp.ubicacion, emp.id]
-                .map(normalizeCompanyKey)
-                .filter(Boolean);
-              return candidates.includes(normalizedCurrent);
-            });
-            if (exists) return current;
-          }
+        if (canSelectCompany) {
+          setAdminCompany((current) => {
+            const normalizedCurrent = normalizeCompanyKey(current);
+            if (normalizedCurrent.length > 0) {
+              const exists = filtered.some((emp) => {
+                const candidates = [emp.name, emp.ubicacion, emp.id]
+                  .map(normalizeCompanyKey)
+                  .filter(Boolean);
+                return candidates.includes(normalizedCurrent);
+              });
+              if (exists) return current;
+            }
 
-          const fallback = filtered[0];
-          return fallback ? getEmpresaCompanyKey(fallback) : "";
-        });
-        if (!canSelectCompany) {
-          setResolvedCompany((current) => {
-            if (current.trim().length > 0) return current;
             const fallback = filtered[0];
             return fallback ? getEmpresaCompanyKey(fallback) : "";
           });
+        }
+        if (!canSelectCompany) {
+          const fallback = filtered[0];
+          setResolvedCompany(
+            fallback ? getEmpresaCompanyKey(fallback) : assignedCompany,
+          );
         }
       })
       .catch((err) => {
@@ -3235,7 +3284,15 @@ export function FondoSection({
     return () => {
       isMounted = false;
     };
-  }, [allowedOwnerIds, allowedOwnerIdsKey, assignedCompany, canSelectCompany, isAdminUser]);
+  }, [
+    allowedOwnerIds,
+    allowedOwnerIdsKey,
+    assignedCompany,
+    authLoading,
+    canSelectCompany,
+    isAdminUser,
+    user,
+  ]);
 
   const activeOwnerId = useMemo(() => {
     const normalizeCompanyKey = (value: unknown) =>
