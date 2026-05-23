@@ -230,11 +230,37 @@ export default function FacturasCreditoPage() {
     }
 
     const selected = String(selectedCompany || "").trim();
-    const exists = visibleCompanies.some((emp) => getCompanyKey(emp) === selected);
-    if (!selected || !exists) {
-      setSelectedCompany(getCompanyKey(visibleCompanies[0]));
+
+    // Try to prefer a company that matches the authenticated user
+    const userCompanyKey = String(user?.ownercompanie || "").trim();
+    const userOwnerId = String(user?.ownerId || "").trim();
+
+    let preferred: Empresas | undefined;
+    if (userCompanyKey) {
+      preferred = visibleCompanies.find((emp) =>
+        getCompanyKey(emp) === userCompanyKey || String(emp?.id || "").trim() === userCompanyKey,
+      );
     }
-  }, [getCompanyKey, selectedCompany, visibleCompanies]);
+
+    if (!preferred && userOwnerId) {
+      preferred = visibleCompanies.find(
+        (emp) => String(emp?.ownerId || "").trim() === userOwnerId,
+      );
+    }
+
+    const exists = visibleCompanies.some((emp) => getCompanyKey(emp) === selected);
+
+    if (!selected) {
+      if (preferred) setSelectedCompany(getCompanyKey(preferred));
+      else setSelectedCompany(getCompanyKey(visibleCompanies[0]));
+      return;
+    }
+
+    if (!exists) {
+      if (preferred) setSelectedCompany(getCompanyKey(preferred));
+      else setSelectedCompany(getCompanyKey(visibleCompanies[0]));
+    }
+  }, [getCompanyKey, selectedCompany, visibleCompanies.length, user?.ownercompanie, user?.ownerId]);
 
   const selectedPaymentBalance = useMemo(() => {
     if (!paymentTarget) return 0;
