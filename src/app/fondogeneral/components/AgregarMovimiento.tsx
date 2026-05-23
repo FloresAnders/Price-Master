@@ -272,6 +272,8 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
               {selectedProvider && (
                 <button
                   type="button"
+                  aria-label="Limpiar proveedor seleccionado"
+                  title="Limpiar proveedor seleccionado"
                   onMouseDown={(e) => {
                     e.preventDefault();
                     onProviderChange("");

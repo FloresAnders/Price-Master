@@ -1,16 +1,8 @@
 "use client";
 
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Archive,
-  Building2,
-  Landmark,
   Loader2,
   Lock,
   ShieldAlert,
@@ -146,6 +138,7 @@ export default function FondoPage() {
 
   const [companySelectorSlot, setCompanySelectorSlot] =
     useState<React.ReactNode | null>(null);
+  const [accountDockVisible, setAccountDockVisible] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setAccountsSectionVisible(true), 80);
@@ -191,39 +184,17 @@ export default function FondoPage() {
     [],
   );
 
-  const [isScrolled, setIsScrolled] = useState(false);
-
-  const sectionRef = useRef<HTMLDivElement>(null);
-  const [sectionWidth, setSectionWidth] = useState<number | undefined>(
-    undefined,
-  );
-
-  useEffect(() => {
-    const updateWidth = () => {
-      if (window.innerWidth < 768) {
-        setIsScrolled(false); // resetea si el usuario achica la ventana
-        return;
-      }
-      if (sectionRef.current && !isScrolled) {
-        setSectionWidth(sectionRef.current.offsetWidth);
-      }
-    };
-    updateWidth();
-    window.addEventListener("resize", updateWidth);
-    return () => window.removeEventListener("resize", updateWidth);
-  }, [isScrolled]);
-
-  // DESPUÉS
   useEffect(() => {
     const handleScroll = () => {
-      if (window.innerWidth < 768) {
-        setIsScrolled(false);
-        return;
-      }
-      setIsScrolled(window.scrollY > 80);
+      setAccountDockVisible(window.scrollY > 360);
     };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleScroll);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+    };
   }, []);
 
   const handleAccountTabClick = useCallback(
@@ -276,7 +247,7 @@ export default function FondoPage() {
   }
 
   return (
-    <div className="rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-3 shadow-sm sm:p-4 md:p-5">
+    <div className="rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-3 pb-28 shadow-sm sm:p-4 sm:pb-28 md:p-5 md:pb-28">
       <div className="flex flex-col gap-4">
         <div className="rounded-lg border border-[var(--input-border)] bg-[var(--muted)]/10 p-2 sm:p-3">
           <div className="flex min-w-0 flex-col gap-3">
@@ -304,202 +275,103 @@ export default function FondoPage() {
                 </div>
               </div>
 
-              {availableTabs.length >= 2 && user?.role === "user" ? (
-                <div className="flex items-center gap-3">
-                  <div
-                    role="tablist"
-                    aria-label="Cuentas"
-                    ref={sectionRef}
-                    style={isScrolled ? { width: sectionWidth } : undefined}
-                    className={`flex min-w-0 flex-col gap-3 p-2 sm:p-3 xl:flex-row xl:items-start xl:justify-between z-30 transition-all duration-700 ease-out motion-reduce:transition-none ${
-                      isScrolled
-                        ? "fixed top-4 left-1/2 -translate-x-1/2 shadow-lg border border-[var(--input-border)] bg-[#0f1519]/95 backdrop-blur-sm rounded-xl"
-                        : "relative bg-[#0f1519]"
-                    } ${
-                      accountsSectionVisible
-                        ? "opacity-100 translate-y-0"
-                        : "opacity-0 translate-y-3"
-                    }`}
-                  >
-                    {availableTabs.map((tab, index) => {
-                      const isActive = effectiveActive === tab.id;
-                      const visual = TAB_VISUALS[tab.id];
-                      const Icon = visual.icon;
-                      return (
-                        <button
-                          key={tab.id}
-                          type="button"
-                          role="tab"
-                          tabIndex={isActive ? 0 : -1}
-                          aria-selected={isActive}
-                          onClick={() => handleAccountTabClick(tab.id)}
-                          style={getCardEntranceStyle(index)}
-                          className={`group relative flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition-all duration-700 ease-out motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)] ${
-                            accountsSectionVisible
-                              ? "opacity-100 translate-y-0"
-                              : "opacity-0 translate-y-4"
-                          } ${
-                            isActive
-                              ? "border-[var(--accent)] bg-[#131b21] text-[var(--foreground)] shadow-sm"
-                              : "border-[var(--input-border)] bg-[#0e1418] text-[var(--muted-foreground)] hover:border-[var(--input-border)] hover:bg-[#141c21] hover:text-[var(--foreground)]"
-                          }`}
-                        >
-                          <span
-                            className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border ${
-                              isActive ? visual.activeTone : visual.tone
-                            }`}
-                          >
-                            {visual.logoSrc ? (
-                              <img
-                                src={visual.logoSrc}
-                                alt={tab.label}
-                                className="h-6 w-6 object-contain"
-                                draggable={false}
-                              />
-                            ) : Icon ? (
-                              <Icon className="h-4 w-4" />
-                            ) : null}
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-semibold">
-                              {tab.label}
-                            </span>
-                            <span className="mt-0.5 block truncate text-xs text-[var(--muted-foreground)]">
-                              {visual.helper}
-                            </span>
-                          </span>
-                          {isActive && (
-                            <span className="absolute bottom-1 left-3 right-3 h-0.5 rounded-full bg-[var(--accent)]" />
-                          )}
-                        </button>
-                      );
-                    })}
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+                <div className="rounded-lg border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-2 text-center sm:min-w-[112px]">
+                  <div className="text-lg font-semibold leading-none text-[var(--foreground)]">
+                    {availableTabs.length}
                   </div>
-                  <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
-                    <div className="rounded-lg border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-2 text-center sm:min-w-[112px]">
-                      <div className="text-lg font-semibold leading-none text-[var(--foreground)]">
-                        {availableTabs.length}
-                      </div>
-                      <div className="mt-1 text-[11px] font-medium uppercase text-[var(--muted-foreground)]">
-                        Cuentas
-                      </div>
-                    </div>
-                    <div className="rounded-lg border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-2 text-center sm:min-w-[112px]">
-                      <div className="text-lg font-semibold leading-none text-[var(--foreground)]">
-                        {activeTab ? TAB_VISUALS[activeTab.id].shortLabel : "-"}
-                      </div>
-                      <div className="mt-1 text-[11px] font-medium uppercase text-[var(--muted-foreground)]">
-                        Activa
-                      </div>
-                    </div>
+                  <div className="mt-1 text-[11px] font-medium uppercase text-[var(--muted-foreground)]">
+                    Cuentas
                   </div>
                 </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
-                  <div className="rounded-lg border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-2 text-center sm:min-w-[112px]">
-                    <div className="text-lg font-semibold leading-none text-[var(--foreground)]">
-                      {availableTabs.length}
-                    </div>
-                    <div className="mt-1 text-[11px] font-medium uppercase text-[var(--muted-foreground)]">
-                      Cuentas
-                    </div>
+                <div className="rounded-lg border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-2 text-center sm:min-w-[112px]">
+                  <div className="text-lg font-semibold leading-none text-[var(--foreground)]">
+                    {activeTab ? TAB_VISUALS[activeTab.id].shortLabel : "-"}
                   </div>
-                  <div className="rounded-lg border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-2 text-center sm:min-w-[112px]">
-                    <div className="text-lg font-semibold leading-none text-[var(--foreground)]">
-                      {activeTab ? TAB_VISUALS[activeTab.id].shortLabel : "-"}
-                    </div>
-                    <div className="mt-1 text-[11px] font-medium uppercase text-[var(--muted-foreground)]">
-                      Activa
-                    </div>
+                  <div className="mt-1 text-[11px] font-medium uppercase text-[var(--muted-foreground)]">
+                    Activa
                   </div>
                 </div>
-              )}
+              </div>
             </div>
 
-            {availableTabs.length > 0 &&
-              (availableTabs.length < 2 || user?.role !== "user") && (
+            {availableTabs.length > 0 && (
+              <div
+                className={`sticky top-2 z-30 flex min-w-0 max-w-full flex-col gap-3 rounded-xl border border-[var(--input-border)] bg-[#0f1519]/95 p-2 shadow-lg backdrop-blur-sm transition-all duration-700 ease-out motion-reduce:transition-none sm:p-3 lg:top-4 xl:flex-row xl:items-start xl:justify-between ${
+                  accountsSectionVisible
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-3"
+                }`}
+              >
                 <div
-                  ref={sectionRef}
-                  style={isScrolled ? { width: sectionWidth } : undefined}
-                  className={`flex min-w-0 flex-col gap-3 p-2 sm:p-3 xl:flex-row xl:items-start xl:justify-between z-30 transition-all duration-700 ease-out motion-reduce:transition-none ${
-                    isScrolled
-                      ? "fixed top-4 left-1/2 -translate-x-1/2 shadow-lg border border-[var(--input-border)] bg-[var(--muted)]/60 backdrop-blur-sm rounded-xl"
-                      : "relative bg-[var(--card-bg)]"
-                  } ${
-                    accountsSectionVisible
-                      ? "opacity-100 translate-y-0"
-                      : "opacity-0 translate-y-3"
-                  }`}
+                  role="tablist"
+                  aria-label="Cuentas"
+                  className="flex min-w-0 flex-1 gap-2 overflow-x-auto overscroll-x-contain scroll-px-2 pb-2 lg:flex-wrap lg:overflow-visible lg:pb-0"
                 >
-                  <div
-                    role="tablist"
-                    aria-label="Cuentas"
-                    className={`grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:flex xl:flex-nowrap xl:items-center ${isScrolled ? "xl:justify-center" : ""}`}
-                  >
-                    {availableTabs.map((tab, index) => {
-                      const isActive = effectiveActive === tab.id;
-                      const visual = TAB_VISUALS[tab.id];
-                      const Icon = visual.icon;
-                      return (
-                        <button
-                          key={tab.id}
-                          type="button"
-                          role="tab"
-                          tabIndex={isActive ? 0 : -1}
-                          aria-selected={isActive}
-                          onClick={() => handleAccountTabClick(tab.id)}
-                          style={getCardEntranceStyle(index)}
-                          className={`group relative flex min-h-[64px] items-center gap-3 rounded-lg border px-3 py-2 text-left transition-all duration-700 ease-out motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)] lg:min-w-[180px] ${
-                            accountsSectionVisible
-                              ? "opacity-100 translate-y-0"
-                              : "opacity-0 translate-y-4"
-                          } ${
-                            isActive
-                              ? "border-[var(--accent)] bg-[#131b21] text-[var(--foreground)] shadow-sm"
-                              : "border-[var(--input-border)] bg-[#0e1418] text-[var(--muted-foreground)] hover:border-[var(--input-border)] hover:bg-[#141c21] hover:text-[var(--foreground)]"
+                  {availableTabs.map((tab, index) => {
+                    const isActive = effectiveActive === tab.id;
+                    const visual = TAB_VISUALS[tab.id];
+                    const Icon = visual.icon;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        role="tab"
+                        tabIndex={isActive ? 0 : -1}
+                        aria-selected={isActive}
+                        onClick={() => handleAccountTabClick(tab.id)}
+                        style={getCardEntranceStyle(index)}
+                        className={`group relative flex min-h-[68px] w-[230px] max-w-[calc(100vw-2.5rem)] flex-none items-center gap-3 rounded-lg border px-3 py-2 text-left transition-all duration-700 ease-out motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)] lg:min-w-[210px] lg:max-w-[260px] lg:flex-1 lg:basis-[210px] ${
+                          accountsSectionVisible
+                            ? "opacity-100 translate-y-0"
+                            : "opacity-0 translate-y-4"
+                        } ${
+                          isActive
+                            ? "border-[var(--accent)] bg-[#131b21] text-[var(--foreground)] shadow-sm"
+                            : "border-[var(--input-border)] bg-[#0e1418] text-[var(--muted-foreground)] hover:border-[var(--input-border)] hover:bg-[#141c21] hover:text-[var(--foreground)]"
+                        }`}
+                      >
+                        <span
+                          className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg border ${
+                            isActive ? visual.activeTone : visual.tone
                           }`}
                         >
-                          <span
-                            className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg border ${
-                              isActive ? visual.activeTone : visual.tone
-                            }`}
-                          >
-                            {visual.logoSrc ? (
-                              <img
-                                src={visual.logoSrc}
-                                alt={tab.label}
-                                className="h-8 w-8 object-contain"
-                                draggable={false}
-                              />
-                            ) : Icon ? (
-                              <Icon className="h-5 w-5" />
-                            ) : null}
+                          {visual.logoSrc ? (
+                            <img
+                              src={visual.logoSrc}
+                              alt={tab.label}
+                              className="h-8 w-8 object-contain"
+                              draggable={false}
+                            />
+                          ) : Icon ? (
+                            <Icon className="h-5 w-5" />
+                          ) : null}
+                        </span>
+                        <span className="min-w-0 flex-1 pr-1">
+                          <span className="block whitespace-normal text-sm font-semibold leading-tight">
+                            {tab.label}
                           </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-semibold">
-                              {tab.label}
-                            </span>
-                            <span className="mt-0.5 block truncate text-xs text-[var(--muted-foreground)]">
-                              {visual.helper}
-                            </span>
+                          <span className="mt-0.5 block whitespace-normal text-xs leading-tight text-[var(--muted-foreground)]">
+                            {visual.helper}
                           </span>
-                          {isActive && (
-                            <span className="absolute bottom-1 left-3 right-3 h-0.5 rounded-full bg-[var(--accent)]" />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {activeTab && companySelectorSlot && (
-                    <div className="w-full min-w-0 xl:w-[380px] xl:flex-shrink-0">
-                      <div className="min-w-0 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-2 sm:p-3">
-                        {companySelectorSlot}
-                      </div>
-                    </div>
-                  )}
+                        </span>
+                        {isActive && (
+                          <span className="absolute bottom-1 left-3 right-3 h-0.5 rounded-full bg-[var(--accent)]" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
-              )}
+
+                {activeTab && companySelectorSlot && (
+                  <div className="w-full min-w-0 xl:w-[380px] xl:flex-shrink-0">
+                    <div className="min-w-0 rounded-lg border border-[var(--input-border)] bg-[#0c1216] p-2 sm:p-3">
+                      {companySelectorSlot}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
         {/* Contenido principal */}
@@ -520,6 +392,80 @@ export default function FondoPage() {
           )}
         </div>
       </div>
+      {availableTabs.length > 0 && (
+        <div
+          className={`fixed top-3 z-40 hidden rounded-xl border border-[var(--input-border)] bg-[#0b1115]/95 p-2 shadow-2xl shadow-black/35 backdrop-blur-md transition-all duration-300 ease-out md:left-4 md:right-4 md:block lg:left-[calc(var(--admin-sidebar-width)+1rem)] lg:right-4 ${
+            accountDockVisible
+              ? "pointer-events-auto translate-y-0 opacity-100"
+              : "pointer-events-none translate-y-6 opacity-0"
+          }`}
+          aria-hidden={!accountDockVisible}
+        >
+          <div className="mx-auto flex max-w-6xl flex-col gap-2 xl:flex-row xl:items-center">
+            <div
+              role="tablist"
+              aria-label="Acceso rapido a cuentas"
+              className="flex min-w-0 flex-1 flex-wrap gap-2"
+            >
+              {availableTabs.map((tab) => {
+                const isActive = effectiveActive === tab.id;
+                const visual = TAB_VISUALS[tab.id];
+                const Icon = visual.icon;
+                return (
+                  <button
+                    key={`dock-${tab.id}`}
+                    type="button"
+                    role="tab"
+                    tabIndex={accountDockVisible ? 0 : -1}
+                    aria-selected={isActive}
+                    onClick={() => handleAccountTabClick(tab.id)}
+                    className={`group relative flex min-h-[48px] min-w-[132px] flex-1 basis-[132px] items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[#0b1115] xl:max-w-[160px] ${
+                      isActive
+                        ? "border-[var(--accent)] bg-[#17232a] text-[var(--foreground)]"
+                        : "border-[var(--input-border)] bg-[#0f171c] text-[var(--muted-foreground)] hover:bg-[#162027] hover:text-[var(--foreground)]"
+                    }`}
+                  >
+                    <span
+                      className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md border ${
+                        isActive ? visual.activeTone : visual.tone
+                      }`}
+                    >
+                      {visual.logoSrc ? (
+                        <img
+                          src={visual.logoSrc}
+                          alt={tab.label}
+                          className="h-4 w-4 object-contain"
+                          draggable={false}
+                        />
+                      ) : Icon ? (
+                        <Icon className="h-3.5 w-3.5" />
+                      ) : null}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block whitespace-normal text-[13px] font-semibold leading-tight">
+                        {tab.label}
+                      </span>
+                      <span className="mt-0.5 block whitespace-normal text-[10px] leading-tight text-[var(--muted-foreground)]">
+                        {visual.helper}
+                      </span>
+                    </span>
+                    {isActive && (
+                      <span className="absolute bottom-1 left-3 right-3 h-0.5 rounded-full bg-[var(--accent)]" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            {activeTab && companySelectorSlot && (
+              <div className="w-full min-w-0 xl:w-[360px] xl:flex-shrink-0">
+                <div className="max-h-[84px] min-w-0 overflow-y-auto rounded-lg border border-[var(--input-border)] bg-[#0c1216] p-2">
+                  {companySelectorSlot}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

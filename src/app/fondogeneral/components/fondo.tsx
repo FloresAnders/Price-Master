@@ -1843,7 +1843,6 @@ export function ProviderSection({ id }: { id?: string }) {
   if (!fondoTypesLoaded) {
     return (
       <div id={id}>
-        s
         <div className="p-8 bg-[var(--card-bg)] border border-[var(--input-border)] rounded text-center space-y-3">
           <div className="flex justify-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)]"></div>
@@ -9765,7 +9764,7 @@ export function FondoSection({
     if (!showCompanySelector) return null;
 
     return (
-      <div className="flex w-full min-w-0 flex-col gap-3 text-sm text-[var(--foreground)] xl:flex-row xl:items-end xl:gap-4 border">
+      <div className="flex w-full min-w-0 flex-col gap-3 text-sm text-[var(--foreground)] xl:flex-row xl:items-end xl:gap-4">
         <div className="min-w-0 flex-1">
           <p className="text-[11px] uppercase tracking-wide text-[var(--muted-foreground)] ">
             Empresa actual
