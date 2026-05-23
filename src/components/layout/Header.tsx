@@ -101,7 +101,6 @@ export type ActiveTab =
   | "converter"
   | "xml"
   | "cashcounter"
-  | "facturas"
   | "recetas"
   | "agregarproducto"
   | "timingcontrol"
@@ -115,6 +114,7 @@ export type ActiveTab =
   | "edit"
   | "solicitud"
   | "fondogeneral"
+  | "facturas"
   | "agregarproveedor"
   | "reportes";
 
@@ -462,13 +462,6 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       permission: "xml" as keyof UserPermissions,
     },
     {
-      id: "facturas" as ActiveTab,
-      name: "Facturas",
-      icon: FileCode,
-      description: "Gestión de facturas a crédito",
-      permission: "facturasCredito" as keyof UserPermissions,
-    },
-    {
       id: "cashcounter" as ActiveTab,
       name: "Contador Efectivo",
       icon: Banknote,
@@ -560,6 +553,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const isFondoSection =
     currentHash === "#fondogeneral" ||
     currentHash === "#agregarproveedor" ||
+    currentHash === "#facturas" ||
     currentHash === "#reportes" ||
     currentHash === "#configuracion";
 
@@ -784,7 +778,24 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
                 )}
               </button>
-
+              {/* Facturas */}
+              <button
+                onClick={() => {
+                  safeWindow.location.hash("#facturas");
+                }}
+                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
+                  currentHash === "#facturas"
+                    ? "text-[var(--tab-text-active)] font-semibold"
+                    : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
+                }`}
+                title="Facturas"
+              >
+                <Banknote className="w-4 h-4" />
+                <span className="hidden xl:inline">Facturas</span>
+                {currentHash === "#facturas" && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
+                )}
+              </button>
               {/* Reportes */}
               {isFondoPrivileged && (
                 <button

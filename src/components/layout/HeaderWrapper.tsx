@@ -40,7 +40,6 @@ export default function HeaderWrapper() {
         "controlhorario",
         "empleados",
         "funciones",
-        "facturas",
         "recetas",
         "agregarproducto",
         "calculohorasprecios",

@@ -1099,7 +1099,6 @@ export default function DataEditor() {
           "cajaNegra",
           "solicitud",
           "scanhistory",
-          "facturasCredito",
         ];
 
         if (!updated[userIndex].permissions) {
@@ -1167,7 +1166,6 @@ export default function DataEditor() {
       cajaNegra: "Caja Negra",
       solicitud: "Solicitud",
       scanhistory: "Historial de Escaneos",
-      facturasCredito: "Facturas Crédito",
     };    return labels[permission] || permission;
   };
 
@@ -1187,7 +1185,6 @@ export default function DataEditor() {
       solicitud:
         "Permite gestionar solicitudes dentro del módulo de mantenimiento",
       scanhistory: "Ver historial completo de escaneos realizados",
-      facturasCredito: "Gestión de facturas a crédito",
     };    return descriptions[permission] || permission;
   };
 

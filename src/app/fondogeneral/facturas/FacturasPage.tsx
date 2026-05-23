@@ -21,7 +21,7 @@ import { FacturasService, type FacturaMovement } from "@/services/facturas";
 import { MovimientosFondosService } from "@/services/movimientos-fondos";
 import { EmpresasService } from "@/services/empresas";
 
-import type { Empresas } from "../../types/firestore";
+import type { Empresas } from "../../../types/firestore";
 
 const formatMovementType = (type: string) => {
   const trimmed = String(type || "").trim();

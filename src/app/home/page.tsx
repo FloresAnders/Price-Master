@@ -52,13 +52,6 @@ const menuItems = [
     permission: "xml" as keyof UserPermissions,
   },
   {
-    id: "facturas",
-    name: "Facturas Crédito",
-    icon: FileCode,
-    description: "En mantenimiento",
-    permission: "facturasCredito" as keyof UserPermissions,
-  },
-  {
     id: "cashcounter",
     name: "Contador Efectivo",
     icon: Banknote,
@@ -188,11 +181,6 @@ export default function HomePage() {
     if (id === "fondogeneral") {
       // Use hash navigation so header/tab system picks it up (/#fondogeneral)
       safeWindow.location.hash("#fondogeneral");
-      return;
-    }
-
-    if (id === "facturas") {
-      safeWindow.location.hash("#facturas");
       return;
     }
 

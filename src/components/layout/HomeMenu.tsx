@@ -100,13 +100,6 @@ const menuItems = [
     permission: "xml" as keyof UserPermissions,
   },
   {
-    id: "facturas",
-    name: "Facturas Crédito",
-    icon: FileCode,
-    description: "Gestión de facturas a crédito",
-    permission: "facturasCredito" as keyof UserPermissions,
-  },
-  {
     id: "cashcounter",
     name: "Contador Efectivo",
     icon: Banknote,
