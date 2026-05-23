@@ -3428,9 +3428,9 @@ export function FondoSection({
   const movementProvidersLoading = isCajaNegra ? false : providersLoading;
 
   const [fondoTypesLoaded, setFondoTypesLoaded] = useState(false);
-  const [, setIngresoTypes] = useState<string[]>([]);
-  const [, setGastoTypes] = useState<string[]>([]);
-  const [, setEgresoTypes] = useState<string[]>([]);
+  const [ingresoTypes, setIngresoTypes] = useState<string[]>([]);
+  const [gastoTypes, setGastoTypes] = useState<string[]>([]);
+  const [egresoTypes, setEgresoTypes] = useState<string[]>([]);
 
   const [fondoEntries, setFondoEntries] = useState<FondoEntry[]>([]);
   const [companyEmployees, setCompanyEmployees] = useState<string[]>([]);
@@ -7678,21 +7678,24 @@ export function FondoSection({
       }
 
       if (p.category === "Ingreso") {
-        map.set(p.code, FONDO_INGRESO_TYPES[0]);
+        const fallback = ingresoTypes[0];
+        if (fallback) map.set(p.code, fallback);
         return;
       }
 
       if (p.category === "Gasto") {
-        map.set(p.code, FONDO_GASTO_TYPES[0]);
+        const fallback = gastoTypes[0];
+        if (fallback) map.set(p.code, fallback);
         return;
       }
 
       if (p.category === "Egreso") {
-        map.set(p.code, FONDO_EGRESO_TYPES[0]);
+        const fallback = egresoTypes[0];
+        if (fallback) map.set(p.code, fallback);
       }
     });
     return map;
-  }, [movementProviders]);
+  }, [movementProviders, ingresoTypes, gastoTypes, egresoTypes]);
   const selectedProviderExists = selectedProvider
     ? movementProviders.some((p) => p.code === selectedProvider)
     : false;
