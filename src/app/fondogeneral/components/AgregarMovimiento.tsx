@@ -408,7 +408,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
               disabled={invoiceDisabled}
             />
 
-            {/*<div className="mt-3">
+            <div className="mt-3">
               <label className={labelClass}>
                 <FileText className="h-3.5 w-3.5" />
                 Tipo factura
@@ -436,8 +436,8 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                   );
                 })}
               </div>
-            </div>*/}
-
+            </div>
+            {/*comentar aca */}
             {invoiceError && (
               <p className="mt-1 text-xs text-red-400">{invoiceError}</p>
             )}
