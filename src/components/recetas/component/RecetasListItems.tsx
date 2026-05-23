@@ -140,15 +140,15 @@ export function RecetasListItems(props: {
                         Costo: <span className="font-normal">{costoLabel}</span>
                       </span>
                       <span className="whitespace-nowrap font-semibold text-[var(--foreground)]/60 transition-colors duration-150 hover:text-[var(--foreground)]">
-                        Precio Con utilidad:{" "}
+                        Precio + Utilidad:{" "}
                         <span className="font-normal">{precioConMargen}</span>
                       </span>
                       <span className="whitespace-nowrap font-semibold text-[var(--foreground)]/60 transition-colors duration-150 hover:text-[var(--foreground)]">
-                        Precio IVA:{" "}
+                        Precio + Utilidad + IVA:{" "}
                         <span className="font-normal">{precioLabel}</span>
                       </span>
                       <span className="whitespace-nowrap font-extrabold text-xl text-[var(--foreground)]/80 transition-all duration-150 hover:text-[var(--foreground)] hover:scale-[1.01] inline-block">
-                        Precio de venta sugerido:{" "}
+                        Precio Venta Sugerido:{" "}
                         <span className="font-extrabold">
                           {precioVentaSugeridoLabel}
                         </span>

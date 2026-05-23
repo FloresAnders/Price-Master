@@ -189,7 +189,7 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
     const b20 = (bills[20] || 0) * 20 + (bills[10] || 0) * 10;
     return [{ l: "$20+$10", v: b20 }, { l: "$+$5", v: b20 + (bills[5] || 0) * 5 }, { l: "$1", v: (bills[1] || 0) * 1 }];
   };
-  const denomGridCols = "grid-cols-[minmax(200px,1fr)_220px_minmax(250px,1fr)]";
+  const denomGridCols = "grid-cols-1 md:grid-cols-[minmax(140px,1fr)_160px_minmax(140px,1fr)] lg:grid-cols-[minmax(200px,1fr)_220px_minmax(250px,1fr)]";
 
   return (
     <div className="relative">
@@ -340,7 +340,7 @@ function CounterSidebar({
   const filtered = data.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div className="w-[240px] flex-shrink-0 bg-[#0d1117] rounded-2xl border border-white/10 flex flex-col h-[calc(100vh-120px)] overflow-hidden">
+    <div className="w-full lg:w-[240px] flex-shrink-0 bg-[#0d1117] rounded-2xl border border-white/10 flex flex-col lg:h-[calc(100vh-120px)] h-auto overflow-hidden order-2 lg:order-1">
       {/* Title */}
       <div className="p-4 border-b border-white/10">
         <h3 className="text-[10px] font-bold bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent uppercase tracking-[0.2em] mb-3">Contadores</h3>
@@ -454,7 +454,7 @@ function RightPanel({ data, showExtra, setShowExtra, showBD, setShowBD, onUpdate
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
 
   return (
-    <div className="w-[19.5rem] flex-shrink-0">
+    <div className="w-full lg:w-[19.5rem] flex-shrink-0 order-3 lg:order-3">
       <div className="lg:sticky lg:top-20 space-y-3">
         {/* Summary Card */}
         <div className="rounded-2xl border border-white/10 bg-[#0d1117] p-5 text-center">
@@ -744,8 +744,8 @@ export default function CashCounterTabs() {
         </div>
       </div>
 
-      {/* ── 3 Column Layout ── */}
-      <div className="flex gap-6 max-w-[1800px] mx-auto px-4 sm:px-6">
+      {/* ── 3 Column Layout (responsive: stack on mobile) ── */}
+      <div className="flex flex-col lg:flex-row gap-6 max-w-[1800px] mx-auto px-4 sm:px-6">
         {/* Left Sidebar - Counter Navigation */}
         <CounterSidebar
           data={data}
@@ -765,7 +765,7 @@ export default function CashCounterTabs() {
         />
 
         {/* Main Content */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 order-1 lg:order-2">
           {data.length > 0 ? (
             <CashCounter
               id={active}

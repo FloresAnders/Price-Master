@@ -1,4 +1,5 @@
 import { FirestoreService } from "./firestore";
+import { UsersService } from "./users";
 
 export type FuncionGeneralDoc = {
   type: "general";
@@ -37,6 +38,9 @@ export type FuncionesEmpresaDoc = {
 export type FuncionAudience = "DELIKOR" | "DELIFOOD";
 
 export const DELIFOOD_EMPRESA_ID = "DELIFOOD";
+const SHARED_FUNCIONES_COLLECTION = "funciones";
+const OWNER_FUNCIONES_COLLECTION = "funcionesByOwner";
+const OWNER_FUNCIONES_SUBCOLLECTION = "generales";
 
 export function isDelifoodEmpresaId(empresaId: string): boolean {
   return (
@@ -64,6 +68,39 @@ function normalizeEmpresaIds(raw: unknown): string[] {
   // Never allow scoping to DELIFOOD from the DELIKOR path.
   unique.delete(DELIFOOD_EMPRESA_ID);
   return Array.from(unique.values());
+}
+
+function normalizeOwnerCollectionSegment(value: string): string {
+  return String(value || "")
+    .trim()
+    .replace(/[\\/#?\[\]]/g, "_")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isNumericFuncionId(value: unknown): boolean {
+  return /^\d+$/.test(String(value || "").trim());
+}
+
+function isGeneralFuncionDoc(raw: unknown): boolean {
+  if (!raw || typeof raw !== "object") return false;
+  const d = raw as Record<string, unknown>;
+  return (
+    d.type === "general" ||
+    Boolean(d.funcionId && d.nombre && !d.empresaId)
+  );
+}
+
+function isSharedSpecialFuncionDoc(raw: unknown): boolean {
+  if (!isGeneralFuncionDoc(raw)) return false;
+  const d = raw as Record<string, unknown>;
+  return !isNumericFuncionId(d.funcionId);
+}
+
+function isOwnedNumericFuncionDoc(raw: unknown): boolean {
+  if (!isGeneralFuncionDoc(raw)) return false;
+  const d = raw as Record<string, unknown>;
+  return isNumericFuncionId(d.funcionId);
 }
 
 export function filterFuncionesGeneralesForEmpresa<
@@ -109,7 +146,40 @@ const normalizeDocIdPart = (raw: string): string => {
 };
 
 export class FuncionesService {
-  private static readonly COLLECTION_NAME = "funciones";
+  private static readonly COLLECTION_NAME = SHARED_FUNCIONES_COLLECTION;
+
+  private static async resolveOwnerCollectionId(ownerId: string): Promise<string> {
+    const normalizedOwnerId = String(ownerId || "").trim();
+    if (!normalizedOwnerId) {
+      throw new Error("ownerId requerido para funciones por owner.");
+    }
+
+    try {
+      const admin = await UsersService.getPrimaryAdminByOwner(normalizedOwnerId);
+      const fullName =
+        typeof admin?.fullName === "string"
+          ? admin.fullName.trim()
+          : typeof admin?.name === "string"
+            ? admin.name.trim()
+            : "";
+
+      return normalizeOwnerCollectionSegment(fullName || normalizedOwnerId);
+    } catch (error) {
+      console.warn("[FuncionesService] Error resolving owner collection id:", error);
+      return normalizeOwnerCollectionSegment(normalizedOwnerId);
+    }
+  }
+
+  static async getOwnerGeneralCollectionPath(ownerId: string): Promise<{
+    ownerCollectionId: string;
+    collectionName: string;
+  }> {
+    const ownerCollectionId = await this.resolveOwnerCollectionId(ownerId);
+    return {
+      ownerCollectionId,
+      collectionName: `${OWNER_FUNCIONES_COLLECTION}/${ownerCollectionId}/${OWNER_FUNCIONES_SUBCOLLECTION}`,
+    };
+  }
 
   static formatNumericFuncionId(value: number, padLength = 4): string {
     const safe = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
@@ -123,14 +193,15 @@ export class FuncionesService {
     const ownerId = String(params.ownerId || "").trim();
     if (!ownerId) throw new Error("ownerId requerido para generar funcionId.");
 
-    const all = await FirestoreService.getAll(this.COLLECTION_NAME);
+    const ownerCollectionId = await this.resolveOwnerCollectionId(ownerId);
+    const all = await FirestoreService.getAll(
+      `${OWNER_FUNCIONES_COLLECTION}/${ownerCollectionId}/${OWNER_FUNCIONES_SUBCOLLECTION}`,
+    );
     const docs = (Array.isArray(all) ? all : []) as Array<any>;
 
     const generalForOwner = docs.filter((d) => {
       if (!d) return false;
-      const isGeneral =
-        d.type === "general" || (d.funcionId && d.nombre && !d.empresaId);
-      if (!isGeneral) return false;
+      if (!isOwnedNumericFuncionDoc(d)) return false;
       return String(d.ownerId || "").trim() === ownerId;
     });
 
@@ -154,14 +225,37 @@ export class FuncionesService {
     ownerIds: string[];
     role?: string;
   }): Promise<Array<{ docId: string } & FuncionGeneralDoc>> {
-    const all = await FirestoreService.getAll(this.COLLECTION_NAME);
-    const docs = (Array.isArray(all) ? all : []) as Array<any>;
+    const sharedAll = await FirestoreService.getAll(this.COLLECTION_NAME);
+    const sharedDocs = (Array.isArray(sharedAll) ? sharedAll : []) as Array<any>;
 
-    const general = docs.filter(
-      (d) =>
-        d &&
-        (d.type === "general" || (d.funcionId && d.nombre && !d.empresaId)),
+    const sharedGeneral = sharedDocs.filter(isSharedSpecialFuncionDoc);
+
+    const ownerCollections = Array.from(
+      new Set((actor.ownerIds || []).map((x) => String(x).trim()).filter(Boolean)),
     );
+
+    const ownedDocs = (
+      await Promise.all(
+        ownerCollections.map(async (ownerId) => {
+          const ownerCollectionId = await this.resolveOwnerCollectionId(ownerId);
+          const docs = await FirestoreService.getAll(
+            `${OWNER_FUNCIONES_COLLECTION}/${ownerCollectionId}/${OWNER_FUNCIONES_SUBCOLLECTION}`,
+          );
+          return (Array.isArray(docs) ? docs : []) as Array<any>;
+        }),
+      )
+    ).flat();
+
+    const generalByKey = new Map<string, any>();
+    for (const d of [...sharedGeneral, ...ownedDocs.filter(isOwnedNumericFuncionDoc)]) {
+      const docId = String((d as any).id || "").trim();
+      const ownerId = String((d as any).ownerId || "").trim();
+      const key = `${ownerId}::${docId}`;
+      if (!docId || !ownerId || generalByKey.has(key)) continue;
+      generalByKey.set(key, d);
+    }
+
+    const general = Array.from(generalByKey.values()) as Array<any>;
 
     const role = String(actor.role || "")
       .trim()
@@ -218,25 +312,41 @@ export class FuncionesService {
     };
 
     const nextDocId = this.buildFuncionDocId(doc.funcionId, doc.nombre);
+    const ownerCollectionId = await this.resolveOwnerCollectionId(doc.ownerId);
+    const isNumeric = isNumericFuncionId(doc.funcionId);
+    const targetCollection = isNumeric
+      ? `${OWNER_FUNCIONES_COLLECTION}/${ownerCollectionId}/${OWNER_FUNCIONES_SUBCOLLECTION}`
+      : this.COLLECTION_NAME;
 
     // If renaming changed docId, create new doc and delete old.
     const prevDocId = params.previousDocId ? String(params.previousDocId) : "";
     if (prevDocId && prevDocId !== nextDocId) {
-      await FirestoreService.addWithId(this.COLLECTION_NAME, nextDocId, doc);
-      await FirestoreService.delete(this.COLLECTION_NAME, prevDocId);
+      const sourceCollection = isNumericFuncionId(prevDocId)
+        ? `${OWNER_FUNCIONES_COLLECTION}/${ownerCollectionId}/${OWNER_FUNCIONES_SUBCOLLECTION}`
+        : this.COLLECTION_NAME;
+      await FirestoreService.addWithId(targetCollection, nextDocId, doc);
+      await FirestoreService.delete(sourceCollection, prevDocId);
       return { docId: nextDocId, ...doc };
     }
 
     // If doc exists, update; otherwise set.
     // IMPORTANT: overwrite the entire doc so fields removed in the UI (e.g. empresaIds)
     // are actually deleted in Firestore. updateDoc() would keep old fields.
-    await FirestoreService.addWithId(this.COLLECTION_NAME, nextDocId, doc);
+    await FirestoreService.addWithId(targetCollection, nextDocId, doc);
 
     return { docId: nextDocId, ...doc };
   }
 
-  static async deleteFuncionGeneral(docId: string): Promise<void> {
-    await FirestoreService.delete(this.COLLECTION_NAME, docId);
+  static async deleteFuncionGeneral(
+    docId: string,
+    ownerId: string,
+  ): Promise<void> {
+    const ownerCollectionId = await this.resolveOwnerCollectionId(ownerId);
+    const isNumeric = isNumericFuncionId(docId);
+    const targetCollection = isNumeric
+      ? `${OWNER_FUNCIONES_COLLECTION}/${ownerCollectionId}/${OWNER_FUNCIONES_SUBCOLLECTION}`
+      : this.COLLECTION_NAME;
+    await FirestoreService.delete(targetCollection, docId);
   }
 
   static async ensureEmpresaDoc(params: {

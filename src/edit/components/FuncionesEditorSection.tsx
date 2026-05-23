@@ -110,6 +110,52 @@ export default function FuncionesEditorSection() {
     if (fromUser) setSelectedEmpresa(fromUser);
   }, [currentUser?.ownercompanie, selectedEmpresa]);
 
+  const resolvedOwnerId = React.useMemo(() => {
+    const primary = primaryOwnerId ? String(primaryOwnerId) : "";
+    if (primary) return primary;
+    if (currentUser?.ownerId) return String(currentUser.ownerId);
+    if (currentUser?.id) return String(currentUser.id);
+    return "";
+  }, [currentUser?.id, currentUser?.ownerId, primaryOwnerId]);
+
+  const empresasScopeOptions = React.useMemo(() => {
+    const ownerId = String(resolvedOwnerId || "").trim();
+    const list = (ownerEmpresas || [])
+      .filter((e) => {
+        const id = String(e?.id || "")
+          .trim()
+          .toUpperCase();
+        if (!id) return false;
+        if (id === DELIFOOD_EMPRESA_ID) return false;
+        return !ownerId || String(e?.ownerId || "").trim() === ownerId;
+      })
+      .map((e) => ({
+        id: String(e?.id || "").trim(),
+        name: String(e?.name || e?.id || "").trim(),
+      }))
+      .filter((e) => e.id);
+
+    list.sort((a, b) => a.name.localeCompare(b.name, "es"));
+    return list;
+  }, [ownerEmpresas, resolvedOwnerId]);
+
+  const hasGroupEmpresa = React.useMemo(() => {
+    return (ownerEmpresas || []).some((empresa) => {
+      const name = String(empresa?.name || empresa?.id || "")
+        .trim()
+        .toUpperCase();
+      return name === "DELIKOR" || name === "DELIFOOD";
+    });
+  }, [ownerEmpresas]);
+
+  React.useEffect(() => {
+    if (hasGroupEmpresa) return;
+    if (draftAudience !== "DELIKOR") {
+      setDraftAudience("DELIKOR");
+      setDraftEmpresaIds([]);
+    }
+  }, [draftAudience, hasGroupEmpresa]);
+
   React.useEffect(() => {
     if (authLoading) return;
     if (!currentUser) return;
@@ -164,36 +210,6 @@ export default function FuncionesEditorSection() {
     };
   }, [actorOwnerIds, authLoading, currentUser]);
 
-  const resolvedOwnerId = React.useMemo(() => {
-    const primary = primaryOwnerId ? String(primaryOwnerId) : "";
-    if (primary) return primary;
-    if (currentUser?.ownerId) return String(currentUser.ownerId);
-    if (currentUser?.id) return String(currentUser.id);
-    return "";
-  }, [currentUser?.id, currentUser?.ownerId, primaryOwnerId]);
-
-  const empresasScopeOptions = React.useMemo(() => {
-    const ownerId = String(resolvedOwnerId || "").trim();
-    const list = (ownerEmpresas || [])
-      .filter((e) => {
-        const id = String(e?.id || "")
-          .trim()
-          .toUpperCase();
-        if (!id) return false;
-        if (id === DELIFOOD_EMPRESA_ID) return false;
-        return !ownerId || String(e?.ownerId || "").trim() === ownerId;
-      })
-      .map((e) => ({
-        id: String(e?.id || "").trim(),
-        name: String(e?.name || e?.id || "").trim(),
-      }))
-      .filter((e) => e.id);
-
-    list.sort((a, b) => a.name.localeCompare(b.name, "es"));
-    return list;
-  }, [ownerEmpresas, resolvedOwnerId]);
-
-  // Cargar funciones generales desde Firestore
   React.useEffect(() => {
     if (authLoading) return;
     if (!currentUser) return;
@@ -261,24 +277,6 @@ export default function FuncionesEditorSection() {
       cancelled = true;
     };
   }, [actorOwnerIds, authLoading, currentUser, isAdminLike]);
-
-  // Asegurar doc por empresa (docId = empresaId) para asignaciones
-  React.useEffect(() => {
-    if (!resolvedOwnerId) return;
-    if (ownerEmpresas.length === 0) return;
-
-    void Promise.all(
-      ownerEmpresas
-        .map((e) => String(e?.id || "").trim())
-        .filter(Boolean)
-        .map((empresaId) =>
-          FuncionesService.ensureEmpresaDoc({
-            ownerId: resolvedOwnerId,
-            empresaId,
-          }),
-        ),
-    );
-  }, [ownerEmpresas, resolvedOwnerId]);
 
   const openAddDrawer = React.useCallback(() => {
     if (!isAdminLike) return;
@@ -675,7 +673,7 @@ export default function FuncionesEditorSection() {
     }
 
     const run = async () => {
-      await FuncionesService.deleteFuncionGeneral(item.docId);
+      await FuncionesService.deleteFuncionGeneral(item.docId, resolvedOwnerId);
 
       // Remover id de función de docs por empresa (si estaba asignada)
       if (resolvedOwnerId && ownerEmpresas.length > 0) {
@@ -913,31 +911,33 @@ export default function FuncionesEditorSection() {
             />
           </div>
 
-          <div>
-            <label className="block text-xs text-[var(--muted-foreground)] mb-1">
-              Grupo
-            </label>
-            <select
-              className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
-              value={draftAudience}
-              onChange={(e) => {
-                const next =
-                  String(e.target.value || "").toUpperCase() === "DELIFOOD"
-                    ? "DELIFOOD"
-                    : "DELIKOR";
-                setDraftAudience(next as "DELIKOR" | "DELIFOOD");
-                if (next === "DELIFOOD") setDraftEmpresaIds([]);
-              }}
-            >
-              <option value="DELIKOR">DELIKOR</option>
-              <option value="DELIFOOD">DELIFOOD</option>
-            </select>
-            <div className="mt-1 text-[11px] text-[var(--muted-foreground)]">
-              {draftAudience === "DELIFOOD"
-                ? "Las funciones DELIFOOD solo se muestran a la empresa DELIFOOD."
-                : "Las funciones DELIKOR se muestran a todas las empresas del ownerId (excepto DELIFOOD), a menos que selecciones empresas específicas."}
+          {hasGroupEmpresa ? (
+            <div>
+              <label className="block text-xs text-[var(--muted-foreground)] mb-1">
+                Grupo
+              </label>
+              <select
+                className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                value={draftAudience}
+                onChange={(e) => {
+                  const next =
+                    String(e.target.value || "").toUpperCase() === "DELIFOOD"
+                      ? "DELIFOOD"
+                      : "DELIKOR";
+                  setDraftAudience(next as "DELIKOR" | "DELIFOOD");
+                  if (next === "DELIFOOD") setDraftEmpresaIds([]);
+                }}
+              >
+                <option value="DELIKOR">DELIKOR</option>
+                <option value="DELIFOOD">DELIFOOD</option>
+              </select>
+              <div className="mt-1 text-[11px] text-[var(--muted-foreground)]">
+                {draftAudience === "DELIFOOD"
+                  ? "Las funciones DELIFOOD solo se muestran a la empresa DELIFOOD."
+                  : "Las funciones DELIKOR se muestran a todas las empresas del ownerId (excepto DELIFOOD), a menos que selecciones empresas específicas."}
+              </div>
             </div>
-          </div>
+          ) : null}
 
           {draftAudience === "DELIKOR" ? (
             <div>

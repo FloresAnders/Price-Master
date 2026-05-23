@@ -86,6 +86,7 @@ const ACCOUNT_TAB_STORAGE_KEY = "fg_selected_account_tab";
 
 export default function FondoPage() {
   const { user, loading } = useAuth();
+  const [accountsSectionVisible, setAccountsSectionVisible] = useState(false);
   const permissions =
     user?.permissions || getDefaultPermissions(user?.role || "user");
   const hasGeneralAccess = Boolean(permissions.fondogeneral);
@@ -145,6 +146,12 @@ export default function FondoPage() {
 
   const [companySelectorSlot, setCompanySelectorSlot] =
     useState<React.ReactNode | null>(null);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setAccountsSectionVisible(true), 80);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   const effectiveActive = useMemo<TabId | "">(() => {
     if (loading) return active;
     if (availableTabs.length === 0) return "";
@@ -155,6 +162,12 @@ export default function FondoPage() {
   const activeTab = useMemo(() => {
     return availableTabs.find((tab) => tab.id === effectiveActive) || null;
   }, [availableTabs, effectiveActive]);
+
+  const getCardEntranceStyle = useCallback((index: number) => {
+    return {
+      transitionDelay: `${Math.min(index * 70, 280)}ms`,
+    };
+  }, []);
 
   useEffect(() => {
     if (loading) return;
@@ -298,13 +311,17 @@ export default function FondoPage() {
                     aria-label="Cuentas"
                     ref={sectionRef}
                     style={isScrolled ? { width: sectionWidth } : undefined}
-                    className={`flex min-w-0 flex-col gap-3 p-2 sm:p-3 xl:flex-row xl:items-start xl:justify-between z-30 transition-all duration-300 ${
+                    className={`flex min-w-0 flex-col gap-3 p-2 sm:p-3 xl:flex-row xl:items-start xl:justify-between z-30 transition-all duration-700 ease-out motion-reduce:transition-none ${
                       isScrolled
                         ? "fixed top-4 left-1/2 -translate-x-1/2 shadow-lg border border-[var(--input-border)] bg-[#0f1519]/95 backdrop-blur-sm rounded-xl"
                         : "relative bg-[#0f1519]"
+                    } ${
+                      accountsSectionVisible
+                        ? "opacity-100 translate-y-0"
+                        : "opacity-0 translate-y-3"
                     }`}
                   >
-                    {availableTabs.map((tab) => {
+                    {availableTabs.map((tab, index) => {
                       const isActive = effectiveActive === tab.id;
                       const visual = TAB_VISUALS[tab.id];
                       const Icon = visual.icon;
@@ -316,7 +333,12 @@ export default function FondoPage() {
                           tabIndex={isActive ? 0 : -1}
                           aria-selected={isActive}
                           onClick={() => handleAccountTabClick(tab.id)}
-                          className={`group relative flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)] ${
+                          style={getCardEntranceStyle(index)}
+                          className={`group relative flex items-center gap-2 rounded-lg border px-3 py-2 text-left transition-all duration-700 ease-out motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)] ${
+                            accountsSectionVisible
+                              ? "opacity-100 translate-y-0"
+                              : "opacity-0 translate-y-4"
+                          } ${
                             isActive
                               ? "border-[var(--accent)] bg-[#131b21] text-[var(--foreground)] shadow-sm"
                               : "border-[var(--input-border)] bg-[#0e1418] text-[var(--muted-foreground)] hover:border-[var(--input-border)] hover:bg-[#141c21] hover:text-[var(--foreground)]"
@@ -399,10 +421,14 @@ export default function FondoPage() {
                 <div
                   ref={sectionRef}
                   style={isScrolled ? { width: sectionWidth } : undefined}
-                  className={`flex min-w-0 flex-col gap-3 p-2 sm:p-3 xl:flex-row xl:items-start xl:justify-between z-30 transition-all duration-300 ${
+                  className={`flex min-w-0 flex-col gap-3 p-2 sm:p-3 xl:flex-row xl:items-start xl:justify-between z-30 transition-all duration-700 ease-out motion-reduce:transition-none ${
                     isScrolled
                       ? "fixed top-4 left-1/2 -translate-x-1/2 shadow-lg border border-[var(--input-border)] bg-[var(--muted)]/60 backdrop-blur-sm rounded-xl"
                       : "relative bg-[var(--card-bg)]"
+                  } ${
+                    accountsSectionVisible
+                      ? "opacity-100 translate-y-0"
+                      : "opacity-0 translate-y-3"
                   }`}
                 >
                   <div
@@ -410,7 +436,7 @@ export default function FondoPage() {
                     aria-label="Cuentas"
                     className={`grid min-w-0 flex-1 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:flex xl:flex-nowrap xl:items-center ${isScrolled ? "xl:justify-center" : ""}`}
                   >
-                    {availableTabs.map((tab) => {
+                    {availableTabs.map((tab, index) => {
                       const isActive = effectiveActive === tab.id;
                       const visual = TAB_VISUALS[tab.id];
                       const Icon = visual.icon;
@@ -422,7 +448,12 @@ export default function FondoPage() {
                           tabIndex={isActive ? 0 : -1}
                           aria-selected={isActive}
                           onClick={() => handleAccountTabClick(tab.id)}
-                          className={`group relative flex min-h-[64px] items-center gap-3 rounded-lg border px-3 py-2 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)] lg:min-w-[180px] ${
+                          style={getCardEntranceStyle(index)}
+                          className={`group relative flex min-h-[64px] items-center gap-3 rounded-lg border px-3 py-2 text-left transition-all duration-700 ease-out motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)] lg:min-w-[180px] ${
+                            accountsSectionVisible
+                              ? "opacity-100 translate-y-0"
+                              : "opacity-0 translate-y-4"
+                          } ${
                             isActive
                               ? "border-[var(--accent)] bg-[#131b21] text-[var(--foreground)] shadow-sm"
                               : "border-[var(--input-border)] bg-[#0e1418] text-[var(--muted-foreground)] hover:border-[var(--input-border)] hover:bg-[#141c21] hover:text-[var(--foreground)]"

@@ -23,6 +23,7 @@ type ProviderOption = {
   code: string;
   name: string;
   type?: FondoMovementType;
+  category?: "Ingreso" | "Gasto" | "Egreso";
   movementCount?: number;
 };
 
@@ -184,11 +185,16 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
       return a.name.localeCompare(b.name);
     });
 
-  const getProviderCategory = (type?: FondoMovementType) => {
-    if (!type) return null;
-    if (isIngresoType(type)) return "INGRESO" as const;
-    if (isEgresoType(type)) return "EGRESO" as const;
-    if (isGastoType(type)) return "GASTO" as const;
+  const getProviderCategory = (type?: FondoMovementType, category?: "Ingreso" | "Gasto" | "Egreso") => {
+    if (!type && !category) return null;
+    if (type) {
+      if (isIngresoType(type)) return "INGRESO" as const;
+      if (isEgresoType(type)) return "EGRESO" as const;
+      if (isGastoType(type)) return "GASTO" as const;
+    }
+    if (category === "Ingreso") return "INGRESO" as const;
+    if (category === "Egreso") return "EGRESO" as const;
+    if (category === "Gasto") return "GASTO" as const;
     return null;
   };
 
@@ -343,7 +349,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                       >
                         <div className="flex items-center justify-between gap-3">
                           {(() => {
-                            const category = getProviderCategory(p.type);
+                            const category = getProviderCategory(p.type, p.category);
                             const isIngreso = category === "INGRESO";
                             const isEgresoProvider = category === "EGRESO";
                             const isGasto = category === "GASTO";

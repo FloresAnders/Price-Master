@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ProvidersService } from "../services/providers";
 import type { ProviderEntry } from "../types/firestore";
 
@@ -6,9 +6,11 @@ export function useProviders(company?: string) {
   const [providers, setProviders] = useState<ProviderEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
 
   const fetchProviders = useCallback(async () => {
     const trimmedCompany = (company || "").trim();
+    const requestId = ++requestIdRef.current;
 
     if (!trimmedCompany) {
       setProviders([]);
@@ -17,19 +19,31 @@ export function useProviders(company?: string) {
       return;
     }
 
+    setProviders([]);
     setLoading(true);
     setError(null);
 
     try {
       const data = await ProvidersService.getProviders(trimmedCompany);
-      setProviders(data);
+      if (requestId === requestIdRef.current) {
+        setProviders(
+          data.filter(
+            (provider) =>
+              (provider.company || "").trim().toLowerCase() ===
+              trimmedCompany.toLowerCase(),
+          ),
+        );
+      }
     } catch (err) {
+      if (requestId !== requestIdRef.current) return;
       const message =
         err instanceof Error ? err.message : "Error al cargar los proveedores.";
       setError(message);
       console.error("Error fetching providers:", err);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [company]);
 
@@ -39,6 +53,7 @@ export function useProviders(company?: string) {
       type?: string,
       correonotifi?: string,
       visit?: ProviderEntry["visit"],
+      explicitCategory?: "Ingreso" | "Gasto" | "Egreso",
     ) => {
       const trimmedCompany = (company || "").trim();
       if (!trimmedCompany) {
@@ -55,6 +70,7 @@ export function useProviders(company?: string) {
           type,
           correonotifi,
           visit,
+          explicitCategory,
         );
         await fetchProviders();
       } catch (err) {
@@ -103,6 +119,7 @@ export function useProviders(company?: string) {
       type?: string,
       correonotifi?: string,
       visit?: ProviderEntry["visit"],
+      explicitCategory?: "Ingreso" | "Gasto" | "Egreso",
     ) => {
       const trimmedCompany = (company || "").trim();
       if (!trimmedCompany) {
@@ -120,6 +137,7 @@ export function useProviders(company?: string) {
           type,
           correonotifi,
           visit,
+          explicitCategory,
         );
         await fetchProviders();
       } catch (err) {

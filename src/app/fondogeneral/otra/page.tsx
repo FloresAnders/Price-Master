@@ -190,6 +190,12 @@ export default function ReporteMovimientosPage() {
     () => Array.from(allowedOwnerIds).sort().join("|"),
     [allowedOwnerIds],
   );
+  const reportOwnerId = useMemo(() => {
+    const explicitOwnerId = typeof user?.ownerId === "string" ? user.ownerId.trim() : "";
+    if (explicitOwnerId) return explicitOwnerId;
+    const fallbackOwnerId = Array.from(allowedOwnerIds)[0] || "";
+    return fallbackOwnerId;
+  }, [allowedOwnerIds, user?.ownerId]);
 
   const accessibleAccountKeys = useMemo<MovementAccountKey[]>(() => {
     const list: MovementAccountKey[] = [];
@@ -245,7 +251,9 @@ export default function ReporteMovimientosPage() {
     const loadMovementTypeCategories = async () => {
       try {
         const types =
-          await FondoMovementTypesService.getMovementTypesByCategoriesWithCache();
+          await FondoMovementTypesService.getMovementTypesByCategoriesWithCache(
+            reportOwnerId,
+          );
         if (cancelled) return;
 
         const lookup: Record<string, Classification> = {};
@@ -276,7 +284,7 @@ export default function ReporteMovimientosPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reportOwnerId]);
 
   const [providerNameLookup, setProviderNameLookup] = useState<
     Record<string, string>

@@ -16,6 +16,8 @@ import { CSS } from "@dnd-kit/utilities";
 import { Trash2, X } from "lucide-react";
 
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import { useAuth } from "@/hooks/useAuth";
+import { useActorOwnership } from "@/hooks/useActorOwnership";
 import {
   DELIFOOD_EMPRESA_ID,
   filterFuncionesGeneralesForEmpresa,
@@ -183,6 +185,8 @@ export default function EmpresaFuncionesModal({
   onSaved,
   showToast,
 }: EmpresaFuncionesModalProps) {
+  const { user: currentUser, loading: authLoading } = useAuth();
+  const { ownerIds: actorOwnerIds } = useActorOwnership(currentUser);
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
     // Long-press para iniciar drag en touch (permite scroll normal sin arrastre accidental)
@@ -215,6 +219,72 @@ export default function EmpresaFuncionesModal({
     setExpandedIds([]);
   }, [empresaId, open]);
 
+  React.useEffect(() => {
+    if (!open) return;
+    if (authLoading) return;
+    if (!currentUser) return;
+
+    let cancelled = false;
+    const load = async () => {
+      setGeneralLoading(true);
+      setGeneralError(null);
+      try {
+        const docs = await FuncionesService.listFuncionesGeneralesAs({
+          ownerIds: (actorOwnerIds || []).map((x) => String(x)),
+          role: currentUser.role,
+        });
+
+        const items = docs
+          .map((d) => {
+            const audience: "DELIKOR" | "DELIFOOD" =
+              String((d as any).audience || "").toUpperCase() === "DELIFOOD"
+                ? "DELIFOOD"
+                : "DELIKOR";
+            const empresaIds: string[] = Array.isArray((d as any).empresaIds)
+              ? Array.from(
+                  new Set(
+                    (d as any).empresaIds
+                      .map((x: unknown) => String(x).trim())
+                      .filter(Boolean),
+                  ),
+                )
+              : [];
+
+            return {
+              id: String(d.funcionId || ""),
+              docId: String(d.docId || ""),
+              ownerId: String((d as any).ownerId || ""),
+              nombre: String(d.nombre || ""),
+              descripcion: String(d.descripcion || ""),
+              reminderTimeCr: d.reminderTimeCr ? String(d.reminderTimeCr) : "",
+              createdAt: String(d.createdAt || ""),
+              audience,
+              empresaIds,
+            } as FuncionListItem;
+          })
+          .filter((x) => x.id && x.docId && x.nombre);
+
+        if (cancelled) return;
+        setServiceFuncionesGenerales(items);
+      } catch (err) {
+        if (cancelled) return;
+        const msg =
+          err instanceof Error
+            ? err.message
+            : "No se pudieron cargar las funciones disponibles.";
+        setGeneralError(msg);
+        setServiceFuncionesGenerales([]);
+      } finally {
+        if (!cancelled) setGeneralLoading(false);
+      }
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [actorOwnerIds, authLoading, currentUser, open]);
+
   const [confirmExit, setConfirmExit] = React.useState(false);
 
   const [createOpen, setCreateOpen] = React.useState(false);
@@ -225,14 +295,35 @@ export default function EmpresaFuncionesModal({
   const [createLoading, setCreateLoading] = React.useState(false);
 
   const [localExtras, setLocalExtras] = React.useState<FuncionListItem[]>([]);
+  const [serviceFuncionesGenerales, setServiceFuncionesGenerales] =
+    React.useState<FuncionListItem[]>([]);
+  const [generalLoading, setGeneralLoading] = React.useState(false);
+  const [generalError, setGeneralError] = React.useState<string | null>(null);
 
   const visibleFuncionesGenerales = React.useMemo(() => {
-    const combined = [...(funcionesGenerales || []), ...(localExtras || [])];
-    return filterFuncionesGeneralesForEmpresa(combined, {
+    const combined = [
+      ...(funcionesGenerales || []),
+      ...(serviceFuncionesGenerales || []),
+      ...(localExtras || []),
+    ];
+    const filtered = filterFuncionesGeneralesForEmpresa(combined, {
       ownerId,
       empresaId,
     });
-  }, [empresaId, funcionesGenerales, localExtras, ownerId]);
+    const uniqueById = new Map<string, FuncionListItem>();
+    for (const item of filtered) {
+      const id = String(item?.id || "").trim();
+      if (!id || uniqueById.has(id)) continue;
+      uniqueById.set(id, item);
+    }
+    return Array.from(uniqueById.values());
+  }, [
+    empresaId,
+    funcionesGenerales,
+    localExtras,
+    ownerId,
+    serviceFuncionesGenerales,
+  ]);
 
   const funcionesById = React.useMemo(() => {
     const map = new Map<string, FuncionListItem>();
@@ -247,16 +338,25 @@ export default function EmpresaFuncionesModal({
   }, [visibleFuncionesGenerales]);
 
   const assignedItems = React.useMemo(() => {
-    return assignedIds
-      .map((id) => funcionesById.get(String(id)))
-      .filter(Boolean) as FuncionListItem[];
+    const uniqueById = new Map<string, FuncionListItem>();
+    for (const id of assignedIds) {
+      const item = funcionesById.get(String(id));
+      const itemId = String(item?.id || "").trim();
+      if (!item || !itemId || uniqueById.has(itemId)) continue;
+      uniqueById.set(itemId, item);
+    }
+    return Array.from(uniqueById.values());
   }, [assignedIds, funcionesById]);
 
   const availableItems = React.useMemo(() => {
     const assignedSet = new Set([...assignedIds].map(String));
-    const items = (visibleFuncionesGenerales || []).filter(
-      (f) => f?.id && !assignedSet.has(String(f.id)),
-    );
+    const uniqueById = new Map<string, FuncionListItem>();
+    for (const item of visibleFuncionesGenerales || []) {
+      const id = String(item?.id || "").trim();
+      if (!id || assignedSet.has(id) || uniqueById.has(id)) continue;
+      uniqueById.set(id, item);
+    }
+    const items = Array.from(uniqueById.values());
     items.sort((a, b) =>
       String(a.nombre || "").localeCompare(String(b.nombre || ""), "es"),
     );
@@ -364,7 +464,7 @@ export default function EmpresaFuncionesModal({
           funciones: assignedIds.filter((id) => funcionesById.has(String(id))),
         });
 
-        setInitialAssignedKey(normalizeIdsKey(assignedIds));
+        setInitialAssignedKey(normalizeIdsKey(Array.from(new Set(assignedIds))));
         showToast("Funciones guardadas.", "success");
         onSaved?.();
         onClose();
@@ -569,6 +669,11 @@ export default function EmpresaFuncionesModal({
           {error ? (
             <div className="mb-3 text-sm text-red-500">{error}</div>
           ) : null}
+          {generalError ? (
+            <div className="mb-3 text-sm text-amber-500">
+              {generalError}
+            </div>
+          ) : null}
 
           <div className="mb-4 border border-[var(--input-border)] rounded-lg p-3 bg-[var(--background)]">
             <div className="flex items-center justify-between gap-3">
@@ -650,7 +755,7 @@ export default function EmpresaFuncionesModal({
             ) : null}
           </div>
 
-          {loading ? (
+          {loading || generalLoading ? (
             <div className="text-sm text-[var(--muted-foreground)]">
               Cargando…
             </div>

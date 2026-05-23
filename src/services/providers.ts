@@ -83,6 +83,8 @@ const normalizeVisitConfig = (
 
 /**
  * Determina la categoría automáticamente basándose en el tipo de movimiento
+ * NOTA: Esta función es solo para compatibilidad legacy. 
+ * Para nuevos tipos de movimiento, usar explicitCategory.
  */
 const getCategoryFromType = (
   type?: string,
@@ -187,7 +189,9 @@ const normalizeProviderEntry = (
   if (!code.trim()) return null;
 
   const companyCandidate =
-    typeof data.company === "string" ? data.company.trim() : "";
+    typeof data.company === "string" && data.company.trim().length > 0
+      ? data.company.trim()
+      : fallbackCompany;
   const typeCandidate =
     typeof data.type === "string" ? data.type.trim().toUpperCase() : undefined;
 
@@ -324,6 +328,7 @@ export class ProvidersService {
     }
 
     const docRef = doc(db, this.COLLECTION_NAME, trimmedCompany);
+
     const snapshot = await getDoc(docRef);
 
     if (!snapshot.exists()) {
@@ -347,6 +352,7 @@ export class ProvidersService {
     providerType?: string,
     correonotifi?: string,
     visit?: ProviderEntry["visit"],
+    explicitCategory?: "Ingreso" | "Gasto" | "Egreso",
   ): Promise<ProviderEntry> {
     const trimmedCompany = (company || "").trim();
     if (!trimmedCompany) {
@@ -387,7 +393,8 @@ export class ProvidersService {
         document.nextCode,
         document.providers,
       );
-      const category = getCategoryFromType(normalizedType);
+      // Use explicit category if provided, otherwise fall back to legacy detection
+      const category = explicitCategory || getCategoryFromType(normalizedType);
       const now = new Date().toISOString();
       const trimmedCorreo =
         typeof correonotifi === "string" ? correonotifi.trim() : undefined;
@@ -396,10 +403,10 @@ export class ProvidersService {
         : undefined;
       const shouldPersistVisit = Boolean(
         normalizedType === "COMPRA INVENTARIO" &&
-        sanitizedVisit &&
-        sanitizedVisit.frequency &&
-        sanitizedVisit.createOrderDays.length > 0 &&
-        sanitizedVisit.receiveOrderDays.length > 0,
+          sanitizedVisit &&
+          sanitizedVisit.frequency &&
+          sanitizedVisit.createOrderDays.length > 0 &&
+          sanitizedVisit.receiveOrderDays.length > 0,
       );
       const createdProvider: ProviderEntry = {
         code: String(nextNumericCode).padStart(4, "0"),
@@ -498,6 +505,7 @@ export class ProvidersService {
         snapshot.data(),
         trimmedCompany,
       );
+
       const targetIndex = document.providers.findIndex(
         (p) => p.code === normalizedCode,
       );
@@ -555,6 +563,99 @@ export class ProvidersService {
     return removedProvider;
   }
 
+  static async incrementMovementCount(
+    company: string,
+    providerCode: string,
+  ): Promise<ProviderEntry> {
+    const trimmedCompany = (company || "").trim();
+    if (!trimmedCompany) {
+      throw new Error("No se pudo determinar la empresa del usuario.");
+    }
+
+    const normalizedCode = padCode(providerCode);
+    if (!normalizedCode) {
+      throw new Error("Código de proveedor no válido.");
+    }
+
+    const docRef = doc(db, this.COLLECTION_NAME, trimmedCompany);
+
+    const updatedProvider = await runTransaction(db, async (transaction) => {
+      const snapshot = await transaction.get(docRef);
+      if (!snapshot.exists()) {
+        throw new Error("El proveedor no existe.");
+      }
+
+      const document = normalizeProvidersDocument(
+        snapshot.data(),
+        trimmedCompany,
+      );
+
+      const targetIndex = document.providers.findIndex(
+        (p) => p.code === normalizedCode,
+      );
+
+      if (targetIndex === -1) {
+        throw new Error("El proveedor no existe.");
+      }
+
+      const targetProvider = document.providers[targetIndex];
+      const incrementedProvider: ProviderEntry = {
+        ...targetProvider,
+        movementCount: (targetProvider.movementCount ?? 0) + 1,
+      };
+
+      const updatedProviders = [...document.providers];
+      updatedProviders[targetIndex] = incrementedProvider;
+
+      const firestoreDoc: Record<string, unknown> = {
+        company: document.company,
+        nextCode: document.nextCode,
+        providers: updatedProviders.map((p) => {
+          const out: Record<string, unknown> = {
+            code: p.code,
+            name: p.name,
+            company: p.company,
+          };
+          if (typeof p.type === "string" && p.type.length > 0)
+            out.type = p.type;
+          if (typeof p.category === "string" && p.category.length > 0)
+            out.category = p.category;
+          if (typeof p.createdAt === "string" && p.createdAt.length > 0)
+            out.createdAt = p.createdAt;
+          if (typeof p.updatedAt === "string" && p.updatedAt.length > 0)
+            out.updatedAt = p.updatedAt;
+          if (typeof p.correonotifi === "string" && p.correonotifi.length > 0)
+            out.correonotifi = p.correonotifi;
+          if (p.visit) {
+            out.visit = {
+              createOrderDays: p.visit.createOrderDays,
+              receiveOrderDays: p.visit.receiveOrderDays,
+              frequency: p.visit.frequency,
+            };
+            if (
+              typeof p.visit.startDateKey === "number" &&
+              Number.isFinite(p.visit.startDateKey)
+            ) {
+              (out.visit as any).startDateKey = p.visit.startDateKey;
+            }
+          }
+          out.movementCount =
+            typeof p.movementCount === "number" &&
+            Number.isFinite(p.movementCount)
+              ? p.movementCount
+              : 0;
+          return out;
+        }),
+      };
+
+      transaction.set(docRef, firestoreDoc);
+      return incrementedProvider;
+    });
+
+    this.providersCache.delete(trimmedCompany);
+    return updatedProvider;
+  }
+
   static async updateProvider(
     company: string,
     providerCode: string,
@@ -562,6 +663,7 @@ export class ProvidersService {
     providerType?: string,
     correonotifi?: string,
     visit?: ProviderEntry["visit"],
+    explicitCategory?: "Ingreso" | "Gasto" | "Egreso",
   ): Promise<ProviderEntry> {
     const trimmedCompany = (company || "").trim();
     if (!trimmedCompany) {
@@ -570,7 +672,7 @@ export class ProvidersService {
 
     const code = padCode(providerCode);
     if (!code) {
-      throw new Error("Codigo de proveedor no valido.");
+      throw new Error("Código de proveedor no válido.");
     }
 
     const trimmedName = (providerName || "").trim();
@@ -610,7 +712,8 @@ export class ProvidersService {
           ? providerType.trim().toUpperCase()
           : undefined;
 
-      const category = getCategoryFromType(normalizedType);
+      // Use explicit category if provided, otherwise fall back to legacy detection
+      const category = explicitCategory || getCategoryFromType(normalizedType);
       const trimmedCorreo =
         typeof correonotifi === "string" ? correonotifi.trim() : undefined;
       const sanitizedVisit = visit
@@ -618,10 +721,10 @@ export class ProvidersService {
         : undefined;
       const shouldPersistVisit = Boolean(
         normalizedType === "COMPRA INVENTARIO" &&
-        sanitizedVisit &&
-        sanitizedVisit.frequency &&
-        sanitizedVisit.createOrderDays.length > 0 &&
-        sanitizedVisit.receiveOrderDays.length > 0,
+          sanitizedVisit &&
+          sanitizedVisit.frequency &&
+          sanitizedVisit.createOrderDays.length > 0 &&
+          sanitizedVisit.receiveOrderDays.length > 0,
       );
       const updatedProvider: ProviderEntry = {
         ...document.providers[targetIndex],
@@ -690,95 +793,5 @@ export class ProvidersService {
 
     this.providersCache.delete(trimmedCompany);
     return updated;
-  }
-
-  static async incrementMovementCount(
-    company: string,
-    providerCode: string,
-  ): Promise<void> {
-    const trimmedCompany = (company || "").trim();
-    if (!trimmedCompany) return;
-
-    const normalizedCode = padCode(providerCode);
-    if (!normalizedCode) return;
-
-    const docRef = doc(db, this.COLLECTION_NAME, trimmedCompany);
-
-    const updatedProviders = await runTransaction(db, async (transaction) => {
-      const snapshot = await transaction.get(docRef);
-      if (!snapshot.exists()) return null;
-
-      const document = normalizeProvidersDocument(
-        snapshot.data(),
-        trimmedCompany,
-      );
-      const targetIndex = document.providers.findIndex(
-        (p) => p.code === normalizedCode,
-      );
-      if (targetIndex === -1) return null;
-
-      const currentCount = document.providers[targetIndex].movementCount ?? 0;
-      const newProviders = [...document.providers];
-      newProviders[targetIndex] = {
-        ...newProviders[targetIndex],
-        movementCount: currentCount + 1,
-      };
-
-      const updatedDocument: ProvidersDocument = {
-        company: document.company,
-        nextCode: document.nextCode,
-        providers: newProviders,
-      };
-
-      transaction.set(docRef, {
-        company: updatedDocument.company,
-        nextCode: updatedDocument.nextCode,
-        providers: updatedDocument.providers.map((p) => {
-          const out: Record<string, unknown> = {
-            code: p.code,
-            name: p.name,
-            company: p.company,
-          };
-          if (typeof p.type === "string" && p.type.length > 0)
-            out.type = p.type;
-          if (typeof p.category === "string" && p.category.length > 0)
-            out.category = p.category;
-          if (typeof p.createdAt === "string" && p.createdAt.length > 0)
-            out.createdAt = p.createdAt;
-          if (typeof p.updatedAt === "string" && p.updatedAt.length > 0)
-            out.updatedAt = p.updatedAt;
-          if (typeof p.correonotifi === "string" && p.correonotifi.length > 0)
-            out.correonotifi = p.correonotifi;
-          if (p.visit) {
-            out.visit = {
-              createOrderDays: p.visit.createOrderDays,
-              receiveOrderDays: p.visit.receiveOrderDays,
-              frequency: p.visit.frequency,
-            };
-            if (
-              typeof p.visit.startDateKey === "number" &&
-              Number.isFinite(p.visit.startDateKey)
-            ) {
-              (out.visit as any).startDateKey = p.visit.startDateKey;
-            }
-          }
-          out.movementCount =
-            typeof p.movementCount === "number" &&
-            Number.isFinite(p.movementCount)
-              ? p.movementCount
-              : 0;
-          return out;
-        }),
-      });
-      return newProviders;
-    });
-
-    this.providersCache.delete(trimmedCompany);
-    if (updatedProviders) {
-      this.providersCache.set(trimmedCompany, {
-        expiresAt: Date.now() + this.CACHE_TTL_MS,
-        providers: updatedProviders,
-      });
-    }
   }
 }
