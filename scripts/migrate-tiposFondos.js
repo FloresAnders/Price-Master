@@ -3,7 +3,7 @@ const admin = require("firebase-admin");
 const fs = require("fs");
 const path = require("path");
 
-const DEFAULT_OWNER_NAME = "Felipe Mora";
+const DEFAULT_OWNER_NAME = "EDEBERTO MORA VARGAS";
 const LEGACY_COLLECTION = "fondoMovementTypes";
 const TARGET_COLLECTION = "fondoMovementTypesByOwner";
 const TARGET_SUBCOLLECTION = "types";
@@ -81,7 +81,7 @@ Opciones:
   --delete-legacy          Borra la colección legacy después de copiar
   --database <id>          Base nombrada (vacío = default)
   --env <modo>             development => usa .env.local, production => usa .env
-  --owner-name <nombre>    Default: EDEBERTO MORA VARGAS
+  --owner-name <nombre>    Default: ${DEFAULT_OWNER_NAME}
   --service-account <path> Default: ../serviceAccountKey.json
   -h, --help               Ayuda
 
@@ -89,6 +89,7 @@ Ejemplos:
   node scripts/migrate-fondoMovementTypes-by-owner.js
   node scripts/migrate-fondoMovementTypes-by-owner.js --apply
   node scripts/migrate-fondoMovementTypes-by-owner.js --apply --delete-legacy
+  node scripts/migrate-fondoMovementTypes-by-owner.js --apply --database restauracion --env production
 `);
 }
 
@@ -159,11 +160,6 @@ function normalizePathSegment(value) {
     .replace(/[\\/#?\[\]]/g, "_")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-function getDb(databaseId) {
-  if (!databaseId) return admin.firestore();
-  return admin.app().firestore(databaseId);
 }
 
 async function readLegacyTypes(db) {
@@ -253,7 +249,14 @@ async function main() {
   }
 
   const databaseId = String(args.database || "").trim();
-  const db = getDb(databaseId);
+
+  // Inicializar Firestore y apuntar a la base correcta con settings()
+  // settings() debe llamarse antes de cualquier operación y una sola vez.
+  const db = admin.firestore();
+  if (databaseId) {
+    db.settings({ databaseId });
+  }
+
   const ownerName = String(args.ownerName || DEFAULT_OWNER_NAME).trim();
   const scopeId = normalizePathSegment(ownerName);
   const ownerAdmin = await findOwnerAdmin(db, ownerName);
