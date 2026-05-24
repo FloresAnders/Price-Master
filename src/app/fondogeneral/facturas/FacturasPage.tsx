@@ -11,11 +11,6 @@ import {
   CreditCard,
   X,
 } from "lucide-react";
-import Box from "@mui/material/Box";
-import Divider from "@mui/material/Divider";
-import Drawer from "@mui/material/Drawer";
-import IconButton from "@mui/material/IconButton";
-import Typography from "@mui/material/Typography";
 import { writeBatch } from "firebase/firestore";
 import { db } from "@/config/firebase";
 import { useProviders } from "@/hooks/useProviders";
@@ -28,6 +23,7 @@ import {
   type MovementCurrencyKey,
 } from "@/services/movimientos-fondos";
 import { EmpresasService } from "@/services/empresas";
+import CreateInvoiceDrawer from "./CreateInvoiceDrawer";
 
 import type { Empresas } from "../../../types/firestore";
 
@@ -38,7 +34,9 @@ const formatMovementType = (type: string) => {
 };
 
 const formatInvoiceDocTypeLabel = (value: string) => {
-  const docType = String(value || "").trim().toUpperCase();
+  const docType = String(value || "")
+    .trim()
+    .toUpperCase();
   if (docType === "FCR") return "Factura a Credito";
   if (docType === "NC") return "Nota de Credito";
   if (docType === "FCO") return "Factura a Contado";
@@ -87,7 +85,8 @@ const resolveFacturaStatus = (
 ): "PENDIENTE" | "PARCIAL" | "PAGADA" => {
   if (movement.paymentStatus === "PAGADA") return "PAGADA";
   if (movement.paymentStatus === "PARCIAL") return "PARCIAL";
-  return resolveFacturaBalance(movement) > 0 && resolveFacturaPaidAmount(movement) > 0
+  return resolveFacturaBalance(movement) > 0 &&
+    resolveFacturaPaidAmount(movement) > 0
     ? "PARCIAL"
     : resolveFacturaBalance(movement) === 0
       ? "PAGADA"
@@ -124,14 +123,16 @@ export default function FacturasCreditoPage() {
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
   const [createSubmitting, setCreateSubmitting] = useState(false);
   const [createProviderCode, setCreateProviderCode] = useState("");
+  const [createProviderFilter, setCreateProviderFilter] = useState("");
+  const [isCreateProviderDropdownOpen, setIsCreateProviderDropdownOpen] =
+    useState(false);
   const [createInvoiceNumber, setCreateInvoiceNumber] = useState("");
   const [createInvoiceDocType, setCreateInvoiceDocType] = useState<
     "FCR" | "NC"
   >("FCR");
   const [createAmount, setCreateAmount] = useState("");
-  const [createCurrency, setCreateCurrency] = useState<MovementCurrencyKey>(
-    "CRC",
-  );
+  const [createCurrency, setCreateCurrency] =
+    useState<MovementCurrencyKey>("CRC");
   const [createNotes, setCreateNotes] = useState("");
   const [createManager, setCreateManager] = useState("");
   const [createFormError, setCreateFormError] = useState<string | null>(null);
@@ -223,25 +224,22 @@ export default function FacturasCreditoPage() {
     [getCompanyKey],
   );
 
-  const loadMovements = useCallback(
-    async (companyName: string) => {
-      if (!companyName) {
-        setMovements([]);
-        return;
-      }
+  const loadMovements = useCallback(async (companyName: string) => {
+    if (!companyName) {
+      setMovements([]);
+      return;
+    }
 
-      setMovementsLoading(true);
-      try {
-        const data = await FacturasService.listMovementsByEmpresa(companyName, {
-          limit: 800,
-        });
-        setMovements(data);
-      } finally {
-        setMovementsLoading(false);
-      }
-    },
-    [],
-  );
+    setMovementsLoading(true);
+    try {
+      const data = await FacturasService.listMovementsByEmpresa(companyName, {
+        limit: 800,
+      });
+      setMovements(data);
+    } finally {
+      setMovementsLoading(false);
+    }
+  }, []);
 
   const actorOwnerIdSet = useMemo(
     () => new Set(actorOwnerIds.map((id) => String(id).trim()).filter(Boolean)),
@@ -280,7 +278,9 @@ export default function FacturasCreditoPage() {
   }, [companyEmployees, paymentManager2, user?.email, user?.name, user?.role]);
 
   const createSelectedProvider = useMemo(
-    () => providers.find((provider) => provider.code === createProviderCode) ?? null,
+    () =>
+      providers.find((provider) => provider.code === createProviderCode) ??
+      null,
     [createProviderCode, providers],
   );
 
@@ -289,8 +289,49 @@ export default function FacturasCreditoPage() {
     [createSelectedProvider],
   );
 
+  const filteredCreateProviders = useMemo(
+    () =>
+      providers
+        .filter((provider) => {
+          const byName = String(provider.name || "")
+            .toLowerCase()
+            .includes(createProviderFilter.toLowerCase());
+          const byCode = String(provider.code || "")
+            .toLowerCase()
+            .includes(createProviderFilter.toLowerCase());
+          return byName || byCode;
+        })
+        .sort((a, b) =>
+          String(a.name || a.code).localeCompare(
+            String(b.name || b.code),
+            "es",
+            {
+              sensitivity: "base",
+            },
+          ),
+        ),
+    [createProviderFilter, providers],
+  );
+
+  useEffect(() => {
+    if (!createProviderCode) {
+      setCreateProviderFilter("");
+      return;
+    }
+
+    const selected = providers.find(
+      (provider) => provider.code === createProviderCode,
+    );
+
+    setCreateProviderFilter(
+      selected ? `${selected.name} (${selected.code})` : createProviderCode,
+    );
+  }, [createProviderCode, providers]);
+
   const resetCreateForm = useCallback(() => {
     setCreateProviderCode("");
+    setCreateProviderFilter("");
+    setIsCreateProviderDropdownOpen(false);
     setCreateInvoiceNumber("");
     setCreateInvoiceDocType("FCR");
     setCreateAmount("");
@@ -302,6 +343,7 @@ export default function FacturasCreditoPage() {
 
   const handleCloseCreateDrawer = useCallback(() => {
     setCreateDrawerOpen(false);
+    setIsCreateProviderDropdownOpen(false);
     setCreateFormError(null);
   }, []);
 
@@ -318,7 +360,9 @@ export default function FacturasCreditoPage() {
       return;
     }
 
-    const invoiceNumber = String(createInvoiceNumber || "").trim().toUpperCase();
+    const invoiceNumber = String(createInvoiceNumber || "")
+      .trim()
+      .toUpperCase();
     if (!invoiceNumber) {
       setCreateFormError("Ingresa el numero de factura.");
       return;
@@ -365,7 +409,9 @@ export default function FacturasCreditoPage() {
       await FacturasService.upsertMovement(empresa, movement);
       await loadMovements(empresa);
       showToast(
-        isCreditNote ? "Nota de credito guardada." : "Factura a credito guardada.",
+        isCreditNote
+          ? "Nota de credito guardada."
+          : "Factura a credito guardada.",
         "success",
         3500,
       );
@@ -406,8 +452,10 @@ export default function FacturasCreditoPage() {
 
     let preferred: Empresas | undefined;
     if (userCompanyKey) {
-      preferred = visibleCompanies.find((emp) =>
-        getCompanyKey(emp) === userCompanyKey || String(emp?.id || "").trim() === userCompanyKey,
+      preferred = visibleCompanies.find(
+        (emp) =>
+          getCompanyKey(emp) === userCompanyKey ||
+          String(emp?.id || "").trim() === userCompanyKey,
       );
     }
 
@@ -417,7 +465,9 @@ export default function FacturasCreditoPage() {
       );
     }
 
-    const exists = visibleCompanies.some((emp) => getCompanyKey(emp) === selected);
+    const exists = visibleCompanies.some(
+      (emp) => getCompanyKey(emp) === selected,
+    );
 
     if (!selected) {
       if (preferred) setSelectedCompany(getCompanyKey(preferred));
@@ -429,7 +479,13 @@ export default function FacturasCreditoPage() {
       if (preferred) setSelectedCompany(getCompanyKey(preferred));
       else setSelectedCompany(getCompanyKey(visibleCompanies[0]));
     }
-  }, [getCompanyKey, selectedCompany, visibleCompanies, user?.ownercompanie, user?.ownerId]);
+  }, [
+    getCompanyKey,
+    selectedCompany,
+    visibleCompanies,
+    user?.ownercompanie,
+    user?.ownerId,
+  ]);
 
   const selectedPaymentBalance = useMemo(() => {
     if (!paymentTarget) return 0;
@@ -466,7 +522,11 @@ export default function FacturasCreditoPage() {
   const submitPayment = useCallback(
     async (mode: "partial" | "full") => {
       if (!selectedCompany) {
-        showToast("Selecciona una empresa antes de registrar el pago.", "error", 4000);
+        showToast(
+          "Selecciona una empresa antes de registrar el pago.",
+          "error",
+          4000,
+        );
         return;
       }
       if (!paymentTarget) return;
@@ -479,10 +539,7 @@ export default function FacturasCreditoPage() {
         0,
         Math.min(totalAmount, resolveFacturaBalance(paymentTarget)),
       );
-      const enteredAmount = Math.max(
-        0,
-        Math.trunc(Number(paymentAmount) || 0),
-      );
+      const enteredAmount = Math.max(0, Math.trunc(Number(paymentAmount) || 0));
       const paymentAmountToApply = mode === "full" ? balance : enteredAmount;
 
       if (paymentAmountToApply <= 0) {
@@ -491,14 +548,26 @@ export default function FacturasCreditoPage() {
       }
 
       if (paymentAmountToApply > balance) {
-        showToast("El monto no puede superar el saldo pendiente.", "error", 4000);
+        showToast(
+          "El monto no puede superar el saldo pendiente.",
+          "error",
+          4000,
+        );
         return;
       }
 
       const nowISO = new Date().toISOString();
-      const nextPaidAmount = Math.min(totalAmount, selectedPaymentPaid + paymentAmountToApply);
+      const nextPaidAmount = Math.min(
+        totalAmount,
+        selectedPaymentPaid + paymentAmountToApply,
+      );
       const nextBalanceDue = Math.max(0, totalAmount - nextPaidAmount);
-      const nextStatus = nextBalanceDue === 0 ? "PAGADA" : nextPaidAmount > 0 ? "PARCIAL" : "PENDIENTE";
+      const nextStatus =
+        nextBalanceDue === 0
+          ? "PAGADA"
+          : nextPaidAmount > 0
+            ? "PARCIAL"
+            : "PENDIENTE";
       const cleanedNotes = paymentNotes.trim();
       const cleanedManager2 = paymentManager2.trim();
 
@@ -513,16 +582,16 @@ export default function FacturasCreditoPage() {
         notes: cleanedNotes,
       };
 
-      const movementDocId = MovimientosFondosService.buildCompanyMovementsKey(
-        selectedCompany,
-      );
-      const paymentMovement = MovimientosFondosService.buildInvoicePaymentMovement({
-        company: selectedCompany,
-        invoice: updatedMovement,
-        paymentAmount: paymentAmountToApply,
-        updateAt: nowISO,
-        manager2: cleanedManager2 || undefined,
-      });
+      const movementDocId =
+        MovimientosFondosService.buildCompanyMovementsKey(selectedCompany);
+      const paymentMovement =
+        MovimientosFondosService.buildInvoicePaymentMovement({
+          company: selectedCompany,
+          invoice: updatedMovement,
+          paymentAmount: paymentAmountToApply,
+          updateAt: nowISO,
+          manager2: cleanedManager2 || undefined,
+        });
       const paymentMovementId = String((paymentMovement as any).id || "");
 
       const batch = writeBatch(db);
@@ -769,7 +838,11 @@ export default function FacturasCreditoPage() {
 
   const handleOpenCreateMovement = () => {
     if (!selectedCompany) {
-      showToast("Selecciona una empresa antes de agregar una factura.", "error", 4000);
+      showToast(
+        "Selecciona una empresa antes de agregar una factura.",
+        "error",
+        4000,
+      );
       return;
     }
     resetCreateForm();
@@ -1420,7 +1493,9 @@ export default function FacturasCreditoPage() {
                 {/* Label empresa actual */}
                 <div className="min-w-0 sm:flex-1">
                   <p className="text-[11px] uppercase tracking-wide text-[var(--muted-foreground)]">
-                    {user?.role === "user" ? "Empresa asignada" : "Empresa actual"}
+                    {user?.role === "user"
+                      ? "Empresa asignada"
+                      : "Empresa actual"}
                   </p>
                   <p
                     className="truncate text-sm font-semibold text-[var(--foreground)]"
@@ -1518,7 +1593,8 @@ export default function FacturasCreditoPage() {
                   <th className="px-3 py-2 text-left">Acción</th>
                 </tr>
               </thead>
-              <tbody>{/* CAMBIAR ACA SI SE QUIERE VER SALDO NEGATIVO */}
+              <tbody>
+                {/* CAMBIAR ACA SI SE QUIERE VER SALDO NEGATIVO */}
                 {filteredMovements.map((m) => {
                   const amount = Math.abs(Number(m.amount) || 0);
                   const amountLabel = amount.toLocaleString("es-CR", {
@@ -1575,7 +1651,11 @@ export default function FacturasCreditoPage() {
                         </div>
                         {paymentBalance > 0 && (
                           <div className="mt-1 text-xs text-[var(--muted-foreground)]">
-                            saldo {paymentBalance.toLocaleString("es-CR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            saldo{" "}
+                            {paymentBalance.toLocaleString("es-CR", {
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 0,
+                            })}
                           </div>
                         )}
                       </td>
@@ -1595,7 +1675,9 @@ export default function FacturasCreditoPage() {
                             {isPaid ? "Pagada" : "Pagar"}
                           </button>
                         ) : (
-                          <span className="text-xs text-[var(--muted-foreground)]">-</span>
+                          <span className="text-xs text-[var(--muted-foreground)]">
+                            -
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -1628,7 +1710,8 @@ export default function FacturasCreditoPage() {
                     {paymentTarget.invoiceNumber}
                   </h3>
                   <p className="text-sm text-[var(--muted-foreground)]">
-                    {providerNameByCode.get(paymentTarget.providerCode) || paymentTarget.providerCode}
+                    {providerNameByCode.get(paymentTarget.providerCode) ||
+                      paymentTarget.providerCode}
                   </p>
                 </div>
                 <button
@@ -1650,9 +1733,14 @@ export default function FacturasCreditoPage() {
               >
                 <div className="grid gap-3 rounded-xl border border-[var(--input-border)] bg-[var(--muted)]/10 p-4 sm:grid-cols-3">
                   <div>
-                    <p className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Monto total</p>
+                    <p className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
+                      Monto total
+                    </p>
                     <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">
-                      {Math.max(0, Math.trunc(Number(paymentTarget.amount) || 0)).toLocaleString("es-CR", {
+                      {Math.max(
+                        0,
+                        Math.trunc(Number(paymentTarget.amount) || 0),
+                      ).toLocaleString("es-CR", {
                         style: "currency",
                         currency: paymentTarget.currency,
                         minimumFractionDigits: 0,
@@ -1661,7 +1749,9 @@ export default function FacturasCreditoPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Pagado</p>
+                    <p className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
+                      Pagado
+                    </p>
                     <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">
                       {selectedPaymentPaid.toLocaleString("es-CR", {
                         style: "currency",
@@ -1672,7 +1762,9 @@ export default function FacturasCreditoPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">Saldo</p>
+                    <p className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
+                      Saldo
+                    </p>
                     <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">
                       {selectedPaymentBalance.toLocaleString("es-CR", {
                         style: "currency",
@@ -1704,7 +1796,9 @@ export default function FacturasCreditoPage() {
                     </span>
                     <select
                       value={paymentManager2}
-                      onChange={(event) => setPaymentManager2(event.target.value)}
+                      onChange={(event) =>
+                        setPaymentManager2(event.target.value)
+                      }
                       disabled={employeesLoading}
                       className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
@@ -1712,9 +1806,10 @@ export default function FacturasCreditoPage() {
                       {employeesLoading && (
                         <option value="">Cargando empleados...</option>
                       )}
-                      {!employeesLoading && paymentEmployeeOptions.length === 0 && (
-                        <option value="">No hay empleados registrados</option>
-                      )}
+                      {!employeesLoading &&
+                        paymentEmployeeOptions.length === 0 && (
+                          <option value="">No hay empleados registrados</option>
+                        )}
                       {!employeesLoading &&
                         paymentEmployeeOptions.map((name) => (
                           <option key={name} value={name}>
@@ -1766,217 +1861,47 @@ export default function FacturasCreditoPage() {
                 </div>
 
                 <p className="text-xs text-[var(--muted-foreground)]">
-                  Estado actual: {selectedPaymentStatus}. El movimiento en Fondo General se crea con `updateAt` y `manager2` cuando se registra el pago.
+                  Estado actual: {selectedPaymentStatus}. El movimiento en Fondo
+                  General se crea con `updateAt` y `manager2` cuando se registra
+                  el pago.
                 </p>
               </form>
             </div>
           </div>
         )}
 
-        <Drawer
-          anchor="right"
+        <CreateInvoiceDrawer
           open={createDrawerOpen}
           onClose={handleCloseCreateDrawer}
-          PaperProps={{
-            sx: {
-              width: { xs: "100vw", sm: 460 },
-              maxWidth: "100vw",
-              bgcolor: "#0d1117",
-              color: "#ffffff",
-            },
-          }}
-        >
-          <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                px: 3,
-                py: 2,
-              }}
-            >
-              <Typography variant="h6" component="h3" sx={{ fontWeight: 600 }}>
-                Agregar factura
-              </Typography>
-              <IconButton
-                aria-label="Cerrar"
-                onClick={handleCloseCreateDrawer}
-                sx={{ color: "var(--foreground)" }}
-              >
-                <X className="w-4 h-4" />
-              </IconButton>
-            </Box>
-            <Divider sx={{ borderColor: "var(--input-border)" }} />
-
-            <Box sx={{ flex: 1, overflowY: "auto", px: 3, py: 3 }}>
-              <p className="text-xs text-[var(--muted-foreground)] mb-3">
-                Empresa asignada:{" "}
-                <span className="font-medium text-[var(--foreground)]">
-                  {currentCompanyLabel}
-                </span>
-              </p>
-
-              {createFormError && (
-                <div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-                  {createFormError}
-                </div>
-              )}
-
-              <form
-                className="flex flex-col gap-3"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void submitCreateMovement();
-                }}
-              >
-                <select
-                  value={createProviderCode}
-                  onChange={(event) => setCreateProviderCode(event.target.value)}
-                  disabled={createSubmitting || providersLoading}
-                  className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
-                >
-                  <option value="">Seleccione un proveedor</option>
-                  {providers
-                    .slice()
-                    .sort((a, b) =>
-                      String(a.name || a.code).localeCompare(String(b.name || b.code), "es", {
-                        sensitivity: "base",
-                      }),
-                    )
-                    .map((provider) => (
-                      <option key={provider.code} value={provider.code}>
-                        {provider.name} ({provider.code})
-                      </option>
-                    ))}
-                </select>
-
-                <input
-                  value={createPaymentType ? formatMovementType(createPaymentType) : ""}
-                  placeholder="Tipo segun proveedor"
-                  readOnly
-                  className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 text-sm text-[var(--foreground)]"
-                />
-
-                <input
-                  value={createInvoiceNumber}
-                  onChange={(event) => setCreateInvoiceNumber(event.target.value.toUpperCase())}
-                  placeholder="Numero de factura"
-                  disabled={createSubmitting}
-                  className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
-                />
-
-                <div>
-                  <p className="mb-2 text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
-                    Tipo de documento
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {([
-                      { value: "FCR", label: "Factura de Credito (FCR)" },
-                      { value: "NC", label: "Nota de Credito (NC)" },
-                    ] as const).map((option) => {
-                      const active = createInvoiceDocType === option.value;
-                      return (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => setCreateInvoiceDocType(option.value)}
-                          disabled={createSubmitting}
-                          className={`h-10 rounded border px-2 text-xs font-semibold transition-all duration-150 ${
-                            active
-                              ? "border-cyan-300/45 bg-cyan-500/25 text-cyan-50"
-                              : "border-cyan-700/35 bg-cyan-950/25 text-cyan-100/75 hover:border-cyan-500/45"
-                          } ${createSubmitting ? "cursor-not-allowed opacity-60" : "active:scale-[0.99]"}`}
-                        >
-                          {option.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setCreateCurrency("CRC")}
-                    disabled={createSubmitting}
-                    className={`h-10 rounded border px-3 text-sm font-semibold transition-all duration-150 ${
-                      createCurrency === "CRC"
-                        ? "border-cyan-300/45 bg-cyan-500/25 text-cyan-50"
-                        : "border-cyan-700/35 bg-cyan-950/25 text-cyan-100/75 hover:border-cyan-500/45"
-                    } ${createSubmitting ? "cursor-not-allowed opacity-60" : "active:scale-[0.99]"}`}
-                  >
-                    Colones (CRC)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCreateCurrency("USD")}
-                    disabled={createSubmitting}
-                    className={`h-10 rounded border px-3 text-sm font-semibold transition-all duration-150 ${
-                      createCurrency === "USD"
-                        ? "border-cyan-300/45 bg-cyan-500/25 text-cyan-50"
-                        : "border-cyan-700/35 bg-cyan-950/25 text-cyan-100/75 hover:border-cyan-500/45"
-                    } ${createSubmitting ? "cursor-not-allowed opacity-60" : "active:scale-[0.99]"}`}
-                  >
-                    Dolares (USD)
-                  </button>
-                </div>
-
-                <input
-                  type="number"
-                  min="1"
-                  value={createAmount}
-                  onChange={(event) => setCreateAmount(event.target.value)}
-                  placeholder="Monto"
-                  disabled={createSubmitting}
-                  className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
-                />
-
-                <select
-                  value={createManager}
-                  onChange={(event) => setCreateManager(event.target.value)}
-                  disabled={createSubmitting || employeesLoading}
-                  className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
-                >
-                  <option value="">Seleccione un encargado</option>
-                  {paymentEmployeeOptions.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-
-                <textarea
-                  rows={4}
-                  value={createNotes}
-                  onChange={(event) => setCreateNotes(event.target.value)}
-                  placeholder="Observacion"
-                  disabled={createSubmitting}
-                  className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
-                />
-
-                <div className="mt-2 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                  <button
-                    type="button"
-                    onClick={handleCloseCreateDrawer}
-                    className="inline-flex items-center justify-center rounded-lg border border-[var(--input-border)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20"
-                    disabled={createSubmitting}
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={createSubmitting}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <Plus className="h-4 w-4" />
-                    {createSubmitting ? "Guardando..." : "Guardar factura"}
-                  </button>
-                </div>
-              </form>
-            </Box>
-          </Box>
-        </Drawer>
+          currentCompanyLabel={currentCompanyLabel}
+          createFormError={createFormError}
+          onSubmit={submitCreateMovement}
+          createProviderCode={createProviderCode}
+          setCreateProviderCode={setCreateProviderCode}
+          createProviderFilter={createProviderFilter}
+          setCreateProviderFilter={setCreateProviderFilter}
+          isCreateProviderDropdownOpen={isCreateProviderDropdownOpen}
+          setIsCreateProviderDropdownOpen={setIsCreateProviderDropdownOpen}
+          createSubmitting={createSubmitting}
+          providersLoading={providersLoading}
+          filteredCreateProviders={filteredCreateProviders}
+          createPaymentType={createPaymentType}
+          createInvoiceNumber={createInvoiceNumber}
+          setCreateInvoiceNumber={setCreateInvoiceNumber}
+          createInvoiceDocType={createInvoiceDocType}
+          setCreateInvoiceDocType={setCreateInvoiceDocType}
+          createCurrency={createCurrency}
+          setCreateCurrency={setCreateCurrency}
+          createAmount={createAmount}
+          setCreateAmount={setCreateAmount}
+          createManager={createManager}
+          setCreateManager={setCreateManager}
+          employeesLoading={employeesLoading}
+          paymentEmployeeOptions={paymentEmployeeOptions}
+          createNotes={createNotes}
+          setCreateNotes={setCreateNotes}
+          formatMovementType={formatMovementType}
+        />
       </div>
     </div>
   );

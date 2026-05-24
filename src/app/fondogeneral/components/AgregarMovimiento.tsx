@@ -407,36 +407,6 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
               } ${invoiceDisabled ? "cursor-not-allowed opacity-60" : ""}`}
               disabled={invoiceDisabled}
             />
-
-            <div className="mt-3">
-              <label className={labelClass}>
-                <FileText className="h-3.5 w-3.5" />
-                Tipo factura
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {(["FCO", "FCR"] as const).map((option) => {
-                  const active = invoiceDocType === option;
-                  const disabled = invoiceDisabled || Boolean(editingEntryId);
-                  return (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() =>
-                        !disabled && onInvoiceDocTypeChange(option)
-                      }
-                      disabled={disabled}
-                      className={`h-10 rounded border px-3 text-sm font-semibold transition-all duration-150 ${
-                        active
-                          ? "border-cyan-300/45 bg-cyan-500/25 text-cyan-50 shadow-sm shadow-cyan-950/20"
-                          : "border-cyan-700/35 bg-cyan-950/25 text-cyan-100/75 hover:border-cyan-500/45 hover:bg-cyan-900/25"
-                      } ${disabled ? "cursor-not-allowed opacity-45" : "active:scale-[0.99]"}`}
-                    >
-                      {option === "FCO" ? "Contado" : "Crédito"}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
             {invoiceError && (
               <p className="mt-1 text-xs text-red-400">{invoiceError}</p>
             )}
@@ -449,6 +419,32 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
           <WalletCards className="h-3.5 w-3.5" />
           Monto
         </label>
+        <div className="mb-3">
+          <p className="mb-2 text-xs uppercase tracking-wide text-cyan-100/70">
+            Tipo factura
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {(["FCO", "FCR"] as const).map((option) => {
+              const active = invoiceDocType === option;
+              const disabled = invoiceDisabled || Boolean(editingEntryId);
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => !disabled && onInvoiceDocTypeChange(option)}
+                  disabled={disabled}
+                  className={`h-10 rounded border px-3 text-sm font-semibold transition-all duration-150 ${
+                    active
+                      ? "border-cyan-300/45 bg-cyan-500/25 text-cyan-50 shadow-sm shadow-cyan-950/20"
+                      : "border-cyan-700/35 bg-cyan-950/25 text-cyan-100/75 hover:border-cyan-500/45 hover:bg-cyan-900/25"
+                  } ${disabled ? "cursor-not-allowed opacity-45" : "active:scale-[0.99]"}`}
+                >
+                  {option === "FCO" ? "Contado" : "Crédito"}
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <div className="mb-3 grid grid-cols-2 gap-2">
           {(["CRC", "USD"] as const).map((option) => {
             const enabled = currencyEnabled[option];
