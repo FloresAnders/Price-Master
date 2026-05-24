@@ -14,6 +14,7 @@ import { useActorOwnership } from "../../hooks/useActorOwnership";
 import { hasPermission } from "../../utils/permissions";
 import { EmpresasService } from "../../services/empresas";
 import { EmpleadosService } from "../../services/empleados";
+import { CcssConfigService } from "../../services/ccss-config";
 import useToast from "../../hooks/useToast";
 import EmpleadoDetailsModal from "../ui/EmpleadoDetailsModal";
 import ConfirmModal from "../ui/ConfirmModal";
@@ -40,7 +41,19 @@ type DeleteTarget = {
   empleado: Empleado;
 } | null;
 
+type SalaryByCcssType = {
+  TC: number;
+  MT: number;
+  PH: number;
+};
+
 function normalizeStr(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase();
+}
+
+function normalizeEmpresaKey(value: unknown) {
   return String(value ?? "")
     .trim()
     .toLowerCase();
@@ -194,6 +207,8 @@ export default function EmpleadosProximamente() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalEmpleado, setModalEmpleado] = useState<Empleado | null>(null);
   const [modalReadOnly, setModalReadOnly] = useState(true);
+  const [modalSalaryByType, setModalSalaryByType] =
+    useState<SalaryByCcssType | null>(null);
 
   const canUse = hasPermission(user?.permissions, "empleados");
 
@@ -226,6 +241,7 @@ export default function EmpleadosProximamente() {
   const isAdmin = role === "admin";
   const isUser = role === "user";
   const canManageEmployees = isAdmin || isSuperAdmin;
+  const modalIsReadOnly = isUser || modalReadOnly;
 
   const [deletingKey, setDeletingKey] = useState<string>("");
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
@@ -365,15 +381,59 @@ export default function EmpleadosProximamente() {
 
   const searchNorm = normalizeStr(search);
 
-  const openEmpleadoModal = (emp: Empleado, readOnly: boolean) => {
+  const resolveSalaryByTypeForEmpresa = async (
+    empresa: Empresas,
+  ): Promise<SalaryByCcssType | null> => {
+    const ownerId = String(empresa?.ownerId || "").trim();
+    if (!ownerId) return null;
+
+    try {
+      const configs = await CcssConfigService.getAllCcssConfigsByOwner(ownerId);
+      const candidates = [empresa?.name, empresa?.ubicacion, empresa?.id]
+        .map(normalizeEmpresaKey)
+        .filter(Boolean);
+
+      const match = (configs || [])
+        .flatMap((cfg) => cfg?.companie || [])
+        .find((company: any) =>
+          candidates.includes(normalizeEmpresaKey(company?.ownerCompanie)),
+        );
+
+      if (!match) return null;
+
+      const tc = Number(match.pagoTotalTC ?? match.tc);
+      const mt = Number(match.pagoTotalMT ?? match.mt);
+      const ph = Number(match.pagoTotalPH ?? match.valorhora);
+
+      return {
+        TC: Number.isFinite(tc) ? tc : 0,
+        MT: Number.isFinite(mt) ? mt : 0,
+        PH: Number.isFinite(ph) ? ph : 0,
+      };
+    } catch (error) {
+      console.error("Error loading salary defaults for empresa:", error);
+      return null;
+    }
+  };
+
+  const openEmpleadoModal = async (
+    emp: Empleado,
+    readOnly: boolean,
+    empresa: Empresas,
+  ) => {
     setModalEmpleado(emp);
     setModalReadOnly(readOnly);
+    setModalSalaryByType(null);
     setModalOpen(true);
+
+    const resolved = await resolveSalaryByTypeForEmpresa(empresa);
+    setModalSalaryByType(resolved);
   };
 
   const closeEmpleadoModal = () => {
     setModalOpen(false);
     setModalEmpleado(null);
+    setModalSalaryByType(null);
   };
 
   const refreshEmpresaEmpleados = async (empresaId: string) => {
@@ -493,8 +553,12 @@ export default function EmpleadosProximamente() {
         isOpen={modalOpen}
         onClose={closeEmpleadoModal}
         empleado={modalEmpleado}
-        readOnly={modalReadOnly}
-        onSave={async (patch) => {
+        readOnly={modalIsReadOnly}
+        ccssSalaryByType={modalSalaryByType}
+        onSave={
+          modalIsReadOnly
+            ? undefined
+            : async (patch) => {
           if (!modalEmpleado) return;
           const empresaId = String(modalEmpleado.empresaId || "").trim();
           if (!empresaId) throw new Error("empresaId faltante");
@@ -513,7 +577,8 @@ export default function EmpleadosProximamente() {
           }
 
           await refreshEmpresaEmpleados(empresaId);
-        }}
+            }
+        }
       />
 
       <div className="bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] p-6">
@@ -717,7 +782,7 @@ export default function EmpleadosProximamente() {
                                 className="p-2 rounded-md border border-[var(--input-border)] hover:bg-[var(--hover-bg)]"
                                 title="Editar empleado"
                                 onClick={() =>
-                                  openEmpleadoModal(modalEmp, false)
+                                  void openEmpleadoModal(modalEmp, false, empresa)
                                 }
                               >
                                 <Pencil className="w-4 h-4" />
@@ -744,7 +809,9 @@ export default function EmpleadosProximamente() {
                           <button
                             type="button"
                             className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-sky-950 hover:border-white/20"
-                            onClick={() => openEmpleadoModal(modalEmp, true)}
+                            onClick={() =>
+                              void openEmpleadoModal(modalEmp, true, empresa)
+                            }
                           >
                             Ver información
                           </button>
