@@ -18,8 +18,41 @@ export default function SystemNotesInitializer() {
   const [note, setNote] = React.useState<SystemNote | null>(null);
   const [activeVersion, setActiveVersion] = React.useState<string>("");
   const [isOpen, setIsOpen] = React.useState(false);
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const unsubscribeRef = React.useRef<(() => void) | null>(null);
   const lastNotifiedVersionRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (!audioRef.current) {
+      const audio = new Audio("/arrival-sound.mp3");
+      audio.preload = "auto";
+      audioRef.current = audio;
+    }
+  }, []);
+
+  const playArrivalSound = React.useCallback(() => {
+    const player =
+      audioRef.current ??
+      (typeof Audio !== "undefined" ? new Audio("/arrival-sound.mp3") : null);
+
+    if (!player) return;
+
+    audioRef.current = player;
+
+    try {
+      player.currentTime = 0;
+      const playPromise = player.play();
+      if (playPromise && typeof playPromise.catch === "function") {
+        playPromise.catch((error) => {
+          console.warn("Unable to play system notes sound:", error);
+        });
+      }
+    } catch (error) {
+      console.warn("Unable to play system notes sound:", error);
+    }
+  }, []);
 
   const persistSeenVersion = React.useCallback((version: string) => {
     if (!version) return;
@@ -88,6 +121,7 @@ export default function SystemNotesInitializer() {
             setNote(currentNote);
             setActiveVersion(notasDeSistemasDb);
             setIsOpen(true);
+            playArrivalSound();
           } else {
             setNote({
               date: new Date().toISOString().slice(0, 10),
@@ -96,6 +130,7 @@ export default function SystemNotesInitializer() {
             });
             setActiveVersion(notasDeSistemasDb);
             setIsOpen(true);
+            playArrivalSound();
           }
 
           persistSeenVersion(notasDeSistemasDb);
@@ -118,7 +153,7 @@ export default function SystemNotesInitializer() {
         unsubscribeRef.current = null;
       }
     };
-  }, [persistSeenVersion]);
+  }, [persistSeenVersion, playArrivalSound]);
 
   // Cargar versión local al montar (fallback si Firestore no está disponible)
   React.useEffect(() => {
