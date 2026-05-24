@@ -222,8 +222,7 @@ const getCanonicalFondoMovementType = (
 
 export const isFondoMovementType = (
   value: string,
-): value is FondoMovementType =>
-  getCanonicalFondoMovementType(value) !== null;
+): value is FondoMovementType => getCanonicalFondoMovementType(value) !== null;
 
 export const isIngresoType = (type: FondoMovementType) =>
   includesMovementType(FONDO_INGRESO_TYPES, type);
@@ -1018,12 +1017,17 @@ export function ProviderSection({ id }: { id?: string }) {
             .filter(Boolean);
           return candidates.includes(normalizedCompany);
         });
-        const ownerId = typeof match?.ownerId === "string" ? match.ownerId.trim() : "";
+        const ownerId =
+          typeof match?.ownerId === "string" ? match.ownerId.trim() : "";
         if (ownerId) return ownerId;
       }
 
       const fallbackOwnerId =
-        ownerCompanies.find((emp) => typeof emp.ownerId === "string" && emp.ownerId.trim().length > 0)
+        ownerCompanies
+          .find(
+            (emp) =>
+              typeof emp.ownerId === "string" && emp.ownerId.trim().length > 0,
+          )
           ?.ownerId?.trim() || "";
       if (fallbackOwnerId) return fallbackOwnerId;
     }
@@ -1327,7 +1331,9 @@ export function ProviderSection({ id }: { id?: string }) {
   const [egresoTypes, setEgresoTypes] = useState<string[]>([]);
 
   // Helper para determinar la categoría basándose en los tipos del owner
-  const getCategoryForType = (type?: string): "Ingreso" | "Gasto" | "Egreso" | undefined => {
+  const getCategoryForType = (
+    type?: string,
+  ): "Ingreso" | "Gasto" | "Egreso" | undefined => {
     if (!type || typeof type !== "string") return undefined;
     if (includesMovementType(ingresoTypes, type)) return "Ingreso";
     if (includesMovementType(gastoTypes, type)) return "Gasto";
@@ -3427,12 +3433,19 @@ export function FondoSection({
           .filter(Boolean);
         return candidates.includes(normalizedAssignedCompany);
       });
-      const ownerId = typeof match?.ownerId === "string" ? match.ownerId.trim() : "";
+      const ownerId =
+        typeof match?.ownerId === "string" ? match.ownerId.trim() : "";
       if (ownerId) return ownerId;
     }
 
     return resolvedOwnerId;
-  }, [adminCompany, canSelectCompany, company, ownerCompanies, resolvedOwnerId]);
+  }, [
+    adminCompany,
+    canSelectCompany,
+    company,
+    ownerCompanies,
+    resolvedOwnerId,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -3622,8 +3635,9 @@ export function FondoSection({
           (acc, movement) => {
             if (movement.providerCode !== selectedProvider) return acc;
             if (
-              String(movement.invoiceDocType || "").trim().toUpperCase() !==
-              "NC"
+              String(movement.invoiceDocType || "")
+                .trim()
+                .toUpperCase() !== "NC"
             ) {
               return acc;
             }
@@ -3698,6 +3712,8 @@ export function FondoSection({
   const [expandedFcrInfoRows, setExpandedFcrInfoRows] = useState<Set<string>>(
     new Set(),
   );
+  const [expandedAppliedCreditNotesRows, setExpandedAppliedCreditNotesRows] =
+    useState<Set<string>>(new Set());
   const [pendingCierreDeCaja, setPendingCierreDeCaja] = useState(false);
   const [negativeBalanceModal, setNegativeBalanceModal] = useState<{
     open: boolean;
@@ -6636,7 +6652,8 @@ export function FondoSection({
           );
           // Do NOT mark created cooldown for Caja Negra movements
           const shouldMarkCreatedCooldown = !isIngresoDesdeFV && !isCajaNegra;
-          if (shouldMarkCreatedCooldown) lastMovementCreatedAtRef.current = savedAtMs;
+          if (shouldMarkCreatedCooldown)
+            lastMovementCreatedAtRef.current = savedAtMs;
           if (typeof window !== "undefined") {
             const key = `fondogeneral-lastMovementDedupe:${normalizedCompany}:${accountKey}`;
             const createdKey = `fondogeneral-lastMovementCreatedAt:${normalizedCompany}:${accountKey}`;
@@ -7229,7 +7246,8 @@ export function FondoSection({
           const normalizedCompany = (company || "").trim();
           if (normalizedCompany.length > 0) {
             const facturaAmount = Math.abs(
-              (facturaEntry.amountIngreso || 0) - (facturaEntry.amountEgreso || 0),
+              (facturaEntry.amountIngreso || 0) -
+                (facturaEntry.amountEgreso || 0),
             );
             const facturaCopy: FacturaMovement = {
               id: String(facturaEntry.id),
@@ -7426,7 +7444,9 @@ export function FondoSection({
             id: entry.id,
             empresa: normalizedCompany,
             accountId: accountKey,
-            amount: Math.abs((entry.amountIngreso || 0) - (entry.amountEgreso || 0)),
+            amount: Math.abs(
+              (entry.amountIngreso || 0) - (entry.amountEgreso || 0),
+            ),
             providerCode: entry.providerCode,
             invoiceNumber: entry.invoiceNumber,
             invoiceDocType: "FCR",
@@ -7527,8 +7547,7 @@ export function FondoSection({
                   {
                     paidAmount: nextPaidAmount,
                     balanceDue: nextBalanceDue,
-                    paymentStatus:
-                      nextBalanceDue === 0 ? "PAGADA" : "PARCIAL",
+                    paymentStatus: nextBalanceDue === 0 ? "PAGADA" : "PARCIAL",
                     updateAt: entry.createdAt,
                   },
                   { merge: true },
@@ -7567,7 +7586,9 @@ export function FondoSection({
                 id: entry.id,
                 empresa: normalizedCompany,
                 accountId: accountKey,
-                amount: Math.abs((entry.amountIngreso || 0) - (entry.amountEgreso || 0)),
+                amount: Math.abs(
+                  (entry.amountIngreso || 0) - (entry.amountEgreso || 0),
+                ),
                 providerCode: entry.providerCode,
                 invoiceNumber: entry.invoiceNumber,
                 invoiceDocType: "FCO",
@@ -8555,7 +8576,11 @@ export function FondoSection({
         isCajaNegra ||
         isAutoAdjustmentProvider(value) ||
         prov?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME;
-      if (prov && prov.type && (isCajaNegra || isFondoMovementType(prov.type))) {
+      if (
+        prov &&
+        prov.type &&
+        (isCajaNegra || isFondoMovementType(prov.type))
+      ) {
         nextPaymentType = prov.type as FondoEntry["paymentType"];
         setPaymentType(nextPaymentType);
       } else if (prov?.category === "Ingreso") {
@@ -8669,7 +8694,11 @@ export function FondoSection({
     if (selectedProvider) {
       try {
         const prov = movementProviders.find((p) => p.code === selectedProvider);
-        if (prov && prov.type && (isCajaNegra || isFondoMovementType(prov.type))) {
+        if (
+          prov &&
+          prov.type &&
+          (isCajaNegra || isFondoMovementType(prov.type))
+        ) {
           setPaymentType(prov.type as FondoEntry["paymentType"]);
         } else if (isCajaNegra) {
           const upper = (prov?.code || selectedProvider).toUpperCase();
@@ -9978,9 +10007,7 @@ export function FondoSection({
     // date filtering (from/to)
     if (fromFilter || toFilter) {
       base = base.filter((entry) => {
-        const key = dateKeyFromDate(
-          new Date(getPrimaryMovementDateISO(entry)),
-        );
+        const key = dateKeyFromDate(new Date(getPrimaryMovementDateISO(entry)));
         if (fromFilter && toFilter) return key >= fromFilter && key <= toFilter;
         if (fromFilter && !toFilter) return key === fromFilter;
         if (!fromFilter && toFilter) return key === toFilter;
@@ -11269,9 +11296,13 @@ export function FondoSection({
               manager2={manager2}
               onManager2Change={handleManager2Change}
               showManager2={isEditingPaidFcrMovement}
-              managerSelectDisabled={managerSelectDisabled || isEditingPaidFcrMovement}
+              managerSelectDisabled={
+                managerSelectDisabled || isEditingPaidFcrMovement
+              }
               manager2SelectDisabled={
-                !company || managerOptionsLoading || employeeOptions.length === 0
+                !company ||
+                managerOptionsLoading ||
+                employeeOptions.length === 0
               }
               employeeOptions={employeeOptions}
               employeesLoading={managerOptionsLoading}
@@ -11732,17 +11763,17 @@ export function FondoSection({
                               ? balanceAfter + normalizedEgreso
                               : balanceAfter - normalizedIngreso;
                             const isPaidFcrEntry = isPaidFcrMovement(fe);
-                            const primaryManager = getPrimaryMovementManager(fe);
-                            const primaryDateIso = getPrimaryMovementDateISO(fe);
+                            const primaryManager =
+                              getPrimaryMovementManager(fe);
+                            const primaryDateIso =
+                              getPrimaryMovementDateISO(fe);
                             const recordedAt = new Date(primaryDateIso);
                             const formattedDate = Number.isNaN(
                               recordedAt.getTime(),
                             )
                               ? "Sin fecha"
                               : dateTimeFormatter.format(recordedAt);
-                            const originalRegisteredAt = new Date(
-                              fe.createdAt,
-                            );
+                            const originalRegisteredAt = new Date(fe.createdAt);
                             const formattedOriginalRegisteredAt = Number.isNaN(
                               originalRegisteredAt.getTime(),
                             )
@@ -11751,6 +11782,11 @@ export function FondoSection({
                             const isFcrInfoExpanded = expandedFcrInfoRows.has(
                               fe.id,
                             );
+                            const isAppliedCreditNotesExpanded =
+                              expandedAppliedCreditNotesRows.has(fe.id);
+                            const hasAppliedCreditNotes =
+                              Array.isArray(fe.appliedCreditNotes) &&
+                              fe.appliedCreditNotes.length > 0;
                             const isAutoAdjustment = isAutoAdjustmentProvider(
                               fe.providerCode,
                             );
@@ -11928,385 +11964,506 @@ export function FondoSection({
                                       : ""
                                   } ${isMovementLocked(fe) ? "opacity-60" : ""}`}
                                 >
-                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                                  {formattedDate}
-                                </td>
-                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                                  <div className="flex items-center gap-2">
-                                    <div className="font-semibold text-[var(--foreground)]">
-                                      {providerName}
-                                    </div>
-                                    {fe.isAudit && (
-                                      <div
-                                        role="button"
-                                        tabIndex={0}
-                                        onClick={() => {
-                                          if (parsedAudit) {
-                                            setAuditModalData(parsedAudit);
-                                            setAuditModalOpen(true);
-                                          }
-                                        }}
-                                        onKeyDown={(e) => {
-                                          if (
-                                            (e.key === "Enter" ||
-                                              e.key === " ") &&
-                                            parsedAudit
-                                          ) {
-                                            setAuditModalData(parsedAudit);
-                                            setAuditModalOpen(true);
-                                          }
-                                        }}
-                                        title={auditTooltip}
-                                        className="inline-flex cursor-pointer items-center gap-1.5 rounded border border-yellow-500/25 bg-yellow-500/10 px-2 py-0.5 text-[11px] text-yellow-300 transition-colors hover:bg-yellow-500/20"
-                                      >
-                                        <Pencil className="w-3 h-3 text-yellow-300" />
-                                        <span>Editado</span>
+                                  <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
+                                    {formattedDate}
+                                  </td>
+                                  <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
+                                    <div className="flex items-center gap-2">
+                                      <div className="font-semibold text-[var(--foreground)]">
+                                        {providerName}
                                       </div>
-                                    )}
-                                  </div>
-                                  {fe.notes && (
-                                    <div className="mt-1 text-xs text-[var(--muted-foreground)] break-words">
-                                      {(() => {
-                                        // Renderizar iconos para movimientos de cierre con ajustes
-                                        if (fe.notes.includes("[ALERT_ICON]")) {
-                                          const parts = fe.notes.split("\n");
-                                          const headerText =
-                                            parts.find(
-                                              (p) =>
-                                                !p.includes("[ALERT_ICON]"),
-                                            ) || "";
-                                          const alertLine =
-                                            parts.find((p) =>
-                                              p.includes("[ALERT_ICON]"),
-                                            ) || "";
-                                          const noteText = alertLine.replace(
-                                            "[ALERT_ICON]",
-                                            "",
-                                          );
-                                          return (
-                                            <div className="flex flex-col gap-1">
-                                              {headerText && (
-                                                <div className="text-[10px] font-semibold text-[var(--foreground)] uppercase tracking-wide">
-                                                  {headerText}
+
+                                      {fe.isAudit && (
+                                        <div
+                                          role="button"
+                                          tabIndex={0}
+                                          onClick={() => {
+                                            if (parsedAudit) {
+                                              setAuditModalData(parsedAudit);
+                                              setAuditModalOpen(true);
+                                            }
+                                          }}
+                                          onKeyDown={(e) => {
+                                            if (
+                                              (e.key === "Enter" ||
+                                                e.key === " ") &&
+                                              parsedAudit
+                                            ) {
+                                              setAuditModalData(parsedAudit);
+                                              setAuditModalOpen(true);
+                                            }
+                                          }}
+                                          title={auditTooltip}
+                                          className="inline-flex cursor-pointer items-center gap-1.5 rounded border border-yellow-500/25 bg-yellow-500/10 px-2 py-0.5 text-[11px] text-yellow-300 transition-colors hover:bg-yellow-500/20"
+                                        >
+                                          <Pencil className="w-3 h-3 text-yellow-300" />
+                                          <span>Editado</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                    {fe.notes && (
+                                      <div className="mt-1 text-xs text-[var(--muted-foreground)] break-words">
+                                        {(() => {
+                                          // Renderizar iconos para movimientos de cierre con ajustes
+                                          if (
+                                            fe.notes.includes("[ALERT_ICON]")
+                                          ) {
+                                            const parts = fe.notes.split("\n");
+                                            const headerText =
+                                              parts.find(
+                                                (p) =>
+                                                  !p.includes("[ALERT_ICON]"),
+                                              ) || "";
+                                            const alertLine =
+                                              parts.find((p) =>
+                                                p.includes("[ALERT_ICON]"),
+                                              ) || "";
+                                            const noteText = alertLine.replace(
+                                              "[ALERT_ICON]",
+                                              "",
+                                            );
+                                            return (
+                                              <div className="flex flex-col gap-1">
+                                                {headerText && (
+                                                  <div className="text-[10px] font-semibold text-[var(--foreground)] uppercase tracking-wide">
+                                                    {headerText}
+                                                  </div>
+                                                )}
+                                                <div className="flex items-center gap-1.5">
+                                                  <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
+                                                  <span>{noteText}</span>
                                                 </div>
-                                              )}
+                                              </div>
+                                            );
+                                          }
+                                          if (
+                                            fe.notes.startsWith("[CHECK_ICON]")
+                                          ) {
+                                            const noteText = fe.notes.replace(
+                                              "[CHECK_ICON]",
+                                              "",
+                                            );
+                                            return (
                                               <div className="flex items-center gap-1.5">
-                                                <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
+                                                <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
                                                 <span>{noteText}</span>
                                               </div>
-                                            </div>
-                                          );
-                                        }
-                                        if (
-                                          fe.notes.startsWith("[CHECK_ICON]")
-                                        ) {
-                                          const noteText = fe.notes.replace(
-                                            "[CHECK_ICON]",
-                                            "",
-                                          );
-                                          return (
-                                            <div className="flex items-center gap-1.5">
-                                              <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
-                                              <span>{noteText}</span>
-                                            </div>
-                                          );
-                                        }
-                                        return fe.notes;
-                                      })()}
-                                    </div>
-                                  )}
-                                </td>
-                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                                  <span className="inline-flex max-w-full items-center rounded border border-[var(--input-border)] bg-[var(--muted)]/15 px-2 py-1 text-xs text-[var(--foreground)]">
-                                    {displayPaymentType === "INFORMATIVO"
-                                      ? "-"
-                                      : formatMovementType(displayPaymentType)}
-                                  </span>
-                                </td>
-                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                                  <span className="font-medium text-[var(--foreground)]">
-                                    #{fe.invoiceNumber}
-                                  </span>
-                                </td>
-                                <td className="px-3 py-2 align-top">
-                                  {isAutoAdjustment ? (
-                                    (() => {
-                                      const closingRecord = fe.originalEntryId
-                                        ? dailyClosings.find(
-                                            (d) => d.id === fe.originalEntryId,
-                                          )
-                                        : null;
+                                            );
+                                          }
+                                          return fe.notes;
+                                        })()}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
+                                    <span className="inline-flex max-w-full items-center rounded border border-[var(--input-border)] bg-[var(--muted)]/15 px-2 py-1 text-xs text-[var(--foreground)]">
+                                      {displayPaymentType === "INFORMATIVO"
+                                        ? "-"
+                                        : formatMovementType(
+                                            displayPaymentType,
+                                          )}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
+                                    <span className="font-medium text-[var(--foreground)]">
+                                      #{fe.invoiceNumber}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-2 align-top">
+                                    {isAutoAdjustment ? (
+                                      (() => {
+                                        const closingRecord = fe.originalEntryId
+                                          ? dailyClosings.find(
+                                              (d) =>
+                                                d.id === fe.originalEntryId,
+                                            )
+                                          : null;
 
-                                      const hasPersistedClosingBalance =
-                                        fe.closingBalanceCRC !== undefined ||
-                                        fe.closingBalanceUSD !== undefined ||
-                                        Boolean(closingRecord);
+                                        const hasPersistedClosingBalance =
+                                          fe.closingBalanceCRC !== undefined ||
+                                          fe.closingBalanceUSD !== undefined ||
+                                          Boolean(closingRecord);
 
-                                      if (!hasPersistedClosingBalance) {
-                                        if (isSuccessfulClosing) {
+                                        if (!hasPersistedClosingBalance) {
+                                          if (isSuccessfulClosing) {
+                                            return (
+                                              <div className="text-center text-[var(--muted-foreground)]">
+                                                —
+                                              </div>
+                                            );
+                                          }
+
                                           return (
-                                            <div className="text-center text-[var(--muted-foreground)]">
-                                              —
+                                            <div className="flex flex-col gap-1 text-right">
+                                              <div className="flex items-center justify-end gap-2">
+                                                {isEntryEgreso ? (
+                                                  <ArrowUpRight className="w-4 h-4 text-red-500" />
+                                                ) : (
+                                                  <ArrowDownRight className="w-4 h-4 text-green-500" />
+                                                )}
+                                                <span
+                                                  className={`rounded px-2 py-1 text-xs font-semibold ${
+                                                    isEntryEgreso
+                                                      ? "bg-red-500/10 text-red-400"
+                                                      : "bg-emerald-500/10 text-emerald-400"
+                                                  }`}
+                                                >
+                                                  {`${amountPrefix} ${formatByCurrency(
+                                                    entryCurrency,
+                                                    movementAmount,
+                                                  )}`}
+                                                </span>
+                                              </div>
+                                              <span className="text-xs text-[var(--muted-foreground)]">
+                                                Saldo anterior:{" "}
+                                                {formatByCurrency(
+                                                  entryCurrency,
+                                                  previousBalance,
+                                                )}
+                                              </span>
                                             </div>
                                           );
                                         }
+
+                                        const closingCRC = Math.trunc(
+                                          fe.closingBalanceCRC ??
+                                            closingRecord?.totalCRC ??
+                                            closingRecord?.recordedBalanceCRC ??
+                                            0,
+                                        );
+                                        const closingUSD = Math.trunc(
+                                          fe.closingBalanceUSD ??
+                                            closingRecord?.totalUSD ??
+                                            closingRecord?.recordedBalanceUSD ??
+                                            0,
+                                        );
 
                                         return (
                                           <div className="flex flex-col gap-1 text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                              {isEntryEgreso ? (
-                                                <ArrowUpRight className="w-4 h-4 text-red-500" />
-                                              ) : (
-                                                <ArrowDownRight className="w-4 h-4 text-green-500" />
-                                              )}
-                                              <span
-                                                className={`rounded px-2 py-1 text-xs font-semibold ${
-                                                  isEntryEgreso
-                                                    ? "bg-red-500/10 text-red-400"
-                                                    : "bg-emerald-500/10 text-emerald-400"
-                                                }`}
-                                              >
-                                                {`${amountPrefix} ${formatByCurrency(
-                                                  entryCurrency,
-                                                  movementAmount,
-                                                )}`}
-                                              </span>
+                                            {movementAmount !== 0 ? (
+                                              <div className="flex items-center justify-end gap-2">
+                                                {isEntryEgreso ? (
+                                                  <ArrowUpRight className="w-4 h-4 text-red-500" />
+                                                ) : (
+                                                  <ArrowDownRight className="w-4 h-4 text-green-500" />
+                                                )}
+                                                <span
+                                                  className={`rounded px-2 py-1 text-xs font-semibold ${
+                                                    isEntryEgreso
+                                                      ? "bg-red-500/10 text-red-400"
+                                                      : "bg-emerald-500/10 text-emerald-400"
+                                                  }`}
+                                                >
+                                                  {`${amountPrefix} ${formatByCurrency(
+                                                    entryCurrency,
+                                                    movementAmount,
+                                                  )}`}
+                                                </span>
+                                              </div>
+                                            ) : null}
+
+                                            <div className="text-xs text-[var(--muted-foreground)]">
+                                              Saldo al cierre
                                             </div>
-                                            <span className="text-xs text-[var(--muted-foreground)]">
-                                              Saldo anterior:{" "}
-                                              {formatByCurrency(
-                                                entryCurrency,
-                                                previousBalance,
+                                            <div className="text-sm font-semibold text-[var(--foreground)] flex flex-col gap-0.5">
+                                              {currencyEnabled.CRC && (
+                                                <div>
+                                                  {formatByCurrency(
+                                                    "CRC",
+                                                    closingCRC,
+                                                  )}
+                                                </div>
                                               )}
-                                            </span>
+                                              {currencyEnabled.USD && (
+                                                <div>
+                                                  {formatByCurrency(
+                                                    "USD",
+                                                    closingUSD,
+                                                  )}
+                                                </div>
+                                              )}
+                                            </div>
                                           </div>
                                         );
-                                      }
-
-                                      const closingCRC = Math.trunc(
-                                        fe.closingBalanceCRC ??
-                                          closingRecord?.totalCRC ??
-                                          closingRecord?.recordedBalanceCRC ??
-                                          0,
-                                      );
-                                      const closingUSD = Math.trunc(
-                                        fe.closingBalanceUSD ??
-                                          closingRecord?.totalUSD ??
-                                          closingRecord?.recordedBalanceUSD ??
-                                          0,
-                                      );
-
-                                      return (
-                                        <div className="flex flex-col gap-1 text-right">
-                                          {movementAmount !== 0 ? (
-                                            <div className="flex items-center justify-end gap-2">
-                                              {isEntryEgreso ? (
-                                                <ArrowUpRight className="w-4 h-4 text-red-500" />
-                                              ) : (
-                                                <ArrowDownRight className="w-4 h-4 text-green-500" />
-                                              )}
-                                              <span
-                                                className={`rounded px-2 py-1 text-xs font-semibold ${
-                                                  isEntryEgreso
-                                                    ? "bg-red-500/10 text-red-400"
-                                                    : "bg-emerald-500/10 text-emerald-400"
-                                                }`}
-                                              >
-                                                {`${amountPrefix} ${formatByCurrency(
-                                                  entryCurrency,
-                                                  movementAmount,
-                                                )}`}
-                                              </span>
-                                            </div>
-                                          ) : null}
-
-                                          <div className="text-xs text-[var(--muted-foreground)]">
-                                            Saldo al cierre
-                                          </div>
-                                          <div className="text-sm font-semibold text-[var(--foreground)] flex flex-col gap-0.5">
-                                            {currencyEnabled.CRC && (
-                                              <div>
-                                                {formatByCurrency(
-                                                  "CRC",
-                                                  closingCRC,
-                                                )}
-                                              </div>
-                                            )}
-                                            {currencyEnabled.USD && (
-                                              <div>
-                                                {formatByCurrency(
-                                                  "USD",
-                                                  closingUSD,
-                                                )}
-                                              </div>
-                                            )}
-                                          </div>
-                                        </div>
-                                      );
-                                    })()
-                                  ) : isSuccessfulClosing ? (
-                                    <div className="text-center text-[var(--muted-foreground)]">
-                                      —
-                                    </div>
-                                  ) : (
-                                    <div className="flex flex-col gap-1 text-right">
-                                      <div className="flex items-center justify-end gap-2">
-                                        {isEntryEgreso ? (
-                                          <ArrowUpRight className="w-4 h-4 text-red-500" />
-                                        ) : (
-                                          <ArrowDownRight className="w-4 h-4 text-green-500" />
-                                        )}
-                                        <span
-                                          className={`rounded px-2 py-1 text-xs font-semibold ${
-                                            isEntryEgreso
-                                              ? "bg-red-500/10 text-red-400"
-                                              : "bg-emerald-500/10 text-emerald-400"
-                                          }`}
-                                        >
-                                          {`${amountPrefix} ${formatByCurrency(
-                                            entryCurrency,
-                                            movementAmount,
-                                          )}`}
-                                        </span>
+                                      })()
+                                    ) : isSuccessfulClosing ? (
+                                      <div className="text-center text-[var(--muted-foreground)]">
+                                        —
                                       </div>
-                                      <span className="text-xs text-[var(--muted-foreground)]">
-                                        Saldo anterior:{" "}
-                                        {formatByCurrency(
-                                          entryCurrency,
-                                          previousBalance,
-                                        )}
-                                      </span>
-                                      {isEntryEgreso &&
-                                        appliedCreditNotesTotal > 0 && (
-                                          <div className="text-xs text-amber-200">
-                                            Factura:{" "}
-                                            {formatByCurrency(
+                                    ) : (
+                                      <div className="flex flex-col gap-1 text-right">
+                                        <div className="flex items-center justify-end gap-2">
+                                          {isEntryEgreso ? (
+                                            <ArrowUpRight className="w-4 h-4 text-red-500" />
+                                          ) : (
+                                            <ArrowDownRight className="w-4 h-4 text-green-500" />
+                                          )}
+                                          <span
+                                            className={`rounded px-2 py-1 text-xs font-semibold ${
+                                              isEntryEgreso
+                                                ? "bg-red-500/10 text-red-400"
+                                                : "bg-emerald-500/10 text-emerald-400"
+                                            }`}
+                                          >
+                                            {`${amountPrefix} ${formatByCurrency(
                                               entryCurrency,
-                                              invoiceEgresoAmount,
-                                            )}{" "}
-                                            · NC: -
+                                              movementAmount,
+                                            )}`}
+                                          </span>
+                                        </div>
+                                        <span className="text-xs text-[var(--muted-foreground)]">
+                                          Saldo anterior:{" "}
+                                          {formatByCurrency(
+                                            entryCurrency,
+                                            previousBalance,
+                                          )}
+                                        </span>
+                                        {isEntryEgreso &&
+                                          appliedCreditNotesTotal > 0 && (
+                                            <div className="text-xs text-amber-200">
+                                              Factura:{" "}
+                                              {formatByCurrency(
+                                                entryCurrency,
+                                                invoiceEgresoAmount,
+                                              )}{" "}
+                                              · NC: -
+                                              {formatByCurrency(
+                                                entryCurrency,
+                                                appliedCreditNotesTotal,
+                                              )}
+                                            </div>
+                                          )}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
+                                    {primaryManager}
+                                  </td>
+                                  <td className="px-3 py-2 align-top">
+                                    {!isMovementLocked(fe) && (
+                                      <div className="flex items-center gap-2">
+                                        {(() => {
+                                          const isCierreVentasRow =
+                                            isCierreFondoVentasMovement(fe);
+                                          const isLatestCierreVentas =
+                                            isCierreVentasRow &&
+                                            Boolean(
+                                              latestCierreFondoVentasMovementId,
+                                            ) &&
+                                            fe.id ===
+                                              latestCierreFondoVentasMovementId;
+                                          const canDelete =
+                                            !isAutoAdjustment &&
+                                            (isPrincipalAdmin ||
+                                              (isSuperAdminUser &&
+                                                isCierreVentasRow)) &&
+                                            (!isCierreVentasRow ||
+                                              isLatestCierreVentas);
+                                          const canEdit =
+                                            !isAutoAdjustment &&
+                                            (!isSuperAdminUser ||
+                                              !isCierreVentasRow);
+
+                                          return (
+                                            <>
+                                              {canEdit && (
+                                                <>
+                                                  <button
+                                                    type="button"
+                                                    className="inline-flex items-center gap-1.5 rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs font-medium text-[var(--foreground)] transition-all duration-150 hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--muted)] disabled:translate-y-0 disabled:opacity-50"
+                                                    onClick={() =>
+                                                      handleEditMovement(fe)
+                                                    }
+                                                    disabled={
+                                                      editingEntryId === fe.id
+                                                    }
+                                                    title={
+                                                      isAutoAdjustment
+                                                        ? "Los ajustes automáticos no se pueden editar"
+                                                        : "Editar movimiento"
+                                                    }
+                                                  >
+                                                    <Pencil className="w-4 h-4" />
+                                                    {editingEntryId === fe.id
+                                                      ? "Editando"
+                                                      : "Editar"}
+                                                  </button>
+                                                </>
+                                              )}
+
+                                              {canDelete && (
+                                                <button
+                                                  type="button"
+                                                  className="inline-flex items-center gap-1.5 rounded border border-red-500/40 bg-red-500/10 px-2.5 py-1.5 text-xs font-medium text-red-400 transition-all duration-150 hover:-translate-y-0.5 hover:border-red-400 hover:bg-red-500/20"
+                                                  onClick={() =>
+                                                    handleDeleteMovement(fe)
+                                                  }
+                                                  title={
+                                                    isCierreVentasRow &&
+                                                    isSuperAdminUser
+                                                      ? 'Eliminar "CIERRE FONDO VENTAS" (superadmin)'
+                                                      : isCierreVentasRow
+                                                        ? "Eliminar último cierre de Fondo Ventas"
+                                                        : "Eliminar movimiento"
+                                                  }
+                                                >
+                                                  <Trash2 className="w-4 h-4" />
+                                                  Eliminar
+                                                </button>
+                                              )}
+                                              {isPaidFcrEntry && (
+                                                <button
+                                                  type="button"
+                                                  className="inline-flex items-center justify-center rounded border border-emerald-500/40 bg-emerald-500/10 p-1.5 text-emerald-400 transition-all duration-150 hover:-translate-y-0.5 hover:border-emerald-400 hover:bg-emerald-500/20"
+                                                  onClick={() => {
+                                                    setExpandedFcrInfoRows(
+                                                      (prev) => {
+                                                        const next = new Set(
+                                                          prev,
+                                                        );
+                                                        if (next.has(fe.id)) {
+                                                          next.delete(fe.id);
+                                                        } else {
+                                                          next.add(fe.id);
+                                                        }
+                                                        return next;
+                                                      },
+                                                    );
+                                                  }}
+                                                  title="Ver información de pago FCR"
+                                                  aria-label="Ver información de pago FCR"
+                                                  aria-expanded={
+                                                    isFcrInfoExpanded
+                                                  }
+                                                >
+                                                  <Info className="w-4 h-4" />
+                                                </button>
+                                              )}
+                                              {hasAppliedCreditNotes && (
+                                                <button
+                                                  type="button"
+                                                  className={`inline-flex items-center justify-center rounded border border-sky-500/40 p-1.5 text-sky-300 transition-all duration-150 hover:-translate-y-0.5 hover:border-sky-400 hover:bg-sky-500/20 ${
+                                                    isAppliedCreditNotesExpanded
+                                                      ? "bg-sky-500/20"
+                                                      : "bg-sky-500/10"
+                                                  }`}
+                                                  onClick={() => {
+                                                    setExpandedAppliedCreditNotesRows(
+                                                      (prev) => {
+                                                        const next = new Set(
+                                                          prev,
+                                                        );
+                                                        if (next.has(fe.id)) {
+                                                          next.delete(fe.id);
+                                                        } else {
+                                                          next.add(fe.id);
+                                                        }
+                                                        return next;
+                                                      },
+                                                    );
+                                                  }}
+                                                  title="Ver notas de crédito aplicadas"
+                                                  aria-label="Ver notas de crédito aplicadas"
+                                                  aria-expanded={
+                                                    isAppliedCreditNotesExpanded
+                                                  }
+                                                >
+                                                  <Info className="w-3.5 h-3.5" />
+                                                </button>
+                                              )}
+                                            </>
+                                          );
+                                        })()}
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+
+                                {hasAppliedCreditNotes &&
+                                  isAppliedCreditNotesExpanded && (
+                                    <tr className="bg-sky-500/5 [&>td]:border-b [&>td]:border-cyan-900/35">
+                                      <td colSpan={7} className="px-3 py-2">
+                                        <div className="rounded-lg border border-sky-500/25 bg-sky-500/10 p-3 text-xs text-[var(--foreground)]">
+                                          <div className="mb-2 flex items-center gap-2 text-sky-300">
+                                            <Info className="w-4 h-4" />
+                                            <span className="font-semibold">
+                                              Notas de crédito aplicadas
+                                            </span>
+                                          </div>
+                                          <div className="space-y-2">
+                                            {fe.appliedCreditNotes?.map(
+                                              (note) => {
+                                                const noteAmount = Math.max(
+                                                  0,
+                                                  Math.trunc(
+                                                    Number(note.amount) || 0,
+                                                  ),
+                                                );
+                                                const appliedAmount = Math.max(
+                                                  0,
+                                                  Math.trunc(
+                                                    Number(
+                                                      note.appliedAmount,
+                                                    ) || 0,
+                                                  ),
+                                                );
+                                                const noteLabel =
+                                                  note.invoiceNumber
+                                                    ? `NC #${note.invoiceNumber}`
+                                                    : `NC ${note.id}`;
+
+                                                return (
+                                                  <div
+                                                    key={note.id}
+                                                    className="rounded border border-sky-500/20 bg-[var(--card-bg)]/60 p-2"
+                                                  >
+                                                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                                                      <div>
+                                                        <div className="font-medium text-[var(--foreground)]">
+                                                          {noteLabel}
+                                                        </div>
+                                                        <div className="text-[var(--muted-foreground)]">
+                                                          Moneda:{" "}
+                                                          {note.currency}
+                                                        </div>
+                                                      </div>
+                                                      <div className="text-right text-[var(--muted-foreground)]">
+                                                        <div>
+                                                          Monto NC:{" "}
+                                                          <span className="font-medium text-[var(--foreground)]">
+                                                            {formatByCurrency(
+                                                              note.currency,
+                                                              noteAmount,
+                                                            )}
+                                                          </span>
+                                                        </div>
+                                                        <div>
+                                                          Aplicado:{" "}
+                                                          <span className="font-medium text-[var(--foreground)]">
+                                                            {formatByCurrency(
+                                                              note.currency,
+                                                              appliedAmount,
+                                                            )}
+                                                          </span>
+                                                        </div>
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                );
+                                              },
+                                            )}
+                                          </div>
+                                          <div className="mt-2 text-right text-sm font-semibold text-sky-100">
+                                            Total aplicado:{" "}
                                             {formatByCurrency(
                                               entryCurrency,
                                               appliedCreditNotesTotal,
                                             )}
                                           </div>
-                                        )}
-                                    </div>
+                                        </div>
+                                      </td>
+                                    </tr>
                                   )}
-                                </td>
-                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                                  {primaryManager}
-                                </td>
-                                <td className="px-3 py-2 align-top">
-                                  {!isMovementLocked(fe) && (
-                                    <div className="flex items-center gap-2">
-                                      {(() => {
-                                        const isCierreVentasRow =
-                                          isCierreFondoVentasMovement(fe);
-                                        const isLatestCierreVentas =
-                                          isCierreVentasRow &&
-                                          Boolean(
-                                            latestCierreFondoVentasMovementId,
-                                          ) &&
-                                          fe.id ===
-                                            latestCierreFondoVentasMovementId;
-                                        const canDelete =
-                                          !isAutoAdjustment &&
-                                          (isPrincipalAdmin ||
-                                            (isSuperAdminUser &&
-                                              isCierreVentasRow)) &&
-                                          (!isCierreVentasRow ||
-                                            isLatestCierreVentas);
-                                        const canEdit =
-                                          !isAutoAdjustment &&
-                                          (!isSuperAdminUser ||
-                                            !isCierreVentasRow);
-
-                                        return (
-                                          <>
-                                            {canEdit && (
-                                              <>
-                                                <button
-                                                  type="button"
-                                                  className="inline-flex items-center gap-1.5 rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs font-medium text-[var(--foreground)] transition-all duration-150 hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--muted)] disabled:translate-y-0 disabled:opacity-50"
-                                                  onClick={() =>
-                                                    handleEditMovement(fe)
-                                                  }
-                                                  disabled={
-                                                    editingEntryId === fe.id
-                                                  }
-                                                  title={
-                                                    isAutoAdjustment
-                                                      ? "Los ajustes automáticos no se pueden editar"
-                                                      : "Editar movimiento"
-                                                  }
-                                                >
-                                                  <Pencil className="w-4 h-4" />
-                                                  {editingEntryId === fe.id
-                                                    ? "Editando"
-                                                    : "Editar"}
-                                                </button>
-
-                                                {isPaidFcrEntry && (
-                                                  <button
-                                                    type="button"
-                                                    className="inline-flex items-center justify-center rounded border border-emerald-500/40 bg-emerald-500/10 p-1.5 text-emerald-400 transition-all duration-150 hover:-translate-y-0.5 hover:border-emerald-400 hover:bg-emerald-500/20"
-                                                    onClick={() => {
-                                                      setExpandedFcrInfoRows(
-                                                        (prev) => {
-                                                          const next = new Set(
-                                                            prev,
-                                                          );
-                                                          if (
-                                                            next.has(fe.id)
-                                                          ) {
-                                                            next.delete(fe.id);
-                                                          } else {
-                                                            next.add(fe.id);
-                                                          }
-                                                          return next;
-                                                        },
-                                                      );
-                                                    }}
-                                                    title="Ver información de pago FCR"
-                                                    aria-label="Ver información de pago FCR"
-                                                    aria-expanded={
-                                                      isFcrInfoExpanded
-                                                    }
-                                                  >
-                                                    <Info className="w-4 h-4" />
-                                                  </button>
-                                                )}
-                                              </>
-                                            )}
-
-                                            {canDelete && (
-                                              <button
-                                                type="button"
-                                                className="inline-flex items-center gap-1.5 rounded border border-red-500/40 bg-red-500/10 px-2.5 py-1.5 text-xs font-medium text-red-400 transition-all duration-150 hover:-translate-y-0.5 hover:border-red-400 hover:bg-red-500/20"
-                                                onClick={() =>
-                                                  handleDeleteMovement(fe)
-                                                }
-                                                title={
-                                                  isCierreVentasRow &&
-                                                  isSuperAdminUser
-                                                    ? 'Eliminar "CIERRE FONDO VENTAS" (superadmin)'
-                                                    : isCierreVentasRow
-                                                      ? "Eliminar último cierre de Fondo Ventas"
-                                                      : "Eliminar movimiento"
-                                                }
-                                              >
-                                                <Trash2 className="w-4 h-4" />
-                                                Eliminar
-                                              </button>
-                                            )}
-                                          </>
-                                        );
-                                      })()}
-                                    </div>
-                                  )}
-                                </td>
-                                </tr>
 
                                 {isPaidFcrEntry && isFcrInfoExpanded && (
                                   <tr className="bg-emerald-500/5 [&>td]:border-b [&>td]:border-cyan-900/35">
@@ -12315,7 +12472,7 @@ export function FondoSection({
                                         <div className="mb-2 flex items-center gap-2 text-emerald-300">
                                           <Info className="w-4 h-4" />
                                           <span className="font-semibold">
-                                            Detall  e de Factura Credito pagada
+                                            Detall e de Factura Credito pagada
                                           </span>
                                         </div>
                                         <div className="grid gap-1.5 sm:grid-cols-2">
