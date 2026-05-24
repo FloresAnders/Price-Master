@@ -38,6 +38,8 @@ export type MovementRecordBase = {
   amount?: number;
   amountEgreso?: number;
   amountIngreso?: number;
+  amountPayment?: number;
+  appliedCreditNotes?: unknown[];
   manager2?: string;
   updateAt?: string;
 };
@@ -627,6 +629,10 @@ export class MovimientosFondosService {
   private static resolveMovementAmount(record: Record<string, unknown>): number {
     const ingreso = this.sanitizeBalance(record.amountIngreso);
     const egreso = this.sanitizeBalance(record.amountEgreso);
+    const payment = this.sanitizeBalance(record.amountPayment);
+    if (record.amountPayment !== undefined && egreso > 0) {
+      return Math.max(0, Math.abs(payment));
+    }
     return Math.max(Math.abs(ingreso), Math.abs(egreso));
   }
 

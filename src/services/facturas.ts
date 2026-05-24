@@ -19,6 +19,8 @@ export type FacturaMovement = {
   amount: number;
   amountEgreso: number;
   amountIngreso: number;
+  amountPayment?: number;
+  appliedCreditNotes?: AppliedCreditNote[];
   balanceDue?: number;
   createdAt: string;
   currency: MovementCurrencyKey;
@@ -32,6 +34,14 @@ export type FacturaMovement = {
   paidAmount?: number;
   paymentStatus?: "PENDIENTE" | "PARCIAL" | "PAGADA";
   updateAt?: string;
+};
+
+export type AppliedCreditNote = {
+  id: string;
+  invoiceNumber: string;
+  amount: number;
+  appliedAmount: number;
+  currency: MovementCurrencyKey;
 };
 
 const normalizeEmpresaDocId = (empresa: string): string => {
@@ -104,6 +114,35 @@ const sanitizeFacturaMovement = (raw: unknown): FacturaMovement | null => {
   const amount = Math.trunc(amountValue || 0);
   const amountEgreso = Math.trunc(Number(candidate.amountEgreso) || 0);
   const amountIngreso = Math.trunc(Number(candidate.amountIngreso) || 0);
+  const amountPayment = Math.trunc(Number(candidate.amountPayment) || 0);
+  const appliedCreditNotes = Array.isArray(candidate.appliedCreditNotes)
+    ? candidate.appliedCreditNotes
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const raw = item as Partial<AppliedCreditNote>;
+          const noteId = typeof raw.id === "string" ? raw.id.trim() : "";
+          const noteInvoice =
+            typeof raw.invoiceNumber === "string"
+              ? raw.invoiceNumber.trim()
+              : "";
+          const noteAmount = Math.max(0, Math.trunc(Number(raw.amount) || 0));
+          const appliedAmount = Math.max(
+            0,
+            Math.trunc(Number(raw.appliedAmount) || 0),
+          );
+          const noteCurrency: MovementCurrencyKey =
+            raw.currency === "USD" ? "USD" : "CRC";
+          if (!noteId || appliedAmount <= 0) return null;
+          return {
+            id: noteId,
+            invoiceNumber: noteInvoice,
+            amount: noteAmount,
+            appliedAmount,
+            currency: noteCurrency,
+          };
+        })
+        .filter((item): item is AppliedCreditNote => Boolean(item))
+    : undefined;
   const paidAmount = Math.trunc(Number(candidate.paidAmount) || 0);
   const balanceDue = Math.trunc(Number(candidate.balanceDue) || 0);
   const paymentStatus =
@@ -121,6 +160,14 @@ const sanitizeFacturaMovement = (raw: unknown): FacturaMovement | null => {
     amount,
     amountEgreso,
     amountIngreso,
+    amountPayment:
+      candidate.amountPayment !== undefined
+        ? Math.max(0, amountPayment)
+        : undefined,
+    appliedCreditNotes:
+      appliedCreditNotes && appliedCreditNotes.length > 0
+        ? appliedCreditNotes
+        : undefined,
     createdAt,
     currency,
     invoiceNumber,

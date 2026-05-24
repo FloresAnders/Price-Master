@@ -58,6 +58,7 @@ import { generateMovementNotificationEmail } from "../../../services/email-templ
 import { generateEgresoProviderCreatedEmail } from "../../../services/email-templates/proveedor-egreso-creado";
 import {
   FacturasService,
+  type AppliedCreditNote,
   type FacturaMovement,
 } from "../../../services/facturas";
 import {
@@ -99,6 +100,7 @@ import {
   doc,
   runTransaction,
   serverTimestamp,
+  writeBatch,
   type QueryDocumentSnapshot,
   type DocumentData,
   waitForPendingWrites,
@@ -316,6 +318,8 @@ export type FondoEntry = {
   paymentType: FondoMovementType;
   amountEgreso: number;
   amountIngreso: number;
+  amountPayment?: number;
+  appliedCreditNotes?: AppliedCreditNote[];
   manager: string;
   manager2?: string;
   notes: string;
@@ -335,8 +339,30 @@ export type FondoEntry = {
   auditDetails?: string;
 };
 
+type PendingCreditNoteOption = {
+  id: string;
+  invoiceNumber: string;
+  amount: number;
+  balanceDue: number;
+  paidAmount: number;
+  currency: "CRC" | "USD";
+};
+
 const normalizeInvoiceDocType = (value: unknown): "FCO" | "FCR" =>
   value === "FCR" ? "FCR" : "FCO";
+
+const resolveEffectiveEgresoAmount = (
+  entry: Partial<FondoEntry> | null | undefined,
+): number => {
+  if (!entry) return 0;
+  const egreso = Math.max(0, Math.trunc(Number(entry.amountEgreso) || 0));
+  const hasPayment = (entry as any).amountPayment !== undefined;
+  const payment = Math.max(
+    0,
+    Math.trunc(Number((entry as any).amountPayment) || 0),
+  );
+  return egreso > 0 && hasPayment ? payment : egreso;
+};
 
 const isPaidFcrMovement = (entry: Partial<FondoEntry>): boolean => {
   if (normalizeInvoiceDocType(entry.invoiceDocType) !== "FCR") return false;
@@ -386,6 +412,8 @@ const getChangedFields = (
     "paymentType",
     "amountEgreso",
     "amountIngreso",
+    "amountPayment",
+    "appliedCreditNotes",
     "manager",
     "manager2",
     "notes",
@@ -810,6 +838,30 @@ export const sanitizeFondoEntries = (
 
     const amountEgreso = Math.trunc(rawEgreso);
     const amountIngreso = Math.trunc(rawIngreso);
+    const rawAmountPayment = (entry as any).amountPayment;
+    const amountPayment =
+      rawAmountPayment !== undefined
+        ? Math.max(0, Math.trunc(Number(rawAmountPayment) || 0))
+        : undefined;
+    const appliedCreditNotes = Array.isArray((entry as any).appliedCreditNotes)
+      ? ((entry as any).appliedCreditNotes as any[])
+          .map((note) => {
+            const id = String(note?.id || "").trim();
+            const appliedAmount = Math.max(
+              0,
+              Math.trunc(Number(note?.appliedAmount) || 0),
+            );
+            if (!id || appliedAmount <= 0) return null;
+            return {
+              id,
+              invoiceNumber: String(note?.invoiceNumber || "").trim(),
+              amount: Math.max(0, Math.trunc(Number(note?.amount) || 0)),
+              appliedAmount,
+              currency: note?.currency === "USD" ? "USD" : "CRC",
+            } as AppliedCreditNote;
+          })
+          .filter((note): note is AppliedCreditNote => Boolean(note))
+      : undefined;
 
     const currency: MovementCurrencyKey =
       forcedCurrency ?? (entry.currency === "USD" ? "USD" : "CRC");
@@ -854,6 +906,11 @@ export const sanitizeFondoEntries = (
             : 0
           : amountIngreso
         : amountIngreso,
+      amountPayment,
+      appliedCreditNotes:
+        appliedCreditNotes && appliedCreditNotes.length > 0
+          ? appliedCreditNotes
+          : undefined,
       manager,
       manager2,
       notes,
@@ -3494,6 +3551,12 @@ export function FondoSection({
   const [selectedProvider, setSelectedProvider] = useState("");
   const [selectedProviderPendingNcCount, setSelectedProviderPendingNcCount] =
     useState(0);
+  const [
+    selectedProviderPendingCreditNotes,
+    setSelectedProviderPendingCreditNotes,
+  ] = useState<PendingCreditNoteOption[]>([]);
+  const [selectedAppliedCreditNoteIds, setSelectedAppliedCreditNoteIds] =
+    useState<string[]>([]);
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const defaultPaymentType: FondoEntry["paymentType"] =
     mode === "ingreso"
@@ -3541,43 +3604,75 @@ export function FondoSection({
 
     if (!company || !selectedProvider) {
       setSelectedProviderPendingNcCount(0);
+      setSelectedProviderPendingCreditNotes([]);
+      setSelectedAppliedCreditNoteIds([]);
       return () => {
         cancelled = true;
       };
     }
 
     setSelectedProviderPendingNcCount(0);
+    setSelectedProviderPendingCreditNotes([]);
+    setSelectedAppliedCreditNoteIds([]);
 
     FacturasService.listMovementsByEmpresa(company, { limit: 800 })
       .then((items) => {
         if (cancelled) return;
-        const pendingCount = items.filter((movement) => {
-          if (movement.providerCode !== selectedProvider) return false;
-          if (String(movement.invoiceDocType || "").trim().toUpperCase() !== "NC")
-            return false;
-          if (String(movement.paymentStatus || "PENDIENTE").toUpperCase() === "PAGADA")
-            return false;
+        const pendingNotes = items.reduce<PendingCreditNoteOption[]>(
+          (acc, movement) => {
+            if (movement.providerCode !== selectedProvider) return acc;
+            if (
+              String(movement.invoiceDocType || "").trim().toUpperCase() !==
+              "NC"
+            ) {
+              return acc;
+            }
+            if (
+              String(movement.paymentStatus || "PENDIENTE").toUpperCase() ===
+              "PAGADA"
+            ) {
+              return acc;
+            }
 
-          const balanceDue = Math.max(
-            0,
-            Math.trunc(Number(movement.balanceDue) || 0),
-          );
-          if (balanceDue > 0) return true;
+            const balanceDue = Math.max(
+              0,
+              Math.trunc(Number(movement.balanceDue) || 0),
+            );
+            const amount = Math.max(
+              0,
+              Math.trunc(Number(movement.amount) || 0),
+            );
+            const paidAmount = Math.max(
+              0,
+              Math.trunc(Number(movement.paidAmount) || 0),
+            );
+            const pendingBalance =
+              balanceDue > 0 ? balanceDue : Math.max(0, amount - paidAmount);
 
-          const amount = Math.max(0, Math.trunc(Number(movement.amount) || 0));
-          const paidAmount = Math.max(
-            0,
-            Math.trunc(Number(movement.paidAmount) || 0),
-          );
-          return amount > paidAmount;
-        }).length;
+            if (pendingBalance > 0) {
+              acc.push({
+                id: movement.id,
+                invoiceNumber: movement.invoiceNumber,
+                amount,
+                balanceDue: pendingBalance,
+                paidAmount,
+                currency: movement.currency === "USD" ? "USD" : "CRC",
+              });
+            }
+            return acc;
+          },
+          [],
+        );
 
-        setSelectedProviderPendingNcCount(pendingCount);
+        setSelectedProviderPendingCreditNotes(pendingNotes);
+        setSelectedProviderPendingNcCount(pendingNotes.length);
       })
       .catch((error) => {
         if (!cancelled) {
           console.error("[FONDO] Error checking pending credit notes:", error);
           setSelectedProviderPendingNcCount(0);
+          setSelectedProviderPendingCreditNotes([]);
+          setSelectedAppliedCreditNoteIds([]);
         }
       });
 
@@ -5799,6 +5894,12 @@ export function FondoSection({
     }
   }, [paymentType, isIngreso]);
 
+  useEffect(() => {
+    if (invoiceDocType !== "FCO" || !isEgreso) {
+      setSelectedAppliedCreditNoteIds([]);
+    }
+  }, [invoiceDocType, isEgreso]);
+
   const resetFondoForm = useCallback(() => {
     setSelectedProvider("");
     setInvoiceNumber("");
@@ -5807,6 +5908,7 @@ export function FondoSection({
     setIngreso("");
     setManager("");
     setManager2("");
+    setSelectedAppliedCreditNoteIds([]);
     setPaymentType("COMPRA INVENTARIO");
     setNotes("");
     setEditingEntryId(null);
@@ -5967,7 +6069,7 @@ export function FondoSection({
           if (!entry) return null;
           const currency = normalizeCurrency(entry.currency);
           const ingreso = parseBalance((entry as any).amountIngreso ?? 0);
-          const egreso = parseBalance((entry as any).amountEgreso ?? 0);
+          const egreso = resolveEffectiveEgresoAmount(entry);
           return { currency, delta: ingreso - egreso };
         };
 
@@ -6515,6 +6617,7 @@ export function FondoSection({
             `invoiceDocType=${normalizeInvoiceDocType((entry as any).invoiceDocType)}`,
             `type=${entry.paymentType || ""}`,
             `egreso=${Math.trunc(entry.amountEgreso || 0)}`,
+            `payment=${Math.trunc(entry.amountPayment || 0)}`,
             `ingreso=${Math.trunc(entry.amountIngreso || 0)}`,
             `manager=${(entry.manager || "").trim()}`,
             `currency=${(entry as any).currency || "CRC"}`,
@@ -6710,6 +6813,48 @@ export function FondoSection({
     if (isIngreso && (Number.isNaN(ingresoValue) || ingresoValue <= 0)) return;
 
     const effectiveInvoiceDocType = normalizeInvoiceDocType(invoiceDocType);
+    const buildAppliedCreditNotes = (
+      invoiceAmount: number,
+    ): { notes: AppliedCreditNote[]; total: number; amountPayment: number } => {
+      if (!isEgreso || editingEntryId || effectiveInvoiceDocType !== "FCO") {
+        return { notes: [], total: 0, amountPayment: invoiceAmount };
+      }
+
+      const selectedIds = new Set(selectedAppliedCreditNoteIds);
+      let remaining = Math.max(0, Math.trunc(invoiceAmount));
+      let total = 0;
+      const notes: AppliedCreditNote[] = [];
+
+      selectedProviderPendingCreditNotes.forEach((note) => {
+        if (remaining <= 0 || !selectedIds.has(note.id)) return;
+        if (note.currency !== movementCurrency) return;
+        const appliedAmount = Math.min(
+          remaining,
+          Math.max(0, Math.trunc(Number(note.balanceDue) || 0)),
+        );
+        if (appliedAmount <= 0) return;
+        total += appliedAmount;
+        remaining -= appliedAmount;
+        notes.push({
+          id: note.id,
+          invoiceNumber: note.invoiceNumber,
+          amount: note.amount,
+          appliedAmount,
+          currency: note.currency,
+        });
+      });
+
+      return {
+        notes,
+        total,
+        amountPayment: Math.max(0, Math.trunc(invoiceAmount) - total),
+      };
+    };
+    const creditNoteApplication = buildAppliedCreditNotes(egresoValue);
+    const egresoBalanceImpact =
+      isEgreso && effectiveInvoiceDocType === "FCO"
+        ? creditNoteApplication.amountPayment
+        : egresoValue;
 
     // Validar que no quede saldo negativo en la moneda del movimiento.
     // Nota: este límite de “saldo insuficiente” solo aplica para usuarios regulares.
@@ -6733,24 +6878,22 @@ export function FondoSection({
           const originalCurrency: MovementCurrencyKey =
             originalEntry.currency === "USD" ? "USD" : "CRC";
           if (originalCurrency === movementCurrency) {
-            effectiveBalance += Math.trunc(
-              Number(originalEntry.amountEgreso) || 0,
-            );
+            effectiveBalance += resolveEffectiveEgresoAmount(originalEntry);
             effectiveBalance -= Math.trunc(
               Number(originalEntry.amountIngreso) || 0,
             );
           }
         }
       }
-      const resultingBalance = effectiveBalance - egresoValue;
+      const resultingBalance = effectiveBalance - egresoBalanceImpact;
       console.log(
-        `Validando saldo negativo: effectiveBalance=${effectiveBalance}, egresoValue=${egresoValue}, resultingBalance=${resultingBalance}`,
+        `Validando saldo negativo: effectiveBalance=${effectiveBalance}, egresoValue=${egresoBalanceImpact}, resultingBalance=${resultingBalance}`,
       );
 
       if (resultingBalance < 0) {
         setNegativeBalanceModal({
           open: true,
-          amount: egresoValue,
+          amount: egresoBalanceImpact,
           currency: movementCurrency,
           resultingNegativeAmount: resultingBalance,
         });
@@ -6825,6 +6968,11 @@ export function FondoSection({
             `invoiceDocType=${normalizeInvoiceDocType(invoiceDocType)}`,
             `type=${paymentType || ""}`,
             `egreso=${Math.trunc(isEgreso ? egresoValue : 0)}`,
+            `payment=${Math.trunc(
+              isEgreso && effectiveInvoiceDocType === "FCO"
+                ? creditNoteApplication.amountPayment
+                : 0,
+            )}`,
             `ingreso=${Math.trunc(isIngreso ? ingresoValue : 0)}`,
             `manager=${(manager || "").trim()}`,
             `currency=${movementCurrency || "CRC"}`,
@@ -6956,6 +7104,33 @@ export function FondoSection({
             return e; // No permitir más ediciones
           }
 
+          const previousAppliedNotes = Array.isArray(e.appliedCreditNotes)
+            ? e.appliedCreditNotes
+            : [];
+          let remainingAppliedBase = isEgreso ? egresoValue : 0;
+          const nextAppliedCreditNotes = previousAppliedNotes.reduce<
+            AppliedCreditNote[]
+          >((acc, note) => {
+            if (remainingAppliedBase <= 0) return acc;
+            const appliedAmount = Math.min(
+              remainingAppliedBase,
+              Math.max(0, Math.trunc(Number(note.appliedAmount) || 0)),
+            );
+            if (appliedAmount > 0) {
+              acc.push({ ...note, appliedAmount });
+              remainingAppliedBase -= appliedAmount;
+            }
+            return acc;
+          }, []);
+          const nextAppliedTotal = nextAppliedCreditNotes.reduce(
+            (sum, note) => sum + Math.max(0, Math.trunc(note.appliedAmount)),
+            0,
+          );
+          const nextAmountPayment =
+            isEgreso && nextAppliedCreditNotes.length > 0
+              ? Math.max(0, egresoValue - nextAppliedTotal)
+              : undefined;
+
           // Crear registro simplificado con solo los campos que cambiaron
           const changedFields = getChangedFields(
             {
@@ -6967,6 +7142,8 @@ export function FondoSection({
               paymentType: e.paymentType,
               amountEgreso: e.amountEgreso,
               amountIngreso: e.amountIngreso,
+              amountPayment: e.amountPayment,
+              appliedCreditNotes: e.appliedCreditNotes,
               manager: e.manager,
               manager2: e.manager2,
               notes: e.notes,
@@ -6979,6 +7156,8 @@ export function FondoSection({
               paymentType,
               amountEgreso: isEgreso ? egresoValue : 0,
               amountIngreso: isEgreso ? 0 : ingresoValue,
+              amountPayment: nextAmountPayment,
+              appliedCreditNotes: nextAppliedCreditNotes,
               manager: effectiveManager,
               manager2: effectiveManager2,
               notes: trimmedNotes,
@@ -7000,6 +7179,11 @@ export function FondoSection({
             paymentType,
             amountEgreso: isEgreso ? egresoValue : 0,
             amountIngreso: isEgreso ? 0 : ingresoValue,
+            amountPayment: nextAmountPayment,
+            appliedCreditNotes:
+              nextAppliedCreditNotes.length > 0
+                ? nextAppliedCreditNotes
+                : undefined,
             manager: effectiveManager,
             manager2: effectiveManager2 || undefined,
             notes: trimmedNotes,
@@ -7060,6 +7244,8 @@ export function FondoSection({
               paymentType: facturaEntry.paymentType,
               amountEgreso: facturaEntry.amountEgreso,
               amountIngreso: facturaEntry.amountIngreso,
+              amountPayment: facturaEntry.amountPayment,
+              appliedCreditNotes: facturaEntry.appliedCreditNotes,
               manager: facturaEntry.manager,
               manager2: facturaEntry.manager2,
               notes: facturaEntry.notes,
@@ -7099,7 +7285,7 @@ export function FondoSection({
               const cur = (en.currency as "CRC" | "USD") || "CRC";
               if (cur === "CRC") {
                 ingresosCRC += en.amountIngreso || 0;
-                egresosCRC += en.amountEgreso || 0;
+                egresosCRC += resolveEffectiveEgresoAmount(en);
               }
             });
             return (Number(initialAmount) || 0) + ingresosCRC - egresosCRC;
@@ -7208,6 +7394,16 @@ export function FondoSection({
           paymentType,
           amountEgreso: isEgreso ? egresoValue : 0,
           amountIngreso: isIngreso ? ingresoValue : 0,
+          amountPayment:
+            isEgreso &&
+            effectiveInvoiceDocType === "FCO" &&
+            creditNoteApplication.notes.length > 0
+              ? creditNoteApplication.amountPayment
+              : undefined,
+          appliedCreditNotes:
+            creditNoteApplication.notes.length > 0
+              ? creditNoteApplication.notes
+              : undefined,
           manager,
           notes: trimmedNotes,
           createdAt: iso,
@@ -7306,6 +7502,64 @@ export function FondoSection({
             );
           }
 
+          if (
+            normalizedCompany.length > 0 &&
+            entry.appliedCreditNotes &&
+            entry.appliedCreditNotes.length > 0
+          ) {
+            try {
+              const batch = writeBatch(db);
+              entry.appliedCreditNotes.forEach((note) => {
+                const pendingNote = selectedProviderPendingCreditNotes.find(
+                  (item) => item.id === note.id,
+                );
+                if (!pendingNote) return;
+                const nextPaidAmount = Math.min(
+                  pendingNote.amount,
+                  pendingNote.paidAmount + note.appliedAmount,
+                );
+                const nextBalanceDue = Math.max(
+                  0,
+                  pendingNote.amount - nextPaidAmount,
+                );
+                batch.set(
+                  FacturasService.buildMovementRef(normalizedCompany, note.id),
+                  {
+                    paidAmount: nextPaidAmount,
+                    balanceDue: nextBalanceDue,
+                    paymentStatus:
+                      nextBalanceDue === 0 ? "PAGADA" : "PARCIAL",
+                    updateAt: entry.createdAt,
+                  },
+                  { merge: true },
+                );
+              });
+              await batch.commit();
+              setSelectedProviderPendingCreditNotes((prev) =>
+                prev
+                  .map((note) => {
+                    const applied = entry.appliedCreditNotes?.find(
+                      (item) => item.id === note.id,
+                    );
+                    if (!applied) return note;
+                    const paidAmount = Math.min(
+                      note.amount,
+                      note.paidAmount + applied.appliedAmount,
+                    );
+                    return {
+                      ...note,
+                      paidAmount,
+                      balanceDue: Math.max(0, note.amount - paidAmount),
+                    };
+                  })
+                  .filter((note) => note.balanceDue > 0),
+              );
+              setSelectedAppliedCreditNoteIds([]);
+            } catch (err) {
+              console.warn("[FG] Could not update applied credit notes:", err);
+            }
+          }
+
           // Mantener copia en Facturas (best-effort)
           try {
             if (normalizedCompany.length > 0) {
@@ -7320,6 +7574,8 @@ export function FondoSection({
                 paymentType: entry.paymentType,
                 amountEgreso: entry.amountEgreso,
                 amountIngreso: entry.amountIngreso,
+                amountPayment: entry.amountPayment,
+                appliedCreditNotes: entry.appliedCreditNotes,
                 manager: entry.manager,
                 notes: entry.notes,
                 createdAt: entry.createdAt,
@@ -7411,6 +7667,7 @@ export function FondoSection({
     setInvoiceDocType(normalizeInvoiceDocType((entry as any).invoiceDocType));
     setManager(entry.manager);
     setManager2(String((entry as any).manager2 || ""));
+    setSelectedAppliedCreditNoteIds([]);
     setNotes(entry.notes ?? "");
     setMovementCurrency((entry.currency as "CRC" | "USD") ?? "CRC");
     // Set amounts based on the correct payment type, using the entry's amounts
@@ -7487,6 +7744,18 @@ export function FondoSection({
 
     if (isAutoAdjustmentProvider(entry.providerCode)) {
       showToast("Los ajustes automáticos no se pueden editar.", "info", 5000);
+      return;
+    }
+
+    if (
+      Array.isArray(entry.appliedCreditNotes) &&
+      entry.appliedCreditNotes.length > 0
+    ) {
+      showToast(
+        "Este movimiento tiene notas de crédito aplicadas y no se puede editar.",
+        "info",
+        5000,
+      );
       return;
     }
 
@@ -7870,6 +8139,49 @@ export function FondoSection({
     ? egreso.trim().length > 0
     : ingreso.trim().length > 0;
 
+  const selectedAppliedCreditNotes = useMemo(() => {
+    if (!isEgreso || editingEntryId) return [];
+    const selectedIds = new Set(selectedAppliedCreditNoteIds);
+    return selectedProviderPendingCreditNotes.filter(
+      (note) => selectedIds.has(note.id) && note.currency === movementCurrency,
+    );
+  }, [
+    editingEntryId,
+    isEgreso,
+    movementCurrency,
+    selectedAppliedCreditNoteIds,
+    selectedProviderPendingCreditNotes,
+  ]);
+
+  const creditNotesAppliedTotal = useMemo(() => {
+    let remaining = Math.max(0, Math.trunc(Number(egreso) || 0));
+    let total = 0;
+    selectedAppliedCreditNotes.forEach((note) => {
+      if (remaining <= 0) return;
+      const applied = Math.min(
+        remaining,
+        Math.max(0, Math.trunc(Number(note.balanceDue) || 0)),
+      );
+      total += applied;
+      remaining -= applied;
+    });
+    return total;
+  }, [egreso, selectedAppliedCreditNotes]);
+
+  const computedAmountPayment = isEgreso
+    ? Math.max(0, Math.trunc(Number(egreso) || 0) - creditNotesAppliedTotal)
+    : undefined;
+
+  useEffect(() => {
+    setSelectedAppliedCreditNoteIds((prev) =>
+      prev.filter((id) =>
+        selectedProviderPendingCreditNotes.some(
+          (note) => note.id === id && note.currency === movementCurrency,
+        ),
+      ),
+    );
+  }, [movementCurrency, selectedProviderPendingCreditNotes]);
+
   const { currentBalanceCRC, currentBalanceUSD } = useMemo(() => {
     return {
       // currentBalance debe ser el balance real persistido, no el del rango filtrado.
@@ -7899,7 +8211,7 @@ export function FondoSection({
     orderedDesc.forEach((entry) => {
       map.set(entry.id, running);
       running -= Math.trunc(entry.amountIngreso || 0);
-      running += Math.trunc(entry.amountEgreso || 0);
+      running += resolveEffectiveEgresoAmount(entry);
     });
     return map;
   }, [fondoEntries, currentBalanceCRC]);
@@ -7918,7 +8230,7 @@ export function FondoSection({
     orderedDesc.forEach((entry) => {
       map.set(entry.id, running);
       running -= Math.trunc(entry.amountIngreso || 0);
-      running += Math.trunc(entry.amountEgreso || 0);
+      running += resolveEffectiveEgresoAmount(entry);
     });
     return map;
   }, [fondoEntries, currentBalanceUSD]);
@@ -10978,6 +11290,21 @@ export function FondoSection({
               managerError={managerError}
               manager2Error={manager2Error}
               pendingCreditNotesCount={selectedProviderPendingNcCount}
+              pendingCreditNotes={
+                invoiceDocType === "FCO"
+                  ? selectedProviderPendingCreditNotes
+                  : []
+              }
+              selectedCreditNoteIds={selectedAppliedCreditNoteIds}
+              onToggleCreditNote={(id) => {
+                setSelectedAppliedCreditNoteIds((prev) =>
+                  prev.includes(id)
+                    ? prev.filter((item) => item !== id)
+                    : [...prev, id],
+                );
+              }}
+              creditNotesAppliedTotal={creditNotesAppliedTotal}
+              amountPayment={computedAmountPayment}
               balanceCRC={currentBalanceCRC}
               balanceUSD={currentBalanceUSD}
             />
@@ -11357,8 +11684,26 @@ export function FondoSection({
                               fe.amountIngreso || 0,
                             );
                             const normalizedEgreso = Math.trunc(
+                              resolveEffectiveEgresoAmount(fe),
+                            );
+                            const invoiceEgresoAmount = Math.trunc(
                               fe.amountEgreso || 0,
                             );
+                            const appliedCreditNotesTotal = Array.isArray(
+                              fe.appliedCreditNotes,
+                            )
+                              ? fe.appliedCreditNotes.reduce(
+                                  (sum, note) =>
+                                    sum +
+                                    Math.max(
+                                      0,
+                                      Math.trunc(
+                                        Number(note.appliedAmount) || 0,
+                                      ),
+                                    ),
+                                  0,
+                                )
+                              : 0;
                             let isEntryEgreso =
                               isEgresoType(fe.paymentType) ||
                               isGastoType(fe.paymentType);
@@ -11831,6 +12176,21 @@ export function FondoSection({
                                           previousBalance,
                                         )}
                                       </span>
+                                      {isEntryEgreso &&
+                                        appliedCreditNotesTotal > 0 && (
+                                          <div className="text-xs text-amber-200">
+                                            Factura:{" "}
+                                            {formatByCurrency(
+                                              entryCurrency,
+                                              invoiceEgresoAmount,
+                                            )}{" "}
+                                            · NC: -
+                                            {formatByCurrency(
+                                              entryCurrency,
+                                              appliedCreditNotesTotal,
+                                            )}
+                                          </div>
+                                        )}
                                     </div>
                                   )}
                                 </td>

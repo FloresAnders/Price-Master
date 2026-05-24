@@ -28,6 +28,14 @@ type ProviderOption = {
   movementCount?: number;
 };
 
+type PendingCreditNoteOption = {
+  id: string;
+  invoiceNumber: string;
+  amount: number;
+  balanceDue: number;
+  currency: "CRC" | "USD";
+};
+
 type AgregarMovimientoProps = {
   selectedProvider: string;
   onProviderChange: (value: string) => void;
@@ -78,6 +86,11 @@ type AgregarMovimientoProps = {
   managerError?: string;
   manager2Error?: string;
   pendingCreditNotesCount?: number;
+  pendingCreditNotes?: PendingCreditNoteOption[];
+  selectedCreditNoteIds?: string[];
+  onToggleCreditNote?: (id: string) => void;
+  creditNotesAppliedTotal?: number;
+  amountPayment?: number;
   // En el type AgregarMovimientoProps agrega:
   balanceCRC?: number;
   balanceUSD?: number;
@@ -127,6 +140,11 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   managerError = "",
   manager2Error = "",
   pendingCreditNotesCount = 0,
+  pendingCreditNotes = [],
+  selectedCreditNoteIds = [],
+  onToggleCreditNote,
+  creditNotesAppliedTotal = 0,
+  amountPayment,
   manager2 = "",
   onManager2Change,
   showManager2 = false,
@@ -228,6 +246,14 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     paymentType && paymentType !== "INFORMATIVO"
       ? formatMovementType(paymentType)
       : "Tipo segun proveedor";
+  const selectedCreditNoteIdSet = React.useMemo(
+    () => new Set(selectedCreditNoteIds),
+    [selectedCreditNoteIds],
+  );
+  const formatCurrencyAmount = (value: number, targetCurrency = currency) =>
+    targetCurrency === "USD"
+      ? `$ ${inputFormatterUSD.format(Math.trunc(value))}`
+      : `₡ ${inputFormatterCRC.format(Math.trunc(value))}`;
 
   return (
     <div className="space-y-4">
@@ -512,6 +538,65 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
         />
         {amountError && (
           <p className="mt-1 text-xs text-red-400">{amountError}</p>
+        )}
+        {isEgreso && pendingCreditNotes.length > 0 && !editingEntryId && (
+          <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="text-xs font-semibold uppercase tracking-wide text-amber-100">
+                Notas de credito pendientes
+              </div>
+              <div className="text-xs font-semibold text-amber-100">
+                - {formatCurrencyAmount(creditNotesAppliedTotal)}
+              </div>
+            </div>
+            <div className="space-y-2">
+              {pendingCreditNotes.map((note) => {
+                const checked = selectedCreditNoteIdSet.has(note.id);
+                const disabled = note.currency !== currency;
+                return (
+                  <label
+                    key={note.id}
+                    className={`flex items-center justify-between gap-3 rounded border px-3 py-2 text-sm ${
+                      checked
+                        ? "border-amber-300/45 bg-amber-400/15 text-amber-50"
+                        : "border-amber-500/25 bg-black/10 text-cyan-50"
+                    } ${disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer"}`}
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={disabled}
+                        onChange={() => onToggleCreditNote?.(note.id)}
+                        className="h-4 w-4 accent-amber-400"
+                      />
+                      <span className="min-w-0">
+                        <span className="block truncate font-semibold">
+                          NC #{note.invoiceNumber || note.id}
+                        </span>
+                        {disabled && (
+                          <span className="block text-[11px] text-amber-100/70">
+                            Moneda distinta
+                          </span>
+                        )}
+                      </span>
+                    </span>
+                    <span className="shrink-0 font-semibold">
+                      {formatCurrencyAmount(note.balanceDue, note.currency)}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+            {selectedCreditNoteIds.length > 0 && (
+              <div className="mt-3 grid grid-cols-2 gap-2 border-t border-amber-500/25 pt-3 text-xs">
+                <div className="text-cyan-100/70">Pago generado</div>
+                <div className="text-right font-semibold text-emerald-200">
+                  {formatCurrencyAmount(Math.max(0, amountPayment ?? 0))}
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </section>
 
