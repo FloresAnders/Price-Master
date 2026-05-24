@@ -6,6 +6,7 @@ import {
   FileText,
   Loader2,
   MessageSquare,
+  Plus,
   Save,
   Search,
   UserCircle,
@@ -91,6 +92,7 @@ type AgregarMovimientoProps = {
   onToggleCreditNote?: (id: string) => void;
   creditNotesAppliedTotal?: number;
   amountPayment?: number;
+  onAddManualCreditNote?: () => void;
   // En el type AgregarMovimientoProps agrega:
   balanceCRC?: number;
   balanceUSD?: number;
@@ -145,6 +147,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   onToggleCreditNote,
   creditNotesAppliedTotal = 0,
   amountPayment,
+  onAddManualCreditNote,
   manager2 = "",
   onManager2Change,
   showManager2 = false,
@@ -539,6 +542,19 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
         {amountError && (
           <p className="mt-1 text-xs text-red-400">{amountError}</p>
         )}
+        {isEgreso &&
+          !editingEntryId &&
+          selectedCreditNoteIds.length === 0 &&
+          onAddManualCreditNote && (
+            <button
+              type="button"
+              onClick={onAddManualCreditNote}
+              className="mt-3 inline-flex items-center gap-2 rounded border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-300 transition-all duration-150 hover:-translate-y-0.5 hover:border-sky-400 hover:bg-sky-500/20"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Agregar NC manual
+            </button>
+          )}
         {isEgreso && pendingCreditNotes.length > 0 && !editingEntryId && (
           <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
             <div className="mb-2 flex items-center justify-between gap-2">

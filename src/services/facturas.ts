@@ -42,6 +42,7 @@ export type AppliedCreditNote = {
   amount: number;
   appliedAmount: number;
   currency: MovementCurrencyKey;
+  observation?: string;
 };
 
 const normalizeEmpresaDocId = (empresa: string): string => {
@@ -132,6 +133,10 @@ const sanitizeFacturaMovement = (raw: unknown): FacturaMovement | null => {
           );
           const noteCurrency: MovementCurrencyKey =
             raw.currency === "USD" ? "USD" : "CRC";
+          const observation =
+            typeof raw.observation === "string"
+              ? raw.observation.trim()
+              : "";
           if (!noteId || appliedAmount <= 0) return null;
           return {
             id: noteId,
@@ -139,6 +144,7 @@ const sanitizeFacturaMovement = (raw: unknown): FacturaMovement | null => {
             amount: noteAmount,
             appliedAmount,
             currency: noteCurrency,
+            ...(observation ? { observation } : {}),
           };
         })
         .filter((item): item is AppliedCreditNote => Boolean(item))
