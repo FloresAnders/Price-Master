@@ -3,3 +3,8 @@ TODO: Contador de ediciones restastantes
 TODO: Hacer una alerta/notificacion que informe una actualizacion del sistema 
 TODO: CAMBIAR EL ARRAY DE PROVEEDORES A OBJETOS IGUAL QUE EL CAMBIO DE MOVIENTOS
 TODO: CAMBIAR MOVEMENTS A BCR,BN,BAC, FG
+
+
+
+solo compra de inventario para facturas de credito
+en el fondo al momento de pagar, indicar que hay NC pendientes

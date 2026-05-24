@@ -387,6 +387,7 @@ const getChangedFields = (
     "amountEgreso",
     "amountIngreso",
     "manager",
+    "manager2",
     "notes",
     "currency",
   ];
@@ -3483,6 +3484,7 @@ export function FondoSection({
   const [egreso, setEgreso] = useState("");
   const [ingreso, setIngreso] = useState("");
   const [manager, setManager] = useState("");
+  const [manager2, setManager2] = useState("");
   const [notes, setNotes] = useState("");
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [initialAmount, setInitialAmount] = useState("0");
@@ -3510,6 +3512,7 @@ export function FondoSection({
   const [invoiceError, setInvoiceError] = useState("");
   const [amountError, setAmountError] = useState("");
   const [managerError, setManagerError] = useState("");
+  const [manager2Error, setManager2Error] = useState("");
   const [dailyClosingModalOpen, setDailyClosingModalOpen] = useState(false);
   const [editingDailyClosingId, setEditingDailyClosingId] = useState<
     string | null
@@ -4968,6 +4971,10 @@ export function FondoSection({
         : null,
     [editingEntryId, fondoEntries],
   );
+  const isEditingPaidFcrMovement = useMemo(
+    () => (editingEntry ? isPaidFcrMovement(editingEntry) : false),
+    [editingEntry],
+  );
   const editingProviderCode = editingEntry?.providerCode ?? null;
 
   useEffect(() => {
@@ -5727,6 +5734,7 @@ export function FondoSection({
     setEgreso("");
     setIngreso("");
     setManager("");
+    setManager2("");
     setPaymentType("COMPRA INVENTARIO");
     setNotes("");
     setEditingEntryId(null);
@@ -5735,6 +5743,7 @@ export function FondoSection({
     setInvoiceError("");
     setAmountError("");
     setManagerError("");
+    setManager2Error("");
   }, []);
 
   const normalizeMoneyInput = (value: string) => value.replace(/[^0-9]/g, "");
@@ -6592,13 +6601,22 @@ export function FondoSection({
       setInvoiceError("");
     }
 
-    if (!manager) {
+    const trimmedManager2 = manager2.trim();
+    if (isEditingPaidFcrMovement) {
+      setManagerError("");
+      if (!trimmedManager2) {
+        setManager2Error("Selecciona quien pagó la factura");
+        hasErrors = true;
+      } else {
+        setManager2Error("");
+      }
+    } else if (!manager) {
       setManagerError("Selecciona un encargado");
       hasErrors = true;
     } else {
       setManagerError("");
+      setManager2Error("");
     }
-
     const egresoValue = isEgreso ? Number.parseInt(egreso, 10) : 0;
     const ingresoValue = isIngreso ? Number.parseInt(ingreso, 10) : 0;
     const trimmedNotes = notes.trim();
@@ -6797,6 +6815,13 @@ export function FondoSection({
           return;
         }
 
+        const isEditingPaidFcr = isPaidFcrMovement(original);
+        const originalManager2 = String(original.manager2 || "").trim();
+        const effectiveManager = isEditingPaidFcr ? original.manager : manager;
+        const effectiveManager2 = isEditingPaidFcr
+          ? trimmedManager2
+          : originalManager2;
+
         const changes: string[] = [];
         if (selectedProvider !== original.providerCode)
           changes.push(
@@ -6814,8 +6839,12 @@ export function FondoSection({
         const newAmount = isEgreso ? egresoValue : ingresoValue;
         if (Number.isFinite(originalAmount) && originalAmount !== newAmount)
           changes.push(`Monto: ${originalAmount} → ${newAmount}`);
-        if (manager !== original.manager)
+        if (!isEditingPaidFcr && manager !== original.manager)
           changes.push(`Encargado: ${original.manager} → ${manager}`);
+        if (isEditingPaidFcr && effectiveManager2 !== originalManager2)
+          changes.push(
+            `Encargado pago: ${originalManager2 || "(vacío)"} → ${effectiveManager2 || "(vacío)"}`,
+          );
         if (trimmedNotes !== (original.notes ?? ""))
           changes.push(`Notas: "${original.notes}" → "${trimmedNotes}"`);
 
@@ -6864,6 +6893,7 @@ export function FondoSection({
               amountEgreso: e.amountEgreso,
               amountIngreso: e.amountIngreso,
               manager: e.manager,
+              manager2: e.manager2,
               notes: e.notes,
               currency: e.currency,
             },
@@ -6874,7 +6904,8 @@ export function FondoSection({
               paymentType,
               amountEgreso: isEgreso ? egresoValue : 0,
               amountIngreso: isEgreso ? 0 : ingresoValue,
-              manager,
+              manager: effectiveManager,
+              manager2: effectiveManager2,
               notes: trimmedNotes,
               currency: movementCurrency,
             },
@@ -6894,7 +6925,8 @@ export function FondoSection({
             paymentType,
             amountEgreso: isEgreso ? egresoValue : 0,
             amountIngreso: isEgreso ? 0 : ingresoValue,
-            manager,
+            manager: effectiveManager,
+            manager2: effectiveManager2 || undefined,
             notes: trimmedNotes,
             // mark as edited/audited and preserve originalEntryId (point to initial id)
             isAudit: true,
@@ -6954,6 +6986,7 @@ export function FondoSection({
               amountEgreso: facturaEntry.amountEgreso,
               amountIngreso: facturaEntry.amountIngreso,
               manager: facturaEntry.manager,
+              manager2: facturaEntry.manager2,
               notes: facturaEntry.notes,
               createdAt: facturaEntry.createdAt,
               currency: facturaEntry.currency === "USD" ? "USD" : "CRC",
@@ -7302,6 +7335,7 @@ export function FondoSection({
     setInvoiceNumber(entry.invoiceNumber);
     setInvoiceDocType(normalizeInvoiceDocType((entry as any).invoiceDocType));
     setManager(entry.manager);
+    setManager2(String((entry as any).manager2 || ""));
     setNotes(entry.notes ?? "");
     setMovementCurrency((entry.currency as "CRC" | "USD") ?? "CRC");
     // Set amounts based on the correct payment type, using the entry's amounts
@@ -8201,6 +8235,10 @@ export function FondoSection({
   const handleManagerChange = (value: string) => {
     setManager(value);
     setManagerError(""); // Clear error when user starts typing
+  };
+  const handleManager2Change = (value: string) => {
+    setManager2(value);
+    setManager2Error("");
   };
 
   const managerOptionsLoading = Boolean(isSuperAdminUser && editingEntryId)
@@ -10840,7 +10878,13 @@ export function FondoSection({
               onNotesChange={handleNotesChange}
               manager={manager}
               onManagerChange={handleManagerChange}
-              managerSelectDisabled={managerSelectDisabled}
+              manager2={manager2}
+              onManager2Change={handleManager2Change}
+              showManager2={isEditingPaidFcrMovement}
+              managerSelectDisabled={managerSelectDisabled || isEditingPaidFcrMovement}
+              manager2SelectDisabled={
+                !company || managerOptionsLoading || employeeOptions.length === 0
+              }
               employeeOptions={employeeOptions}
               employeesLoading={managerOptionsLoading}
               editingEntryId={editingEntryId}
@@ -10856,6 +10900,7 @@ export function FondoSection({
               invoiceError={invoiceError}
               amountError={amountError}
               managerError={managerError}
+              manager2Error={manager2Error}
               balanceCRC={currentBalanceCRC}
               balanceUSD={currentBalanceUSD}
             />

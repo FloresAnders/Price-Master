@@ -53,7 +53,11 @@ type AgregarMovimientoProps = {
   onNotesChange: (value: string) => void;
   manager: string;
   onManagerChange: (value: string) => void;
+  manager2?: string;
+  onManager2Change?: (value: string) => void;
+  showManager2?: boolean;
   managerSelectDisabled: boolean;
+  manager2SelectDisabled?: boolean;
   employeeOptions: string[];
   employeesLoading: boolean;
   editingEntryId: string | null;
@@ -71,6 +75,7 @@ type AgregarMovimientoProps = {
   invoiceError?: string;
   amountError?: string;
   managerError?: string;
+  manager2Error?: string;
   // En el type AgregarMovimientoProps agrega:
   balanceCRC?: number;
   balanceUSD?: number;
@@ -118,6 +123,11 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   invoiceError = "",
   amountError = "",
   managerError = "",
+  manager2Error = "",
+  manager2 = "",
+  onManager2Change,
+  showManager2 = false,
+  manager2SelectDisabled = false,
   balanceCRC = 0,
   balanceUSD = 0,
 }) => {
@@ -157,6 +167,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   const [filter, setFilter] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isManagerDropdownOpen, setIsManagerDropdownOpen] = useState(false);
+  const [isManager2DropdownOpen, setIsManager2DropdownOpen] = useState(false);
 
   useEffect(() => {
     if (selectedProvider) {
@@ -574,6 +585,74 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
               <p className="mt-1 text-xs text-red-400">{managerError}</p>
             )}
           </div>
+
+          {showManager2 && onManager2Change && (
+            <div>
+              <label className={labelClass}>
+                <UserCircle className="h-3.5 w-3.5" />
+                Encargado pago
+              </label>
+              <div
+                className="relative"
+                onBlur={() => {
+                  setTimeout(() => setIsManager2DropdownOpen(false), 150);
+                }}
+              >
+                <button
+                  type="button"
+                  className={`${fieldBase} flex items-center justify-between text-left ${
+                    manager2SelectDisabled
+                      ? "cursor-not-allowed opacity-60"
+                      : "cursor-pointer"
+                  }`}
+                  disabled={manager2SelectDisabled}
+                  onClick={() => setIsManager2DropdownOpen((prev) => !prev)}
+                >
+                  <span className={manager2 ? "" : "text-cyan-100/70"}>
+                    {manager2 ||
+                      (employeesLoading
+                        ? "Cargando encargados..."
+                        : "Seleccionar encargado pago")}
+                  </span>
+                  <span className="text-cyan-100/80">⌄</span>
+                </button>
+                {isManager2DropdownOpen && !manager2SelectDisabled && (
+                  <div className="absolute z-[9999] mt-2 max-h-56 w-full overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] p-1 shadow-2xl shadow-black/70">
+                    <button
+                      type="button"
+                      className="w-full rounded px-3 py-2 text-left text-sm text-cyan-100/70 transition-colors hover:bg-cyan-950/80"
+                      onMouseDown={() => {
+                        onManager2Change("");
+                        setIsManager2DropdownOpen(false);
+                      }}
+                    >
+                      Seleccionar encargado pago
+                    </button>
+                    {employeeOptions.map((name) => (
+                      <button
+                        key={name}
+                        type="button"
+                        className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
+                          manager2 === name
+                            ? "bg-cyan-500/20 text-cyan-50"
+                            : "text-[var(--foreground)]"
+                        }`}
+                        onMouseDown={() => {
+                          onManager2Change(name);
+                          setIsManager2DropdownOpen(false);
+                        }}
+                      >
+                        {name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {manager2Error && (
+                <p className="mt-1 text-xs text-red-400">{manager2Error}</p>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
