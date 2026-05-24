@@ -9,6 +9,27 @@ export class CcssConfigService {
     { fetchedAt: number; configs: CcssConfig[] }
   >();
 
+  private static normalizeCompany(company: companies): companies {
+    const mt = Number(company.mt) || 0;
+    const tc = Number(company.tc) || 0;
+    const valorhora = Number(company.valorhora) || 0;
+
+    return {
+      ...company,
+      mt,
+      tc,
+      valorhora,
+      pagoTotalMT:
+        typeof company.pagoTotalMT === "number" ? company.pagoTotalMT : mt,
+      pagoTotalTC:
+        typeof company.pagoTotalTC === "number" ? company.pagoTotalTC : tc,
+      pagoTotalPH:
+        typeof company.pagoTotalPH === "number"
+          ? company.pagoTotalPH
+          : valorhora,
+    };
+  }
+
   /**
    * Get CCSS configuration by owner
    */
@@ -60,6 +81,9 @@ export class CcssConfigService {
   ): Promise<void> {
     const configWithTimestamp = {
       ...config,
+      companie: (config.companie || []).map((company) =>
+        this.normalizeCompany(company),
+      ),
       updatedAt: new Date(),
     };
 
@@ -134,7 +158,9 @@ export class CcssConfigService {
   ): Promise<void> {
     const configData: Omit<CcssConfig, "id"> = {
       ownerId,
-      companie: companieData,
+      companie: (companieData || []).map((company) =>
+        this.normalizeCompany(company),
+      ),
       updatedAt: new Date(),
     };
 

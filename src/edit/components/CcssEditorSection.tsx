@@ -69,10 +69,10 @@ export default function CcssEditorSection({
         <div>
           <h4 className="text-lg sm:text-xl font-semibold flex items-center gap-2">
             <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
-            Configuración de Pago CCSS
+            Configuración de Pago
           </h4>
           <p className="text-sm text-[var(--muted-foreground)] mt-1">
-            Configurar los montos de pago CCSS específicos para cada empresa
+            Configurar los montos de pago específicos para cada empresa
           </p>
         </div>
         <button
@@ -94,7 +94,7 @@ export default function CcssEditorSection({
               Configuración por Empresa
             </h5>
             <p className="text-sm text-blue-700 dark:text-blue-400 mt-1">
-              Cada empresa puede tener configuraciones CCSS específicas. Los
+              Cada empresa puede tener configuraciones específicas. Los
               valores se aplicarán automáticamente según la empresa seleccionada
               en los cálculos de nómina.
             </p>
@@ -108,10 +108,10 @@ export default function CcssEditorSection({
             <DollarSign className="w-10 h-10 text-white" />
           </div>
           <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-            No hay configuraciones CCSS
+            No hay configuraciones de pago
           </h3>
           <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto leading-relaxed">
-            Comienza creando tu primera configuración CCSS para gestionar los
+            Comienza creando tu primera configuración para gestionar los
             pagos de tus empresas de manera eficiente
           </p>
           <button
@@ -132,7 +132,7 @@ export default function CcssEditorSection({
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-start mb-4 sm:mb-6 gap-3 sm:gap-0">
                 <div className="min-w-0 flex-1">
                   <h5 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-2 truncate">
-                    Configuración CCSS #{flatIndex + 1}
+                    Configuración de pago #{flatIndex + 1}
                   </h5>
                   <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
                     {item.company.ownerCompanie || "Nueva empresa"}
@@ -248,6 +248,9 @@ export default function CcssEditorSection({
                     </div>
                   </div>
                   <div className="relative">
+                    <label className="text-xs font-semibold text-green-800 dark:text-green-300 mb-2 block">
+                      Rebajo CCSS TC
+                    </label>
                     <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-green-600 dark:text-green-400 font-bold text-lg">
                       ₡
                     </span>
@@ -268,6 +271,32 @@ export default function CcssEditorSection({
                       placeholder="11017.39"
                     />
                   </div>
+                  <div className="mt-4">
+                    <label className="text-xs font-semibold text-green-800 dark:text-green-300 mb-2 block">
+                      Pago Total TC
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-green-600 dark:text-green-400 font-bold text-lg">
+                        ₡
+                      </span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={(item.company.pagoTotalTC ?? item.company.tc) || 0}
+                        onChange={(e) =>
+                          updateCcssConfig(
+                            item.configIndex,
+                            item.companyIndex,
+                            "pagoTotalTC",
+                            parseFloat(e.target.value) || 0,
+                          )
+                        }
+                        className="w-full pl-10 pr-4 py-3 border-2 border-green-200 dark:border-green-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-semibold focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200"
+                        placeholder="11017.39"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 border border-orange-200 dark:border-orange-700 rounded-xl p-6 hover:shadow-lg transition-all duration-200">
@@ -285,6 +314,9 @@ export default function CcssEditorSection({
                     </div>
                   </div>
                   <div className="relative">
+                    <label className="text-xs font-semibold text-orange-800 dark:text-orange-300 mb-2 block">
+                      Rebajo CCSS MT
+                    </label>
                     <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-orange-600 dark:text-orange-400 font-bold text-lg">
                       ₡
                     </span>
@@ -305,6 +337,32 @@ export default function CcssEditorSection({
                       placeholder="3672.46"
                     />
                   </div>
+                  <div className="mt-4">
+                    <label className="text-xs font-semibold text-orange-800 dark:text-orange-300 mb-2 block">
+                      Pago Total MT
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-orange-600 dark:text-orange-400 font-bold text-lg">
+                        ₡
+                      </span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={(item.company.pagoTotalMT ?? item.company.mt) || 0}
+                        onChange={(e) =>
+                          updateCcssConfig(
+                            item.configIndex,
+                            item.companyIndex,
+                            "pagoTotalMT",
+                            parseFloat(e.target.value) || 0,
+                          )
+                        }
+                        className="w-full pl-10 pr-4 py-3 border-2 border-orange-200 dark:border-orange-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-semibold focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                        placeholder="3672.46"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-6 hover:shadow-lg transition-all duration-200">
@@ -322,6 +380,9 @@ export default function CcssEditorSection({
                     </div>
                   </div>
                   <div className="relative">
+                    <label className="text-xs font-semibold text-blue-800 dark:text-blue-300 mb-2 block">
+                      Valor por Hora
+                    </label>
                     <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-600 dark:text-blue-400 font-bold text-lg">
                       ₡
                     </span>
@@ -341,6 +402,32 @@ export default function CcssEditorSection({
                       className="w-full pl-10 pr-4 py-3 border-2 border-blue-300 dark:border-blue-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-bold text-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                       placeholder="1441"
                     />
+                  </div>
+                  <div className="mt-4">
+                    <label className="text-xs font-semibold text-blue-800 dark:text-blue-300 mb-2 block">
+                      Pago Total PH
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-600 dark:text-blue-400 font-bold text-lg">
+                        ₡
+                      </span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={(item.company.pagoTotalPH ?? item.company.valorhora) || 0}
+                        onChange={(e) =>
+                          updateCcssConfig(
+                            item.configIndex,
+                            item.companyIndex,
+                            "pagoTotalPH",
+                            parseFloat(e.target.value) || 0,
+                          )
+                        }
+                        className="w-full pl-10 pr-4 py-3 border-2 border-blue-200 dark:border-blue-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-semibold focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                        placeholder="1441"
+                      />
+                    </div>
                   </div>
                 </div>
 

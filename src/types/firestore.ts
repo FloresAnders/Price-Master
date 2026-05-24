@@ -243,6 +243,9 @@ export interface companies {
   tc: number; // Valor para Tiempo Completo
   valorhora: number; // Valor por hora predeterminado
   horabruta: number; // Valor por hora bruta
+  pagoTotalMT?: number; // Pago total para MT
+  pagoTotalTC?: number; // Pago total para TC
+  pagoTotalPH?: number; // Pago total para PH (valorhora)
 }
 
 export interface FondoMovementTypeConfig {
