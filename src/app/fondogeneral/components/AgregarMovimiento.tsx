@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
+  AlertTriangle,
   FileText,
   Loader2,
   MessageSquare,
@@ -76,6 +77,7 @@ type AgregarMovimientoProps = {
   amountError?: string;
   managerError?: string;
   manager2Error?: string;
+  pendingCreditNotesCount?: number;
   // En el type AgregarMovimientoProps agrega:
   balanceCRC?: number;
   balanceUSD?: number;
@@ -124,6 +126,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   amountError = "",
   managerError = "",
   manager2Error = "",
+  pendingCreditNotesCount = 0,
   manager2 = "",
   onManager2Change,
   showManager2 = false,
@@ -278,10 +281,18 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
 
         <div className="grid gap-4">
           <div>
-            <label className={labelClass}>
-              <Search className="h-3.5 w-3.5" />
-              Proveedor
-            </label>
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <label className={labelClass}>
+                  <Search className="h-3.5 w-3.5" />
+                  Proveedor
+                </label>
+                {pendingCreditNotesCount > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
+                    <AlertTriangle className="h-3 w-3" />
+                    NC pendiente{pendingCreditNotesCount > 1 ? `s (${pendingCreditNotesCount})` : ""}
+                  </span>
+                )}
+              </div>
             <div className="relative group">
               {selectedProvider && (
                 <button

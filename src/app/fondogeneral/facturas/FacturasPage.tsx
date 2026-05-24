@@ -68,12 +68,18 @@ const formatKeyToDisplay = (key: string): string => {
 
 const resolveFacturaPaidAmount = (movement: FacturaMovement): number => {
   const amount = Math.max(0, Math.trunc(Number(movement.amount) || 0));
+  if (String(movement.invoiceDocType || "").trim().toUpperCase() === "FCO") {
+    return amount;
+  }
   const paidAmount = Math.max(0, Math.trunc(Number(movement.paidAmount) || 0));
   return Math.min(amount, paidAmount);
 };
 
 const resolveFacturaBalance = (movement: FacturaMovement): number => {
   const amount = Math.max(0, Math.trunc(Number(movement.amount) || 0));
+  if (String(movement.invoiceDocType || "").trim().toUpperCase() === "FCO") {
+    return 0;
+  }
   const paidAmount = resolveFacturaPaidAmount(movement);
   const balanceDue = Math.max(0, Math.trunc(Number(movement.balanceDue) || 0));
   if (balanceDue > 0) return Math.min(amount, balanceDue);
@@ -83,6 +89,9 @@ const resolveFacturaBalance = (movement: FacturaMovement): number => {
 const resolveFacturaStatus = (
   movement: FacturaMovement,
 ): "PENDIENTE" | "PARCIAL" | "PAGADA" => {
+  if (String(movement.invoiceDocType || "").trim().toUpperCase() === "FCO") {
+    return "PAGADA";
+  }
   if (movement.paymentStatus === "PAGADA") return "PAGADA";
   if (movement.paymentStatus === "PARCIAL") return "PARCIAL";
   return resolveFacturaBalance(movement) > 0 &&
@@ -398,9 +407,9 @@ export default function FacturasCreditoPage() {
       invoiceDocType: createInvoiceDocType,
       paymentType: createPaymentType || "FACTURA A CREDITO",
       providerCode,
-      paidAmount: isCreditNote ? amount : undefined,
-      balanceDue: isCreditNote ? 0 : amount,
-      paymentStatus: isCreditNote ? "PAGADA" : "PENDIENTE",
+      paidAmount: undefined,
+      balanceDue: amount,
+      paymentStatus: "PENDIENTE",
     };
 
     setCreateSubmitting(true);
@@ -502,6 +511,16 @@ export default function FacturasCreditoPage() {
     return resolveFacturaStatus(paymentTarget);
   }, [paymentTarget]);
 
+  const enteredPaymentAmount = useMemo(
+    () => Math.max(0, Math.trunc(Number(paymentAmount) || 0)),
+    [paymentAmount],
+  );
+
+  const canSubmitFullPayment = useMemo(
+    () => selectedPaymentBalance > 0 && enteredPaymentAmount === selectedPaymentBalance,
+    [enteredPaymentAmount, selectedPaymentBalance],
+  );
+
   const closePaymentModal = useCallback(() => {
     setPaymentModalOpen(false);
     setPaymentTarget(null);
@@ -539,8 +558,17 @@ export default function FacturasCreditoPage() {
         0,
         Math.min(totalAmount, resolveFacturaBalance(paymentTarget)),
       );
-      const enteredAmount = Math.max(0, Math.trunc(Number(paymentAmount) || 0));
+      const enteredAmount = enteredPaymentAmount;
       const paymentAmountToApply = mode === "full" ? balance : enteredAmount;
+
+      if (mode === "full" && enteredAmount !== balance) {
+        showToast(
+          "Para pagar completo, el monto debe coincidir con el saldo pendiente.",
+          "error",
+          4000,
+        );
+        return;
+      }
 
       if (paymentAmountToApply <= 0) {
         showToast("Ingrese un monto válido para el pago.", "error", 4000);
@@ -632,6 +660,7 @@ export default function FacturasCreditoPage() {
       closePaymentModal,
       loadMovements,
       paymentAmount,
+      enteredPaymentAmount,
       paymentManager2,
       paymentNotes,
       paymentTarget,
@@ -1853,7 +1882,11 @@ export default function FacturasCreditoPage() {
                   <button
                     type="button"
                     onClick={() => void submitPayment("full")}
-                    disabled={paymentSubmitting || selectedPaymentBalance <= 0}
+                    disabled={
+                      paymentSubmitting ||
+                      selectedPaymentBalance <= 0 ||
+                      !canSubmitFullPayment
+                    }
                     className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-4 py-2 text-sm font-semibold text-emerald-100 transition-colors hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Pagar completo

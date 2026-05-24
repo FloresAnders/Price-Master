@@ -822,6 +822,10 @@ export const sanitizeFondoEntries = (
       FONDO_INGRESO_TYPES.length > 0 ||
       FONDO_GASTO_TYPES.length > 0 ||
       FONDO_EGRESO_TYPES.length > 0;
+    const isKnownType =
+      isIngresoType(paymentType) ||
+      isGastoType(paymentType) ||
+      isEgresoType(paymentType);
 
     acc.push({
       id,
@@ -835,16 +839,20 @@ export const sanitizeFondoEntries = (
         typeof (entry as any).empresa === "string"
           ? (entry as any).empresa
           : undefined,
-      // Si los tipos no están cargados, preservar los montos originales
+      // Preserve original amounts when types are unknown to avoid zeroing valid movements.
       amountEgreso: typesLoaded
-        ? isEgresoType(paymentType) || isGastoType(paymentType)
-          ? amountEgreso
-          : 0
+        ? isKnownType
+          ? isEgresoType(paymentType) || isGastoType(paymentType)
+            ? amountEgreso
+            : 0
+          : amountEgreso
         : amountEgreso,
       amountIngreso: typesLoaded
-        ? isIngresoType(paymentType)
-          ? amountIngreso
-          : 0
+        ? isKnownType
+          ? isIngresoType(paymentType)
+            ? amountIngreso
+            : 0
+          : amountIngreso
         : amountIngreso,
       manager,
       manager2,
@@ -3484,6 +3492,8 @@ export function FondoSection({
   const [superAdminUsersLoading, setSuperAdminUsersLoading] = useState(false);
 
   const [selectedProvider, setSelectedProvider] = useState("");
+  const [selectedProviderPendingNcCount, setSelectedProviderPendingNcCount] =
+    useState(0);
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const defaultPaymentType: FondoEntry["paymentType"] =
     mode === "ingreso"
@@ -3525,6 +3535,56 @@ export function FondoSection({
   const [amountError, setAmountError] = useState("");
   const [managerError, setManagerError] = useState("");
   const [manager2Error, setManager2Error] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!company || !selectedProvider) {
+      setSelectedProviderPendingNcCount(0);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setSelectedProviderPendingNcCount(0);
+
+    FacturasService.listMovementsByEmpresa(company, { limit: 800 })
+      .then((items) => {
+        if (cancelled) return;
+        const pendingCount = items.filter((movement) => {
+          if (movement.providerCode !== selectedProvider) return false;
+          if (String(movement.invoiceDocType || "").trim().toUpperCase() !== "NC")
+            return false;
+          if (String(movement.paymentStatus || "PENDIENTE").toUpperCase() === "PAGADA")
+            return false;
+
+          const balanceDue = Math.max(
+            0,
+            Math.trunc(Number(movement.balanceDue) || 0),
+          );
+          if (balanceDue > 0) return true;
+
+          const amount = Math.max(0, Math.trunc(Number(movement.amount) || 0));
+          const paidAmount = Math.max(
+            0,
+            Math.trunc(Number(movement.paidAmount) || 0),
+          );
+          return amount > paidAmount;
+        }).length;
+
+        setSelectedProviderPendingNcCount(pendingCount);
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          console.error("[FONDO] Error checking pending credit notes:", error);
+          setSelectedProviderPendingNcCount(0);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [company, selectedProvider]);
   const [dailyClosingModalOpen, setDailyClosingModalOpen] = useState(false);
   const [editingDailyClosingId, setEditingDailyClosingId] = useState<
     string | null
@@ -10917,6 +10977,7 @@ export function FondoSection({
               amountError={amountError}
               managerError={managerError}
               manager2Error={manager2Error}
+              pendingCreditNotesCount={selectedProviderPendingNcCount}
               balanceCRC={currentBalanceCRC}
               balanceUSD={currentBalanceUSD}
             />
