@@ -194,8 +194,8 @@ export const HOME_MENU_FAVORITE_OPTIONS: HomeMenuFavoriteOption[] = [
   },
   {
     id: "empleados",
-    label: "Empleados",
-    description: "Información de empleados",
+    label: "Colaboradores",
+    description: "Información de colaboradores",
     group: "Herramientas",
     icon: Users,
     permission: "empleados",

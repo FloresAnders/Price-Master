@@ -3425,19 +3425,31 @@ export function FondoSection({
 
   // Caja Negra: proveedores fijos y detecci�n
   const isCajaNegra = accountKey === "CajaNegra";
-  const cajaNegraProviders = useMemo(
+  const cajaNegraProviders: Array<{
+    code: string;
+    name: string;
+    type?: FondoMovementType;
+    category?: "Ingreso" | "Gasto" | "Egreso";
+    correonotifi?: string;
+  }> = useMemo(
     () => [
       {
-        code: "INGRESO DESDE FG POR RETIRO DIANA",
-        name: "INGRESO DESDE FG POR RETIRO DIANA",
+        code: "0000",
+        name: "INGRESO DESDE FG",
+        category: "Ingreso",
+        type: "OTROS",
       },
       {
-        code: "RETIRO DIANA",
-        name: "RETIRO DIANA",
+        code: "0001",
+        name: "RETIRO",
+        category: "Egreso",
+        type: "OTROS",
       },
       {
-        code: "SALIDA A FONDO GENERAL",
+        code: "0002",
         name: "SALIDA A FONDO GENERAL",
+        category: "Egreso",
+        type: "OTROS",
       },
     ],
     [],
@@ -6459,9 +6471,9 @@ export function FondoSection({
             entry,
             providerDisplayName,
           );
-          const shouldMarkCreatedCooldown = !isIngresoDesdeFV;
-          if (shouldMarkCreatedCooldown)
-            lastMovementCreatedAtRef.current = savedAtMs;
+          // Do NOT mark created cooldown for Caja Negra movements
+          const shouldMarkCreatedCooldown = !isIngresoDesdeFV && !isCajaNegra;
+          if (shouldMarkCreatedCooldown) lastMovementCreatedAtRef.current = savedAtMs;
           if (typeof window !== "undefined") {
             const key = `fondogeneral-lastMovementDedupe:${normalizedCompany}:${accountKey}`;
             const createdKey = `fondogeneral-lastMovementCreatedAt:${normalizedCompany}:${accountKey}`;
@@ -6472,7 +6484,8 @@ export function FondoSection({
                   createdKey,
                   JSON.stringify({ at: savedAtMs }),
                 );
-              } else {
+              } else if (!isCajaNegra) {
+                // Only write the special ignore-payload for INGRESO_DESDE_FONDO_VENTAS
                 const previous = parseLastCreatedCooldown(
                   localStorage.getItem(createdKey),
                 );
@@ -6731,6 +6744,7 @@ export function FondoSection({
             if (
               !isAdminUser &&
               !isSuperAdminUser &&
+              !isCajaNegra &&
               lastCreatedAtMs > 0 &&
               nowMs - lastCreatedAtMs < k91_xad
             ) {
@@ -6781,7 +6795,8 @@ export function FondoSection({
           if (
             last &&
             last.fingerprint === fingerprint &&
-            nowMs - last.at < r7n_vyx
+            nowMs - last.at < r7n_vyx &&
+            !isCajaNegra
           ) {
             const remainingMs = r7n_vyx - (nowMs - last.at);
             const remainingSec = Math.ceil(remainingMs / 1000);
@@ -8168,7 +8183,7 @@ export function FondoSection({
         isCajaNegra ||
         isAutoAdjustmentProvider(value) ||
         prov?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME;
-      if (prov && prov.type && isFondoMovementType(prov.type)) {
+      if (prov && prov.type && (isCajaNegra || isFondoMovementType(prov.type))) {
         nextPaymentType = prov.type as FondoEntry["paymentType"];
         setPaymentType(nextPaymentType);
       } else if (prov?.category === "Ingreso") {
@@ -8282,7 +8297,7 @@ export function FondoSection({
     if (selectedProvider) {
       try {
         const prov = movementProviders.find((p) => p.code === selectedProvider);
-        if (prov && prov.type && isFondoMovementType(prov.type)) {
+        if (prov && prov.type && (isCajaNegra || isFondoMovementType(prov.type))) {
           setPaymentType(prov.type as FondoEntry["paymentType"]);
         } else if (isCajaNegra) {
           const upper = (prov?.code || selectedProvider).toUpperCase();
@@ -8319,7 +8334,8 @@ export function FondoSection({
 
   const handleOpenCreateMovement = () => {
     // Confirmación solo para cuentas (BCR/BN/BAC), para evitar confusiones.
-    if (accountKey !== "FondoGeneral") {
+    // Skip confirmation for Caja Negra (no company/account confirmation needed)
+    if (accountKey !== "FondoGeneral" && !isCajaNegra) {
       setConfirmOpenCreateMovement(true);
       return;
     }

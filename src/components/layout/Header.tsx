@@ -491,9 +491,9 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     },
     {
       id: "empleados" as ActiveTab,
-      name: "Empleados",
+      name: "Colaboradores",
       icon: Users,
-      description: "Información de empleados (próximamente)",
+      description: "Información de colaboradores",
       permission: "empleados" as keyof UserPermissions,
     },
     {

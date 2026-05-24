@@ -159,6 +159,7 @@ export default function EmpleadoDetailsModal({
   onSave,
 }: EmpleadoDetailsModalProps) {
   const [saving, setSaving] = useState(false);
+
   const [error, setError] = useState<string>("");
   const { showToast } = useToast();
 
@@ -179,7 +180,10 @@ export default function EmpleadoDetailsModal({
   const [incluidoCCSS, setIncluidoCCSS] = useState<boolean>(false);
   const [incluidoINS, setIncluidoINS] = useState<boolean>(false);
   const [preguntasExtra, setPreguntasExtra] = useState<ExtraQA[]>([]);
-
+  // Estado separado para el valor formateado
+  const [pagoHoraBrutaDisplay, setPagoHoraBrutaDisplay] = useState(
+    pagoHoraBruta ? formatColones(pagoHoraBruta) : "",
+  );
   const title = useMemo(() => {
     const name = String(empleado?.Empleado || "").trim() || "Empleado";
     return readOnly ? `Información: ${name}` : `Editar: ${name}`;
@@ -327,9 +331,9 @@ export default function EmpleadoDetailsModal({
   const validate = (): { ok: boolean; msg?: string } => {
     const pago = asNumberOrUndefined(pagoHoraBruta);
     if (pago === undefined)
-      return { ok: false, msg: "Pago de hora en bruto es obligatorio." };
+      return { ok: false, msg: "Salario mensual es obligatorio." };
     if (pago < 0)
-      return { ok: false, msg: "Pago de hora en bruto no puede ser negativo." };
+      return { ok: false, msg: "Salario mensual no puede ser negativo." };
 
     const dia = String(diaContratacion || "").trim();
     if (!dia && !useDynamicIngresoDate)
@@ -443,6 +447,34 @@ export default function EmpleadoDetailsModal({
 
   if (!isOpen || !empleado) return null;
 
+  // Función de formato
+  function formatColones(value: string | number): string {
+    const num = parseFloat(String(value).replace(/[^\d.]/g, ""));
+    if (isNaN(num)) return "";
+    return (
+      "₡" +
+      num.toLocaleString("es-CR", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      })
+    );
+  }
+
+  // Handler del input
+  function handlePagoHoraChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const raw = e.target.value.replace(/[^\d.]/g, ""); // solo dígitos y punto
+    setPagoHoraBruta(raw); // valor numérico para lógica
+    setPagoHoraBrutaDisplay(
+      raw
+        ? "₡" +
+            Number(raw).toLocaleString("es-CR", {
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 0,
+            })
+        : "",
+    );
+  }
+
   return (
     <>
       <div
@@ -474,20 +506,20 @@ export default function EmpleadoDetailsModal({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-[var(--foreground)] mb-1">
-                  Pago de hora en bruto
+                  Salario mensual
                   <RequiredMark
                     show={!readOnly}
                     isEmpty={!pagoHoraBruta.trim()}
                   />
                 </label>
                 <input
-                  type="number"
-                  step="0.01"
-                  value={pagoHoraBruta}
-                  onChange={(e) => setPagoHoraBruta(e.target.value)}
+                  type="text"
+                  inputMode="decimal"
+                  value={pagoHoraBrutaDisplay}
+                  onChange={handlePagoHoraChange}
                   disabled={readOnly}
                   className="w-full px-3 py-2 rounded-md bg-[var(--card-bg)] border border-[var(--input-border)] text-[var(--foreground)]"
-                  placeholder="Ej: 2500"
+                  placeholder="Ej: ₡250,000.00"
                 />
               </div>
 

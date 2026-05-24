@@ -129,9 +129,9 @@ const menuItems = [
   },
   {
     id: "empleados",
-    name: "Empleados",
+    name: "Colaboradores",
     icon: Users,
-    description: "Información de empleados",
+    description: "Información de colaboradores",
     permission: "empleados" as keyof UserPermissions,
   },
   {

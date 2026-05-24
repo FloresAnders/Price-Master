@@ -522,13 +522,13 @@ export default function EmpleadosProximamente() {
             <Users className="w-10 h-10 text-[var(--primary)]" />
             <div>
               <h2 className="text-2xl font-bold text-[var(--foreground)]">
-                Empleados
+                Colaboradores
               </h2>
               <p className="text-sm text-[var(--muted-foreground)]">
                 {isSuperAdmin
                   ? "Viendo todas las empresas."
                   : isAdmin
-                    ? "Selecciona una empresa para ver sus empleados."
+                    ? "Selecciona una empresa para ver sus colaboradores."
                     : "Viendo tu empresa asignada."}
               </p>
             </div>
@@ -630,7 +630,7 @@ export default function EmpleadosProximamente() {
                     {label}
                   </div>
                   <div className="text-sm text-[var(--muted-foreground)]">
-                    {merged.length} empleado(s)
+                    {merged.length} colaborador(es)
                     {empleadosLoading && (
                       <span className="ml-2 text-xs">(cargando...)</span>
                     )}

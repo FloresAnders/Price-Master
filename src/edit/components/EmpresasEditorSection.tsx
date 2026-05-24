@@ -125,14 +125,14 @@ export default function EmpresasEditorSection({
           <div className="mt-4 sm:mt-5">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-3">
               <label className="block text-xs sm:text-sm font-medium">
-                Empleados:
+                Colaboradores:
               </label>
               <button
                 onClick={() => {
                   const copy = [...empresasData];
                   if (!copy[idx].empleados) copy[idx].empleados = [];
                   copy[idx].empleados.push({
-                    Empleado: "",
+                    Colaborador: "",
                     hoursPerShift: 8,
                     extraAmount: 0,
                     ccssType: "TC",
@@ -144,7 +144,7 @@ export default function EmpresasEditorSection({
                 className="text-xs sm:text-sm bg-green-600 text-white px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-md hover:bg-green-700 transition-colors w-full sm:w-auto flex items-center justify-center gap-1.5 whitespace-nowrap"
               >
                 <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span>Agregar Empleado</span>
+                <span>Agregar Colaborador</span>
               </button>
             </div>
 
@@ -157,7 +157,7 @@ export default function EmpresasEditorSection({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                     <div className="sm:col-span-2">
                       <label className="block text-[10px] sm:text-xs font-medium mb-1">
-                        Empleado
+                        Colaborador
                       </label>
                       <input
                         type="text"
