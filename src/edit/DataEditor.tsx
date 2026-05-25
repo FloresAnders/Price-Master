@@ -1724,8 +1724,62 @@ export default function DataEditor() {
   // (locations individual save removed with locations tab)
 
   // Funciones para manejar configuración CCSS
+  const getDefaultCcssCompany = (): companies => ({
+    ownerCompanie: "",
+    mt: 3672.46,
+    tc: 11017.39,
+    valorhora: 1441,
+    horabruta: 1529.62,
+    pagoTotalMT: 3672.46,
+    pagoTotalTC: 11017.39,
+    pagoTotalPH: 1441,
+  });
+
+  const normalizeCcssCompany = (company?: Partial<companies>): companies => {
+    const fallback = getDefaultCcssCompany();
+    const mt = Number(company?.mt ?? fallback.mt) || 0;
+    const tc = Number(company?.tc ?? fallback.tc) || 0;
+    const valorhora = Number(company?.valorhora ?? fallback.valorhora) || 0;
+
+    return {
+      ownerCompanie: company?.ownerCompanie ?? "",
+      mt,
+      tc,
+      valorhora,
+      horabruta: Number(company?.horabruta ?? fallback.horabruta) || 0,
+      pagoTotalMT:
+        typeof company?.pagoTotalMT === "number" ? company.pagoTotalMT : mt,
+      pagoTotalTC:
+        typeof company?.pagoTotalTC === "number" ? company.pagoTotalTC : tc,
+      pagoTotalPH:
+        typeof company?.pagoTotalPH === "number"
+          ? company.pagoTotalPH
+          : valorhora,
+    };
+  };
+
+  const getLastSavedCcssCompany = (ownerId: string): companies => {
+    const savedConfig = originalCcssConfigsData.find(
+      (config) => config.ownerId === ownerId,
+    );
+    const savedCompanies = savedConfig?.companie || [];
+    const lastSavedCompany =
+      savedCompanies.length > 0 ? savedCompanies[savedCompanies.length - 1] : null;
+
+    if (lastSavedCompany) {
+      return normalizeCcssCompany(lastSavedCompany);
+    }
+
+    return getDefaultCcssCompany();
+  };
+
   const addCcssConfig = () => {
     const ownerId = resolveOwnerIdForActor();
+    const baseCompany = getLastSavedCcssCompany(ownerId);
+    const newCompany = {
+      ...baseCompany,
+      ownerCompanie: "",
+    };
 
     // Verificar si ya existe un config para este owner
     const existingConfigIndex = ccssConfigsData.findIndex(
@@ -1739,13 +1793,7 @@ export default function DataEditor() {
         ...updatedConfigs[existingConfigIndex],
         companie: [
           ...updatedConfigs[existingConfigIndex].companie,
-          {
-            ownerCompanie: "",
-            mt: 3672.46,
-            tc: 11017.39,
-            valorhora: 1441,
-            horabruta: 1529.62,
-          },
+          newCompany,
         ],
       };
       setCcssConfigsData(updatedConfigs);
@@ -1753,15 +1801,7 @@ export default function DataEditor() {
       // Si no existe, crear un nuevo config con una company
       const newConfig: CcssConfig = {
         ownerId,
-        companie: [
-          {
-            ownerCompanie: "",
-            mt: 3672.46,
-            tc: 11017.39,
-            valorhora: 1441,
-            horabruta: 1529.62,
-          },
-        ],
+        companie: [newCompany],
       };
       setCcssConfigsData([...ccssConfigsData, newConfig]);
     }
@@ -1776,16 +1816,39 @@ export default function DataEditor() {
     const updated = [...ccssConfigsData];
     const updatedCompanies = [...updated[configIndex].companie];
 
+    const currentCompany = normalizeCcssCompany(updatedCompanies[companyIndex]);
+
     if (field === "ownerCompanie") {
       updatedCompanies[companyIndex] = {
-        ...updatedCompanies[companyIndex],
+        ...currentCompany,
         ownerCompanie: value as string,
       };
-    } else if (["mt", "tc", "valorhora", "horabruta"].includes(field)) {
-      updatedCompanies[companyIndex] = {
-        ...updatedCompanies[companyIndex],
-        [field]: value as number,
+    } else if (
+      [
+        "mt",
+        "tc",
+        "valorhora",
+        "horabruta",
+        "pagoTotalMT",
+        "pagoTotalTC",
+        "pagoTotalPH",
+      ].includes(field)
+    ) {
+      const numericValue = value as number;
+      const nextCompany: companies = {
+        ...currentCompany,
+        [field]: numericValue,
       };
+
+      if (field === "mt") {
+        nextCompany.pagoTotalMT = numericValue;
+      } else if (field === "tc") {
+        nextCompany.pagoTotalTC = numericValue;
+      } else if (field === "valorhora") {
+        nextCompany.pagoTotalPH = numericValue;
+      }
+
+      updatedCompanies[companyIndex] = nextCompany;
     }
 
     updated[configIndex] = {
@@ -1968,7 +2031,7 @@ export default function DataEditor() {
             { key: "schedules" as DataFile, label: "Planilla", icon: Clock },
             {
               key: "ccss" as DataFile,
-              label: "CCSS",
+              label: "Configuracion",
               count: ccssConfigsData.length,
               icon: DollarSign,
             },

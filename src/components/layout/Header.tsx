@@ -28,6 +28,7 @@ import {
   Trash2,
   Plus,
   Camera,
+  ScanBarcode,
 } from "lucide-react";
 import { CustomIcon } from "@/icons/icons";
 import { useState, useEffect, useRef } from "react";
@@ -1035,7 +1036,14 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 </button>
               </div>
             )}
-
+            {/* Mobile scanner button (only visible on mobile) */}
+            <Link
+              href="/existe"
+              className="lg:hidden p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
+              title="Verificar existencia"
+            >
+              <ScanBarcode className="w-5 h-5 text-[var(--foreground)]" />
+            </Link>
             {/* Notification icon for small screens (left of hamburger) */}
             <button
               onClick={() => {

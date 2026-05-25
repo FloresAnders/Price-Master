@@ -13,11 +13,18 @@ import useToast from "../../hooks/useToast";
 import ConfirmModal from "./ConfirmModal";
 
 type CcssType = Empleado["ccssType"];
+type CcssTypeSelection = CcssType | "";
 
 const CCSS_WEEKLY_HOURS: Record<CcssType, number> = {
   TC: 48,
   MT: 24,
   PH: 8,
+};
+
+const CCSS_TYPE_LABELS: Record<CcssType, string> = {
+  TC: "Tiempo Completo",
+  MT: "Medio Tiempo",
+  PH: "Pago por Hora",
 };
 
 function isCcssType(v: unknown): v is CcssType {
@@ -39,7 +46,7 @@ type ComparableState = {
   pagoHoraBruta?: number;
   diaContratacion: string;
   paganAguinaldo: string;
-  ccssType: CcssType;
+  ccssType: CcssTypeSelection;
   danReciboPago: string;
   contratoFisico: string;
   espacioComida: string;
@@ -101,6 +108,7 @@ interface EmpleadoDetailsModalProps {
   onClose: () => void;
   empleado: Empleado | null;
   readOnly?: boolean;
+  ccssSalaryByType?: Partial<Record<CcssType, number>> | null;
   onSave?: (patch: Partial<Empleado>) => Promise<void> | void;
 }
 
@@ -156,6 +164,7 @@ export default function EmpleadoDetailsModal({
   onClose,
   empleado,
   readOnly = false,
+  ccssSalaryByType,
   onSave,
 }: EmpleadoDetailsModalProps) {
   const [saving, setSaving] = useState(false);
@@ -172,7 +181,9 @@ export default function EmpleadoDetailsModal({
   const [diaContratacion, setDiaContratacion] = useState<string>("");
   const [paganAguinaldo, setPaganAguinaldo] = useState<string>("");
   const [cantidadHorasTrabaja, setCantidadHorasTrabaja] = useState<string>("");
-  const [ccssType, setCcssType] = useState<CcssType>("TC");
+  const [ccssType, setCcssType] = useState<CcssTypeSelection>("");
+  const [hasSelectedWorkHoursType, setHasSelectedWorkHoursType] =
+    useState(false);
   const [danReciboPago, setDanReciboPago] = useState<string>("");
   const [contratoFisico, setContratoFisico] = useState<string>("");
   const [espacioComida, setEspacioComida] = useState<string>("");
@@ -189,6 +200,15 @@ export default function EmpleadoDetailsModal({
     return readOnly ? `Información: ${name}` : `Editar: ${name}`;
   }, [empleado?.Empleado, readOnly]);
 
+  const getSalaryByType = useCallback(
+    (type: CcssType): number | undefined => {
+      const raw = ccssSalaryByType?.[type];
+      if (typeof raw !== "number" || !Number.isFinite(raw)) return undefined;
+      return raw;
+    },
+    [ccssSalaryByType],
+  );
+
   useEffect(() => {
     if (!isOpen) return;
     setError("");
@@ -203,9 +223,17 @@ export default function EmpleadoDetailsModal({
     const baseIncluidoINS = Boolean(empleado?.incluidoINS);
     const baseDynamicIngresoDate = !baseIncluidoCCSS && !baseIncluidoINS;
 
+    const hasCompletedWorkConfig =
+      isCcssType(empleado?.ccssType) &&
+      typeof empleado?.pagoHoraBruta === "number" &&
+      Number.isFinite(empleado?.pagoHoraBruta);
+
+    const initialSelectionType: CcssTypeSelection =
+      readOnly || hasCompletedWorkConfig ? initialType : "";
+
     setBaseSnapshot({
       pagoHoraBruta:
-        typeof empleado?.pagoHoraBruta === "number"
+        readOnly && typeof empleado?.pagoHoraBruta === "number"
           ? empleado.pagoHoraBruta
           : undefined,
       diaContratacion: baseDynamicIngresoDate
@@ -214,7 +242,7 @@ export default function EmpleadoDetailsModal({
       paganAguinaldo: normalizeYesNo(
         String(empleado?.paganAguinaldo || ""),
       ).trim(),
-      ccssType: initialType,
+      ccssType: initialSelectionType,
       danReciboPago: normalizeYesNo(
         String(empleado?.danReciboPago || ""),
       ).trim(),
@@ -236,15 +264,31 @@ export default function EmpleadoDetailsModal({
       ),
     });
 
-    setPagoHoraBruta(
+    const initialSalary =
+      (readOnly || hasCompletedWorkConfig) &&
       empleado?.pagoHoraBruta !== undefined
-        ? String(empleado.pagoHoraBruta)
+        ? Number(empleado.pagoHoraBruta)
+        : undefined;
+
+    setPagoHoraBruta(
+      initialSalary !== undefined && Number.isFinite(initialSalary)
+        ? String(initialSalary)
+        : "",
+    );
+    setPagoHoraBrutaDisplay(
+      initialSalary !== undefined && Number.isFinite(initialSalary)
+        ? formatColones(initialSalary)
         : "",
     );
     setDiaContratacion(String(empleado?.diaContratacion || ""));
     setPaganAguinaldo(normalizeYesNo(String(empleado?.paganAguinaldo || "")));
-    setCcssType(initialType);
-    setCantidadHorasTrabaja(String(CCSS_WEEKLY_HOURS[initialType]));
+    setCcssType(initialSelectionType);
+    setCantidadHorasTrabaja(
+      readOnly || hasCompletedWorkConfig
+        ? String(CCSS_WEEKLY_HOURS[initialType])
+        : "",
+    );
+    setHasSelectedWorkHoursType(readOnly || hasCompletedWorkConfig);
     setDanReciboPago(normalizeYesNo(String(empleado?.danReciboPago || "")));
     setContratoFisico(normalizeYesNo(String(empleado?.contratoFisico || "")));
     setEspacioComida(normalizeYesNo(String(empleado?.espacioComida || "")));
@@ -261,7 +305,7 @@ export default function EmpleadoDetailsModal({
           }))
         : [],
     );
-  }, [empleado, isOpen]);
+  }, [empleado, readOnly, isOpen]);
 
   useEffect(() => {
     if (isOpen) return;
@@ -275,6 +319,8 @@ export default function EmpleadoDetailsModal({
     (useDynamicIngresoDate ? formatLocalISODate() : "");
 
   const canSave = !readOnly && typeof onSave === "function";
+  const canEditSalary = !readOnly && hasSelectedWorkHoursType;
+  const displayCcssType = isCcssType(ccssType) ? ccssType : "TC";
 
   const currentSnapshot: ComparableState = useMemo(
     () => ({
@@ -383,6 +429,8 @@ export default function EmpleadoDetailsModal({
       setError(v.msg || "Formulario inválido");
       return;
     }
+
+    if (!isCcssType(ccssType)) return;
 
     // If neither CCSS nor INS is selected, the ingreso date is dynamic (consult-day), so do not persist it.
     const diaFinal = useDynamicIngresoDate
@@ -517,10 +565,16 @@ export default function EmpleadoDetailsModal({
                   inputMode="decimal"
                   value={pagoHoraBrutaDisplay}
                   onChange={handlePagoHoraChange}
-                  disabled={readOnly}
+                  disabled={!canEditSalary}
                   className="w-full px-3 py-2 rounded-md bg-[var(--card-bg)] border border-[var(--input-border)] text-[var(--foreground)]"
-                  placeholder="Ej: ₡250,000.00"
+                  placeholder="Ej: ₡250,000"
                 />
+                {!readOnly && !hasSelectedWorkHoursType && (
+                  <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                    Selecciona primero el tipo de jornada (TC/MT/PH) para
+                    habilitar este campo.
+                  </p>
+                )}
               </div>
 
               <div>
@@ -550,23 +604,39 @@ export default function EmpleadoDetailsModal({
                 </label>
                 {readOnly ? (
                   <div className="w-full px-3 py-2 rounded-md bg-[var(--card-bg)] border border-[var(--input-border)] text-[var(--muted-foreground)] text-sm">
-                    {ccssType} ({CCSS_WEEKLY_HOURS[ccssType]} horas)
+                    {CCSS_TYPE_LABELS[displayCcssType]} ({CCSS_WEEKLY_HOURS[displayCcssType]} horas)
                   </div>
                 ) : (
                   <select
                     value={ccssType}
                     onChange={(e) => {
-                      const next = e.target.value as CcssType;
-                      if (!isCcssType(next)) return;
+                      const raw = e.target.value as CcssTypeSelection;
+                      if (!isCcssType(raw)) {
+                        setCcssType("");
+                        setCantidadHorasTrabaja("");
+                        setHasSelectedWorkHoursType(false);
+                        setPagoHoraBruta("");
+                        setPagoHoraBrutaDisplay("");
+                        return;
+                      }
+                      const next = raw;
                       setCcssType(next);
                       setCantidadHorasTrabaja(String(CCSS_WEEKLY_HOURS[next]));
+                      setHasSelectedWorkHoursType(true);
+
+                      const salaryFromConfig = getSalaryByType(next);
+                      if (salaryFromConfig !== undefined) {
+                        setPagoHoraBruta(String(salaryFromConfig));
+                        setPagoHoraBrutaDisplay(formatColones(salaryFromConfig));
+                      }
                     }}
                     disabled={readOnly}
                     className="w-full px-3 py-2 rounded-md bg-[var(--card-bg)] border border-[var(--input-border)] text-[var(--foreground)]"
                   >
-                    <option value="TC">TC (48 horas)</option>
-                    <option value="MT">MT (24 horas)</option>
-                    <option value="PH">PH (8 horas)</option>
+                    <option value="">Seleccionar tipo...</option>
+                    <option value="TC">Tiempo Completo (48 horas)</option>
+                    <option value="MT">Medio Tiempo (24 horas)</option>
+                    <option value="PH">Pago por Hora (8 horas)</option>
                   </select>
                 )}
               </div>
