@@ -107,6 +107,7 @@ export default function ExistePage() {
   const [error, setError] = useState<string | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isDeletePendingsOpen, setIsDeletePendingsOpen] = useState(false);
   const [lastImportCount, setLastImportCount] = useState<number | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scanNotice, setScanNotice] = useState<{
@@ -116,7 +117,27 @@ export default function ExistePage() {
   const [pendingCodigo, setPendingCodigo] = useState<string | null>(null);
   const [pendingNombre, setPendingNombre] = useState("");
   const [pendingError, setPendingError] = useState<string | null>(null);
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   const scanNoticeTimerRef = useRef<number | null>(null);
+
+  const copyTextToClipboard = async (text: string) => {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    textarea.style.left = "-999999px";
+    textarea.style.top = "-999999px";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    document.execCommand("copy");
+    document.body.removeChild(textarea);
+  };
 
   const clearScanNoticeTimer = () => {
     if (scanNoticeTimerRef.current !== null) {
@@ -228,6 +249,24 @@ export default function ExistePage() {
     return state.pendientesPorEmpresa[state.selectedEmpresaId] ?? [];
   }, [state.pendientesPorEmpresa, state.selectedEmpresaId]);
 
+  const pendingExportText = useMemo(() => {
+    if (!selectedEmpresa || selectedEmpresaPendientes.length === 0) {
+      return "";
+    }
+
+    const lines = [
+      `Empresa: ${selectedEmpresa.nombre}`,
+      `Fecha: ${new Date().toLocaleString()}`,
+      "",
+      "Codigo\tNombre",
+      ...selectedEmpresaPendientes.map(
+        (item) => `${item.codigoBarras}\t${item.nombre}`,
+      ),
+    ];
+
+    return lines.join("\n");
+  }, [selectedEmpresa, selectedEmpresaPendientes]);
+
   const openScannerModal = () => {
     if (!state.selectedEmpresaId) {
       setError("Selecciona una empresa antes de abrir el escaner.");
@@ -243,6 +282,7 @@ export default function ExistePage() {
     setPendingCodigo(null);
     setPendingNombre("");
     setPendingError(null);
+    setPendingStatus(null);
     setScanNotice(null);
     clearScanNoticeTimer();
     clearDetection();
@@ -429,6 +469,34 @@ export default function ExistePage() {
     setPendingError(null);
   };
 
+  const handleCopyPendings = async () => {
+    if (!pendingExportText) return;
+
+    try {
+      await copyTextToClipboard(pendingExportText);
+      setPendingStatus("Pendientes copiados al portapapeles.");
+    } catch {
+      setPendingStatus("No se pudieron copiar los pendientes.");
+    }
+  };
+
+  const handleDeletePendings = async () => {
+    if (!state.selectedEmpresaId) return;
+
+    const empresaId = state.selectedEmpresaId;
+    const nextState: ExisteState = {
+      ...state,
+      pendientesPorEmpresa: {
+        ...state.pendientesPorEmpresa,
+        [empresaId]: [],
+      },
+    };
+
+    await persistState(nextState);
+    setPendingStatus("Pendientes eliminados.");
+    setIsDeletePendingsOpen(false);
+  };
+
   const selectedEmpresaRelacionesCount =
     state.selectedEmpresaId
       ? state.relacionesPorEmpresa[state.selectedEmpresaId]?.length ?? 0
@@ -473,8 +541,26 @@ export default function ExistePage() {
               Códigos sin relación cargada para {selectedEmpresa?.nombre ?? "la empresa seleccionada"}.
             </p>
           </div>
-          <div className="rounded-full bg-black/5 px-3 py-1 text-sm font-semibold">
-            {selectedEmpresaPendientes.length}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handleCopyPendings()}
+              disabled={!selectedEmpresaPendientes.length}
+              className="rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Exportar
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsDeletePendingsOpen(true)}
+              disabled={!selectedEmpresaPendientes.length}
+              className="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Eliminar
+            </button>
+            <div className="rounded-full bg-black/5 px-3 py-1 text-sm font-semibold">
+              {selectedEmpresaPendientes.length}
+            </div>
           </div>
         </div>
 
@@ -493,6 +579,9 @@ export default function ExistePage() {
         ) : (
           <p className="text-sm opacity-70">No hay códigos pendientes.</p>
         )}
+        {pendingStatus ? (
+          <p className="mt-4 text-xs text-emerald-600">{pendingStatus}</p>
+        ) : null}
         {lastImportCount !== null ? (
           <p className="mt-4 text-xs opacity-70">
             Última importación: {lastImportCount} relaciones.
@@ -549,6 +638,21 @@ export default function ExistePage() {
         empresaNombre={selectedEmpresa?.nombre ?? "empresa seleccionada"}
         onClose={() => setIsDeleteOpen(false)}
         onConfirm={handleDeleteEmpresa}
+      />
+
+      <DeleteEmpresaModal
+        open={isDeletePendingsOpen}
+        loading={saving}
+        empresaNombre={selectedEmpresa?.nombre ?? "empresa seleccionada"}
+        title="Eliminar pendientes"
+        description={
+          selectedEmpresaPendientes.length > 0
+            ? `Vas a eliminar ${selectedEmpresaPendientes.length} pendientes de ${selectedEmpresa?.nombre ?? "la empresa seleccionada"}. Esta acción no se puede deshacer.`
+            : "No hay pendientes para eliminar."
+        }
+        confirmLabel="Eliminar pendientes"
+        onClose={() => setIsDeletePendingsOpen(false)}
+        onConfirm={handleDeletePendings}
       />
     </section>
   );

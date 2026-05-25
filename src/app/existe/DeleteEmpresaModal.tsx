@@ -8,6 +8,9 @@ type DeleteEmpresaModalProps = {
   loading?: boolean;
   onClose: () => void;
   onConfirm: () => void;
+  title?: string;
+  description?: string;
+  confirmLabel?: string;
 };
 
 export default function DeleteEmpresaModal({
@@ -16,6 +19,9 @@ export default function DeleteEmpresaModal({
   loading = false,
   onClose,
   onConfirm,
+  title = "Eliminar empresa",
+  description,
+  confirmLabel = "Confirmar eliminación",
 }: DeleteEmpresaModalProps) {
   useEffect(() => {
     if (!open) return;
@@ -39,9 +45,13 @@ export default function DeleteEmpresaModal({
         className="w-full max-w-md rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-5 text-[var(--foreground)] shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <h2 className="text-lg font-bold text-red-500">Eliminar empresa</h2>
+        <h2 className="text-lg font-bold text-red-500">{title}</h2>
         <p className="mt-2 text-sm opacity-90">
-          Vas a eliminar <span className="font-semibold">{empresaNombre}</span>. Esta acción no se puede deshacer.
+          {description ?? (
+            <>
+              Vas a eliminar <span className="font-semibold">{empresaNombre}</span>. Esta acción no se puede deshacer.
+            </>
+          )}
         </p>
 
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -59,7 +69,7 @@ export default function DeleteEmpresaModal({
             disabled={loading}
             className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Confirmar eliminación
+            {confirmLabel}
           </button>
         </div>
       </div>
