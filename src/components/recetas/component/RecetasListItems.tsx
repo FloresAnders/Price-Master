@@ -148,7 +148,7 @@ export function RecetasListItems(props: {
                         <span className="font-normal">{precioLabel}</span>
                       </span>
                       <span className="whitespace-nowrap font-extrabold text-xl text-[var(--foreground)]/80 transition-all duration-150 hover:text-[var(--foreground)] hover:scale-[1.01] inline-block">
-                        Precio Venta Sugerido:{" "}
+                        Costo Venta Sugerido:{" "}
                         <span className="font-extrabold">
                           {precioVentaSugeridoLabel}
                         </span>
