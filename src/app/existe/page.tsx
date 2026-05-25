@@ -527,9 +527,8 @@ export default function ExistePage() {
       />
 
       <div className="rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--card-bg)] p-6 text-[var(--foreground)]">
-        <p className="text-center">en mantenimiento</p>
         <p className="mt-2 text-center text-sm opacity-70">
-          Relaciones cargadas: {selectedEmpresaRelacionesCount}
+          Codigos cargados: {selectedEmpresaRelacionesCount}
         </p>
       </div>
 
@@ -538,7 +537,7 @@ export default function ExistePage() {
           <div>
             <h2 className="text-base font-semibold">Pendientes</h2>
             <p className="text-sm opacity-70">
-              Códigos sin relación cargada para {selectedEmpresa?.nombre ?? "la empresa seleccionada"}.
+              Códigos sin cargadar para {selectedEmpresa?.nombre ?? "la empresa seleccionada"}.
             </p>
           </div>
           <div className="flex items-center gap-2">
