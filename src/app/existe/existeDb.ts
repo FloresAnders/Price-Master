@@ -9,10 +9,18 @@ export type RelacionProducto = {
   codigoBarras: string;
 };
 
+export type CodigoPendiente = {
+  codigoBarras: string;
+  nombre: string;
+  createdAt: number;
+  empresaId: string;
+};
+
 export type ExisteState = {
   empresas: Empresa[];
   selectedEmpresaId: string | null;
   relacionesPorEmpresa: Record<string, RelacionProducto[]>;
+  pendientesPorEmpresa: Record<string, CodigoPendiente[]>;
 };
 
 const DB_NAME = "existe-db";
@@ -96,6 +104,8 @@ function normalizeState(value: Partial<ExisteState> | null | undefined): ExisteS
 
   const rawRelaciones = value?.relacionesPorEmpresa;
   const relacionesPorEmpresa: Record<string, RelacionProducto[]> = {};
+  const rawPendientes = value?.pendientesPorEmpresa;
+  const pendientesPorEmpresa: Record<string, CodigoPendiente[]> = {};
 
   if (rawRelaciones && typeof rawRelaciones === "object") {
     for (const empresa of empresas) {
@@ -121,7 +131,38 @@ function normalizeState(value: Partial<ExisteState> | null | undefined): ExisteS
     }
   }
 
-  return { empresas, selectedEmpresaId, relacionesPorEmpresa };
+  if (rawPendientes && typeof rawPendientes === "object") {
+    for (const empresa of empresas) {
+      const pendientes = (rawPendientes as Record<string, unknown>)[empresa.id];
+      if (!Array.isArray(pendientes)) continue;
+
+      pendientesPorEmpresa[empresa.id] = pendientes
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+
+          const itemRecord = item as Record<string, unknown>;
+          const codigoBarras = String(itemRecord.codigoBarras ?? "").trim();
+          const nombre = String(itemRecord.nombre ?? "").trim();
+
+          if (!codigoBarras || !nombre) return null;
+
+          return {
+            codigoBarras,
+            nombre,
+            createdAt: Number(itemRecord.createdAt) || Date.now(),
+            empresaId: empresa.id,
+          };
+        })
+        .filter((item): item is CodigoPendiente => Boolean(item));
+    }
+  }
+
+  return {
+    empresas,
+    selectedEmpresaId,
+    relacionesPorEmpresa,
+    pendientesPorEmpresa,
+  };
 }
 
 export async function getExisteState(): Promise<ExisteState> {

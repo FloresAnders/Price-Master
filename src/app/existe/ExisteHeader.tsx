@@ -7,20 +7,24 @@ type ExisteHeaderProps = {
   empresas: Empresa[];
   selectedEmpresaId: string | null;
   onOpenAddModal: () => void;
+  onOpenScanner: () => void;
   onSelectEmpresa: (empresaId: string) => void;
   onOpenDeleteModal: () => void;
   onUploadXlsx: (file: File) => void;
   disableUpload: boolean;
+  disableScanner: boolean;
 };
 
 export default function ExisteHeader({
   empresas,
   selectedEmpresaId,
   onOpenAddModal,
+  onOpenScanner,
   onSelectEmpresa,
   onOpenDeleteModal,
   onUploadXlsx,
   disableUpload,
+  disableScanner,
 }: ExisteHeaderProps) {
   const hasSelectedEmpresa = Boolean(selectedEmpresaId);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -42,6 +46,15 @@ export default function ExisteHeader({
             className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
           >
             Agregar empresa
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenScanner}
+            disabled={disableScanner}
+            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Abrir escaner
           </button>
 
           <input

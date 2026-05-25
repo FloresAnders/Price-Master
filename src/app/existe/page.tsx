@@ -1,16 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import AddEmpresaModal from "./AddEmpresaModal";
 import DeleteEmpresaModal from "./DeleteEmpresaModal";
 import ExisteHeader from "./ExisteHeader";
-import type { ExisteState, RelacionProducto } from "./existeDb";
+import ScannerModal from "./ScannerModal";
+import { useBarcodeScanner } from "./useBarcodeScanner";
+import type {
+  CodigoPendiente,
+  ExisteState,
+  RelacionProducto,
+} from "./existeDb";
 import { getExisteState, saveExisteState } from "./existeDb";
 
 const EMPTY_STATE: ExisteState = {
   empresas: [],
   selectedEmpresaId: null,
   relacionesPorEmpresa: {},
+  pendientesPorEmpresa: {},
 };
 
 function normalizeHeader(value: unknown): string {
@@ -89,6 +96,10 @@ function createEmpresaId(): string {
   return `empresa-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function normalizeCode(value: string): string {
+  return String(value ?? "").trim();
+}
+
 export default function ExistePage() {
   const [state, setState] = useState<ExisteState>(EMPTY_STATE);
   const [loading, setLoading] = useState(true);
@@ -97,6 +108,70 @@ export default function ExistePage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [lastImportCount, setLastImportCount] = useState<number | null>(null);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [scanNotice, setScanNotice] = useState<{
+    codigo: string;
+    descripcion: string;
+  } | null>(null);
+  const [pendingCodigo, setPendingCodigo] = useState<string | null>(null);
+  const [pendingNombre, setPendingNombre] = useState("");
+  const [pendingError, setPendingError] = useState<string | null>(null);
+  const scanNoticeTimerRef = useRef<number | null>(null);
+
+  const clearScanNoticeTimer = () => {
+    if (scanNoticeTimerRef.current !== null) {
+      window.clearTimeout(scanNoticeTimerRef.current);
+      scanNoticeTimerRef.current = null;
+    }
+  };
+
+  const {
+    code: detectedCode,
+    error: scannerError,
+    cameraActive,
+    liveStreamRef,
+    toggleCamera,
+    handleClear: clearScanner,
+    handleCopyCode,
+    clearDetection,
+    detectionMethod,
+  } = useBarcodeScanner(
+    (foundCode) => {
+      const empresaId = state.selectedEmpresaId;
+      if (!empresaId) {
+        setError("Selecciona una empresa antes de escanear.");
+        clearDetection();
+        return;
+      }
+
+      const codigo = normalizeCode(foundCode);
+      const relacion = state.relacionesPorEmpresa[empresaId]?.find(
+        (item) => normalizeCode(item.codigoBarras) === codigo,
+      );
+
+      if (relacion) {
+        clearScanNoticeTimer();
+        setPendingCodigo(null);
+        setPendingNombre("");
+        setPendingError(null);
+        setScanNotice({ codigo, descripcion: relacion.descripcion });
+        scanNoticeTimerRef.current = window.setTimeout(() => {
+          setScanNotice(null);
+          scanNoticeTimerRef.current = null;
+        }, 3000);
+        clearDetection();
+        return;
+      }
+
+      clearScanNoticeTimer();
+      setScanNotice(null);
+      setPendingCodigo(codigo);
+      setPendingNombre("");
+      setPendingError(null);
+      clearDetection();
+    },
+    { autoStopOnDetect: false },
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -122,6 +197,24 @@ export default function ExistePage() {
 
     return () => {
       cancelled = true;
+      clearScanNoticeTimer();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isScannerOpen && !cameraActive) {
+      toggleCamera();
+    }
+
+    if (!isScannerOpen && cameraActive) {
+      clearDetection();
+      clearScanner();
+    }
+  }, [cameraActive, clearDetection, clearScanner, isScannerOpen, toggleCamera]);
+
+  useEffect(() => {
+    return () => {
+      clearScanNoticeTimer();
     };
   }, []);
 
@@ -129,6 +222,32 @@ export default function ExistePage() {
     if (!state.selectedEmpresaId) return null;
     return state.empresas.find((empresa) => empresa.id === state.selectedEmpresaId) ?? null;
   }, [state.empresas, state.selectedEmpresaId]);
+
+  const selectedEmpresaPendientes = useMemo(() => {
+    if (!state.selectedEmpresaId) return [];
+    return state.pendientesPorEmpresa[state.selectedEmpresaId] ?? [];
+  }, [state.pendientesPorEmpresa, state.selectedEmpresaId]);
+
+  const openScannerModal = () => {
+    if (!state.selectedEmpresaId) {
+      setError("Selecciona una empresa antes de abrir el escaner.");
+      return;
+    }
+
+    setError(null);
+    setIsScannerOpen(true);
+  };
+
+  const closeScannerModal = () => {
+    setIsScannerOpen(false);
+    setPendingCodigo(null);
+    setPendingNombre("");
+    setPendingError(null);
+    setScanNotice(null);
+    clearScanNoticeTimer();
+    clearDetection();
+    clearScanner();
+  };
 
   const persistState = async (nextState: ExisteState) => {
     setSaving(true);
@@ -171,6 +290,10 @@ export default function ExistePage() {
         ...state.relacionesPorEmpresa,
         [empresaId]: state.relacionesPorEmpresa[empresaId] ?? [],
       },
+      pendientesPorEmpresa: {
+        ...state.pendientesPorEmpresa,
+        [empresaId]: state.pendientesPorEmpresa[empresaId] ?? [],
+      },
     };
 
     await persistState(nextState);
@@ -199,11 +322,17 @@ export default function ExistePage() {
         ([empresaId]) => empresaId !== deletedEmpresaId,
       ),
     );
+    const nextPendientesPorEmpresa = Object.fromEntries(
+      Object.entries(state.pendientesPorEmpresa).filter(
+        ([empresaId]) => empresaId !== deletedEmpresaId,
+      ),
+    );
 
     const nextState: ExisteState = {
       empresas: nextEmpresas,
       selectedEmpresaId: nextEmpresas[0]?.id ?? null,
       relacionesPorEmpresa: nextRelacionesPorEmpresa,
+      pendientesPorEmpresa: nextPendientesPorEmpresa,
     };
 
     await persistState(nextState);
@@ -262,6 +391,44 @@ export default function ExistePage() {
     }
   };
 
+  const handleSavePendingCode = async () => {
+    if (!state.selectedEmpresaId || !pendingCodigo) return;
+
+    const nombre = pendingNombre.trim();
+    if (!nombre) {
+      setPendingError("Ingresa un nombre para guardar el código.");
+      return;
+    }
+
+    const empresaId = state.selectedEmpresaId;
+    const nextPending: CodigoPendiente = {
+      codigoBarras: pendingCodigo,
+      nombre,
+      createdAt: Date.now(),
+      empresaId,
+    };
+
+    const nextPendientes = [
+      nextPending,
+      ...(state.pendientesPorEmpresa[empresaId] ?? []).filter(
+        (item) => item.codigoBarras !== pendingCodigo,
+      ),
+    ];
+
+    const nextState: ExisteState = {
+      ...state,
+      pendientesPorEmpresa: {
+        ...state.pendientesPorEmpresa,
+        [empresaId]: nextPendientes,
+      },
+    };
+
+    await persistState(nextState);
+    setPendingCodigo(null);
+    setPendingNombre("");
+    setPendingError(null);
+  };
+
   const selectedEmpresaRelacionesCount =
     state.selectedEmpresaId
       ? state.relacionesPorEmpresa[state.selectedEmpresaId]?.length ?? 0
@@ -283,20 +450,52 @@ export default function ExistePage() {
         empresas={state.empresas}
         selectedEmpresaId={state.selectedEmpresaId}
         onOpenAddModal={() => setIsAddOpen(true)}
+        onOpenScanner={openScannerModal}
         onSelectEmpresa={handleSelectEmpresa}
         onOpenDeleteModal={() => setIsDeleteOpen(true)}
         onUploadXlsx={handleUploadXlsx}
         disableUpload={saving || !state.selectedEmpresaId}
+        disableScanner={saving || !state.selectedEmpresaId}
       />
 
       <div className="rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--card-bg)] p-6 text-[var(--foreground)]">
         <p className="text-center">en mantenimiento</p>
-        <p className="mt-3 text-sm opacity-80">
-          Relaciones cargadas para la empresa seleccionada: {selectedEmpresaRelacionesCount}
+        <p className="mt-2 text-center text-sm opacity-70">
+          Relaciones cargadas: {selectedEmpresaRelacionesCount}
         </p>
+      </div>
+
+      <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-5 text-[var(--foreground)]">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold">Pendientes</h2>
+            <p className="text-sm opacity-70">
+              Códigos sin relación cargada para {selectedEmpresa?.nombre ?? "la empresa seleccionada"}.
+            </p>
+          </div>
+          <div className="rounded-full bg-black/5 px-3 py-1 text-sm font-semibold">
+            {selectedEmpresaPendientes.length}
+          </div>
+        </div>
+
+        {selectedEmpresaPendientes.length > 0 ? (
+          <div className="grid gap-3 md:grid-cols-2">
+            {selectedEmpresaPendientes.map((item) => (
+              <div
+                key={`${item.codigoBarras}-${item.createdAt}`}
+                className="rounded-md border border-[var(--input-border)] bg-[var(--background)] p-3"
+              >
+                <div className="text-sm font-semibold">{item.nombre}</div>
+                <div className="text-xs opacity-75">{item.codigoBarras}</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm opacity-70">No hay códigos pendientes.</p>
+        )}
         {lastImportCount !== null ? (
-          <p className="mt-1 text-sm text-emerald-500">
-            Archivo procesado correctamente. Registros guardados: {lastImportCount}
+          <p className="mt-4 text-xs opacity-70">
+            Última importación: {lastImportCount} relaciones.
           </p>
         ) : null}
       </div>
@@ -306,6 +505,36 @@ export default function ExistePage() {
           {error}
         </div>
       ) : null}
+
+      <ScannerModal
+        open={isScannerOpen}
+        onClose={closeScannerModal}
+        code={detectedCode}
+        error={scannerError}
+        detectionMethod={detectionMethod}
+        cameraActive={cameraActive}
+        liveStreamRef={liveStreamRef}
+        toggleCamera={toggleCamera}
+        handleClear={clearScanner}
+        handleCopyCode={handleCopyCode}
+        onRemoveLeadingZero={() => {}}
+        scanNotice={scanNotice}
+        pendingCodigo={pendingCodigo}
+        pendingNombre={pendingNombre}
+        pendingError={pendingError}
+        onPendingNombreChange={(value) => {
+          setPendingNombre(value);
+          if (pendingError) setPendingError(null);
+        }}
+        onPendingCancel={() => {
+          setPendingCodigo(null);
+          setPendingNombre("");
+          setPendingError(null);
+        }}
+        onPendingSave={() => {
+          void handleSavePendingCode();
+        }}
+      />
 
       <AddEmpresaModal
         open={isAddOpen}
