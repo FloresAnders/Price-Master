@@ -11,7 +11,7 @@ import {
   CreditCard,
   X,
 } from "lucide-react";
-import { writeBatch } from "firebase/firestore";
+import { writeBatch, doc } from "firebase/firestore";
 import { db } from "@/config/firebase";
 import { useProviders } from "@/hooks/useProviders";
 import { useAuth } from "@/hooks/useAuth";
@@ -22,8 +22,10 @@ import {
   MovimientosFondosService,
   type MovementCurrencyKey,
 } from "@/services/movimientos-fondos";
+import { DailyClosingsService } from "@/services/daily-closings";
 import { EmpresasService } from "@/services/empresas";
 import CreateInvoiceDrawer from "./CreateInvoiceDrawer";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 
 import type { Empresas } from "../../../types/firestore";
 
@@ -41,6 +43,23 @@ const formatInvoiceDocTypeLabel = (value: string) => {
   if (docType === "NC") return "Nota de Credito";
   if (docType === "FCO") return "Factura a Contado";
   return formatMovementType(docType);
+};
+
+// Deep remove undefined (Firestore doesn't accept undefined)
+const stripUndefinedDeep = <T,>(value: T): T => {
+  if (value === undefined) return value;
+  if (Array.isArray(value)) {
+    return (value.map((v) => stripUndefinedDeep(v)).filter((v) => v !== undefined) as any) as T;
+  }
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    Object.entries(value as Record<string, unknown>).forEach(([k, v]) => {
+      const cleaned = stripUndefinedDeep(v as any);
+      if (cleaned !== undefined) out[k] = cleaned;
+    });
+    return out as T;
+  }
+  return value;
 };
 
 const buildFacturaMovementId = (): string =>
@@ -114,6 +133,8 @@ const resolveFacturaStatusLabel = (movement: FacturaMovement): string => {
 };
 
 const SHARED_COMPANY_STORAGE_KEY = "fg_selected_company_shared";
+
+const CIERRE_FONDO_VENTAS_PROVIDER_NAME = "CIERRE FONDO VENTAS";
 
 export default function FacturasCreditoPage() {
   const { user } = useAuth();
@@ -218,6 +239,8 @@ export default function FacturasCreditoPage() {
   const todayKey = useMemo(() => dateKeyFromDate(new Date()), []);
   const companySelectId = "facturas-company-select";
   const [availableCompanies, setAvailableCompanies] = useState<Empresas[]>([]);
+  const [pendingCierreDeCaja, setPendingCierreDeCaja] = useState(false);
+  const [pendingCierreModalOpen, setPendingCierreModalOpen] = useState(false);
   const [availableCompaniesLoading, setAvailableCompaniesLoading] =
     useState(false);
   const [availableCompaniesError, setAvailableCompaniesError] = useState<
@@ -588,6 +611,10 @@ export default function FacturasCreditoPage() {
   }, []);
 
   const openPaymentModal = useCallback((movement: FacturaMovement) => {
+    if (pendingCierreDeCaja) {
+      setPendingCierreModalOpen(true);
+      return;
+    }
     const total = Math.max(
       0,
       Math.trunc(Number(movement.originalAmount ?? movement.amount) || 0),
@@ -603,6 +630,10 @@ export default function FacturasCreditoPage() {
 
   const submitPayment = useCallback(
     async (mode: "partial" | "full") => {
+      if (pendingCierreDeCaja) {
+        setPendingCierreModalOpen(true);
+        return;
+      }
       if (!selectedCompany) {
         showToast(
           "Selecciona una empresa antes de registrar el pago.",
@@ -732,33 +763,80 @@ export default function FacturasCreditoPage() {
         ...(paymentManager2Value ? { manager2: paymentManager2Value } : {}),
       };
 
-      const batch = writeBatch(db);
-      batch.set(
-        FacturasService.buildMovementRef(selectedCompany, paymentTarget.id),
-        updatedMovement,
-        { merge: true },
-      );
-      batch.set(
-        FacturasService.buildMovementRef(selectedCompany, paymentMovementId),
-        facturasPaymentMovement,
-      );
-      batch.set(
-        MovimientosFondosService.buildMovementRef(
-          movementDocId,
-          paymentMovementId,
-          "FondoGeneral",
-        ),
-        paymentMovement,
-      );
-
+      // Update ledger + movement atomically and also persist Facturas documents
       setPaymentSubmitting(true);
       try {
+        const docId = movementDocId; // MovimientosFondos document id
+
+        // Load existing ledger (if any)
+        let baseStorage = null;
+        try {
+          baseStorage = await MovimientosFondosService.getDocument(docId);
+        } catch {
+          baseStorage = null;
+        }
+        const ledger =
+          baseStorage ?? MovimientosFondosService.createEmptyMovementStorage(selectedCompany);
+        ledger.company = selectedCompany;
+        // Do not persist operations array to main doc; movements are in subcollection
+        ledger.operations = { movements: [] };
+
+        // Adjust balances: subtract payment from currentBalance for the account/currency
+        const state = ledger.state ?? MovimientosFondosService.createEmptyMovementStorage(selectedCompany).state;
+        const acctKey = "FondoGeneral" as const;
+        const currency = paymentMovement.currency as MovementCurrencyKey;
+        const amountToApply = Math.trunc(paymentAmountToApply || 0);
+        let found = false;
+        state.balancesByAccount = state.balancesByAccount.map((b) => {
+          if (b.accountId === acctKey && b.currency === currency) {
+            const current = typeof b.currentBalance === "number" ? b.currentBalance : b.initialBalance || 0;
+            const next = current - amountToApply;
+            found = true;
+            return { ...b, currentBalance: next };
+          }
+          return b;
+        });
+        if (!found) {
+          state.balancesByAccount.push({
+            accountId: acctKey,
+            currency,
+            enabled: true,
+            initialBalance: 0,
+            currentBalance: -amountToApply,
+          });
+        }
+        state.updatedAt = new Date().toISOString();
+        ledger.state = state;
+
+        const batch = writeBatch(db);
+        // Persist Facturas updated invoice
+        batch.set(
+          FacturasService.buildMovementRef(selectedCompany, paymentTarget.id),
+          stripUndefinedDeep(updatedMovement),
+          { merge: true },
+        );
+        // Persist Facturas payment movement
+        batch.set(
+          FacturasService.buildMovementRef(selectedCompany, paymentMovementId),
+          stripUndefinedDeep(facturasPaymentMovement),
+        );
+
+        // Persist ledger main doc
+        const mainRef = doc(db, MovimientosFondosService.COLLECTION_NAME, docId);
+        batch.set(mainRef, stripUndefinedDeep(ledger) as any);
+        // Persist movement in MovimientosFondos subcollection
+        const movRef = MovimientosFondosService.buildMovementRef(
+          docId,
+          paymentMovementId,
+          "FondoGeneral",
+        );
+        batch.set(movRef, stripUndefinedDeep(paymentMovement));
+
         await batch.commit();
+
         await loadMovements(selectedCompany);
         showToast(
-          nextStatus === "PAGADA"
-            ? "Factura pagada y movimiento generado."
-            : "Abono registrado.",
+          nextStatus === "PAGADA" ? "Factura pagada y movimiento generado." : "Abono registrado.",
           "success",
           3500,
         );
@@ -783,6 +861,79 @@ export default function FacturasCreditoPage() {
     ],
   );
 
+  useEffect(() => {
+    let cancelled = false;
+    const checkPending = async () => {
+      setPendingCierreDeCaja(false);
+      if (!selectedCompany || providersLoading) return;
+      try {
+        const docId = MovimientosFondosService.buildCompanyMovementsKey(
+          selectedCompany,
+        );
+        if (!docId) return;
+        const page = await MovimientosFondosService.listMovementsPage(docId, {
+          pageSize: 400,
+        });
+        if (cancelled) return;
+
+        // Find the most recent 'CIERRE FONDO VENTAS' movement timestamp
+        let cierreEntryTs = 0;
+        for (const m of page.items) {
+          const provCode = (m as any).providerCode;
+          if (!provCode) continue;
+          const provider = providers.find((p) => p.code === provCode);
+          if (provider?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME) {
+            const created = String((m as any).createdAt || (m as any).updateAt || "");
+            const parsed = Date.parse(created);
+            if (!Number.isNaN(parsed) && parsed > cierreEntryTs) cierreEntryTs = parsed;
+          }
+        }
+
+        if (cancelled) return;
+
+        if (cierreEntryTs > 0) {
+          // Load daily closings document and get latest closing timestamp
+          try {
+            const doc = await DailyClosingsService.getDocument(selectedCompany);
+            let latestDailyClosingTs = 0;
+            if (doc) {
+              const records = DailyClosingsService.extractAllClosings(doc);
+              for (const r of records) {
+                const ts = Date.parse(r.closingDate || r.createdAt || "");
+                if (!Number.isNaN(ts) && ts > latestDailyClosingTs) latestDailyClosingTs = ts;
+              }
+            }
+            if (!cancelled) {
+              setPendingCierreDeCaja(cierreEntryTs > latestDailyClosingTs);
+              console.log(
+                "[CIERRE-DEBUG][FACTURAS] cierreEntryTs, latestDailyClosingTs:",
+                cierreEntryTs,
+                latestDailyClosingTs,
+              );
+            }
+          } catch (err) {
+            // If daily closings can't be read, fall back to marking pending
+            if (!cancelled) {
+              setPendingCierreDeCaja(true);
+              console.log("[CIERRE-DEBUG][FACTURAS] marcar pendiente por error al leer cierres");
+            }
+          }
+        } else {
+          if (!cancelled) setPendingCierreDeCaja(false);
+        }
+      } catch (err) {
+        // ignore errors; default to not blocking
+      }
+    };
+    void checkPending();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCompany, providers, providersLoading]);
+
+  const closePendingCierreModal = useCallback(() => {
+    setPendingCierreModalOpen(false);
+  }, []);
   useEffect(() => {
     let cancelled = false;
     if (!selectedCompany) {
@@ -1846,15 +1997,15 @@ export default function FacturasCreditoPage() {
                           <button
                             type="button"
                             onClick={() => openPaymentModal(m)}
-                            disabled={isPaid}
+                            disabled={isPaid || pendingCierreDeCaja}
                             className={`inline-flex items-center gap-1 rounded border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                              isPaid
+                              isPaid || pendingCierreDeCaja
                                 ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-100 cursor-not-allowed"
                                 : "border-amber-500/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20"
                             }`}
                           >
                             <CreditCard className="h-3.5 w-3.5" />
-                            {isPaid ? "Pagada" : "Pagar"}
+                            {isPaid ? "Pagada" : pendingCierreDeCaja ? "Bloqueado" : "Pagar"}
                           </button>
                         ) : (
                           <span className="text-xs text-[var(--muted-foreground)]">
@@ -2054,6 +2205,20 @@ export default function FacturasCreditoPage() {
               </form>
             </div>
           </div>
+        )}
+
+        {pendingCierreModalOpen && (
+          <ConfirmModal
+            open={pendingCierreModalOpen}
+            title="Cierre pendiente"
+            message={
+              "Existe un cierre pendiente. No se pueden procesar pagos hasta que el cierre sea confirmado o eliminado desde el historial de cierres."
+            }
+            singleButton
+            singleButtonText="Entendido"
+            onCancel={closePendingCierreModal}
+            onConfirm={() => {}}
+          />
         )}
 
         <CreateInvoiceDrawer

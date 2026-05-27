@@ -86,7 +86,29 @@ import {
 import { buildDailyClosingEmailTemplate } from "../../../services/email-templates/daily-closing";
 import AgregarMovimiento from "./AgregarMovimiento";
 import DailyClosingModal, { DailyClosingFormValues } from "./DailyClosingModal";
+import FacturaPaymentModal from "./FacturaPaymentModal";
 import { useActorOwnership } from "../../../hooks/useActorOwnership";
+
+const stripUndefinedDeep = <T,>(value: T): T => {
+  if (value === undefined) return value;
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => stripUndefinedDeep(item))
+      .filter((item) => item !== undefined) as T;
+  }
+
+  if (value && typeof value === "object") {
+    const output: Record<string, unknown> = {};
+    Object.entries(value as Record<string, unknown>).forEach(([key, val]) => {
+      const cleaned = stripUndefinedDeep(val);
+      if (cleaned !== undefined) output[key] = cleaned;
+    });
+    return output as T;
+  }
+
+  return value;
+};
 import { db } from "@/config/firebase";
 import { findBestStringMatch } from "../../../utils/stringSimilarity";
 import {
@@ -3725,6 +3747,19 @@ export function FondoSection({
   const [dailyClosingHistoryOpen, setDailyClosingHistoryOpen] = useState(false);
   const [dailyClosingHistoryRange, setDailyClosingHistoryRange] =
     useState<string>("today");
+  const [pendingClosingCreditInvoices, setPendingClosingCreditInvoices] =
+    useState<FacturaMovement[]>([]);
+  const [showPendingClosingCreditInvoices, setShowPendingClosingCreditInvoices] =
+    useState(false);
+  const [closingPaymentModalOpen, setClosingPaymentModalOpen] =
+    useState(false);
+  const [closingPaymentTarget, setClosingPaymentTarget] =
+    useState<FacturaMovement | null>(null);
+  const [closingPaymentAmount, setClosingPaymentAmount] = useState("");
+  const [closingPaymentNotes, setClosingPaymentNotes] = useState("");
+  const [closingPaymentManager2, setClosingPaymentManager2] = useState("");
+  const [closingPaymentSubmitting, setClosingPaymentSubmitting] =
+    useState(false);
   const [expandedClosings, setExpandedClosings] = useState<Set<string>>(
     new Set(),
   );
@@ -3749,6 +3784,7 @@ export function FondoSection({
     observation?: string;
   } | null>(null);
   const [pendingCierreDeCaja, setPendingCierreDeCaja] = useState(false);
+  const [pendingCierreModalOpen, setPendingCierreModalOpen] = useState(false);
   const [negativeBalanceModal, setNegativeBalanceModal] = useState<{
     open: boolean;
     amount: number;
@@ -3772,6 +3808,64 @@ export function FondoSection({
   } | null>(null);
   const lastMovementCreatedAtRef = useRef<number>(0);
   const deleteLatestClosingInProgressRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!company) {
+      setPendingClosingCreditInvoices([]);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    FacturasService.listMovementsByEmpresa(company, { limit: 800 })
+      .then((movements) => {
+        if (cancelled) return;
+        const pending = movements
+          .filter((movement) => {
+            if (normalizeInvoiceDocType(movement.invoiceDocType) !== "FCR") {
+              return false;
+            }
+            const totalAmount = Math.max(
+              0,
+              Math.trunc(
+                Number(movement.originalAmount ?? movement.amount) || 0,
+              ),
+            );
+            const paidAmount = Math.max(
+              0,
+              Math.trunc(Number(movement.paidAmount) || 0),
+            );
+            const balanceDue = Math.max(
+              0,
+              Math.trunc(
+                Number(movement.balanceDue ?? totalAmount - paidAmount) || 0,
+              ),
+            );
+            return (
+              balanceDue > 0 &&
+              String(movement.paymentStatus || "").toUpperCase() !== "PAGADA"
+            );
+          })
+          .sort((a, b) => {
+            const aDate = new Date(a.createdAt || 0).getTime();
+            const bDate = new Date(b.createdAt || 0).getTime();
+            return bDate - aDate;
+          });
+        setPendingClosingCreditInvoices(pending);
+      })
+      .catch((error) => {
+        console.error("[FONDO] Error loading pending credit invoices:", error);
+        if (!cancelled) {
+          setPendingClosingCreditInvoices([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [company]);
 
   const zxq_plm = (() => {
     const a9f = (() => {
@@ -5619,11 +5713,17 @@ export function FondoSection({
       (a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
-
+    // Determine if there is a pending "CIERRE FONDO VENTAS" that has not
+    // been superseded by an auto-adjustment (CIERRE DE FONDO GENERAL) or by a
+    // confirmed daily closing record. We consider the most recent cierre entry
+    // and compare it with the latest daily closing saved for the company.
     let hasPendingCierreDeCaja = false;
+    let cierreEntryTs = 0;
     for (const entry of sortedEntries) {
-      // Si encontramos un CIERRE DE FONDO GENERAL, no hay pendiente
+      // If we find an auto-adjustment (CIERRE DE FONDO GENERAL) newer than any
+      // cierre entry, there is no pending cierre.
       if (isAutoAdjustmentProvider(entry.providerCode)) {
+        cierreEntryTs = 0;
         break;
       }
       // Buscar el nombre del proveedor por su código
@@ -5631,16 +5731,35 @@ export function FondoSection({
       if (
         providerData?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME
       ) {
-        hasPendingCierreDeCaja = true;
+        const parsed = Date.parse(String(entry.createdAt || ""));
+        cierreEntryTs = Number.isFinite(parsed) ? parsed : 0;
         break;
       }
     }
+
+    if (cierreEntryTs > 0) {
+      // If we have daily closings loaded, compare timestamps: if the latest
+      // daily closing is at or after the cierre entry, consider it confirmed
+      // (not pending). Otherwise keep as pending.
+      let latestDailyClosingTs = 0;
+      if (Array.isArray(dailyClosings) && dailyClosings.length > 0) {
+        for (const record of dailyClosings) {
+          const ts = Date.parse(record.closingDate || record.createdAt || "");
+          if (Number.isFinite(ts) && ts > latestDailyClosingTs) latestDailyClosingTs = ts;
+        }
+      }
+      hasPendingCierreDeCaja = cierreEntryTs > latestDailyClosingTs;
+    } else {
+      hasPendingCierreDeCaja = false;
+    }
+
     setPendingCierreDeCaja(hasPendingCierreDeCaja);
     console.log(
       "[CIERRE-DEBUG] Estado pendingCierreDeCaja después de cargar:",
       hasPendingCierreDeCaja,
+      { cierreEntryTs, latestDailyClosingTs: (Array.isArray(dailyClosings) ? Math.max(...dailyClosings.map(r=>Date.parse(r.closingDate||r.createdAt||"")||0)) : 0) },
     );
-  }, [entriesHydrated, providers, fondoEntries]);
+  }, [entriesHydrated, providers, fondoEntries, dailyClosings, dailyClosingsHydrated]);
 
   useEffect(() => {
     if (!selectedProvider) return;
@@ -5975,6 +6094,7 @@ export function FondoSection({
     setAmountError("");
     setManagerError("");
     setManager2Error("");
+    editingInProgressRef.current = false;
   }, []);
 
   const normalizeMoneyInput = (value: string) => value.replace(/[^0-9]/g, "");
@@ -7951,8 +8071,7 @@ export function FondoSection({
   };
 
   const cancelEditing = () => {
-    editingInProgressRef.current = false;
-    resetFondoForm();
+    closeMovementModal();
   };
 
   const openManualCreditNoteModal = () => {
@@ -9071,10 +9190,226 @@ export function FondoSection({
     setDailyClosingModalOpen(false);
     setEditingDailyClosingId(null);
     setDailyClosingInitialValues(null);
+    setClosingPaymentModalOpen(false);
+    setClosingPaymentTarget(null);
   };
+
+  const openClosingInvoicePaymentModal = useCallback(
+    (invoice: FacturaMovement) => {
+      if (pendingCierreDeCaja) {
+        setPendingCierreModalOpen(true);
+        return;
+      }
+      const totalAmount = Math.max(
+        0,
+        Math.trunc(Number(invoice.originalAmount ?? invoice.amount) || 0),
+      );
+      const paidAmount = Math.max(
+        0,
+        Math.trunc(Number(invoice.paidAmount) || 0),
+      );
+      const balanceDue = Math.max(
+        0,
+        Math.trunc(Number(invoice.balanceDue ?? totalAmount - paidAmount) || 0),
+      );
+
+      setClosingPaymentTarget(invoice);
+      setClosingPaymentAmount(String(balanceDue || totalAmount));
+      setClosingPaymentNotes(String(invoice.notes || ""));
+      setClosingPaymentManager2(String(invoice.manager2 || ""));
+      setClosingPaymentModalOpen(true);
+    },
+      [pendingCierreDeCaja],
+  );
+
+  const closeClosingInvoicePaymentModal = useCallback(() => {
+    setClosingPaymentModalOpen(false);
+    setClosingPaymentTarget(null);
+    setClosingPaymentAmount("");
+    setClosingPaymentNotes("");
+    setClosingPaymentManager2("");
+  }, []);
+
+  const submitClosingInvoicePayment = useCallback(
+    async (mode: "partial" | "full") => {
+      if (!company || !closingPaymentTarget) return;
+
+      if (pendingCierreDeCaja) {
+        setPendingCierreModalOpen(true);
+        return;
+      }
+
+      const totalAmount = Math.max(
+        0,
+        Math.trunc(Number(closingPaymentTarget.originalAmount ?? closingPaymentTarget.amount) || 0),
+      );
+      const paidAmount = Math.max(
+        0,
+        Math.trunc(Number(closingPaymentTarget.paidAmount) || 0),
+      );
+      const balance = Math.max(
+        0,
+        Math.min(
+          totalAmount,
+          Math.trunc(Number(closingPaymentTarget.balanceDue ?? totalAmount - paidAmount) || 0),
+        ),
+      );
+      const enteredAmount = Math.max(
+        0,
+        Math.trunc(Number(closingPaymentAmount) || 0),
+      );
+      const paymentAmountToApply = mode === "full" ? balance : enteredAmount;
+
+      if (mode === "full" && enteredAmount !== balance) {
+        return;
+      }
+
+      if (paymentAmountToApply <= 0 || paymentAmountToApply > balance) {
+        return;
+      }
+
+      const nowISO = new Date().toISOString();
+      const nextPaidAmount = Math.min(totalAmount, paidAmount + paymentAmountToApply);
+      const nextBalanceDue = Math.max(0, totalAmount - nextPaidAmount);
+      const nextStatus =
+        nextBalanceDue === 0
+          ? "PAGADA"
+          : nextPaidAmount > 0
+            ? "PARCIAL"
+            : "PENDIENTE";
+      const cleanedNotes = closingPaymentNotes.trim();
+      const cleanedManager2 = closingPaymentManager2.trim();
+      const paymentManager2Value = cleanedManager2 || null;
+
+      const updatedMovement: FacturaMovement = {
+        ...closingPaymentTarget,
+        amount: totalAmount,
+        originalAmount: totalAmount,
+        amountPayment: paymentAmountToApply,
+        amountDue: nextBalanceDue,
+        paidAmount: nextPaidAmount,
+        balanceDue: nextBalanceDue,
+        paymentStatus: nextStatus,
+        notes: cleanedNotes,
+        updateAt: nowISO,
+        ...(paymentManager2Value ? { manager2: paymentManager2Value } : {}),
+      };
+
+      const paymentMovement = MovimientosFondosService.buildInvoicePaymentMovement({
+        company,
+        invoice: updatedMovement,
+        paymentAmount: paymentAmountToApply,
+        updateAt: nowISO,
+        manager2: paymentManager2Value || undefined,
+      });
+      const paymentMovementId = String((paymentMovement as any).id || "");
+
+      setClosingPaymentSubmitting(true);
+      try {
+        const docId = MovimientosFondosService.buildCompanyMovementsKey(
+          company,
+        );
+
+        // Load ledger
+        let baseStorage = null;
+        try {
+          baseStorage = await MovimientosFondosService.getDocument(docId);
+        } catch {
+          baseStorage = null;
+        }
+        const ledger =
+          baseStorage ?? MovimientosFondosService.createEmptyMovementStorage(company);
+        ledger.company = company;
+        ledger.operations = { movements: [] };
+
+        const state = ledger.state ?? MovimientosFondosService.createEmptyMovementStorage(company).state;
+        const acctKey = "FondoGeneral" as const;
+        const currency = (paymentMovement as any).currency as MovementCurrencyKey;
+        const amountToApply = Math.trunc(paymentAmountToApply || 0);
+        let found = false;
+        state.balancesByAccount = state.balancesByAccount.map((b) => {
+          if (b.accountId === acctKey && b.currency === currency) {
+            const current = typeof b.currentBalance === "number" ? b.currentBalance : b.initialBalance || 0;
+            const next = current - amountToApply;
+            found = true;
+            return { ...b, currentBalance: next };
+          }
+          return b;
+        });
+        if (!found) {
+          state.balancesByAccount.push({
+            accountId: acctKey,
+            currency,
+            enabled: true,
+            initialBalance: 0,
+            currentBalance: -amountToApply,
+          });
+        }
+        state.updatedAt = new Date().toISOString();
+        ledger.state = state;
+
+        const batch = writeBatch(db);
+        batch.set(
+          FacturasService.buildMovementRef(company, closingPaymentTarget.id),
+          stripUndefinedDeep(updatedMovement),
+          { merge: true },
+        );
+        batch.set(
+          FacturasService.buildMovementRef(company, paymentMovementId),
+          stripUndefinedDeep({
+            ...paymentMovement,
+            invoiceDocType: "FCO" as const,
+            paymentStatus: "PAGADA" as const,
+            amount: paymentAmountToApply,
+            amountEgreso: paymentAmountToApply,
+            amountIngreso: 0,
+            amountPayment: paymentAmountToApply,
+            paidAmount: paymentAmountToApply,
+            balanceDue: 0,
+            originalAmount: totalAmount,
+            amountDue: nextBalanceDue,
+            ...(paymentManager2Value ? { manager2: paymentManager2Value } : {}),
+          }),
+        );
+
+        const mainRef = doc(db, MovimientosFondosService.COLLECTION_NAME, docId);
+        batch.set(mainRef, stripUndefinedDeep(ledger) as any);
+        const movRef = MovimientosFondosService.buildMovementRef(
+          docId,
+          paymentMovementId,
+          "FondoGeneral",
+        );
+        batch.set(movRef, stripUndefinedDeep(paymentMovement));
+
+        await batch.commit();
+        setPendingClosingCreditInvoices((current) =>
+          current.filter((movement) => movement.id !== closingPaymentTarget.id),
+        );
+        closeClosingInvoicePaymentModal();
+      } catch (error) {
+        console.error("[FONDO] Error saving credit invoice payment:", error);
+      } finally {
+        setClosingPaymentSubmitting(false);
+      }
+    },
+    [
+      closeClosingInvoicePaymentModal,
+      closingPaymentAmount,
+      closingPaymentManager2,
+      closingPaymentNotes,
+      closingPaymentTarget,
+      company,
+      pendingCierreDeCaja,
+      showToast,
+    ],
+  );
 
   const handleCancelPhysicalCount = useCallback(() => {
     setConfirmPhysicalCountOpen(false);
+  }, []);
+
+  const closePendingCierreModal = useCallback(() => {
+    setPendingCierreModalOpen(false);
   }, []);
 
   const handleConfirmPhysicalCount = useCallback(() => {
@@ -11400,20 +11735,35 @@ export function FondoSection({
 
           <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:w-auto xl:min-w-[348px]">
             {accountKey === "FondoGeneral" && (
-              <div className="relative group min-w-0">
-                <button
-                  type="button"
-                  onClick={handleOpenDailyClosing}
-                  disabled={!pendingCierreDeCaja}
-                  className={`flex h-11 w-full items-center justify-center gap-2 rounded border px-3 text-sm font-semibold shadow-sm transition-all duration-150 ${
-                    !pendingCierreDeCaja
-                      ? "cursor-not-allowed border-[var(--input-border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)] opacity-70"
-                      : "border-yellow-600/40 bg-yellow-500/10 text-yellow-400/80 hover:-translate-y-0.5 hover:border-yellow-500/60 hover:bg-yellow-500/20 hover:shadow-md hover:shadow-yellow-950/20 active:translate-y-0 active:scale-[0.99]"
-                  }`}
-                >
-                  <Banknote className="h-4 w-4 flex-shrink-0" />
-                  <span className="truncate">Registrar cierre</span>
-                </button>
+              <div className="relative group min-w-0 flex flex-col gap-2">
+                <div className="flex items-center gap-3">
+                  <label className="flex min-w-0 flex-shrink-0 items-center gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-xs font-semibold text-[var(--foreground)]">
+                    <input
+                      type="checkbox"
+                      checked={showPendingClosingCreditInvoices}
+                      onChange={(event) =>
+                        setShowPendingClosingCreditInvoices(event.target.checked)
+                      }
+                      className="h-4 w-4 accent-amber-400"
+                    />
+                    <span className="whitespace-nowrap">
+                      Mostrar facturas crédito pendientes
+                    </span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleOpenDailyClosing}
+                    disabled={!pendingCierreDeCaja}
+                    className={`flex h-11 flex-1 items-center justify-center gap-2 rounded border px-3 text-sm font-semibold shadow-sm transition-all duration-150 ${
+                      !pendingCierreDeCaja
+                        ? "cursor-not-allowed border-[var(--input-border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)] opacity-70"
+                        : "border-yellow-600/40 bg-yellow-500/10 text-yellow-400/80 hover:-translate-y-0.5 hover:border-yellow-500/60 hover:bg-yellow-500/20 hover:shadow-md hover:shadow-yellow-950/20 active:translate-y-0 active:scale-[0.99]"
+                    }`}
+                  >
+                    <Banknote className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">Registrar cierre</span>
+                  </button>
+                </div>
                 {!pendingCierreDeCaja && (
                   <div className="hidden sm:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-yellow-500 text-black text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
                     ⚠️ Debe agregar un movimiento de &quot;CIERRE FONDO
@@ -12174,6 +12524,137 @@ export function FondoSection({
                         </th>
                       </tr>
                     </thead>
+                    {showPendingClosingCreditInvoices &&
+                      pendingClosingCreditInvoices.length > 0 && (
+                        <tbody>
+                          <tr className="bg-amber-500/10 [&>td]:border-b [&>td]:border-cyan-900/35">
+                            <td
+                              colSpan={7}
+                              className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-amber-100"
+                            >
+                              Facturas crédito pendientes
+                            </td>
+                          </tr>
+                          {pendingClosingCreditInvoices.map((invoice) => {
+                            const providerName =
+                              providersMap.get(invoice.providerCode) ??
+                              invoice.providerCode;
+                            const totalAmount = Math.max(
+                              0,
+                              Math.trunc(
+                                Number(invoice.originalAmount ?? invoice.amount) || 0,
+                              ),
+                            );
+                            const paidAmount = Math.max(
+                              0,
+                              Math.trunc(Number(invoice.paidAmount) || 0),
+                            );
+                            const balanceAmount = Math.max(
+                              0,
+                              Math.trunc(
+                                Number(
+                                  invoice.balanceDue ?? totalAmount - paidAmount,
+                                ) || 0,
+                              ),
+                            );
+                            const recordedAt = new Date(invoice.createdAt);
+                            const formattedInvoiceDate = Number.isNaN(
+                              recordedAt.getTime(),
+                            )
+                              ? "Sin fecha"
+                              : dateTimeFormatter.format(recordedAt);
+
+                            return (
+                              <tr
+                                key={invoice.id}
+                                className="transition-colors hover:bg-amber-500/10 [&>td]:border-b [&>td]:border-cyan-900/35 bg-amber-500/5"
+                              >
+                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
+                                  {formattedInvoiceDate}
+                                </td>
+                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
+                                  <div className="font-semibold text-[var(--foreground)]">
+                                    {providerName}
+                                  </div>
+                                  <div className="text-xs text-amber-100/80">
+                                    {invoice.providerCode}
+                                  </div>
+                                  {invoice.notes && (
+                                    <div className="mt-1 text-xs text-[var(--muted-foreground)] break-words">
+                                      {invoice.notes}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
+                                  <div className="flex flex-col gap-1">
+                                    <span className="inline-flex max-w-full items-center rounded border border-amber-400/30 bg-amber-500/10 px-2 py-1 text-xs font-semibold text-amber-100">
+                                      FCR
+                                    </span>
+                                    <span className="text-xs text-amber-100/80">
+                                      {String(invoice.paymentStatus || "PENDIENTE")}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
+                                  <span className="font-medium text-[var(--foreground)]">
+                                    #{invoice.invoiceNumber}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 align-top">
+                                  <div className="flex flex-col gap-1 text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                      <span className="rounded px-2 py-1 text-xs font-semibold bg-amber-500/10 text-yellow-300">
+                                        {formatByCurrency(
+                                          invoice.currency,
+                                          totalAmount,
+                                        )}
+                                      </span>
+                                    </div>
+                                    <span className="text-xs text-[var(--muted-foreground)]">
+                                      Saldo: {formatByCurrency(invoice.currency, balanceAmount)}
+                                    </span>
+                                    <span className="text-xs text-[var(--muted-foreground)]">
+                                      Pagado: {formatByCurrency(invoice.currency, paidAmount)}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
+                                  <div className="text-[var(--foreground)]">
+                                    {invoice.manager || "-"}
+                                  </div>
+                                  {invoice.manager2 && (
+                                    <div className="mt-1 text-xs text-[var(--muted-foreground)]">
+                                      Extra: {invoice.manager2}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 align-top">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      openClosingInvoicePaymentModal(invoice)
+                                    }
+                                    disabled={pendingCierreDeCaja}
+                                    title={
+                                      pendingCierreDeCaja
+                                        ? "Pago bloqueado: existe un cierre pendiente"
+                                        : "Pagar factura crédito pendiente"
+                                    }
+                                    className={`inline-flex items-center gap-1.5 rounded border px-2.5 py-1.5 text-xs font-medium transition-all duration-150 ${
+                                      pendingCierreDeCaja
+                                        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-100 cursor-not-allowed"
+                                        : "border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:-translate-y-0.5 hover:border-emerald-400 hover:bg-emerald-500/20"
+                                    }`}
+                                  >
+                                    <Banknote className="w-4 h-4" />
+                                    {pendingCierreDeCaja ? "Bloqueado" : "Pagar"}
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      )}
                     {Array.from(groupedByDay.entries()).map(
                       ([dayKey, entries]) => (
                         <tbody key={dayKey}>
@@ -13221,6 +13702,56 @@ export function FondoSection({
         managerReadonly={!editingDailyClosingId}
       />
 
+      <FacturaPaymentModal
+        open={closingPaymentModalOpen}
+        target={closingPaymentTarget}
+        providerName={
+          closingPaymentTarget
+            ? providers.find(
+                (provider) => provider.code === closingPaymentTarget.providerCode,
+              )?.name || closingPaymentTarget.providerCode
+            : ""
+        }
+        employeeOptions={employeeOptions}
+        employeesLoading={employeesLoading}
+        paymentAmount={closingPaymentAmount}
+        paymentNotes={closingPaymentNotes}
+        paymentManager2={closingPaymentManager2}
+        selectedPaymentPaid={Math.max(
+          0,
+          Math.trunc(Number(closingPaymentTarget?.paidAmount) || 0),
+        )}
+        selectedPaymentBalance={Math.max(
+          0,
+          Math.trunc(
+            Number(
+              closingPaymentTarget?.balanceDue ??
+                Math.max(
+                  0,
+                  Math.trunc(
+                    Number(
+                      closingPaymentTarget?.originalAmount ??
+                        closingPaymentTarget?.amount,
+                    ) || 0,
+                  ),
+                ) -
+                  Math.max(0, Math.trunc(Number(closingPaymentTarget?.paidAmount) || 0)),
+            ) || 0,
+          ),
+        )}
+        selectedPaymentStatus={String(
+          closingPaymentTarget?.paymentStatus || "PENDIENTE",
+        )}
+        paymentSubmitting={closingPaymentSubmitting}
+        canSubmitFullPayment={true}
+        onClose={closeClosingInvoicePaymentModal}
+        onPaymentAmountChange={setClosingPaymentAmount}
+        onPaymentNotesChange={setClosingPaymentNotes}
+        onPaymentManager2Change={setClosingPaymentManager2}
+        onSubmitPartial={() => void submitClosingInvoicePayment("partial")}
+        onSubmitFull={() => void submitClosingInvoicePayment("full")}
+      />
+
       <ConfirmModal
         open={confirmPhysicalCountOpen}
         title="Confirmar conteo físico"
@@ -13264,6 +13795,18 @@ export function FondoSection({
         actionType="change"
         onConfirm={confirmOpenCreateMovementNow}
         onCancel={cancelOpenCreateMovement}
+      />
+
+      <ConfirmModal
+        open={pendingCierreModalOpen}
+        title="Cierre pendiente"
+        message={
+          "Existe un cierre pendiente. No se pueden procesar pagos hasta que el cierre sea confirmado o eliminado desde el historial de cierres."
+        }
+        singleButton
+        singleButtonText="Entendido"
+        onCancel={closePendingCierreModal}
+        onConfirm={() => {}}
       />
 
       <ConfirmModal
