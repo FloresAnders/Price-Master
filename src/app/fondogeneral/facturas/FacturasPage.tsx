@@ -102,6 +102,17 @@ const resolveFacturaStatus = (
       : "PENDIENTE";
 };
 
+const resolveFacturaStatusLabel = (movement: FacturaMovement): string => {
+  const status = resolveFacturaStatus(movement);
+  if (
+    status === "PAGADA" &&
+    String(movement.invoiceDocType || "").trim().toUpperCase() === "NC"
+  ) {
+    return "REBAJADA";
+  }
+  return status;
+};
+
 export default function FacturasCreditoPage() {
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -133,6 +144,8 @@ export default function FacturasCreditoPage() {
   const [createSubmitting, setCreateSubmitting] = useState(false);
   const [createProviderCode, setCreateProviderCode] = useState("");
   const [createProviderFilter, setCreateProviderFilter] = useState("");
+  const [createOnlyInventoryProviders, setCreateOnlyInventoryProviders] =
+    useState(true);
   const [isCreateProviderDropdownOpen, setIsCreateProviderDropdownOpen] =
     useState(false);
   const [createInvoiceNumber, setCreateInvoiceNumber] = useState("");
@@ -302,6 +315,13 @@ export default function FacturasCreditoPage() {
     () =>
       providers
         .filter((provider) => {
+          if (createOnlyInventoryProviders) {
+            const providerType = String(provider.type || "")
+              .trim()
+              .toUpperCase();
+            if (providerType !== "COMPRA INVENTARIO") return false;
+          }
+
           const byName = String(provider.name || "")
             .toLowerCase()
             .includes(createProviderFilter.toLowerCase());
@@ -319,7 +339,7 @@ export default function FacturasCreditoPage() {
             },
           ),
         ),
-    [createProviderFilter, providers],
+    [createOnlyInventoryProviders, createProviderFilter, providers],
   );
 
   useEffect(() => {
@@ -340,6 +360,7 @@ export default function FacturasCreditoPage() {
   const resetCreateForm = useCallback(() => {
     setCreateProviderCode("");
     setCreateProviderFilter("");
+    setCreateOnlyInventoryProviders(true);
     setIsCreateProviderDropdownOpen(false);
     setCreateInvoiceNumber("");
     setCreateInvoiceDocType("FCR");
@@ -508,7 +529,7 @@ export default function FacturasCreditoPage() {
 
   const selectedPaymentStatus = useMemo(() => {
     if (!paymentTarget) return "PENDIENTE" as const;
-    return resolveFacturaStatus(paymentTarget);
+    return resolveFacturaStatusLabel(paymentTarget);
   }, [paymentTarget]);
 
   const enteredPaymentAmount = useMemo(
@@ -598,16 +619,34 @@ export default function FacturasCreditoPage() {
             : "PENDIENTE";
       const cleanedNotes = paymentNotes.trim();
       const cleanedManager2 = paymentManager2.trim();
+      const paymentAppliedCreditNotes = Array.isArray(
+        paymentTarget.appliedCreditNotes,
+      )
+        ? paymentTarget.appliedCreditNotes
+        : [];
 
       const updatedMovement: FacturaMovement = {
-        ...paymentTarget,
+        id: paymentTarget.id,
+        empresa: paymentTarget.empresa,
+        accountId: paymentTarget.accountId,
         amount: totalAmount,
+        amountPayment: paymentAmountToApply,
         paidAmount: nextPaidAmount,
         balanceDue: nextBalanceDue,
         paymentStatus: nextStatus,
+        createdAt: paymentTarget.createdAt,
+        currency: paymentTarget.currency,
+        invoiceNumber: paymentTarget.invoiceNumber,
+        manager: paymentTarget.manager,
+        notes: cleanedNotes,
+        invoiceDocType: paymentTarget.invoiceDocType,
+        paymentType: paymentTarget.paymentType,
+        providerCode: paymentTarget.providerCode,
+        amountEgreso: paymentTarget.amountEgreso,
+        amountIngreso: paymentTarget.amountIngreso,
+        appliedCreditNotes: paymentAppliedCreditNotes,
         updateAt: nowISO,
         manager2: cleanedManager2 || undefined,
-        notes: cleanedNotes,
       };
 
       const movementDocId =
@@ -1626,13 +1665,19 @@ export default function FacturasCreditoPage() {
                 {/* CAMBIAR ACA SI SE QUIERE VER SALDO NEGATIVO */}
                 {filteredMovements.map((m) => {
                   const amount = Math.abs(Number(m.amount) || 0);
-                  const amountLabel = amount.toLocaleString("es-CR", {
+                  const signedAmount =
+                    String(m.invoiceDocType || "").trim().toUpperCase() ===
+                    "NC"
+                      ? -amount
+                      : amount;
+                  const amountLabel = signedAmount.toLocaleString("es-CR", {
                     style: "currency",
                     currency: m.currency,
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 0,
                   });
                   const paymentStatus = resolveFacturaStatus(m);
+                  const paymentStatusLabel = resolveFacturaStatusLabel(m);
                   const paymentBalance = resolveFacturaBalance(m);
                   const isPaid = paymentBalance === 0;
                   return (
@@ -1675,7 +1720,7 @@ export default function FacturasCreditoPage() {
                                   : "border-slate-500/40 bg-slate-500/10 text-slate-200"
                             }`}
                           >
-                            {paymentStatus}
+                            {paymentStatusLabel}
                           </span>
                         </div>
                         {paymentBalance > 0 && (
@@ -1913,6 +1958,8 @@ export default function FacturasCreditoPage() {
           setCreateProviderCode={setCreateProviderCode}
           createProviderFilter={createProviderFilter}
           setCreateProviderFilter={setCreateProviderFilter}
+          createOnlyInventoryProviders={createOnlyInventoryProviders}
+          setCreateOnlyInventoryProviders={setCreateOnlyInventoryProviders}
           isCreateProviderDropdownOpen={isCreateProviderDropdownOpen}
           setIsCreateProviderDropdownOpen={setIsCreateProviderDropdownOpen}
           createSubmitting={createSubmitting}

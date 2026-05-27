@@ -24,6 +24,8 @@ type CreateInvoiceDrawerProps = {
   setCreateProviderCode: (value: string) => void;
   createProviderFilter: string;
   setCreateProviderFilter: (value: string) => void;
+  createOnlyInventoryProviders: boolean;
+  setCreateOnlyInventoryProviders: (value: boolean) => void;
   isCreateProviderDropdownOpen: boolean;
   setIsCreateProviderDropdownOpen: (value: boolean) => void;
   createSubmitting: boolean;
@@ -57,6 +59,8 @@ export default function CreateInvoiceDrawer({
   setCreateProviderCode,
   createProviderFilter,
   setCreateProviderFilter,
+  createOnlyInventoryProviders,
+  setCreateOnlyInventoryProviders,
   isCreateProviderDropdownOpen,
   setIsCreateProviderDropdownOpen,
   createSubmitting,
@@ -147,6 +151,19 @@ export default function CreateInvoiceDrawer({
             }}
           >
             <div className="relative group">
+              <label className="mb-2 flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
+                <input
+                  type="checkbox"
+                  checked={createOnlyInventoryProviders}
+                  onChange={(event) =>
+                    setCreateOnlyInventoryProviders(event.target.checked)
+                  }
+                  disabled={createSubmitting}
+                  className="h-4 w-4 rounded border-[var(--input-border)] bg-[var(--card-bg)] text-cyan-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+                />
+                <span>Solo compra inventario</span>
+              </label>
+
               {createProviderCode && (
                 <button
                   type="button"
