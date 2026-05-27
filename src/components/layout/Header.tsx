@@ -629,12 +629,19 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const handleTabClick = (tabId: ActiveTab) => {
     if (!isClient) return;
 
-    // Para todas las páginas, usar hash normal
     const resolvedTabId = tabId === "recetas" ? "agregarproducto" : tabId;
-    onTabChange?.(resolvedTabId);
     const hashId =
       resolvedTabId === "histoscans" ? "scanhistory" : resolvedTabId;
-    safeWindow.location.hash(`#${hashId}`);
+    const targetHash = `#${hashId}`;
+
+    // Fuera de inicio, navegar a home + hash para abrir el módulo correcto.
+    if (!isHomeRoute) {
+      safeWindow.location.href(`/${targetHash}`);
+      return;
+    }
+
+    onTabChange?.(resolvedTabId);
+    safeWindow.location.hash(targetHash);
   };
 
   const handleUserDropdownClick = (
@@ -707,10 +714,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 className="lg:hidden inline-flex items-center justify-center rounded-md p-1 hover:bg-[var(--hover-bg)] transition-colors"
               >
                 <Image
-                  src="/android-chrome-512x512.png"
+                  src="/Logos/LogoBlanco2.png"
                   alt="Time Master Logo"
-                  width={32}
-                  height={32}
+                  width={50}
+                  height={50}
                   className="rounded"
                 />
               </Link>
@@ -727,10 +734,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   className="flex items-center gap-3 text-xl font-bold tracking-tight text-[var(--foreground)] hover:text-[var(--tab-text-active)] transition-colors cursor-pointer bg-transparent border-none p-0"
                 >
                   <Image
-                    src="/android-chrome-512x512.png"
+                    src="/Logos/LogoBlanco2.png"
                     alt="Time Master Logo"
-                    width={32}
-                    height={32}
+                    width={50}
+                    height={50}
                     className="rounded"
                   />
                   Time Master
