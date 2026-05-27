@@ -321,6 +321,10 @@ export type FondoEntry = {
   // Tipo de factura: contado (FCO) o crédito (FCR)
   invoiceDocType?: "FCO" | "FCR";
   paymentType: FondoMovementType;
+  amount?: number;
+  originalAmount?: number;
+  amountDue?: number;
+  balanceDue?: number;
   amountEgreso: number;
   amountIngreso: number;
   amountPayment?: number;
@@ -843,6 +847,11 @@ export const sanitizeFondoEntries = (
 
     const amountEgreso = Math.trunc(rawEgreso);
     const amountIngreso = Math.trunc(rawIngreso);
+
+    const amount = coerceTruncNumber(entry.amount);
+    const originalAmount = coerceTruncNumber((entry as any).originalAmount);
+    const amountDue = coerceTruncNumber((entry as any).amountDue);
+    const balanceDue = coerceTruncNumber((entry as any).balanceDue);
     const rawAmountPayment = (entry as any).amountPayment;
     const amountPayment =
       rawAmountPayment !== undefined
@@ -896,6 +905,10 @@ export const sanitizeFondoEntries = (
         typeof (entry as any).empresa === "string"
           ? (entry as any).empresa
           : undefined,
+      amount,
+      originalAmount,
+      amountDue,
+      balanceDue,
       // Preserve original amounts when types are unknown to avoid zeroing valid movements.
       amountEgreso: typesLoaded
         ? isKnownType
@@ -12179,6 +12192,25 @@ export function FondoSection({
                             const isFcrInfoExpanded = expandedFcrInfoRows.has(
                               fe.id,
                             );
+                            const owedFcrAmountRaw =
+                              fe.amountDue ?? fe.balanceDue;
+                            const owedFcrAmount = Number.isFinite(
+                              Number(owedFcrAmountRaw),
+                            )
+                              ? Math.max(
+                                  0,
+                                  Math.trunc(Number(owedFcrAmountRaw) || 0),
+                                )
+                              : null;
+
+                            const originalFcrAmount = Number.isFinite(
+                              Number(fe.originalAmount),
+                            )
+                              ? Math.max(
+                                  0,
+                                  Math.trunc(Number(fe.originalAmount) || 0),
+                                )
+                              : null;
                             const isAppliedCreditNotesExpanded =
                               expandedAppliedCreditNotesRows.has(fe.id);
                             const hasAppliedCreditNotes =
@@ -12874,7 +12906,7 @@ export function FondoSection({
                                         <div className="mb-2 flex items-center gap-2 text-emerald-300">
                                           <Info className="w-4 h-4" />
                                           <span className="font-semibold">
-                                            Detall e de Factura Credito pagada
+                                            Detalle de Factura Credito pagada
                                           </span>
                                         </div>
                                         <div className="grid gap-1.5 sm:grid-cols-2">
@@ -12908,6 +12940,32 @@ export function FondoSection({
                                             </span>{" "}
                                             <span className="font-medium">
                                               {formattedOriginalRegisteredAt}
+                                            </span>
+                                          </div>
+                                          <div>
+                                            <span className="text-[var(--muted-foreground)]">
+                                              Monto factura original:
+                                            </span>{" "}
+                                            <span className="font-medium">
+                                              {originalFcrAmount === null
+                                                ? "-"
+                                                : formatByCurrency(
+                                                    entryCurrency,
+                                                    originalFcrAmount,
+                                                  )}
+                                            </span>
+                                          </div>
+                                          <div>
+                                            <span className="text-[var(--muted-foreground)]">
+                                              Monto adeudado:
+                                            </span>{" "}
+                                            <span className="font-medium">
+                                              {owedFcrAmount === null
+                                                ? "-"
+                                                : formatByCurrency(
+                                                    entryCurrency,
+                                                    owedFcrAmount,
+                                                  )}
                                             </span>
                                           </div>
                                         </div>

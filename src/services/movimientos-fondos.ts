@@ -218,6 +218,14 @@ export class MovimientosFondosService {
     const updateAt = String(input.updateAt || new Date().toISOString());
     const createdAt = String(invoice.createdAt || updateAt);
     const paymentKey = updateAt.replace(/[:.]/g, "-");
+    const originalAmount = Math.max(
+      0,
+      Math.trunc(Number(invoice.originalAmount ?? invoice.amount) || 0),
+    );
+    const amountDue = Math.max(
+      0,
+      Math.trunc(Number(invoice.amountDue ?? invoice.balanceDue) || 0),
+    );
     return {
       id: `fcr-pago-${invoice.id}-${paymentKey}`,
       empresa: String(input.company || invoice.empresa || "").trim(),
@@ -226,11 +234,15 @@ export class MovimientosFondosService {
       invoiceNumber: invoice.invoiceNumber,
       invoiceDocType: "FCR",
       paymentType: invoice.paymentType,
+      originalAmount,
+      amountDue,
       amountEgreso: paymentAmount,
       amountIngreso: 0,
       amount: paymentAmount,
       manager: invoice.manager,
-      manager2: String(input.manager2 || "").trim() || undefined,
+      ...(String(input.manager2 || "").trim()
+        ? { manager2: String(input.manager2 || "").trim() }
+        : {}),
       notes: invoice.notes,
       createdAt,
       updateAt,

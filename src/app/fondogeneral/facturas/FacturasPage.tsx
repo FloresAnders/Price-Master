@@ -418,6 +418,8 @@ export default function FacturasCreditoPage() {
       empresa,
       accountId: "FondoGeneral",
       amount,
+      originalAmount: amount,
+      amountDue: amount,
       amountEgreso: isCreditNote ? 0 : amount,
       amountIngreso: isCreditNote ? amount : 0,
       createdAt: nowISO,
@@ -519,7 +521,14 @@ export default function FacturasCreditoPage() {
 
   const selectedPaymentBalance = useMemo(() => {
     if (!paymentTarget) return 0;
-    return resolveFacturaBalance(paymentTarget);
+    const total = Math.max(
+      0,
+      Math.trunc(
+        Number(paymentTarget.originalAmount ?? paymentTarget.amount) || 0,
+      ),
+    );
+    const paid = resolveFacturaPaidAmount(paymentTarget);
+    return Math.max(0, Math.min(total, total - paid));
   }, [paymentTarget]);
 
   const selectedPaymentPaid = useMemo(() => {
@@ -551,9 +560,14 @@ export default function FacturasCreditoPage() {
   }, []);
 
   const openPaymentModal = useCallback((movement: FacturaMovement) => {
-    const balance = resolveFacturaBalance(movement);
+    const total = Math.max(
+      0,
+      Math.trunc(Number(movement.originalAmount ?? movement.amount) || 0),
+    );
+    const paid = resolveFacturaPaidAmount(movement);
+    const balance = Math.max(0, Math.min(total, total - paid));
     setPaymentTarget(movement);
-    setPaymentAmount(String(balance || movement.amount || 0));
+    setPaymentAmount(String(balance));
     setPaymentNotes(String(movement.notes || ""));
     setPaymentManager2(String(movement.manager2 || ""));
     setPaymentModalOpen(true);
@@ -571,13 +585,24 @@ export default function FacturasCreditoPage() {
       }
       if (!paymentTarget) return;
 
-      const totalAmount = Math.max(
+      const parentInvoiceAmount = Math.max(
         0,
-        Math.trunc(Number(paymentTarget.amount) || 0),
+        Math.trunc(
+          Number(
+            paymentTarget.originalAmount ??
+              paymentTarget.amount ??
+              selectedPaymentPaid +
+                Math.max(
+                  0,
+                  Math.trunc(Number(resolveFacturaBalance(paymentTarget)) || 0),
+                ),
+          ) || 0,
+        ),
       );
+      const totalAmount = parentInvoiceAmount;
       const balance = Math.max(
         0,
-        Math.min(totalAmount, resolveFacturaBalance(paymentTarget)),
+        Math.min(totalAmount, totalAmount - selectedPaymentPaid),
       );
       const enteredAmount = enteredPaymentAmount;
       const paymentAmountToApply = mode === "full" ? balance : enteredAmount;
@@ -625,11 +650,15 @@ export default function FacturasCreditoPage() {
         ? paymentTarget.appliedCreditNotes
         : [];
 
+      const paymentManager2Value = cleanedManager2 || null;
+
       const updatedMovement: FacturaMovement = {
         id: paymentTarget.id,
         empresa: paymentTarget.empresa,
         accountId: paymentTarget.accountId,
-        amount: totalAmount,
+        amount: parentInvoiceAmount,
+        originalAmount: parentInvoiceAmount,
+        amountDue: nextBalanceDue,
         amountPayment: paymentAmountToApply,
         paidAmount: nextPaidAmount,
         balanceDue: nextBalanceDue,
@@ -646,7 +675,7 @@ export default function FacturasCreditoPage() {
         amountIngreso: paymentTarget.amountIngreso,
         appliedCreditNotes: paymentAppliedCreditNotes,
         updateAt: nowISO,
-        manager2: cleanedManager2 || undefined,
+        ...(paymentManager2Value ? { manager2: paymentManager2Value } : {}),
       };
 
       const movementDocId =
@@ -657,15 +686,33 @@ export default function FacturasCreditoPage() {
           invoice: updatedMovement,
           paymentAmount: paymentAmountToApply,
           updateAt: nowISO,
-          manager2: cleanedManager2 || undefined,
+          manager2: paymentManager2Value || undefined,
         });
       const paymentMovementId = String((paymentMovement as any).id || "");
+      const facturasPaymentMovement = {
+        ...paymentMovement,
+        invoiceDocType: "FCO" as const,
+        paymentStatus: "PAGADA" as const,
+        amount: paymentAmountToApply,
+        amountEgreso: paymentAmountToApply,
+        amountIngreso: 0,
+        amountPayment: paymentAmountToApply,
+        paidAmount: paymentAmountToApply,
+        balanceDue: 0,
+        originalAmount: parentInvoiceAmount,
+        amountDue: nextBalanceDue,
+        ...(paymentManager2Value ? { manager2: paymentManager2Value } : {}),
+      };
 
       const batch = writeBatch(db);
       batch.set(
         FacturasService.buildMovementRef(selectedCompany, paymentTarget.id),
         updatedMovement,
         { merge: true },
+      );
+      batch.set(
+        FacturasService.buildMovementRef(selectedCompany, paymentMovementId),
+        facturasPaymentMovement,
       );
       batch.set(
         MovimientosFondosService.buildMovementRef(
@@ -698,7 +745,6 @@ export default function FacturasCreditoPage() {
     [
       closePaymentModal,
       loadMovements,
-      paymentAmount,
       enteredPaymentAmount,
       paymentManager2,
       paymentNotes,

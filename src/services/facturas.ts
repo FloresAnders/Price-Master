@@ -17,6 +17,8 @@ export type FacturaMovement = {
   empresa: string;
   accountId: MovementAccountKey;
   amount: number;
+  originalAmount?: number;
+  amountDue?: number;
   amountEgreso: number;
   amountIngreso: number;
   amountPayment?: number;
@@ -113,6 +115,14 @@ const sanitizeFacturaMovement = (raw: unknown): FacturaMovement | null => {
       ? Number(candidate.amount)
       : Number(candidate.amountIngreso || 0) - Number(candidate.amountEgreso || 0);
   const amount = Math.trunc(amountValue || 0);
+  const originalAmount =
+    candidate.originalAmount !== undefined
+      ? Math.max(0, Math.trunc(Number(candidate.originalAmount) || 0))
+      : undefined;
+  const amountDue =
+    candidate.amountDue !== undefined
+      ? Math.max(0, Math.trunc(Number(candidate.amountDue) || 0))
+      : undefined;
   const amountEgreso = Math.trunc(Number(candidate.amountEgreso) || 0);
   const amountIngreso = Math.trunc(Number(candidate.amountIngreso) || 0);
   const amountPayment = Math.trunc(Number(candidate.amountPayment) || 0);
@@ -164,6 +174,8 @@ const sanitizeFacturaMovement = (raw: unknown): FacturaMovement | null => {
     empresa,
     accountId,
     amount,
+    originalAmount,
+    amountDue,
     amountEgreso,
     amountIngreso,
     amountPayment:
