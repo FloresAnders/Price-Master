@@ -20,7 +20,13 @@ import EmpresaFuncionesModal from "./funciones/EmpresaFuncionesModal";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 
-export default function FuncionesEditorSection() {
+type FuncionesEditorSectionProps = {
+  ownerId?: string;
+};
+
+export default function FuncionesEditorSection({
+  ownerId,
+}: FuncionesEditorSectionProps) {
   const { user: currentUser, loading: authLoading } = useAuth();
   const { ownerIds: actorOwnerIds, primaryOwnerId } =
     useActorOwnership(currentUser);
@@ -74,6 +80,17 @@ export default function FuncionesEditorSection() {
   const [empresaModalEmpresa, setEmpresaModalEmpresa] =
     React.useState<Empresas | null>(null);
 
+  const resolvedOwnerId = React.useMemo(() => {
+    const selectedOwner = String(ownerId || "").trim();
+    if (selectedOwner) return selectedOwner;
+
+    const primary = primaryOwnerId ? String(primaryOwnerId) : "";
+    if (primary) return primary;
+    if (currentUser?.ownerId) return String(currentUser.ownerId);
+    if (currentUser?.id) return String(currentUser.id);
+    return "";
+  }, [currentUser?.id, currentUser?.ownerId, ownerId, primaryOwnerId]);
+
   const debouncedSearch = searchValue.trim().toLowerCase();
   const filteredFunciones = React.useMemo(() => {
     if (!debouncedSearch) return recetasListItems;
@@ -109,14 +126,6 @@ export default function FuncionesEditorSection() {
     const fromUser = currentUser?.ownercompanie || "";
     if (fromUser) setSelectedEmpresa(fromUser);
   }, [currentUser?.ownercompanie, selectedEmpresa]);
-
-  const resolvedOwnerId = React.useMemo(() => {
-    const primary = primaryOwnerId ? String(primaryOwnerId) : "";
-    if (primary) return primary;
-    if (currentUser?.ownerId) return String(currentUser.ownerId);
-    if (currentUser?.id) return String(currentUser.id);
-    return "";
-  }, [currentUser?.id, currentUser?.ownerId, primaryOwnerId]);
 
   const empresasScopeOptions = React.useMemo(() => {
     const ownerId = String(resolvedOwnerId || "").trim();
@@ -168,21 +177,27 @@ export default function FuncionesEditorSection() {
         const all = await EmpresasService.getAllEmpresas();
         const normalized = Array.isArray(all) ? all : [];
 
-        const allowed = new Set((actorOwnerIds || []).map((id) => String(id)));
         let filtered = normalized;
-        if (allowed.size > 0) {
+        if (resolvedOwnerId) {
           filtered = normalized.filter(
-            (e) => e && e.ownerId && allowed.has(String(e.ownerId)),
+            (e) => e && e.ownerId && String(e.ownerId) === resolvedOwnerId,
           );
         } else {
-          filtered = normalized.filter((e) => {
-            if (!e || !e.ownerId) return false;
-            const owner = String(e.ownerId);
-            return (
-              (currentUser.id && owner === String(currentUser.id)) ||
-              (currentUser.ownerId && owner === String(currentUser.ownerId))
+          const allowed = new Set((actorOwnerIds || []).map((id) => String(id)));
+          if (allowed.size > 0) {
+            filtered = normalized.filter(
+              (e) => e && e.ownerId && allowed.has(String(e.ownerId)),
             );
-          });
+          } else {
+            filtered = normalized.filter((e) => {
+              if (!e || !e.ownerId) return false;
+              const owner = String(e.ownerId);
+              return (
+                (currentUser.id && owner === String(currentUser.id)) ||
+                (currentUser.ownerId && owner === String(currentUser.ownerId))
+              );
+            });
+          }
         }
 
         filtered.sort((a, b) =>
@@ -208,7 +223,7 @@ export default function FuncionesEditorSection() {
     return () => {
       cancelled = true;
     };
-  }, [actorOwnerIds, authLoading, currentUser]);
+  }, [actorOwnerIds, authLoading, currentUser, resolvedOwnerId]);
 
   React.useEffect(() => {
     if (authLoading) return;
@@ -221,7 +236,9 @@ export default function FuncionesEditorSection() {
       setFuncionesError(null);
       try {
         const docs = await FuncionesService.listFuncionesGeneralesAs({
-          ownerIds: (actorOwnerIds || []).map((x) => String(x)),
+          ownerIds: resolvedOwnerId
+            ? [resolvedOwnerId]
+            : (actorOwnerIds || []).map((x) => String(x)),
           role: currentUser.role,
         });
 
@@ -276,7 +293,7 @@ export default function FuncionesEditorSection() {
     return () => {
       cancelled = true;
     };
-  }, [actorOwnerIds, authLoading, currentUser, isAdminLike]);
+  }, [actorOwnerIds, authLoading, currentUser, isAdminLike, resolvedOwnerId]);
 
   const openAddDrawer = React.useCallback(() => {
     if (!isAdminLike) return;

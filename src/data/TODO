@@ -8,6 +8,7 @@ TODO: CAMBIAR MOVEMENTS A BCR,BN,BAC, FG
 
 solo compra de inventario para facturas de credito(listo)
 en el fondo al momento de pagar, indicar que hay NC pendientes(listo)
-cambiar empresa dueña por empresa a la que pertenece, en mantenimiento-usuarios
-hacer que las empresas se carguen mientras se esta creadno el usuario 
+cambiar empresa dueña por empresa a la que pertenece, en mantenimiento-usuarios (listo)
+hacer que las empresas se carguen mientras se esta creadno el usuario (listo)
 error al editar movimiento si se cierra y se vuelve a editar al instante dice que ya hay una edicion en proceso.
+

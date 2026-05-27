@@ -40,6 +40,7 @@ import {
 import ScheduleReportTab from "../components/business/ScheduleReportTab";
 import ConfirmModal from "../components/ui/ConfirmModal";
 import ExportModal from "../components/export/ExportModal";
+import { resolveActorOwnerId } from "../utils/actorOwnership";
 
 import EmpresasEditorSection from "./components/EmpresasEditorSection";
 import SorteosEditorSection from "./components/SorteosEditorSection";
@@ -59,6 +60,7 @@ type DataFile =
 
 const MAINTENANCE_TAB_STORAGE_KEY = "pricemaster:maintenance-active-tab";
 const MAINTENANCE_TAB_EVENT = "pricemaster:maintenance-tab-change";
+const SUPERADMIN_SELF_VIEW = "__self__";
 
 const getStoredMaintenanceTab = (): DataFile => {
   if (typeof window === "undefined") return "users";
@@ -148,13 +150,15 @@ export default function DataEditor() {
   const { user: currentUser } = useAuth();
   const [sorteosData, setSorteosData] = useState<Sorteo[]>([]);
   const [usersData, setUsersData] = useState<User[]>([]);
+  const [superadminAdminUsers, setSuperadminAdminUsers] = useState<User[]>([]);
+  const [selectedAdminId, setSelectedAdminId] = useState<string>("");
   const [ccssConfigsData, setCcssConfigsData] = useState<CcssConfig[]>([]);
   const [empresasData, setEmpresasData] = useState<any[]>([]);
   const [fondoTypesData, setFondoTypesData] = useState<
     FondoMovementTypeConfig[]
   >([]);
-  const [originalEmpresasData, setOriginalEmpresasData] = useState<any[]>([]);
-  const [originalSorteosData, setOriginalSorteosData] = useState<Sorteo[]>([]);
+  const [, setOriginalEmpresasData] = useState<any[]>([]);
+  const [, setOriginalSorteosData] = useState<Sorteo[]>([]);
   const [originalUsersData, setOriginalUsersData] = useState<User[]>([]);
   const [originalCcssConfigsData, setOriginalCcssConfigsData] = useState<
     CcssConfig[]
@@ -165,8 +169,18 @@ export default function DataEditor() {
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const { showToast } = useToast();
+  const selectedAdminUser = useMemo(() => {
+    if (currentUser?.role !== "superadmin") return null;
+    if (selectedAdminId === SUPERADMIN_SELF_VIEW) return currentUser;
+    return (
+      superadminAdminUsers.find((user) => String(user.id || "") === selectedAdminId) ||
+      null
+    );
+  }, [currentUser, selectedAdminId, superadminAdminUsers]);
+  const activeViewActor =
+    currentUser?.role === "superadmin" ? selectedAdminUser ?? currentUser : currentUser;
   const { ownerIds: actorOwnerIds, primaryOwnerId } =
-    useActorOwnership(currentUser);
+    useActorOwnership(activeViewActor);
   const actorOwnerIdSet = useMemo(
     () => new Set(actorOwnerIds.map((id) => String(id))),
     [actorOwnerIds],
@@ -179,8 +193,8 @@ export default function DataEditor() {
     [primaryOwnerId],
   );
   const fondoTypesOwnerId = useMemo(
-    () => normalizeUserId(resolveOwnerIdForActor()),
-    [resolveOwnerIdForActor],
+    () => normalizeUserId(resolveActorOwnerId(activeViewActor)),
+    [activeViewActor],
   );
   const createTempFondoTypeId = useCallback(
     () => `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -320,41 +334,53 @@ export default function DataEditor() {
       setSorteosData(sorteos);
       setOriginalSorteosData(JSON.parse(JSON.stringify(sorteos)));
 
+      const isSuperadmin = currentUser?.role === "superadmin";
+      const effectiveViewActor =
+        isSuperadmin && selectedAdminUser ? selectedAdminUser : currentUser;
+      const effectiveViewOwnerId = normalizeUserId(
+        resolveActorOwnerId(effectiveViewActor),
+      );
+
       // Cargar empresas desde Firebase
       // hoist a variable so later user-filtering can re-use the fetched empresas
       let empresasToShow: any[] = [];
       try {
         const empresas = await EmpresasService.getAllEmpresas();
-
-        // Si el actor autenticado tiene permiso de mantenimiento, solo mostrar
-        // las empresas cuyo ownerId coincide con los ownerIds permitidos del actor.
-        empresasToShow = empresas;
-        try {
-          if (
-            currentUser &&
-            hasPermission(currentUser.permissions, "mantenimiento")
-          ) {
-            if (actorOwnerIdSet.size > 0) {
-              empresasToShow = (empresas || []).filter(
-                (e: any) =>
-                  e && e.ownerId && actorOwnerIdSet.has(String(e.ownerId)),
-              );
-            } else {
-              // Fallback: usar currentUser.id u ownerId si no se pudo resolver un ownerId válido
-              empresasToShow = (empresas || []).filter(
-                (e: any) =>
-                  e &&
-                  ((currentUser.id &&
-                    String(e.ownerId) === String(currentUser.id)) ||
-                    (currentUser.ownerId &&
-                      String(e.ownerId) === String(currentUser.ownerId))),
-              );
-            }
-          }
-        } catch (err) {
-          // Si ocurre algún error durante el filtrado, dejar las empresas tal cual
-          console.warn("Error filtrando empresas por ownerId:", err);
+        if (isSuperadmin && effectiveViewOwnerId) {
+          empresasToShow = (empresas || []).filter(
+            (e: any) => e && e.ownerId && String(e.ownerId) === effectiveViewOwnerId,
+          );
+        } else {
+          // Si el actor autenticado tiene permiso de mantenimiento, solo mostrar
+          // las empresas cuyo ownerId coincide con los ownerIds permitidos del actor.
           empresasToShow = empresas;
+          try {
+            if (
+              currentUser &&
+              hasPermission(currentUser.permissions, "mantenimiento")
+            ) {
+              if (actorOwnerIdSet.size > 0) {
+                empresasToShow = (empresas || []).filter(
+                  (e: any) =>
+                    e && e.ownerId && actorOwnerIdSet.has(String(e.ownerId)),
+                );
+              } else {
+                // Fallback: usar currentUser.id u ownerId si no se pudo resolver un ownerId válido
+                empresasToShow = (empresas || []).filter(
+                  (e: any) =>
+                    e &&
+                    ((currentUser.id &&
+                      String(e.ownerId) === String(currentUser.id)) ||
+                      (currentUser.ownerId &&
+                        String(e.ownerId) === String(currentUser.ownerId))),
+                );
+              }
+            }
+          } catch (err) {
+            // Si ocurre algún error durante el filtrado, dejar las empresas tal cual
+            console.warn("Error filtrando empresas por ownerId:", err);
+            empresasToShow = empresas;
+          }
         }
 
         // Additionally, if the current actor is an admin, exclude empresas
@@ -428,7 +454,9 @@ export default function DataEditor() {
 
       // Cargar usuarios desde Firebase (solo si hay un usuario actual que actúe)
       if (currentUser) {
-        const users = await UsersService.getAllUsersAs(currentUser);
+        const users = isSuperadmin
+          ? await UsersService.getAllUsers()
+          : await UsersService.getAllUsersAs(currentUser);
 
         // Asegurar que todos los usuarios tengan todos los permisos disponibles
         try {
@@ -441,10 +469,34 @@ export default function DataEditor() {
         // hijos y sus usuarios; para datos antiguos se mantiene un fallback por ownerId.
         let usersToShow = users;
         try {
-          if (
-            currentUser.role === "admin" ||
-            currentUser.role === "superadmin"
-          ) {
+          if (isSuperadmin) {
+            const adminUsers = (users || []).filter(
+              (user) => user && user.role === "admin",
+            );
+            setSuperadminAdminUsers(adminUsers);
+
+            const effectiveAdmin =
+              selectedAdminId === SUPERADMIN_SELF_VIEW
+                ? currentUser
+                : adminUsers.find(
+                    (user) => String(user.id || "") === selectedAdminId,
+                  ) || null;
+
+            if (!selectedAdminId) {
+              setSelectedAdminId(SUPERADMIN_SELF_VIEW);
+            } else if (
+              selectedAdminId !== SUPERADMIN_SELF_VIEW &&
+              effectiveAdmin?.id &&
+              effectiveAdmin.id !== selectedAdminId
+            ) {
+              setSelectedAdminId(SUPERADMIN_SELF_VIEW);
+            }
+
+            usersToShow = getVisibleUsersForActor(
+              users || [],
+              (effectiveAdmin || currentUser) as User,
+            );
+          } else if (currentUser.role === "admin") {
             usersToShow = getVisibleUsersForActor(users || [], currentUser);
           }
         } catch (err) {
@@ -479,7 +531,7 @@ export default function DataEditor() {
 
         // Re-apply empresa filtering so admins see empresas owned by users they can see.
         try {
-          if (currentUser && currentUser.role !== "superadmin") {
+          if (currentUser && !isSuperadmin) {
             const visibleOwnerIds = (usersToShow || [])
               .map((u) => u.id)
               .filter(Boolean)
@@ -551,6 +603,8 @@ export default function DataEditor() {
     fondoTypesOwnerId,
     primaryOwnerId,
     resolveOwnerIdForActor,
+    selectedAdminId,
+    selectedAdminUser,
     showToast,
   ]);
 
@@ -568,7 +622,24 @@ export default function DataEditor() {
     // Solo ejecutar la carga (loadData) cuando React haya inicializado el componente.
     // loadData internamente chequea `currentUser` antes de pedir usuarios.
     loadDataRef.current();
-  }, [currentUserId]);
+  }, [currentUserId, selectedAdminId]);
+
+  useEffect(() => {
+    if (currentUser?.role !== "superadmin") return;
+    if (superadminAdminUsers.length === 0) return;
+    if (selectedAdminId === SUPERADMIN_SELF_VIEW) return;
+
+    const hasSelectedAdmin = superadminAdminUsers.some(
+      (user) => String(user.id || "") === selectedAdminId,
+    );
+
+    if (!selectedAdminId || !hasSelectedAdmin) {
+      const firstAdmin = superadminAdminUsers[0];
+      if (firstAdmin?.id && String(firstAdmin.id) !== selectedAdminId) {
+        setSelectedAdminId(String(firstAdmin.id));
+      }
+    }
+  }, [currentUser?.role, selectedAdminId, superadminAdminUsers]);
 
   // Listener para actualizaciones en tiempo real de tipos de fondo
   useEffect(() => {
@@ -672,11 +743,12 @@ export default function DataEditor() {
       // Guardar usuarios
       const existingUsers = await UsersService.getAllUsers();
       for (const u of existingUsers) {
-        if (u.id) {
-          try {
-            await UsersService.deleteUserAs(currentUser, u.id);
-          } catch {}
-        }
+        if (!u.id) continue;
+        const existingOwnerId = normalizeUserId(u.ownerId);
+        if (existingOwnerId && existingOwnerId !== fondoTypesOwnerId) continue;
+        try {
+          await UsersService.deleteUserAs(currentUser, u.id);
+        } catch {}
       }
       for (let index = 0; index < usersData.length; index++) {
         const u = usersData[index];
@@ -707,10 +779,12 @@ export default function DataEditor() {
       try {
         const existingEmpresas = await EmpresasService.getAllEmpresas();
         for (const e of existingEmpresas) {
-          if (e.id) await EmpresasService.deleteEmpresa(e.id);
+          if (!e.id) continue;
+          if (normalizeUserId(e.ownerId) !== fondoTypesOwnerId) continue;
+          await EmpresasService.deleteEmpresa(e.id);
         }
         for (const empresa of empresasData) {
-          const ownerIdToUse = resolveOwnerIdForActor(empresa.ownerId);
+          const ownerIdToUse = fondoTypesOwnerId || resolveOwnerIdForActor(empresa.ownerId);
           const idToUse = empresa.name || undefined;
           await EmpresasService.addEmpresa({
             id: idToUse,
@@ -1033,21 +1107,24 @@ export default function DataEditor() {
   const addUser = () => {
     const defaultRole: User["role"] =
       currentUser?.role === "superadmin" ? "admin" : "user";
+    const resolvedOwnerId = normalizeUserId(resolveActorOwnerId(activeViewActor));
+    const isSuperadminAdminView =
+      currentUser?.role === "superadmin" && selectedAdminId !== SUPERADMIN_SELF_VIEW;
     const newUser: User = {
       name: "",
       ownercompanie: "",
       password: "",
       role: defaultRole,
       isActive: true,
+      eliminate: isSuperadminAdminView,
+      ownerId: resolvedOwnerId,
     };
     // Añadir campos solicitados: email, fullName y eliminate por defecto false
     (newUser as Partial<User>).email = "";
     (newUser as Partial<User>).fullName = "";
-    (newUser as Partial<User>).eliminate = false;
-    // Preselect ownerId for new users when actor has an owner
-    (newUser as Partial<User>).ownerId =
-      currentUser?.ownerId ??
-      (currentUser && currentUser.eliminate === false ? currentUser.id : "");
+    if (!isSuperadminAdminView) {
+      (newUser as Partial<User>).eliminate = false;
+    }
     // Insertar al inicio
     // Give new user no permissions by default (no privileges)
     newUser.permissions = getNoPermissions();
@@ -1702,7 +1779,7 @@ export default function DataEditor() {
           email: user.email,
           fullName: user.fullName,
           eliminate: user.eliminate ?? false,
-          ownerId: user.ownerId,
+          ownerId: user.ownerId || resolveOwnerIdForActor(),
           ownercompanie: user.ownercompanie,
         });
         // Recargar datos para obtener el ID generado
@@ -2005,13 +2082,47 @@ export default function DataEditor() {
               Elige una sección para administrar los datos del sistema.
             </p>
           </div>
-          <button
-            onClick={openExportModal}
-            className="py-2 px-3 rounded-md bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 transition-colors text-sm whitespace-nowrap self-start sm:self-auto"
-          >
-            <Download className="w-4 h-4" />
-            <span>Exportar</span>
-          </button>
+            {currentUser?.role === "superadmin" ? (
+              <div className="w-full sm:w-auto sm:min-w-[280px]">
+                <label className="mb-1 block text-xs font-medium text-[var(--muted-foreground)]">
+                  Ver configuración de admin
+                </label>
+                <select
+                  value={selectedAdminId}
+                  onChange={(e) => setSelectedAdminId(e.target.value)}
+                  className="w-full rounded-md border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)]/60"
+                >
+                  <option value={SUPERADMIN_SELF_VIEW}>YO</option>
+                  {superadminAdminUsers
+                    .filter((user) => user.role === "admin")
+                    .filter(
+                      (user) => String(user.id || "") !== String(currentUser?.id || ""),
+                    )
+                    .sort((a, b) =>
+                      String(a.fullName || a.name || "").localeCompare(
+                        String(b.fullName || b.name || ""),
+                        "es",
+                      ),
+                    )
+                    .map((user) => (
+                      <option
+                        key={user.id || user.email || user.name}
+                        value={String(user.id || "")}
+                      >
+                        {user.fullName || user.name || "Administrador sin nombre"}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            ) : (
+              <button
+                onClick={openExportModal}
+                className="py-2 px-3 rounded-md bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 transition-colors text-sm whitespace-nowrap self-start sm:self-auto"
+              >
+                <Download className="w-4 h-4" />
+                <span>Exportar</span>
+              </button>
+            )}
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-2">
@@ -2123,13 +2234,16 @@ export default function DataEditor() {
         />
       )}
       {activeFile === "funciones" && currentUser?.role !== "user" && (
-        <FuncionesEditorSection />
+        <FuncionesEditorSection ownerId={fondoTypesOwnerId} />
       )}
       {activeFile === "users" && (
         <UsersEditorSection
           usersData={usersData}
           empresasData={empresasData}
           currentUser={currentUser}
+          isSuperadminAdminView={
+            currentUser?.role === "superadmin" && selectedAdminId !== SUPERADMIN_SELF_VIEW
+          }
           addUser={addUser}
           updateUser={updateUser}
           removeUser={removeUser}

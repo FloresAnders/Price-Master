@@ -18,6 +18,7 @@ type Props = {
   usersData: User[];
   empresasData: any[];
   currentUser: User | null;
+  isSuperadminAdminView?: boolean;
 
   addUser: () => void;
   updateUser: (index: number, field: keyof User, value: unknown) => void;
@@ -49,6 +50,7 @@ export default function UsersEditorSection({
   usersData,
   empresasData,
   currentUser,
+  isSuperadminAdminView = false,
   addUser,
   updateUser,
   removeUser,
@@ -246,54 +248,56 @@ export default function UsersEditorSection({
                           </div>
                         )}
                       </div>
-                      <div>
-                        <label className="block text-xs sm:text-sm font-medium mb-1">
-                          Empresa Dueña:
-                        </label>
-                        {(() => {
-                          const resolvedOwnerId =
-                            user.ownerId ||
-                            (currentUser?.ownerId ??
-                              (currentUser && currentUser.eliminate === false
-                                ? currentUser.id
-                                : "")) ||
-                            "";
-                          const allowedEmpresas = empresasData.filter(
-                            (e) => (e?.ownerId || "") === resolvedOwnerId,
-                          );
-                          return (
-                            <>
-                              <select
-                                value={user.ownercompanie || ""}
-                                onChange={(e) =>
-                                  updateUser(
-                                    index,
-                                    "ownercompanie",
-                                    e.target.value,
-                                  )
-                                }
-                                disabled={disableInputs}
-                                className={fieldClassName}
-                              >
-                                <option value="">Seleccionar empresa</option>
-                                {allowedEmpresas.map((empresa) => (
-                                  <option
-                                    key={empresa.id || empresa.name}
-                                    value={empresa.name}
-                                  >
-                                    {empresa.name}
-                                  </option>
-                                ))}
-                              </select>
-                              {allowedEmpresas.length === 0 && (
-                                <p className="text-[10px] sm:text-xs mt-1 text-yellow-600">
-                                  No hay empresas disponibles.
-                                </p>
-                              )}
-                            </>
-                          );
-                        })()}
-                      </div>
+                      {user.role === "user" && (
+                        <div>
+                          <label className="block text-xs sm:text-sm font-medium mb-1">
+                            Empresa a la que pertenece:
+                          </label>
+                          {(() => {
+                            const resolvedOwnerId =
+                              user.ownerId ||
+                              (currentUser?.ownerId ??
+                                (currentUser && currentUser.eliminate === false
+                                  ? currentUser.id
+                                  : "")) ||
+                              "";
+                            const allowedEmpresas = empresasData.filter(
+                              (e) => (e?.ownerId || "") === resolvedOwnerId,
+                            );
+                            return (
+                              <>
+                                <select
+                                  value={user.ownercompanie || ""}
+                                  onChange={(e) =>
+                                    updateUser(
+                                      index,
+                                      "ownercompanie",
+                                      e.target.value,
+                                    )
+                                  }
+                                  disabled={disableInputs}
+                                  className={fieldClassName}
+                                >
+                                  <option value="">Seleccionar empresa</option>
+                                  {allowedEmpresas.map((empresa) => (
+                                    <option
+                                      key={empresa.id || empresa.name}
+                                      value={empresa.name}
+                                    >
+                                      {empresa.name}
+                                    </option>
+                                  ))}
+                                </select>
+                                {allowedEmpresas.length === 0 && (
+                                  <p className="text-[10px] sm:text-xs mt-1 text-yellow-600">
+                                    No hay empresas disponibles.
+                                  </p>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
@@ -400,17 +404,19 @@ export default function UsersEditorSection({
                         </label>
                         <select
                           value={user.role || "user"}
-                          onChange={(e) =>
-                            updateUser(index, "role", e.target.value as any)
-                          }
+                          onChange={(e) => {
+                            const nextRole = e.target.value as any;
+                            updateUser(index, "role", nextRole);
+                            if (nextRole !== "user") {
+                              updateUser(index, "ownercompanie", "");
+                            }
+                          }}
                           disabled={disableInputs}
                           className={fieldClassName}
                         >
-                          {!(currentUser?.role === "superadmin" && !user.id) && (
-                            <option value="user">Usuario</option>
-                          )}
+                          <option value="user">Usuario</option>
                           <option value="admin">Administrador</option>
-                          {currentUser?.role === "superadmin" && (
+                          {currentUser?.role === "superadmin" && !isSuperadminAdminView && (
                             <option value="superadmin">Super Administrador</option>
                           )}
                         </select>
