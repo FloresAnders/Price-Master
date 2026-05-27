@@ -53,10 +53,13 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
       return <>{children}</>;
     }
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--background)] dark:bg-zinc-900">
-        <div className="text-center">
+      <div
+        className="min-h-screen flex items-center justify-center bg-[var(--background)] dark:bg-zinc-900"
+        suppressHydrationWarning
+      >
+        <div className="text-center" suppressHydrationWarning>
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[var(--primary)] mx-auto mb-4"></div>
-          <p className="text-[var(--muted-foreground)]">
+          <p className="text-[var(--muted-foreground)]" suppressHydrationWarning>
             Iniciando...
           </p>
         </div>
@@ -100,10 +103,13 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
   // Mostrar loading mientras se verifica la sesión
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--background)] dark:bg-zinc-900">
-        <div className="text-center">
+      <div
+        className="min-h-screen flex items-center justify-center bg-[var(--background)] dark:bg-zinc-900"
+        suppressHydrationWarning
+      >
+        <div className="text-center" suppressHydrationWarning>
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[var(--primary)] mx-auto mb-4"></div>
-          <p className="text-[var(--muted-foreground)]">
+          <p className="text-[var(--muted-foreground)]" suppressHydrationWarning>
             Verificando sesión...
           </p>
         </div>

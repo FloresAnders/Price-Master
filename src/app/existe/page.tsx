@@ -118,6 +118,12 @@ export default function ExistePage() {
   const [pendingNombre, setPendingNombre] = useState("");
   const [pendingError, setPendingError] = useState<string | null>(null);
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
+  const [manualAddOpen, setManualAddOpen] = useState(false);
+  const [manualPendingCodigo, setManualPendingCodigo] = useState("");
+  const [manualPendingNombre, setManualPendingNombre] = useState("");
+  const [manualPendingError, setManualPendingError] = useState<string | null>(null);
+  const [manualSearchCodigo, setManualSearchCodigo] = useState("");
+  const [manualSearchError, setManualSearchError] = useState<string | null>(null);
   const scanNoticeTimerRef = useRef<number | null>(null);
 
   const copyTextToClipboard = async (text: string) => {
@@ -146,6 +152,41 @@ export default function ExistePage() {
     }
   };
 
+  const handleDetectedCode = (foundCode: string) => {
+    const empresaId = state.selectedEmpresaId;
+    if (!empresaId) {
+      setError("Selecciona una empresa antes de escanear.");
+      clearDetection();
+      return;
+    }
+
+    const codigo = normalizeCode(foundCode);
+    const relacion = state.relacionesPorEmpresa[empresaId]?.find(
+      (item) => normalizeCode(item.codigoBarras) === codigo,
+    );
+
+    if (relacion) {
+      clearScanNoticeTimer();
+      setPendingCodigo(null);
+      setPendingNombre("");
+      setPendingError(null);
+      setScanNotice({ codigo, descripcion: relacion.descripcion });
+      scanNoticeTimerRef.current = window.setTimeout(() => {
+        setScanNotice(null);
+        scanNoticeTimerRef.current = null;
+      }, 3000);
+      clearDetection();
+      return;
+    }
+
+    clearScanNoticeTimer();
+    setScanNotice(null);
+    setPendingCodigo(codigo);
+    setPendingNombre("");
+    setPendingError(null);
+    clearDetection();
+  };
+
   const {
     code: detectedCode,
     error: scannerError,
@@ -157,40 +198,7 @@ export default function ExistePage() {
     clearDetection,
     detectionMethod,
   } = useBarcodeScanner(
-    (foundCode) => {
-      const empresaId = state.selectedEmpresaId;
-      if (!empresaId) {
-        setError("Selecciona una empresa antes de escanear.");
-        clearDetection();
-        return;
-      }
-
-      const codigo = normalizeCode(foundCode);
-      const relacion = state.relacionesPorEmpresa[empresaId]?.find(
-        (item) => normalizeCode(item.codigoBarras) === codigo,
-      );
-
-      if (relacion) {
-        clearScanNoticeTimer();
-        setPendingCodigo(null);
-        setPendingNombre("");
-        setPendingError(null);
-        setScanNotice({ codigo, descripcion: relacion.descripcion });
-        scanNoticeTimerRef.current = window.setTimeout(() => {
-          setScanNotice(null);
-          scanNoticeTimerRef.current = null;
-        }, 3000);
-        clearDetection();
-        return;
-      }
-
-      clearScanNoticeTimer();
-      setScanNotice(null);
-      setPendingCodigo(codigo);
-      setPendingNombre("");
-      setPendingError(null);
-      clearDetection();
-    },
+    handleDetectedCode,
     { autoStopOnDetect: false },
   );
 
@@ -284,6 +292,8 @@ export default function ExistePage() {
     setPendingError(null);
     setPendingStatus(null);
     setScanNotice(null);
+    setManualSearchCodigo("");
+    setManualSearchError(null);
     clearScanNoticeTimer();
     clearDetection();
     clearScanner();
@@ -469,6 +479,79 @@ export default function ExistePage() {
     setPendingError(null);
   };
 
+  const handleOpenManualPending = () => {
+    if (!state.selectedEmpresaId) {
+      setError("Selecciona una empresa antes de agregar un código.");
+      return;
+    }
+
+    setError(null);
+    setPendingStatus(null);
+    setManualPendingCodigo("");
+    setManualPendingNombre("");
+    setManualPendingError(null);
+    setManualAddOpen(true);
+  };
+
+  const handleManualSearch = () => {
+    const codigo = normalizeCode(manualSearchCodigo);
+
+    if (!codigo) {
+      setManualSearchError("Ingresa un código para buscar.");
+      return;
+    }
+
+    setManualSearchError(null);
+    handleDetectedCode(codigo);
+  };
+
+  const handleSaveManualPending = async () => {
+    if (!state.selectedEmpresaId) return;
+
+    const codigoBarras = normalizeCode(manualPendingCodigo);
+    const nombre = manualPendingNombre.trim();
+
+    if (!codigoBarras) {
+      setManualPendingError("Ingresa un código de barras.");
+      return;
+    }
+
+    if (!nombre) {
+      setManualPendingError("Ingresa un nombre.");
+      return;
+    }
+
+    const empresaId = state.selectedEmpresaId;
+    const nextPending: CodigoPendiente = {
+      codigoBarras,
+      nombre,
+      createdAt: Date.now(),
+      empresaId,
+    };
+
+    const nextPendientes = [
+      nextPending,
+      ...(state.pendientesPorEmpresa[empresaId] ?? []).filter(
+        (item) => item.codigoBarras !== codigoBarras,
+      ),
+    ];
+
+    const nextState: ExisteState = {
+      ...state,
+      pendientesPorEmpresa: {
+        ...state.pendientesPorEmpresa,
+        [empresaId]: nextPendientes,
+      },
+    };
+
+    await persistState(nextState);
+    setManualAddOpen(false);
+    setManualPendingCodigo("");
+    setManualPendingNombre("");
+    setManualPendingError(null);
+    setPendingStatus("Pendiente agregado.");
+  };
+
   const handleCopyPendings = async () => {
     if (!pendingExportText) return;
 
@@ -541,6 +624,14 @@ export default function ExistePage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleOpenManualPending}
+              disabled={!state.selectedEmpresaId}
+              className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Agregar
+            </button>
             <button
               type="button"
               onClick={() => void handleCopyPendings()}
@@ -621,6 +712,36 @@ export default function ExistePage() {
         }}
         onPendingSave={() => {
           void handleSavePendingCode();
+        }}
+        manualAddOpen={manualAddOpen}
+        manualPendingCodigo={manualPendingCodigo}
+        manualPendingNombre={manualPendingNombre}
+        manualPendingError={manualPendingError}
+        onManualPendingCodigoChange={(value) => {
+          setManualPendingCodigo(value);
+          if (manualPendingError) setManualPendingError(null);
+        }}
+        onManualPendingNombreChange={(value) => {
+          setManualPendingNombre(value);
+          if (manualPendingError) setManualPendingError(null);
+        }}
+        onManualPendingClose={() => {
+          setManualAddOpen(false);
+          setManualPendingCodigo("");
+          setManualPendingNombre("");
+          setManualPendingError(null);
+        }}
+        onManualPendingSave={() => {
+          void handleSaveManualPending();
+        }}
+        manualSearchCodigo={manualSearchCodigo}
+        manualSearchError={manualSearchError}
+        onManualSearchCodigoChange={(value) => {
+          setManualSearchCodigo(value);
+          if (manualSearchError) setManualSearchError(null);
+        }}
+        onManualSearch={() => {
+          handleManualSearch();
         }}
       />
 

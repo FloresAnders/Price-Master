@@ -16,6 +16,7 @@ interface CameraScannerProps {
   cameraActive: boolean;
   liveStreamRef: React.RefObject<HTMLDivElement | null>;
   toggleCamera: () => void;
+  onStopCamera: () => void;
   handleClear: () => void;
   handleCopyCode: () => void;
   onRemoveLeadingZero?: () => void;
@@ -28,6 +29,7 @@ export default function CameraScanner({
   cameraActive,
   liveStreamRef,
   toggleCamera,
+  onStopCamera,
   handleClear,
   handleCopyCode,
   onRemoveLeadingZero,
@@ -36,6 +38,11 @@ export default function CameraScanner({
 
   const handleToggleCameraClick = () => {
     setCameraVideoReady(false);
+    if (cameraActive) {
+      onStopCamera();
+      return;
+    }
+
     toggleCamera();
   };
 
@@ -65,17 +72,19 @@ export default function CameraScanner({
           className={`px-6 py-3 rounded-xl focus:outline-none focus:ring-4 focus:ring-indigo-300 dark:focus:ring-indigo-900 transition-all duration-300 flex items-center gap-3 font-bold shadow-lg text-lg
             ${cameraActive ? "bg-gradient-to-r from-pink-500 to-indigo-500 text-white scale-105 ring-2 ring-pink-300 dark:ring-pink-800" : "bg-white dark:bg-[var(--card-bg)] text-indigo-700 dark:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-zinc-700 border border-[var(--input-border)]"}`}
         >
-          {cameraActive ? (
-            <>
-              <RefreshIcon className="w-6 h-6 animate-spin" />
-              Detener Cámara
-            </>
-          ) : (
-            <>
-              <CameraIcon className="w-6 h-6" />
-              Iniciar Cámara
-            </>
-          )}
+          <span
+            className={`transition-opacity duration-200 ${cameraActive ? "opacity-0 absolute" : "opacity-100"}`}
+            aria-hidden={cameraActive}
+          >
+            <CameraIcon className="w-6 h-6" />
+          </span>
+          <span
+            className={`transition-opacity duration-200 ${cameraActive ? "opacity-100" : "opacity-0 absolute"}`}
+            aria-hidden={!cameraActive}
+          >
+            <RefreshIcon className="w-6 h-6 animate-spin" />
+          </span>
+          <span>{cameraActive ? "Detener Cámara" : "Iniciar Cámara"}</span>
         </button>
         <p className="text-xs text-indigo-500 dark:text-indigo-300 font-semibold tracking-wide">
           Escaneo en vivo usando la cámara
