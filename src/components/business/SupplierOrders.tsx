@@ -14,10 +14,15 @@ import {
   Edit,
   Download,
   Lock as LockIcon,
+  Loader2,
+  Search,
+  XCircle,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import useToast from "../../hooks/useToast";
 import { hasPermission } from "../../utils/permissions";
+import { useProviders } from "../../hooks/useProviders";
+import { EmpresasService } from "../../services/empresas";
 import {
   SupplierOrdersService,
   SupplierOrderEntry,
@@ -34,21 +39,42 @@ export default function SupplierOrders() {
   /* Verificar permisos del usuario */
   const { user } = useAuth();
   const { showToast } = useToast();
+  const canSelectCompany = user?.role === "admin" || user?.role === "superadmin";
+  const companyStorageKey = "supplierOrders.selectedCompanyName";
 
   // Form states
   const [supplierName, setSupplierName] = useState("");
   const [orderDate, setOrderDate] = useState("");
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState("");
   const [notes, setNotes] = useState("");
+  const [companyOptions, setCompanyOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
+  const [selectedCompanyName, setSelectedCompanyName] = useState("");
 
   // Product form states
   const [productName, setProductName] = useState("");
   const [quantity, setQuantity] = useState<number>(1);
-  const [barcode, setBarcode] = useState<string>("");
-  const [price, setPrice] = useState<string>("");
 
   const ownerCompany = user?.ownercompanie?.trim() || "";
   const userLoaded = Boolean(user);
+  const activeCompanyName = selectedCompanyName.trim() || ownerCompany;
+  const { providers: companyProviders } = useProviders(activeCompanyName);
+  const inventoryProviders = useMemo(
+    () =>
+      companyProviders
+        .filter((provider) => {
+          const normalizedType = String(provider.type || "")
+            .trim()
+            .toUpperCase();
+          return (
+            normalizedType === "COMPRA INVENTARIO" ||
+            normalizedType === "COMPRA DE INVENTARIO"
+          );
+        })
+        .sort((a, b) => a.name.localeCompare(b.name, "es")),
+    [companyProviders],
+  );
 
   // Current order products
   const [products, setProducts] = useState<Product[]>([]);
@@ -137,14 +163,137 @@ export default function SupplierOrders() {
     setOrderDate(today);
   }, []);
 
-  const loadOrders = useCallback(async () => {
-    if (!ownerCompany) {
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCompanies = async () => {
+      if (!userLoaded) {
+        setCompanyOptions([]);
+        setSelectedCompanyName("");
+        return;
+      }
+
+      if (!canSelectCompany) {
+        const fallback = ownerCompany;
+        setCompanyOptions(
+          fallback ? [{ value: fallback, label: fallback }] : [],
+        );
+        setSelectedCompanyName(fallback);
+        return;
+      }
+
+      try {
+        const empresas = await EmpresasService.getAllEmpresas();
+        const allowedCompanies =
+          user?.role === "superadmin"
+            ? empresas
+            : (empresas || []).filter((empresa) => {
+                const empresaOwnerId = String(empresa?.ownerId || "").trim();
+                const userId = String(user?.id || "").trim();
+                const ownerId = String(user?.ownerId || "").trim();
+
+                return (
+                  !!empresaOwnerId &&
+                  (empresaOwnerId === userId ||
+                    (ownerId && empresaOwnerId === ownerId))
+                );
+              });
+
+        const mappedCompanies = allowedCompanies
+          .map((empresa) => {
+            const value = String(
+              empresa?.name || empresa?.ubicacion || empresa?.id || "",
+            ).trim();
+            if (!value) return null;
+
+            return {
+              value,
+              label: String(
+                empresa?.name || empresa?.ubicacion || empresa?.id || "Empresa",
+              ).trim(),
+            };
+          })
+          .filter((company): company is { value: string; label: string } => Boolean(company));
+
+        const fallbackCompany = ownerCompany
+          ? { value: ownerCompany, label: ownerCompany }
+          : null;
+
+        const nextOptions =
+          mappedCompanies.length > 0
+            ? mappedCompanies
+            : fallbackCompany
+              ? [fallbackCompany]
+              : [];
+
+        if (cancelled) return;
+
+        setCompanyOptions(nextOptions);
+        setSelectedCompanyName((current) => {
+          const storedCompany =
+            typeof window !== "undefined"
+              ? window.localStorage.getItem(companyStorageKey) || ""
+              : "";
+          const trimmedCurrent = current.trim();
+          const trimmedStored = storedCompany.trim();
+          if (
+            trimmedStored &&
+            nextOptions.some((company) => company.value === trimmedStored)
+          ) {
+            return trimmedStored;
+          }
+          if (
+            trimmedCurrent &&
+            nextOptions.some((company) => company.value === trimmedCurrent)
+          ) {
+            return trimmedCurrent;
+          }
+
+          return nextOptions[0]?.value || "";
+        });
+      } catch (err) {
+        console.error("Error loading company options:", err);
+        if (cancelled) return;
+
+        const fallback = ownerCompany;
+        setCompanyOptions(
+          fallback ? [{ value: fallback, label: fallback }] : [],
+        );
+        setSelectedCompanyName(fallback);
+      }
+    };
+
+    void loadCompanies();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    canSelectCompany,
+    companyStorageKey,
+    ownerCompany,
+    user?.id,
+    user?.ownerId,
+    user?.role,
+    userLoaded,
+  ]);
+
+  useEffect(() => {
+    if (!canSelectCompany || !selectedCompanyName) return;
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(companyStorageKey, selectedCompanyName);
+  }, [canSelectCompany, companyStorageKey, selectedCompanyName]);
+
+  const loadOrders = useCallback(async (companyName: string) => {
+    if (!companyName) {
       setOrders([]);
       setRecurrentSuppliers([]);
       setRecurrentProducts([]);
       setError(
         userLoaded
-          ? "No se encontró una empresa asociada al usuario. Contacta al administrador."
+          ? canSelectCompany
+            ? "No se encontraron empresas disponibles para este usuario."
+            : "No se encontró una empresa asociada al usuario. Contacta al administrador."
           : null,
       );
       return;
@@ -155,7 +304,7 @@ export default function SupplierOrders() {
 
     try {
       const documents =
-        await SupplierOrdersService.fetchOrdersForCompany(ownerCompany);
+        await SupplierOrdersService.fetchOrdersForCompany(companyName);
       const flattened: SupplierOrderView[] = [];
       const supplierSet = new Set<string>();
       const productSet = new Set<string>();
@@ -167,7 +316,7 @@ export default function SupplierOrders() {
           flattened.push({
             ...order,
             supplierName: supplier,
-            companyName: order.companyName || doc.companyName || ownerCompany,
+            companyName: order.companyName || doc.companyName || companyName,
             documentId: doc.id,
           });
 
@@ -198,11 +347,11 @@ export default function SupplierOrders() {
     } finally {
       setLoadingOrders(false);
     }
-  }, [ownerCompany, userLoaded]);
+  }, [canSelectCompany, userLoaded]);
 
   useEffect(() => {
-    loadOrders();
-  }, [loadOrders]);
+    loadOrders(activeCompanyName);
+  }, [activeCompanyName, loadOrders]);
 
   // Calculate total for current products
   const calculateTotal = (): number => {
@@ -222,8 +371,6 @@ export default function SupplierOrders() {
       id: Date.now().toString(),
       name: productName.trim(),
       quantity: quantity,
-      barcode: barcode.trim() || undefined,
-      price: price ? parseFloat(price) : undefined,
     };
 
     setProducts((prev) => [...prev, newProduct]);
@@ -237,8 +384,6 @@ export default function SupplierOrders() {
     // Clear form
     setProductName("");
     setQuantity(1);
-    setBarcode("");
-    setPrice("");
     setShowProductDropdown(false);
   };
 
@@ -257,9 +402,11 @@ export default function SupplierOrders() {
       return;
     }
 
-    if (!ownerCompany) {
+    if (!activeCompanyName) {
       showToast(
-        "No se encontró una empresa asociada al usuario. Contacta al administrador.",
+        canSelectCompany
+          ? "No se encontraron empresas disponibles para guardar la orden."
+          : "No se encontró una empresa asociada al usuario. Contacta al administrador.",
         "error",
       );
       return;
@@ -275,7 +422,7 @@ export default function SupplierOrders() {
     const orderPayload: SupplierOrderEntry = {
       id: editingOrderId || Date.now().toString(),
       supplierName: trimmedSupplier,
-      companyName: ownerCompany,
+      companyName: activeCompanyName,
       orderDate,
       expectedDeliveryDate,
       notes: notes.trim(),
@@ -292,14 +439,14 @@ export default function SupplierOrders() {
     try {
       const previousDocId = isEditing ? editingDocId : null;
       await SupplierOrdersService.saveOrder({
-        companyName: ownerCompany,
+        companyName: activeCompanyName,
         supplierName: trimmedSupplier,
         order: orderPayload,
         userId: user?.id,
         previousDocumentId: previousDocId,
       });
 
-      await loadOrders();
+      await loadOrders(activeCompanyName);
 
       if (!recurrentSuppliers.includes(trimmedSupplier)) {
         setRecurrentSuppliers((prev) => [...prev, trimmedSupplier]);
@@ -353,8 +500,6 @@ export default function SupplierOrders() {
     setProducts([]);
     setProductName("");
     setQuantity(1);
-    setBarcode("");
-    setPrice("");
     setShowSupplierDropdown(false);
     setShowProductDropdown(false);
     setIsEditing(false);
@@ -378,7 +523,7 @@ export default function SupplierOrders() {
       if (editingOrderId === orderId) {
         cancelEdit();
       }
-      await loadOrders();
+      await loadOrders(activeCompanyName);
       showToast("Orden eliminada exitosamente!", "success");
     } catch (err) {
       console.error("Error deleting supplier order:", err);
@@ -386,14 +531,18 @@ export default function SupplierOrders() {
     }
   };
 
-  const currentTotal = calculateTotal();
-
   // Filter suppliers and products based on input
-  const filteredSuppliers = recurrentSuppliers
-    .filter((supplier) =>
-      supplier.toLowerCase().includes(supplierName.toLowerCase()),
-    )
-    .slice(0, 5); // Limit to 5 suggestions
+  const filteredInventoryProviders = inventoryProviders
+    .filter((provider) => {
+      const query = supplierName.trim().toLowerCase();
+      if (!query) return true;
+
+      return (
+        provider.name.toLowerCase().includes(query) ||
+        provider.code.toLowerCase().includes(query)
+      );
+    })
+    .slice(0, 8);
 
   const filteredProducts = recurrentProducts
     .filter((product) =>
@@ -492,6 +641,19 @@ export default function SupplierOrders() {
   const selectSupplier = (supplier: string) => {
     setSupplierName(supplier);
     setShowSupplierDropdown(false);
+  };
+
+  const clearSupplierSelection = () => {
+    setSupplierName("");
+    setShowSupplierDropdown(false);
+  };
+
+  const selectCompany = (companyName: string) => {
+    setSelectedCompanyName(companyName);
+    if (isEditing) {
+      cancelEdit();
+    }
+    clearForm();
   };
 
   // Handle product selection
@@ -619,48 +781,113 @@ export default function SupplierOrders() {
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {canSelectCompany && (
+                <div className="md:col-span-2">
+                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                    Empresa
+                  </label>
+                  <select
+                    value={activeCompanyName}
+                    onChange={(e) => selectCompany(e.target.value)}
+                    className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/60 focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+                  >
+                    {companyOptions.length === 0 ? (
+                      <option value="">No hay empresas disponibles</option>
+                    ) : (
+                      companyOptions.map((company) => (
+                        <option key={company.value} value={company.value}>
+                          {company.label}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                    {user?.role === "superadmin"
+                      ? "Como superadministrador puedes usar cualquier empresa registrada."
+                      : "Se muestran solo las empresas que tienes a cargo."}
+                  </p>
+                </div>
+              )}
+
               <div className="relative">
                 <label
                   className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]"
                 >
                   <User className="w-4 h-4" />
-                  Nombre del Proveedor
+                  Proveedor de inventario
                 </label>
-                <input
-                  type="text"
-                  value={supplierName}
-                  onChange={(e) => {
-                    setSupplierName(e.target.value);
-                    setShowSupplierDropdown(
-                      e.target.value.length > 0 && filteredSuppliers.length > 0,
-                    );
-                  }}
-                  onFocus={() =>
-                    setShowSupplierDropdown(
-                      supplierName.length > 0 && filteredSuppliers.length > 0,
-                    )
-                  }
-                  onBlur={() =>
-                    setTimeout(() => setShowSupplierDropdown(false), 200)
-                  }
-                  className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] hover:border-[var(--accent)]/60 focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
-                  placeholder="Ingresa el nombre del proveedor"
-                />
-                {showSupplierDropdown && filteredSuppliers.length > 0 && (
-                  <div
-                    className="absolute z-10 w-full mt-2 overflow-hidden rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] shadow-lg"
-                  >
-                    {filteredSuppliers.map((supplier, index) => (
-                      <button
-                        key={index}
-                        onClick={() => selectSupplier(supplier)}
-                        className="w-full px-3 py-2 text-left text-sm text-[var(--foreground)] hover:bg-[var(--muted)]/20"
-                      >
-                        {supplier}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                <div className="relative group">
+                  {supplierName && (
+                    <button
+                      type="button"
+                      aria-label="Limpiar proveedor seleccionado"
+                      title="Limpiar proveedor seleccionado"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        clearSupplierSelection();
+                      }}
+                      className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-red-400 transition-colors hover:text-red-300"
+                    >
+                      <XCircle className="h-4 w-4" />
+                    </button>
+                  )}
+                  <input
+                    value={supplierName}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setSupplierName(value);
+                      setShowSupplierDropdown(true);
+
+                      if (value.trim() === "") {
+                        clearSupplierSelection();
+                      }
+                    }}
+                    onFocus={() => setShowSupplierDropdown(true)}
+                    onBlur={() => {
+                      setTimeout(() => setShowSupplierDropdown(false), 200);
+                    }}
+                    className={`${canSelectCompany ? "" : ""} w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] hover:border-[var(--accent)]/60 focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 ${supplierName ? "pl-10 pr-10" : "pr-10"}`}
+                    placeholder={
+                      inventoryProviders.length === 0
+                        ? "No hay proveedores de compra inventario"
+                        : "Buscar proveedor"
+                    }
+                  />
+                  <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center text-[var(--muted-foreground)]">
+                    {showSupplierDropdown ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Search className="h-4 w-4" />
+                    )}
+                  </span>
+                  {showSupplierDropdown && filteredInventoryProviders.length > 0 && (
+                    <div className="absolute z-50 mt-2 max-h-64 w-full overflow-y-auto rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] shadow-lg">
+                      {filteredInventoryProviders.map((provider) => (
+                        <button
+                          key={provider.code}
+                          type="button"
+                          className="w-full border-b border-[var(--input-border)] px-3 py-2 text-left text-sm text-[var(--foreground)] transition-colors last:border-b-0 hover:bg-[var(--muted)]/20"
+                          onMouseDown={() => {
+                            selectSupplier(provider.name);
+                            setShowSupplierDropdown(false);
+                          }}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="truncate font-medium">
+                              {provider.name}
+                            </span>
+                            <span className="shrink-0 rounded bg-[var(--muted)]/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                              {provider.code}
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                  Solo se muestran proveedores con tipo COMPRA INVENTARIO.
+                </p>
               </div>
 
               <div>
@@ -971,7 +1198,7 @@ export default function SupplierOrders() {
               Agregar Productos
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
               <div className="relative">
                 <label
                   className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]"
@@ -1037,38 +1264,6 @@ export default function SupplierOrders() {
                 />
               </div>
 
-              <div>
-                <label
-                  className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]"
-                >
-                  Código de Barras (opcional)
-                </label>
-                <input
-                  type="text"
-                  value={barcode}
-                  onChange={(e) => setBarcode(e.target.value)}
-                  className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] hover:border-[var(--accent)]/60 focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
-                  placeholder="Código de barras"
-                />
-              </div>
-
-              <div>
-                <label
-                  className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]"
-                >
-                  Precio Unitario (opcional)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] hover:border-[var(--accent)]/60 focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
-                  placeholder="0.00"
-                />
-              </div>
-
               <button
                 onClick={addProduct}
                 disabled={!productName.trim()}
@@ -1112,24 +1307,6 @@ export default function SupplierOrders() {
                         className="text-center py-2 px-3 font-medium"
                         style={{ color: "var(--foreground)" }}
                       >
-                        Código
-                      </th>
-                      <th
-                        className="text-right py-2 px-3 font-medium"
-                        style={{ color: "var(--foreground)" }}
-                      >
-                        Precio
-                      </th>
-                      <th
-                        className="text-right py-2 px-3 font-medium"
-                        style={{ color: "var(--foreground)" }}
-                      >
-                        Total
-                      </th>
-                      <th
-                        className="text-center py-2 px-3 font-medium"
-                        style={{ color: "var(--foreground)" }}
-                      >
                         Acciones
                       </th>
                     </tr>
@@ -1153,28 +1330,6 @@ export default function SupplierOrders() {
                         >
                           {product.quantity}
                         </td>
-                        <td
-                          className="py-2 px-3 text-center"
-                          style={{ color: "var(--foreground)" }}
-                        >
-                          {product.barcode || "N/A"}
-                        </td>
-                        <td
-                          className="py-2 px-3 text-right"
-                          style={{ color: "var(--foreground)" }}
-                        >
-                          {product.price
-                            ? `₡${product.price.toFixed(2)}`
-                            : "N/A"}
-                        </td>
-                        <td
-                          className="py-2 px-3 text-right font-medium"
-                          style={{ color: "var(--foreground)" }}
-                        >
-                          {product.price
-                            ? `₡${(product.quantity * product.price).toFixed(2)}`
-                            : "N/A"}
-                        </td>
                         <td className="py-2 px-3 text-center">
                           <button
                             onClick={() => removeProduct(product.id)}
@@ -1187,29 +1342,6 @@ export default function SupplierOrders() {
                       </tr>
                     ))}
                   </tbody>
-                  {currentTotal > 0 && (
-                    <tfoot>
-                      <tr
-                        className="font-bold"
-                        style={{ borderTop: "2px solid var(--border)" }}
-                      >
-                        <td
-                          colSpan={4}
-                          className="py-2 px-3 text-right"
-                          style={{ color: "var(--foreground)" }}
-                        >
-                          Total de la Orden:
-                        </td>
-                        <td
-                          className="py-2 px-3 text-right text-lg"
-                          style={{ color: "var(--foreground)" }}
-                        >
-                          ₡{currentTotal.toFixed(2)}
-                        </td>
-                        <td></td>
-                      </tr>
-                    </tfoot>
-                  )}
                 </table>
               </div>
             </div>
@@ -1361,24 +1493,6 @@ export default function SupplierOrders() {
                           >
                             Cantidad
                           </th>
-                          <th
-                            className="text-center py-1 px-2"
-                            style={{ color: "var(--foreground)" }}
-                          >
-                            Código
-                          </th>
-                          <th
-                            className="text-right py-1 px-2"
-                            style={{ color: "var(--foreground)" }}
-                          >
-                            Precio
-                          </th>
-                          <th
-                            className="text-right py-1 px-2"
-                            style={{ color: "var(--foreground)" }}
-                          >
-                            Total
-                          </th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1399,28 +1513,6 @@ export default function SupplierOrders() {
                             >
                               {product.quantity}
                             </td>
-                            <td
-                              className="py-1 px-2 text-center"
-                              style={{ color: "var(--foreground)" }}
-                            >
-                              {product.barcode || "N/A"}
-                            </td>
-                            <td
-                              className="py-1 px-2 text-right"
-                              style={{ color: "var(--foreground)" }}
-                            >
-                              {product.price
-                                ? `₡${product.price.toFixed(2)}`
-                                : "N/A"}
-                            </td>
-                            <td
-                              className="py-1 px-2 text-right"
-                              style={{ color: "var(--foreground)" }}
-                            >
-                              {product.price
-                                ? `₡${(product.quantity * product.price).toFixed(2)}`
-                                : "N/A"}
-                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1431,7 +1523,7 @@ export default function SupplierOrders() {
                             style={{ borderTop: "2px solid var(--border)" }}
                           >
                             <td
-                              colSpan={4}
+                              colSpan={2}
                               className="py-1 px-2 text-right"
                               style={{ color: "var(--foreground)" }}
                             >

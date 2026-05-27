@@ -152,41 +152,6 @@ export default function ExistePage() {
     }
   };
 
-  const handleDetectedCode = (foundCode: string) => {
-    const empresaId = state.selectedEmpresaId;
-    if (!empresaId) {
-      setError("Selecciona una empresa antes de escanear.");
-      clearDetection();
-      return;
-    }
-
-    const codigo = normalizeCode(foundCode);
-    const relacion = state.relacionesPorEmpresa[empresaId]?.find(
-      (item) => normalizeCode(item.codigoBarras) === codigo,
-    );
-
-    if (relacion) {
-      clearScanNoticeTimer();
-      setPendingCodigo(null);
-      setPendingNombre("");
-      setPendingError(null);
-      setScanNotice({ codigo, descripcion: relacion.descripcion });
-      scanNoticeTimerRef.current = window.setTimeout(() => {
-        setScanNotice(null);
-        scanNoticeTimerRef.current = null;
-      }, 3000);
-      clearDetection();
-      return;
-    }
-
-    clearScanNoticeTimer();
-    setScanNotice(null);
-    setPendingCodigo(codigo);
-    setPendingNombre("");
-    setPendingError(null);
-    clearDetection();
-  };
-
   const {
     code: detectedCode,
     error: scannerError,
@@ -198,7 +163,40 @@ export default function ExistePage() {
     clearDetection,
     detectionMethod,
   } = useBarcodeScanner(
-    handleDetectedCode,
+    (foundCode) => {
+      const empresaId = state.selectedEmpresaId;
+      if (!empresaId) {
+        setError("Selecciona una empresa antes de escanear.");
+        clearDetection();
+        return;
+      }
+
+      const codigo = normalizeCode(foundCode);
+      const relacion = state.relacionesPorEmpresa[empresaId]?.find(
+        (item) => normalizeCode(item.codigoBarras) === codigo,
+      );
+
+      if (relacion) {
+        clearScanNoticeTimer();
+        setPendingCodigo(null);
+        setPendingNombre("");
+        setPendingError(null);
+        setScanNotice({ codigo, descripcion: relacion.descripcion });
+        scanNoticeTimerRef.current = window.setTimeout(() => {
+          setScanNotice(null);
+          scanNoticeTimerRef.current = null;
+        }, 3000);
+        clearDetection();
+        return;
+      }
+
+      clearScanNoticeTimer();
+      setScanNotice(null);
+      setPendingCodigo(codigo);
+      setPendingNombre("");
+      setPendingError(null);
+      clearDetection();
+    },
     { autoStopOnDetect: false },
   );
 
@@ -282,6 +280,8 @@ export default function ExistePage() {
     }
 
     setError(null);
+    setManualSearchCodigo("");
+    setManualSearchError(null);
     setIsScannerOpen(true);
   };
 
@@ -290,13 +290,54 @@ export default function ExistePage() {
     setPendingCodigo(null);
     setPendingNombre("");
     setPendingError(null);
-    setPendingStatus(null);
-    setScanNotice(null);
     setManualSearchCodigo("");
     setManualSearchError(null);
+    setPendingStatus(null);
+    setScanNotice(null);
     clearScanNoticeTimer();
     clearDetection();
     clearScanner();
+  };
+
+  const handleManualSearch = () => {
+    const empresaId = state.selectedEmpresaId;
+    if (!empresaId) {
+      setManualSearchError("Selecciona una empresa antes de buscar.");
+      return;
+    }
+
+    const codigo = normalizeCode(manualSearchCodigo);
+    if (!codigo) {
+      setManualSearchError("Ingresa un código para buscar.");
+      return;
+    }
+
+    setManualSearchError(null);
+
+    const relacion = state.relacionesPorEmpresa[empresaId]?.find(
+      (item) => normalizeCode(item.codigoBarras) === codigo,
+    );
+
+    if (relacion) {
+      clearScanNoticeTimer();
+      setPendingCodigo(null);
+      setPendingNombre("");
+      setPendingError(null);
+      setScanNotice({ codigo, descripcion: relacion.descripcion });
+      scanNoticeTimerRef.current = window.setTimeout(() => {
+        setScanNotice(null);
+        scanNoticeTimerRef.current = null;
+      }, 3000);
+      clearDetection();
+      return;
+    }
+
+    clearScanNoticeTimer();
+    setScanNotice(null);
+    setPendingCodigo(codigo);
+    setPendingNombre("");
+    setPendingError(null);
+    clearDetection();
   };
 
   const persistState = async (nextState: ExisteState) => {
@@ -491,18 +532,6 @@ export default function ExistePage() {
     setManualPendingNombre("");
     setManualPendingError(null);
     setManualAddOpen(true);
-  };
-
-  const handleManualSearch = () => {
-    const codigo = normalizeCode(manualSearchCodigo);
-
-    if (!codigo) {
-      setManualSearchError("Ingresa un código para buscar.");
-      return;
-    }
-
-    setManualSearchError(null);
-    handleDetectedCode(codigo);
   };
 
   const handleSaveManualPending = async () => {
@@ -740,9 +769,7 @@ export default function ExistePage() {
           setManualSearchCodigo(value);
           if (manualSearchError) setManualSearchError(null);
         }}
-        onManualSearch={() => {
-          handleManualSearch();
-        }}
+        onManualSearch={handleManualSearch}
       />
 
       <AddEmpresaModal
