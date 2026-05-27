@@ -4,7 +4,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import useToast from "../hooks/useToast";
 import {
-  Download,
   FileText,
   Users,
   DollarSign,
@@ -39,7 +38,6 @@ import {
 } from "../utils/permissions";
 import ScheduleReportTab from "../components/business/ScheduleReportTab";
 import ConfirmModal from "../components/ui/ConfirmModal";
-import ExportModal from "../components/export/ExportModal";
 import { resolveActorOwnerId } from "../utils/actorOwnership";
 
 import EmpresasEditorSection from "./components/EmpresasEditorSection";
@@ -839,11 +837,6 @@ export default function DataEditor() {
       setIsSaving(false);
     }
   };
-
-  // Estado y handlers para modal de exportación (por ahora muestra "Próximamente")
-  const [showExportModal, setShowExportModal] = useState(false);
-  const openExportModal = () => setShowExportModal(true);
-  const closeExportModal = () => setShowExportModal(false);
 
   // Location helpers removed (locations tab deleted)
 
@@ -2114,15 +2107,7 @@ export default function DataEditor() {
                     ))}
                 </select>
               </div>
-            ) : (
-              <button
-                onClick={openExportModal}
-                className="py-2 px-3 rounded-md bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 transition-colors text-sm whitespace-nowrap self-start sm:self-auto"
-              >
-                <Download className="w-4 h-4" />
-                <span>Exportar</span>
-              </button>
-            )}
+            ) : null}
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-2">
@@ -2281,7 +2266,6 @@ export default function DataEditor() {
           showToast={showToast}
         />
       )}
-      <ExportModal open={showExportModal} onClose={closeExportModal} />
       {/* Modal de confirmación */}
       <ConfirmModal
         open={confirmModal.open}
