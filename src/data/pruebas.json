@@ -1,0 +1,1227 @@
+{
+  "kind": "CollectionBackup",
+  "version": 1,
+  "exportedAt": "2026-05-27T08:37:08.181Z",
+  "collection": "proveedores",
+  "documents": [
+    {
+      "id": "PRUEBAS",
+      "data": {
+        "company": "PRUEBAS",
+        "providers": [
+          {
+            "category": "Egreso",
+            "company": "PRUEBAS",
+            "createdAt": "2026-05-16T15:54:12.482Z",
+            "type": "COMPRA INVENTARIO",
+            "code": "0122",
+            "updatedAt": "2026-05-16T15:54:12.482Z",
+            "name": "CLARO",
+            "movementCount": 1
+          },
+          {
+            "movementCount": 0,
+            "name": "LAURA CPA (DECLARACION PATENTE)",
+            "updatedAt": "2026-04-08T01:28:56.897Z",
+            "createdAt": "2026-04-08T01:28:56.897Z",
+            "code": "0121",
+            "type": "PATENTES MUNICIPALES",
+            "company": "PRUEBAS",
+            "category": "Gasto"
+          },
+          {
+            "createdAt": "2026-03-31T18:00:00.038Z",
+            "code": "0120",
+            "type": "PAPELERIA Y UTILES",
+            "category": "Gasto",
+            "company": "PRUEBAS",
+            "movementCount": 3,
+            "updatedAt": "2026-03-31T18:00:00.038Z",
+            "name": "ROLLOS JQ"
+          },
+          {
+            "correonotifi": "diana.aguilar.3004@gmail.com",
+            "code": "0119",
+            "category": "Egreso",
+            "movementCount": 1,
+            "name": "SALIDA POR INGRESO DE TUCAN",
+            "updatedAt": "2026-03-31T02:13:57.587Z",
+            "type": "RETIRO EFECTIVO",
+            "createdAt": "2026-03-31T02:13:57.587Z",
+            "company": "PRUEBAS"
+          },
+          {
+            "company": "PRUEBAS",
+            "type": "COMPRA INVENTARIO",
+            "createdAt": "2026-03-26T21:08:29.731Z",
+            "updatedAt": "2026-03-26T21:08:29.731Z",
+            "name": "DISTRIBUIDORA REVI",
+            "visit": {
+              "createOrderDays": [
+                "L"
+              ],
+              "receiveOrderDays": [
+                "J"
+              ],
+              "startDateKey": 1774504800000,
+              "frequency": "QUINCENAL"
+            },
+            "movementCount": 3,
+            "category": "Egreso",
+            "code": "0118"
+          },
+          {
+            "category": "Gasto",
+            "company": "PRUEBAS",
+            "type": "SALARIOS",
+            "createdAt": "2026-03-15T13:42:34.785Z",
+            "code": "0117",
+            "updatedAt": "2026-05-01T06:51:19.834Z",
+            "name": "JUAN CARLOS  CUBRE LIBRE",
+            "movementCount": 0
+          },
+          {
+            "updatedAt": "2026-03-09T19:49:13.552Z",
+            "name": "TIMBRE DE EDUCACION Y CULTURA",
+            "movementCount": 0,
+            "company": "PRUEBAS",
+            "category": "Gasto",
+            "code": "0116",
+            "createdAt": "2026-03-09T19:49:13.552Z",
+            "type": "PAGO TIMBRE Y EDUCACION"
+          },
+          {
+            "code": "0115",
+            "type": "MANTENIMIENTO MOBILIARIO Y EQUIPO",
+            "createdAt": "2026-02-23T02:26:16.844Z",
+            "company": "PRUEBAS",
+            "category": "Gasto",
+            "movementCount": 1,
+            "name": "MANTENIMIENTO MOBILIARIO Y EQUIPO",
+            "updatedAt": "2026-02-23T02:26:16.844Z"
+          },
+          {
+            "name": "MANTENIMIENTO INSTALACIONES",
+            "updatedAt": "2026-02-23T02:25:59.941Z",
+            "movementCount": 0,
+            "company": "PRUEBAS",
+            "category": "Gasto",
+            "type": "MANTENIMIENTO INSTALACIONES",
+            "createdAt": "2026-02-23T02:25:59.941Z",
+            "code": "0114"
+          },
+          {
+            "movementCount": 0,
+            "name": "CAMBIO DE DOLARES",
+            "updatedAt": "2026-02-22T18:11:26.483Z",
+            "code": "0113",
+            "type": "RETIRO EFECTIVO",
+            "createdAt": "2026-02-22T18:11:26.483Z",
+            "category": "Egreso",
+            "company": "PRUEBAS"
+          },
+          {
+            "movementCount": 4,
+            "updatedAt": "2026-02-21T06:38:47.573Z",
+            "name": "AVICOLA DON JORGE",
+            "type": "COMPRA INVENTARIO",
+            "createdAt": "2026-02-11T23:41:14.860Z",
+            "code": "0112",
+            "company": "PRUEBAS",
+            "category": "Egreso"
+          },
+          {
+            "updatedAt": "2026-02-11T22:17:03.096Z",
+            "name": "SOBRANTE",
+            "movementCount": 0,
+            "company": "PRUEBAS",
+            "category": "Ingreso",
+            "type": "OTROS INGRESOS",
+            "createdAt": "2026-02-11T22:17:03.096Z",
+            "code": "0111"
+          },
+          {
+            "type": "COMPRA INVENTARIO",
+            "createdAt": "2026-02-10T15:46:44.876Z",
+            "company": "PRUEBAS",
+            "movementCount": 1,
+            "visit": {
+              "createOrderDays": [
+                "J"
+              ],
+              "startDateKey": 1770703200000,
+              "receiveOrderDays": [
+                "M"
+              ],
+              "frequency": "MENSUAL"
+            },
+            "name": "PARECA",
+            "updatedAt": "2026-02-10T15:46:44.876Z",
+            "code": "0110",
+            "category": "Egreso"
+          },
+          {
+            "company": "PRUEBAS",
+            "category": "Egreso",
+            "type": "EGRESOS VARIOS",
+            "code": "0109",
+            "createdAt": "2026-02-09T16:38:56.899Z",
+            "updatedAt": "2026-02-09T16:38:56.899Z",
+            "name": "ADELANTO EFECTIVO",
+            "movementCount": 0
+          },
+          {
+            "movementCount": 1,
+            "updatedAt": "2026-02-09T03:53:58.343Z",
+            "name": "POLIZA RT INS",
+            "code": "0108",
+            "type": "POLIZA RIESGOS DE TRABAJO",
+            "createdAt": "2026-02-09T03:53:58.343Z",
+            "company": "PRUEBAS",
+            "category": "Gasto"
+          },
+          {
+            "code": "0107",
+            "category": "Egreso",
+            "movementCount": 2,
+            "updatedAt": "2026-02-20T13:46:21.124Z",
+            "name": "FAVA",
+            "visit": {
+              "startDateKey": 1771567200000,
+              "receiveOrderDays": [
+                "S"
+              ],
+              "frequency": "QUINCENAL",
+              "createOrderDays": [
+                "V"
+              ]
+            },
+            "type": "COMPRA INVENTARIO",
+            "createdAt": "2026-02-06T16:11:54.300Z",
+            "company": "PRUEBAS"
+          },
+          {
+            "code": "0106",
+            "createdAt": "2026-01-30T16:14:53.342Z",
+            "type": "COMPRA INVENTARIO",
+            "category": "Egreso",
+            "company": "PRUEBAS",
+            "movementCount": 1,
+            "name": "OCCIDENTE S.A.",
+            "updatedAt": "2026-01-30T20:11:41.133Z"
+          },
+          {
+            "company": "PRUEBAS",
+            "category": "Egreso",
+            "createdAt": "2026-01-23T16:15:31.559Z",
+            "type": "COMPRA INVENTARIO",
+            "code": "0105",
+            "updatedAt": "2026-01-23T16:15:31.559Z",
+            "name": "GUSTAVO SOPLETES",
+            "movementCount": 0
+          },
+          {
+            "updatedAt": "2026-01-21T06:10:01.540Z",
+            "name": "MUNICIPALIDAD PEREZ ZELEDON",
+            "movementCount": 1,
+            "company": "PRUEBAS",
+            "category": "Gasto",
+            "type": "PATENTES MUNICIPALES",
+            "createdAt": "2026-01-21T06:10:01.540Z",
+            "code": "0098"
+          },
+          {
+            "updatedAt": "2026-01-19T17:09:57.826Z",
+            "name": "FEDURO",
+            "movementCount": 2,
+            "company": "PRUEBAS",
+            "category": "Egreso",
+            "type": "COMPRA INVENTARIO",
+            "createdAt": "2026-01-19T17:09:57.826Z",
+            "code": "0097"
+          },
+          {
+            "movementCount": 2,
+            "updatedAt": "2026-02-03T06:47:17.012Z",
+            "name": "CALCULO PRECIO PRODUCTOS",
+            "type": "SALARIOS",
+            "code": "0096",
+            "createdAt": "2026-01-18T07:29:43.636Z",
+            "company": "PRUEBAS",
+            "category": "Gasto"
+          },
+          {
+            "category": "Egreso",
+            "company": "PRUEBAS",
+            "createdAt": "2026-01-14T20:18:23.867Z",
+            "type": "COMPRA INVENTARIO",
+            "code": "0095",
+            "updatedAt": "2026-01-14T20:18:23.867Z",
+            "name": "HARVEST",
+            "movementCount": 1
+          },
+          {
+            "code": "0094",
+            "correonotifi": "diana.aguilar.3004@gmail.com",
+            "category": "Gasto",
+            "movementCount": 0,
+            "updatedAt": "2026-01-10T07:36:27.936Z",
+            "name": "DANIELA VENEGAS AGUINALDO",
+            "createdAt": "2026-01-10T07:36:27.936Z",
+            "type": "AGUINALDOS",
+            "company": "PRUEBAS"
+          },
+          {
+            "company": "PRUEBAS",
+            "createdAt": "2026-01-07T16:57:01.325Z",
+            "type": "SALARIOS",
+            "updatedAt": "2026-01-10T07:36:11.624Z",
+            "name": "DANIELA VENEGAS SALARIO",
+            "movementCount": 12,
+            "category": "Gasto",
+            "correonotifi": "diana.aguilar.3004@gmail.com",
+            "code": "0093"
+          },
+          {
+            "createdAt": "2026-01-06T23:02:41.982Z",
+            "code": "0092",
+            "type": "COMPRA INVENTARIO",
+            "company": "PRUEBAS",
+            "category": "Egreso",
+            "movementCount": 1,
+            "updatedAt": "2026-01-06T23:02:41.982Z",
+            "name": "ROMA"
+          },
+          {
+            "name": "EL LEGADO",
+            "updatedAt": "2026-01-06T20:57:59.208Z",
+            "movementCount": 1,
+            "category": "Egreso",
+            "company": "PRUEBAS",
+            "code": "0091",
+            "createdAt": "2026-01-06T20:57:59.208Z",
+            "type": "COMPRA INVENTARIO"
+          },
+          {
+            "movementCount": 1,
+            "updatedAt": "2025-12-31T16:35:44.508Z",
+            "name": "VASOS MICHELADOS",
+            "createdAt": "2025-12-31T16:35:44.508Z",
+            "type": "COMPRA INVENTARIO",
+            "code": "0090",
+            "company": "PRUEBAS",
+            "category": "Egreso"
+          },
+          {
+            "code": "0089",
+            "type": "OTROS INGRESOS",
+            "createdAt": "2025-12-30T19:56:06.257Z",
+            "company": "PRUEBAS",
+            "category": "Ingreso",
+            "movementCount": 0,
+            "name": "ENTRADA EN SINPE",
+            "updatedAt": "2026-01-10T07:37:01.134Z"
+          },
+          {
+            "company": "PRUEBAS",
+            "category": "Gasto",
+            "type": "MANTENIMIENTO INSTALACIONES",
+            "createdAt": "2025-12-30T18:34:48.489Z",
+            "code": "0088",
+            "updatedAt": "2025-12-30T18:34:48.489Z",
+            "name": "JOSE ELECTRICO",
+            "movementCount": 1
+          },
+          {
+            "movementCount": 1,
+            "updatedAt": "2025-12-30T17:15:51.244Z",
+            "name": "DISTRIBUIDORA KA",
+            "code": "0087",
+            "createdAt": "2025-12-30T17:15:51.244Z",
+            "type": "COMPRA INVENTARIO",
+            "category": "Egreso",
+            "company": "PRUEBAS"
+          },
+          {
+            "movementCount": 2,
+            "updatedAt": "2025-12-29T22:33:11.626Z",
+            "name": "HELADOS SENSACION",
+            "code": "0086",
+            "createdAt": "2025-12-29T22:33:11.626Z",
+            "type": "COMPRA INVENTARIO",
+            "category": "Egreso",
+            "company": "PRUEBAS"
+          },
+          {
+            "movementCount": 0,
+            "name": "DSITRIB CELL",
+            "updatedAt": "2025-12-27T16:44:03.046Z",
+            "code": "0085",
+            "type": "COMPRA INVENTARIO",
+            "createdAt": "2025-12-27T16:44:03.046Z",
+            "company": "PRUEBAS",
+            "category": "Egreso"
+          },
+          {
+            "company": "PRUEBAS",
+            "category": "Egreso",
+            "createdAt": "2025-12-23T18:49:52.786Z",
+            "type": "COMPRA INVENTARIO",
+            "code": "0084",
+            "name": "DISTFROSA",
+            "updatedAt": "2025-12-23T18:49:52.786Z",
+            "movementCount": 1
+          },
+          {
+            "movementCount": 0,
+            "updatedAt": "2025-12-23T17:09:47.727Z",
+            "name": "ARAGONES",
+            "code": "0083",
+            "type": "COMPRA INVENTARIO",
+            "createdAt": "2025-12-23T17:09:47.727Z",
+            "category": "Egreso",
+            "company": "PRUEBAS"
+          },
+          {
+            "type": "COMPRA INVENTARIO",
+            "createdAt": "2025-12-22T16:18:35.535Z",
+            "code": "0082",
+            "category": "Egreso",
+            "company": "PRUEBAS",
+            "movementCount": 3,
+            "updatedAt": "2025-12-22T16:18:35.535Z",
+            "name": "KENYS PZ"
+          },
+          {
+            "code": "0081",
+            "type": "COMPRA INVENTARIO",
+            "createdAt": "2025-12-18T18:26:32.818Z",
+            "company": "PRUEBAS",
+            "category": "Egreso",
+            "movementCount": 3,
+            "updatedAt": "2025-12-18T18:26:32.818Z",
+            "name": "CENTENARIO"
+          },
+          {
+            "movementCount": 1,
+            "updatedAt": "2025-12-18T17:52:58.332Z",
+            "name": "VILMA CAJETAS",
+            "type": "COMPRA INVENTARIO",
+            "code": "0079",
+            "createdAt": "2025-12-18T15:00:42.542Z",
+            "company": "PRUEBAS",
+            "category": "Egreso"
+          },
+          {
+            "movementCount": 0,
+            "name": "JESUS ABARCA AGUINALDO",
+            "updatedAt": "2025-12-17T20:52:40.280Z",
+            "code": "0078",
+            "type": "AGUINALDOS",
+            "createdAt": "2025-12-17T20:52:40.280Z",
+            "company": "PRUEBAS",
+            "category": "Gasto"
+          },
+          {
+            "name": "JESUS ABARCA SALARIO",
+            "updatedAt": "2026-01-10T07:38:31.254Z",
+            "movementCount": 0,
+            "category": "Gasto",
+            "code": "0077",
+            "correonotifi": "diana.aguilar.3004@gmail.com",
+            "company": "PRUEBAS",
+            "createdAt": "2025-12-17T20:52:25.451Z",
+            "type": "SALARIOS"
+          },
+          {
+            "movementCount": 2,
+            "updatedAt": "2025-12-16T22:44:29.888Z",
+            "name": "WILLIS",
+            "code": "0075",
+            "createdAt": "2025-12-16T22:44:29.888Z",
+            "type": "COMPRA INVENTARIO",
+            "company": "PRUEBAS",
+            "category": "Egreso"
+          },
+          {
+            "company": "PRUEBAS",
+            "category": "Egreso",
+            "code": "0074",
+            "type": "COMPRA INVENTARIO",
+            "createdAt": "2025-12-16T19:42:17.410Z",
+            "name": "JULIET MARIAN G.V.",
+            "updatedAt": "2025-12-17T17:27:00.973Z",
+            "movementCount": 5
+          },
+          {
+            "movementCount": 0,
+            "updatedAt": "2025-12-17T17:28:06.238Z",
+            "name": "PRODUCTOS PURA VIDA",
+            "createdAt": "2025-12-16T18:43:10.735Z",
+            "code": "0073",
+            "type": "COMPRA INVENTARIO",
+            "company": "PRUEBAS",
+            "category": "Egreso"
+          },
+          {
+            "movementCount": 1,
+            "name": "RETIRO MONEDAS",
+            "updatedAt": "2025-12-16T13:34:10.045Z",
+            "createdAt": "2025-12-16T13:34:10.045Z",
+            "type": "EGRESOS VARIOS",
+            "code": "0072",
+            "category": "Egreso",
+            "company": "PRUEBAS"
+          },
+          {
+            "company": "PRUEBAS",
+            "category": "Egreso",
+            "code": "0070",
+            "type": "COMPRA INVENTARIO",
+            "createdAt": "2025-12-15T19:15:53.195Z",
+            "updatedAt": "2025-12-15T19:15:53.195Z",
+            "name": "GEDO",
+            "movementCount": 1
+          },
+          {
+            "company": "PRUEBAS",
+            "type": "PUBLICIDAD",
+            "code": "0069",
+            "createdAt": "2025-12-15T16:15:50.946Z",
+            "name": "PUBLICIDAD",
+            "updatedAt": "2025-12-15T16:15:50.946Z",
+            "movementCount": 0
+          },
+          {
+            "category": "Gasto",
+            "correonotifi": "diana.aguilar.3004@gmail.com",
+            "code": "0068",
+            "updatedAt": "2025-12-13T22:44:57.083Z",
+            "name": "ALICIA DAVILA AGUINALDO",
+            "movementCount": 0,
+            "company": "PRUEBAS",
+            "createdAt": "2025-12-13T22:44:57.083Z",
+            "type": "AGUINALDOS"
+          },
+          {
+            "name": "BR CAJETA",
+            "updatedAt": "2025-12-13T18:28:12.934Z",
+            "movementCount": 2,
+            "category": "Egreso",
+            "company": "PRUEBAS",
+            "type": "COMPRA INVENTARIO",
+            "createdAt": "2025-12-13T18:28:12.934Z",
+            "code": "0067"
+          },
+          {
+            "movementCount": 4,
+            "name": "HIELO HILJO",
+            "updatedAt": "2025-12-13T17:21:16.961Z",
+            "code": "0066",
+            "type": "COMPRA INVENTARIO",
+            "createdAt": "2025-12-13T17:21:16.961Z",
+            "category": "Egreso",
+            "company": "PRUEBAS"
+          },
+          {
+            "type": "COMPRA INVENTARIO",
+            "code": "0065",
+            "createdAt": "2025-12-13T15:59:09.345Z",
+            "category": "Egreso",
+            "company": "PRUEBAS",
+            "movementCount": 3,
+            "updatedAt": "2025-12-13T15:59:09.345Z",
+            "name": "DISTRIBUIDORA JF"
+          },
+          {
+            "createdAt": "2025-12-13T06:26:23.317Z",
+            "type": "SALARIOS",
+            "company": "PRUEBAS",
+            "correonotifi": "diana.aguilar.3004@gmail.com",
+            "code": "0064",
+            "category": "Gasto",
+            "movementCount": 1,
+            "name": "ADELANTO SALARIO ALICIA",
+            "updatedAt": "2025-12-13T08:20:54.741Z"
+          },
+          {
+            "company": "PRUEBAS",
+            "category": "Egreso",
+            "createdAt": "2025-12-12T16:37:02.665Z",
+            "type": "COMPRA INVENTARIO",
+            "code": "0063",
+            "name": "NESTLE",
+            "updatedAt": "2025-12-12T16:37:02.665Z",
+            "movementCount": 2
+          },
+          {
+            "name": "DISTRIBUIDORA GONZALEZ",
+            "updatedAt": "2025-12-12T14:58:35.783Z",
+            "movementCount": 4,
+            "category": "Egreso",
+            "company": "PRUEBAS",
+            "createdAt": "2025-12-12T14:58:35.783Z",
+            "type": "COMPRA INVENTARIO",
+            "code": "0062"
+          },
+          {
+            "company": "PRUEBAS",
+            "createdAt": "2025-12-12T14:45:54.185Z",
+            "type": "COMPRA INVENTARIO",
+            "visit": {
+              "frequency": "SEMANAL",
+              "receiveOrderDays": [
+                "V"
+              ],
+              "createOrderDays": [
+                "V"
+              ]
+            },
+            "name": "CHICHARRONES JOYA/DON JUAN",
+            "updatedAt": "2026-02-20T15:14:19.872Z",
+            "movementCount": 4,
+            "category": "Egreso",
+            "code": "0061"
+          },
+          {
+            "category": "Egreso",
+            "company": "PRUEBAS",
+            "createdAt": "2025-12-12T14:15:22.627Z",
+            "type": "COMPRA INVENTARIO",
+            "code": "0060",
+            "name": "PALL MALL",
+            "updatedAt": "2025-12-13T08:21:09.924Z",
+            "movementCount": 2
+          },
+          {
+            "code": "0059",
+            "type": "COMPRA INVENTARIO",
+            "createdAt": "2025-12-11T15:12:10.799Z",
+            "category": "Egreso",
+            "company": "PRUEBAS",
+            "movementCount": 0,
+            "name": "SIGMA",
+            "updatedAt": "2025-12-11T15:12:10.799Z"
+          },
+          {
+            "category": "Egreso",
+            "company": "PRUEBAS",
+            "createdAt": "2025-12-11T14:28:03.904Z",
+            "type": "COMPRA INVENTARIO",
+            "code": "0058",
+            "name": "GIFF",
+            "updatedAt": "2025-12-11T14:28:03.904Z",
+            "movementCount": 4
+          },
+          {
+            "category": "Egreso",
+            "company": "PRUEBAS",
+            "type": "COMPRA INVENTARIO",
+            "createdAt": "2025-12-11T13:51:08.372Z",
+            "code": "0057",
+            "name": "LS SERVICE SOLUTION",
+            "updatedAt": "2025-12-11T13:51:08.372Z",
+            "movementCount": 2
+          },
+          {
+            "movementCount": 2,
+            "updatedAt": "2025-12-10T20:53:33.307Z",
+            "name": "SUPER PAN",
+            "createdAt": "2025-12-10T20:53:33.307Z",
+            "type": "COMPRA INVENTARIO",
+            "code": "0056",
+            "company": "PRUEBAS",
+            "category": "Egreso"
+          },
+          {
+            "name": "ICE ELECTRICIDAD",
+            "updatedAt": "2025-12-10T01:02:01.023Z",
+            "movementCount": 1,
+            "company": "PRUEBAS",
+            "category": "Gasto",
+            "code": "0055",
+            "type": "ELECTRICIDAD",
+            "createdAt": "2025-12-10T01:02:01.023Z"
+          },
+          {
+            "movementCount": 0,
+            "name": "DILAN UNION",
+            "updatedAt": "2025-12-10T00:22:20.615Z",
+            "code": "0054",
+            "type": "COMPRA INVENTARIO",
+            "createdAt": "2025-12-10T00:22:20.615Z",
+            "category": "Egreso",
+            "company": "PRUEBAS"
+          },
+          {
+            "code": "0053",
+            "category": "Egreso",
+            "movementCount": 3,
+            "visit": {
+              "createOrderDays": [
+                "J"
+              ],
+              "frequency": "SEMANAL",
+              "receiveOrderDays": [
+                "V"
+              ]
+            },
+            "updatedAt": "2026-02-21T06:37:20.539Z",
+            "name": "MAYOREO BM",
+            "createdAt": "2025-12-10T00:13:57.019Z",
+            "type": "COMPRA INVENTARIO",
+            "company": "PRUEBAS"
+          },
+          {
+            "category": "Ingreso",
+            "correonotifi": "diana.aguilar.3004@gmail.com",
+            "code": "0052",
+            "name": "INGRESO DOLARES",
+            "updatedAt": "2025-12-11T16:50:47.120Z",
+            "movementCount": 3,
+            "company": "PRUEBAS",
+            "createdAt": "2025-12-10T00:10:49.427Z",
+            "type": "OTROS INGRESOS"
+          },
+          {
+            "code": "0051",
+            "type": "SERVICIOS PROFESIONALES",
+            "createdAt": "2025-12-10T00:07:38.076Z",
+            "category": "Gasto",
+            "company": "PRUEBAS",
+            "movementCount": 0,
+            "updatedAt": "2025-12-17T17:21:29.065Z",
+            "name": "SERVICIOS PROFESIONALES VARIOS"
+          },
+          {
+            "updatedAt": "2025-12-09T21:05:06.740Z",
+            "name": "AJECEN DEL SUR",
+            "movementCount": 4,
+            "category": "Egreso",
+            "company": "PRUEBAS",
+            "createdAt": "2025-12-09T21:05:06.740Z",
+            "type": "COMPRA INVENTARIO",
+            "code": "0050"
+          },
+          {
+            "category": "Egreso",
+            "company": "PRUEBAS",
+            "type": "COMPRA INVENTARIO",
+            "createdAt": "2025-12-06T23:27:49.936Z",
+            "code": "0049",
+            "name": "CHILE EL INTENSO",
+            "updatedAt": "2025-12-06T23:28:08.031Z",
+            "movementCount": 0
+          },
+          {
+            "category": "Egreso",
+            "company": "PRUEBAS",
+            "code": "0048",
+            "createdAt": "2025-12-05T23:25:03.526Z",
+            "type": "PAGO TIEMPOS",
+            "name": "PAGO TIEMPOS",
+            "updatedAt": "2025-12-05T23:25:03.526Z",
+            "movementCount": 53
+          },
+          {
+            "movementCount": 1,
+            "updatedAt": "2025-12-06T04:50:40.410Z",
+            "name": "CHARGERS TO GO",
+            "type": "COMPRA INVENTARIO",
+            "code": "0047",
+            "createdAt": "2025-12-05T22:40:25.905Z",
+            "category": "Egreso",
+            "company": "PRUEBAS"
+          },
+          {
+            "movementCount": 3,
+            "updatedAt": "2025-12-05T21:10:47.133Z",
+            "name": "SENECA",
+            "createdAt": "2025-12-05T21:10:47.133Z",
+            "code": "0046",
+            "type": "COMPRA INVENTARIO",
+            "company": "PRUEBAS",
+            "category": "Egreso"
+          },
+          {
+            "company": "PRUEBAS",
+            "category": "Egreso",
+            "createdAt": "2025-12-05T21:05:06.446Z",
+            "type": "COMPRA INVENTARIO",
+            "code": "0045",
+            "updatedAt": "2025-12-05T21:05:06.446Z",
+            "name": "CADESUR",
+            "movementCount": 0
+          },
+          {
+            "category": "Egreso",
+            "company": "PRUEBAS",
+            "type": "COMPRA INVENTARIO",
+            "createdAt": "2025-12-05T17:38:24.055Z",
+            "code": "0044",
+            "name": "JOES",
+            "updatedAt": "2025-12-05T17:38:24.055Z",
+            "movementCount": 3
+          },
+          {
+            "updatedAt": "2025-12-04T23:27:24.456Z",
+            "name": "DISTRIBUCIONES HORIZONTALES",
+            "movementCount": 1,
+            "company": "PRUEBAS",
+            "category": "Egreso",
+            "code": "0043",
+            "createdAt": "2025-12-04T22:32:58.628Z",
+            "type": "COMPRA INVENTARIO"
+          },
+          {
+            "company": "PRUEBAS",
+            "category": "Ingreso",
+            "createdAt": "2025-12-04T21:08:44.006Z",
+            "type": "OTROS INGRESOS",
+            "code": "0042",
+            "updatedAt": "2026-01-23T00:58:47.139Z",
+            "name": "ALQUILER ESPACIO",
+            "movementCount": 1
+          },
+          {
+            "name": "JACKS",
+            "updatedAt": "2025-12-04T17:07:37.185Z",
+            "movementCount": 4,
+            "category": "Egreso",
+            "company": "PRUEBAS",
+            "createdAt": "2025-12-04T17:07:37.185Z",
+            "code": "0041",
+            "type": "COMPRA INVENTARIO"
+          },
+          {
+            "type": "ALQUILER LOCAL",
+            "createdAt": "2025-12-04T15:42:28.364Z",
+            "code": "0040",
+            "company": "PRUEBAS",
+            "category": "Gasto",
+            "movementCount": 0,
+            "updatedAt": "2025-12-04T15:42:28.364Z",
+            "name": "ALQUILER LOCAL"
+          },
+          {
+            "updatedAt": "2025-12-03T22:38:54.532Z",
+            "name": "TRIP 7",
+            "movementCount": 10,
+            "category": "Egreso",
+            "company": "PRUEBAS",
+            "code": "0039",
+            "createdAt": "2025-12-03T22:38:54.532Z",
+            "type": "COMPRA INVENTARIO"
+          },
+          {
+            "movementCount": 4,
+            "updatedAt": "2025-12-03T21:50:24.616Z",
+            "name": "TROPICALES",
+            "code": "0038",
+            "type": "COMPRA INVENTARIO",
+            "createdAt": "2025-12-03T21:50:24.616Z",
+            "category": "Egreso",
+            "company": "PRUEBAS"
+          },
+          {
+            "movementCount": 3,
+            "updatedAt": "2025-12-05T13:35:02.251Z",
+            "name": "PAGO BANCA",
+            "code": "0037",
+            "createdAt": "2025-12-03T20:00:21.579Z",
+            "type": "PAGO BANCA",
+            "category": "Egreso",
+            "company": "PRUEBAS"
+          },
+          {
+            "movementCount": 4,
+            "updatedAt": "2025-12-03T18:57:46.460Z",
+            "name": "DINANT",
+            "code": "0036",
+            "createdAt": "2025-12-03T18:57:46.460Z",
+            "type": "COMPRA INVENTARIO",
+            "company": "PRUEBAS",
+            "category": "Egreso"
+          },
+          {
+            "createdAt": "2025-12-03T16:50:36.181Z",
+            "type": "COMPRA INVENTARIO",
+            "code": "0035",
+            "category": "Egreso",
+            "company": "PRUEBAS",
+            "movementCount": 2,
+            "updatedAt": "2025-12-03T16:50:36.181Z",
+            "name": "PLATANOS TUCAN"
+          },
+          {
+            "movementCount": 5,
+            "updatedAt": "2025-12-03T16:32:15.785Z",
+            "name": "MASKKING",
+            "createdAt": "2025-12-03T16:32:15.785Z",
+            "type": "COMPRA INVENTARIO",
+            "code": "0034",
+            "category": "Egreso",
+            "company": "PRUEBAS"
+          },
+          {
+            "name": "ANGEL FERNANDEZ AGUINALDO",
+            "updatedAt": "2025-12-11T16:51:33.985Z",
+            "movementCount": 0,
+            "category": "Gasto",
+            "correonotifi": "diana.aguilar.3004@gmail.com",
+            "code": "0033",
+            "company": "PRUEBAS",
+            "createdAt": "2025-12-03T09:00:52.768Z",
+            "type": "AGUINALDOS"
+          },
+          {
+            "category": "Gasto",
+            "code": "0032",
+            "correonotifi": "diana.aguilar.3004@gmail.com",
+            "updatedAt": "2025-12-11T16:51:39.856Z",
+            "name": "ANGEL FERNANDEZ SALARIO",
+            "movementCount": 2,
+            "company": "PRUEBAS",
+            "createdAt": "2025-12-03T09:00:39.264Z",
+            "type": "SALARIOS"
+          },
+          {
+            "updatedAt": "2025-12-11T16:51:47.201Z",
+            "name": "VIVIANA AMADOR AGUINALDO",
+            "movementCount": 0,
+            "category": "Gasto",
+            "code": "0031",
+            "correonotifi": "diana.aguilar.3004@gmail.com",
+            "company": "PRUEBAS",
+            "type": "AGUINALDOS",
+            "createdAt": "2025-12-03T09:00:18.444Z"
+          },
+          {
+            "type": "AGUINALDOS",
+            "createdAt": "2025-12-03T09:00:05.992Z",
+            "company": "PRUEBAS",
+            "movementCount": 0,
+            "updatedAt": "2025-12-11T16:51:56.508Z",
+            "name": "ALVARO CHAVES AGUINALDO",
+            "correonotifi": "diana.aguilar.3004@gmail.com",
+            "code": "0030",
+            "category": "Gasto"
+          },
+          {
+            "movementCount": 2,
+            "name": "LUCEMA",
+            "updatedAt": "2025-12-02T22:04:09.137Z",
+            "type": "COMPRA INVENTARIO",
+            "code": "0029",
+            "createdAt": "2025-12-02T22:04:09.137Z",
+            "company": "PRUEBAS",
+            "category": "Egreso"
+          },
+          {
+            "category": "Gasto",
+            "correonotifi": "diana.aguilar.3004@gmail.com",
+            "code": "0028",
+            "name": "ALICIA DAVILA  SALARIO",
+            "updatedAt": "2025-12-11T16:52:35.796Z",
+            "movementCount": 2,
+            "company": "PRUEBAS",
+            "type": "SALARIOS",
+            "createdAt": "2025-12-02T21:41:38.303Z"
+          },
+          {
+            "name": "VIVIANA AMADOR SALARIO",
+            "updatedAt": "2025-12-03T08:59:17.921Z",
+            "movementCount": 0,
+            "company": "PRUEBAS",
+            "category": "Gasto",
+            "code": "0027",
+            "type": "SALARIOS",
+            "createdAt": "2025-12-02T21:41:25.942Z"
+          },
+          {
+            "type": "SALARIOS",
+            "createdAt": "2025-12-02T21:41:12.603Z",
+            "company": "PRUEBAS",
+            "movementCount": 8,
+            "name": "ALVARO CHAVES SALARIO",
+            "updatedAt": "2025-12-15T22:02:20.794Z",
+            "correonotifi": "diana.aguilar.3004@gmail.com",
+            "code": "0026",
+            "category": "Gasto"
+          },
+          {
+            "updatedAt": "2025-12-02T20:17:59.167Z",
+            "name": "TERRAVIVA",
+            "movementCount": 3,
+            "category": "Egreso",
+            "company": "PRUEBAS",
+            "code": "0025",
+            "createdAt": "2025-12-02T20:17:59.167Z",
+            "type": "COMPRA INVENTARIO"
+          },
+          {
+            "category": "Egreso",
+            "company": "PRUEBAS",
+            "code": "0024",
+            "createdAt": "2025-12-02T17:29:44.774Z",
+            "type": "COMPRA INVENTARIO",
+            "name": "MARLBORO",
+            "updatedAt": "2026-04-21T19:55:12.526Z",
+            "movementCount": 2
+          },
+          {
+            "company": "PRUEBAS",
+            "type": "RETIRO EFECTIVO",
+            "createdAt": "2025-12-02T13:42:41.157Z",
+            "name": "RETIRO A CAJA NEGRA",
+            "updatedAt": "2026-05-23T13:54:40.917Z",
+            "movementCount": 5,
+            "category": "Egreso",
+            "code": "0023",
+            "correonotifi": "diana.aguilar.3004@gmail.com"
+          },
+          {
+            "code": "0022",
+            "type": "FACTURA ELECTRONICA",
+            "createdAt": "2025-12-02T13:06:14.797Z",
+            "company": "PRUEBAS",
+            "category": "Gasto",
+            "movementCount": 1,
+            "name": "JOSIAS FACTURA ELECTRONICA",
+            "updatedAt": "2025-12-02T13:06:14.797Z"
+          },
+          {
+            "company": "PRUEBAS",
+            "category": "Gasto",
+            "type": "MANTENIMIENTO INSTALACIONES",
+            "code": "0021",
+            "createdAt": "2025-12-02T12:32:32.778Z",
+            "name": "COLONO CONSTRUCCION",
+            "updatedAt": "2025-12-02T12:32:32.778Z",
+            "movementCount": 0
+          },
+          {
+            "company": "PRUEBAS",
+            "category": "Egreso",
+            "createdAt": "2025-12-01T19:52:24.038Z",
+            "type": "COMPRA INVENTARIO",
+            "code": "0020",
+            "updatedAt": "2025-12-01T19:52:24.038Z",
+            "name": "TORTIRICAS",
+            "movementCount": 6
+          },
+          {
+            "movementCount": 7,
+            "name": "DOS PINOS",
+            "updatedAt": "2025-12-01T19:32:42.135Z",
+            "createdAt": "2025-12-01T19:32:42.135Z",
+            "type": "COMPRA INVENTARIO",
+            "code": "0019",
+            "category": "Egreso",
+            "company": "PRUEBAS"
+          },
+          {
+            "code": "0018",
+            "type": "COMPRA INVENTARIO",
+            "createdAt": "2025-12-01T19:32:27.792Z",
+            "category": "Egreso",
+            "company": "PRUEBAS",
+            "movementCount": 5,
+            "updatedAt": "2026-01-12T01:41:27.262Z",
+            "name": "CERVECERIA"
+          },
+          {
+            "movementCount": 6,
+            "name": "DEPOSITO BANCA",
+            "updatedAt": "2026-01-05T07:06:12.061Z",
+            "type": "DEPOSITO BANCA",
+            "createdAt": "2025-12-01T18:59:32.997Z",
+            "code": "0017",
+            "company": "PRUEBAS"
+          },
+          {
+            "movementCount": 5,
+            "name": "SEDISUR",
+            "updatedAt": "2025-12-01T18:58:56.426Z",
+            "code": "0016",
+            "type": "COMPRA INVENTARIO",
+            "createdAt": "2025-12-01T18:58:56.426Z",
+            "company": "PRUEBAS",
+            "category": "Egreso"
+          },
+          {
+            "company": "PRUEBAS",
+            "category": "Egreso",
+            "code": "0015",
+            "createdAt": "2025-12-01T17:13:10.879Z",
+            "type": "COMPRA INVENTARIO",
+            "updatedAt": "2026-01-12T16:03:23.306Z",
+            "name": "BIMBO",
+            "movementCount": 5
+          },
+          {
+            "company": "PRUEBAS",
+            "category": "Egreso",
+            "type": "COMPRA INVENTARIO",
+            "code": "0014",
+            "createdAt": "2025-12-01T17:12:52.372Z",
+            "updatedAt": "2025-12-01T17:12:52.372Z",
+            "name": "GREISIN",
+            "movementCount": 5
+          },
+          {
+            "createdAt": "2025-12-01T14:46:08.377Z",
+            "code": "0013",
+            "type": "COMPRA INVENTARIO",
+            "category": "Egreso",
+            "company": "PRUEBAS",
+            "movementCount": 0,
+            "updatedAt": "2025-12-01T14:46:08.377Z",
+            "name": "SERVIMAX"
+          },
+          {
+            "category": "Egreso",
+            "code": "0012",
+            "name": "ZUARSE",
+            "visit": {
+              "createOrderDays": [
+                "V"
+              ],
+              "frequency": "SEMANAL",
+              "receiveOrderDays": [
+                "M"
+              ]
+            },
+            "updatedAt": "2026-02-06T20:42:23.847Z",
+            "movementCount": 2,
+            "company": "PRUEBAS",
+            "type": "COMPRA INVENTARIO",
+            "createdAt": "2025-12-01T14:45:53.399Z"
+          },
+          {
+            "company": "PRUEBAS",
+            "category": "Egreso",
+            "createdAt": "2025-12-01T14:24:40.185Z",
+            "type": "COMPRA INVENTARIO",
+            "code": "0011",
+            "name": "ISLEÑA",
+            "updatedAt": "2025-12-01T14:24:40.185Z",
+            "movementCount": 2
+          },
+          {
+            "company": "PRUEBAS",
+            "category": "Egreso",
+            "createdAt": "2025-12-01T14:14:41.716Z",
+            "code": "0010",
+            "type": "COMPRA INVENTARIO",
+            "updatedAt": "2025-12-01T14:14:41.716Z",
+            "name": "DIMEL",
+            "movementCount": 4
+          },
+          {
+            "company": "PRUEBAS",
+            "category": "Egreso",
+            "type": "COMPRA INVENTARIO",
+            "code": "0009",
+            "createdAt": "2025-12-01T14:13:50.229Z",
+            "name": "POZUELO",
+            "updatedAt": "2025-12-01T14:13:50.229Z",
+            "movementCount": 5
+          },
+          {
+            "company": "PRUEBAS",
+            "category": "Egreso",
+            "code": "0008",
+            "createdAt": "2025-12-01T13:45:47.263Z",
+            "type": "COMPRA INVENTARIO",
+            "name": "HELADOS CHARO",
+            "updatedAt": "2025-12-01T13:45:47.263Z",
+            "movementCount": 3
+          },
+          {
+            "updatedAt": "2025-12-01T05:07:18.523Z",
+            "name": "C.C.S.S.",
+            "movementCount": 1,
+            "company": "PRUEBAS",
+            "category": "Gasto",
+            "code": "0007",
+            "type": "CARGAS SOCIALES",
+            "createdAt": "2025-12-01T05:07:18.523Z"
+          },
+          {
+            "movementCount": 1,
+            "updatedAt": "2025-12-01T05:05:12.792Z",
+            "name": "AYA",
+            "createdAt": "2025-12-01T05:05:12.792Z",
+            "type": "AGUA",
+            "code": "0006",
+            "category": "Gasto",
+            "company": "PRUEBAS"
+          },
+          {
+            "updatedAt": "2025-12-01T05:03:42.278Z",
+            "name": "LIBERTY",
+            "movementCount": 1,
+            "category": "Gasto",
+            "company": "PRUEBAS",
+            "code": "0005",
+            "type": "INTERNET",
+            "createdAt": "2025-12-01T05:03:42.278Z"
+          },
+          {
+            "movementCount": 3,
+            "updatedAt": "2026-05-04T21:49:00.219Z",
+            "name": "INGRESO DESDE FONDO VENTAS",
+            "code": "0004",
+            "createdAt": "2025-12-01T02:57:09.686Z",
+            "type": "VENTAS",
+            "company": "PRUEBAS",
+            "category": "Ingreso"
+          },
+          {
+            "category": "Ingreso",
+            "correonotifi": "edebertocr@gmail.com",
+            "code": "0003",
+            "updatedAt": "2025-12-11T16:53:07.953Z",
+            "name": "CIERRE FONDO VENTAS",
+            "movementCount": 66,
+            "company": "PRUEBAS",
+            "createdAt": "2025-12-01T02:56:53.441Z",
+            "type": "VENTAS"
+          },
+          {
+            "movementCount": 5,
+            "updatedAt": "2025-12-01T02:56:40.920Z",
+            "name": "DEMASA",
+            "createdAt": "2025-12-01T02:56:40.920Z",
+            "code": "0002",
+            "type": "COMPRA INVENTARIO",
+            "category": "Egreso",
+            "company": "PRUEBAS"
+          },
+          {
+            "movementCount": 8,
+            "name": "DIPO",
+            "updatedAt": "2025-12-01T02:56:32.864Z",
+            "type": "COMPRA INVENTARIO",
+            "code": "0001",
+            "createdAt": "2025-12-01T02:56:32.864Z",
+            "category": "Egreso",
+            "company": "PRUEBAS"
+          },
+          {
+            "company": "PRUEBAS",
+            "category": "Egreso",
+            "type": "COMPRA INVENTARIO",
+            "code": "0000",
+            "createdAt": "2025-12-01T02:56:23.836Z",
+            "name": "COCA COLA",
+            "updatedAt": "2026-01-12T01:35:38.582Z",
+            "movementCount": 8
+          }
+        ],
+        "nextCode": 123
+      }
+    }
+  ]
+}
