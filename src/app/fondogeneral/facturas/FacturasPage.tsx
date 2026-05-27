@@ -113,6 +113,8 @@ const resolveFacturaStatusLabel = (movement: FacturaMovement): string => {
   return status;
 };
 
+const SHARED_COMPANY_STORAGE_KEY = "fg_selected_company_shared";
+
 export default function FacturasCreditoPage() {
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -121,11 +123,24 @@ export default function FacturasCreditoPage() {
     () => String(user?.ownercompanie || "").trim(),
     [user?.ownercompanie],
   );
-  const [selectedCompany, setSelectedCompany] = useState(company);
+
+  const isAdminOrSuperAdmin =
+    user?.role === "admin" || user?.role === "superadmin";
+  const [selectedCompany, setSelectedCompany] = useState(() => {
+    if (!isAdminOrSuperAdmin) return company;
+    try {
+      const stored = localStorage.getItem(SHARED_COMPANY_STORAGE_KEY);
+      return stored || company;
+    } catch {
+      return company;
+    }
+  });
 
   useEffect(() => {
-    setSelectedCompany(company);
-  }, [company]);
+    if (!isAdminOrSuperAdmin) {
+      setSelectedCompany(company);
+    }
+  }, [company, isAdminOrSuperAdmin]);
 
   const { providers, loading: providersLoading } =
     useProviders(selectedCompany);
@@ -478,39 +493,52 @@ export default function FacturasCreditoPage() {
 
     const selected = String(selectedCompany || "").trim();
 
-    // Try to prefer a company that matches the authenticated user
-    const userCompanyKey = String(user?.ownercompanie || "").trim();
-    const userOwnerId = String(user?.ownerId || "").trim();
-
-    let preferred: Empresas | undefined;
-    if (userCompanyKey) {
-      preferred = visibleCompanies.find(
-        (emp) =>
-          getCompanyKey(emp) === userCompanyKey ||
-          String(emp?.id || "").trim() === userCompanyKey,
-      );
-    }
-
-    if (!preferred && userOwnerId) {
-      preferred = visibleCompanies.find(
-        (emp) => String(emp?.ownerId || "").trim() === userOwnerId,
-      );
-    }
-
     const exists = visibleCompanies.some(
       (emp) => getCompanyKey(emp) === selected,
     );
 
-    if (!selected) {
-      if (preferred) setSelectedCompany(getCompanyKey(preferred));
-      else setSelectedCompany(getCompanyKey(visibleCompanies[0]));
-      return;
+    if (selected && exists) return;
+
+    // Try to prefer localStorage shared value
+    let preferred: Empresas | undefined;
+    if (isAdminOrSuperAdmin) {
+      try {
+        const stored = localStorage.getItem(SHARED_COMPANY_STORAGE_KEY);
+        if (stored) {
+          preferred = visibleCompanies.find(
+            (emp) => getCompanyKey(emp) === stored,
+          );
+        }
+      } catch {
+        // ignore
+      }
     }
 
-    if (!exists) {
-      if (preferred) setSelectedCompany(getCompanyKey(preferred));
-      else setSelectedCompany(getCompanyKey(visibleCompanies[0]));
+    if (!preferred) {
+      const userCompanyKey = String(user?.ownercompanie || "").trim();
+      if (userCompanyKey) {
+        preferred = visibleCompanies.find(
+          (emp) =>
+            getCompanyKey(emp) === userCompanyKey ||
+            String(emp?.id || "").trim() === userCompanyKey,
+        );
+      }
     }
+
+    if (!preferred) {
+      const userOwnerId = String(user?.ownerId || "").trim();
+      if (userOwnerId) {
+        preferred = visibleCompanies.find(
+          (emp) => String(emp?.ownerId || "").trim() === userOwnerId,
+        );
+      }
+    }
+
+    setSelectedCompany(
+      preferred
+        ? getCompanyKey(preferred)
+        : getCompanyKey(visibleCompanies[0]),
+    );
   }, [
     getCompanyKey,
     selectedCompany,
@@ -834,6 +862,19 @@ export default function FacturasCreditoPage() {
   }, [availableCompanies, getCompanyKey, selectedCompany]);
 
   useEffect(() => {
+    if (!isAdminOrSuperAdmin) return;
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === SHARED_COMPANY_STORAGE_KEY && e.newValue !== null) {
+        setSelectedCompany(e.newValue);
+      }
+    };
+
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [isAdminOrSuperAdmin]);
+
+  useEffect(() => {
     const onMouseDown = (e: MouseEvent) => {
       const target = e.target as Node;
 
@@ -1026,9 +1067,30 @@ export default function FacturasCreditoPage() {
     return match ? getCompanyLabel(match).split(" - ")[0] : selected;
   }, [selectedCompany, sortedOwnerCompanies, getCompanyKey, getCompanyLabel]);
 
-  const handleAdminCompanyChange = useCallback((nextCompany: string) => {
-    setSelectedCompany(String(nextCompany || "").trim());
-  }, []);
+  const handleAdminCompanyChange = useCallback(
+    (nextCompany: string) => {
+      const value = String(nextCompany || "").trim();
+      setSelectedCompany(value);
+      try {
+        const prev = localStorage.getItem(SHARED_COMPANY_STORAGE_KEY);
+        localStorage.setItem(SHARED_COMPANY_STORAGE_KEY, value);
+        window.dispatchEvent(
+          new StorageEvent("storage", {
+            key: SHARED_COMPANY_STORAGE_KEY,
+            newValue: value,
+            oldValue: prev,
+            storageArea: localStorage,
+          }),
+        );
+      } catch (error) {
+        console.error(
+          "Error saving selected company to localStorage:",
+          error,
+        );
+      }
+    },
+    [],
+  );
 
   return (
     <div className="w-full max-w-7xl mx-auto px-2 py-3 sm:px-4 sm:py-6 lg:py-8">
