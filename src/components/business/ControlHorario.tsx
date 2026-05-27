@@ -2301,8 +2301,7 @@ export default function ControlHorario({
                   onClick={exportScheduleAsImage}
                   className="flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-lg hover:shadow-lg transition-all border border-purple-600 hover:border-purple-400"
                   title="Exportar como imagen"
-                >
-                  📷 Exportar Imagen
+                >Exportar Imagen
                 </button>
               )}
               {/* Botón de exportar quincena con icono acorde (Download) */}

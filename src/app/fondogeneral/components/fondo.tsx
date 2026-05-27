@@ -6925,9 +6925,19 @@ export function FondoSection({
       };
     };
     const creditNoteApplication = buildAppliedCreditNotes(egresoValue);
+    const manualCreditNoteAppliedAmount =
+      isEgreso && effectiveInvoiceDocType === "FCO" && manualCreditNoteDraft
+        ? Math.min(
+            manualCreditNoteDraft.amount,
+            Math.max(0, egresoValue - creditNoteApplication.total),
+          )
+        : 0;
     const egresoBalanceImpact =
       isEgreso && effectiveInvoiceDocType === "FCO"
-        ? creditNoteApplication.amountPayment
+        ? Math.max(
+            0,
+            creditNoteApplication.amountPayment - manualCreditNoteAppliedAmount,
+          )
         : egresoValue;
 
     // Validar que no quede saldo negativo en la moneda del movimiento.
@@ -7463,13 +7473,16 @@ export function FondoSection({
         const timeKey = `${HH}_${mm}_${ss}_${mmm}`; // HH_MM_SS_mmm (local, URL-safe)
         const movementId = `${dateKey}-${timeKey}_${accountKey}`;
         const manualCreditNoteApplied =
-          isEgreso && effectiveInvoiceDocType === "FCO" && manualCreditNoteDraft
+          isEgreso &&
+          effectiveInvoiceDocType === "FCO" &&
+          manualCreditNoteDraft &&
+          manualCreditNoteAppliedAmount > 0
             ? [
                 {
                   id: `manual-nc-${movementId}`,
                   invoiceNumber: manualCreditNoteDraft.invoiceNumber,
                   amount: manualCreditNoteDraft.amount,
-                  appliedAmount: manualCreditNoteDraft.amount,
+                  appliedAmount: manualCreditNoteAppliedAmount,
                   currency: movementCurrency,
                   observation: manualCreditNoteDraft.observation,
                 } as AppliedCreditNote,
@@ -8039,6 +8052,10 @@ export function FondoSection({
         amount: amountValue,
         observation: observationValue || undefined,
       });
+      // Marcar la NC manual como seleccionada para que aparezca inmediatamente
+      setSelectedAppliedCreditNoteIds((prev) =>
+        prev && prev.includes("manual-nc-draft") ? prev : [...(prev || []), "manual-nc-draft"],
+      );
       showToast("Nota de crédito manual lista para guardar", "success", 3000);
       closeManualCreditNoteModal();
     } catch (error) {
@@ -8399,12 +8416,28 @@ export function FondoSection({
   const selectedAppliedCreditNotes = useMemo(() => {
     if (!isEgreso || editingEntryId) return [];
     const selectedIds = new Set(selectedAppliedCreditNoteIds);
-    return selectedProviderPendingCreditNotes.filter(
+    const availableNotes =
+      manualCreditNoteDraft && invoiceDocType === "FCO"
+        ? [
+            {
+              id: "manual-nc-draft",
+              invoiceNumber: manualCreditNoteDraft.invoiceNumber,
+              amount: manualCreditNoteDraft.amount,
+              balanceDue: manualCreditNoteDraft.amount,
+              currency: movementCurrency,
+            },
+            ...selectedProviderPendingCreditNotes,
+          ]
+        : selectedProviderPendingCreditNotes;
+
+    return availableNotes.filter(
       (note) => selectedIds.has(note.id) && note.currency === movementCurrency,
     );
   }, [
     editingEntryId,
+    invoiceDocType,
     isEgreso,
+    manualCreditNoteDraft,
     movementCurrency,
     selectedAppliedCreditNoteIds,
     selectedProviderPendingCreditNotes,
@@ -11513,7 +11546,26 @@ export function FondoSection({
                 modo de registro.
               </Typography>
             )}
-            <AgregarMovimiento
+            {/* Incluir borrador de NC manual en la lista de NC pendientes */}
+            {(() => {
+              const movementPendingCreditNotes =
+                invoiceDocType === "FCO"
+                  ? manualCreditNoteDraft
+                    ? [
+                        {
+                          id: "manual-nc-draft",
+                          invoiceNumber: manualCreditNoteDraft.invoiceNumber,
+                          amount: manualCreditNoteDraft.amount,
+                          balanceDue: manualCreditNoteDraft.amount,
+                          currency: movementCurrency,
+                        },
+                        ...selectedProviderPendingCreditNotes,
+                      ]
+                    : selectedProviderPendingCreditNotes
+                  : [];
+
+              return (
+                <AgregarMovimiento
               selectedProvider={selectedProvider}
               onProviderChange={handleProviderChange}
               providers={movementProviders}
@@ -11574,11 +11626,7 @@ export function FondoSection({
               managerError={managerError}
               manager2Error={manager2Error}
               pendingCreditNotesCount={selectedProviderPendingNcCount}
-              pendingCreditNotes={
-                invoiceDocType === "FCO"
-                  ? selectedProviderPendingCreditNotes
-                  : []
-              }
+              pendingCreditNotes={movementPendingCreditNotes}
               selectedCreditNoteIds={selectedAppliedCreditNoteIds}
               onToggleCreditNote={(id) => {
                 setSelectedAppliedCreditNoteIds((prev) =>
@@ -11593,6 +11641,8 @@ export function FondoSection({
               balanceCRC={currentBalanceCRC}
               balanceUSD={currentBalanceUSD}
             />
+              );
+            })()}
           </Box>
         </Box>
       </Drawer>
