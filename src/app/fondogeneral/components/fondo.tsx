@@ -232,7 +232,8 @@ export const isEgresoType = (type: FondoMovementType) =>
   includesMovementType(FONDO_EGRESO_TYPES, type);
 
 // Formatea en Titulo Caso cada palabra
-export const formatMovementType = (type: FondoMovementType | string) => {
+export const formatMovementType = (type: FondoMovementType | string | null | undefined) => {
+  if (typeof type !== "string") return "";
   if (type === "INFORMATIVO") return "";
 
   return type
@@ -269,6 +270,11 @@ const isInventoryPurchasePaymentType = (value: unknown): boolean => {
   return (
     normalized === "COMPRA INVENTARIO" || normalized === "COMPRA DE INVENTARIO"
   );
+};
+
+const isInventoryPurchaseProviderType = (value: unknown): boolean => {
+  if (typeof value !== "string") return false;
+  return isInventoryPurchasePaymentType(value);
 };
 
 const getCanonicalClosingPaymentType = (
@@ -6835,6 +6841,12 @@ export function FondoSection({
     const egresoValue = isEgreso ? Number.parseInt(egreso, 10) : 0;
     const ingresoValue = isIngreso ? Number.parseInt(ingreso, 10) : 0;
     const trimmedNotes = notes.trim();
+    const movementSelectedProviderData = providers.find(
+      (p) => p.code === selectedProvider,
+    );
+    const shouldMirrorMovementToFacturas = isInventoryPurchaseProviderType(
+      movementSelectedProviderData?.type,
+    );
 
     if (isEgreso && (Number.isNaN(egresoValue) || egresoValue <= 0)) {
       setAmountError("Ingresa un monto válido para egreso");
@@ -6852,6 +6864,16 @@ export function FondoSection({
     if (isIngreso && (Number.isNaN(ingresoValue) || ingresoValue <= 0)) return;
 
     const effectiveInvoiceDocType = normalizeInvoiceDocType(invoiceDocType);
+    if (
+      effectiveInvoiceDocType === "FCR" &&
+      !shouldMirrorMovementToFacturas
+    ) {
+      setInvoiceError(
+        'Solo los proveedores de tipo "COMPRA INVENTARIO" pueden generar facturas.',
+      );
+      return;
+    }
+
     const buildAppliedCreditNotes = (
       invoiceAmount: number,
     ): { notes: AppliedCreditNote[]; total: number; amountPayment: number } => {
@@ -7267,32 +7289,34 @@ export function FondoSection({
           const facturaEntry = updatedEntry as FondoEntry;
           const normalizedCompany = (company || "").trim();
           if (normalizedCompany.length > 0) {
-            const facturaAmount = Math.abs(
-              (facturaEntry.amountIngreso || 0) -
-                (facturaEntry.amountEgreso || 0),
-            );
-            const facturaCopy: FacturaMovement = {
-              id: String(facturaEntry.id),
-              empresa: normalizedCompany,
-              accountId: accountKey,
-              amount: facturaAmount,
-              providerCode: facturaEntry.providerCode,
-              invoiceNumber: facturaEntry.invoiceNumber,
-              invoiceDocType: normalizeInvoiceDocType(
-                (facturaEntry as any).invoiceDocType,
-              ),
-              paymentType: facturaEntry.paymentType,
-              amountEgreso: facturaEntry.amountEgreso,
-              amountIngreso: facturaEntry.amountIngreso,
-              amountPayment: facturaEntry.amountPayment,
-              appliedCreditNotes: facturaEntry.appliedCreditNotes,
-              manager: facturaEntry.manager,
-              manager2: facturaEntry.manager2,
-              notes: facturaEntry.notes,
-              createdAt: facturaEntry.createdAt,
-              currency: facturaEntry.currency === "USD" ? "USD" : "CRC",
-            };
-            void FacturasService.upsertMovement(normalizedCompany, facturaCopy);
+            if (shouldMirrorMovementToFacturas) {
+              const facturaAmount = Math.abs(
+                (facturaEntry.amountIngreso || 0) -
+                  (facturaEntry.amountEgreso || 0),
+              );
+              const facturaCopy: FacturaMovement = {
+                id: String(facturaEntry.id),
+                empresa: normalizedCompany,
+                accountId: accountKey,
+                amount: facturaAmount,
+                providerCode: facturaEntry.providerCode,
+                invoiceNumber: facturaEntry.invoiceNumber,
+                invoiceDocType: normalizeInvoiceDocType(
+                  (facturaEntry as any).invoiceDocType,
+                ),
+                paymentType: facturaEntry.paymentType,
+                amountEgreso: facturaEntry.amountEgreso,
+                amountIngreso: facturaEntry.amountIngreso,
+                amountPayment: facturaEntry.amountPayment,
+                appliedCreditNotes: facturaEntry.appliedCreditNotes,
+                manager: facturaEntry.manager,
+                manager2: facturaEntry.manager2,
+                notes: facturaEntry.notes,
+                createdAt: facturaEntry.createdAt,
+                currency: facturaEntry.currency === "USD" ? "USD" : "CRC",
+              };
+              void FacturasService.upsertMovement(normalizedCompany, facturaCopy);
+            }
           }
         }
         if (saved.confirmed) {
@@ -7359,6 +7383,7 @@ export function FondoSection({
       try {
         const normalizedCompany = (company || "").trim();
         const requiresDuplicateInvoiceCheck =
+          shouldMirrorMovementToFacturas &&
           isInventoryPurchasePaymentType(paymentType);
         const previousInvoiceMovement = requiresDuplicateInvoiceCheck
           ? await findLatestMovementByInvoiceNumber(
@@ -7473,6 +7498,14 @@ export function FondoSection({
 
         // Crédito (FCR): se registra solo en Facturas y NO afecta el Fondo.
         if (effectiveInvoiceDocType === "FCR") {
+          if (!shouldMirrorMovementToFacturas) {
+            showToast(
+              'Solo los proveedores de tipo "COMPRA INVENTARIO" pueden generar facturas.',
+              "error",
+              5000,
+            );
+            return;
+          }
           const normalizedCompany = (company || "").trim();
           if (normalizedCompany.length === 0) {
             showToast(
@@ -7483,26 +7516,28 @@ export function FondoSection({
             return;
           }
 
-          const facturaCopy: FacturaMovement = {
-            id: entry.id,
-            empresa: normalizedCompany,
-            accountId: accountKey,
-            amount: Math.abs(
-              (entry.amountIngreso || 0) - (entry.amountEgreso || 0),
-            ),
-            providerCode: entry.providerCode,
-            invoiceNumber: entry.invoiceNumber,
-            invoiceDocType: "FCR",
-            paymentType: entry.paymentType,
-            amountEgreso: entry.amountEgreso,
-            amountIngreso: entry.amountIngreso,
-            manager: entry.manager,
-            notes: entry.notes,
-            createdAt: entry.createdAt,
-            currency: entry.currency === "USD" ? "USD" : "CRC",
-          };
+          if (shouldMirrorMovementToFacturas) {
+            const facturaCopy: FacturaMovement = {
+              id: entry.id,
+              empresa: normalizedCompany,
+              accountId: accountKey,
+              amount: Math.abs(
+                (entry.amountIngreso || 0) - (entry.amountEgreso || 0),
+              ),
+              providerCode: entry.providerCode,
+              invoiceNumber: entry.invoiceNumber,
+              invoiceDocType: "FCR",
+              paymentType: entry.paymentType,
+              amountEgreso: entry.amountEgreso,
+              amountIngreso: entry.amountIngreso,
+              manager: entry.manager,
+              notes: entry.notes,
+              createdAt: entry.createdAt,
+              currency: entry.currency === "USD" ? "USD" : "CRC",
+            };
 
-          await FacturasService.upsertMovement(normalizedCompany, facturaCopy);
+            await FacturasService.upsertMovement(normalizedCompany, facturaCopy);
+          }
 
           try {
             await ProvidersService.incrementMovementCount(
@@ -7567,31 +7602,33 @@ export function FondoSection({
 
           if (normalizedCompany.length > 0 && manualCreditNoteDraft) {
             try {
-              const manualCreditNoteMovement: FacturaMovement = {
-                id: `${entry.id}-NC`,
-                empresa: normalizedCompany,
-                accountId: accountKey,
-                amount: manualCreditNoteDraft.amount,
-                amountEgreso: 0,
-                amountIngreso: manualCreditNoteDraft.amount,
-                amountPayment: manualCreditNoteDraft.amount,
-                balanceDue: 0,
-                createdAt: entry.createdAt,
-                currency: movementCurrency,
-                invoiceNumber: manualCreditNoteDraft.invoiceNumber,
-                manager,
-                manager2: manager2 || undefined,
-                notes: manualCreditNoteDraft.observation ?? "",
-                invoiceDocType: "NC",
-                paymentType,
-                providerCode: selectedProvider,
-                paidAmount: manualCreditNoteDraft.amount,
-                paymentStatus: "PAGADA",
-              };
-              await FacturasService.upsertMovement(
-                normalizedCompany,
-                manualCreditNoteMovement,
-              );
+              if (shouldMirrorMovementToFacturas) {
+                const manualCreditNoteMovement: FacturaMovement = {
+                  id: `${entry.id}-NC`,
+                  empresa: normalizedCompany,
+                  accountId: accountKey,
+                  amount: manualCreditNoteDraft.amount,
+                  amountEgreso: 0,
+                  amountIngreso: manualCreditNoteDraft.amount,
+                  amountPayment: manualCreditNoteDraft.amount,
+                  balanceDue: 0,
+                  createdAt: entry.createdAt,
+                  currency: movementCurrency,
+                  invoiceNumber: manualCreditNoteDraft.invoiceNumber,
+                  manager,
+                  manager2: manager2 || undefined,
+                  notes: manualCreditNoteDraft.observation ?? "",
+                  invoiceDocType: "NC",
+                  paymentType,
+                  providerCode: selectedProvider,
+                  paidAmount: manualCreditNoteDraft.amount,
+                  paymentStatus: "PAGADA",
+                };
+                await FacturasService.upsertMovement(
+                  normalizedCompany,
+                  manualCreditNoteMovement,
+                );
+              }
             } catch (err) {
               console.warn("[FG] Could not upsert manual NC in Facturas:", err);
             }
@@ -7657,30 +7694,32 @@ export function FondoSection({
           // Mantener copia en Facturas (best-effort)
           try {
             if (normalizedCompany.length > 0) {
-              const facturaCopy: FacturaMovement = {
-                id: entry.id,
-                empresa: normalizedCompany,
-                accountId: accountKey,
-                amount: Math.abs(
-                  (entry.amountIngreso || 0) - (entry.amountEgreso || 0),
-                ),
-                providerCode: entry.providerCode,
-                invoiceNumber: entry.invoiceNumber,
-                invoiceDocType: "FCO",
-                paymentType: entry.paymentType,
-                amountEgreso: entry.amountEgreso,
-                amountIngreso: entry.amountIngreso,
-                amountPayment: entry.amountPayment,
-                appliedCreditNotes: entry.appliedCreditNotes,
-                manager: entry.manager,
-                notes: entry.notes,
-                createdAt: entry.createdAt,
-                currency: entry.currency === "USD" ? "USD" : "CRC",
-              };
-              await FacturasService.upsertMovement(
-                normalizedCompany,
-                facturaCopy,
-              );
+              if (shouldMirrorMovementToFacturas) {
+                const facturaCopy: FacturaMovement = {
+                  id: entry.id,
+                  empresa: normalizedCompany,
+                  accountId: accountKey,
+                  amount: Math.abs(
+                    (entry.amountIngreso || 0) - (entry.amountEgreso || 0),
+                  ),
+                  providerCode: entry.providerCode,
+                  invoiceNumber: entry.invoiceNumber,
+                  invoiceDocType: "FCO",
+                  paymentType: entry.paymentType,
+                  amountEgreso: entry.amountEgreso,
+                  amountIngreso: entry.amountIngreso,
+                  amountPayment: entry.amountPayment,
+                  appliedCreditNotes: entry.appliedCreditNotes,
+                  manager: entry.manager,
+                  notes: entry.notes,
+                  createdAt: entry.createdAt,
+                  currency: entry.currency === "USD" ? "USD" : "CRC",
+                };
+                await FacturasService.upsertMovement(
+                  normalizedCompany,
+                  facturaCopy,
+                );
+              }
             }
           } catch (err) {
             console.warn("[FG] Could not upsert Facturas copy:", err);
