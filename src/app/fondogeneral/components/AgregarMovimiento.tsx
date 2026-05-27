@@ -49,6 +49,7 @@ type AgregarMovimientoProps = {
   onInvoiceNumberChange: (value: string) => void;
   invoiceDocType: "FCO" | "FCR";
   onInvoiceDocTypeChange: (value: "FCO" | "FCR") => void;
+  lockInvoiceDocTypeToContado?: boolean;
   invoiceValid: boolean;
   invoiceDisabled: boolean;
   paymentType: FondoMovementType;
@@ -110,6 +111,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   onInvoiceNumberChange,
   invoiceDocType,
   onInvoiceDocTypeChange,
+  lockInvoiceDocTypeToContado = false,
   invoiceValid,
   invoiceDisabled,
   paymentType,
@@ -206,6 +208,11 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     const id = window.setTimeout(() => setFilter(""), 0);
     return () => clearTimeout(id);
   }, [selectedProvider, providers]);
+
+  useEffect(() => {
+    if (!lockInvoiceDocTypeToContado) return;
+    if (invoiceDocType !== "FCO") onInvoiceDocTypeChange("FCO");
+  }, [invoiceDocType, lockInvoiceDocTypeToContado, onInvoiceDocTypeChange]);
 
   const filteredProviders = providers
     .filter(
@@ -480,7 +487,10 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
           <div className="grid grid-cols-2 gap-2">
             {(["FCO", "FCR"] as const).map((option) => {
               const active = invoiceDocType === option;
-              const disabled = invoiceDisabled || Boolean(editingEntryId);
+              const disabled =
+                invoiceDisabled ||
+                Boolean(editingEntryId) ||
+                (lockInvoiceDocTypeToContado && option === "FCR");
               return (
                 <button
                   key={option}

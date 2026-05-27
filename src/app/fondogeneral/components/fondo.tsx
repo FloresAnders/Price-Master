@@ -8776,6 +8776,22 @@ export function FondoSection({
     return movementProviders.find((p) => p.code === selectedProvider) ?? null;
   }, [movementProviders, selectedProvider]);
 
+  const isInvoiceDocTypeLockedToContado = useMemo(() => {
+    // Solo aplica al crear; en edición se respeta el valor histórico.
+    if (editingEntryId) return false;
+    if (!selectedProvider) return false;
+    // Regla de negocio: solo proveedores tipo COMPRA INVENTARIO pueden usar crédito (FCR)
+    return !isInventoryPurchaseProviderType(selectedProviderData?.type);
+  }, [editingEntryId, selectedProvider, selectedProviderData]);
+
+  useEffect(() => {
+    // Solo al agregar (no al editar): si el proveedor no es COMPRA INVENTARIO,
+    // bloquear el tipo de factura a contado.
+    if (editingEntryId) return;
+    if (!isInvoiceDocTypeLockedToContado) return;
+    if (invoiceDocType !== "FCO") setInvoiceDocType("FCO");
+  }, [editingEntryId, invoiceDocType, isInvoiceDocTypeLockedToContado]);
+
   const isInvoiceAutoDateLocked = useMemo(() => {
     if (isCajaNegra) return true;
     if (!selectedProvider) return false;
@@ -11515,6 +11531,7 @@ export function FondoSection({
               onInvoiceNumberChange={handleInvoiceNumberChange}
               invoiceDocType={invoiceDocType}
               onInvoiceDocTypeChange={setInvoiceDocType}
+              lockInvoiceDocTypeToContado={isInvoiceDocTypeLockedToContado}
               invoiceValid={invoiceValid}
               invoiceDisabled={invoiceDisabled}
               paymentType={paymentType}
