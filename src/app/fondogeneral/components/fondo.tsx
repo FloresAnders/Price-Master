@@ -42,6 +42,7 @@ import {
   RotateCcw,
   Mail,
   XCircle,
+  Loader2,
 } from "lucide-react";
 import { useAuth } from "../../../hooks/useAuth";
 import { useProviders } from "../../../hooks/useProviders";
@@ -382,6 +383,87 @@ type PendingCreditNoteOption = {
   paidAmount: number;
   currency: "CRC" | "USD";
 };
+
+const movementSkeletonRows = Array.from({ length: 8 }, (_, index) => index);
+
+function FondoMovementsSkeleton({
+  compact = false,
+}: {
+  compact?: boolean;
+}) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/80 text-white shadow-sm">
+      {!compact && (
+        <div className="flex flex-col gap-3 border-b border-[var(--input-border)] bg-[var(--muted)]/10 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <div className="h-4 w-16 animate-pulse rounded bg-cyan-100/10" />
+            <div className="h-9 w-28 animate-pulse rounded bg-cyan-100/10" />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-9 w-36 animate-pulse rounded bg-cyan-100/10" />
+            <div className="h-9 w-24 animate-pulse rounded bg-cyan-100/10" />
+          </div>
+        </div>
+      )}
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[900px] border-separate border-spacing-0 text-xs sm:text-sm">
+          <thead className="bg-cyan-950/35 text-xs uppercase tracking-wide text-cyan-50/80">
+            <tr>
+              {["Hora", "Motivo", "Tipo", "N° factura", "Monto", "Encargado", ""].map(
+                (label) => (
+                  <th
+                    key={label || "acciones"}
+                    className="px-3 py-2 text-left font-semibold"
+                  >
+                    {label}
+                  </th>
+                ),
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="bg-cyan-500/5">
+              <td colSpan={7} className="px-3 py-2">
+                <div className="h-4 w-40 animate-pulse rounded bg-cyan-100/10" />
+              </td>
+            </tr>
+            {movementSkeletonRows.map((row) => (
+              <tr
+                key={row}
+                className="[&>td]:border-b [&>td]:border-cyan-900/35"
+              >
+                <td className="px-3 py-3">
+                  <div className="h-4 w-28 animate-pulse rounded bg-cyan-100/10" />
+                </td>
+                <td className="px-3 py-3">
+                  <div className="space-y-2">
+                    <div className="h-4 w-36 animate-pulse rounded bg-cyan-100/10" />
+                    <div className="h-3 w-48 animate-pulse rounded bg-cyan-100/5" />
+                  </div>
+                </td>
+                <td className="px-3 py-3">
+                  <div className="h-6 w-28 animate-pulse rounded bg-cyan-100/10" />
+                </td>
+                <td className="px-3 py-3">
+                  <div className="h-4 w-16 animate-pulse rounded bg-cyan-100/10" />
+                </td>
+                <td className="px-3 py-3">
+                  <div className="ml-auto h-6 w-24 animate-pulse rounded bg-cyan-100/10" />
+                </td>
+                <td className="px-3 py-3">
+                  <div className="h-4 w-32 animate-pulse rounded bg-cyan-100/10" />
+                </td>
+                <td className="px-3 py-3">
+                  <div className="ml-auto h-8 w-20 animate-pulse rounded bg-cyan-100/10" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 const normalizeInvoiceDocType = (value: unknown): "FCO" | "FCR" =>
   value === "FCR" ? "FCR" : "FCO";
@@ -12323,12 +12405,7 @@ export function FondoSection({
         <div className="min-w-0">
           {fondoEntries.length === 0 ? (
             isFondoMovementsLoading ? (
-              <div className="flex min-h-[180px] flex-col items-center justify-center rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--card-bg)]/60 py-6 text-[var(--muted-foreground)]">
-                <div className="h-7 w-7 animate-spin rounded-full border-2 border-[var(--accent)] border-t-transparent" />
-                <p className="mt-2 text-xs sm:text-sm">
-                  Cargando movimientos...
-                </p>
-              </div>
+              <FondoMovementsSkeleton />
             ) : (
               <div className="flex min-h-[180px] flex-col items-center justify-center rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--card-bg)]/60 px-4 py-6 text-center">
                 <div className="mb-3 flex h-10 w-10 items-center justify-center rounded border border-[var(--input-border)] bg-[var(--muted)]/20 text-[var(--muted-foreground)]">
@@ -12344,7 +12421,25 @@ export function FondoSection({
               </div>
             )
           ) : (
-            <div className="overflow-hidden rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/80 text-white shadow-sm">
+            <div className="relative overflow-hidden rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/80 text-white shadow-sm">
+              {isFondoMovementsLoading && (
+                <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#020617]/35 backdrop-blur-sm">
+                  <div className="flex min-w-[210px] flex-col items-center rounded-lg border border-cyan-400/25 bg-[#0d1117]/85 px-5 py-4 text-center shadow-2xl shadow-black/40">
+                    <div className="relative flex h-12 w-12 items-center justify-center">
+                      <div className="absolute inset-0 animate-ping rounded-full bg-cyan-400/20" />
+                      <div className="relative flex h-12 w-12 items-center justify-center rounded-full border border-cyan-400/30 bg-cyan-500/10">
+                        <Loader2 className="h-6 w-6 animate-spin text-cyan-200" />
+                      </div>
+                    </div>
+                    <p className="mt-3 text-sm font-semibold text-cyan-50">
+                      Actualizando movimientos
+                    </p>
+                    <p className="mt-1 text-xs text-cyan-100/60">
+                      Aplicando filtros y fechas
+                    </p>
+                  </div>
+                </div>
+              )}
               <div className="flex flex-col items-start justify-between gap-3 border-b border-[var(--input-border)] bg-[var(--muted)]/10 px-3 py-3 text-xs text-[var(--muted-foreground)] sm:flex-row sm:items-center">
                 <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
                   <span className="text-xs font-semibold uppercase tracking-wide">
@@ -12372,12 +12467,6 @@ export function FondoSection({
                     <option value="15">15</option>
                     <option value="all">Todos</option>
                   </select>
-                  {isFondoMovementsLoading && (
-                    <span className="ml-2 inline-flex items-center gap-2 text-[10px] sm:text-xs text-[var(--muted-foreground)]">
-                      <span className="h-3.5 w-3.5 rounded-full border-2 border-[var(--muted-foreground)] border-t-transparent animate-spin" />
-                      Cargando...
-                    </span>
-                  )}
                 </div>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
                   <div className="flex flex-col items-start gap-2 text-[var(--muted-foreground)] sm:flex-row sm:items-center sm:gap-3">
