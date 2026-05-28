@@ -33,7 +33,7 @@ export default function Footer() {
   }, [isGitHubModalOpen]);
 
   return (
-    <footer className="w-full mt-auto px-4 pb-6 sm:pb-8">
+    <footer className="w-full mt-auto px-4 pb-6 sm:pb-8 lg:pl-[var(--admin-sidebar-width)] transition-[padding] duration-300">
       <div className="mx-auto w-full max-w-7xl">
         <div className="relative overflow-hidden rounded-3xl border border-black/10 bg-white/80 text-[var(--foreground)] shadow-[0_20px_60px_rgba(0,0,0,0.2)] backdrop-blur-md dark:border-white/10 dark:bg-[#0b0f17]/80 dark:shadow-[0_25px_70px_rgba(0,0,0,0.6)]">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_85%_120%,rgba(124,58,237,0.35)_0%,transparent_60%)] opacity-70" />
