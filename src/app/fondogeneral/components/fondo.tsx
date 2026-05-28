@@ -11487,6 +11487,7 @@ export function FondoSection({
                   className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--input-border)] bg-transparent px-3 text-xs font-semibold tracking-wide text-[var(--foreground)] transition-all duration-150 hover:border-[var(--accent)] hover:bg-[var(--muted)]/20 active:scale-[0.98] sm:w-auto"
                   aria-haspopup="menu"
                   aria-expanded={filtersDropdownOpen}
+                  title="Mostrar facturas en especifico estado o editados"
                 >
                   <EyeIcon className="h-3.5 w-3.5" />
                   <span>Vista</span>
