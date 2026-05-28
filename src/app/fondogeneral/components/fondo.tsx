@@ -4900,7 +4900,7 @@ export function FondoSection({
     hora: "120px",
     motivo: "260px",
     tipo: "160px",
-    factura: "90px",
+    factura: "70px",
     monto: "140px",
     encargado: "120px",
     editar: "120px",
@@ -11153,7 +11153,11 @@ export function FondoSection({
   return (
     <div
       id={id}
-      className="mt-3 sm:mt-4 lg:mt-6 w-full max-w-7xl space-y-3 sm:space-y-4 lg:space-y-6 mx-auto px-0"
+      className="mt-3 sm:mt-4 lg:mt-6
+      mx-auto
+      flex h-full min-h-0 w-full flex-1 flex-col
+      space-y-3 sm:space-y-4 lg:space-y-6
+      px-0"
     >
       {companySelectorPlacement === "content" && companySelectorContent && (
         <div className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/70 p-3 sm:p-4">
@@ -11388,35 +11392,87 @@ export function FondoSection({
             </span>
           </div>
 
-          <div className="flex h-11 min-w-0 flex-col justify-center gap-2 rounded border border-cyan-700/35 bg-cyan-950/25 px-3 py-0 text-sm text-[var(--foreground)] sm:flex-row sm:items-center sm:justify-end">
-            <button
-              type="button"
-              onClick={() => {
-                setFilterProviderCode("all");
-                setFilterPaymentType("all");
-                setFilterEditedOnly(false);
-                setSearchQuery("");
-                setFromFilter(null);
-                setToFilter(null);
-                setQuickRange(null);
+          <div className="flex h-11 w-full items-center justify-center rounded-xl border border-cyan-700/35 bg-cyan-950/20 px-3 text-sm text-[var(--foreground)]">
+            <div className="flex w-full flex-col items-center justify-center gap-2 sm:flex-row sm:justify-center">
+              {/* Dropdown Vista */}
+              <div
+                className="relative w-full sm:w-auto"
+                ref={filtersDropdownRef}
+              >
+                <button
+                  type="button"
+                  onClick={() => setFiltersDropdownOpen((prev) => !prev)}
+                  className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--input-border)] bg-transparent px-3 text-xs font-semibold tracking-wide text-[var(--foreground)] transition-all duration-150 hover:border-[var(--accent)] hover:bg-[var(--muted)]/20 active:scale-[0.98] sm:w-auto"
+                  aria-haspopup="menu"
+                  aria-expanded={filtersDropdownOpen}
+                >
+                  <EyeIcon className="h-3.5 w-3.5" />
+                  <span>Vista</span>
+                </button>
+                {filtersDropdownOpen && (
+                  <div className="absolute left-1/2 top-full z-[9999] mt-2 w-[260px] -translate-x-1/2 rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] shadow-2xl">
+                    <div className="flex flex-col py-1">
+                      <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
+                        <input
+                          type="checkbox"
+                          checked={showPendingClosingCreditInvoices}
+                          onChange={(event) =>
+                            setShowPendingClosingCreditInvoices(
+                              event.target.checked,
+                            )
+                          }
+                          className="h-4 w-4 accent-amber-400"
+                        />
+                        <FileText className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
+                        <span className="leading-tight">
+                          Facturas de crédito pendientes
+                        </span>
+                      </label>
+                      <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
+                        <input
+                          type="checkbox"
+                          checked={filterEditedOnly}
+                          onChange={(e) =>
+                            setFilterEditedOnly(e.target.checked)
+                          }
+                          className="h-4 w-4 rounded border-[var(--input-border)] accent-[var(--accent)]"
+                        />
+                        <Pencil className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
+                        <span>Editados</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+              </div>
 
-                setCalendarFromOpen(false);
-                setCalendarToOpen(false);
-                const m = new Date();
-                m.setDate(1);
-                m.setHours(0, 0, 0, 0);
-                setCalendarFromMonth(new Date(m));
-                setCalendarToMonth(new Date(m));
-
-                setPageSize("daily");
-                setPageIndex(0);
-              }}
-              className="inline-flex h-8 items-center justify-center gap-1.5 rounded border border-[var(--input-border)] px-3 text-xs font-semibold uppercase tracking-wide text-[var(--foreground)] transition-all duration-150 hover:border-[var(--accent)] hover:bg-[var(--muted)] active:scale-[0.98]"
-              title="Limpiar filtros"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              <span>Limpiar</span>
-            </button>
+              {/* Botón limpiar */}
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterProviderCode("all");
+                  setFilterPaymentType("all");
+                  setFilterEditedOnly(false);
+                  setSearchQuery("");
+                  setFromFilter(null);
+                  setToFilter(null);
+                  setQuickRange(null);
+                  setCalendarFromOpen(false);
+                  setCalendarToOpen(false);
+                  const m = new Date();
+                  m.setDate(1);
+                  m.setHours(0, 0, 0, 0);
+                  setCalendarFromMonth(new Date(m));
+                  setCalendarToMonth(new Date(m));
+                  setPageSize("daily");
+                  setPageIndex(0);
+                }}
+                className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--input-border)] bg-transparent px-3 text-xs font-semibold tracking-wide text-[var(--foreground)] transition-all duration-150 hover:border-[var(--accent)] hover:bg-[var(--muted)]/20 active:scale-[0.98] sm:w-auto"
+                title="Limpiar filtros"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                <span>Limpiar</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -11823,54 +11879,6 @@ export function FondoSection({
             {accountKey === "FondoGeneral" && (
               <div className="relative group min-w-0 flex flex-col gap-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="relative min-w-0" ref={filtersDropdownRef}>
-                    <button
-                      type="button"
-                      onClick={() => setFiltersDropdownOpen((prev) => !prev)}
-                      className="inline-flex h-11 w-full items-center justify-center gap-2 rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 sm:w-auto"
-                      aria-haspopup="menu"
-                      aria-expanded={filtersDropdownOpen}
-                    >
-                      <EyeIcon className="h-4 w-4" />
-                      <span>Vista</span>
-                    </button>
-
-                    {filtersDropdownOpen && (
-                      <div className="absolute left-0 right-0 top-full mt-2 w-full min-w-[240px] rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] shadow-lg z-[9999] md:left-auto md:right-0 md:w-72">
-                        <div className="flex flex-col">
-                          <label className="flex cursor-pointer items-center gap-3 px-3 py-3 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20 md:py-2">
-                            <input
-                              type="checkbox"
-                              checked={showPendingClosingCreditInvoices}
-                              onChange={(event) =>
-                                setShowPendingClosingCreditInvoices(
-                                  event.target.checked,
-                                )
-                              }
-                              className="h-4 w-4 accent-amber-400"
-                            />
-                            <FileText className="h-4 w-4 text-[var(--muted-foreground)]" />
-                            <span className="whitespace-nowrap">
-                              Facturas de credito pendientes
-                            </span>
-                          </label>
-                          <label className="flex cursor-pointer items-center gap-3 px-3 py-3 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20 md:py-2">
-                            <input
-                              type="checkbox"
-                              checked={filterEditedOnly}
-                              onChange={(e) =>
-                                setFilterEditedOnly(e.target.checked)
-                              }
-                              className="h-4 w-4 rounded border-[var(--input-border)] accent-[var(--accent)]"
-                            />
-                            <Pencil className="h-4 w-4 text-[var(--muted-foreground)]" />
-                            <span className="whitespace-nowrap">Editados</span>
-                          </label>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
                   <button
                     type="button"
                     onClick={handleOpenDailyClosing}
@@ -13325,7 +13333,7 @@ export function FondoSection({
                                             <ArrowDownRight className="w-4 h-4 text-green-500" />
                                           )}
                                           <span
-                                            className={`pl-4 rounded px-2 py-1 font-semibold font-mono tabular-nums whitespace-nowrap text-[var(--foreground)] ${
+                                            className={`pl-4 rounded px-2 py-1 font-semibold whitespace-nowrap text-[var(--foreground)] ${
                                               isEntryEgreso
                                                 ? "bg-red-500/10 text-red-400"
                                                 : "bg-emerald-500/10 text-emerald-400"
@@ -13348,7 +13356,7 @@ export function FondoSection({
                                               <Clock className="h-3 w-3 shrink-0" />
                                               Saldo anterior
                                             </span>
-                                            <span className="w-full pl-4 text-center text-sm font-semibold font-mono tabular-nums text-[var(--foreground)] whitespace-nowrap">
+                                            <span className="w-full pl-4 text-center text-sm font-semibold text-[var(--foreground)] whitespace-nowrap">
                                               {formatByCurrency(
                                                 entryCurrency,
                                                 previousBalance,
@@ -13358,24 +13366,25 @@ export function FondoSection({
                                           {isEntryEgreso &&
                                             appliedCreditNotesTotal > 0 && (
                                               <>
-                                                <div className="flex w-full flex-col items-center gap-0 rounded bg-sky-500/10 px-2 py-1">
+                                                <div className="flex w-full items-center gap-0 rounded bg-sky-500/10 px-2 py-1">
                                                   <span className="flex items-center justify-center gap-1 text-xs text-sky-200">
                                                     <FileText className="h-3 w-3 shrink-0" />
                                                     Factura
                                                   </span>
-                                                  <span className="w-full pl-4 text-center text-sm font-semibold font-mono tabular-nums text-sky-100 whitespace-nowrap">
+                                                  <span className="w-full pl-4 text-center text-sm font-semibold text-sky-100 whitespace-nowrap">
                                                     {formatByCurrency(
                                                       entryCurrency,
                                                       invoiceEgresoAmount,
                                                     )}
                                                   </span>
                                                 </div>
-                                                <div className="flex w-full flex-col items-center gap-0 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-1">
-                                                  <span className="flex items-center justify-center gap-1 text-xs text-emerald-300">
+                                                <div className="flex w-full gap-0 rounded border border-yellow-500/20 bg-yellow-500/20 px-2 py-1">
+                                                  {/*ALCHACAS*/}
+                                                  <span className="flex items-center justify-center gap-1 text-xs text-yellow-300">
                                                     <Tag className="h-3 w-3 shrink-0" />
                                                     NC
                                                   </span>
-                                                  <span className="w-full pl-4 text-center text-sm font-semibold font-mono tabular-nums text-emerald-300 whitespace-nowrap">
+                                                  <span className="w-full pl-4 text-center text-sm font-semibold text-yellow-300 whitespace-nowrap">
                                                     -
                                                     {formatByCurrency(
                                                       entryCurrency,

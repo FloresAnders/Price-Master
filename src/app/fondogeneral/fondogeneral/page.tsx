@@ -375,15 +375,17 @@ export default function FondoPage() {
           </div>
         </div>
         {/* Contenido principal */}
-        <div>
+        <div className="flex h-full w-full flex-col rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-3 shadow-sm sm:p-4 md:p-5">
           {activeTab ? (
-            <FondoSection
-              namespace={activeTab.namespace}
-              companySelectorPlacement="external"
-              onCompanySelectorChange={handleCompanySelectorChange}
-            />
+            <div className="w-ful flex min-h-0 flex-1">
+              <FondoSection
+                namespace={activeTab.namespace}
+                companySelectorPlacement="external"
+                onCompanySelectorChange={handleCompanySelectorChange}
+              />
+            </div>
           ) : (
-            <div className="flex min-h-[180px] items-center justify-center rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--muted)]/10 p-4 text-center sm:p-6">
+            <div className="flex min-h-[180px] flex-1 items-center justify-center rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--muted)]/10 p-4 text-center sm:p-6">
               <p className="max-w-sm text-xs text-[var(--muted-foreground)] sm:text-sm">
                 No hay cuentas disponibles para mostrar con tus permisos
                 actuales.
