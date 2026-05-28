@@ -83,11 +83,11 @@ export default function Footer() {
                 </svg>
               </button>
               <a
-                href="https://plus.google.com"
+                href="https://www.google.com"
                 target="_blank"
                 rel="noopener noreferrer"
                 className={socialButtonClass}
-                aria-label="Visitar nuestra página de Google"
+                aria-label="Visitar Google"
               >
                 <svg
                   className="h-5 w-5 fill-current"
@@ -209,7 +209,7 @@ export default function Footer() {
                 href="https://github.com/FloresAnders/Price-Master"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center space-x-3 rounded-xl border-2 border-[var(--input-border)] bg-[var(--card-bg)] p-3 shadow-sm cursor-pointer "
+                className="flex items-center justify-center space-x-3 rounded-xl border-2 border-[var(--input-border)] bg-[var(--card-bg)] p-3 shadow-sm cursor-pointer"
                 onClick={() => setIsGitHubModalOpen(false)}
               >
                 <svg
