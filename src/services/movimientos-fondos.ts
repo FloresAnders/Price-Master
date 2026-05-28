@@ -216,7 +216,7 @@ export class MovimientosFondosService {
     const invoice = input.invoice;
     const paymentAmount = Math.max(0, Math.trunc(Number(input.paymentAmount) || 0));
     const updateAt = String(input.updateAt || new Date().toISOString());
-    const createdAt = String(invoice.createdAt || updateAt);
+    const invoiceCreatedAt = String(invoice.createdAt || "");
     const paymentKey = updateAt.replace(/[:.]/g, "-");
     const originalAmount = Math.max(
       0,
@@ -244,7 +244,8 @@ export class MovimientosFondosService {
         ? { manager2: String(input.manager2 || "").trim() }
         : {}),
       notes: invoice.notes,
-      createdAt,
+      createdAt: updateAt,
+      ...(invoiceCreatedAt ? { invoiceCreatedAt } : {}),
       updateAt,
       currency: invoice.currency,
     };

@@ -356,6 +356,7 @@ export type FondoEntry = {
   notes: string;
   createdAt: string;
   updateAt?: string;
+  invoiceCreatedAt?: string;
   // OLAP optimization: company name embedded in movement doc
   empresa?: string;
   accountId?: MovementAccountKey;
@@ -410,6 +411,14 @@ const getPrimaryMovementDateISO = (entry: Partial<FondoEntry>): string => {
     if (fromUpdate) return fromUpdate;
   }
   return String(entry.createdAt || "").trim();
+};
+
+const getPrimaryMovementTime = (entry: Partial<FondoEntry>): number => {
+  const timestamp = Date.parse(getPrimaryMovementDateISO(entry));
+  if (!Number.isNaN(timestamp)) return timestamp;
+
+  const createdTimestamp = Date.parse(String(entry.createdAt || ""));
+  return Number.isNaN(createdTimestamp) ? 0 : createdTimestamp;
 };
 
 const getPrimaryMovementManager = (entry: Partial<FondoEntry>): string => {
@@ -846,6 +855,7 @@ export const sanitizeFondoEntries = (
     }
     const manager = coerceIdentifier(entry.manager);
     const createdAt = resolveCreatedAt(entry.createdAt);
+    const invoiceCreatedAt = resolveCreatedAt((entry as any).invoiceCreatedAt);
     const manager2 = coerceIdentifier((entry as any).manager2);
     const updateAt = resolveCreatedAt((entry as any).updateAt);
 
@@ -956,6 +966,7 @@ export const sanitizeFondoEntries = (
       notes,
       createdAt,
       updateAt,
+      invoiceCreatedAt,
       closingBalanceCRC,
       closingBalanceUSD,
       isAudit: !!entry.isAudit,
@@ -5324,11 +5335,6 @@ export function FondoSection({
               resolvedOwnerId,
             )
           : null;
-        const parseTime = (value: string) => {
-          const timestamp = Date.parse(value);
-          return Number.isNaN(timestamp) ? 0 : timestamp;
-        };
-
         type StorageEntriesResult = {
           entries: FondoEntry[];
           storage: MovementStorage<FondoEntry>;
@@ -5360,7 +5366,9 @@ export function FondoSection({
               scopedEntries,
               undefined,
               targetAccountKey,
-            ).sort((a, b) => parseTime(b.createdAt) - parseTime(a.createdAt));
+            ).sort(
+              (a, b) => getPrimaryMovementTime(b) - getPrimaryMovementTime(a),
+            );
             return { entries, storage };
           } catch (err) {
             console.error("Error parsing stored fondo entries:", err);
@@ -5661,8 +5669,7 @@ export function FondoSection({
       undefined,
       accountKey,
     ).sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      (a, b) => getPrimaryMovementTime(b) - getPrimaryMovementTime(a),
     );
     setFondoEntries(entries);
 
@@ -5710,8 +5717,7 @@ export function FondoSection({
     }
 
     const sortedEntries = [...fondoEntries].sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      (a, b) => getPrimaryMovementTime(b) - getPrimaryMovementTime(a),
     );
     // Determine if there is a pending "CIERRE FONDO VENTAS" that has not
     // been superseded by an auto-adjustment (CIERRE DE FONDO GENERAL) or by a
@@ -8611,8 +8617,7 @@ export function FondoSection({
     const orderedDesc = [...fondoEntries]
       .filter((e) => ((e.currency as any) || "CRC") === "CRC")
       .sort((a, b) => {
-        const diff =
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        const diff = getPrimaryMovementTime(b) - getPrimaryMovementTime(a);
         if (diff !== 0) return diff;
         return String(b.id).localeCompare(String(a.id));
       });
@@ -8630,8 +8635,7 @@ export function FondoSection({
     const orderedDesc = [...fondoEntries]
       .filter((e) => ((e.currency as any) || "CRC") === "USD")
       .sort((a, b) => {
-        const diff =
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        const diff = getPrimaryMovementTime(b) - getPrimaryMovementTime(a);
         if (diff !== 0) return diff;
         return String(b.id).localeCompare(String(a.id));
       });
@@ -10606,7 +10610,12 @@ export function FondoSection({
   };
 
   const displayedEntries = useMemo(
-    () => (sortAsc ? [...fondoEntries].slice().reverse() : fondoEntries),
+    () => {
+      const sorted = [...fondoEntries].sort(
+        (a, b) => getPrimaryMovementTime(b) - getPrimaryMovementTime(a),
+      );
+      return sortAsc ? sorted.reverse() : sorted;
+    },
     [fondoEntries, sortAsc],
   );
 
@@ -12721,6 +12730,7 @@ export function FondoSection({
                               ? balanceAfter + normalizedEgreso
                               : balanceAfter - normalizedIngreso;
                             const isPaidFcrEntry = isPaidFcrMovement(fe);
+                            const isLockedMovement = isMovementLocked(fe);
                             const primaryManager =
                               getPrimaryMovementManager(fe);
                             const primaryDateIso =
@@ -12731,7 +12741,9 @@ export function FondoSection({
                             )
                               ? "Sin fecha"
                               : dateTimeFormatter.format(recordedAt);
-                            const originalRegisteredAt = new Date(fe.createdAt);
+                            const originalRegisteredAt = new Date(
+                              fe.invoiceCreatedAt || fe.createdAt,
+                            );
                             const formattedOriginalRegisteredAt = Number.isNaN(
                               originalRegisteredAt.getTime(),
                             )
@@ -13217,7 +13229,7 @@ export function FondoSection({
                                     {primaryManager}
                                   </td>
                                   <td className="px-3 py-2 align-top">
-                                    {!isMovementLocked(fe) && (
+                                    {(!isLockedMovement || isPaidFcrEntry) && (
                                       <div className="flex items-center gap-2">
                                         {(() => {
                                           const isCierreVentasRow =
@@ -13230,6 +13242,7 @@ export function FondoSection({
                                             fe.id ===
                                               latestCierreFondoVentasMovementId;
                                           const canDelete =
+                                            !isLockedMovement &&
                                             !isAutoAdjustment &&
                                             (isPrincipalAdmin ||
                                               (isSuperAdminUser &&
@@ -13237,6 +13250,7 @@ export function FondoSection({
                                             (!isCierreVentasRow ||
                                               isLatestCierreVentas);
                                           const canEdit =
+                                            !isLockedMovement &&
                                             !isAutoAdjustment &&
                                             (!isSuperAdminUser ||
                                               !isCierreVentasRow);
