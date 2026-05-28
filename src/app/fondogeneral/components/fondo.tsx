@@ -25,6 +25,7 @@ import {
   FileText,
   UserCircle,
   ArrowUpDown,
+  EyeIcon,
   ArrowUpRight,
   ArrowDownRight,
   Lock,
@@ -254,7 +255,9 @@ export const isEgresoType = (type: FondoMovementType) =>
   includesMovementType(FONDO_EGRESO_TYPES, type);
 
 // Formatea en Titulo Caso cada palabra
-export const formatMovementType = (type: FondoMovementType | string | null | undefined) => {
+export const formatMovementType = (
+  type: FondoMovementType | string | null | undefined,
+) => {
   if (typeof type !== "string") return "";
   if (type === "INFORMATIVO") return "";
 
@@ -3760,10 +3763,11 @@ export function FondoSection({
     useState<string>("today");
   const [pendingClosingCreditInvoices, setPendingClosingCreditInvoices] =
     useState<FacturaMovement[]>([]);
-  const [showPendingClosingCreditInvoices, setShowPendingClosingCreditInvoices] =
-    useState(false);
-  const [closingPaymentModalOpen, setClosingPaymentModalOpen] =
-    useState(false);
+  const [
+    showPendingClosingCreditInvoices,
+    setShowPendingClosingCreditInvoices,
+  ] = useState(false);
+  const [closingPaymentModalOpen, setClosingPaymentModalOpen] = useState(false);
   const [closingPaymentTarget, setClosingPaymentTarget] =
     useState<FacturaMovement | null>(null);
   const [closingPaymentAmount, setClosingPaymentAmount] = useState("");
@@ -4864,6 +4868,7 @@ export function FondoSection({
     }
     return false;
   });
+  const [filtersDropdownOpen, setFiltersDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("fondogeneral-searchQuery");
@@ -4892,12 +4897,12 @@ export function FondoSection({
 
   // Column widths for resizable columns (simple px based)
   const [columnWidths, setColumnWidths] = useState<Record<string, string>>({
-    hora: "140px",
+    hora: "120px",
     motivo: "260px",
     tipo: "160px",
     factura: "90px",
-    monto: "180px",
-    encargado: "140px",
+    monto: "140px",
+    encargado: "120px",
     editar: "120px",
   });
   const resizingRef = React.useRef<{
@@ -4905,6 +4910,7 @@ export function FondoSection({
     startX: number;
     startWidth: number;
   } | null>(null);
+  const filtersDropdownRef = React.useRef<HTMLDivElement | null>(null);
   // refs to detect outside clicks for the from/to calendar popovers
   const fromCalendarRef = React.useRef<HTMLDivElement | null>(null);
   const toCalendarRef = React.useRef<HTMLDivElement | null>(null);
@@ -5173,6 +5179,24 @@ export function FondoSection({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [calendarFromOpen, calendarToOpen]);
+
+  useEffect(() => {
+    if (!filtersDropdownOpen) return;
+
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+      if (
+        filtersDropdownRef.current &&
+        filtersDropdownRef.current.contains(target)
+      )
+        return;
+      setFiltersDropdownOpen(false);
+    };
+
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [filtersDropdownOpen]);
 
   const isIngreso = isIngresoType(paymentType);
   const isEgreso = isEgresoType(paymentType) || isGastoType(paymentType);
@@ -5668,9 +5692,7 @@ export function FondoSection({
       scopedEntries,
       undefined,
       accountKey,
-    ).sort(
-      (a, b) => getPrimaryMovementTime(b) - getPrimaryMovementTime(a),
-    );
+    ).sort((a, b) => getPrimaryMovementTime(b) - getPrimaryMovementTime(a));
     setFondoEntries(entries);
 
     const state = storageSnapshotRef.current?.state;
@@ -5751,7 +5773,8 @@ export function FondoSection({
       if (Array.isArray(dailyClosings) && dailyClosings.length > 0) {
         for (const record of dailyClosings) {
           const ts = Date.parse(record.closingDate || record.createdAt || "");
-          if (Number.isFinite(ts) && ts > latestDailyClosingTs) latestDailyClosingTs = ts;
+          if (Number.isFinite(ts) && ts > latestDailyClosingTs)
+            latestDailyClosingTs = ts;
         }
       }
       hasPendingCierreDeCaja = cierreEntryTs > latestDailyClosingTs;
@@ -5763,9 +5786,24 @@ export function FondoSection({
     console.log(
       "[CIERRE-DEBUG] Estado pendingCierreDeCaja después de cargar:",
       hasPendingCierreDeCaja,
-      { cierreEntryTs, latestDailyClosingTs: (Array.isArray(dailyClosings) ? Math.max(...dailyClosings.map(r=>Date.parse(r.closingDate||r.createdAt||"")||0)) : 0) },
+      {
+        cierreEntryTs,
+        latestDailyClosingTs: Array.isArray(dailyClosings)
+          ? Math.max(
+              ...dailyClosings.map(
+                (r) => Date.parse(r.closingDate || r.createdAt || "") || 0,
+              ),
+            )
+          : 0,
+      },
     );
-  }, [entriesHydrated, providers, fondoEntries, dailyClosings, dailyClosingsHydrated]);
+  }, [
+    entriesHydrated,
+    providers,
+    fondoEntries,
+    dailyClosings,
+    dailyClosingsHydrated,
+  ]);
 
   useEffect(() => {
     if (!selectedProvider) return;
@@ -7003,10 +7041,7 @@ export function FondoSection({
     if (isIngreso && (Number.isNaN(ingresoValue) || ingresoValue <= 0)) return;
 
     const effectiveInvoiceDocType = normalizeInvoiceDocType(invoiceDocType);
-    if (
-      effectiveInvoiceDocType === "FCR" &&
-      !shouldMirrorMovementToFacturas
-    ) {
+    if (effectiveInvoiceDocType === "FCR" && !shouldMirrorMovementToFacturas) {
       setInvoiceError(
         'Solo los proveedores de tipo "COMPRA INVENTARIO" pueden generar facturas.',
       );
@@ -7464,7 +7499,10 @@ export function FondoSection({
                 createdAt: facturaEntry.createdAt,
                 currency: facturaEntry.currency === "USD" ? "USD" : "CRC",
               };
-              void FacturasService.upsertMovement(normalizedCompany, facturaCopy);
+              void FacturasService.upsertMovement(
+                normalizedCompany,
+                facturaCopy,
+              );
             }
           }
         }
@@ -7688,7 +7726,10 @@ export function FondoSection({
               currency: entry.currency === "USD" ? "USD" : "CRC",
             };
 
-            await FacturasService.upsertMovement(normalizedCompany, facturaCopy);
+            await FacturasService.upsertMovement(
+              normalizedCompany,
+              facturaCopy,
+            );
           }
 
           try {
@@ -8101,13 +8142,13 @@ export function FondoSection({
       empresa: company,
       invoiceDocType: invoiceDocType === "FCR" ? "FCR" : "FCO",
     });
-    setManualCreditNoteInvoiceNumber(manualCreditNoteDraft?.invoiceNumber ?? "");
+    setManualCreditNoteInvoiceNumber(
+      manualCreditNoteDraft?.invoiceNumber ?? "",
+    );
     setManualCreditNoteAmount(
       manualCreditNoteDraft ? String(manualCreditNoteDraft.amount) : "",
     );
-    setManualCreditNoteObservation(
-      manualCreditNoteDraft?.observation ?? "",
-    );
+    setManualCreditNoteObservation(manualCreditNoteDraft?.observation ?? "");
     setManualCreditNoteError("");
     setManualCreditNoteOpen(true);
   };
@@ -8179,7 +8220,9 @@ export function FondoSection({
       });
       // Marcar la NC manual como seleccionada para que aparezca inmediatamente
       setSelectedAppliedCreditNoteIds((prev) =>
-        prev && prev.includes("manual-nc-draft") ? prev : [...(prev || []), "manual-nc-draft"],
+        prev && prev.includes("manual-nc-draft")
+          ? prev
+          : [...(prev || []), "manual-nc-draft"],
       );
       showToast("Nota de crédito manual lista para guardar", "success", 3000);
       closeManualCreditNoteModal();
@@ -9223,7 +9266,7 @@ export function FondoSection({
       setClosingPaymentManager2(String(invoice.manager2 || ""));
       setClosingPaymentModalOpen(true);
     },
-      [pendingCierreDeCaja],
+    [pendingCierreDeCaja],
   );
 
   const closeClosingInvoicePaymentModal = useCallback(() => {
@@ -9245,7 +9288,11 @@ export function FondoSection({
 
       const totalAmount = Math.max(
         0,
-        Math.trunc(Number(closingPaymentTarget.originalAmount ?? closingPaymentTarget.amount) || 0),
+        Math.trunc(
+          Number(
+            closingPaymentTarget.originalAmount ?? closingPaymentTarget.amount,
+          ) || 0,
+        ),
       );
       const paidAmount = Math.max(
         0,
@@ -9255,7 +9302,11 @@ export function FondoSection({
         0,
         Math.min(
           totalAmount,
-          Math.trunc(Number(closingPaymentTarget.balanceDue ?? totalAmount - paidAmount) || 0),
+          Math.trunc(
+            Number(
+              closingPaymentTarget.balanceDue ?? totalAmount - paidAmount,
+            ) || 0,
+          ),
         ),
       );
       const enteredAmount = Math.max(
@@ -9273,7 +9324,10 @@ export function FondoSection({
       }
 
       const nowISO = new Date().toISOString();
-      const nextPaidAmount = Math.min(totalAmount, paidAmount + paymentAmountToApply);
+      const nextPaidAmount = Math.min(
+        totalAmount,
+        paidAmount + paymentAmountToApply,
+      );
       const nextBalanceDue = Math.max(0, totalAmount - nextPaidAmount);
       const nextStatus =
         nextBalanceDue === 0
@@ -9299,20 +9353,20 @@ export function FondoSection({
         ...(paymentManager2Value ? { manager2: paymentManager2Value } : {}),
       };
 
-      const paymentMovement = MovimientosFondosService.buildInvoicePaymentMovement({
-        company,
-        invoice: updatedMovement,
-        paymentAmount: paymentAmountToApply,
-        updateAt: nowISO,
-        manager2: paymentManager2Value || undefined,
-      });
+      const paymentMovement =
+        MovimientosFondosService.buildInvoicePaymentMovement({
+          company,
+          invoice: updatedMovement,
+          paymentAmount: paymentAmountToApply,
+          updateAt: nowISO,
+          manager2: paymentManager2Value || undefined,
+        });
       const paymentMovementId = String((paymentMovement as any).id || "");
 
       setClosingPaymentSubmitting(true);
       try {
-        const docId = MovimientosFondosService.buildCompanyMovementsKey(
-          company,
-        );
+        const docId =
+          MovimientosFondosService.buildCompanyMovementsKey(company);
 
         // Load ledger
         let baseStorage = null;
@@ -9322,18 +9376,25 @@ export function FondoSection({
           baseStorage = null;
         }
         const ledger =
-          baseStorage ?? MovimientosFondosService.createEmptyMovementStorage(company);
+          baseStorage ??
+          MovimientosFondosService.createEmptyMovementStorage(company);
         ledger.company = company;
         ledger.operations = { movements: [] };
 
-        const state = ledger.state ?? MovimientosFondosService.createEmptyMovementStorage(company).state;
+        const state =
+          ledger.state ??
+          MovimientosFondosService.createEmptyMovementStorage(company).state;
         const acctKey = "FondoGeneral" as const;
-        const currency = (paymentMovement as any).currency as MovementCurrencyKey;
+        const currency = (paymentMovement as any)
+          .currency as MovementCurrencyKey;
         const amountToApply = Math.trunc(paymentAmountToApply || 0);
         let found = false;
         state.balancesByAccount = state.balancesByAccount.map((b) => {
           if (b.accountId === acctKey && b.currency === currency) {
-            const current = typeof b.currentBalance === "number" ? b.currentBalance : b.initialBalance || 0;
+            const current =
+              typeof b.currentBalance === "number"
+                ? b.currentBalance
+                : b.initialBalance || 0;
             const next = current - amountToApply;
             found = true;
             return { ...b, currentBalance: next };
@@ -9376,7 +9437,11 @@ export function FondoSection({
           }),
         );
 
-        const mainRef = doc(db, MovimientosFondosService.COLLECTION_NAME, docId);
+        const mainRef = doc(
+          db,
+          MovimientosFondosService.COLLECTION_NAME,
+          docId,
+        );
         batch.set(mainRef, stripUndefinedDeep(ledger) as any);
         const movRef = MovimientosFondosService.buildMovementRef(
           docId,
@@ -9397,7 +9462,10 @@ export function FondoSection({
             v2MovementsCacheRef.current[cacheKey] = {
               ...cached,
               movements: [
-                { ...(paymentMovement as unknown as FondoEntry), id: paymentMovementId },
+                {
+                  ...(paymentMovement as unknown as FondoEntry),
+                  id: paymentMovementId,
+                },
                 ...cached.movements,
               ],
             };
@@ -9406,7 +9474,10 @@ export function FondoSection({
             applyLedgerStateFromStorage(ledger.state);
           }
         } catch (refreshErr) {
-          console.error("[FONDO] Error refreshing UI after payment:", refreshErr);
+          console.error(
+            "[FONDO] Error refreshing UI after payment:",
+            refreshErr,
+          );
         }
         closeClosingInvoicePaymentModal();
       } catch (error) {
@@ -10631,15 +10702,12 @@ export function FondoSection({
     }
   };
 
-  const displayedEntries = useMemo(
-    () => {
-      const sorted = [...fondoEntries].sort(
-        (a, b) => getPrimaryMovementTime(b) - getPrimaryMovementTime(a),
-      );
-      return sortAsc ? sorted.reverse() : sorted;
-    },
-    [fondoEntries, sortAsc],
-  );
+  const displayedEntries = useMemo(() => {
+    const sorted = [...fondoEntries].sort(
+      (a, b) => getPrimaryMovementTime(b) - getPrimaryMovementTime(a),
+    );
+    return sortAsc ? sorted.reverse() : sorted;
+  }, [fondoEntries, sortAsc]);
 
   // days that have at least one movement (used to enable/disable dates in the calendar)
   const daysWithMovements = useMemo(() => {
@@ -11320,48 +11388,35 @@ export function FondoSection({
             </span>
           </div>
 
-          <div className="flex h-11 min-w-0 flex-col justify-center gap-2 rounded border border-cyan-700/35 bg-cyan-950/25 px-3 py-0 text-sm text-[var(--foreground)] sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center justify-between gap-3 sm:w-full">
-              <div>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={filterEditedOnly}
-                    onChange={(e) => setFilterEditedOnly(e.target.checked)}
-                    className="h-4 w-4 rounded border-[var(--input-border)] accent-[var(--accent)]"
-                  />
-                  <span className="text-sm">Editados</span>
-                </label>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setFilterProviderCode("all");
-                  setFilterPaymentType("all");
-                  setFilterEditedOnly(false);
-                  setSearchQuery("");
-                  setFromFilter(null);
-                  setToFilter(null);
-                  setQuickRange(null);
+          <div className="flex h-11 min-w-0 flex-col justify-center gap-2 rounded border border-cyan-700/35 bg-cyan-950/25 px-3 py-0 text-sm text-[var(--foreground)] sm:flex-row sm:items-center sm:justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                setFilterProviderCode("all");
+                setFilterPaymentType("all");
+                setFilterEditedOnly(false);
+                setSearchQuery("");
+                setFromFilter(null);
+                setToFilter(null);
+                setQuickRange(null);
 
-                  setCalendarFromOpen(false);
-                  setCalendarToOpen(false);
-                  const m = new Date();
-                  m.setDate(1);
-                  m.setHours(0, 0, 0, 0);
-                  setCalendarFromMonth(new Date(m));
-                  setCalendarToMonth(new Date(m));
+                setCalendarFromOpen(false);
+                setCalendarToOpen(false);
+                const m = new Date();
+                m.setDate(1);
+                m.setHours(0, 0, 0, 0);
+                setCalendarFromMonth(new Date(m));
+                setCalendarToMonth(new Date(m));
 
-                  setPageSize("daily");
-                  setPageIndex(0);
-                }}
-                className="inline-flex h-8 items-center justify-center gap-1.5 rounded border border-[var(--input-border)] px-3 text-xs font-semibold uppercase tracking-wide text-[var(--foreground)] transition-all duration-150 hover:border-[var(--accent)] hover:bg-[var(--muted)] active:scale-[0.98]"
-                title="Limpiar filtros"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-                <span>Limpiar</span>
-              </button>
-            </div>
+                setPageSize("daily");
+                setPageIndex(0);
+              }}
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded border border-[var(--input-border)] px-3 text-xs font-semibold uppercase tracking-wide text-[var(--foreground)] transition-all duration-150 hover:border-[var(--accent)] hover:bg-[var(--muted)] active:scale-[0.98]"
+              title="Limpiar filtros"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span>Limpiar</span>
+            </button>
           </div>
         </div>
 
@@ -11767,20 +11822,55 @@ export function FondoSection({
           <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:w-auto xl:min-w-[348px]">
             {accountKey === "FondoGeneral" && (
               <div className="relative group min-w-0 flex flex-col gap-2">
-                <div className="flex items-center gap-3">
-                  <label className="flex min-w-0 flex-shrink-0 items-center gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-xs font-semibold text-[var(--foreground)]">
-                    <input
-                      type="checkbox"
-                      checked={showPendingClosingCreditInvoices}
-                      onChange={(event) =>
-                        setShowPendingClosingCreditInvoices(event.target.checked)
-                      }
-                      className="h-4 w-4 accent-amber-400"
-                    />
-                    <span className="whitespace-nowrap">
-                      Mostrar facturas crédito pendientes
-                    </span>
-                  </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative min-w-0" ref={filtersDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setFiltersDropdownOpen((prev) => !prev)}
+                      className="inline-flex h-11 w-full items-center justify-center gap-2 rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 sm:w-auto"
+                      aria-haspopup="menu"
+                      aria-expanded={filtersDropdownOpen}
+                    >
+                      <EyeIcon className="h-4 w-4" />
+                      <span>Vista</span>
+                    </button>
+
+                    {filtersDropdownOpen && (
+                      <div className="absolute left-0 right-0 top-full mt-2 w-full min-w-[240px] rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] shadow-lg z-[9999] md:left-auto md:right-0 md:w-72">
+                        <div className="flex flex-col">
+                          <label className="flex cursor-pointer items-center gap-3 px-3 py-3 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20 md:py-2">
+                            <input
+                              type="checkbox"
+                              checked={showPendingClosingCreditInvoices}
+                              onChange={(event) =>
+                                setShowPendingClosingCreditInvoices(
+                                  event.target.checked,
+                                )
+                              }
+                              className="h-4 w-4 accent-amber-400"
+                            />
+                            <FileText className="h-4 w-4 text-[var(--muted-foreground)]" />
+                            <span className="whitespace-nowrap">
+                              Facturas de credito pendientes
+                            </span>
+                          </label>
+                          <label className="flex cursor-pointer items-center gap-3 px-3 py-3 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20 md:py-2">
+                            <input
+                              type="checkbox"
+                              checked={filterEditedOnly}
+                              onChange={(e) =>
+                                setFilterEditedOnly(e.target.checked)
+                              }
+                              className="h-4 w-4 rounded border-[var(--input-border)] accent-[var(--accent)]"
+                            />
+                            <Pencil className="h-4 w-4 text-[var(--muted-foreground)]" />
+                            <span className="whitespace-nowrap">Editados</span>
+                          </label>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <button
                     type="button"
                     onClick={handleOpenDailyClosing}
@@ -11947,81 +12037,81 @@ export function FondoSection({
 
               return (
                 <AgregarMovimiento
-              selectedProvider={selectedProvider}
-              onProviderChange={handleProviderChange}
-              providers={movementProviders}
-              providersLoading={movementProvidersLoading}
-              isProviderSelectDisabled={
-                isProviderSelectDisabled || isEditingCierreFondoVentas
-              }
-              providerDisabledTooltip={
-                isEditingCierreFondoVentas
-                  ? 'No se puede cambiar el proveedor de un movimiento "CIERRE FONDO VENTAS"'
-                  : undefined
-              }
-              selectedProviderExists={selectedProviderExists}
-              invoiceNumber={invoiceNumber}
-              onInvoiceNumberChange={handleInvoiceNumberChange}
-              invoiceDocType={invoiceDocType}
-              onInvoiceDocTypeChange={setInvoiceDocType}
-              lockInvoiceDocTypeToContado={isInvoiceDocTypeLockedToContado}
-              invoiceValid={invoiceValid}
-              invoiceDisabled={invoiceDisabled}
-              paymentType={paymentType}
-              isEgreso={isEgreso}
-              egreso={egreso}
-              onEgresoChange={handleEgresoChange}
-              egresoBorderClass={egresoBorderClass}
-              ingreso={ingreso}
-              onIngresoChange={handleIngresoChange}
-              ingresoBorderClass={ingresoBorderClass}
-              notes={notes}
-              onNotesChange={handleNotesChange}
-              manager={manager}
-              onManagerChange={handleManagerChange}
-              manager2={manager2}
-              onManager2Change={handleManager2Change}
-              showManager2={isEditingPaidFcrMovement}
-              managerSelectDisabled={
-                managerSelectDisabled || isEditingPaidFcrMovement
-              }
-              manager2SelectDisabled={
-                !company ||
-                managerOptionsLoading ||
-                employeeOptions.length === 0
-              }
-              employeeOptions={employeeOptions}
-              employeesLoading={managerOptionsLoading}
-              editingEntryId={editingEntryId}
-              onCancelEditing={cancelEditing}
-              onSubmit={handleSubmitFondo}
-              isSubmitDisabled={isSubmitDisabled}
-              isSaving={isSaving}
-              onFieldKeyDown={handleFondoKeyDown}
-              currency={movementCurrency}
-              onCurrencyChange={(c) => setMovementCurrency(c)}
-              currencyEnabled={currencyEnabled}
-              providerError={providerError}
-              invoiceError={invoiceError}
-              amountError={amountError}
-              managerError={managerError}
-              manager2Error={manager2Error}
-              pendingCreditNotesCount={selectedProviderPendingNcCount}
-              pendingCreditNotes={movementPendingCreditNotes}
-              selectedCreditNoteIds={selectedAppliedCreditNoteIds}
-              onToggleCreditNote={(id) => {
-                setSelectedAppliedCreditNoteIds((prev) =>
-                  prev.includes(id)
-                    ? prev.filter((item) => item !== id)
-                    : [...prev, id],
-                );
-              }}
-              creditNotesAppliedTotal={creditNotesAppliedTotal}
-              amountPayment={computedAmountPayment}
-              onAddManualCreditNote={openManualCreditNoteModal}
-              balanceCRC={currentBalanceCRC}
-              balanceUSD={currentBalanceUSD}
-            />
+                  selectedProvider={selectedProvider}
+                  onProviderChange={handleProviderChange}
+                  providers={movementProviders}
+                  providersLoading={movementProvidersLoading}
+                  isProviderSelectDisabled={
+                    isProviderSelectDisabled || isEditingCierreFondoVentas
+                  }
+                  providerDisabledTooltip={
+                    isEditingCierreFondoVentas
+                      ? 'No se puede cambiar el proveedor de un movimiento "CIERRE FONDO VENTAS"'
+                      : undefined
+                  }
+                  selectedProviderExists={selectedProviderExists}
+                  invoiceNumber={invoiceNumber}
+                  onInvoiceNumberChange={handleInvoiceNumberChange}
+                  invoiceDocType={invoiceDocType}
+                  onInvoiceDocTypeChange={setInvoiceDocType}
+                  lockInvoiceDocTypeToContado={isInvoiceDocTypeLockedToContado}
+                  invoiceValid={invoiceValid}
+                  invoiceDisabled={invoiceDisabled}
+                  paymentType={paymentType}
+                  isEgreso={isEgreso}
+                  egreso={egreso}
+                  onEgresoChange={handleEgresoChange}
+                  egresoBorderClass={egresoBorderClass}
+                  ingreso={ingreso}
+                  onIngresoChange={handleIngresoChange}
+                  ingresoBorderClass={ingresoBorderClass}
+                  notes={notes}
+                  onNotesChange={handleNotesChange}
+                  manager={manager}
+                  onManagerChange={handleManagerChange}
+                  manager2={manager2}
+                  onManager2Change={handleManager2Change}
+                  showManager2={isEditingPaidFcrMovement}
+                  managerSelectDisabled={
+                    managerSelectDisabled || isEditingPaidFcrMovement
+                  }
+                  manager2SelectDisabled={
+                    !company ||
+                    managerOptionsLoading ||
+                    employeeOptions.length === 0
+                  }
+                  employeeOptions={employeeOptions}
+                  employeesLoading={managerOptionsLoading}
+                  editingEntryId={editingEntryId}
+                  onCancelEditing={cancelEditing}
+                  onSubmit={handleSubmitFondo}
+                  isSubmitDisabled={isSubmitDisabled}
+                  isSaving={isSaving}
+                  onFieldKeyDown={handleFondoKeyDown}
+                  currency={movementCurrency}
+                  onCurrencyChange={(c) => setMovementCurrency(c)}
+                  currencyEnabled={currencyEnabled}
+                  providerError={providerError}
+                  invoiceError={invoiceError}
+                  amountError={amountError}
+                  managerError={managerError}
+                  manager2Error={manager2Error}
+                  pendingCreditNotesCount={selectedProviderPendingNcCount}
+                  pendingCreditNotes={movementPendingCreditNotes}
+                  selectedCreditNoteIds={selectedAppliedCreditNoteIds}
+                  onToggleCreditNote={(id) => {
+                    setSelectedAppliedCreditNoteIds((prev) =>
+                      prev.includes(id)
+                        ? prev.filter((item) => item !== id)
+                        : [...prev, id],
+                    );
+                  }}
+                  creditNotesAppliedTotal={creditNotesAppliedTotal}
+                  amountPayment={computedAmountPayment}
+                  onAddManualCreditNote={openManualCreditNoteModal}
+                  balanceCRC={currentBalanceCRC}
+                  balanceUSD={currentBalanceUSD}
+                />
               );
             })()}
           </Box>
@@ -12573,7 +12663,9 @@ export function FondoSection({
                             const totalAmount = Math.max(
                               0,
                               Math.trunc(
-                                Number(invoice.originalAmount ?? invoice.amount) || 0,
+                                Number(
+                                  invoice.originalAmount ?? invoice.amount,
+                                ) || 0,
                               ),
                             );
                             const paidAmount = Math.max(
@@ -12584,7 +12676,8 @@ export function FondoSection({
                               0,
                               Math.trunc(
                                 Number(
-                                  invoice.balanceDue ?? totalAmount - paidAmount,
+                                  invoice.balanceDue ??
+                                    totalAmount - paidAmount,
                                 ) || 0,
                               ),
                             );
@@ -12622,7 +12715,9 @@ export function FondoSection({
                                       FCR
                                     </span>
                                     <span className="text-xs text-amber-100/80">
-                                      {String(invoice.paymentStatus || "PENDIENTE")}
+                                      {String(
+                                        invoice.paymentStatus || "PENDIENTE",
+                                      )}
                                     </span>
                                   </div>
                                 </td>
@@ -12641,11 +12736,27 @@ export function FondoSection({
                                         )}
                                       </span>
                                     </div>
+                                    {balanceAmount > 0 ? (
+                                      <span className="inline-flex items-center justify-end gap-1 rounded border border-amber-400/30 bg-amber-500/10 px-2 py-1 text-xs font-semibold text-amber-100">
+                                        <Clock className="h-3.5 w-3.5" />
+                                        Saldo:{" "}
+                                        {formatByCurrency(
+                                          invoice.currency,
+                                          balanceAmount,
+                                        )}
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center justify-end gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-xs font-semibold text-emerald-300">
+                                        <CheckCircle className="h-3.5 w-3.5" />
+                                        Saldado
+                                      </span>
+                                    )}
                                     <span className="text-xs text-[var(--muted-foreground)]">
-                                      Saldo: {formatByCurrency(invoice.currency, balanceAmount)}
-                                    </span>
-                                    <span className="text-xs text-[var(--muted-foreground)]">
-                                      Pagado: {formatByCurrency(invoice.currency, paidAmount)}
+                                      Pagado:{" "}
+                                      {formatByCurrency(
+                                        invoice.currency,
+                                        paidAmount,
+                                      )}
                                     </span>
                                   </div>
                                 </td>
@@ -12678,7 +12789,9 @@ export function FondoSection({
                                     }`}
                                   >
                                     <Banknote className="w-4 h-4" />
-                                    {pendingCierreDeCaja ? "Bloqueado" : "Pagar"}
+                                    {pendingCierreDeCaja
+                                      ? "Bloqueado"
+                                      : "Pagar"}
                                   </button>
                                 </td>
                               </tr>
@@ -13125,12 +13238,14 @@ export function FondoSection({
                                                   )}`}
                                                 </span>
                                               </div>
-                                              <span className="text-xs text-[var(--muted-foreground)]">
-                                                Saldo anterior:{" "}
-                                                {formatByCurrency(
-                                                  entryCurrency,
-                                                  previousBalance,
-                                                )}
+                                              <span className="text-xs text-[var(--muted-foreground)] flex items-center justify-center gap-1">
+                                                <span>Saldo anterior:</span>
+                                                <span>
+                                                  {formatByCurrency(
+                                                    entryCurrency,
+                                                    previousBalance,
+                                                  )}
+                                                </span>
                                               </span>
                                             </div>
                                           );
@@ -13210,10 +13325,15 @@ export function FondoSection({
                                             <ArrowDownRight className="w-4 h-4 text-green-500" />
                                           )}
                                           <span
-                                            className={`rounded px-2 py-1 text-xs font-semibold ${
+                                            className={`pl-4 rounded px-2 py-1 font-semibold font-mono tabular-nums whitespace-nowrap text-[var(--foreground)] ${
                                               isEntryEgreso
                                                 ? "bg-red-500/10 text-red-400"
                                                 : "bg-emerald-500/10 text-emerald-400"
+                                            } ${
+                                              isEntryEgreso &&
+                                              appliedCreditNotesTotal > 0
+                                                ? "text-sm"
+                                                : "text-sm"
                                             }`}
                                           >
                                             {`${amountPrefix} ${formatByCurrency(
@@ -13222,28 +13342,50 @@ export function FondoSection({
                                             )}`}
                                           </span>
                                         </div>
-                                        <span className="text-xs text-[var(--muted-foreground)]">
-                                          Saldo anterior:{" "}
-                                          {formatByCurrency(
-                                            entryCurrency,
-                                            previousBalance,
-                                          )}
-                                        </span>
-                                        {isEntryEgreso &&
-                                          appliedCreditNotesTotal > 0 && (
-                                            <div className="text-xs text-amber-200">
-                                              Factura:{" "}
+                                        <div className="mt-0.5 flex w-full min-w-0 flex-col gap-1 self-start text-left">
+                                          <div className="flex w-full flex-col items-center gap-0 rounded border border-[var(--input-border)] bg-[var(--muted)]/20 px-2 py-1">
+                                            <span className="flex items-center justify-center gap-1 text-xs text-[var(--muted-foreground)]">
+                                              <Clock className="h-3 w-3 shrink-0" />
+                                              Saldo anterior
+                                            </span>
+                                            <span className="w-full pl-4 text-center text-sm font-semibold font-mono tabular-nums text-[var(--foreground)] whitespace-nowrap">
                                               {formatByCurrency(
                                                 entryCurrency,
-                                                invoiceEgresoAmount,
-                                              )}{" "}
-                                              · NC: -
-                                              {formatByCurrency(
-                                                entryCurrency,
-                                                appliedCreditNotesTotal,
+                                                previousBalance,
                                               )}
-                                            </div>
-                                          )}
+                                            </span>
+                                          </div>
+                                          {isEntryEgreso &&
+                                            appliedCreditNotesTotal > 0 && (
+                                              <>
+                                                <div className="flex w-full flex-col items-center gap-0 rounded bg-sky-500/10 px-2 py-1">
+                                                  <span className="flex items-center justify-center gap-1 text-xs text-sky-200">
+                                                    <FileText className="h-3 w-3 shrink-0" />
+                                                    Factura
+                                                  </span>
+                                                  <span className="w-full pl-4 text-center text-sm font-semibold font-mono tabular-nums text-sky-100 whitespace-nowrap">
+                                                    {formatByCurrency(
+                                                      entryCurrency,
+                                                      invoiceEgresoAmount,
+                                                    )}
+                                                  </span>
+                                                </div>
+                                                <div className="flex w-full flex-col items-center gap-0 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-1">
+                                                  <span className="flex items-center justify-center gap-1 text-xs text-emerald-300">
+                                                    <Tag className="h-3 w-3 shrink-0" />
+                                                    NC
+                                                  </span>
+                                                  <span className="w-full pl-4 text-center text-sm font-semibold font-mono tabular-nums text-emerald-300 whitespace-nowrap">
+                                                    -
+                                                    {formatByCurrency(
+                                                      entryCurrency,
+                                                      appliedCreditNotesTotal,
+                                                    )}
+                                                  </span>
+                                                </div>
+                                              </>
+                                            )}
+                                        </div>
                                       </div>
                                     )}
                                   </td>
@@ -13396,14 +13538,14 @@ export function FondoSection({
                                   isAppliedCreditNotesExpanded && (
                                     <tr className="bg-sky-500/5 [&>td]:border-b [&>td]:border-cyan-900/35">
                                       <td colSpan={7} className="px-3 py-2">
-                                        <div className="rounded-lg border border-sky-500/25 bg-sky-500/10 p-3 text-xs text-[var(--foreground)]">
-                                          <div className="mb-2 flex items-center gap-2 text-sky-300">
-                                            <Info className="w-4 h-4" />
-                                            <span className="font-semibold">
+                                        <div className="rounded-lg border border-sky-500/25 border-l-2 border-l-sky-400/60 bg-sky-500/10 p-3 text-xs text-[var(--foreground)]">
+                                          <div className="mb-2 flex items-center gap-2 border-b border-sky-500/20 pb-2">
+                                            <Info className="w-4 h-4 text-sky-300" />
+                                            <span className="font-medium">
                                               Notas de crédito aplicadas
                                             </span>
                                           </div>
-                                          <div className="space-y-2">
+                                          <div className="divide-y divide-sky-500/15">
                                             {fe.appliedCreditNotes?.map(
                                               (note) => {
                                                 const noteAmount = Math.max(
@@ -13428,20 +13570,20 @@ export function FondoSection({
                                                 return (
                                                   <div
                                                     key={note.id}
-                                                    className="rounded border border-sky-500/20 bg-[var(--card-bg)]/60 p-2"
+                                                    className="py-2"
                                                   >
-                                                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                                                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
                                                       <div>
-                                                        <div className="font-medium text-[var(--foreground)]">
+                                                        <div className="font-semibold text-[var(--foreground)]">
                                                           {noteLabel}
                                                         </div>
-                                                        <div className="text-[var(--muted-foreground)]">
+                                                        <div className="text-xs text-[var(--muted-foreground)]">
                                                           Moneda:{" "}
                                                           {note.currency}
                                                         </div>
                                                       </div>
-                                                      <div className="text-right text-[var(--muted-foreground)]">
-                                                        <div>
+                                                      <div className="text-right">
+                                                        <div className="text-[var(--muted-foreground)]">
                                                           Monto NC:{" "}
                                                           <span className="font-medium text-[var(--foreground)]">
                                                             {formatByCurrency(
@@ -13450,9 +13592,12 @@ export function FondoSection({
                                                             )}
                                                           </span>
                                                         </div>
-                                                        <div>
-                                                          Aplicado:{" "}
-                                                          <span className="font-medium text-[var(--foreground)]">
+                                                        <div className="flex items-center justify-end gap-1.5">
+                                                          <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                                                          <span className="text-[var(--muted-foreground)]">
+                                                            Aplicado:
+                                                          </span>
+                                                          <span className="font-medium text-emerald-400">
                                                             {formatByCurrency(
                                                               note.currency,
                                                               appliedAmount,
@@ -13461,7 +13606,8 @@ export function FondoSection({
                                                         </div>
                                                         {note.observation && (
                                                           <div className="mt-1 max-w-sm text-xs text-[var(--muted-foreground)]">
-                                                            Obs: {note.observation}
+                                                            Obs:{" "}
+                                                            {note.observation}
                                                           </div>
                                                         )}
                                                       </div>
@@ -13471,12 +13617,16 @@ export function FondoSection({
                                               },
                                             )}
                                           </div>
-                                          <div className="mt-2 text-right text-sm font-semibold text-sky-100">
-                                            Total aplicado:{" "}
-                                            {formatByCurrency(
-                                              entryCurrency,
-                                              appliedCreditNotesTotal,
-                                            )}
+                                          <div className="mt-2 rounded-md border border-sky-500/20 bg-sky-500/10 px-2 py-2 text-right">
+                                            <span className="font-semibold text-[var(--foreground)]">
+                                              Total aplicado:{" "}
+                                            </span>
+                                            <span className="text-base font-semibold text-emerald-400">
+                                              {formatByCurrency(
+                                                entryCurrency,
+                                                appliedCreditNotesTotal,
+                                              )}
+                                            </span>
                                           </div>
                                         </div>
                                       </td>
@@ -13744,7 +13894,8 @@ export function FondoSection({
         providerName={
           closingPaymentTarget
             ? providers.find(
-                (provider) => provider.code === closingPaymentTarget.providerCode,
+                (provider) =>
+                  provider.code === closingPaymentTarget.providerCode,
               )?.name || closingPaymentTarget.providerCode
             : ""
         }
@@ -13771,7 +13922,10 @@ export function FondoSection({
                     ) || 0,
                   ),
                 ) -
-                  Math.max(0, Math.trunc(Number(closingPaymentTarget?.paidAmount) || 0)),
+                  Math.max(
+                    0,
+                    Math.trunc(Number(closingPaymentTarget?.paidAmount) || 0),
+                  ),
             ) || 0,
           ),
         )}

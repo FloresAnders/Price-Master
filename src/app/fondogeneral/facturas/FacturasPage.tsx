@@ -9,6 +9,8 @@ import {
   RotateCcw,
   Search,
   CreditCard,
+  Clock,
+  CheckCircle,
   X,
 } from "lucide-react";
 import { writeBatch, doc } from "firebase/firestore";
@@ -1966,7 +1968,7 @@ export default function FacturasCreditoPage() {
                         {amountLabel} {m.currency}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
-                        <div className="inline-flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="rounded-full border border-slate-500/40 bg-slate-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-slate-200">
                             {formatInvoiceDocTypeLabel(m.invoiceDocType)}
                           </span>
@@ -1982,13 +1984,25 @@ export default function FacturasCreditoPage() {
                             {paymentStatusLabel}
                           </span>
                         </div>
-                        {paymentBalance > 0 && (
-                          <div className="mt-1 text-xs text-[var(--muted-foreground)]">
-                            saldo{" "}
-                            {paymentBalance.toLocaleString("es-CR", {
-                              minimumFractionDigits: 0,
-                              maximumFractionDigits: 0,
-                            })}
+                        {m.invoiceDocType === "FCR" && (
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            {paymentBalance > 0 ? (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-amber-100">
+                                <Clock className="h-3 w-3" />
+                                Saldo:{" "}
+                                {paymentBalance.toLocaleString("es-CR", {
+                                  style: "currency",
+                                  currency: m.currency,
+                                  minimumFractionDigits: 0,
+                                  maximumFractionDigits: 0,
+                                })}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-100">
+                                <CheckCircle className="h-3 w-3" />
+                                Saldado
+                              </span>
+                            )}
                           </div>
                         )}
                       </td>
