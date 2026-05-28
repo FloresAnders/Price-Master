@@ -11,4 +11,4 @@ en el fondo al momento de pagar, indicar que hay NC pendientes(listo)
 cambiar empresa dueña por empresa a la que pertenece, en mantenimiento-usuarios (listo)
 hacer que las empresas se carguen mientras se esta creadno el usuario (listo)
 error al editar movimiento si se cierra y se vuelve a editar al instante dice que ya hay una edicion en proceso.
-
+agregar skeleton loading a la lista de movimientos en el fondo general
