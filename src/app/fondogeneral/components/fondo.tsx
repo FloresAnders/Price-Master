@@ -11474,7 +11474,7 @@ export function FondoSection({
             </span>
           </div>
 
-          <div className="flex h-11 w-full items-center justify-center rounded-xl border border-cyan-700/35 bg-cyan-950/20 px-3 text-sm text-[var(--foreground)]">
+          <div className="flex min-h-11 w-full items-center justify-center rounded-xl border border-cyan-700/35 bg-cyan-950/20 px-3 py-2 text-sm text-[var(--foreground)]">
             <div className="flex w-full flex-col items-center justify-center gap-2 sm:flex-row sm:justify-center">
               {/* Dropdown Vista */}
               <div

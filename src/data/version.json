@@ -1,19 +1,19 @@
 {
-  "version": "1.5.19",
+  "version": "1.6.1",
   "versionstorage": "1.1.19",
-  "notasDeSistemas": "1.1.22",
+  "notasDeSistemas": "1.1.23",
   "releaseNotes": [
     {
-      "date": "2026-05-22",
-      "title": "Cambios relevantes: tipos de fondo, funciones y facturas",
-      "description": "- Cambios en tipos de fondo: reestructuración de categorías y ajustes en la clasificación de movimientos; se añadieron scripts de migración para actualizar los datos existentes.\n- Cambios en funciones: refactorización de la lógica y actualización de permisos y flujos asociados; algunos endpoints/funciones fueron renombrados o movidos.\n- Nuevos tipos de factura: implementación parcial — modelos y UI inicial disponibles pero falta validación y emisión completa. Evitar uso en producción hasta completar la implementación."
+      "date": "2026-05-28",
+      "title": "Implementacion de facturas de credito y notas de credito",
+      "description": "Se implemento la funcionalidad de facturas de credito y notas de credito, ahora se pueden crear facturas de credito y notas de credito, ademas se pueden editar y eliminar facturas de credito y notas de credito.."
     }
   ],
   "systemNotes": [
     {
-      "date": "2026-05-07",
-      "title": "Corrección de caja negra",
-      "description": "Ya no se solicita confirmacion de ingreso de movimientos de caja negra, se elimino el tiempo de espera al ingresar movimientos de caja negra.."
+      "date": "2026-05-28",
+      "title": "Implementacion de facturas de credito y notas de credito",
+      "description": "Se implemento la funcionalidad de facturas de credito y notas de credito, ahora se pueden crear facturas de credito y notas de credito, ademas se pueden editar y eliminar facturas de credito y notas de credito.."
     }
   ],
   "_comment": "hacer una pagina de 'en mantenimiento' para secciones en desarrollo y a exepcion de un usuario admin"
