@@ -9389,6 +9389,25 @@ export function FondoSection({
         setPendingClosingCreditInvoices((current) =>
           current.filter((movement) => movement.id !== closingPaymentTarget.id),
         );
+        storageSnapshotRef.current = stripUndefinedDeep(ledger) as any;
+        try {
+          const cacheKey = buildV2MovementsCacheKey(docId, "FondoGeneral");
+          const cached = v2MovementsCacheRef.current[cacheKey];
+          if (cached?.loaded) {
+            v2MovementsCacheRef.current[cacheKey] = {
+              ...cached,
+              movements: [
+                { ...(paymentMovement as unknown as FondoEntry), id: paymentMovementId },
+                ...cached.movements,
+              ],
+            };
+            rebuildEntriesFromV2Cache(docId, "FondoGeneral");
+          } else {
+            applyLedgerStateFromStorage(ledger.state);
+          }
+        } catch (refreshErr) {
+          console.error("[FONDO] Error refreshing UI after payment:", refreshErr);
+        }
         closeClosingInvoicePaymentModal();
       } catch (error) {
         console.error("[FONDO] Error saving credit invoice payment:", error);
@@ -9405,6 +9424,9 @@ export function FondoSection({
       company,
       pendingCierreDeCaja,
       showToast,
+      applyLedgerStateFromStorage,
+      buildV2MovementsCacheKey,
+      rebuildEntriesFromV2Cache,
     ],
   );
 
