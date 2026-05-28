@@ -12,6 +12,9 @@ const socialButtonClass =
 export default function Footer() {
   const { version } = useVersion();
   const [isGitHubModalOpen, setIsGitHubModalOpen] = useState(false);
+  const googleSearchUrl = `https://www.google.com/search?q=${encodeURIComponent(
+    "Time Master",
+  )}`;
 
   useEffect(() => {
     if (!isGitHubModalOpen) return;
@@ -83,7 +86,7 @@ export default function Footer() {
                 </svg>
               </button>
               <a
-                href="https://www.google.com/search?q=Time+Master"
+                href={googleSearchUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={socialButtonClass}
