@@ -83,11 +83,11 @@ export default function Footer() {
                 </svg>
               </button>
               <a
-                href="https://www.google.com"
+                href="https://www.google.com/search?q=Time+Master"
                 target="_blank"
                 rel="noopener noreferrer"
                 className={socialButtonClass}
-                aria-label="Visitar Google"
+                aria-label="Buscar Time Master en Google"
               >
                 <svg
                   className="h-5 w-5 fill-current"
