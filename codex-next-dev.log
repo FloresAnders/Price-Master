@@ -1,0 +1,14 @@
+
+> price-master@0.1.0 dev
+> next dev --hostname 127.0.0.1 --port 3000
+
+   ▲ Next.js 16.0.7 (Turbopack)
+   - Local:         http://127.0.0.1:3000
+   - Network:       http://127.0.0.1:3000
+   - Environments: .env
+   - Experiments (use with caution):
+     ✓ optimizeCss
+
+ ✓ Starting...
+   Suggestion: If you intended to restart next dev, terminate the other process, and then try again.
+[?25h

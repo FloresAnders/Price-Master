@@ -115,7 +115,7 @@ export type ActiveTab =
   | "edit"
   | "solicitud"
   | "fondogeneral"
-  | "facturas"
+  | "FC/NC"
   | "agregarproveedor"
   | "reportes";
 
@@ -796,10 +796,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                     ? "text-[var(--tab-text-active)] font-semibold"
                     : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
                 }`}
-                title="Facturas"
+                title="FC/NC"
               >
                 <Banknote className="w-4 h-4" />
-                <span className="hidden xl:inline">Facturas</span>
+                <span className="hidden xl:inline">FC/NC</span>
                 {currentHash === "#facturas" && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
                 )}

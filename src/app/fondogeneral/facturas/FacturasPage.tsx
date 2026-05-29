@@ -138,6 +138,9 @@ const SHARED_COMPANY_STORAGE_KEY = "fg_selected_company_shared";
 
 const CIERRE_FONDO_VENTAS_PROVIDER_NAME = "CIERRE FONDO VENTAS";
 
+const isFacturaPaymentRecord = (movement: FacturaMovement): boolean =>
+  String(movement.id || "").startsWith("fcr-pago-");
+
 export default function FacturasCreditoPage() {
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -297,7 +300,7 @@ export default function FacturasCreditoPage() {
       const data = await FacturasService.listMovementsByEmpresa(companyName, {
         limit: 800,
       });
-      setMovements(data);
+      setMovements(data.filter((movement) => !isFacturaPaymentRecord(movement)));
     } finally {
       setMovementsLoading(false);
     }
@@ -612,23 +615,26 @@ export default function FacturasCreditoPage() {
     setPaymentManager2("");
   }, []);
 
-  const openPaymentModal = useCallback((movement: FacturaMovement) => {
-    if (pendingCierreDeCaja) {
-      setPendingCierreModalOpen(true);
-      return;
-    }
-    const total = Math.max(
-      0,
-      Math.trunc(Number(movement.originalAmount ?? movement.amount) || 0),
-    );
-    const paid = resolveFacturaPaidAmount(movement);
-    const balance = Math.max(0, Math.min(total, total - paid));
-    setPaymentTarget(movement);
-    setPaymentAmount(String(balance));
-    setPaymentNotes(String(movement.notes || ""));
-    setPaymentManager2(String(movement.manager2 || ""));
-    setPaymentModalOpen(true);
-  }, []);
+  const openPaymentModal = useCallback(
+    (movement: FacturaMovement) => {
+      if (pendingCierreDeCaja) {
+        setPendingCierreModalOpen(true);
+        return;
+      }
+      const total = Math.max(
+        0,
+        Math.trunc(Number(movement.originalAmount ?? movement.amount) || 0),
+      );
+      const paid = resolveFacturaPaidAmount(movement);
+      const balance = Math.max(0, Math.min(total, total - paid));
+      setPaymentTarget(movement);
+      setPaymentAmount(String(balance));
+      setPaymentNotes(String(movement.notes || ""));
+      setPaymentManager2(String(movement.manager2 || ""));
+      setPaymentModalOpen(true);
+    },
+    [pendingCierreDeCaja],
+  );
 
   const submitPayment = useCallback(
     async (mode: "partial" | "full") => {
@@ -750,22 +756,7 @@ export default function FacturasCreditoPage() {
           manager2: paymentManager2Value || undefined,
         });
       const paymentMovementId = String((paymentMovement as any).id || "");
-      const facturasPaymentMovement = {
-        ...paymentMovement,
-        invoiceDocType: "FCO" as const,
-        paymentStatus: "PAGADA" as const,
-        amount: paymentAmountToApply,
-        amountEgreso: paymentAmountToApply,
-        amountIngreso: 0,
-        amountPayment: paymentAmountToApply,
-        paidAmount: paymentAmountToApply,
-        balanceDue: 0,
-        originalAmount: parentInvoiceAmount,
-        amountDue: nextBalanceDue,
-        ...(paymentManager2Value ? { manager2: paymentManager2Value } : {}),
-      };
-
-      // Update ledger + movement atomically and also persist Facturas documents
+      // Update the invoice and register the actual payment only in Fondo General.
       setPaymentSubmitting(true);
       try {
         const docId = movementDocId; // MovimientosFondos document id
@@ -817,12 +808,6 @@ export default function FacturasCreditoPage() {
           stripUndefinedDeep(updatedMovement),
           { merge: true },
         );
-        // Persist Facturas payment movement
-        batch.set(
-          FacturasService.buildMovementRef(selectedCompany, paymentMovementId),
-          stripUndefinedDeep(facturasPaymentMovement),
-        );
-
         // Persist ledger main doc
         const mainRef = doc(db, MovimientosFondosService.COLLECTION_NAME, docId);
         batch.set(mainRef, stripUndefinedDeep(ledger) as any);
@@ -857,6 +842,7 @@ export default function FacturasCreditoPage() {
       paymentManager2,
       paymentNotes,
       paymentTarget,
+      pendingCierreDeCaja,
       selectedCompany,
       selectedPaymentPaid,
       showToast,
@@ -901,7 +887,7 @@ export default function FacturasCreditoPage() {
             if (doc) {
               const records = DailyClosingsService.extractAllClosings(doc);
               for (const r of records) {
-                const ts = Date.parse(r.closingDate || r.createdAt || "");
+                const ts = Date.parse(r.createdAt || r.closingDate || "");
                 if (!Number.isNaN(ts) && ts > latestDailyClosingTs) latestDailyClosingTs = ts;
               }
             }
@@ -914,10 +900,11 @@ export default function FacturasCreditoPage() {
               );
             }
           } catch (err) {
-            // If daily closings can't be read, fall back to marking pending
             if (!cancelled) {
-              setPendingCierreDeCaja(true);
-              console.log("[CIERRE-DEBUG][FACTURAS] marcar pendiente por error al leer cierres");
+              setPendingCierreDeCaja(false);
+              console.log(
+                "[CIERRE-DEBUG][FACTURAS] no se bloquea pago por error al leer cierres",
+              );
             }
           }
         } else {
@@ -947,7 +934,7 @@ export default function FacturasCreditoPage() {
     FacturasService.listMovementsByEmpresa(selectedCompany, { limit: 800 })
       .then((data) => {
         if (cancelled) return;
-        setMovements(data);
+        setMovements(data.filter((movement) => !isFacturaPaymentRecord(movement)));
       })
       .catch((err) => {
         console.error("[FACTURAS] Error loading movements:", err);
@@ -1095,6 +1082,62 @@ export default function FacturasCreditoPage() {
   const FONDO_INGRESO_TYPES = movementTypes;
   const FONDO_GASTO_TYPES: string[] = [];
   const FONDO_EGRESO_TYPES: string[] = [];
+
+  const pendingSupplierAlerts = useMemo(() => {
+    const map = new Map<
+      string,
+      { providerCode: string; providerName: string; count: number; crc: number; usd: number }
+    >();
+
+    for (const movement of movements) {
+      if (String(movement.invoiceDocType || "").trim().toUpperCase() !== "FCR") {
+        continue;
+      }
+      const balance = resolveFacturaBalance(movement);
+      if (balance <= 0 || resolveFacturaStatus(movement) === "PAGADA") {
+        continue;
+      }
+      const providerCode = movement.providerCode;
+      const current =
+        map.get(providerCode) ??
+        {
+          providerCode,
+          providerName: providerNameByCode.get(providerCode) || providerCode,
+          count: 0,
+          crc: 0,
+          usd: 0,
+        };
+      current.count += 1;
+      if (movement.currency === "USD") current.usd += balance;
+      else current.crc += balance;
+      map.set(providerCode, current);
+    }
+
+    return Array.from(map.values()).sort((a, b) => {
+      const balanceA = a.crc + a.usd;
+      const balanceB = b.crc + b.usd;
+      if (balanceB !== balanceA) return balanceB - balanceA;
+      return a.providerName.localeCompare(b.providerName, "es");
+    });
+  }, [movements, providerNameByCode]);
+
+  const selectedProviderPendingAlert = useMemo(
+    () =>
+      filterProviderCode !== "all"
+        ? pendingSupplierAlerts.find(
+            (item) => item.providerCode === filterProviderCode,
+          ) ?? null
+        : null,
+    [filterProviderCode, pendingSupplierAlerts],
+  );
+
+  const formatAlertAmount = (currency: MovementCurrencyKey, value: number) =>
+    value.toLocaleString("es-CR", {
+      style: "currency",
+      currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
 
   const filteredMovements = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -1899,6 +1942,50 @@ export default function FacturasCreditoPage() {
           </div>
         </section>
 
+        {selectedProviderPendingAlert && (
+          <section className="rounded-lg border border-amber-500/35 bg-amber-500/10 p-3 text-amber-50">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="inline-flex items-center gap-2 text-sm font-semibold">
+                  <Clock className="h-4 w-4" />
+                  Proveedores con pagos pendientes
+                </div>
+                <p className="mt-1 text-xs text-amber-100/80">
+                  Hay facturas a crédito con saldo abierto. Registra los abonos desde esta sección para que queden enlazados al Fondo General.
+                </p>
+              </div>
+              <span className="rounded border border-amber-300/35 bg-amber-400/10 px-2.5 py-1 text-xs font-semibold">
+                {selectedProviderPendingAlert.count} factura
+                {selectedProviderPendingAlert.count === 1 ? "" : "s"}
+              </span>
+            </div>
+            <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {[selectedProviderPendingAlert].map((item) => {
+                const balances = [
+                  item.crc > 0 ? formatAlertAmount("CRC", item.crc) : "",
+                  item.usd > 0 ? formatAlertAmount("USD", item.usd) : "",
+                ].filter(Boolean);
+                return (
+                  <div
+                    key={item.providerCode}
+                    className="rounded border border-amber-400/25 bg-black/10 px-3 py-2"
+                  >
+                    <div className="truncate text-sm font-semibold">
+                      {item.providerName}
+                    </div>
+                    <div className="mt-1 text-xs text-amber-100/80">
+                      {item.count} factura{item.count === 1 ? "" : "s"} sin saldar
+                    </div>
+                    <div className="mt-1 text-xs font-semibold">
+                      {balances.join(" / ")}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/70">
           <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--input-border)]">
             <div className="text-sm font-semibold text-[var(--foreground)]">
@@ -2196,18 +2283,6 @@ export default function FacturasCreditoPage() {
                   >
                     <CreditCard className="h-4 w-4" />
                     {paymentSubmitting ? "Guardando..." : "Registrar abono"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void submitPayment("full")}
-                    disabled={
-                      paymentSubmitting ||
-                      selectedPaymentBalance <= 0 ||
-                      !canSubmitFullPayment
-                    }
-                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-4 py-2 text-sm font-semibold text-emerald-100 transition-colors hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Pagar completo
                   </button>
                 </div>
 

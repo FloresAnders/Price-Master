@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, {
   useState,
@@ -488,6 +488,12 @@ const isPaidFcrMovement = (entry: Partial<FondoEntry>): boolean => {
   const hasUpdateAt =
     typeof entry.updateAt === "string" && entry.updateAt.trim().length > 0;
   return hasManager2 || hasUpdateAt;
+};
+
+const shouldDeleteFacturasMirror = (entry: Partial<FondoEntry>): boolean => {
+  const id = String(entry.id || "").trim();
+  if (!id) return false;
+  return Boolean(entry.invoiceNumber || entry.providerCode);
 };
 
 const getPrimaryMovementDateISO = (entry: Partial<FondoEntry>): string => {
@@ -3855,6 +3861,8 @@ export function FondoSection({
   const [closingPaymentAmount, setClosingPaymentAmount] = useState("");
   const [closingPaymentNotes, setClosingPaymentNotes] = useState("");
   const [closingPaymentManager2, setClosingPaymentManager2] = useState("");
+  const [closingPaymentCreditNoteIds, setClosingPaymentCreditNoteIds] =
+    useState<string[]>([]);
   const [closingPaymentSubmitting, setClosingPaymentSubmitting] =
     useState(false);
   const [expandedClosings, setExpandedClosings] = useState<Set<string>>(
@@ -5854,7 +5862,7 @@ export function FondoSection({
       let latestDailyClosingTs = 0;
       if (Array.isArray(dailyClosings) && dailyClosings.length > 0) {
         for (const record of dailyClosings) {
-          const ts = Date.parse(record.closingDate || record.createdAt || "");
+          const ts = Date.parse(record.createdAt || record.closingDate || "");
           if (Number.isFinite(ts) && ts > latestDailyClosingTs)
             latestDailyClosingTs = ts;
         }
@@ -5873,7 +5881,7 @@ export function FondoSection({
         latestDailyClosingTs: Array.isArray(dailyClosings)
           ? Math.max(
               ...dailyClosings.map(
-                (r) => Date.parse(r.closingDate || r.createdAt || "") || 0,
+                (r) => Date.parse(r.createdAt || r.closingDate || "") || 0,
               ),
             )
           : 0,
@@ -6561,10 +6569,29 @@ export function FondoSection({
           };
         }
 
+        const shouldDeleteFacturaMirror =
+          operationType === "delete" &&
+          beforeEntry &&
+          shouldDeleteFacturasMirror(beforeEntry);
+
         await MovimientosFondosService.commitLedgerAndMovement(
           companyKey,
           baseStorage,
           movementChange,
+          shouldDeleteFacturaMirror
+            ? (batch) => {
+                const deletedId = String(beforeEntry?.id || "");
+                batch.delete(
+                  FacturasService.buildMovementRef(normalizedCompany, deletedId),
+                );
+                batch.delete(
+                  FacturasService.buildMovementRef(
+                    normalizedCompany,
+                    `${deletedId}-NC`,
+                  ),
+                );
+              }
+            : undefined,
         );
 
         if (cacheUpdater) {
@@ -7123,6 +7150,13 @@ export function FondoSection({
     if (isIngreso && (Number.isNaN(ingresoValue) || ingresoValue <= 0)) return;
 
     const effectiveInvoiceDocType = normalizeInvoiceDocType(invoiceDocType);
+    if (!editingEntryId && effectiveInvoiceDocType === "FCR") {
+      setInvoiceError(
+        "Las facturas a crédito se crean desde Facturas de crédito y notas de crédito.",
+      );
+      return;
+    }
+
     if (effectiveInvoiceDocType === "FCR" && !shouldMirrorMovementToFacturas) {
       setInvoiceError(
         'Solo los proveedores de tipo "COMPRA INVENTARIO" pueden generar facturas.',
@@ -9006,6 +9040,94 @@ export function FondoSection({
       ? `$ ${amountFormatterUSD.format(Math.trunc(value))}`
       : `₡ ${amountFormatter.format(Math.trunc(value))}`;
 
+  const pendingSupplierPaymentAlerts = useMemo(() => {
+    const map = new Map<
+      string,
+      { providerCode: string; providerName: string; count: number; crc: number; usd: number }
+    >();
+
+    pendingClosingCreditInvoices.forEach((invoice) => {
+      const totalAmount = Math.max(
+        0,
+        Math.trunc(Number(invoice.originalAmount ?? invoice.amount) || 0),
+      );
+      const paidAmount = Math.max(
+        0,
+        Math.trunc(Number(invoice.paidAmount) || 0),
+      );
+      const balanceAmount = Math.max(
+        0,
+        Math.trunc(Number(invoice.balanceDue ?? totalAmount - paidAmount) || 0),
+      );
+      if (balanceAmount <= 0) return;
+
+      const providerCode = invoice.providerCode;
+      const current =
+        map.get(providerCode) ??
+        {
+          providerCode,
+          providerName: providersMap.get(providerCode) ?? providerCode,
+          count: 0,
+          crc: 0,
+          usd: 0,
+        };
+      current.count += 1;
+      if (invoice.currency === "USD") current.usd += balanceAmount;
+      else current.crc += balanceAmount;
+      map.set(providerCode, current);
+    });
+
+    return Array.from(map.values()).sort((a, b) => {
+      const balanceA = a.crc + a.usd;
+      const balanceB = b.crc + b.usd;
+      if (balanceB !== balanceA) return balanceB - balanceA;
+      return a.providerName.localeCompare(b.providerName, "es");
+    });
+  }, [pendingClosingCreditInvoices, providersMap]);
+
+  const selectedProviderPendingPaymentAlert = useMemo(
+    () =>
+      selectedProvider
+        ? pendingSupplierPaymentAlerts.find(
+            (item) => item.providerCode === selectedProvider,
+          ) ?? null
+        : null,
+    [pendingSupplierPaymentAlerts, selectedProvider],
+  );
+
+  const selectedProviderPendingCreditInvoices = useMemo(
+    () =>
+      selectedProvider
+        ? pendingClosingCreditInvoices
+            .filter((invoice) => invoice.providerCode === selectedProvider)
+            .map((invoice) => {
+              const totalAmount = Math.max(
+                0,
+                Math.trunc(Number(invoice.originalAmount ?? invoice.amount) || 0),
+              );
+              const paidAmount = Math.max(
+                0,
+                Math.trunc(Number(invoice.paidAmount) || 0),
+              );
+              const balanceDue = Math.max(
+                0,
+                Math.trunc(
+                  Number(invoice.balanceDue ?? totalAmount - paidAmount) || 0,
+                ),
+              );
+              return {
+                id: invoice.id,
+                invoiceNumber: invoice.invoiceNumber,
+                amount: totalAmount,
+                balanceDue,
+                currency: (invoice.currency === "USD" ? "USD" : "CRC") as "CRC" | "USD",
+              };
+            })
+            .filter((invoice) => invoice.balanceDue > 0)
+        : [],
+    [pendingClosingCreditInvoices, selectedProvider],
+  );
+
   const formatDailyClosingDiff = (currency: "CRC" | "USD", diff: number) => {
     if (diff === 0) return "Sin diferencias";
     const sign = diff > 0 ? "+" : "-";
@@ -9342,10 +9464,12 @@ export function FondoSection({
         Math.trunc(Number(invoice.balanceDue ?? totalAmount - paidAmount) || 0),
       );
 
+      setSelectedProvider(invoice.providerCode);
       setClosingPaymentTarget(invoice);
       setClosingPaymentAmount(String(balanceDue || totalAmount));
       setClosingPaymentNotes(String(invoice.notes || ""));
       setClosingPaymentManager2(String(invoice.manager2 || ""));
+      setClosingPaymentCreditNoteIds([]);
       setClosingPaymentModalOpen(true);
     },
     [pendingCierreDeCaja],
@@ -9357,7 +9481,62 @@ export function FondoSection({
     setClosingPaymentAmount("");
     setClosingPaymentNotes("");
     setClosingPaymentManager2("");
+    setClosingPaymentCreditNoteIds([]);
   }, []);
+
+  const openSelectedPendingCreditInvoicePayment = useCallback(
+    (invoiceId: string) => {
+      const invoice = pendingClosingCreditInvoices.find(
+        (item) => item.id === invoiceId,
+      );
+      if (invoice) openClosingInvoicePaymentModal(invoice);
+    },
+    [openClosingInvoicePaymentModal, pendingClosingCreditInvoices],
+  );
+
+  const closingPaymentAvailableCreditNotes = useMemo(() => {
+    if (!closingPaymentTarget) return [];
+    return selectedProviderPendingCreditNotes.filter(
+      (note) => note.currency === closingPaymentTarget.currency,
+    );
+  }, [closingPaymentTarget, selectedProviderPendingCreditNotes]);
+
+  const closingPaymentSelectedCreditNotes = useMemo(() => {
+    const selectedIds = new Set(closingPaymentCreditNoteIds);
+    return closingPaymentAvailableCreditNotes.filter((note) =>
+      selectedIds.has(note.id),
+    );
+  }, [closingPaymentAvailableCreditNotes, closingPaymentCreditNoteIds]);
+
+  const closingPaymentCreditNotesTotal = useMemo(() => {
+    if (!closingPaymentTarget) return 0;
+    const totalAmount = Math.max(
+      0,
+      Math.trunc(
+        Number(closingPaymentTarget.originalAmount ?? closingPaymentTarget.amount) ||
+          0,
+      ),
+    );
+    const paidAmount = Math.max(
+      0,
+      Math.trunc(Number(closingPaymentTarget.paidAmount) || 0),
+    );
+    let remaining = Math.max(
+      0,
+      Math.trunc(Number(closingPaymentTarget.balanceDue ?? totalAmount - paidAmount) || 0),
+    );
+    let total = 0;
+    closingPaymentSelectedCreditNotes.forEach((note) => {
+      if (remaining <= 0) return;
+      const applied = Math.min(
+        remaining,
+        Math.max(0, Math.trunc(Number(note.balanceDue) || 0)),
+      );
+      total += applied;
+      remaining -= applied;
+    });
+    return total;
+  }, [closingPaymentSelectedCreditNotes, closingPaymentTarget]);
 
   const submitClosingInvoicePayment = useCallback(
     async (mode: "partial" | "full") => {
@@ -9395,20 +9574,50 @@ export function FondoSection({
         0,
         Math.trunc(Number(closingPaymentAmount) || 0),
       );
-      const paymentAmountToApply = mode === "full" ? balance : enteredAmount;
+      const selectedNoteIds = new Set(closingPaymentCreditNoteIds);
+      let remainingForNotes = balance;
+      const appliedCreditNotes = selectedProviderPendingCreditNotes.reduce<
+        AppliedCreditNote[]
+      >((acc, note) => {
+        if (remainingForNotes <= 0 || !selectedNoteIds.has(note.id)) return acc;
+        if (note.currency !== closingPaymentTarget.currency) return acc;
+        const appliedAmount = Math.min(
+          remainingForNotes,
+          Math.max(0, Math.trunc(Number(note.balanceDue) || 0)),
+        );
+        if (appliedAmount <= 0) return acc;
+        remainingForNotes -= appliedAmount;
+        acc.push({
+          id: note.id,
+          invoiceNumber: note.invoiceNumber,
+          amount: note.amount,
+          appliedAmount,
+          currency: note.currency,
+        });
+        return acc;
+      }, []);
+      const creditNotesAmountToApply = appliedCreditNotes.reduce(
+        (sum, note) => sum + Math.max(0, Math.trunc(note.appliedAmount)),
+        0,
+      );
+      const maxCashPayment = Math.max(0, balance - creditNotesAmountToApply);
+      const paymentAmountToApply =
+        mode === "full" ? maxCashPayment : enteredAmount;
+      const totalAppliedToInvoice =
+        paymentAmountToApply + creditNotesAmountToApply;
 
-      if (mode === "full" && enteredAmount !== balance) {
+      if (mode === "partial" && paymentAmountToApply > maxCashPayment) {
         return;
       }
 
-      if (paymentAmountToApply <= 0 || paymentAmountToApply > balance) {
+      if (totalAppliedToInvoice <= 0 || totalAppliedToInvoice > balance) {
         return;
       }
 
       const nowISO = new Date().toISOString();
       const nextPaidAmount = Math.min(
         totalAmount,
-        paidAmount + paymentAmountToApply,
+        paidAmount + totalAppliedToInvoice,
       );
       const nextBalanceDue = Math.max(0, totalAmount - nextPaidAmount);
       const nextStatus =
@@ -9420,6 +9629,12 @@ export function FondoSection({
       const cleanedNotes = closingPaymentNotes.trim();
       const cleanedManager2 = closingPaymentManager2.trim();
       const paymentManager2Value = cleanedManager2 || null;
+      const nextAppliedCreditNotes = [
+        ...(Array.isArray(closingPaymentTarget.appliedCreditNotes)
+          ? closingPaymentTarget.appliedCreditNotes
+          : []),
+        ...appliedCreditNotes,
+      ];
 
       const updatedMovement: FacturaMovement = {
         ...closingPaymentTarget,
@@ -9431,6 +9646,8 @@ export function FondoSection({
         balanceDue: nextBalanceDue,
         paymentStatus: nextStatus,
         notes: cleanedNotes,
+        appliedCreditNotes:
+          nextAppliedCreditNotes.length > 0 ? nextAppliedCreditNotes : undefined,
         updateAt: nowISO,
         ...(paymentManager2Value ? { manager2: paymentManager2Value } : {}),
       };
@@ -9500,23 +9717,6 @@ export function FondoSection({
           FacturasService.buildMovementRef(company, closingPaymentTarget.id),
           stripUndefinedDeep(updatedMovement),
           { merge: true },
-        );
-        batch.set(
-          FacturasService.buildMovementRef(company, paymentMovementId),
-          stripUndefinedDeep({
-            ...paymentMovement,
-            invoiceDocType: "FCO" as const,
-            paymentStatus: "PAGADA" as const,
-            amount: paymentAmountToApply,
-            amountEgreso: paymentAmountToApply,
-            amountIngreso: 0,
-            amountPayment: paymentAmountToApply,
-            paidAmount: paymentAmountToApply,
-            balanceDue: 0,
-            originalAmount: totalAmount,
-            amountDue: nextBalanceDue,
-            ...(paymentManager2Value ? { manager2: paymentManager2Value } : {}),
-          }),
         );
 
         const mainRef = doc(
@@ -12119,7 +12319,7 @@ export function FondoSection({
                           invoiceNumber: manualCreditNoteDraft.invoiceNumber,
                           amount: manualCreditNoteDraft.amount,
                           balanceDue: manualCreditNoteDraft.amount,
-                          currency: movementCurrency,
+                          currency: movementCurrency as "CRC" | "USD",
                         },
                         ...selectedProviderPendingCreditNotes,
                       ]
@@ -12145,6 +12345,9 @@ export function FondoSection({
                   onInvoiceNumberChange={handleInvoiceNumberChange}
                   invoiceDocType={invoiceDocType}
                   onInvoiceDocTypeChange={setInvoiceDocType}
+                  allowCreditInvoiceOption={Boolean(
+                    editingEntryId && invoiceDocType === "FCR",
+                  )}
                   lockInvoiceDocTypeToContado={isInvoiceDocTypeLockedToContado}
                   invoiceValid={invoiceValid}
                   invoiceDisabled={invoiceDisabled}
@@ -12188,6 +12391,31 @@ export function FondoSection({
                   managerError={managerError}
                   manager2Error={manager2Error}
                   pendingCreditNotesCount={selectedProviderPendingNcCount}
+                  pendingCreditInvoicesCount={
+                    selectedProviderPendingPaymentAlert?.count ?? 0
+                  }
+                  pendingCreditInvoicesBalanceLabel={
+                    selectedProviderPendingPaymentAlert
+                      ? [
+                          selectedProviderPendingPaymentAlert.crc > 0
+                            ? formatByCurrency(
+                                "CRC",
+                                selectedProviderPendingPaymentAlert.crc,
+                              )
+                            : "",
+                          selectedProviderPendingPaymentAlert.usd > 0
+                            ? formatByCurrency(
+                                "USD",
+                                selectedProviderPendingPaymentAlert.usd,
+                              )
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" / ")
+                      : ""
+                  }
+                  pendingCreditInvoices={selectedProviderPendingCreditInvoices}
+                  onSelectPendingCreditInvoice={openSelectedPendingCreditInvoicePayment}
                   pendingCreditNotes={movementPendingCreditNotes}
                   selectedCreditNoteIds={selectedAppliedCreditNoteIds}
                   onToggleCreditNote={(id) => {
@@ -12871,25 +13099,22 @@ export function FondoSection({
                                 <td className="px-3 py-2 align-top">
                                   <button
                                     type="button"
-                                    onClick={() =>
-                                      openClosingInvoicePaymentModal(invoice)
-                                    }
-                                    disabled={pendingCierreDeCaja}
-                                    title={
-                                      pendingCierreDeCaja
-                                        ? "Pago bloqueado: existe un cierre pendiente"
-                                        : "Pagar factura crédito pendiente"
-                                    }
-                                    className={`inline-flex items-center gap-1.5 rounded border px-2.5 py-1.5 text-xs font-medium transition-all duration-150 ${
-                                      pendingCierreDeCaja
-                                        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-100 cursor-not-allowed"
-                                        : "border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:-translate-y-0.5 hover:border-emerald-400 hover:bg-emerald-500/20"
-                                    }`}
+                                    onClick={() => {
+                                      try {
+                                        localStorage.setItem(
+                                          SHARED_COMPANY_STORAGE_KEY,
+                                          company,
+                                        );
+                                      } catch {
+                                        // ignore
+                                      }
+                                      window.location.hash = "#facturas";
+                                    }}
+                                    title="Gestionar esta factura desde Facturas de crédito y notas de crédito"
+                                    className="inline-flex items-center gap-1.5 rounded border border-amber-400/35 bg-amber-500/10 px-2.5 py-1.5 text-xs font-medium text-amber-100 transition-all duration-150 hover:-translate-y-0.5 hover:border-amber-300 hover:bg-amber-500/20"
                                   >
-                                    <Banknote className="w-4 h-4" />
-                                    {pendingCierreDeCaja
-                                      ? "Bloqueado"
-                                      : "Pagar"}
+                                    <FileText className="w-4 h-4" />
+                                    Gestionar
                                   </button>
                                 </td>
                               </tr>
@@ -14039,6 +14264,16 @@ export function FondoSection({
         onPaymentManager2Change={setClosingPaymentManager2}
         onSubmitPartial={() => void submitClosingInvoicePayment("partial")}
         onSubmitFull={() => void submitClosingInvoicePayment("full")}
+        pendingCreditNotes={closingPaymentAvailableCreditNotes}
+        selectedCreditNoteIds={closingPaymentCreditNoteIds}
+        onToggleCreditNote={(id) => {
+          setClosingPaymentCreditNoteIds((prev) =>
+            prev.includes(id)
+              ? prev.filter((item) => item !== id)
+              : [...prev, id],
+          );
+        }}
+        creditNotesAppliedTotal={closingPaymentCreditNotesTotal}
       />
 
       <ConfirmModal

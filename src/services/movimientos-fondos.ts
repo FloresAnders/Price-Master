@@ -11,6 +11,7 @@ import {
   startAfter,
   where,
   writeBatch,
+  type WriteBatch,
   type Query,
   type QueryConstraint,
   type QuerySnapshot,
@@ -853,6 +854,7 @@ export class MovimientosFondosService {
         }
       | { type: "delete"; movementId: string; accountId?: MovementAccountKey }
       | { type: "none" },
+    extraWrites?: (batch: WriteBatch) => void,
   ): Promise<void> {
     if (!docId) return;
 
@@ -895,6 +897,7 @@ export class MovimientosFondosService {
       batch.delete(movementRef);
     }
 
+    extraWrites?.(batch);
     await batch.commit();
   }
 

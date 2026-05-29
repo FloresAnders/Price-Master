@@ -1,5 +1,6 @@
 import {
   collection,
+  deleteDoc,
   doc,
   getDocs,
   limit,
@@ -239,6 +240,12 @@ export class FacturasService {
     };
 
     await setDoc(ref, stripUndefinedDeep(payload), { merge: true });
+  }
+
+  static async deleteMovement(empresa: string, movementId: string): Promise<void> {
+    const cleanMovementId = String(movementId || "").trim();
+    if (!cleanMovementId) return;
+    await deleteDoc(this.buildMovementRef(empresa, cleanMovementId));
   }
 
   static async listMovementsByEmpresa(

@@ -37,6 +37,14 @@ type PendingCreditNoteOption = {
   currency: "CRC" | "USD";
 };
 
+type PendingCreditInvoiceOption = {
+  id: string;
+  invoiceNumber: string;
+  amount: number;
+  balanceDue: number;
+  currency: "CRC" | "USD";
+};
+
 type AgregarMovimientoProps = {
   selectedProvider: string;
   onProviderChange: (value: string) => void;
@@ -49,6 +57,7 @@ type AgregarMovimientoProps = {
   onInvoiceNumberChange: (value: string) => void;
   invoiceDocType: "FCO" | "FCR";
   onInvoiceDocTypeChange: (value: "FCO" | "FCR") => void;
+  allowCreditInvoiceOption?: boolean;
   lockInvoiceDocTypeToContado?: boolean;
   invoiceValid: boolean;
   invoiceDisabled: boolean;
@@ -88,6 +97,10 @@ type AgregarMovimientoProps = {
   managerError?: string;
   manager2Error?: string;
   pendingCreditNotesCount?: number;
+  pendingCreditInvoicesCount?: number;
+  pendingCreditInvoicesBalanceLabel?: string;
+  pendingCreditInvoices?: PendingCreditInvoiceOption[];
+  onSelectPendingCreditInvoice?: (id: string) => void;
   pendingCreditNotes?: PendingCreditNoteOption[];
   selectedCreditNoteIds?: string[];
   onToggleCreditNote?: (id: string) => void;
@@ -111,6 +124,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   onInvoiceNumberChange,
   invoiceDocType,
   onInvoiceDocTypeChange,
+  allowCreditInvoiceOption = false,
   lockInvoiceDocTypeToContado = false,
   invoiceValid,
   invoiceDisabled,
@@ -144,6 +158,10 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   managerError = "",
   manager2Error = "",
   pendingCreditNotesCount = 0,
+  pendingCreditInvoicesCount = 0,
+  pendingCreditInvoicesBalanceLabel = "",
+  pendingCreditInvoices = [],
+  onSelectPendingCreditInvoice,
   pendingCreditNotes = [],
   selectedCreditNoteIds = [],
   onToggleCreditNote,
@@ -322,15 +340,26 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                 <Search className="h-3.5 w-3.5" />
                 Proveedor
               </label>
-              {pendingCreditNotesCount > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
-                  <AlertTriangle className="h-3 w-3" />
-                  NC pendiente
-                  {pendingCreditNotesCount > 1
-                    ? `s (${pendingCreditNotesCount})`
-                    : ""}
-                </span>
-              )}
+              <span className="flex flex-wrap justify-end gap-1">
+                {pendingCreditInvoicesCount > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
+                    <AlertTriangle className="h-3 w-3" />
+                    Pago pendiente
+                    {pendingCreditInvoicesCount > 1
+                      ? `s (${pendingCreditInvoicesCount})`
+                      : ""}
+                  </span>
+                )}
+                {pendingCreditNotesCount > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
+                    <AlertTriangle className="h-3 w-3" />
+                    NC pendiente
+                    {pendingCreditNotesCount > 1
+                      ? `s (${pendingCreditNotesCount})`
+                      : ""}
+                  </span>
+                )}
+              </span>
             </div>
             <div className="relative group">
               {selectedProvider && (
@@ -451,6 +480,45 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
             {providerError && (
               <p className="mt-1 text-xs text-red-400">{providerError}</p>
             )}
+            {pendingCreditInvoicesCount > 0 && (
+              <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                <div className="font-semibold">
+                  Proveedor con pagos pendientes
+                </div>
+                <div className="mt-0.5 text-amber-100/80">
+                  {pendingCreditInvoicesCount} factura
+                  {pendingCreditInvoicesCount === 1 ? "" : "s"} a crédito sin
+                  saldar
+                  {pendingCreditInvoicesBalanceLabel
+                    ? `: ${pendingCreditInvoicesBalanceLabel}`
+                    : "."}
+                </div>
+                {pendingCreditInvoices.length > 0 && (
+                  <div className="mt-2 space-y-1.5">
+                    {pendingCreditInvoices.map((invoice) => (
+                      <button
+                        key={invoice.id}
+                        type="button"
+                        onClick={() => onSelectPendingCreditInvoice?.(invoice.id)}
+                        className="flex w-full items-center justify-between gap-3 rounded border border-amber-400/25 bg-black/10 px-2.5 py-2 text-left text-amber-50 transition-colors hover:border-amber-300/45 hover:bg-amber-500/15"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate font-semibold">
+                            Factura #{invoice.invoiceNumber || invoice.id}
+                          </span>
+                          <span className="block text-[11px] text-amber-100/70">
+                            Seleccionar para abono o pago completo
+                          </span>
+                        </span>
+                        <span className="shrink-0 font-semibold">
+                          {formatCurrencyAmount(invoice.balanceDue, invoice.currency)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div>
@@ -484,8 +552,14 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
           <p className="mb-2 text-xs uppercase tracking-wide text-cyan-100/70">
             Tipo factura
           </p>
-          <div className="grid grid-cols-2 gap-2">
-            {(["FCO", "FCR"] as const).map((option) => {
+          <div
+            className={`grid gap-2 ${
+              allowCreditInvoiceOption ? "grid-cols-2" : "grid-cols-1"
+            }`}
+          >
+            {(
+              allowCreditInvoiceOption ? (["FCO", "FCR"] as const) : (["FCO"] as const)
+            ).map((option) => {
               const active = invoiceDocType === option;
               const disabled =
                 invoiceDisabled ||
