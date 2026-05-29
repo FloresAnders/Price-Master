@@ -911,7 +911,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                         className={`flex items-center gap-3 px-3 py-2 bg-transparent rounded-lg border border-[var(--input-border)] hover:bg-[var(--hover-bg)] transition-colors`}
                       >
                         <div
-                          className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden"
+                          className="w-14 h-14 rounded-full flex items-center justify-center overflow-hidden"
                           style={{ backgroundColor: "var(--primary)" }}
                         >
                           {(user as any)?.photoUrl ? (
@@ -1262,7 +1262,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 <div className="flex items-start justify-between">
                   <div className="flex gap-3 items-center">
                     <div
-                      className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden"
+                      className="w-14 h-14 rounded-full flex items-center justify-center overflow-hidden"
                       style={{ backgroundColor: "var(--primary)" }}
                     >
                       {(user as any)?.photoUrl ? (
