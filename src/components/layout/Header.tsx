@@ -435,6 +435,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   // Navigation tabs with permissions
   const allTabs = [
     {
+      id: "fondogeneral" as ActiveTab,
+      name: "Fondo General",
+      icon: Banknote,
+      description: "Administrar el fondo general",
+      permission: "fondogeneral" as keyof UserPermissions,
+    },
+    {
       id: "scanner" as ActiveTab,
       name: "Escáner",
       icon: Scan,
