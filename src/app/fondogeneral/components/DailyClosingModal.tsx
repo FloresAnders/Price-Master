@@ -324,15 +324,20 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     currency: "CRC" | "USD",
     denom: number,
   ) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      focusAdjacentCashInput(event.currentTarget, event.shiftKey ? -1 : 1);
-      return;
-    }
     if (event.key === "ArrowUp") {
       event.preventDefault();
+      focusAdjacentCashInput(event.currentTarget, -1);
+      return;
+    }
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      focusAdjacentCashInput(event.currentTarget, 1);
+      return;
+    }
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
       incrementCount(currency, denom);
-    } else if (event.key === "ArrowDown") {
+    } else if (event.key === "ArrowLeft") {
       event.preventDefault();
       decrementCount(currency, denom);
     }
@@ -399,7 +404,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-full sm:max-w-3xl rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] shadow-lg max-h-[80vh] overflow-hidden flex flex-col"
+        className="w-full max-w-full sm:max-w-4xl rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] shadow-lg max-h-[95vh] overflow-hidden flex flex-col"
         onClick={(event) => event.stopPropagation()}
         ref={modalRef}
       >
@@ -486,7 +491,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                 Total: {formatCurrency("CRC", totalCRC)}
               </div>
               <div
-                className={`mt-2 text-sm font-semibold ${diffCRC < 0 ? "text-red-500" : diffCRC > 0 ? "text-green-500" : "white"}`}
+                className={`mt-2 text-sm font-semibold ${diffCRC < 0 ? "border-red-500/30 bg-red-500/10 text-red-300" : diffCRC > 0 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-slate-600 bg-slate-800/60 text-slate-300"} rounded border px-2.5 py-1`}
               >
                 Saldo registrado: {formatCurrency("CRC", currentBalanceCRC)} ·
                 Diferencia: {differenceLabel("CRC", diffCRC)}
@@ -554,7 +559,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                 Total: {formatCurrency("USD", totalUSD)}
               </div>
               <div
-                className={`mt-2 text-sm font-semibold ${diffUSD < 0 ? "text-red-500" : diffUSD > 0 ? "text-green-500" : "text-white-500"}`}
+                className={`mt-2 text-sm font-semibold ${diffUSD < 0 ? "border-red-500/30 bg-red-500/10 text-red-300" : diffUSD > 0 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-slate-600 bg-slate-800/60 text-slate-300"} rounded border px-2.5 py-1`}
               >
                 Saldo registrado: {formatCurrency("USD", currentBalanceUSD)} ·
                 Diferencia: {differenceLabel("USD", diffUSD)}
