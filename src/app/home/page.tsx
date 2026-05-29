@@ -15,6 +15,7 @@ import {
   Settings,
   History,
   X,
+  KanbanSquare,
 } from "lucide-react";
 import AnimatedStickman from "@/components/ui/AnimatedStickman";
 import { User, UserPermissions } from "@/types/firestore";
@@ -92,6 +93,13 @@ const menuItems = [
     icon: Truck,
     description: "Gestión de órdenes de proveedores",
     permission: "supplierorders" as keyof UserPermissions,
+  },
+  {
+    id: "taskboard",
+    name: "Tableros",
+    icon: KanbanSquare,
+    description: "Gestión de tareas en equipos",
+    permission: "taskboard" as keyof UserPermissions,
   },
   {
     id: "scanhistory",

@@ -13,6 +13,11 @@ import ReminderNotificationsInitializer from "../components/funciones/ReminderNo
 import SystemNotesInitializer from "../components/funciones/SystemNotesInitializer";
 import { XmlEgresosProvider } from "../components/xml/XmlEgresosProvider";
 import BackToTop from "../components/ui/BackToTop";
+import { Geist } from "next/font/google";
+import { cn } from "@/lib/utils";
+import { TooltipProvider } from "@/components/ui/tooltip";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata = {
   title: "Time Master",
@@ -83,7 +88,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className="min-h-full bg-white dark:bg-[#0d1117]"
+      className={cn("min-h-full bg-white dark:bg-[#0d1117]", "font-sans", geist.variable)}
     >
       <head suppressHydrationWarning>
         <link rel="preconnect" href="https://firebasestorage.googleapis.com" />
@@ -127,19 +132,21 @@ export default function RootLayout({
           <AuthWrapper>
             <PermissionsManager>
               <ToastProvider>
-                <XmlEgresosProvider>
-                  <VersionCheckInitializer />
-                  <ReminderNotificationsInitializer />
-                  <SystemNotesInitializer />
-                  <HeaderWrapper /> 
-                  <main role="main" className="flex-1 flex flex-col w-full lg:pl-[var(--admin-sidebar-width)] transition-[padding] duration-300">
-                    <div className="w-full" suppressHydrationWarning>
-                      {children}
-                    </div>
-                  </main>
-                  <BackToTop />
-                  <Footer />
-                </XmlEgresosProvider>
+                <TooltipProvider>
+                  <XmlEgresosProvider>
+                    <VersionCheckInitializer />
+                    <ReminderNotificationsInitializer />
+                    <SystemNotesInitializer />
+                    <HeaderWrapper /> 
+                    <main role="main" className="flex-1 flex flex-col w-full lg:pl-[var(--admin-sidebar-width)] transition-[padding] duration-300">
+                      <div className="w-full" suppressHydrationWarning>
+                        {children}
+                      </div>
+                    </main>
+                    <BackToTop />
+                    <Footer />
+                  </XmlEgresosProvider>
+                </TooltipProvider>
               </ToastProvider>
             </PermissionsManager>
           </AuthWrapper>

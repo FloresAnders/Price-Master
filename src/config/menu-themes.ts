@@ -106,6 +106,13 @@ export const MENU_CARD_THEMES: Record<
     ring: "border-amber-400/25",
     arrow: "text-amber-100",
   },
+  taskboard: {
+    glow: "from-cyan-500/15 via-transparent to-transparent",
+    iconBg: "bg-cyan-500/20",
+    iconText: "text-cyan-100",
+    ring: "border-cyan-400/25",
+    arrow: "text-cyan-100",
+  },
   scanhistory: {
     glow: "from-rose-500/15 via-transparent to-transparent",
     iconBg: "bg-rose-500/20",

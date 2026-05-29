@@ -37,6 +37,7 @@ import {
   Star,
   Plus,
   ArrowRight,
+  KanbanSquare,
 } from "lucide-react";
 import AnimatedStickman from "../ui/AnimatedStickman";
 import { CustomIcon } from "../../icons/icons";
@@ -163,6 +164,13 @@ const menuItems = [
     icon: Truck,
     description: "Gestión de órdenes de proveedores",
     permission: "supplierorders" as keyof UserPermissions,
+  },
+  {
+    id: "taskboard",
+    name: "Tableros",
+    icon: KanbanSquare,
+    description: "Gestión de tareas en equipos",
+    permission: "taskboard" as keyof UserPermissions,
   },
   {
     id: "scanhistory",

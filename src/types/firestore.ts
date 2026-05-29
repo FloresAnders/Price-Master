@@ -167,6 +167,7 @@ export interface UserPermissions {
   empleados: boolean; // Empleados - Información (próximamente)
   supplierorders: boolean; // Órdenes Proveedor - Gestión de órdenes de proveedores
   mantenimiento: boolean; // Mantenimiento - Nueva sección de mantenimiento
+  taskboard?: boolean; // Tableros - Gestión de tareas en equipos
   fondogeneral?: boolean; // Fondo General - Acceso a administración del fondo general
   fondogeneralBCR?: boolean; // Fondo General - Acceso a la cuenta BCR
   fondogeneralBN?: boolean; // Fondo General - Acceso a la cuenta BN

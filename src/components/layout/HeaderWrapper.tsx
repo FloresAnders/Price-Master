@@ -44,6 +44,7 @@ export default function HeaderWrapper() {
         "agregarproducto",
         "calculohorasprecios",
         "supplierorders",
+        "taskboard",
         "histoscans",
         "scanhistory",
         "edit",

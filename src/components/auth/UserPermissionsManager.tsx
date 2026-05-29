@@ -32,6 +32,7 @@ const PERMISSION_LABELS = {
   calculohorasprecios: "Calculo horas precios",
   supplierorders: "Órdenes Proveedor",
   mantenimiento: "Mantenimiento",
+  taskboard: "Tableros",
   fondogeneral: "Fondo General",
   fondogeneralBCR: "Fondo General - BCR",
   fondogeneralBN: "Fondo General - BN",
@@ -56,6 +57,7 @@ const PERMISSION_DESCRIPTIONS = {
   calculohorasprecios: "Cálculo de horas y precios (planilla)",
   supplierorders: "Gestión de órdenes de proveedores",
   mantenimiento: "Acceso al panel de administración",
+  taskboard: "Gestión de tableros de tareas",
   fondogeneral:
     "Permiso para ver y administrar el fondo general de la compañía",
   fondogeneralBCR:

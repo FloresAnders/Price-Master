@@ -17,6 +17,7 @@ import {
   Type,
   UserPlus,
   Users,
+  KanbanSquare,
 } from "lucide-react";
 import { CustomIcon } from "../../icons/icons";
 import type { User, UserPermissions } from "../../types/firestore";
@@ -227,6 +228,15 @@ export const HOME_MENU_FAVORITE_OPTIONS: HomeMenuFavoriteOption[] = [
     icon: Truck,
     permission: "supplierorders",
     hash: "supplierorders",
+  },
+  {
+    id: "taskboard",
+    label: "Tableros",
+    description: "Gestión de tareas en equipos",
+    group: "Herramientas",
+    icon: KanbanSquare,
+    permission: "taskboard",
+    hash: "taskboard",
   },
   {
     id: "scanhistory",

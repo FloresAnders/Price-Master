@@ -76,6 +76,13 @@ const SupplierOrders = dynamic(
     })),
   { ssr: false },
 );
+const TaskBoard = dynamic(
+  () =>
+    import("@/components/business").then((mod) => ({
+      default: mod.TaskBoard,
+    })),
+  { ssr: false },
+);
 const Mantenimiento = dynamic(
   () =>
     import("@/components/admin").then((mod) => ({
@@ -138,7 +145,7 @@ const AgregarProductoTab = dynamic(
   { ssr: false },
 );
 
-// 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders", "edit", "scanhistory", "solicitud", "agregarproveedor", "reportes"
+// 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders", "taskboard", "edit", "scanhistory", "solicitud", "agregarproveedor", "reportes"
 type ActiveTab =
   | "scanner"
   | "calculator"
@@ -153,6 +160,7 @@ type ActiveTab =
   | "funciones"
   | "calculohorasprecios"
   | "supplierorders"
+  | "taskboard"
   | "scanhistory"
   | "edit"
   | "solicitud"
@@ -291,6 +299,7 @@ export default function HomePage() {
           "funciones",
           "calculohorasprecios",
           "supplierorders",
+          "taskboard",
           "scanhistory",
           "solicitud",
           "fondogeneral",
@@ -343,6 +352,7 @@ export default function HomePage() {
           "funciones",
           "calculohorasprecios",
           "supplierorders",
+          "taskboard",
           "scanhistory",
           "edit",
           "solicitud",
@@ -433,6 +443,9 @@ export default function HomePage() {
 
               {/* SUPPLIER ORDERS */}
               {activeTab === "supplierorders" && <SupplierOrders />}
+
+              {/* TABLEROS */}
+              {activeTab === "taskboard" && <TaskBoard />}
 
               {/* HISTORIAL DE ESCANEOS */}
               {activeTab === "scanhistory" && <ScanHistoryTable />}

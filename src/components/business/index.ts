@@ -8,3 +8,4 @@ export { default as ScheduleReportTab } from "./ScheduleReportTab";
 export { default as EmployeeSummaryCalculator } from "./EmployeeSummaryCalculator";
 export { default as CalculoHorasPrecios } from "./CalculoHorasPrecios";
 export { default as EmpleadosProximamente } from "./EmpleadosProximamente";
+export { default as TaskBoard } from "./TaskBoard/TaskBoard";

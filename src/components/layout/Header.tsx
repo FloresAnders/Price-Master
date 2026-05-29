@@ -29,6 +29,7 @@ import {
   Plus,
   Camera,
   ScanBarcode,
+  KanbanSquare,
 } from "lucide-react";
 import { CustomIcon } from "@/icons/icons";
 import { useState, useEffect, useRef } from "react";
@@ -114,6 +115,7 @@ export type ActiveTab =
   | "scanhistory"
   | "edit"
   | "solicitud"
+  | "taskboard"
   | "fondogeneral"
   | "FC/NC"
   | "agregarproveedor"
@@ -517,6 +519,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       icon: Truck,
       description: "Gestión de órdenes de proveedores",
       permission: "supplierorders" as keyof UserPermissions,
+    },
+    {
+      id: "taskboard" as ActiveTab,
+      name: "Tableros",
+      icon: KanbanSquare,
+      description: "Gestión de tareas en equipos",
+      permission: "taskboard" as keyof UserPermissions,
     },
     {
       id: "edit" as ActiveTab,
