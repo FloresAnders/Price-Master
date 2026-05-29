@@ -4994,7 +4994,7 @@ export function FondoSection({
 
   // Column widths for resizable columns (simple px based)
   const [columnWidths, setColumnWidths] = useState<Record<string, string>>({
-    hora: "120px",
+    hora: "110px",
     motivo: "260px",
     tipo: "160px",
     factura: "70px",

@@ -268,6 +268,68 @@ export default function FacturasCreditoPage() {
   const docTypeDropdownRef = React.useRef<HTMLDivElement | null>(null);
   const filtersDropdownRef = React.useRef<HTMLDivElement | null>(null);
 
+  // Column widths for resizable columns (px based) with persistence
+  const [columnWidths, setColumnWidths] = useState<Record<string, string>>(() => {
+    const defaults: Record<string, string> = {
+      fecha: "80px",
+      proveedor: "250px",
+      factura: "120px",
+      tipo: "160px",
+      monto: "140px",
+      estado: "200px",
+      accion: "140px",
+    };
+    try {
+      if (typeof window !== "undefined") {
+        const raw = localStorage.getItem("facturas-columnWidths");
+        if (raw) {
+          const parsed = JSON.parse(raw || "{}");
+          return { ...defaults, ...parsed };
+        }
+      }
+    } catch {
+      // ignore and use defaults
+    }
+    return defaults;
+  });
+  const resizingRef = React.useRef<{ key: string; startX: number; startWidth: number } | null>(null);
+
+  const startResizing = (event: React.MouseEvent, key: string) => {
+    event.preventDefault();
+    const startWidth = parseInt(columnWidths[key] || "100", 10) || 100;
+    resizingRef.current = { key, startX: event.clientX, startWidth };
+  };
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      const r = resizingRef.current;
+      if (!r) return;
+      const delta = e.clientX - r.startX;
+      const newW = Math.max(40, r.startWidth + delta);
+      setColumnWidths((prev) => ({ ...prev, [r.key]: `${newW}px` }));
+    };
+    const onUp = () => {
+      resizingRef.current = null;
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [columnWidths]);
+
+  // Persist column widths when changed
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("facturas-columnWidths", JSON.stringify(columnWidths));
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, [columnWidths]);
+
   const todayKey = useMemo(() => dateKeyFromDate(new Date()), []);
   const companySelectId = "facturas-company-select";
   const [availableCompanies, setAvailableCompanies] = useState<Empresas[]>([]);
@@ -2338,16 +2400,109 @@ export default function FacturasCreditoPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full table-fixed text-sm">
+            <table className="w-full min-w-[800px] border-separate border-spacing-0 text-sm">
+              <colgroup>
+                <col style={{ width: columnWidths.fecha }} />
+                <col style={{ width: columnWidths.proveedor }} />
+                <col style={{ width: columnWidths.factura }} />
+                <col style={{ width: columnWidths.tipo }} />
+                <col style={{ width: columnWidths.monto }} />
+                <col style={{ width: columnWidths.estado }} />
+                <col style={{ width: columnWidths.accion }} />
+              </colgroup>
               <thead className="text-xs uppercase text-[var(--muted-foreground)]">
                 <tr className="border-b border-[var(--input-border)]">
-                  <th className="w-[10%] px-3 py-2 text-left max-sm:w-[15%]">Fecha</th>
-                  <th className="w-[14%] px-3 py-2 text-left max-sm:w-[16%]">Proveedor</th>
-                  <th className="w-[10%] px-3 py-2 text-left max-sm:w-[12%]">N° Factura</th>
-                  <th className="w-[16%] px-3 py-2 text-left max-sm:hidden">Tipo Pago</th>
-                  <th className="w-[18%] px-3 py-2 text-right max-sm:w-[20%]">Monto</th>
-                  <th className="w-[18%] px-3 py-2 text-left max-sm:w-[22%]">Estado</th>
-                  <th className="w-[14%] px-3 py-2 text-left max-sm:w-[15%]">Acción</th>
+                  <th className="px-3 py-2 text-left font-semibold">
+                    <div className="relative pr-2">
+                      <div>Fecha</div>
+                      <div className="absolute top-1/4 right-10 h-1/2 w-px bg-[var(--input-border)] pointer-events-none" />
+                      <div
+                        onMouseDown={(e) => startResizing(e, "fecha")}
+                        className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
+                        style={{ touchAction: "none" }}
+                      >
+                        <div style={{ width: 2, height: "70%", background: "rgba(0,0,0,0.06)", borderRadius: 3 }} />
+                      </div>
+                    </div>
+                  </th>
+                  <th className="px-3 py-2 text-left font-semibold">
+                    <div className="relative pr-2">
+                      <div>Proveedor</div>
+                      <div className="absolute top-1/4 right-10 h-1/2 w-px bg-[var(--input-border)] pointer-events-none" />
+                      <div
+                        onMouseDown={(e) => startResizing(e, "proveedor")}
+                        className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
+                        style={{ touchAction: "none" }}
+                      >
+                        <div style={{ width: 2, height: "70%", background: "rgba(0,0,0,0.06)", borderRadius: 3 }} />
+                      </div>
+                    </div>
+                  </th>
+                  <th className="px-3 py-2 text-left font-semibold">
+                    <div className="relative pr-2">
+                      <div>N° Factura</div>
+                      <div className="absolute top-1/4 right-10 h-1/2 w-px bg-[var(--input-border)] pointer-events-none" />
+                      <div
+                        onMouseDown={(e) => startResizing(e, "factura")}
+                        className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
+                        style={{ touchAction: "none" }}
+                      >
+                        <div style={{ width: 2, height: "70%", background: "rgba(0,0,0,0.06)", borderRadius: 3 }} />
+                      </div>
+                    </div>
+                  </th>
+                  <th className="px-3 py-2 text-left font-semibold max-sm:hidden">
+                    <div className="relative pr-2">
+                      <div>Tipo Pago</div>
+                      <div className="absolute top-1/4 right-10 h-1/2 w-px bg-[var(--input-border)] pointer-events-none" />
+                      <div
+                        onMouseDown={(e) => startResizing(e, "tipo")}
+                        className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
+                        style={{ touchAction: "none" }}
+                      >
+                        <div style={{ width: 2, height: "70%", background: "rgba(0,0,0,0.06)", borderRadius: 3 }} />
+                      </div>
+                    </div>
+                  </th>
+                  <th className="px-3 py-2 text-right font-semibold">
+                    <div className="relative pr-2">
+                      <div>Monto</div>
+                      <div className="absolute top-1/4 right-10 h-1/2 w-px bg-[var(--input-border)] pointer-events-none" />
+                      <div
+                        onMouseDown={(e) => startResizing(e, "monto")}
+                        className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
+                        style={{ touchAction: "none" }}
+                      >
+                        <div style={{ width: 2, height: "70%", background: "rgba(0,0,0,0.06)", borderRadius: 3 }} />
+                      </div>
+                    </div>
+                  </th>
+                  <th className="px-3 py-2 text-left font-semibold">
+                    <div className="relative pr-2">
+                      <div>Estado</div>
+                      <div className="absolute top-1/4 right-10 h-1/2 w-px bg-[var(--input-border)] pointer-events-none" />
+                      <div
+                        onMouseDown={(e) => startResizing(e, "estado")}
+                        className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
+                        style={{ touchAction: "none" }}
+                      >
+                        <div style={{ width: 2, height: "70%", background: "rgba(0,0,0,0.06)", borderRadius: 3 }} />
+                      </div>
+                    </div>
+                  </th>
+                  <th className="px-3 py-2 text-left font-semibold">
+                    <div className="relative pr-2">
+                      <div>Acción</div>
+                      <div className="absolute top-1/4 right-10 h-1/2 w-px bg-[var(--input-border)] pointer-events-none" />
+                      <div
+                        onMouseDown={(e) => startResizing(e, "accion")}
+                        className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
+                        style={{ touchAction: "none" }}
+                      >
+                        <div style={{ width: 2, height: "70%", background: "rgba(0,0,0,0.06)", borderRadius: 3 }} />
+                      </div>
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -2374,8 +2529,31 @@ export default function FacturasCreditoPage() {
                       key={m.id}
                       className="border-b border-[var(--input-border)] hover:bg-[var(--muted)]/10"
                     >
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        {formatKeyToDisplay(dateKeyFromIso(m.createdAt))}
+                      <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
+                        {(() => {
+                          try {
+                            const d = new Date(String(m.createdAt || ""));
+                            if (Number.isNaN(d.getTime())) {
+                              return <div>{formatKeyToDisplay(dateKeyFromIso(m.createdAt))}</div>;
+                            }
+                            const localDateTimeFormatter = new Intl.DateTimeFormat("es-CR", {
+                              dateStyle: "short",
+                              timeStyle: "short",
+                            });
+                            const formatted = localDateTimeFormatter.format(d);
+                            const parts = String(formatted).split(",");
+                            return (
+                              <div className="flex flex-col">
+                                <span className="font-medium text-[var(--foreground)]">{parts[0]?.trim()}{parts.length>1?",":""}</span>
+                                {parts[1] && (
+                                  <span className="text-xs text-[var(--muted-foreground)]">{parts.slice(1).join(",").trim()}</span>
+                                )}
+                              </div>
+                            );
+                          } catch {
+                            return <div>{formatKeyToDisplay(dateKeyFromIso(m.createdAt))}</div>;
+                          }
+                        })()}
                       </td>
                       <td className="px-3 py-2">
                         <div className="truncate max-w-[280px]">
@@ -2383,7 +2561,7 @@ export default function FacturasCreditoPage() {
                             m.providerCode}
                         </div>
                         <div className="text-xs text-[var(--muted-foreground)]">
-                          {m.providerCode}
+                          {m.notes || m.providerCode}
                         </div>
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
