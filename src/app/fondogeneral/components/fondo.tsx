@@ -14041,22 +14041,48 @@ export function FondoSection({
                                                     )}
                                                   </span>
                                                 </div>
-                                                <div className="flex w-full gap-0 rounded border border-yellow-500/20 bg-yellow-500/20 px-2 py-1">
-                                                  {/*ALCHACAS*/}
+                                                <button
+                                                  type="button"
+                                                  onClick={() => {
+                                                    setExpandedAppliedCreditNotesRows(
+                                                      (prev) => {
+                                                        const next = new Set(
+                                                          prev,
+                                                        );
+                                                        if (next.has(fe.id)) {
+                                                          next.delete(fe.id);
+                                                        } else {
+                                                          next.add(fe.id);
+                                                        }
+                                                        return next;
+                                                      },
+                                                    );
+                                                  }}
+                                                  title={isAppliedCreditNotesExpanded ? "Ocultar NCs" : "Ver NCs aplicadas"}
+                                                  aria-expanded={isAppliedCreditNotesExpanded}
+                                                  className={`flex w-full gap-0 rounded border px-2 py-1 text-left transition-all ${
+                                                    isAppliedCreditNotesExpanded
+                                                      ? "border-yellow-500/40 bg-yellow-500/30"
+                                                      : "border-yellow-500/20 bg-yellow-500/20 hover:border-yellow-500/30 hover:bg-yellow-500/25"
+                                                  }`}
+                                                >
                                                   <span className="flex items-center justify-center gap-1 text-xs text-yellow-300">
                                                     <Tag className="h-3 w-3 shrink-0" />
                                                     NC
                                                   </span>
-                                                  <span className="w-full pl-4 text-center text-sm font-semibold text-yellow-300 whitespace-nowrap">
+                                                  <span className="flex items-center justify-end gap-1 pl-4 text-center text-sm font-semibold text-yellow-300 whitespace-nowrap">
                                                     -
                                                     {formatByCurrency(
                                                       entryCurrency,
                                                       appliedCreditNotesTotal,
                                                     )}
+                                                    <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${
+                                                      isAppliedCreditNotesExpanded ? "rotate-180" : ""
+                                                    }`} />
                                                   </span>
-                                                </div>
-                                                {isPaidFcrEntry &&
-                                                  hasAppliedCreditNotes &&
+                                                </button>
+                                                {hasAppliedCreditNotes &&
+                                                  isAppliedCreditNotesExpanded &&
                                                   Array.isArray(
                                                     fe.appliedCreditNotes,
                                                   ) &&
