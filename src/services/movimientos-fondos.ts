@@ -241,6 +241,10 @@ export class MovimientosFondosService {
       amountIngreso: 0,
       amount: paymentAmount,
       manager: invoice.manager,
+      ...(Array.isArray(invoice.appliedCreditNotes) &&
+      invoice.appliedCreditNotes.length > 0
+        ? { appliedCreditNotes: invoice.appliedCreditNotes }
+        : {}),
       ...(String(input.manager2 || "").trim()
         ? { manager2: String(input.manager2 || "").trim() }
         : {}),

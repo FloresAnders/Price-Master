@@ -209,6 +209,12 @@ export default function FacturasCreditoPage() {
   const [filterPaymentType, setFilterPaymentType] = useState<string>("all");
   const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
 
+  const [docTypeFilter, setDocTypeFilter] = useState<"all" | "FCR" | "NC" | "FCO">(
+    "all",
+  );
+  const [docTypeFilterLabel, setDocTypeFilterLabel] = useState("");
+  const [isDocTypeDropdownOpen, setIsDocTypeDropdownOpen] = useState(false);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [filterEditedOnly, setFilterEditedOnly] = useState(false);
 
@@ -231,8 +237,8 @@ export default function FacturasCreditoPage() {
     return m;
   });
 
-  const [, setPageSize] = useState<"daily" | "all">("daily");
-  const [, setPageIndex] = useState(0);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
 
   const fromButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const toButtonRef = React.useRef<HTMLButtonElement | null>(null);
@@ -240,6 +246,7 @@ export default function FacturasCreditoPage() {
   const toCalendarRef = React.useRef<HTMLDivElement | null>(null);
   const providerDropdownRef = React.useRef<HTMLDivElement | null>(null);
   const typeDropdownRef = React.useRef<HTMLDivElement | null>(null);
+  const docTypeDropdownRef = React.useRef<HTMLDivElement | null>(null);
 
   const todayKey = useMemo(() => dateKeyFromDate(new Date()), []);
   const companySelectId = "facturas-company-select";
@@ -1032,6 +1039,13 @@ export default function FacturasCreditoPage() {
       ) {
         setIsTypeDropdownOpen(false);
       }
+      if (
+        isDocTypeDropdownOpen &&
+        docTypeDropdownRef.current &&
+        !docTypeDropdownRef.current.contains(target)
+      ) {
+        setIsDocTypeDropdownOpen(false);
+      }
 
       if (
         calendarFromOpen &&
@@ -1061,6 +1075,7 @@ export default function FacturasCreditoPage() {
     calendarToOpen,
     isProviderDropdownOpen,
     isTypeDropdownOpen,
+    isDocTypeDropdownOpen,
   ]);
 
   const providerNameByCode = useMemo(() => {
@@ -1147,6 +1162,8 @@ export default function FacturasCreditoPage() {
         return false;
       if (filterPaymentType !== "all" && m.paymentType !== filterPaymentType)
         return false;
+      if (docTypeFilter !== "all" && m.invoiceDocType !== docTypeFilter)
+        return false;
 
       if (fromFilter || toFilter) {
         const key = dateKeyFromIso(m.createdAt);
@@ -1180,6 +1197,7 @@ export default function FacturasCreditoPage() {
     movements,
     filterProviderCode,
     filterPaymentType,
+    docTypeFilter,
     fromFilter,
     toFilter,
     filterEditedOnly,
@@ -1199,6 +1217,44 @@ export default function FacturasCreditoPage() {
     resetCreateForm();
     setCreateDrawerOpen(true);
   };
+
+  const totalPages = useMemo(() => {
+    const total = Math.ceil(filteredMovements.length / rowsPerPage);
+    return Math.max(1, total);
+  }, [filteredMovements.length, rowsPerPage]);
+
+  useEffect(() => {
+    if (pageIndex > totalPages - 1) {
+      setPageIndex(Math.max(0, totalPages - 1));
+    }
+  }, [pageIndex, totalPages]);
+
+  useEffect(() => {
+    setPageIndex(0);
+  }, [
+    filterProviderCode,
+    filterPaymentType,
+    docTypeFilter,
+    searchQuery,
+    fromFilter,
+    toFilter,
+    filterEditedOnly,
+    selectedCompany,
+  ]);
+
+  const pagedMovements = useMemo(() => {
+    const start = pageIndex * rowsPerPage;
+    return filteredMovements.slice(start, start + rowsPerPage);
+  }, [filteredMovements, pageIndex, rowsPerPage]);
+
+  const pageRange = useMemo(() => {
+    if (filteredMovements.length === 0) {
+      return { from: 0, to: 0 };
+    }
+    const from = pageIndex * rowsPerPage + 1;
+    const to = Math.min(filteredMovements.length, (pageIndex + 1) * rowsPerPage);
+    return { from, to };
+  }, [filteredMovements.length, pageIndex, rowsPerPage]);
   /*-------------------Cambio de empresa-----------------------------------*/
 
   const sortedOwnerCompanies = useMemo(() => {
@@ -1292,7 +1348,7 @@ export default function FacturasCreditoPage() {
     <div className="w-full max-w-7xl mx-auto px-2 py-3 sm:px-4 sm:py-6 lg:py-8">
       <div className="rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-3 shadow-sm sm:p-4 md:p-5 space-y-4">
         <section className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/70 p-2 sm:p-3 md:p-4 space-y-3 sm:space-y-4">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-5">
             {/* Proveedor */}
             <div className="relative min-w-0" ref={providerDropdownRef}>
               <button
@@ -1411,6 +1467,59 @@ export default function FacturasCreditoPage() {
               )}
             </div>
 
+            {/* Documento */}
+            <div className="relative min-w-0" ref={docTypeDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsDocTypeDropdownOpen((prev) => !prev)}
+                className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-[var(--foreground)] outline-none transition-colors hover:border-cyan-500/45 focus:border-[var(--accent)] flex items-center justify-between"
+                title="Filtrar por documento"
+                aria-label="Filtrar por documento"
+              >
+                <span className={docTypeFilterLabel ? "" : "text-cyan-100/70"}>
+                  {docTypeFilterLabel || "Documento"}
+                </span>
+                <span className="text-cyan-100/80">⌄</span>
+              </button>
+              {isDocTypeDropdownOpen && (
+                <div className="absolute z-[9999] mt-2 w-full max-h-56 overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] shadow-2xl shadow-black/70">
+                  <button
+                    type="button"
+                    className="w-full rounded px-3 py-2 text-left text-sm text-cyan-100/70 transition-colors hover:bg-cyan-950/80"
+                    onMouseDown={() => {
+                      setDocTypeFilter("all");
+                      setDocTypeFilterLabel("");
+                      setIsDocTypeDropdownOpen(false);
+                    }}
+                  >
+                    Todos los documentos
+                  </button>
+                  {([
+                    { value: "FCR", label: "Factura a Credito" },
+                    { value: "NC", label: "Nota de Credito" },
+                    { value: "FCO", label: "Factura a Contado" },
+                  ] as const).map((item) => (
+                    <button
+                      key={item.value}
+                      type="button"
+                      className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
+                        docTypeFilter === item.value
+                          ? "bg-cyan-500/20 text-cyan-50"
+                          : "text-[var(--foreground)]"
+                      }`}
+                      onMouseDown={() => {
+                        setDocTypeFilter(item.value);
+                        setDocTypeFilterLabel(item.label);
+                        setIsDocTypeDropdownOpen(false);
+                      }}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Buscar */}
             <div className="relative min-w-0">
               <input
@@ -1444,6 +1553,8 @@ export default function FacturasCreditoPage() {
                   onClick={() => {
                     setFilterProviderCode("all");
                     setFilterPaymentType("all");
+                    setDocTypeFilter("all");
+                    setDocTypeFilterLabel("");
                     setFilterEditedOnly(false);
                     setSearchQuery("");
                     setFromFilter(null);
@@ -1458,7 +1569,6 @@ export default function FacturasCreditoPage() {
                     setCalendarFromMonth(new Date(m));
                     setCalendarToMonth(new Date(m));
 
-                    setPageSize("daily");
                     setPageIndex(0);
                   }}
                   className="inline-flex h-8 items-center justify-center gap-1.5 rounded border border-[var(--input-border)] px-3 text-xs font-semibold uppercase tracking-wide text-[var(--foreground)] transition-all duration-150 hover:border-[var(--accent)] hover:bg-[var(--muted)] active:scale-[0.98]"
@@ -1569,7 +1679,6 @@ export default function FacturasCreditoPage() {
                                     setQuickRange(null);
                                     setFromFilter(key);
                                     setCalendarFromOpen(false);
-                                    setPageSize("all");
                                     setPageIndex(0);
                                   }}
                                   className={`py-1 rounded ${
@@ -1718,7 +1827,6 @@ export default function FacturasCreditoPage() {
                                     setQuickRange(null);
                                     setToFilter(key);
                                     setCalendarToOpen(false);
-                                    setPageSize("all");
                                     setPageIndex(0);
                                   }}
                                   className={`py-1 rounded ${
@@ -1842,7 +1950,6 @@ export default function FacturasCreditoPage() {
                     if (from && to) {
                       setFromFilter(dateKeyFromDate(from));
                       setToFilter(dateKeyFromDate(to));
-                      setPageSize("all");
                       setPageIndex(0);
                     }
                   }}
@@ -2011,7 +2118,7 @@ export default function FacturasCreditoPage() {
               </thead>
               <tbody>
                 {/* CAMBIAR ACA SI SE QUIERE VER SALDO NEGATIVO */}
-                {filteredMovements.map((m) => {
+                {pagedMovements.map((m) => {
                   const amount = Math.abs(Number(m.amount) || 0);
                   const signedAmount =
                     String(m.invoiceDocType || "").trim().toUpperCase() ===
@@ -2068,33 +2175,31 @@ export default function FacturasCreditoPage() {
                                   : "border-slate-500/40 bg-slate-500/10 text-slate-200"
                             }`}
                           >
-                            {paymentStatusLabel}
+                            <span className="inline-flex items-center gap-1">
+                              {paymentStatus === "PAGADA" && (
+                                <CheckCircle className="h-3 w-3 text-emerald-300" />
+                              )}
+                              <span>{paymentStatusLabel}</span>
+                            </span>
                           </span>
                         </div>
-                        {m.invoiceDocType === "FCR" && (
+                        {m.invoiceDocType === "FCR" && paymentBalance > 0 && (
                           <div className="mt-1 flex flex-wrap items-center gap-2">
-                            {paymentBalance > 0 ? (
-                              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-amber-100">
-                                <Clock className="h-3 w-3" />
-                                Saldo:{" "}
-                                {paymentBalance.toLocaleString("es-CR", {
-                                  style: "currency",
-                                  currency: m.currency,
-                                  minimumFractionDigits: 0,
-                                  maximumFractionDigits: 0,
-                                })}
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-100">
-                                <CheckCircle className="h-3 w-3" />
-                                Saldado
-                              </span>
-                            )}
+                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-amber-100">
+                              <Clock className="h-3 w-3" />
+                              Saldo:{" "}
+                              {paymentBalance.toLocaleString("es-CR", {
+                                style: "currency",
+                                currency: m.currency,
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 0,
+                              })}
+                            </span>
                           </div>
                         )}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
-                        {m.invoiceDocType === "FCR" ? (
+                        {m.invoiceDocType === "FCR" && !isPaid ? (
                           <button
                             type="button"
                             onClick={() => openPaymentModal(m)}
@@ -2106,7 +2211,7 @@ export default function FacturasCreditoPage() {
                             }`}
                           >
                             <CreditCard className="h-3.5 w-3.5" />
-                            {isPaid ? "Pagada" : pendingCierreDeCaja ? "Bloqueado" : "Pagar"}
+                            {pendingCierreDeCaja ? "Bloqueado" : "Registrar abono"}
                           </button>
                         ) : (
                           <span className="text-xs text-[var(--muted-foreground)]">
@@ -2129,6 +2234,50 @@ export default function FacturasCreditoPage() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          <div className="flex flex-col gap-2 border-t border-[var(--input-border)] px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-xs text-[var(--muted-foreground)]">
+              Mostrando {pageRange.from}-{pageRange.to} de {filteredMovements.length}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={rowsPerPage}
+                onChange={(e) => {
+                  setRowsPerPage(Number(e.target.value));
+                  setPageIndex(0);
+                }}
+                className="h-9 rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-2 text-xs text-[var(--foreground)]"
+                aria-label="Filas por pagina"
+              >
+                {[5, 10, 20].map((size) => (
+                  <option key={size} value={size}>
+                    {size} por pagina
+                  </option>
+                ))}
+              </select>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setPageIndex((prev) => Math.max(0, prev - 1))}
+                  disabled={pageIndex === 0}
+                  className="inline-flex h-9 items-center justify-center rounded border border-[var(--input-border)] px-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="min-w-[64px] text-center text-xs text-[var(--muted-foreground)]">
+                  {pageIndex + 1} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPageIndex((prev) => Math.min(totalPages - 1, prev + 1))}
+                  disabled={pageIndex >= totalPages - 1}
+                  className="inline-flex h-9 items-center justify-center rounded border border-[var(--input-border)] px-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 

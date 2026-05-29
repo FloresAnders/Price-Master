@@ -3713,6 +3713,8 @@ export function FondoSection({
   ] = useState<PendingCreditNoteOption[]>([]);
   const [selectedAppliedCreditNoteIds, setSelectedAppliedCreditNoteIds] =
     useState<string[]>([]);
+  const [selectedPendingCreditInvoiceIds, setSelectedPendingCreditInvoiceIds] =
+    useState<string[]>([]);
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const defaultPaymentType: FondoEntry["paymentType"] =
     mode === "ingreso"
@@ -3785,8 +3787,9 @@ export function FondoSection({
               return acc;
             }
             if (
-              String(movement.paymentStatus || "PENDIENTE").toUpperCase() ===
-              "PAGADA"
+              ["PAGADA", "REBAJADA"].includes(
+                String(movement.paymentStatus || "PENDIENTE").toUpperCase(),
+              )
             ) {
               return acc;
             }
@@ -3950,7 +3953,9 @@ export function FondoSection({
             );
             return (
               balanceDue > 0 &&
-              String(movement.paymentStatus || "").toUpperCase() !== "PAGADA"
+              !["PAGADA", "REBAJADA"].includes(
+                String(movement.paymentStatus || "").toUpperCase(),
+              )
             );
           })
           .sort((a, b) => {
@@ -6203,6 +6208,7 @@ export function FondoSection({
     }
   }, [invoiceDocType, isEgreso]);
 
+
   const resetFondoForm = useCallback(() => {
     setSelectedProvider("");
     setInvoiceNumber("");
@@ -6212,6 +6218,7 @@ export function FondoSection({
     setManager("");
     setManager2("");
     setSelectedAppliedCreditNoteIds([]);
+    setSelectedPendingCreditInvoiceIds([]);
     setManualCreditNoteDraft(null);
     setManualCreditNoteOpen(false);
     setManualCreditNoteTarget(null);
@@ -7201,6 +7208,26 @@ export function FondoSection({
         amountPayment: Math.max(0, Math.trunc(invoiceAmount) - total),
       };
     };
+    const selectedCreditNotesRequestedTotal =
+      isEgreso && effectiveInvoiceDocType === "FCO"
+        ? selectedProviderPendingCreditNotes.reduce((sum, note) => {
+            if (!selectedAppliedCreditNoteIds.includes(note.id)) return sum;
+            if (note.currency !== movementCurrency) return sum;
+            return sum + Math.max(0, Math.trunc(note.balanceDue));
+          }, 0)
+        : 0;
+    if (
+      isEgreso &&
+      effectiveInvoiceDocType === "FCO" &&
+      selectedCreditNotesRequestedTotal > egresoValue
+    ) {
+      showToast(
+        "Las notas de credito seleccionadas superan el saldo disponible. Desmarca alguna para continuar.",
+        "error",
+        5000,
+      );
+      return;
+    }
     const creditNoteApplication = buildAppliedCreditNotes(egresoValue);
     const manualCreditNoteAppliedAmount =
       isEgreso && effectiveInvoiceDocType === "FCO" && manualCreditNoteDraft
@@ -7209,12 +7236,21 @@ export function FondoSection({
             Math.max(0, egresoValue - creditNoteApplication.total),
           )
         : 0;
+    const selectedCreditInvoiceIdSet = new Set(selectedPendingCreditInvoiceIds);
+    const selectedCreditInvoicesTotal = isEgreso
+      ? selectedProviderPendingCreditInvoices.reduce((sum, invoice) => {
+          if (!selectedCreditInvoiceIdSet.has(invoice.id)) return sum;
+          if (invoice.currency !== movementCurrency) return sum;
+          return sum + Math.max(0, Math.trunc(invoice.balanceDue));
+        }, 0)
+      : 0;
     const egresoBalanceImpact =
       isEgreso && effectiveInvoiceDocType === "FCO"
         ? Math.max(
             0,
             creditNoteApplication.amountPayment - manualCreditNoteAppliedAmount,
           )
+            + selectedCreditInvoicesTotal
         : egresoValue;
 
     // Validar que no quede saldo negativo en la moneda del movimiento.
@@ -7334,6 +7370,7 @@ export function FondoSection({
                 ? creditNoteApplication.amountPayment
                 : 0,
             )}`,
+            `creditInvoices=${Math.trunc(selectedCreditInvoicesTotal)}`,
             `ingreso=${Math.trunc(isIngreso ? ingresoValue : 0)}`,
             `manager=${(manager || "").trim()}`,
             `currency=${movementCurrency || "CRC"}`,
@@ -7968,7 +8005,7 @@ export function FondoSection({
                   {
                     paidAmount: nextPaidAmount,
                     balanceDue: nextBalanceDue,
-                    paymentStatus: nextBalanceDue === 0 ? "PAGADA" : "PARCIAL",
+                    paymentStatus: nextBalanceDue === 0 ? "REBAJADA" : "PARCIAL",
                     updateAt: entry.createdAt,
                   },
                   { merge: true },
@@ -7997,6 +8034,204 @@ export function FondoSection({
               setSelectedAppliedCreditNoteIds([]);
             } catch (err) {
               console.warn("[FG] Could not update applied credit notes:", err);
+            }
+          }
+
+          if (
+            normalizedCompany.length > 0 &&
+            selectedPendingCreditInvoiceIds.length > 0
+          ) {
+            try {
+              const selectedIds = new Set(selectedPendingCreditInvoiceIds);
+              const invoicesToPay = pendingClosingCreditInvoices.filter(
+                (invoice) =>
+                  selectedIds.has(invoice.id) &&
+                  invoice.providerCode === selectedProvider &&
+                  invoice.currency === movementCurrency,
+              );
+
+              if (invoicesToPay.length > 0) {
+                const docId =
+                  MovimientosFondosService.buildCompanyMovementsKey(
+                    normalizedCompany,
+                  );
+
+                let baseStorage = null;
+                try {
+                  baseStorage = await MovimientosFondosService.getDocument(docId);
+                } catch {
+                  baseStorage = null;
+                }
+
+                const ledger =
+                  baseStorage ??
+                  MovimientosFondosService.createEmptyMovementStorage(
+                    normalizedCompany,
+                  );
+                ledger.company = normalizedCompany;
+                ledger.operations = { movements: [] };
+
+                const state =
+                  ledger.state ??
+                  MovimientosFondosService.createEmptyMovementStorage(
+                    normalizedCompany,
+                  ).state;
+                const acctKey = "FondoGeneral" as const;
+                const currency = movementCurrency as MovementCurrencyKey;
+                const nowISO = entry.createdAt;
+                let totalPaymentApplied = 0;
+
+                const batch = writeBatch(db);
+
+                const paymentMovements: Array<Record<string, unknown>> = [];
+
+                invoicesToPay.forEach((invoice) => {
+                  const totalAmount = Math.max(
+                    0,
+                    Math.trunc(
+                      Number(invoice.originalAmount ?? invoice.amount) || 0,
+                    ),
+                  );
+                  const paidAmount = Math.max(
+                    0,
+                    Math.trunc(Number(invoice.paidAmount) || 0),
+                  );
+                  const balance = Math.max(
+                    0,
+                    Math.trunc(
+                      Number(invoice.balanceDue ?? totalAmount - paidAmount) ||
+                        0,
+                    ),
+                  );
+                  if (balance <= 0) return;
+
+                  const nextPaidAmount = Math.min(
+                    totalAmount,
+                    paidAmount + balance,
+                  );
+                  const nextBalanceDue = Math.max(0, totalAmount - nextPaidAmount);
+                  const nextStatus =
+                    nextBalanceDue === 0
+                      ? "PAGADA"
+                      : nextPaidAmount > 0
+                        ? "PARCIAL"
+                        : "PENDIENTE";
+
+                  const updatedMovement: FacturaMovement = {
+                    ...invoice,
+                    amount: totalAmount,
+                    originalAmount: totalAmount,
+                    amountDue: nextBalanceDue,
+                    amountPayment: balance,
+                    paidAmount: nextPaidAmount,
+                    balanceDue: nextBalanceDue,
+                    paymentStatus: nextStatus,
+                    updateAt: nowISO,
+                  };
+
+                  batch.set(
+                    FacturasService.buildMovementRef(
+                      normalizedCompany,
+                      invoice.id,
+                    ),
+                    stripUndefinedDeep(updatedMovement),
+                    { merge: true },
+                  );
+
+                  const paymentMovement =
+                    MovimientosFondosService.buildInvoicePaymentMovement({
+                      company: normalizedCompany,
+                      invoice: updatedMovement,
+                      paymentAmount: balance,
+                      updateAt: nowISO,
+                      manager2: manager2?.trim() || undefined,
+                    });
+                  paymentMovements.push(paymentMovement);
+
+                  const paymentMovementId = String(
+                    (paymentMovement as any).id || "",
+                  );
+                  const movRef = MovimientosFondosService.buildMovementRef(
+                    docId,
+                    paymentMovementId,
+                    "FondoGeneral",
+                  );
+                  batch.set(movRef, stripUndefinedDeep(paymentMovement));
+
+                  totalPaymentApplied += balance;
+                });
+
+                if (totalPaymentApplied > 0) {
+                  let found = false;
+                  state.balancesByAccount = state.balancesByAccount.map((b) => {
+                    if (b.accountId === acctKey && b.currency === currency) {
+                      const current =
+                        typeof b.currentBalance === "number"
+                          ? b.currentBalance
+                          : b.initialBalance || 0;
+                      const next = current - totalPaymentApplied;
+                      found = true;
+                      return { ...b, currentBalance: next };
+                    }
+                    return b;
+                  });
+                  if (!found) {
+                    state.balancesByAccount.push({
+                      accountId: acctKey,
+                      currency,
+                      enabled: true,
+                      initialBalance: 0,
+                      currentBalance: -totalPaymentApplied,
+                    });
+                  }
+                  state.updatedAt = new Date().toISOString();
+                  ledger.state = state;
+
+                  const mainRef = doc(
+                    db,
+                    MovimientosFondosService.COLLECTION_NAME,
+                    docId,
+                  );
+                  batch.set(mainRef, stripUndefinedDeep(ledger) as any);
+                  await batch.commit();
+
+                  setPendingClosingCreditInvoices((prev) =>
+                    prev.filter((invoice) => !selectedIds.has(invoice.id)),
+                  );
+                  setSelectedPendingCreditInvoiceIds([]);
+
+                  storageSnapshotRef.current = stripUndefinedDeep(ledger) as any;
+                  try {
+                    const cacheKey = buildV2MovementsCacheKey(
+                      docId,
+                      "FondoGeneral",
+                    );
+                    const cached = v2MovementsCacheRef.current[cacheKey];
+                    if (cached?.loaded) {
+                      const paymentEntries = paymentMovements.map((movement) => ({
+                        ...(movement as unknown as FondoEntry),
+                        id: String((movement as any).id || ""),
+                      }));
+                      v2MovementsCacheRef.current[cacheKey] = {
+                        ...cached,
+                        movements: [...paymentEntries, ...cached.movements],
+                      };
+                      rebuildEntriesFromV2Cache(docId, "FondoGeneral");
+                    }
+                    applyLedgerStateFromStorage(ledger.state);
+                  } catch (refreshErr) {
+                    console.error(
+                      "[FONDO] Error refreshing UI after credit invoice payment:",
+                      refreshErr,
+                    );
+                  }
+                }
+              }
+            } catch (err) {
+              console.warn(
+                "[FG] Could not update selected credit invoices:",
+                err,
+              );
             }
           }
 
@@ -9128,6 +9363,26 @@ export function FondoSection({
     [pendingClosingCreditInvoices, selectedProvider],
   );
 
+  useEffect(() => {
+    if (!isEgreso || editingEntryId) {
+      setSelectedPendingCreditInvoiceIds([]);
+      return;
+    }
+    setSelectedPendingCreditInvoiceIds((prev) =>
+      prev.filter((id) =>
+        selectedProviderPendingCreditInvoices.some(
+          (invoice) =>
+            invoice.id === id && invoice.currency === movementCurrency,
+        ),
+      ),
+    );
+  }, [
+    editingEntryId,
+    isEgreso,
+    movementCurrency,
+    selectedProviderPendingCreditInvoices,
+  ]);
+
   const formatDailyClosingDiff = (currency: "CRC" | "USD", diff: number) => {
     if (diff === 0) return "Sin diferencias";
     const sign = diff > 0 ? "+" : "-";
@@ -9606,11 +9861,43 @@ export function FondoSection({
       const totalAppliedToInvoice =
         paymentAmountToApply + creditNotesAmountToApply;
 
-      if (mode === "partial" && paymentAmountToApply > maxCashPayment) {
+      if (mode === "full" && creditNotesAmountToApply === 0 && enteredAmount !== maxCashPayment) {
+        showToast(
+          `El monto debe coincidir con el saldo pendiente (${formatByCurrency(
+            closingPaymentTarget.currency,
+            maxCashPayment,
+          )}).`,
+          "error",
+          4000,
+        );
         return;
       }
 
-      if (totalAppliedToInvoice <= 0 || totalAppliedToInvoice > balance) {
+      if (paymentAmountToApply <= 0) {
+        showToast("Ingrese un monto valido para el pago.", "error", 4000);
+        return;
+      }
+
+      if (paymentAmountToApply > maxCashPayment) {
+        showToast(
+          "El monto no puede superar el saldo disponible despues de aplicar las notas de credito.",
+          "error",
+          4000,
+        );
+        return;
+      }
+
+      if (totalAppliedToInvoice <= 0) {
+        showToast("No hay monto por aplicar a la factura.", "error", 4000);
+        return;
+      }
+
+      if (totalAppliedToInvoice > balance) {
+        showToast(
+          "El total aplicado supera el saldo pendiente de la factura.",
+          "error",
+          4000,
+        );
         return;
       }
 
@@ -9719,6 +10006,38 @@ export function FondoSection({
           { merge: true },
         );
 
+        if (appliedCreditNotes.length > 0) {
+          appliedCreditNotes.forEach((note) => {
+            const pendingNote = selectedProviderPendingCreditNotes.find(
+              (item) => item.id === note.id,
+            );
+            const noteAmount = Math.max(
+              0,
+              Math.trunc(Number(pendingNote?.amount ?? note.amount) || 0),
+            );
+            const previousPaid = Math.max(
+              0,
+              Math.trunc(Number(pendingNote?.paidAmount) || 0),
+            );
+            const nextPaidAmount = Math.min(
+              noteAmount,
+              previousPaid + Math.trunc(Number(note.appliedAmount) || 0),
+            );
+            const nextBalanceDue = Math.max(0, noteAmount - nextPaidAmount);
+
+            batch.set(
+              FacturasService.buildMovementRef(company, note.id),
+              {
+                paidAmount: nextPaidAmount,
+                balanceDue: nextBalanceDue,
+                paymentStatus: nextBalanceDue === 0 ? "REBAJADA" : "PARCIAL",
+                updateAt: nowISO,
+              },
+              { merge: true },
+            );
+          });
+        }
+
         const mainRef = doc(
           db,
           MovimientosFondosService.COLLECTION_NAME,
@@ -9736,6 +10055,28 @@ export function FondoSection({
         setPendingClosingCreditInvoices((current) =>
           current.filter((movement) => movement.id !== closingPaymentTarget.id),
         );
+        if (appliedCreditNotes.length > 0) {
+          setSelectedProviderPendingCreditNotes((prev) =>
+            prev
+              .map((note) => {
+                const applied = appliedCreditNotes.find(
+                  (item) => item.id === note.id,
+                );
+                if (!applied) return note;
+                const paidAmount = Math.min(
+                  note.amount,
+                  note.paidAmount + applied.appliedAmount,
+                );
+                return {
+                  ...note,
+                  paidAmount,
+                  balanceDue: Math.max(0, note.amount - paidAmount),
+                };
+              })
+              .filter((note) => note.balanceDue > 0),
+          );
+          setClosingPaymentCreditNoteIds([]);
+        }
         storageSnapshotRef.current = stripUndefinedDeep(ledger) as any;
         try {
           const cacheKey = buildV2MovementsCacheKey(docId, "FondoGeneral");
@@ -9776,6 +10117,7 @@ export function FondoSection({
       closingPaymentTarget,
       company,
       pendingCierreDeCaja,
+      selectedProviderPendingCreditNotes,
       showToast,
       applyLedgerStateFromStorage,
       buildV2MovementsCacheKey,
@@ -12416,6 +12758,14 @@ export function FondoSection({
                   }
                   pendingCreditInvoices={selectedProviderPendingCreditInvoices}
                   onSelectPendingCreditInvoice={openSelectedPendingCreditInvoicePayment}
+                  selectedCreditInvoiceIds={selectedPendingCreditInvoiceIds}
+                  onToggleCreditInvoice={(id) => {
+                    setSelectedPendingCreditInvoiceIds((prev) =>
+                      prev.includes(id)
+                        ? prev.filter((item) => item !== id)
+                        : [...prev, id],
+                    );
+                  }}
                   pendingCreditNotes={movementPendingCreditNotes}
                   selectedCreditNoteIds={selectedAppliedCreditNoteIds}
                   onToggleCreditNote={(id) => {
@@ -13100,15 +13450,7 @@ export function FondoSection({
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      try {
-                                        localStorage.setItem(
-                                          SHARED_COMPANY_STORAGE_KEY,
-                                          company,
-                                        );
-                                      } catch {
-                                        // ignore
-                                      }
-                                      window.location.hash = "#facturas";
+                                      openClosingInvoicePaymentModal(invoice);
                                     }}
                                     title="Gestionar esta factura desde Facturas de crédito y notas de crédito"
                                     className="inline-flex items-center gap-1.5 rounded border border-amber-400/35 bg-amber-500/10 px-2.5 py-1.5 text-xs font-medium text-amber-100 transition-all duration-150 hover:-translate-y-0.5 hover:border-amber-300 hover:bg-amber-500/20"
@@ -13447,6 +13789,12 @@ export function FondoSection({
                                           <span>Editado</span>
                                         </div>
                                       )}
+                                      {isPaidFcrMovement(fe) && (
+                                        <span className="inline-flex items-center gap-1 rounded border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-200">
+                                          <Tag className="w-3 h-3" />
+                                          FC
+                                        </span>
+                                      )}
                                     </div>
                                     {fe.notes && (
                                       <div className="mt-1 text-xs text-[var(--muted-foreground)] break-words">
@@ -13707,6 +14055,46 @@ export function FondoSection({
                                                     )}
                                                   </span>
                                                 </div>
+                                                {isPaidFcrEntry &&
+                                                  hasAppliedCreditNotes &&
+                                                  Array.isArray(
+                                                    fe.appliedCreditNotes,
+                                                  ) &&
+                                                  fe.appliedCreditNotes.map(
+                                                    (note) => {
+                                                      const noteLabel =
+                                                        note.invoiceNumber
+                                                          ? `NC #${note.invoiceNumber}`
+                                                          : `NC ${note.id}`;
+                                                      const appliedAmount =
+                                                        Math.max(
+                                                          0,
+                                                          Math.trunc(
+                                                            Number(
+                                                              note.appliedAmount,
+                                                            ) || 0,
+                                                          ),
+                                                        );
+                                                      return (
+                                                        <div
+                                                          key={note.id}
+                                                          className="flex w-full items-center gap-0 rounded border border-yellow-500/10 bg-yellow-500/5 px-2 py-0.5"
+                                                        >
+                                                          <span className="flex items-center gap-1 text-[11px] text-yellow-200">
+                                                            <CheckCircle className="h-2.5 w-2.5 shrink-0" />
+                                                            {noteLabel}
+                                                          </span>
+                                                          <span className="w-full text-right text-xs font-medium text-yellow-200">
+                                                            -
+                                                            {formatByCurrency(
+                                                              entryCurrency,
+                                                              appliedAmount,
+                                                            )}
+                                                          </span>
+                                                        </div>
+                                                      );
+                                                    },
+                                                  )}
                                               </>
                                             )}
                                         </div>
@@ -13818,7 +14206,8 @@ export function FondoSection({
                                                   <Info className="w-4 h-4" />
                                                 </button>
                                               )}
-                                              {hasAppliedCreditNotes && (
+                                              {hasAppliedCreditNotes &&
+                                                !isPaidFcrEntry && (
                                                 <button
                                                   type="button"
                                                   className={`inline-flex items-center justify-center rounded border border-sky-500/40 p-1.5 text-sky-300 transition-all duration-150 hover:-translate-y-0.5 hover:border-sky-400 hover:bg-sky-500/20 ${
@@ -13859,7 +14248,8 @@ export function FondoSection({
                                 </tr>
 
                                 {hasAppliedCreditNotes &&
-                                  isAppliedCreditNotesExpanded && (
+                                  isAppliedCreditNotesExpanded &&
+                                  !isPaidFcrEntry && (
                                     <tr className="bg-sky-500/5 [&>td]:border-b [&>td]:border-cyan-900/35">
                                       <td colSpan={7} className="px-3 py-2">
                                         <div className="rounded-lg border border-sky-500/25 border-l-2 border-l-sky-400/60 bg-sky-500/10 p-3 text-xs text-[var(--foreground)]">
@@ -14027,6 +14417,98 @@ export function FondoSection({
                                             </span>
                                           </div>
                                         </div>
+                                        {hasAppliedCreditNotes && (
+                                          <div className="mt-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+                                            <div className="mb-2 flex items-center gap-2 border-b border-emerald-500/15 pb-2 text-emerald-200">
+                                              <Info className="w-4 h-4" />
+                                              <span className="font-semibold">
+                                                Notas de credito aplicadas
+                                              </span>
+                                            </div>
+                                            <div className="divide-y divide-emerald-500/10">
+                                              {fe.appliedCreditNotes?.map(
+                                                (note) => {
+                                                  const noteAmount = Math.max(
+                                                    0,
+                                                    Math.trunc(
+                                                      Number(note.amount) ||
+                                                        0,
+                                                    ),
+                                                  );
+                                                  const appliedAmount = Math.max(
+                                                    0,
+                                                    Math.trunc(
+                                                      Number(
+                                                        note.appliedAmount,
+                                                      ) || 0,
+                                                    ),
+                                                  );
+                                                  const noteLabel =
+                                                    note.invoiceNumber
+                                                      ? `NC #${note.invoiceNumber}`
+                                                      : `NC ${note.id}`;
+
+                                                  return (
+                                                    <div
+                                                      key={note.id}
+                                                      className="py-2"
+                                                    >
+                                                      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                                                        <div>
+                                                          <div className="font-semibold text-[var(--foreground)]">
+                                                            {noteLabel}
+                                                          </div>
+                                                          <div className="text-xs text-[var(--muted-foreground)]">
+                                                            Moneda: {note.currency}
+                                                          </div>
+                                                        </div>
+                                                        <div className="text-right">
+                                                          <div className="text-[var(--muted-foreground)]">
+                                                            Monto NC:{" "}
+                                                            <span className="font-medium text-[var(--foreground)]">
+                                                              {formatByCurrency(
+                                                                note.currency,
+                                                                noteAmount,
+                                                              )}
+                                                            </span>
+                                                          </div>
+                                                          <div className="flex items-center justify-end gap-1.5">
+                                                            <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                                                            <span className="text-[var(--muted-foreground)]">
+                                                              Aplicado:
+                                                            </span>
+                                                            <span className="font-medium text-emerald-400">
+                                                              {formatByCurrency(
+                                                                note.currency,
+                                                                appliedAmount,
+                                                              )}
+                                                            </span>
+                                                          </div>
+                                                          {note.observation && (
+                                                            <div className="mt-1 max-w-sm text-xs text-[var(--muted-foreground)]">
+                                                              Obs: {note.observation}
+                                                            </div>
+                                                          )}
+                                                        </div>
+                                                      </div>
+                                                    </div>
+                                                  );
+                                                },
+                                              )}
+                                            </div>
+                                            <div className="mt-2 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-2 text-right">
+                                              <span className="font-semibold text-[var(--foreground)]">
+                                                Total aplicado:{" "}
+                                              </span>
+                                              <span className="text-base font-semibold text-emerald-300">
+                                                {formatByCurrency(
+                                                  entryCurrency,
+                                                  appliedCreditNotesTotal,
+                                                )}
+                                              </span>
+                                            </div>
+                                          </div>
+                                        )}
                                       </div>
                                     </td>
                                   </tr>
@@ -14258,6 +14740,7 @@ export function FondoSection({
         )}
         paymentSubmitting={closingPaymentSubmitting}
         canSubmitFullPayment={true}
+        allowPartialPayment={false}
         onClose={closeClosingInvoicePaymentModal}
         onPaymentAmountChange={setClosingPaymentAmount}
         onPaymentNotesChange={setClosingPaymentNotes}

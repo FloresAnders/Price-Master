@@ -35,7 +35,7 @@ export type FacturaMovement = {
   paymentType: string;
   providerCode: string;
   paidAmount?: number;
-  paymentStatus?: "PENDIENTE" | "PARCIAL" | "PAGADA";
+  paymentStatus?: "PENDIENTE" | "PARCIAL" | "PAGADA" | "REBAJADA";
   updateAt?: string;
 };
 
@@ -164,7 +164,8 @@ const sanitizeFacturaMovement = (raw: unknown): FacturaMovement | null => {
   const balanceDue = Math.trunc(Number(candidate.balanceDue) || 0);
   const paymentStatus =
     candidate.paymentStatus === "PAGADA" ||
-    candidate.paymentStatus === "PARCIAL"
+    candidate.paymentStatus === "PARCIAL" ||
+    candidate.paymentStatus === "REBAJADA"
       ? candidate.paymentStatus
       : "PENDIENTE";
   const updateAt =

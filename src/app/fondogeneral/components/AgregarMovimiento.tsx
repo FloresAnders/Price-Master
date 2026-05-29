@@ -101,6 +101,8 @@ type AgregarMovimientoProps = {
   pendingCreditInvoicesBalanceLabel?: string;
   pendingCreditInvoices?: PendingCreditInvoiceOption[];
   onSelectPendingCreditInvoice?: (id: string) => void;
+  selectedCreditInvoiceIds?: string[];
+  onToggleCreditInvoice?: (id: string) => void;
   pendingCreditNotes?: PendingCreditNoteOption[];
   selectedCreditNoteIds?: string[];
   onToggleCreditNote?: (id: string) => void;
@@ -161,7 +163,8 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   pendingCreditInvoicesCount = 0,
   pendingCreditInvoicesBalanceLabel = "",
   pendingCreditInvoices = [],
-  onSelectPendingCreditInvoice,
+  selectedCreditInvoiceIds = [],
+  onToggleCreditInvoice,
   pendingCreditNotes = [],
   selectedCreditNoteIds = [],
   onToggleCreditNote,
@@ -278,10 +281,62 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     () => new Set(selectedCreditNoteIds),
     [selectedCreditNoteIds],
   );
+  const selectedCreditInvoiceIdSet = React.useMemo(
+    () => new Set(selectedCreditInvoiceIds),
+    [selectedCreditInvoiceIds],
+  );
   const formatCurrencyAmount = (value: number, targetCurrency = currency) =>
     targetCurrency === "USD"
       ? `$ ${inputFormatterUSD.format(Math.trunc(value))}`
       : `₡ ${inputFormatterCRC.format(Math.trunc(value))}`;
+  const baseAmount = Math.max(
+    0,
+    Math.trunc(Number(isEgreso ? egreso : ingreso) || 0),
+  );
+  const appliedCreditNotesTotal =
+    isEgreso && invoiceDocType === "FCO"
+      ? Math.max(0, Math.trunc(creditNotesAppliedTotal))
+      : 0;
+  const selectedCreditInvoices = React.useMemo(
+    () =>
+      pendingCreditInvoices.filter(
+        (invoice) =>
+          selectedCreditInvoiceIdSet.has(invoice.id) &&
+          invoice.currency === currency,
+      ),
+    [pendingCreditInvoices, selectedCreditInvoiceIdSet, currency],
+  );
+    const selectedCreditNotesRequestedTotal = React.useMemo(() => {
+      if (!isEgreso || invoiceDocType !== "FCO") return 0;
+      return pendingCreditNotes.reduce((sum, note) => {
+        if (!selectedCreditNoteIdSet.has(note.id)) return sum;
+        if (note.currency !== currency) return sum;
+        return sum + Math.max(0, Math.trunc(note.balanceDue));
+      }, 0);
+    }, [
+      pendingCreditNotes,
+      selectedCreditNoteIdSet,
+      currency,
+      isEgreso,
+      invoiceDocType,
+    ]);
+    const creditNotesOverLimit =
+      isEgreso &&
+      invoiceDocType === "FCO" &&
+      baseAmount > 0 &&
+      selectedCreditNotesRequestedTotal > baseAmount;
+  const selectedCreditInvoicesTotal = React.useMemo(
+    () =>
+      selectedCreditInvoices.reduce(
+        (sum, invoice) => sum + Math.max(0, Math.trunc(invoice.balanceDue)),
+        0,
+      ),
+    [selectedCreditInvoices],
+  );
+  const totalToSave = Math.max(
+    0,
+    baseAmount - appliedCreditNotesTotal + selectedCreditInvoicesTotal,
+  );
 
   return (
     <div className="space-y-4">
@@ -494,27 +549,47 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                     : "."}
                 </div>
                 {pendingCreditInvoices.length > 0 && (
-                  <div className="mt-2 space-y-1.5">
-                    {pendingCreditInvoices.map((invoice) => (
-                      <button
-                        key={invoice.id}
-                        type="button"
-                        onClick={() => onSelectPendingCreditInvoice?.(invoice.id)}
-                        className="flex w-full items-center justify-between gap-3 rounded border border-amber-400/25 bg-black/10 px-2.5 py-2 text-left text-amber-50 transition-colors hover:border-amber-300/45 hover:bg-amber-500/15"
-                      >
-                        <span className="min-w-0">
-                          <span className="block truncate font-semibold">
-                            Factura #{invoice.invoiceNumber || invoice.id}
+                  <div className="mt-2 space-y-2">
+                    {pendingCreditInvoices.map((invoice) => {
+                      const checked = selectedCreditInvoiceIdSet.has(invoice.id);
+                      const disabled = invoice.currency !== currency;
+                      return (
+                        <label
+                          key={invoice.id}
+                          className={`flex items-center justify-between gap-3 rounded border px-2.5 py-2 text-sm ${
+                            checked
+                              ? "border-amber-300/45 bg-amber-400/15 text-amber-50"
+                              : "border-amber-500/25 bg-black/10 text-cyan-50"
+                          } ${disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer"}`}
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={disabled}
+                              onChange={() => onToggleCreditInvoice?.(invoice.id)}
+                              className="h-4 w-4 accent-amber-400"
+                            />
+                            <span className="min-w-0">
+                              <span className="block truncate font-semibold">
+                                Factura #{invoice.invoiceNumber || invoice.id}
+                              </span>
+                              {disabled && (
+                                <span className="block text-[11px] text-amber-100/70">
+                                  Moneda distinta
+                                </span>
+                              )}
+                            </span>
                           </span>
-                          <span className="block text-[11px] text-amber-100/70">
-                            Seleccionar para abono o pago completo
+                          <span className="shrink-0 font-semibold">
+                            {formatCurrencyAmount(
+                              invoice.balanceDue,
+                              invoice.currency,
+                            )}
                           </span>
-                        </span>
-                        <span className="shrink-0 font-semibold">
-                          {formatCurrencyAmount(invoice.balanceDue, invoice.currency)}
-                        </span>
-                      </button>
-                    ))}
+                        </label>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -652,7 +727,16 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
             <div className="space-y-2">
               {pendingCreditNotes.map((note) => {
                 const checked = selectedCreditNoteIdSet.has(note.id);
-                const disabled = note.currency !== currency;
+                const wouldExceed =
+                  !checked &&
+                  baseAmount > 0 &&
+                  selectedCreditNotesRequestedTotal +
+                      Math.max(0, Math.trunc(note.balanceDue)) >
+                    baseAmount;
+                const disabled =
+                  note.currency !== currency ||
+                  baseAmount <= 0 ||
+                  wouldExceed;
                 return (
                   <label
                     key={note.id}
@@ -674,9 +758,19 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                         <span className="block truncate font-semibold">
                           NC #{note.invoiceNumber || note.id}
                         </span>
-                        {disabled && (
+                        {disabled && note.currency !== currency && (
                           <span className="block text-[11px] text-amber-100/70">
                             Moneda distinta
+                          </span>
+                        )}
+                        {disabled && baseAmount <= 0 && (
+                          <span className="block text-[11px] text-amber-100/70">
+                            Ingresa un monto para aplicar NC
+                          </span>
+                        )}
+                        {disabled && wouldExceed && (
+                          <span className="block text-[11px] text-amber-100/70">
+                            Supera el saldo disponible
                           </span>
                         )}
                       </span>
@@ -688,6 +782,12 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                 );
               })}
             </div>
+            {creditNotesOverLimit && (
+              <p className="mt-2 text-[11px] text-amber-100/80">
+                Las notas de credito seleccionadas superan el saldo disponible.
+                Desmarca alguna para continuar.
+              </p>
+            )}
             {selectedCreditNoteIds.length > 0 && (
               <div className="mt-3 grid grid-cols-2 gap-2 border-t border-amber-500/25 pt-3 text-xs">
                 <div className="text-cyan-100/70">Pago generado</div>
@@ -852,6 +952,48 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
               )}
             </div>
           )}
+        </div>
+      </section>
+
+      <section className={sectionClass}>
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-xs font-semibold uppercase tracking-wide text-cyan-100/70">
+            Totales
+          </div>
+          <div className="text-[11px] text-cyan-100/50">Resumen de factura</div>
+        </div>
+        <div className="mt-2 grid gap-2 text-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-cyan-100/70">Total factura</span>
+            <span className="font-semibold text-[var(--foreground)]">
+              {formatCurrencyAmount(baseAmount)}
+            </span>
+          </div>
+          {appliedCreditNotesTotal > 0 && (
+            <div className="flex items-center justify-between">
+              <span className="text-cyan-100/70">NC aplicadas</span>
+              <span className="font-semibold text-amber-200">
+                - {formatCurrencyAmount(appliedCreditNotesTotal)}
+              </span>
+            </div>
+          )}
+          {selectedCreditInvoicesTotal > 0 && (
+            <div className="flex items-center justify-between">
+              <span className="text-cyan-100/70">Factura credito</span>
+              <span className="font-semibold text-emerald-200">
+                + {formatCurrencyAmount(selectedCreditInvoicesTotal)}
+              </span>
+            </div>
+          )}
+          <div className="h-px bg-cyan-700/25" />
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-semibold text-[var(--foreground)]">
+              Total a guardar
+            </span>
+            <span className="font-semibold text-cyan-100">
+              {formatCurrencyAmount(totalToSave)}
+            </span>
+          </div>
         </div>
       </section>
 

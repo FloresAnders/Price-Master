@@ -41,6 +41,7 @@ type FacturaPaymentModalProps = {
   selectedCreditNoteIds?: string[];
   onToggleCreditNote?: (id: string) => void;
   creditNotesAppliedTotal?: number;
+  allowPartialPayment?: boolean;
 };
 
 export default function FacturaPaymentModal({
@@ -67,6 +68,7 @@ export default function FacturaPaymentModal({
   selectedCreditNoteIds = [],
   onToggleCreditNote,
   creditNotesAppliedTotal = 0,
+  allowPartialPayment = true,
 }: FacturaPaymentModalProps) {
   const selectedCreditNoteIdSet = React.useMemo(
     () => new Set(selectedCreditNoteIds),
@@ -90,13 +92,42 @@ export default function FacturaPaymentModal({
     [],
   );
 
-  const formatCurrencyAmount = React.useCallback((value: number, targetCurrency: string) =>
-    targetCurrency === "USD"
-      ? `$ ${inputFormatterUSD.format(Math.trunc(value))}`
-      : `₡ ${inputFormatterCRC.format(Math.trunc(value))}`, [inputFormatterCRC, inputFormatterUSD]);
+  const formatCurrencyAmount = React.useCallback(
+    (value: number, targetCurrency: string) =>
+      targetCurrency === "USD"
+        ? `$ ${inputFormatterUSD.format(Math.trunc(value))}`
+        : `₡ ${inputFormatterCRC.format(Math.trunc(value))}`,
+    [inputFormatterCRC, inputFormatterUSD],
+  );
 
   const enteredPaymentAmount = Math.max(0, Math.trunc(Number(paymentAmount) || 0));
-  const finalAmountPayment = Math.max(0, enteredPaymentAmount - creditNotesAppliedTotal);
+  const selectedCreditNotesRequestedTotal = React.useMemo(() => {
+    if (!target) return 0;
+    return pendingCreditNotes.reduce((sum, note) => {
+      if (!selectedCreditNoteIdSet.has(note.id)) return sum;
+      if (note.currency !== target.currency) return sum;
+      return sum + Math.max(0, Math.trunc(note.balanceDue));
+    }, 0);
+  }, [pendingCreditNotes, selectedCreditNoteIdSet, target]);
+  const creditNotesOverLimit =
+    selectedPaymentBalance > 0 &&
+    selectedCreditNotesRequestedTotal > selectedPaymentBalance;
+  const maxCashPayment = Math.max(
+    0,
+    Math.trunc(selectedPaymentBalance) - Math.trunc(creditNotesAppliedTotal),
+  );
+  const finalAmountPayment = allowPartialPayment
+    ? Math.min(enteredPaymentAmount, maxCashPayment)
+    : maxCashPayment;
+  const paymentDisplayValue = React.useMemo(() => {
+    if (!target) return paymentAmount;
+    if (!allowPartialPayment) {
+      return formatCurrencyAmount(maxCashPayment, target.currency);
+    }
+    const digits = String(paymentAmount || "").replace(/\D/g, "");
+    if (!digits) return "";
+    return formatCurrencyAmount(Number(digits), target.currency);
+  }, [paymentAmount, target, formatCurrencyAmount, allowPartialPayment, maxCashPayment]);
 
   return (
     <Drawer
@@ -157,7 +188,11 @@ export default function FacturaPaymentModal({
               className="space-y-4"
               onSubmit={(event) => {
                 event.preventDefault();
-                void onSubmitPartial();
+                if (allowPartialPayment) {
+                  void onSubmitPartial();
+                } else {
+                  void onSubmitFull();
+                }
               }}
             >
               <div className="grid gap-3 rounded-xl border border-[var(--input-border)] bg-[var(--muted)]/10 p-4 sm:grid-cols-3">
@@ -208,15 +243,20 @@ export default function FacturaPaymentModal({
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="space-y-1 text-sm text-[var(--foreground)]">
                   <span className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
-                    Monto a pagar o abonar
+                    {allowPartialPayment
+                      ? "Monto a pagar o abonar"
+                      : "Monto a pagar"}
                   </span>
                   <input
-                    type="number"
-                    min="1"
-                    max={selectedPaymentBalance || undefined}
-                    value={paymentAmount}
-                    onChange={(event) => onPaymentAmountChange(event.target.value)}
-                    className="w-full rounded-lg border border-cyan-700/35 bg-cyan-950/25 px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
+                    type="text"
+                    inputMode="numeric"
+                    value={paymentDisplayValue}
+                    onChange={(event) => {
+                      if (!allowPartialPayment) return;
+                      onPaymentAmountChange(event.target.value.replace(/\D/g, ""));
+                    }}
+                    disabled={!allowPartialPayment}
+                    className="w-full rounded-lg border border-cyan-700/35 bg-cyan-950/25 px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-75"
                   />
                 </label>
                 <label className="space-y-1 text-sm text-[var(--foreground)]">
@@ -227,7 +267,7 @@ export default function FacturaPaymentModal({
                     value={paymentManager2}
                     onChange={(event) => onPaymentManager2Change(event.target.value)}
                     disabled={employeesLoading}
-                    className="w-full rounded-lg border border-cyan-700/35 bg-cyan-950/25 px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <option value="">Sin encargado extra</option>
                     {employeesLoading && <option value="">Cargando empleados...</option>}
@@ -270,7 +310,16 @@ export default function FacturaPaymentModal({
                   <div className="space-y-2">
                     {pendingCreditNotes.map((note) => {
                       const checked = selectedCreditNoteIdSet.has(note.id);
-                      const disabled = note.currency !== target.currency;
+                      const wouldExceed =
+                        !checked &&
+                        selectedPaymentBalance > 0 &&
+                        selectedCreditNotesRequestedTotal +
+                            Math.max(0, Math.trunc(note.balanceDue)) >
+                          selectedPaymentBalance;
+                      const disabled =
+                        note.currency !== target.currency ||
+                        selectedPaymentBalance <= 0 ||
+                        wouldExceed;
                       return (
                         <label
                           key={note.id}
@@ -292,9 +341,19 @@ export default function FacturaPaymentModal({
                               <span className="block truncate font-semibold">
                                 NC #{note.invoiceNumber || note.id}
                               </span>
-                              {disabled && (
+                              {disabled && note.currency !== target.currency && (
                                 <span className="block text-[11px] text-amber-100/70">
                                   Moneda distinta
+                                </span>
+                              )}
+                              {disabled && selectedPaymentBalance <= 0 && (
+                                <span className="block text-[11px] text-amber-100/70">
+                                  No hay saldo disponible
+                                </span>
+                              )}
+                              {disabled && wouldExceed && (
+                                <span className="block text-[11px] text-amber-100/70">
+                                  Supera el saldo disponible
                                 </span>
                               )}
                             </span>
@@ -306,6 +365,12 @@ export default function FacturaPaymentModal({
                       );
                     })}
                   </div>
+                  {creditNotesOverLimit && (
+                    <p className="mt-2 text-[11px] text-amber-100/80">
+                      Las notas de credito seleccionadas superan el saldo
+                      disponible. Desmarca alguna para continuar.
+                    </p>
+                  )}
                   {selectedCreditNoteIds.length > 0 && (
                     <div className="mt-3 grid grid-cols-2 gap-2 border-t border-amber-500/25 pt-3 text-xs">
                       <div className="text-cyan-100/70">Pago generado</div>
@@ -328,8 +393,16 @@ export default function FacturaPaymentModal({
                 <button
                   type="button"
                   onClick={onSubmitPartial}
-                  disabled={paymentSubmitting || selectedPaymentBalance <= 0}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={
+                    paymentSubmitting ||
+                    selectedPaymentBalance <= 0 ||
+                    creditNotesOverLimit
+                  }
+                  className={`inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                    allowPartialPayment
+                      ? "bg-[var(--accent)] hover:bg-[var(--accent-hover)]"
+                      : "hidden"
+                  }`}
                 >
                   <CreditCard className="h-4 w-4" />
                   {paymentSubmitting ? "Guardando..." : "Registrar abono"}
@@ -340,11 +413,14 @@ export default function FacturaPaymentModal({
                   disabled={
                     paymentSubmitting ||
                     selectedPaymentBalance <= 0 ||
-                    !canSubmitFullPayment
+                    !canSubmitFullPayment ||
+                    creditNotesOverLimit
                   }
                   className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-4 py-2 text-sm font-semibold text-emerald-100 transition-colors hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Pagar completo
+                  {selectedCreditNoteIds.length > 0
+                    ? "Pagar"
+                    : "Pagar completo"}
                 </button>
               </div>
 
