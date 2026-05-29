@@ -2276,7 +2276,7 @@ export default function FacturasCreditoPage() {
                   className="flex h-11 w-full items-center justify-center gap-2 rounded border border-[var(--accent)] bg-[var(--accent)] px-3 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-[var(--accent-hover)] hover:border-[var(--accent-hover)] hover:shadow-md hover:shadow-sky-950/25 active:translate-y-0 active:scale-[0.99] sm:w-auto sm:px-5"
                 >
                   <Plus className="h-4 w-4 flex-shrink-0" />
-                  <span className="truncate">Agregar facturas</span>
+                  <span className="truncate">Agregar FC/NC</span>
                 </button>
               </div>
             </div>
@@ -2445,7 +2445,7 @@ export default function FacturasCreditoPage() {
                             }`}
                           >
                             <CreditCard className="h-3.5 w-3.5" />
-                            {pendingCierreDeCaja ? "Bloqueado" : "Registrar abono"}
+                            {pendingCierreDeCaja ? "Bloqueado" : "Registrar Abono"}
                           </button>
                         ) : (
                           <span className="text-xs text-[var(--muted-foreground)]">
@@ -2583,7 +2583,7 @@ export default function FacturasCreditoPage() {
                       disabled={employeesLoading}
                       className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      <option value="">Sin encargado extra</option>
+                      <option value="">Sin encargado</option>
                       {employeesLoading && (
                         <option value="">Cargando empleados...</option>
                       )}
@@ -2629,15 +2629,9 @@ export default function FacturasCreditoPage() {
                     className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <CreditCard className="h-4 w-4" />
-                    {paymentSubmitting ? "Guardando..." : "Registrar abono"}
+                    {paymentSubmitting ? "Guardando..." : "Registrar Abono"}
                   </button>
                 </div>
-
-                <p className="text-xs text-[var(--muted-foreground)]">
-                  Estado actual: {selectedPaymentStatus}. El movimiento en Fondo
-                  General se crea con `updateAt` y `manager2` cuando se registra
-                  el pago.
-                </p>
               </form>
             </div>
           </div>

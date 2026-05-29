@@ -12869,7 +12869,7 @@ export function FondoSection({
             }}
           >
             <Typography variant="h6" component="h3" sx={{ fontWeight: 600 }}>
-              Agregar nota de crédito
+              Agregar nota de Crédito
             </Typography>
             <IconButton
               aria-label="Cerrar"

@@ -288,7 +288,7 @@ export default function FacturaPaymentModal({
                     disabled={employeesLoading}
                     className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    <option value="">Sin encargado extra</option>
+                    <option value="">Sin encargado</option>
                     {employeesLoading && <option value="">Cargando empleados...</option>}
                     {!employeesLoading && employeeOptions.length === 0 && (
                       <option value="">No hay empleados registrados</option>
@@ -488,7 +488,7 @@ export default function FacturaPaymentModal({
                   }`}
                 >
                   <CreditCard className="h-4 w-4" />
-                  {paymentSubmitting ? "Guardando..." : "Registrar abono"}
+                  {paymentSubmitting ? "Guardando..." : "Registrar Abono"}
                 </button>
                 <button
                   type="button"
@@ -506,11 +506,6 @@ export default function FacturaPaymentModal({
                     : "Pagar completo"}
                 </button>
               </div>
-
-              <p className="text-xs text-[var(--muted-foreground)]">
-                Estado actual: {selectedPaymentStatus}. El movimiento se actualiza con
-                `updateAt` cuando se registra el pago.
-              </p>
             </form>
           </Box>
         )}

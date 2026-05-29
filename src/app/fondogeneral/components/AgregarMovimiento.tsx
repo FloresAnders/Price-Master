@@ -694,7 +694,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
               }`}
             >
               <Plus className="h-3.5 w-3.5" />
-              Agregar Nota de crédito
+              Agregar Nota de Crédito
             </button>
           )}
         {isEgreso && pendingCreditNotes.length > 0 && !editingEntryId && (

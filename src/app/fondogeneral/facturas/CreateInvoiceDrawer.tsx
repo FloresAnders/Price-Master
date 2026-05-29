@@ -117,7 +117,7 @@ export default function CreateInvoiceDrawer({
           }}
         >
           <Typography variant="h6" component="h3" sx={{ fontWeight: 600 }}>
-            Agregar factura
+            Agregar FC/NC
           </Typography>
           <IconButton
             aria-label="Cerrar"
@@ -375,7 +375,7 @@ export default function CreateInvoiceDrawer({
                 className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Plus className="h-4 w-4" />
-                {createSubmitting ? "Guardando..." : "Guardar factura"}
+                {createSubmitting ? "Guardando..." : "Guardar FC/NC"}
               </button>
             </div>
           </form>
