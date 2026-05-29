@@ -429,6 +429,9 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+          <div className="text-xs text-center text-[var(--muted-foreground)]">
+            Usa <kbd className="mx-0.5 rounded border border-[var(--input-border)] bg-[var(--muted)]/30 px-1.5 py-0.5 font-mono text-[10px]">↑</kbd> <kbd className="mx-0.5 rounded border border-[var(--input-border)] bg-[var(--muted)]/30 px-1.5 py-0.5 font-mono text-[10px]">↓</kbd> para navegar entre casillas y <kbd className="mx-0.5 rounded border border-[var(--input-border)] bg-[var(--muted)]/30 px-1.5 py-0.5 font-mono text-[10px]">←</kbd> <kbd className="mx-0.5 rounded border border-[var(--input-border)] bg-[var(--muted)]/30 px-1.5 py-0.5 font-mono text-[10px]">→</kbd> para sumar/restar
+          </div>
           <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
             <section>
               <h4 className="text-sm font-semibold text-[var(--foreground)] mb-3">
