@@ -32,7 +32,6 @@ export default function EditProfileModal({
   onClose,
 }: EditProfileModalProps) {
   const { showToast } = useToast();
-  // Close on ESC
   useEffect(() => {
     if (!isOpen) return;
 
@@ -70,7 +69,6 @@ export default function EditProfileModal({
 
   const baseUser = profile ?? user ?? null;
 
-  // Image upload hook
   const imageUpload = useProfileImageUpload({
     user: baseUser,
     onSuccess: () => {
@@ -282,7 +280,6 @@ export default function EditProfileModal({
       return;
     }
 
-    // Si está intentando cambiar la contraseña
     if (trimmedPassword) {
       if (!formData.currentPassword) {
         setError("Debes ingresar tu contraseña actual.");
@@ -294,7 +291,6 @@ export default function EditProfileModal({
         return;
       }
 
-      // Verificar la contraseña actual
       const storedPassword = baseUser?.password;
       if (storedPassword) {
         const isValid = await verifyPassword(
@@ -324,13 +320,11 @@ export default function EditProfileModal({
 
       await UsersService.updateUserAs(user, targetId, payload);
 
-      // Handle image upload if a file was selected
       let uploadedPhotoUrl: string | null = null;
       if (imageUpload.hasSelectedFile) {
         uploadedPhotoUrl = await imageUpload.uploadImage();
       }
 
-      // Handle pending image deletion
       if (imageUpload.pendingDelete) {
         await imageUpload.confirmDelete();
       }
@@ -407,37 +401,37 @@ export default function EditProfileModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4 w-full">
-      <div className="rounded-2xl border border-white/10 bg-slate-950 shadow-xl w-max max-w-md max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-slate-100 flex items-center gap-3">
-              <span className="flex h-7 w-7 items-center justify-center rounded border border-white/10 bg-slate-900/50 text-cyan-400">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+      <div className="animate-scale-in w-full max-w-lg mx-auto max-h-[90vh] overflow-y-auto rounded-2xl border border-white/5 bg-[var(--card-bg)] shadow-[0_16px_50px_rgba(2,6,23,0.26)]">
+        <div className="p-5 sm:p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl sm:text-2xl font-semibold text-slate-100 flex items-center gap-3">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-slate-900/50 text-cyan-400">
                 <UserIcon className="w-5 h-5" />
               </span>
               Editar Perfil
             </h2>
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-slate-100 transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-100 hover:bg-white/5 transition-all"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          <div className="rounded-lg border border-white/10 bg-slate-900/50 p-3 sm:p-4">
-            {!user ? (
-              <p className="text-sm text-slate-400">
-                No se pudo cargar la información del usuario.
-              </p>
-            ) : profileLoading ? (
-              <div className="flex items-center justify-center py-10">
-                <Loader2 className="h-6 w-6 animate-spin text-slate-300" />
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-24 h-24 rounded-full border border-white/10 bg-slate-900/50 flex items-center justify-center overflow-hidden">
+          {!user ? (
+            <div className="rounded-lg border border-white/10 bg-slate-900/50 px-4 py-8 text-center text-sm text-slate-400">
+              No se pudo cargar la información del usuario.
+            </div>
+          ) : profileLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-cyan-400" />
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="flex flex-col items-center gap-4 pb-2">
+                <div className="relative">
+                  <div className="w-28 h-28 rounded-full border border-white/5 bg-[var(--card-bg)] flex items-center justify-center overflow-hidden shadow-[0_0_24px_rgba(0,0,0,0.4)]">
                     {imageUpload.imagePreview ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -453,210 +447,219 @@ export default function EditProfileModal({
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span className="text-xl font-semibold text-slate-300">
+                      <span className="text-2xl font-bold text-slate-200">
                         {initials}
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-slate-400">
-                    {imageUpload.hasSelectedFile
-                      ? "Vista previa - Guardar para aplicar"
-                      : "Foto de perfil"}
-                  </div>
-                  <div className="flex gap-2">
-                    <input
-                      ref={imageUpload.fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={imageUpload.handleFileSelect}
-                      className="hidden"
-                      disabled={isFormLocked}
-                    />
-                    {imageUpload.hasSelectedFile || imageUpload.pendingDelete ? (
-                      <button
-                        type="button"
-                        onClick={imageUpload.cancelSelection}
-                        disabled={isFormLocked}
-                        className="inline-flex items-center gap-2 h-11 rounded border border-white/10 bg-slate-900/50 px-3 text-sm text-slate-300 outline-none transition-colors hover:border-white/20 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        <X className="w-4 h-4" />
-                        Cancelar
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={imageUpload.openFileDialog}
-                        disabled={isFormLocked}
-                        className="inline-flex items-center gap-2 h-11 rounded border border-white/10 bg-slate-900/50 px-3 text-sm text-slate-300 outline-none transition-colors hover:border-white/20 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {imageUpload.isUploading ? (
-                          <Loader2 className="w-4 h-4 animate-spin text-slate-300" />
-                        ) : (
-                          <Camera className="w-4 h-4 text-slate-300" />
-                        )}
-                        {imageUpload.isUploading ? "Subiendo..." : "Cambiar"}
-                      </button>
-                    )}
-                    {imageUpload.canDelete && (
-                      <button
-                        type="button"
-                        onClick={imageUpload.markForDeletion}
-                        disabled={isFormLocked}
-                        className="inline-flex items-center gap-2 h-11 rounded border border-red-400/20 bg-red-500/10 px-3 text-sm text-red-400 outline-none transition-colors hover:border-red-400/40 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        <Trash2 className="w-4 h-4 text-red-400" />
-                        Eliminar
-                      </button>
-                    )}
-                  </div>
+                  {imageUpload.hasSelectedFile && (
+                    <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-cyan-500 shadow-lg">
+                      <Check className="w-3.5 h-3.5 text-white" />
+                    </span>
+                  )}
                 </div>
 
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-slate-200">
-                    Datos del usuario
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    Rol actual: <span className="capitalize">{roleLabel}</span>
-                  </p>
-                </div>
-
-                {profileError && (
-                  <div className="rounded border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-sm text-yellow-400">
-                    {profileError}
-                  </div>
-                )}
-
-                <div className="flex flex-col gap-4">
-                  <label className="flex flex-col gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-300">
-                    Nombre de usuario
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={handleChange("name")}
-                      required
-                      autoComplete="username"
-                      disabled={isFormLocked}
-                      className="h-11 w-full rounded border border-white/10 bg-slate-900/80 px-3 text-sm text-slate-100 outline-none transition-colors placeholder:text-slate-400 hover:border-white/20 focus:border-cyan-400/30 focus:ring-1 focus:ring-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
-                    />
-                  </label>
-
-                  <label className="flex flex-col gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-300">
-                    Nombre completo
-                    <input
-                      type="text"
-                      value={formData.fullName}
-                      onChange={handleChange("fullName")}
-                      autoComplete="name"
-                      disabled={isFormLocked}
-                      className="h-11 w-full rounded border border-white/10 bg-slate-900/80 px-3 text-sm text-slate-100 outline-none transition-colors placeholder:text-slate-400 hover:border-white/20 focus:border-cyan-400/30 focus:ring-1 focus:ring-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
-                    />
-                  </label>
-                </div>
-
-                <label className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-300">
-                  Correo electrónico
+                <div className="flex flex-wrap items-center justify-center gap-2">
                   <input
-                    type="email"
-                    value={formData.email}
-                    onChange={handleChange("email")}
-                    autoComplete="email"
+                    ref={imageUpload.fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={imageUpload.handleFileSelect}
+                    className="hidden"
                     disabled={isFormLocked}
-                    className="h-11 w-full rounded border border-white/10 bg-slate-900/80 px-3 text-sm text-slate-100 outline-none transition-colors placeholder:text-slate-400 hover:border-white/20 focus:border-cyan-400/30 focus:ring-1 focus:ring-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  />
+                  {imageUpload.hasSelectedFile || imageUpload.pendingDelete ? (
+                    <button
+                      type="button"
+                      onClick={imageUpload.cancelSelection}
+                      disabled={isFormLocked}
+                      className="inline-flex items-center gap-1.5 h-9 rounded-lg border border-white/10 bg-slate-800/80 px-3 text-xs font-medium text-slate-300 outline-none transition-all hover:border-white/20 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      Cancelar
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={imageUpload.openFileDialog}
+                      disabled={isFormLocked}
+                      className="inline-flex items-center gap-1.5 h-9 rounded-lg border border-white/10 bg-slate-800/80 px-3 text-xs font-medium text-slate-300 outline-none transition-all hover:border-white/20 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {imageUpload.isUploading ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Camera className="w-3.5 h-3.5" />
+                      )}
+                      {imageUpload.isUploading ? "Subiendo..." : "Cambiar foto"}
+                    </button>
+                  )}
+                  {imageUpload.canDelete && (
+                    <button
+                      type="button"
+                      onClick={imageUpload.markForDeletion}
+                      disabled={isFormLocked}
+                      className="inline-flex items-center gap-1.5 h-9 rounded-lg border border-red-400/20 bg-red-500/10 px-3 text-xs font-medium text-red-400 outline-none transition-all hover:border-red-400/40 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Eliminar
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="h-px bg-white/5" />
+
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-slate-200">
+                  Datos del usuario
+                </p>
+                <span className="rounded-md border border-white/5 bg-slate-800/60 px-2 py-0.5 text-[11px] font-medium text-slate-400 capitalize">
+                  {roleLabel}
+                </span>
+              </div>
+
+              {profileError && (
+                <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-2.5 text-sm text-yellow-400">
+                  <div className="flex items-start gap-2">
+                    <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>{profileError}</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label className="flex flex-col gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-300">
+                  Nombre de usuario
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={handleChange("name")}
+                    required
+                    autoComplete="username"
+                    disabled={isFormLocked}
+                    className="h-11 w-full rounded-lg border border-white/5 bg-slate-900/50 px-3 text-sm text-slate-100 outline-none transition-all placeholder:text-slate-500 hover:border-white/10 focus:border-cyan-400/40 focus:ring-1 focus:ring-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60"
                   />
                 </label>
 
-                {/* Sección de contraseña */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-7 w-7 items-center justify-center rounded border border-white/10 bg-slate-900/50 text-cyan-400">
-                        <Lock className="w-4 h-4" />
-                      </span>
-                      <span className="text-sm font-medium text-slate-200">
-                        Contraseña
-                      </span>
-                    </div>
-                    {hasPassword && (
-                      <span className="text-xs text-green-400 flex items-center gap-1">
-                        <Check className="w-3 h-3" />
-                        Contraseña configurada
-                      </span>
-                    )}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowChangePassword(!showChangePassword)}
+                <label className="flex flex-col gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-300">
+                  Nombre completo
+                  <input
+                    type="text"
+                    value={formData.fullName}
+                    onChange={handleChange("fullName")}
+                    autoComplete="name"
                     disabled={isFormLocked}
-                    className="w-full flex items-center justify-between h-11 rounded border border-white/10 bg-slate-900/50 px-3 text-sm text-slate-300 outline-none transition-colors hover:border-white/20 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <span>
-                      {showChangePassword
-                        ? "Ocultar cambio de contraseña"
-                        : "Cambiar contraseña"}
+                    className="h-11 w-full rounded-lg border border-white/5 bg-slate-900/50 px-3 text-sm text-slate-100 outline-none transition-all placeholder:text-slate-500 hover:border-white/10 focus:border-cyan-400/40 focus:ring-1 focus:ring-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60"
+                  />
+                </label>
+              </div>
+
+              <label className="flex flex-col gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-300">
+                Correo electrónico
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={handleChange("email")}
+                  autoComplete="email"
+                  disabled={isFormLocked}
+                  className="h-11 w-full rounded-lg border border-white/5 bg-slate-900/50 px-3 text-sm text-slate-100 outline-none transition-all placeholder:text-slate-500 hover:border-white/10 focus:border-cyan-400/40 focus:ring-1 focus:ring-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60"
+                />
+              </label>
+
+              <div className="h-px bg-white/5" />
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-slate-900/50 text-cyan-400">
+                      <Lock className="w-4 h-4" />
                     </span>
-                    {showChangePassword ? (
-                      <ChevronUp className="w-4 h-4" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4" />
-                    )}
-                  </button>
+                    <span className="text-sm font-medium text-slate-200">
+                      Contraseña
+                    </span>
+                  </div>
+                  {hasPassword && (
+                    <span className="text-[11px] text-green-400 flex items-center gap-1">
+                      <Check className="w-3 h-3" />
+                      Configurada
+                    </span>
+                  )}
+                </div>
 
-                  {showChangePassword && (
-                    <div className="space-y-4 rounded-lg border border-white/10 bg-slate-900/50 p-3 sm:p-4">
-                      <label className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-300">
-                        Contraseña actual
-                        <div className="relative w-full">
-                          <input
-                            type={showCurrentPassword ? "text" : "password"}
-                            value={formData.currentPassword}
-                            onChange={handleChange("currentPassword")}
-                            autoComplete="current-password"
-                            disabled={isFormLocked}
-                            className="h-11 w-full rounded border border-white/10 bg-slate-900/80 px-3 pr-10 text-sm text-slate-100 outline-none transition-colors placeholder:text-slate-400 hover:border-white/20 focus:border-cyan-400/30 focus:ring-1 focus:ring-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
-                            placeholder="Ingresa tu contraseña actual"
-                            required={showChangePassword}
-                          />
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setShowCurrentPassword((prev) => !prev)
-                            }
-                            disabled={isFormLocked}
-                            className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
-                            aria-label={
-                              showCurrentPassword
-                                ? "Ocultar contraseña actual"
-                                : "Mostrar contraseña actual"
-                            }
-                          >
-                            {showCurrentPassword ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </button>
-                        </div>
-                      </label>
+                <button
+                  type="button"
+                  onClick={() => setShowChangePassword(!showChangePassword)}
+                  disabled={isFormLocked}
+                  className="w-full flex items-center justify-between h-11 rounded-lg border border-white/10 bg-slate-900/50 px-4 text-sm text-slate-300 outline-none transition-all hover:border-white/20 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <span>
+                    {showChangePassword
+                      ? "Cancelar cambio de contraseña"
+                      : "Cambiar contraseña"}
+                  </span>
+                  {showChangePassword ? (
+                    <ChevronUp className="w-4 h-4" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4" />
+                  )}
+                </button>
 
-                      <label className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-300">
+                {showChangePassword && (
+                  <div className="space-y-4 rounded-xl border border-white/10 bg-slate-900/40 p-4">
+                    <label className="flex flex-col gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-300">
+                      Contraseña actual
+                      <div className="relative">
+                        <input
+                          type={showCurrentPassword ? "text" : "password"}
+                          value={formData.currentPassword}
+                          onChange={handleChange("currentPassword")}
+                          autoComplete="current-password"
+                          disabled={isFormLocked}
+                          className="h-11 w-full rounded-lg border border-white/10 bg-slate-900/80 px-3 pr-10 text-sm text-slate-100 outline-none transition-all placeholder:text-slate-500 hover:border-white/20 focus:border-cyan-400/40 focus:ring-1 focus:ring-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60"
+                          placeholder="Ingresa tu contraseña actual"
+                          required={showChangePassword}
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowCurrentPassword((prev) => !prev)
+                          }
+                          disabled={isFormLocked}
+                          className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-200 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                          aria-label={
+                            showCurrentPassword
+                              ? "Ocultar contraseña actual"
+                              : "Mostrar contraseña actual"
+                          }
+                        >
+                          {showCurrentPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                    </label>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <label className="flex flex-col gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-300">
                         Nueva contraseña
-                        <div className="relative w-full">
+                        <div className="relative">
                           <input
                             type={showPassword ? "text" : "password"}
                             value={formData.password}
                             onChange={handleChange("password")}
                             autoComplete="new-password"
                             disabled={isFormLocked}
-                            className="h-11 w-full rounded border border-white/10 bg-slate-900/80 px-3 pr-10 text-sm text-slate-100 outline-none transition-colors placeholder:text-slate-400 hover:border-white/20 focus:border-cyan-400/30 focus:ring-1 focus:ring-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
-                            placeholder="Ingresa tu nueva contraseña"
+                            className="h-11 w-full rounded-lg border border-white/10 bg-slate-900/80 px-3 pr-10 text-sm text-slate-100 outline-none transition-all placeholder:text-slate-500 hover:border-white/20 focus:border-cyan-400/40 focus:ring-1 focus:ring-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60"
+                            placeholder="Nueva contraseña"
                             required={showChangePassword}
                           />
                           <button
                             type="button"
                             onClick={() => setShowPassword((prev) => !prev)}
                             disabled={isFormLocked}
-                            className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-200 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                             aria-label={
                               showPassword
                                 ? "Ocultar nueva contraseña"
@@ -672,17 +675,17 @@ export default function EditProfileModal({
                         </div>
                       </label>
 
-                      <label className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-300">
-                        Confirmar nueva contraseña
-                        <div className="relative w-full">
+                      <label className="flex flex-col gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-300">
+                        Confirmar contraseña
+                        <div className="relative">
                           <input
                             type={showPasswordConfirm ? "text" : "password"}
                             value={formData.passwordConfirm}
                             onChange={handleChange("passwordConfirm")}
                             autoComplete="new-password"
                             disabled={isFormLocked}
-                            className="h-11 w-full rounded border border-white/10 bg-slate-900/80 px-3 pr-10 text-sm text-slate-100 outline-none transition-colors placeholder:text-slate-400 hover:border-white/20 focus:border-cyan-400/30 focus:ring-1 focus:ring-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
-                            placeholder="Confirma tu nueva contraseña"
+                            className="h-11 w-full rounded-lg border border-white/10 bg-slate-900/80 px-3 pr-10 text-sm text-slate-100 outline-none transition-all placeholder:text-slate-500 hover:border-white/20 focus:border-cyan-400/40 focus:ring-1 focus:ring-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-60"
+                            placeholder="Confirmar contraseña"
                             required={showChangePassword}
                           />
                           <button
@@ -691,7 +694,7 @@ export default function EditProfileModal({
                               setShowPasswordConfirm((prev) => !prev)
                             }
                             disabled={isFormLocked}
-                            className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-200 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                             aria-label={
                               showPasswordConfirm
                                 ? "Ocultar confirmación"
@@ -706,99 +709,96 @@ export default function EditProfileModal({
                           </button>
                         </div>
                       </label>
-
-                      <div className="text-xs text-slate-400 flex items-start gap-2 mt-2">
-                        <Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-slate-400" />
-                        <span>
-                          Asegúrate de que tu nueva contraseña sea segura y
-                          diferente a la actual.
-                        </span>
-                      </div>
                     </div>
-                  )}
-                </div>
 
-                {showOwnerInfo && (
-                  <div className="rounded-lg border border-white/10 bg-slate-900/50 p-3 sm:p-4 text-sm">
-                    <div className="flex items-start gap-2">
-                      <span className="flex h-7 w-7 items-center justify-center rounded border border-white/10 bg-slate-900/50 text-cyan-400 mt-0.5">
-                        <Info className="h-4 w-4" />
-                      </span>
-                      <div>
-                        <p className="font-medium text-slate-200">
-                          Usuario Encargado
+                    <div className="flex items-start gap-2 rounded-lg border border-white/5 bg-slate-900/30 px-3 py-2.5">
+                      <Info className="w-4 h-4 flex-shrink-0 mt-0.5 text-slate-500" />
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Asegúrate de usar una contraseña segura y diferente a la
+                        actual. Mínimo 8 caracteres.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {showOwnerInfo && (
+                <div className="rounded-xl border border-white/10 bg-slate-900/40 p-4">
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-slate-900/50 text-cyan-400 flex-shrink-0">
+                      <Info className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-200 mb-0.5">
+                        Usuario Encargado
+                      </p>
+                      {ownerLoading ? (
+                        <p className="text-sm text-slate-400 flex items-center gap-2">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          Cargando…
                         </p>
-                        {ownerLoading ? (
-                          <p className="text-slate-400">
-                            Cargando información…
+                      ) : (
+                        <>
+                          <p className="text-sm text-slate-400 truncate">
+                            {ownerDisplayName}
+                            {ownerEmail && (
+                              <span className="text-slate-500"> · {ownerEmail}</span>
+                            )}
                           </p>
-                        ) : (
-                          <>
-                            <p className="text-slate-400">
-                              {ownerDisplayName}
-                              {ownerEmail ? ` · ${ownerEmail}` : ""}
+                          {baseUser?.ownercompanie && (
+                            <p className="text-xs text-slate-500 mt-1">
+                              {ownerDisplayName !== baseUser.ownercompanie
+                                ? `Empresa asignada: ${baseUser.ownercompanie}`
+                                : "Empresa asignada vinculada a este usuario."}
                             </p>
-                            {baseUser?.ownercompanie &&
-                              ownerDisplayName !== baseUser.ownercompanie && (
-                                <p className="text-xs text-slate-400 mt-1">
-                                  Empresa asignada:{" "}
-                                  <span className="font-medium text-slate-200">
-                                    {baseUser.ownercompanie}
-                                  </span>
-                                </p>
-                              )}
-                            {baseUser?.ownercompanie &&
-                              ownerDisplayName === baseUser.ownercompanie && (
-                                <p className="text-xs text-slate-400 mt-1">
-                                  Empresa asignada vinculada a este usuario.
-                                </p>
-                              )}
-                          </>
-                        )}
-                      </div>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
-                )}
-
-                {error && (
-                  <div className="rounded border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-400">
-                    {error}
-                  </div>
-                )}
-
-                <div className="flex justify-center gap-3 pt-6">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="inline-flex items-center gap-2 h-11 rounded border border-white/10 bg-slate-900/50 px-5 text-sm text-slate-300 outline-none transition-colors hover:border-white/20 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <X className="w-4 h-4" />
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={!hasChanges || isSaving || profileLoading}
-                    className="inline-flex items-center gap-2 h-11 rounded border border-cyan-400 bg-cyan-600 px-5 text-sm font-medium text-white outline-none transition-colors hover:border-cyan-400/80 hover:bg-cyan-600/90 disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
-                  >
-                    {isSaving ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin text-white" />
-                        Guardando…
-                      </>
-                    ) : (
-                      <>
-                        <Check className="w-4 h-4" />
-                        Guardar cambios
-                      </>
-                    )}
-                  </button>
                 </div>
-              </form>
-            )}
-          </div>
+              )}
+
+              {error && (
+                <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-400">
+                  <div className="flex items-start gap-2">
+                    <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col-reverse sm:flex-row items-center justify-center gap-3 pt-2 border-t border-white/5">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="inline-flex items-center justify-center gap-2 h-11 w-full sm:w-auto rounded-lg border border-white/10 bg-slate-900/50 px-5 text-sm font-medium text-slate-300 outline-none transition-all hover:border-white/20 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <X className="w-4 h-4" />
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={!hasChanges || isSaving || profileLoading}
+                  className="inline-flex items-center justify-center gap-2 h-11 w-full sm:w-auto rounded-lg bg-cyan-600 px-5 text-sm font-medium text-white outline-none transition-all hover:bg-cyan-500 active:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50 shadow-lg shadow-cyan-600/20"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Guardando…
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      Guardar cambios
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
-      {/* Click outside to close */}
       <div className="absolute inset-0 -z-10" onClick={onClose} />
     </div>
   );
