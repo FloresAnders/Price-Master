@@ -927,7 +927,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                           </span>
                           <div className="flex items-center gap-2 mt-0.5 text-xs text-[var(--muted-foreground)]">
                             {user?.role === "superadmin" ? (
-                              <Star className="w-3 h-3 text-[var(--muted-foreground)]" />
+<Star className="w-3 h-3 rainbow-star-icon" />
                             ) : user?.role === "admin" ? (
                               <Shield className="w-3 h-3 text-[var(--muted-foreground)]" />
                             ) : (
