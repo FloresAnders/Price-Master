@@ -123,6 +123,7 @@ import {
   addDoc,
   collection,
   doc,
+  getDoc,
   runTransaction,
   serverTimestamp,
   writeBatch,
@@ -7568,6 +7569,12 @@ export function FondoSection({
           // Comprimir historial para evitar QuotaExceededError
           const compressedHistory = compressAuditHistory(history);
           // keep original createdAt so chronological order and balances are preserved
+          const baseAmountDue = Math.max(0, Math.trunc(Number(e.amountDue ?? e.balanceDue) || 0));
+          const basePaymentAmount = Math.max(0, Math.trunc(Number(e.amountEgreso) || 0));
+          const newPaymentAmount = isEgreso ? egresoValue : 0;
+          const nextAmountDue = isEditingPaidFcr
+            ? Math.max(0, baseAmountDue - (newPaymentAmount - basePaymentAmount))
+            : baseAmountDue;
           updatedEntry = {
             ...e,
             providerCode: selectedProvider,
@@ -7579,6 +7586,8 @@ export function FondoSection({
             amountEgreso: isEgreso ? egresoValue : 0,
             amountIngreso: isEgreso ? 0 : ingresoValue,
             amountPayment: nextAmountPayment,
+            amountDue: nextAmountDue,
+            balanceDue: nextAmountDue,
             appliedCreditNotes:
               nextAppliedCreditNotes.length > 0
                 ? nextAppliedCreditNotes
@@ -7626,37 +7635,75 @@ export function FondoSection({
         if (updatedEntry) {
           const facturaEntry = updatedEntry as FondoEntry;
           const normalizedCompany = (company || "").trim();
-          if (normalizedCompany.length > 0) {
-            if (shouldMirrorMovementToFacturas) {
-              const facturaAmount = Math.abs(
-                (facturaEntry.amountIngreso || 0) -
-                  (facturaEntry.amountEgreso || 0),
-              );
-              const facturaCopy: FacturaMovement = {
-                id: String(facturaEntry.id),
-                empresa: normalizedCompany,
-                accountId: accountKey,
-                amount: facturaAmount,
-                providerCode: facturaEntry.providerCode,
-                invoiceNumber: facturaEntry.invoiceNumber,
-                invoiceDocType: normalizeInvoiceDocType(
-                  (facturaEntry as any).invoiceDocType,
-                ),
-                paymentType: facturaEntry.paymentType,
-                amountEgreso: facturaEntry.amountEgreso,
-                amountIngreso: facturaEntry.amountIngreso,
-                amountPayment: facturaEntry.amountPayment,
-                appliedCreditNotes: facturaEntry.appliedCreditNotes,
-                manager: facturaEntry.manager,
-                manager2: facturaEntry.manager2,
-                notes: facturaEntry.notes,
-                createdAt: facturaEntry.createdAt,
-                currency: facturaEntry.currency === "USD" ? "USD" : "CRC",
-              };
-              void FacturasService.upsertMovement(
-                normalizedCompany,
-                facturaCopy,
-              );
+          if (isPaidFcrMovement(facturaEntry)) {
+            // Actualizar la factura original al editar un abono
+            const paymentId = String(facturaEntry.id || "");
+            const prefix = "fcr-pago-";
+            if (paymentId.startsWith(prefix) && normalizedCompany.length > 0) {
+              const rest = paymentId.slice(prefix.length);
+              const invoiceIdMatch = rest.match(/^(FAC-\d+-[A-Z0-9]+)-/);
+              if (invoiceIdMatch) {
+                const invoiceId = invoiceIdMatch[1];
+                const invoiceRef = FacturasService.buildMovementRef(normalizedCompany, invoiceId);
+                try {
+                  const invoiceSnap = await getDoc(invoiceRef);
+                  if (invoiceSnap.exists()) {
+                    const invoiceData = invoiceSnap.data() as FacturaMovement;
+                    const oldPaymentAmount = Math.max(0, Math.trunc(Number(original.amountEgreso) || 0));
+                    const newPaymentAmount = Math.max(0, Math.trunc(Number(facturaEntry.amountEgreso) || 0));
+                    const diff = newPaymentAmount - oldPaymentAmount;
+                    if (diff !== 0) {
+                      const totalAmount = Math.max(0, Math.trunc(Number(invoiceData.originalAmount ?? invoiceData.amount) || 0));
+                      const currentPaid = Math.max(0, Math.trunc(Number(invoiceData.paidAmount) || 0));
+                      const nextPaid = Math.min(totalAmount, Math.max(0, currentPaid + diff));
+                      const nextBalance = Math.max(0, totalAmount - nextPaid);
+                      const nextStatus = nextBalance === 0 ? "PAGADA" : nextPaid > 0 ? "PARCIAL" : "PENDIENTE";
+                      await FacturasService.upsertMovement(normalizedCompany, {
+                        ...(invoiceData as any),
+                        id: invoiceId,
+                        empresa: normalizedCompany,
+                        paidAmount: nextPaid,
+                        balanceDue: nextBalance,
+                        paymentStatus: nextStatus,
+                      } as FacturaMovement);
+                    }
+                  }
+                } catch { /* fallo al leer factura */ }
+              }
+            }
+          } else {
+            if (normalizedCompany.length > 0) {
+              if (shouldMirrorMovementToFacturas) {
+                const facturaAmount = Math.abs(
+                  (facturaEntry.amountIngreso || 0) -
+                    (facturaEntry.amountEgreso || 0),
+                );
+                const facturaCopy: FacturaMovement = {
+                  id: String(facturaEntry.id),
+                  empresa: normalizedCompany,
+                  accountId: accountKey,
+                  amount: facturaAmount,
+                  providerCode: facturaEntry.providerCode,
+                  invoiceNumber: facturaEntry.invoiceNumber,
+                  invoiceDocType: normalizeInvoiceDocType(
+                    (facturaEntry as any).invoiceDocType,
+                  ),
+                  paymentType: facturaEntry.paymentType,
+                  amountEgreso: facturaEntry.amountEgreso,
+                  amountIngreso: facturaEntry.amountIngreso,
+                  amountPayment: facturaEntry.amountPayment,
+                  appliedCreditNotes: facturaEntry.appliedCreditNotes,
+                  manager: facturaEntry.manager,
+                  manager2: facturaEntry.manager2,
+                  notes: facturaEntry.notes,
+                  createdAt: facturaEntry.createdAt,
+                  currency: facturaEntry.currency === "USD" ? "USD" : "CRC",
+                };
+                void FacturasService.upsertMovement(
+                  normalizedCompany,
+                  facturaCopy,
+                );
+              }
             }
           }
         }
@@ -9750,6 +9797,19 @@ export function FondoSection({
     [openClosingInvoicePaymentModal, pendingClosingCreditInvoices],
   );
 
+  const handleMovementCreditInvoiceSelect = useCallback(
+    (invoiceId: string) => {
+      const invoice = pendingClosingCreditInvoices.find(
+        (item) => item.id === invoiceId,
+      );
+      if (invoice) {
+        openClosingInvoicePaymentModal(invoice);
+        setMovementModalOpen(false);
+      }
+    },
+    [openClosingInvoicePaymentModal, pendingClosingCreditInvoices],
+  );
+
   const closingPaymentAvailableCreditNotes = useMemo(() => {
     if (!closingPaymentTarget) return [];
     return selectedProviderPendingCreditNotes.filter(
@@ -10113,6 +10173,7 @@ export function FondoSection({
     [
       closeClosingInvoicePaymentModal,
       closingPaymentAmount,
+      closingPaymentCreditNoteIds,
       closingPaymentManager2,
       closingPaymentNotes,
       closingPaymentTarget,
@@ -12669,6 +12730,9 @@ export function FondoSection({
                     : selectedProviderPendingCreditNotes
                   : [];
 
+              const selectedProviderType = selectedProvider ? (providerTypesMap.get(selectedProvider) ?? "") : "";
+              const isCompraInventarioProvider = selectedProviderType.trim().toUpperCase() === "COMPRA INVENTARIO";
+
               return (
                 <AgregarMovimiento
                   selectedProvider={selectedProvider}
@@ -12758,15 +12822,7 @@ export function FondoSection({
                       : ""
                   }
                   pendingCreditInvoices={selectedProviderPendingCreditInvoices}
-                  onSelectPendingCreditInvoice={openSelectedPendingCreditInvoicePayment}
-                  selectedCreditInvoiceIds={selectedPendingCreditInvoiceIds}
-                  onToggleCreditInvoice={(id) => {
-                    setSelectedPendingCreditInvoiceIds((prev) =>
-                      prev.includes(id)
-                        ? prev.filter((item) => item !== id)
-                        : [...prev, id],
-                    );
-                  }}
+                  onSelectPendingCreditInvoice={handleMovementCreditInvoiceSelect}
                   pendingCreditNotes={movementPendingCreditNotes}
                   selectedCreditNoteIds={selectedAppliedCreditNoteIds}
                   onToggleCreditNote={(id) => {
@@ -12781,6 +12837,7 @@ export function FondoSection({
                   onAddManualCreditNote={openManualCreditNoteModal}
                   balanceCRC={currentBalanceCRC}
                   balanceUSD={currentBalanceUSD}
+                  isCompraInventarioProvider={isCompraInventarioProvider}
                 />
               );
             })()}
@@ -14753,6 +14810,8 @@ export function FondoSection({
         }
         employeeOptions={employeeOptions}
         employeesLoading={employeesLoading}
+        balanceCRC={currentBalanceCRC}
+        balanceUSD={currentBalanceUSD}
         paymentAmount={closingPaymentAmount}
         paymentNotes={closingPaymentNotes}
         paymentManager2={closingPaymentManager2}

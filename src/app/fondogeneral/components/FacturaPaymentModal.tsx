@@ -37,6 +37,8 @@ type FacturaPaymentModalProps = {
   onPaymentManager2Change: (value: string) => void;
   onSubmitPartial: () => void;
   onSubmitFull: () => void;
+  balanceCRC?: number;
+  balanceUSD?: number;
   pendingCreditNotes?: PendingCreditNoteOption[];
   selectedCreditNoteIds?: string[];
   onToggleCreditNote?: (id: string) => void;
@@ -64,6 +66,8 @@ export default function FacturaPaymentModal({
   onPaymentManager2Change,
   onSubmitPartial,
   onSubmitFull,
+  balanceCRC = 0,
+  balanceUSD = 0,
   pendingCreditNotes = [],
   selectedCreditNoteIds = [],
   onToggleCreditNote,
@@ -182,6 +186,21 @@ export default function FacturaPaymentModal({
               <p className="text-sm text-[var(--muted-foreground)]">
                 {providerName || target.providerCode}
               </p>
+            </div>
+
+            <div className="mb-4 flex items-center gap-3 rounded-lg border border-cyan-700/20 bg-cyan-950/10 px-3 py-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-cyan-100/50">
+                Saldo actual
+              </span>
+              <div className="flex items-center gap-3 ml-auto">
+                <span className="text-xs font-semibold text-emerald-400">
+                  ₡ {balanceCRC.toLocaleString("es-CR")}
+                </span>
+                <span className="h-3 w-px bg-cyan-700/40" />
+                <span className="text-xs font-semibold text-blue-400">
+                  $ {balanceUSD.toLocaleString("en-US")}
+                </span>
+              </div>
             </div>
 
             <form
@@ -320,9 +339,20 @@ export default function FacturaPaymentModal({
                         note.currency !== target.currency ||
                         selectedPaymentBalance <= 0 ||
                         wouldExceed;
+                      const tooltipMsg = disabled
+                        ? note.currency !== target.currency
+                          ? "Moneda distinta"
+                          : selectedPaymentBalance <= 0
+                            ? "No hay saldo disponible"
+                            : wouldExceed
+                              ? "Supera el saldo disponible"
+                              : ""
+                        : "";
+
                       return (
                         <label
                           key={note.id}
+                          title={disabled ? tooltipMsg : undefined}
                           className={`flex items-center justify-between gap-3 rounded border px-3 py-2 text-sm ${
                             checked
                               ? "border-amber-300/45 bg-amber-400/15 text-amber-50"
@@ -381,6 +411,59 @@ export default function FacturaPaymentModal({
                   )}
                 </div>
               )}
+
+              <div className="rounded-xl border border-cyan-700/25 bg-cyan-950/10 p-4">
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-cyan-100/70">
+                    Totales
+                  </div>
+                  <div className="text-[11px] text-cyan-100/50">Resumen de pago</div>
+                </div>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-cyan-100/70">Monto total factura</span>
+                    <span className="font-semibold text-[var(--foreground)]">
+                      {Math.max(0, Math.trunc(Number(target.amount) || 0)).toLocaleString(
+                        "es-CR",
+                        {
+                          style: "currency",
+                          currency: target.currency,
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0,
+                        },
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-cyan-100/70">Pagado</span>
+                    <span className="font-semibold text-[var(--foreground)]">
+                      - {selectedPaymentPaid.toLocaleString("es-CR", {
+                        style: "currency",
+                        currency: target.currency,
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0,
+                      })}
+                    </span>
+                  </div>
+                  {creditNotesAppliedTotal > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-cyan-100/70">NC aplicadas</span>
+                      <span className="font-semibold text-amber-200">
+                        - {formatCurrencyAmount(creditNotesAppliedTotal, target.currency)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="h-px bg-cyan-700/25" />
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-semibold text-[var(--foreground)]">
+                      Total a pagar
+                    </span>
+                    <span className="font-semibold text-cyan-100">
+                      {formatCurrencyAmount(finalAmountPayment, target.currency)}
+                    </span>
+                  </div>
+                </div>
+              </div>
 
               <div className="flex flex-col-reverse gap-2 border-t border-[var(--input-border)] pt-4 sm:flex-row sm:justify-end">
                 <button

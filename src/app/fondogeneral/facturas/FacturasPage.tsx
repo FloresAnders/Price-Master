@@ -11,6 +11,12 @@ import {
   CreditCard,
   Clock,
   CheckCircle,
+  Eye,
+  FileText,
+  Pencil,
+  ClipboardList,
+  BadgeCheck,
+  Save,
   X,
 } from "lucide-react";
 import { writeBatch, doc } from "firebase/firestore";
@@ -217,6 +223,17 @@ export default function FacturasCreditoPage() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterEditedOnly, setFilterEditedOnly] = useState(false);
+  const [filterPendingCredit, setFilterPendingCredit] = useState(false);
+  const [filterNCPending, setFilterNCPending] = useState(false);
+  const [filterPagada, setFilterPagada] = useState(false);
+  const [filterPartial, setFilterPartial] = useState(false);
+  const [filterRebajadas, setFilterRebajadas] = useState(false);
+  const [rememberFilters, setRememberFilters] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("fg_rememberFilters") === "true";
+    }
+    return false;
+  });
 
   const [fromFilter, setFromFilter] = useState<string | null>(null);
   const [toFilter, setToFilter] = useState<string | null>(null);
@@ -240,6 +257,8 @@ export default function FacturasCreditoPage() {
   const [pageIndex, setPageIndex] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(20);
 
+  const [filtersDropdownOpen, setFiltersDropdownOpen] = useState(false);
+
   const fromButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const toButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const fromCalendarRef = React.useRef<HTMLDivElement | null>(null);
@@ -247,6 +266,7 @@ export default function FacturasCreditoPage() {
   const providerDropdownRef = React.useRef<HTMLDivElement | null>(null);
   const typeDropdownRef = React.useRef<HTMLDivElement | null>(null);
   const docTypeDropdownRef = React.useRef<HTMLDivElement | null>(null);
+  const filtersDropdownRef = React.useRef<HTMLDivElement | null>(null);
 
   const todayKey = useMemo(() => dateKeyFromDate(new Date()), []);
   const companySelectId = "facturas-company-select";
@@ -1048,6 +1068,14 @@ export default function FacturasCreditoPage() {
       }
 
       if (
+        filtersDropdownOpen &&
+        filtersDropdownRef.current &&
+        !filtersDropdownRef.current.contains(target)
+      ) {
+        setFiltersDropdownOpen(false);
+      }
+
+      if (
         calendarFromOpen &&
         fromCalendarRef.current &&
         fromButtonRef.current &&
@@ -1076,6 +1104,46 @@ export default function FacturasCreditoPage() {
     isProviderDropdownOpen,
     isTypeDropdownOpen,
     isDocTypeDropdownOpen,
+    filtersDropdownOpen,
+  ]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("fg_filters");
+    if (saved && rememberFilters) {
+      try {
+        const parsed = JSON.parse(saved);
+        setFilterPendingCredit(!!parsed.filterPendingCredit);
+        setFilterNCPending(!!parsed.filterNCPending);
+        setFilterPagada(!!parsed.filterPagada);
+        setFilterPartial(!!parsed.filterPartial);
+        setFilterRebajadas(!!parsed.filterRebajadas);
+        setFilterEditedOnly(!!parsed.filterEditedOnly);
+      } catch { /* ignore */ }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (rememberFilters) {
+      localStorage.setItem(
+        "fg_filters",
+        JSON.stringify({
+          filterPendingCredit,
+          filterNCPending,
+          filterPagada,
+          filterPartial,
+          filterRebajadas,
+          filterEditedOnly,
+        }),
+      );
+    }
+  }, [
+    rememberFilters,
+    filterPendingCredit,
+    filterNCPending,
+    filterPagada,
+    filterPartial,
+    filterRebajadas,
+    filterEditedOnly,
   ]);
 
   const providerNameByCode = useMemo(() => {
@@ -1172,9 +1240,36 @@ export default function FacturasCreditoPage() {
       }
 
       if (filterEditedOnly) {
-        // Facturas copy doesn't currently persist audit fields; keep checkbox behavior non-breaking.
         const anyAudit = Boolean((m as any).isAudit);
         if (!anyAudit) return false;
+      }
+
+      if (filterPendingCredit) {
+        const status = resolveFacturaStatus(m);
+        if (status !== "PENDIENTE") return false;
+        if (String(m.invoiceDocType || "").trim().toUpperCase() !== "FCR") return false;
+      }
+
+      if (filterNCPending) {
+        const status = resolveFacturaStatus(m);
+        if (status !== "PENDIENTE") return false;
+        if (String(m.invoiceDocType || "").trim().toUpperCase() !== "NC") return false;
+      }
+
+      if (filterPagada) {
+        const status = resolveFacturaStatus(m);
+        if (status !== "PAGADA") return false;
+        const dt = String(m.invoiceDocType || "").trim().toUpperCase();
+        if (dt !== "FCR" && dt !== "FCO") return false;
+      }
+
+      if (filterPartial) {
+        const status = resolveFacturaStatus(m);
+        if (status !== "PARCIAL") return false;
+      }
+
+      if (filterRebajadas) {
+        if (resolveFacturaStatusLabel(m) !== "REBAJADA") return false;
       }
 
       if (q) {
@@ -1201,6 +1296,11 @@ export default function FacturasCreditoPage() {
     fromFilter,
     toFilter,
     filterEditedOnly,
+    filterPendingCredit,
+    filterNCPending,
+    filterPagada,
+    filterPartial,
+    filterRebajadas,
     searchQuery,
     providerNameByCode,
   ]);
@@ -1537,16 +1637,101 @@ export default function FacturasCreditoPage() {
 
             <div className="flex h-11 min-w-0 flex-col justify-center gap-2 rounded border border-cyan-700/35 bg-cyan-950/25 px-3 py-0 text-sm text-[var(--foreground)] sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center justify-between gap-3 sm:w-full">
-                <div>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={filterEditedOnly}
-                      onChange={(e) => setFilterEditedOnly(e.target.checked)}
-                      className="h-4 w-4 rounded border-[var(--input-border)] accent-[var(--accent)]"
-                    />
-                    <span className="text-sm">Editados</span>
-                  </label>
+                <div className="relative" ref={filtersDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setFiltersDropdownOpen((prev) => !prev)}
+                    className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-[var(--input-border)] bg-transparent px-3 text-xs font-semibold tracking-wide text-[var(--foreground)] transition-all duration-150 hover:border-[var(--accent)] hover:bg-[var(--muted)]/20 active:scale-[0.98]"
+                    aria-haspopup="menu"
+                    aria-expanded={filtersDropdownOpen}
+                    title="Mostrar facturas en especifico estado o editados"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    <span>Vista</span>
+                  </button>
+                  {filtersDropdownOpen && (
+                    <div className="absolute left-0 top-full z-[9999] mt-2 w-[220px] rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] shadow-2xl">
+                      <div className="flex flex-col py-1">
+                        <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
+                          <input
+                            type="checkbox"
+                            checked={filterPendingCredit}
+                            onChange={(e) => setFilterPendingCredit(e.target.checked)}
+                            className="h-4 w-4 accent-amber-400"
+                          />
+                          <FileText className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
+                          <span className="leading-tight">Facturas de crédito pendientes</span>
+                        </label>
+                        <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
+                          <input
+                            type="checkbox"
+                            checked={filterNCPending}
+                            onChange={(e) => setFilterNCPending(e.target.checked)}
+                            className="h-4 w-4 accent-amber-400"
+                          />
+                          <ClipboardList className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
+                          <span className="leading-tight">Notas de crédito pendientes</span>
+                        </label>
+                        <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
+                          <input
+                            type="checkbox"
+                            checked={filterPagada}
+                            onChange={(e) => setFilterPagada(e.target.checked)}
+                            className="h-4 w-4 accent-amber-400"
+                          />
+                          <BadgeCheck className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
+                          <span className="leading-tight">Pagadas</span>
+                        </label>
+                        <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
+                          <input
+                            type="checkbox"
+                            checked={filterPartial}
+                            onChange={(e) => setFilterPartial(e.target.checked)}
+                            className="h-4 w-4 accent-amber-400"
+                          />
+                          <Clock className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
+                          <span className="leading-tight">Parciales</span>
+                        </label>
+                        <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
+                          <input
+                            type="checkbox"
+                            checked={filterRebajadas}
+                            onChange={(e) => setFilterRebajadas(e.target.checked)}
+                            className="h-4 w-4 accent-amber-400"
+                          />
+                          <CheckCircle className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
+                          <span className="leading-tight">Rebajadas</span>
+                        </label>
+                        <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
+                          <input
+                            type="checkbox"
+                            checked={filterEditedOnly}
+                            onChange={(e) => setFilterEditedOnly(e.target.checked)}
+                            className="h-4 w-4 rounded border-[var(--input-border)] accent-[var(--accent)]"
+                          />
+                          <Pencil className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
+                          <span>Editados</span>
+                        </label>
+                        <hr className="my-1 border-[var(--input-border)]" />
+                        <label className="flex cursor-pointer items-center gap-3 px-4 py-2 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--muted)]/20">
+                          <input
+                            type="checkbox"
+                            checked={rememberFilters}
+                            onChange={(e) => {
+                              const on = e.target.checked;
+                              setRememberFilters(on);
+                              if (!on) {
+                                localStorage.removeItem("fg_filters");
+                              }
+                            }}
+                            className="h-4 w-4 accent-amber-400"
+                          />
+                          <Save className="h-4 w-4 shrink-0" />
+                          <span className="text-xs">Recordar ajustes</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <button
                   type="button"
@@ -1556,6 +1741,11 @@ export default function FacturasCreditoPage() {
                     setDocTypeFilter("all");
                     setDocTypeFilterLabel("");
                     setFilterEditedOnly(false);
+                    setFilterPendingCredit(false);
+                    setFilterNCPending(false);
+                    setFilterPagada(false);
+                    setFilterPartial(false);
+                    setFilterRebajadas(false);
                     setSearchQuery("");
                     setFromFilter(null);
                     setToFilter(null);
@@ -1576,6 +1766,50 @@ export default function FacturasCreditoPage() {
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
                   <span>Limpiar</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 border-t border-[var(--input-border)] px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-xs text-[var(--muted-foreground)]">
+              Mostrando {pageRange.from}-{pageRange.to} de {filteredMovements.length}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={rowsPerPage}
+                onChange={(e) => {
+                  setRowsPerPage(Number(e.target.value));
+                  setPageIndex(0);
+                }}
+                className="h-9 rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-2 text-xs text-[var(--foreground)]"
+                aria-label="Filas por pagina"
+              >
+                {[5, 10, 20].map((size) => (
+                  <option key={size} value={size}>
+                    {size} por pagina
+                  </option>
+                ))}
+              </select>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setPageIndex((prev) => Math.max(0, prev - 1))}
+                  disabled={pageIndex === 0}
+                  className="inline-flex h-9 items-center justify-center rounded border border-[var(--input-border)] px-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <span className="min-w-[64px] text-center text-xs text-[var(--muted-foreground)]">
+                  {pageIndex + 1} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPageIndex((prev) => Math.min(totalPages - 1, prev + 1))}
+                  disabled={pageIndex >= totalPages - 1}
+                  className="inline-flex h-9 items-center justify-center rounded border border-[var(--input-border)] px-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
             </div>
@@ -2104,16 +2338,16 @@ export default function FacturasCreditoPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full table-fixed text-sm">
               <thead className="text-xs uppercase text-[var(--muted-foreground)]">
                 <tr className="border-b border-[var(--input-border)]">
-                  <th className="px-3 py-2 text-left">Fecha</th>
-                  <th className="px-3 py-2 text-left">Proveedor</th>
-                  <th className="px-3 py-2 text-left">Factura</th>
-                  <th className="px-3 py-2 text-left">Tipo</th>
-                  <th className="px-3 py-2 text-right">Monto</th>
-                  <th className="px-3 py-2 text-left">Doc</th>
-                  <th className="px-3 py-2 text-left">Acción</th>
+                  <th className="w-[10%] px-3 py-2 text-left max-sm:w-[15%]">Fecha</th>
+                  <th className="w-[14%] px-3 py-2 text-left max-sm:w-[16%]">Proveedor</th>
+                  <th className="w-[10%] px-3 py-2 text-left max-sm:w-[12%]">N° Factura</th>
+                  <th className="w-[16%] px-3 py-2 text-left max-sm:hidden">Tipo Pago</th>
+                  <th className="w-[18%] px-3 py-2 text-right max-sm:w-[20%]">Monto</th>
+                  <th className="w-[18%] px-3 py-2 text-left max-sm:w-[22%]">Estado</th>
+                  <th className="w-[14%] px-3 py-2 text-left max-sm:w-[15%]">Acción</th>
                 </tr>
               </thead>
               <tbody>
@@ -2155,13 +2389,13 @@ export default function FacturasCreditoPage() {
                       <td className="px-3 py-2 whitespace-nowrap">
                         {m.invoiceNumber}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
+                      <td className="px-3 py-2 whitespace-nowrap max-sm:hidden">
                         {formatMovementType(m.paymentType)}
                       </td>
-                      <td className="px-3 py-2 text-right whitespace-nowrap">
+                      <td className="px-3 py-2 text-right whitespace-nowrap text-xs tabular-nums">
                         {amountLabel} {m.currency}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
+                      <td className="px-3 py-2 align-top">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="rounded-full border border-slate-500/40 bg-slate-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-slate-200">
                             {formatInvoiceDocTypeLabel(m.invoiceDocType)}
@@ -2234,50 +2468,6 @@ export default function FacturasCreditoPage() {
                 )}
               </tbody>
             </table>
-          </div>
-
-          <div className="flex flex-col gap-2 border-t border-[var(--input-border)] px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-xs text-[var(--muted-foreground)]">
-              Mostrando {pageRange.from}-{pageRange.to} de {filteredMovements.length}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <select
-                value={rowsPerPage}
-                onChange={(e) => {
-                  setRowsPerPage(Number(e.target.value));
-                  setPageIndex(0);
-                }}
-                className="h-9 rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-2 text-xs text-[var(--foreground)]"
-                aria-label="Filas por pagina"
-              >
-                {[5, 10, 20].map((size) => (
-                  <option key={size} value={size}>
-                    {size} por pagina
-                  </option>
-                ))}
-              </select>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setPageIndex((prev) => Math.max(0, prev - 1))}
-                  disabled={pageIndex === 0}
-                  className="inline-flex h-9 items-center justify-center rounded border border-[var(--input-border)] px-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <span className="min-w-[64px] text-center text-xs text-[var(--muted-foreground)]">
-                  {pageIndex + 1} / {totalPages}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setPageIndex((prev) => Math.min(totalPages - 1, prev + 1))}
-                  disabled={pageIndex >= totalPages - 1}
-                  className="inline-flex h-9 items-center justify-center rounded border border-[var(--input-border)] px-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -2365,11 +2555,19 @@ export default function FacturasCreditoPage() {
                       Monto a pagar o abonar
                     </span>
                     <input
-                      type="number"
-                      min="1"
-                      max={selectedPaymentBalance || undefined}
-                      value={paymentAmount}
-                      onChange={(event) => setPaymentAmount(event.target.value)}
+                      type="text"
+                      inputMode="numeric"
+                      value={
+                        paymentAmount
+                          ? Math.trunc(Number(paymentAmount)).toLocaleString("es-CR", {
+                              style: "currency",
+                              currency: paymentTarget.currency,
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 0,
+                            })
+                          : ""
+                      }
+                      onChange={(event) => setPaymentAmount(event.target.value.replace(/\D/g, ""))}
                       className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
                     />
                   </label>

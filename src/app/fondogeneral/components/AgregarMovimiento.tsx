@@ -101,8 +101,6 @@ type AgregarMovimientoProps = {
   pendingCreditInvoicesBalanceLabel?: string;
   pendingCreditInvoices?: PendingCreditInvoiceOption[];
   onSelectPendingCreditInvoice?: (id: string) => void;
-  selectedCreditInvoiceIds?: string[];
-  onToggleCreditInvoice?: (id: string) => void;
   pendingCreditNotes?: PendingCreditNoteOption[];
   selectedCreditNoteIds?: string[];
   onToggleCreditNote?: (id: string) => void;
@@ -112,6 +110,7 @@ type AgregarMovimientoProps = {
   // En el type AgregarMovimientoProps agrega:
   balanceCRC?: number;
   balanceUSD?: number;
+  isCompraInventarioProvider?: boolean;
 };
 
 const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
@@ -163,8 +162,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   pendingCreditInvoicesCount = 0,
   pendingCreditInvoicesBalanceLabel = "",
   pendingCreditInvoices = [],
-  selectedCreditInvoiceIds = [],
-  onToggleCreditInvoice,
+  onSelectPendingCreditInvoice,
   pendingCreditNotes = [],
   selectedCreditNoteIds = [],
   onToggleCreditNote,
@@ -177,6 +175,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   manager2SelectDisabled = false,
   balanceCRC = 0,
   balanceUSD = 0,
+  isCompraInventarioProvider = true,
 }) => {
   const invoiceBorderClass =
     invoiceValid || invoiceNumber.length === 0
@@ -281,10 +280,6 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     () => new Set(selectedCreditNoteIds),
     [selectedCreditNoteIds],
   );
-  const selectedCreditInvoiceIdSet = React.useMemo(
-    () => new Set(selectedCreditInvoiceIds),
-    [selectedCreditInvoiceIds],
-  );
   const formatCurrencyAmount = (value: number, targetCurrency = currency) =>
     targetCurrency === "USD"
       ? `$ ${inputFormatterUSD.format(Math.trunc(value))}`
@@ -297,45 +292,28 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     isEgreso && invoiceDocType === "FCO"
       ? Math.max(0, Math.trunc(creditNotesAppliedTotal))
       : 0;
-  const selectedCreditInvoices = React.useMemo(
-    () =>
-      pendingCreditInvoices.filter(
-        (invoice) =>
-          selectedCreditInvoiceIdSet.has(invoice.id) &&
-          invoice.currency === currency,
-      ),
-    [pendingCreditInvoices, selectedCreditInvoiceIdSet, currency],
-  );
-    const selectedCreditNotesRequestedTotal = React.useMemo(() => {
-      if (!isEgreso || invoiceDocType !== "FCO") return 0;
-      return pendingCreditNotes.reduce((sum, note) => {
-        if (!selectedCreditNoteIdSet.has(note.id)) return sum;
-        if (note.currency !== currency) return sum;
-        return sum + Math.max(0, Math.trunc(note.balanceDue));
-      }, 0);
-    }, [
-      pendingCreditNotes,
-      selectedCreditNoteIdSet,
-      currency,
-      isEgreso,
-      invoiceDocType,
-    ]);
-    const creditNotesOverLimit =
-      isEgreso &&
-      invoiceDocType === "FCO" &&
-      baseAmount > 0 &&
-      selectedCreditNotesRequestedTotal > baseAmount;
-  const selectedCreditInvoicesTotal = React.useMemo(
-    () =>
-      selectedCreditInvoices.reduce(
-        (sum, invoice) => sum + Math.max(0, Math.trunc(invoice.balanceDue)),
-        0,
-      ),
-    [selectedCreditInvoices],
-  );
+  const selectedCreditNotesRequestedTotal = React.useMemo(() => {
+    if (!isEgreso || invoiceDocType !== "FCO") return 0;
+    return pendingCreditNotes.reduce((sum, note) => {
+      if (!selectedCreditNoteIdSet.has(note.id)) return sum;
+      if (note.currency !== currency) return sum;
+      return sum + Math.max(0, Math.trunc(note.balanceDue));
+    }, 0);
+  }, [
+    pendingCreditNotes,
+    selectedCreditNoteIdSet,
+    currency,
+    isEgreso,
+    invoiceDocType,
+  ]);
+  const creditNotesOverLimit =
+    isEgreso &&
+    invoiceDocType === "FCO" &&
+    baseAmount > 0 &&
+    selectedCreditNotesRequestedTotal > baseAmount;
   const totalToSave = Math.max(
     0,
-    baseAmount - appliedCreditNotesTotal + selectedCreditInvoicesTotal,
+    baseAmount - appliedCreditNotesTotal,
   );
 
   return (
@@ -551,25 +529,20 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                 {pendingCreditInvoices.length > 0 && (
                   <div className="mt-2 space-y-2">
                     {pendingCreditInvoices.map((invoice) => {
-                      const checked = selectedCreditInvoiceIdSet.has(invoice.id);
                       const disabled = invoice.currency !== currency;
                       return (
-                        <label
+                        <button
                           key={invoice.id}
-                          className={`flex items-center justify-between gap-3 rounded border px-2.5 py-2 text-sm ${
-                            checked
-                              ? "border-amber-300/45 bg-amber-400/15 text-amber-50"
-                              : "border-amber-500/25 bg-black/10 text-cyan-50"
-                          } ${disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer"}`}
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => onSelectPendingCreditInvoice?.(invoice.id)}
+                          className={`flex w-full items-center justify-between gap-3 rounded border px-2.5 py-2 text-sm text-left ${
+                            disabled
+                              ? "cursor-not-allowed border-amber-500/25 bg-black/10 text-cyan-50 opacity-45"
+                              : "cursor-pointer border-amber-500/25 bg-black/10 text-cyan-50 hover:border-amber-400/45 hover:bg-amber-500/15"
+                          }`}
                         >
                           <span className="flex min-w-0 items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              disabled={disabled}
-                              onChange={() => onToggleCreditInvoice?.(invoice.id)}
-                              className="h-4 w-4 accent-amber-400"
-                            />
                             <span className="min-w-0">
                               <span className="block truncate font-semibold">
                                 Factura #{invoice.invoiceNumber || invoice.id}
@@ -587,7 +560,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                               invoice.currency,
                             )}
                           </span>
-                        </label>
+                        </button>
                       );
                     })}
                   </div>
@@ -708,10 +681,20 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
             <button
               type="button"
               onClick={onAddManualCreditNote}
-              className="mt-3 inline-flex items-center gap-2 rounded border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-300 transition-all duration-150 hover:-translate-y-0.5 hover:border-sky-400 hover:bg-sky-500/20"
+              disabled={!isCompraInventarioProvider}
+              title={
+                !isCompraInventarioProvider
+                  ? "Solo proveedores de tipo Compra Inventario pueden usar notas de crédito"
+                  : undefined
+              }
+              className={`mt-3 inline-flex items-center gap-2 rounded border px-3 py-2 text-xs font-semibold transition-all duration-150 ${
+                !isCompraInventarioProvider
+                  ? "cursor-not-allowed border-gray-600/40 bg-gray-700/20 text-gray-500"
+                  : "border-sky-500/40 bg-sky-500/10 text-sky-300 hover:-translate-y-0.5 hover:border-sky-400 hover:bg-sky-500/20"
+              }`}
             >
               <Plus className="h-3.5 w-3.5" />
-              Agregar NC manual
+              Agregar Nota de crédito
             </button>
           )}
         {isEgreso && pendingCreditNotes.length > 0 && !editingEntryId && (
@@ -740,6 +723,17 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                 return (
                   <label
                     key={note.id}
+                    title={
+                      disabled
+                        ? note.currency !== currency
+                          ? "Moneda distinta"
+                          : baseAmount <= 0
+                            ? "Ingresa un monto para aplicar NC"
+                            : wouldExceed
+                              ? "Supera el saldo disponible"
+                              : ""
+                        : undefined
+                    }
                     className={`flex items-center justify-between gap-3 rounded border px-3 py-2 text-sm ${
                       checked
                         ? "border-amber-300/45 bg-amber-400/15 text-amber-50"
@@ -974,14 +968,6 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
               <span className="text-cyan-100/70">NC aplicadas</span>
               <span className="font-semibold text-amber-200">
                 - {formatCurrencyAmount(appliedCreditNotesTotal)}
-              </span>
-            </div>
-          )}
-          {selectedCreditInvoicesTotal > 0 && (
-            <div className="flex items-center justify-between">
-              <span className="text-cyan-100/70">Factura credito</span>
-              <span className="font-semibold text-emerald-200">
-                + {formatCurrencyAmount(selectedCreditInvoicesTotal)}
               </span>
             </div>
           )}
