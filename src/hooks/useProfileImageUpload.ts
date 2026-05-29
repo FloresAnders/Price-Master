@@ -27,6 +27,7 @@ export function useProfileImageUpload({
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = useCallback(
@@ -44,9 +45,24 @@ export function useProfileImageUpload({
       setSelectedFile(file);
       const previewUrl = URL.createObjectURL(file);
       setImagePreview(previewUrl);
+      setPendingDelete(false);
     },
     [onError],
   );
+
+  const markForDeletion = useCallback(() => {
+    setSelectedFile(null);
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    setPendingDelete(true);
+  }, []);
+
+  const cancelSelection = useCallback(() => {
+    setSelectedFile(null);
+    setImagePreview(null);
+    setPendingDelete(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, []);
 
   const uploadImage = useCallback(async (): Promise<string | null> => {
     if (!selectedFile || !user?.id) return null;
@@ -54,30 +70,25 @@ export function useProfileImageUpload({
     setIsUploading(true);
 
     try {
-      // Compress the image
       const compressedBlob = await compressImage(selectedFile);
 
-      // Create storage reference
       const fileName = `${user.id}.jpg`;
       const storageRef = ref(storage, `ProfileImages/${fileName}`);
 
-      // Upload the compressed image
       await uploadBytes(storageRef, compressedBlob, {
         contentType: "image/jpeg",
       });
 
-      // Get download URL
       const downloadURL = await getDownloadURL(storageRef);
 
-      // Update user profile
       const targetId = user.id;
       await UsersService.updateUserAs(user, targetId, {
         photoUrl: downloadURL,
       });
 
-      // Clear selection
       setSelectedFile(null);
       setImagePreview(null);
+      setPendingDelete(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
 
       onSuccess?.(downloadURL);
@@ -93,28 +104,32 @@ export function useProfileImageUpload({
     }
   }, [selectedFile, user, onSuccess, onError]);
 
-  const deleteImage = useCallback(async () => {
+  const confirmDelete = useCallback(async () => {
     if (!user?.id) return;
 
     setIsDeleting(true);
 
     try {
-      // Delete from storage
       const fileName = `${user.id}.jpg`;
       const storageRef = ref(storage, `ProfileImages/${fileName}`);
-      await deleteObject(storageRef);
+      try {
+        await deleteObject(storageRef);
+      } catch (storageErr: any) {
+        if (storageErr?.code !== "storage/object-not-found") {
+          throw storageErr;
+        }
+      }
 
-      // Update user profile
       const targetId = user.id;
       await UsersService.updateUserAs(user, targetId, { photoUrl: undefined });
 
-      // Clear any preview
       if (selectedFile) {
         setSelectedFile(null);
         setImagePreview(null);
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
 
+      setPendingDelete(false);
       onDeleteSuccess?.();
     } catch (err) {
       console.error("Error deleting image:", err);
@@ -127,34 +142,27 @@ export function useProfileImageUpload({
     }
   }, [user, selectedFile, onError, onDeleteSuccess]);
 
-  const cancelSelection = useCallback(() => {
-    setSelectedFile(null);
-    setImagePreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }, []);
-
   const openFileDialog = useCallback(() => {
     fileInputRef.current?.click();
   }, []);
 
   return {
-    // State
     selectedFile,
     imagePreview,
     isUploading,
     isDeleting,
+    pendingDelete,
     fileInputRef,
 
-    // Actions
     handleFileSelect,
     uploadImage,
-    deleteImage,
+    confirmDelete,
+    markForDeletion,
     cancelSelection,
     openFileDialog,
 
-    // Computed
     hasSelectedFile: selectedFile !== null,
-    canDelete: Boolean(user?.photoUrl || selectedFile),
+    canDelete: Boolean(!pendingDelete && (user?.photoUrl || selectedFile)),
     isProcessing: isUploading || isDeleting,
   };
 }

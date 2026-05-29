@@ -318,12 +318,10 @@ export class UsersService {
       updatedAt: new Date(),
     };
 
-    // Firestore update does not accept undefined values — strip them out
+    // Firestore update does not accept undefined values — convert to null so the field gets updated/cleared
     const updateData: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(updateDataRaw)) {
-      if (value !== undefined) {
-        updateData[key] = value as unknown;
-      }
+      updateData[key] = (value === undefined ? null : value) as unknown;
     }
 
     return await FirestoreService.update(

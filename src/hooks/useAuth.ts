@@ -348,6 +348,8 @@ export function useAuth() {
           name: tokenInfo.user.name,
           ownercompanie: tokenInfo.user.ownercompanie,
           role: tokenInfo.user.role,
+          photoUrl: (tokenInfo.user as any).photoUrl,
+          fullName: (tokenInfo.user as any).fullName,
           permissions: normalizeUserPermissions(
             tokenInfo.user.permissions,
             tokenInfo.user.role || "user",
@@ -364,6 +366,8 @@ export function useAuth() {
           user.name !== newUserData.name ||
           user.ownercompanie !== newUserData.ownercompanie ||
           user.role !== newUserData.role ||
+          (user as any).photoUrl !== (newUserData as any).photoUrl ||
+          (user as any).fullName !== (newUserData as any).fullName ||
           JSON.stringify(user.permissions) !==
             JSON.stringify(newUserData.permissions);
 
@@ -400,6 +404,8 @@ export function useAuth() {
                 eliminate: fresh.eliminate ?? newUserData.eliminate,
                 role: fresh.role || newUserData.role,
                 ownercompanie: fresh.ownercompanie || newUserData.ownercompanie,
+                photoUrl: fresh.photoUrl || newUserData.photoUrl,
+                fullName: fresh.fullName || newUserData.fullName,
                 permissions: normalizeUserPermissions(
                   fresh.permissions,
                   (fresh.role as any) || newUserData.role || "user",
@@ -450,6 +456,8 @@ export function useAuth() {
             ownercompanie:
               (sessionObj.ownercompanie as string) || session.ownercompanie,
             role: session.role,
+            photoUrl: (sessionObj.photoUrl as string) || undefined,
+            fullName: (sessionObj.fullName as string) || undefined,
             permissions: normalizeUserPermissions(
               session.permissions,
               (session.role as any) || "user",
@@ -466,6 +474,8 @@ export function useAuth() {
             user.name !== newUserData.name ||
             user.ownercompanie !== newUserData.ownercompanie ||
             user.role !== newUserData.role ||
+            (user as any).photoUrl !== (newUserData as any).photoUrl ||
+            (user as any).fullName !== (newUserData as any).fullName ||
             JSON.stringify(user.permissions) !==
               JSON.stringify(newUserData.permissions);
 
@@ -579,6 +589,10 @@ export function useAuth() {
                 prevUser.name !== updatedUserData.name ||
                 prevUser.ownercompanie !== updatedUserData.ownercompanie ||
                 prevUser.role !== updatedUserData.role ||
+                (prevUser as any).photoUrl !==
+                  (updatedUserData as any).photoUrl ||
+                (prevUser as any).fullName !==
+                  (updatedUserData as any).fullName ||
                 hasPermissionsChanged;
 
               if (!hasDataChanged) return prevUser;
@@ -598,6 +612,9 @@ export function useAuth() {
                     session.permissions = normalizedPerms;
                     session.name = updatedUserData.name;
                     session.role = updatedUserData.role;
+                    session.photoUrl = (updatedUserData as any).photoUrl || "";
+                    session.fullName =
+                      (updatedUserData as any).fullName || "";
                     localStorage.setItem(
                       "pricemaster_session",
                       JSON.stringify(session),
@@ -678,15 +695,17 @@ export function useAuth() {
       userData.permissions,
       userData.role || "user",
     );
+    const userDataAny = userData as unknown as Record<string, unknown>;
     if (useTokens) {
       // Usar autenticación por tokens (una semana automáticamente)
       TokenService.createTokenSession(userData);
-      const userObj = userData as unknown as Record<string, unknown>;
       const enrichedUser = {
         ...userData,
         permissions: normalizedPerms,
-        ownerId: (userObj.ownerId as string) || "",
-        eliminate: (userObj.eliminate as boolean) ?? false,
+        ownerId: (userDataAny.ownerId as string) || "",
+        eliminate: (userDataAny.eliminate as boolean) ?? false,
+        photoUrl: (userDataAny.photoUrl as string) || undefined,
+        fullName: (userDataAny.fullName as string) || undefined,
       };
       setUser(enrichedUser);
       setIsAuthenticated(true);
@@ -701,23 +720,19 @@ export function useAuth() {
       const sessionDataObj = {
         id: userData.id,
         name: userData.name,
-        ownercompanie: (userData as unknown as Record<string, unknown>)
-          .ownercompanie as string | undefined,
+        ownercompanie: (userDataAny.ownercompanie as string) || undefined,
         role: userData.role,
+        photoUrl: (userDataAny.photoUrl as string) || undefined,
+        fullName: (userDataAny.fullName as string) || undefined,
         permissions: normalizedPerms,
         loginTime: new Date().toISOString(),
         lastActivity: new Date().toISOString(),
         sessionId,
         userAgent: browserInfo.userAgent,
-        keepActive: keepActive, // Agregar información del toggle
+        keepActive: keepActive,
         useTokenAuth: false,
-        // Persist ownerId and eliminate so restored session provides full actor info
-        ownerId:
-          ((userData as unknown as Record<string, unknown>)
-            .ownerId as string) || "",
-        eliminate:
-          ((userData as unknown as Record<string, unknown>)
-            .eliminate as boolean) ?? false,
+        ownerId: (userDataAny.ownerId as string) || "",
+        eliminate: (userDataAny.eliminate as boolean) ?? false,
       };
       const sessionData = sessionDataObj as unknown as SessionData;
 
@@ -725,12 +740,13 @@ export function useAuth() {
       localStorage.setItem("pricemaster_session", JSON.stringify(sessionData));
       localStorage.setItem("pricemaster_session_id", sessionId);
 
-      const userObj2 = userData as unknown as Record<string, unknown>;
       const enrichedUser = {
         ...userData,
         permissions: normalizedPerms,
-        ownerId: (userObj2.ownerId as string) || "",
-        eliminate: (userObj2.eliminate as boolean) ?? false,
+        ownerId: (userDataAny.ownerId as string) || "",
+        eliminate: (userDataAny.eliminate as boolean) ?? false,
+        photoUrl: (userDataAny.photoUrl as string) || undefined,
+        fullName: (userDataAny.fullName as string) || undefined,
       };
       setUser(enrichedUser);
       setIsAuthenticated(true);

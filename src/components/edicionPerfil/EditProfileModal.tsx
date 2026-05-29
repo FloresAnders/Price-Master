@@ -75,7 +75,6 @@ export default function EditProfileModal({
     user: baseUser,
     onSuccess: () => {
       showToast("Foto de perfil actualizada correctamente.", "success");
-      loadProfile();
     },
     onError: (error) => {
       setError(error);
@@ -83,11 +82,25 @@ export default function EditProfileModal({
     },
     onDeleteSuccess: () => {
       showToast("Foto de perfil eliminada correctamente.", "success");
-      loadProfile();
+      try {
+        if (typeof window !== "undefined") {
+          const sessionRaw = window.localStorage.getItem("pricemaster_session");
+          if (sessionRaw) {
+            const sessionData = JSON.parse(sessionRaw);
+            delete sessionData.photoUrl;
+            window.localStorage.setItem(
+              "pricemaster_session",
+              JSON.stringify(sessionData),
+            );
+          }
+        }
+      } catch (e) {
+        console.warn("No se pudo actualizar la sesión local", e);
+      }
     },
   });
 
-  const loadProfile = useCallback(async () => {
+  const loadProfile = useCallback(async (silent = false) => {
     if (!user?.id) {
       setProfile(null);
       setFormData({
@@ -102,7 +115,7 @@ export default function EditProfileModal({
       return;
     }
 
-    setProfileLoading(true);
+    if (!silent) setProfileLoading(true);
     setProfileError(null);
 
     try {
@@ -136,7 +149,7 @@ export default function EditProfileModal({
         "No se pudo cargar la información desde la base de datos.",
       );
     } finally {
-      setProfileLoading(false);
+      if (!silent) setProfileLoading(false);
     }
   }, [user]);
 
@@ -158,7 +171,7 @@ export default function EditProfileModal({
 
     loadProfile();
     setError(null);
-  }, [isOpen, loadProfile]);
+  }, [isOpen, user?.id]);
 
   const ownerId = baseUser?.ownerId ?? null;
 
@@ -208,9 +221,10 @@ export default function EditProfileModal({
       formData.fullName !== baseFullName ||
       formData.email !== baseEmail ||
       formData.password.length > 0 ||
-      imageUpload.hasSelectedFile
+      imageUpload.hasSelectedFile ||
+      imageUpload.pendingDelete
     );
-  }, [formData, baseUser, imageUpload.hasSelectedFile]);
+  }, [formData, baseUser, imageUpload.hasSelectedFile, imageUpload.pendingDelete]);
 
   const handleChange =
     (field: keyof typeof formData) =>
@@ -311,8 +325,14 @@ export default function EditProfileModal({
       await UsersService.updateUserAs(user, targetId, payload);
 
       // Handle image upload if a file was selected
+      let uploadedPhotoUrl: string | null = null;
       if (imageUpload.hasSelectedFile) {
-        await imageUpload.uploadImage();
+        uploadedPhotoUrl = await imageUpload.uploadImage();
+      }
+
+      // Handle pending image deletion
+      if (imageUpload.pendingDelete) {
+        await imageUpload.confirmDelete();
       }
 
       try {
@@ -327,6 +347,12 @@ export default function EditProfileModal({
             if (payload.email !== undefined) {
               sessionData.email = payload.email;
             }
+            if (uploadedPhotoUrl) {
+              sessionData.photoUrl = uploadedPhotoUrl;
+            }
+            if (imageUpload.pendingDelete) {
+              delete sessionData.photoUrl;
+            }
             window.localStorage.setItem(
               "pricemaster_session",
               JSON.stringify(sessionData),
@@ -337,7 +363,7 @@ export default function EditProfileModal({
         console.warn("No se pudo sincronizar la sesión local", storageError);
       }
 
-      await loadProfile();
+      await loadProfile(true);
       setShowChangePassword(false);
       showToast("Perfil actualizado correctamente.", "success");
     } catch (err) {
@@ -359,8 +385,7 @@ export default function EditProfileModal({
     const parts = name.trim().split(/\s+/).filter(Boolean);
     if (parts.length === 0) return "U";
     const first = parts[0]?.[0] ?? "";
-    const second =
-      parts.length > 1 ? (parts[1]?.[0] ?? "") : (parts[0]?.[1] ?? "");
+    const second = parts.length > 1 ? (parts[1]?.[0] ?? "") : "";
     return (first + second).toUpperCase();
   }, [profile, user]);
 
@@ -414,15 +439,13 @@ export default function EditProfileModal({
                 <div className="flex flex-col items-center gap-3">
                   <div className="w-24 h-24 rounded-full border border-white/10 bg-slate-900/50 flex items-center justify-center overflow-hidden">
                     {imageUpload.imagePreview ? (
-                      // Show preview of selected image
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={imageUpload.imagePreview}
                         alt="Vista previa"
                         className="w-full h-full object-cover"
                       />
-                    ) : (baseUser as any)?.photoUrl ? (
-                      // Show existing photo
+                    ) : !imageUpload.pendingDelete && (baseUser as any)?.photoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={(baseUser as any).photoUrl}
@@ -449,18 +472,16 @@ export default function EditProfileModal({
                       className="hidden"
                       disabled={isFormLocked}
                     />
-                    {imageUpload.hasSelectedFile ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={imageUpload.cancelSelection}
-                          disabled={isFormLocked}
-                          className="inline-flex items-center gap-2 h-11 rounded border border-white/10 bg-slate-900/50 px-3 text-sm text-slate-300 outline-none transition-colors hover:border-white/20 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          <X className="w-4 h-4" />
-                          Cancelar
-                        </button>
-                      </>
+                    {imageUpload.hasSelectedFile || imageUpload.pendingDelete ? (
+                      <button
+                        type="button"
+                        onClick={imageUpload.cancelSelection}
+                        disabled={isFormLocked}
+                        className="inline-flex items-center gap-2 h-11 rounded border border-white/10 bg-slate-900/50 px-3 text-sm text-slate-300 outline-none transition-colors hover:border-white/20 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <X className="w-4 h-4" />
+                        Cancelar
+                      </button>
                     ) : (
                       <button
                         type="button"
@@ -479,16 +500,12 @@ export default function EditProfileModal({
                     {imageUpload.canDelete && (
                       <button
                         type="button"
-                        onClick={imageUpload.deleteImage}
+                        onClick={imageUpload.markForDeletion}
                         disabled={isFormLocked}
                         className="inline-flex items-center gap-2 h-11 rounded border border-red-400/20 bg-red-500/10 px-3 text-sm text-red-400 outline-none transition-colors hover:border-red-400/40 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        {imageUpload.isDeleting ? (
-                          <Loader2 className="w-4 h-4 animate-spin text-red-400" />
-                        ) : (
-                          <Trash2 className="w-4 h-4 text-red-400" />
-                        )}
-                        {imageUpload.isDeleting ? "Eliminando..." : "Eliminar"}
+                        <Trash2 className="w-4 h-4 text-red-400" />
+                        Eliminar
                       </button>
                     )}
                   </div>
