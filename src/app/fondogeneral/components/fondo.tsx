@@ -13485,7 +13485,9 @@ export function FondoSection({
                               resolveEffectiveEgresoAmount(fe),
                             );
                             const invoiceEgresoAmount = Math.trunc(
-                              fe.amountEgreso || 0,
+                              String(fe.id || "").startsWith("fcr-pago-")
+                                ? (fe.originalAmount ?? fe.amountEgreso) || 0
+                                : (fe.amountEgreso || 0),
                             );
                             const appliedCreditNotesTotal = Array.isArray(
                               fe.appliedCreditNotes,
