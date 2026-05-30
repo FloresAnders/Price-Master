@@ -1398,6 +1398,23 @@ export default function FacturasCreditoPage() {
   useEffect(() => {
     setPageIndex(0);
     setCurrentDailyKey(dateKeyFromDate(new Date()));
+    const hasActiveFilter =
+      filterProviderCode !== "all" ||
+      filterPaymentType !== "all" ||
+      docTypeFilter !== "all" ||
+      Boolean(searchQuery && String(searchQuery).trim()) ||
+      Boolean(fromFilter) ||
+      Boolean(toFilter) ||
+      filterEditedOnly ||
+      filterPendingCredit ||
+      filterNCPending ||
+      filterPagada ||
+      filterPartial ||
+      filterRebajadas;
+
+    if (rowsPerPage === "daily" && hasActiveFilter) {
+      setRowsPerPage(10);
+    }
   }, [
     filterProviderCode,
     filterPaymentType,
@@ -1407,6 +1424,7 @@ export default function FacturasCreditoPage() {
     toFilter,
     filterEditedOnly,
     selectedCompany,
+    rowsPerPage,
   ]);
 
   const pagedMovements = useMemo(() => {
