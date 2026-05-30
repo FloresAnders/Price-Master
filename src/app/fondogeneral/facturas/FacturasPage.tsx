@@ -232,6 +232,7 @@ export default function FacturasCreditoPage() {
   const [filterPagada, setFilterPagada] = useState(false);
   const [filterPartial, setFilterPartial] = useState(false);
   const [filterRebajadas, setFilterRebajadas] = useState(false);
+  const hasActiveStatusFilter = filterPendingCredit || filterNCPending || filterPagada || filterPartial || filterRebajadas;
   const [rememberFilters, setRememberFilters] = useState(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("fg_rememberFilters") === "true";
@@ -411,17 +412,21 @@ export default function FacturasCreditoPage() {
 
     setMovementsLoading(true);
     try {
-      const range = getFetchDateRange();
-      const data = await FacturasService.listMovementsByDateRange(companyName, {
-        startIso: range.startIso,
-        endIso: range.endIso,
-        limit: 800,
-      });
+      const data = hasActiveStatusFilter
+        ? await FacturasService.listMovementsByEmpresa(companyName, { limit: 800 })
+        : await (async () => {
+            const range = getFetchDateRange();
+            return FacturasService.listMovementsByDateRange(companyName, {
+              startIso: range.startIso,
+              endIso: range.endIso,
+              limit: 800,
+            });
+          })();
       setMovements(data.filter((movement) => !isFacturaPaymentRecord(movement)));
     } finally {
       setMovementsLoading(false);
     }
-  }, [getFetchDateRange]);
+  }, [getFetchDateRange, hasActiveStatusFilter]);
 
   useEffect(() => {
     setColumnWidths((prev) => {
@@ -1070,12 +1075,17 @@ export default function FacturasCreditoPage() {
     }
 
     setMovementsLoading(true);
-    const range = getFetchDateRange();
-    FacturasService.listMovementsByDateRange(selectedCompany, {
-      startIso: range.startIso,
-      endIso: range.endIso,
-      limit: 800,
-    })
+    const loadPromise = hasActiveStatusFilter
+      ? FacturasService.listMovementsByEmpresa(selectedCompany, { limit: 800 })
+      : (() => {
+          const range = getFetchDateRange();
+          return FacturasService.listMovementsByDateRange(selectedCompany, {
+            startIso: range.startIso,
+            endIso: range.endIso,
+            limit: 800,
+          });
+        })();
+    loadPromise
       .then((data) => {
         if (cancelled) return;
         setMovements(data.filter((movement) => !isFacturaPaymentRecord(movement)));
@@ -1097,7 +1107,7 @@ export default function FacturasCreditoPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedCompany, getFetchDateRange, showToast]);
+  }, [selectedCompany, getFetchDateRange, showToast, hasActiveStatusFilter]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1375,13 +1385,15 @@ export default function FacturasCreditoPage() {
         if (!docHaystack.includes(docTypeQuery)) return false;
       }
 
-      if (fromFilter || toFilter) {
-        const key = dateKeyFromIso(m.createdAt);
-        if (fromFilter && key && key < fromFilter) return false;
-        if (toFilter && key && key > toFilter) return false;
-      } else {
-        const key = dateKeyFromIso(m.createdAt);
-        if (key && key !== currentDailyKey) return false;
+      if (!hasActiveStatusFilter) {
+        if (fromFilter || toFilter) {
+          const key = dateKeyFromIso(m.createdAt);
+          if (fromFilter && key && key < fromFilter) return false;
+          if (toFilter && key && key > toFilter) return false;
+        } else {
+          const key = dateKeyFromIso(m.createdAt);
+          if (key && key !== currentDailyKey) return false;
+        }
       }
 
       if (filterEditedOnly) {
@@ -1447,6 +1459,7 @@ export default function FacturasCreditoPage() {
     filterPagada,
     filterPartial,
     filterRebajadas,
+    hasActiveStatusFilter,
     searchQuery,
     providerDropdownQuery,
     typeDropdownQuery,
@@ -1467,7 +1480,7 @@ export default function FacturasCreditoPage() {
     setCreateDrawerOpen(true);
   };
 
-  const hasDateRangeFilter = Boolean(fromFilter || toFilter);
+  const hasDateRangeFilter = Boolean(fromFilter || toFilter) || hasActiveStatusFilter;
   const effectiveRowsPerPage = hasDateRangeFilter
     ? typeof rowsPerPage === "number"
       ? rowsPerPage
