@@ -11707,6 +11707,14 @@ export function FondoSection({
     ? currentDailyKey >= todayKey
     : pageIndex >= totalPages - 1;
 
+  const pageRange = useMemo(() => {
+    if (filteredEntries.length === 0) return { from: 0, to: 0 };
+    if (isDailyMode || pageSize === "all") return { from: 1, to: filteredEntries.length };
+    const from = pageIndex * (pageSize as number) + 1;
+    const to = Math.min(filteredEntries.length, (pageIndex + 1) * (pageSize as number));
+    return { from, to };
+  }, [filteredEntries.length, pageIndex, pageSize, isDailyMode]);
+
   const handlePrevPage = useCallback(() => {
     if (isDailyMode) {
       setCurrentDailyKey((prev) => {
@@ -13237,89 +13245,100 @@ export function FondoSection({
                   </div>
                 </div>
               )}
-              <div className="flex flex-col items-start justify-between gap-3 border-b border-[var(--input-border)] bg-[var(--muted)]/10 px-3 py-3 text-xs text-[var(--muted-foreground)] sm:flex-row sm:items-center">
-                <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
-                  <span className="text-xs font-semibold uppercase tracking-wide">
-                    Mostrar
-                  </span>
-                  <select
-                    value={
-                      pageSize === "all"
-                        ? "all"
-                        : pageSize === "daily"
-                          ? "daily"
-                          : String(pageSize)
-                    }
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      if (v === "all") setPageSize("all");
-                      else if (v === "daily") setPageSize("daily");
-                      else setPageSize(Number.parseInt(v, 10) || 10);
-                    }}
-                    className="h-9 min-w-0 flex-1 rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-2 text-xs text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/60 sm:flex-initial"
-                  >
-                    <option value="daily">Diariamente</option>
-                    <option value="5">5</option>
-                    <option value="10">10</option>
-                    <option value="15">15</option>
-                    <option value="all">Todos</option>
-                  </select>
+              <div className="flex flex-col gap-4 border-b border-[var(--input-border)] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                <div>
+                  <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
+                    Movimientos ({filteredEntries.length})
+                  </h2>
+                  <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+                    Mostrando {pageRange.from}-{pageRange.to} de{" "}
+                    {filteredEntries.length}
+                  </p>
                 </div>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
-                  <div className="flex flex-col items-start gap-2 text-[var(--muted-foreground)] sm:flex-row sm:items-center sm:gap-3">
-                    <label className="flex cursor-pointer items-center gap-2 rounded border border-cyan-700/35 bg-cyan-950/25 px-2.5 py-2 transition-colors hover:border-cyan-500/45">
-                      <input
-                        aria-label="Recordar filtros"
-                        title="Recordar filtros"
-                        className="h-4 w-4 cursor-pointer accent-[var(--accent)]"
-                        type="checkbox"
-                        checked={rememberFilters}
-                        onChange={(e) => setRememberFilters(e.target.checked)}
-                      />
-                      <span className="whitespace-nowrap text-xs">
-                        Recordar ajustes
-                      </span>
-                    </label>
-                    {isAdminUser && (
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide">
+                      Mostrar
+                    </span>
+                    <select
+                      value={
+                        pageSize === "all"
+                          ? "all"
+                          : pageSize === "daily"
+                            ? "daily"
+                            : String(pageSize)
+                      }
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === "all") setPageSize("all");
+                        else if (v === "daily") setPageSize("daily");
+                        else setPageSize(Number.parseInt(v, 10) || 10);
+                      }}
+                      className="h-9 min-w-0 flex-1 rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-2 text-xs text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/60 sm:flex-initial"
+                    >
+                      <option value="daily">Diariamente</option>
+                      <option value="5">5</option>
+                      <option value="10">10</option>
+                      <option value="15">15</option>
+                      <option value="all">Todos</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                    <div className="flex flex-col items-start gap-2 text-[var(--muted-foreground)] sm:flex-row sm:items-center sm:gap-3">
                       <label className="flex cursor-pointer items-center gap-2 rounded border border-cyan-700/35 bg-cyan-950/25 px-2.5 py-2 transition-colors hover:border-cyan-500/45">
                         <input
-                          aria-label="Mantener filtros entre empresas"
-                          title="Mantener filtros entre empresas"
+                          aria-label="Recordar filtros"
+                          title="Recordar filtros"
                           className="h-4 w-4 cursor-pointer accent-[var(--accent)]"
                           type="checkbox"
-                          checked={keepFiltersAcrossCompanies}
-                          onChange={(e) =>
-                            setKeepFiltersAcrossCompanies(e.target.checked)
-                          }
+                          checked={rememberFilters}
+                          onChange={(e) => setRememberFilters(e.target.checked)}
                         />
                         <span className="whitespace-nowrap text-xs">
-                          Mantener entre empresas
+                          Recordar ajustes
                         </span>
                       </label>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
-                    <button
-                      type="button"
-                      onClick={handlePrevPage}
-                      disabled={disablePrevButton}
-                      className="h-9 flex-1 rounded border border-[var(--input-border)] px-3 text-xs font-medium transition-colors hover:border-[var(--accent)] hover:bg-[var(--muted)] disabled:cursor-not-allowed disabled:opacity-45 sm:flex-initial"
-                    >
-                      Ant
-                    </button>
-                    <div className="rounded border border-cyan-700/35 bg-cyan-950/25 px-2 py-2 text-[10px] font-medium text-[var(--foreground)] sm:text-xs whitespace-nowrap">
-                      {isDailyMode
-                        ? formatGroupLabel(currentDailyKey)
-                        : `${Math.min(pageIndex + 1, totalPages)}/${totalPages}`}
+                      {isAdminUser && (
+                        <label className="flex cursor-pointer items-center gap-2 rounded border border-cyan-700/35 bg-cyan-950/25 px-2.5 py-2 transition-colors hover:border-cyan-500/45">
+                          <input
+                            aria-label="Mantener filtros entre empresas"
+                            title="Mantener filtros entre empresas"
+                            className="h-4 w-4 cursor-pointer accent-[var(--accent)]"
+                            type="checkbox"
+                            checked={keepFiltersAcrossCompanies}
+                            onChange={(e) =>
+                              setKeepFiltersAcrossCompanies(e.target.checked)
+                            }
+                          />
+                          <span className="whitespace-nowrap text-xs">
+                            Mantener entre empresas
+                          </span>
+                        </label>
+                      )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleNextPage}
-                      disabled={disableNextButton}
-                      className="h-9 flex-1 rounded border border-[var(--input-border)] px-3 text-xs font-medium transition-colors hover:border-[var(--accent)] hover:bg-[var(--muted)] disabled:cursor-not-allowed disabled:opacity-45 sm:flex-initial"
-                    >
-                      Sig
-                    </button>
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <button
+                        type="button"
+                        onClick={handlePrevPage}
+                        disabled={disablePrevButton}
+                        className="h-9 flex-1 rounded border border-[var(--input-border)] px-3 text-xs font-medium transition-colors hover:border-[var(--accent)] hover:bg-[var(--muted)] disabled:cursor-not-allowed disabled:opacity-45 sm:flex-initial"
+                      >
+                        Ant
+                      </button>
+                      <div className="rounded border border-cyan-700/35 bg-cyan-950/25 px-2 py-2 text-[10px] font-medium text-[var(--foreground)] sm:text-xs whitespace-nowrap">
+                        {isDailyMode
+                          ? formatGroupLabel(currentDailyKey)
+                          : `${Math.min(pageIndex + 1, totalPages)}/${totalPages}`}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleNextPage}
+                        disabled={disableNextButton}
+                        className="h-9 flex-1 rounded border border-[var(--input-border)] px-3 text-xs font-medium transition-colors hover:border-[var(--accent)] hover:bg-[var(--muted)] disabled:cursor-not-allowed disabled:opacity-45 sm:flex-initial"
+                      >
+                        Sig
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

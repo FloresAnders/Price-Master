@@ -1379,6 +1379,9 @@ export default function FacturasCreditoPage() {
         const key = dateKeyFromIso(m.createdAt);
         if (fromFilter && key && key < fromFilter) return false;
         if (toFilter && key && key > toFilter) return false;
+      } else {
+        const key = dateKeyFromIso(m.createdAt);
+        if (key && key !== currentDailyKey) return false;
       }
 
       if (filterEditedOnly) {
@@ -1437,6 +1440,7 @@ export default function FacturasCreditoPage() {
     docTypeFilter,
     fromFilter,
     toFilter,
+    currentDailyKey,
     filterEditedOnly,
     filterPendingCredit,
     filterNCPending,
@@ -2007,7 +2011,7 @@ export default function FacturasCreditoPage() {
 
             <div className="grid gap-3 xl:grid-cols-[1fr_auto] xl:items-end">
               <div className="grid gap-3 md:grid-cols-[170px_170px_170px]">
-                <div className="min-w-0">
+                <div className="relative min-w-0">
                   <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                     Desde
                   </label>
@@ -2022,9 +2026,125 @@ export default function FacturasCreditoPage() {
                     </span>
                     <CalendarDays className="h-4 w-4 text-cyan-300/85" />
                   </button>
+                  {calendarFromOpen && (
+                    <div
+                      ref={fromCalendarRef}
+                      className="absolute left-0 top-full z-50 mt-2 w-full min-w-[280px] sm:w-72"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-3 text-[var(--foreground)] shadow-2xl shadow-black/50">
+                        <div className="mb-2 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const m = new Date(calendarFromMonth);
+                              m.setMonth(m.getMonth() - 1);
+                              setCalendarFromMonth(new Date(m));
+                            }}
+                            className="rounded p-1 hover:bg-[var(--muted)]"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </button>
+                          <div className="text-sm font-semibold capitalize">
+                            {calendarFromMonth.toLocaleString("es-CR", {
+                              month: "long",
+                              year: "numeric",
+                            })}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const m = new Date(calendarFromMonth);
+                              m.setMonth(m.getMonth() + 1);
+                              setCalendarFromMonth(new Date(m));
+                            }}
+                            className="rounded p-1 hover:bg-[var(--muted)]"
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-7 gap-1 text-center text-xs text-[var(--muted-foreground)]">
+                          {["D", "L", "M", "M", "J", "V", "S"].map((d, i) => (
+                            <div key={`${d}-${i}`} className="py-1">
+                              {d}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-2 grid grid-cols-7 gap-1 text-sm">
+                          {(() => {
+                            const cells: React.ReactNode[] = [];
+                            const year = calendarFromMonth.getFullYear();
+                            const month = calendarFromMonth.getMonth();
+                            const first = new Date(year, month, 1);
+                            const start = first.getDay();
+                            const daysInMonth = new Date(
+                              year,
+                              month + 1,
+                              0,
+                            ).getDate();
+                            for (let i = 0; i < start; i++)
+                              cells.push(<div key={`pad-f-${i}`} />);
+                            for (let day = 1; day <= daysInMonth; day++) {
+                              const d = new Date(year, month, day);
+                              const key = dateKeyFromDate(d);
+                              const enabled = key <= todayKey;
+                              const isSelected = fromFilter === key;
+                              if (enabled) {
+                                cells.push(
+                                  <button
+                                    key={key}
+                                    type="button"
+                                    onClick={() => {
+                                      setQuickRange(null);
+                                      setFromFilter(key);
+                                      setCalendarFromOpen(false);
+                                      setPageIndex(0);
+                                    }}
+                                    className={`rounded py-1 ${isSelected ? "bg-cyan-500 text-white" : "hover:bg-[var(--muted)]"}`}
+                                  >
+                                    {day}
+                                  </button>,
+                                );
+                              } else {
+                                cells.push(
+                                  <div
+                                    key={key}
+                                    className="py-1 text-[var(--muted-foreground)] opacity-60"
+                                  >
+                                    {day}
+                                  </div>,
+                                );
+                              }
+                            }
+                            return cells;
+                          })()}
+                        </div>
+                        <div className="mt-3 flex justify-between">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setQuickRange(null);
+                              setFromFilter(null);
+                              setCalendarFromOpen(false);
+                            }}
+                            className="rounded border border-[var(--input-border)] px-2 py-1 text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                          >
+                            Limpiar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCalendarFromOpen(false)}
+                            className="rounded border border-[var(--input-border)] px-2 py-1 text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                          >
+                            Cerrar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <div className="min-w-0">
+                <div className="relative min-w-0">
                   <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                     Hasta
                   </label>
@@ -2039,6 +2159,122 @@ export default function FacturasCreditoPage() {
                     </span>
                     <CalendarDays className="h-4 w-4 text-cyan-300/85" />
                   </button>
+                  {calendarToOpen && (
+                    <div
+                      ref={toCalendarRef}
+                      className="absolute left-0 top-full z-50 mt-2 w-full min-w-[280px] sm:w-72"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-3 text-[var(--foreground)] shadow-2xl shadow-black/50">
+                        <div className="mb-2 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const m = new Date(calendarToMonth);
+                              m.setMonth(m.getMonth() - 1);
+                              setCalendarToMonth(new Date(m));
+                            }}
+                            className="rounded p-1 hover:bg-[var(--muted)]"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </button>
+                          <div className="text-sm font-semibold capitalize">
+                            {calendarToMonth.toLocaleString("es-CR", {
+                              month: "long",
+                              year: "numeric",
+                            })}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const m = new Date(calendarToMonth);
+                              m.setMonth(m.getMonth() + 1);
+                              setCalendarToMonth(new Date(m));
+                            }}
+                            className="rounded p-1 hover:bg-[var(--muted)]"
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-7 gap-1 text-center text-xs text-[var(--muted-foreground)]">
+                          {["D", "L", "M", "M", "J", "V", "S"].map((d, i) => (
+                            <div key={`${d}-${i}`} className="py-1">
+                              {d}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-2 grid grid-cols-7 gap-1 text-sm">
+                          {(() => {
+                            const cells: React.ReactNode[] = [];
+                            const year = calendarToMonth.getFullYear();
+                            const month = calendarToMonth.getMonth();
+                            const first = new Date(year, month, 1);
+                            const start = first.getDay();
+                            const daysInMonth = new Date(
+                              year,
+                              month + 1,
+                              0,
+                            ).getDate();
+                            for (let i = 0; i < start; i++)
+                              cells.push(<div key={`pad-t-${i}`} />);
+                            for (let day = 1; day <= daysInMonth; day++) {
+                              const d = new Date(year, month, day);
+                              const key = dateKeyFromDate(d);
+                              const enabled = key <= todayKey;
+                              const isSelected = toFilter === key;
+                              if (enabled) {
+                                cells.push(
+                                  <button
+                                    key={key}
+                                    type="button"
+                                    onClick={() => {
+                                      setQuickRange(null);
+                                      setToFilter(key);
+                                      setCalendarToOpen(false);
+                                      setPageIndex(0);
+                                    }}
+                                    className={`rounded py-1 ${isSelected ? "bg-cyan-500 text-white" : "hover:bg-[var(--muted)]"}`}
+                                  >
+                                    {day}
+                                  </button>,
+                                );
+                              } else {
+                                cells.push(
+                                  <div
+                                    key={key}
+                                    className="py-1 text-[var(--muted-foreground)] opacity-60"
+                                  >
+                                    {day}
+                                  </div>,
+                                );
+                              }
+                            }
+                            return cells;
+                          })()}
+                        </div>
+                        <div className="mt-3 flex justify-between">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setQuickRange(null);
+                              setToFilter(null);
+                              setCalendarToOpen(false);
+                            }}
+                            className="rounded border border-[var(--input-border)] px-2 py-1 text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                          >
+                            Limpiar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCalendarToOpen(false)}
+                            className="rounded border border-[var(--input-border)] px-2 py-1 text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                          >
+                            Cerrar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="min-w-0">
@@ -2161,7 +2397,7 @@ export default function FacturasCreditoPage() {
         <section className="overflow-hidden rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)]/82 shadow-[0_18px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
           <div className="flex flex-col gap-4 border-b border-[var(--input-border)] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div>
-              <h2 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">
+              <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
                 Facturas ({filteredMovements.length})
               </h2>
               <p className="mt-1 text-sm text-[var(--muted-foreground)]">
@@ -2185,7 +2421,7 @@ export default function FacturasCreditoPage() {
                     }
                     setPageIndex(0);
                   }}
-                  className="h-8 rounded-lg border border-[var(--input-border)] bg-transparent px-2 text-xs text-[var(--foreground)] outline-none"
+                  className="h-8 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-2 text-xs text-[var(--foreground)] outline-none transition-colors hover:border-cyan-500/45"
                   aria-label="Filas por pagina"
                 >
                   <option value="daily" disabled={hasDateRangeFilter}>

@@ -563,10 +563,14 @@ export function useAuth() {
       unsubscribe();
     };
   }, [maybeInvalidateForStorageVersion]);
+  const checkExistingSessionRef = useRef(checkExistingSession);
+  checkExistingSessionRef.current = checkExistingSession;
+  const updateActivityRef = useRef(updateActivity);
+  updateActivityRef.current = updateActivity;
   useEffect(() => {
     let unsubscribeUser: (() => void) | null = null;
 
-    checkExistingSession();
+    checkExistingSessionRef.current();
 
     // Configurar listener en tiempo real para actualizaciones de usuario (permisos, etc.)
     if (isAuthenticated && user?.id) {
@@ -653,7 +657,7 @@ export function useAuth() {
     ];
 
     const handleActivity = () => {
-      updateActivity();
+      updateActivityRef.current();
     };
 
     // Agregar listeners
@@ -661,10 +665,10 @@ export function useAuth() {
       document.addEventListener(event, handleActivity, { passive: true });
     });
 
-    // Verificar sesión cada 5 minutos
+    // Verificar sesión cada 5 minutos (usar ref para evitar loops)
     const sessionInterval = setInterval(
       () => {
-        checkExistingSession();
+        checkExistingSessionRef.current();
       },
       5 * 60 * 1000,
     );
@@ -680,8 +684,6 @@ export function useAuth() {
       clearInterval(sessionInterval);
     };
   }, [
-    checkExistingSession,
-    updateActivity,
     isAuthenticated,
     user?.id,
     useTokenAuth,
