@@ -1749,7 +1749,17 @@ export default function FacturasCreditoPage() {
                           <input
                             type="checkbox"
                             checked={filterPendingCredit}
-                            onChange={(e) => setFilterPendingCredit(e.target.checked)}
+                            onChange={(e) => {
+                              const on = e.target.checked;
+                              setFilterPendingCredit(on);
+                              if (on) {
+                                setFilterNCPending(false);
+                                setFilterPagada(false);
+                                setFilterPartial(false);
+                                setFilterRebajadas(false);
+                                setFilterEditedOnly(false);
+                              }
+                            }}
                             className="h-4 w-4 accent-amber-400"
                           />
                           <FileText className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
@@ -1759,7 +1769,17 @@ export default function FacturasCreditoPage() {
                           <input
                             type="checkbox"
                             checked={filterNCPending}
-                            onChange={(e) => setFilterNCPending(e.target.checked)}
+                            onChange={(e) => {
+                              const on = e.target.checked;
+                              setFilterNCPending(on);
+                              if (on) {
+                                setFilterPendingCredit(false);
+                                setFilterPagada(false);
+                                setFilterPartial(false);
+                                setFilterRebajadas(false);
+                                setFilterEditedOnly(false);
+                              }
+                            }}
                             className="h-4 w-4 accent-amber-400"
                           />
                           <ClipboardList className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
@@ -1769,7 +1789,17 @@ export default function FacturasCreditoPage() {
                           <input
                             type="checkbox"
                             checked={filterPagada}
-                            onChange={(e) => setFilterPagada(e.target.checked)}
+                            onChange={(e) => {
+                              const on = e.target.checked;
+                              setFilterPagada(on);
+                              if (on) {
+                                setFilterPendingCredit(false);
+                                setFilterNCPending(false);
+                                setFilterPartial(false);
+                                setFilterRebajadas(false);
+                                setFilterEditedOnly(false);
+                              }
+                            }}
                             className="h-4 w-4 accent-amber-400"
                           />
                           <BadgeCheck className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
@@ -1779,7 +1809,17 @@ export default function FacturasCreditoPage() {
                           <input
                             type="checkbox"
                             checked={filterPartial}
-                            onChange={(e) => setFilterPartial(e.target.checked)}
+                            onChange={(e) => {
+                              const on = e.target.checked;
+                              setFilterPartial(on);
+                              if (on) {
+                                setFilterPendingCredit(false);
+                                setFilterNCPending(false);
+                                setFilterPagada(false);
+                                setFilterRebajadas(false);
+                                setFilterEditedOnly(false);
+                              }
+                            }}
                             className="h-4 w-4 accent-amber-400"
                           />
                           <Clock className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
@@ -1789,7 +1829,17 @@ export default function FacturasCreditoPage() {
                           <input
                             type="checkbox"
                             checked={filterRebajadas}
-                            onChange={(e) => setFilterRebajadas(e.target.checked)}
+                            onChange={(e) => {
+                              const on = e.target.checked;
+                              setFilterRebajadas(on);
+                              if (on) {
+                                setFilterPendingCredit(false);
+                                setFilterNCPending(false);
+                                setFilterPagada(false);
+                                setFilterPartial(false);
+                                setFilterEditedOnly(false);
+                              }
+                            }}
                             className="h-4 w-4 accent-amber-400"
                           />
                           <CheckCircle className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
@@ -1799,7 +1849,17 @@ export default function FacturasCreditoPage() {
                           <input
                             type="checkbox"
                             checked={filterEditedOnly}
-                            onChange={(e) => setFilterEditedOnly(e.target.checked)}
+                            onChange={(e) => {
+                              const on = e.target.checked;
+                              setFilterEditedOnly(on);
+                              if (on) {
+                                setFilterPendingCredit(false);
+                                setFilterNCPending(false);
+                                setFilterPagada(false);
+                                setFilterPartial(false);
+                                setFilterRebajadas(false);
+                              }
+                            }}
                             className="h-4 w-4 rounded border-[var(--input-border)] accent-[var(--accent)]"
                           />
                           <Pencil className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
