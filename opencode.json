@@ -1,5 +1,5 @@
 {
+  "$schema": "https://opencode.ai/config.json",
   "lsp": true,
-  "model": "big-pickle",
-  "skills": ["caveman"]
+  "model": "big-pickle"
 }
