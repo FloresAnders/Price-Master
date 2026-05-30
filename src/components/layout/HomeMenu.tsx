@@ -1597,7 +1597,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
         />
       </div>
       <div className="relative mb-8 w-full max-w-screen-xl px-2 sm:px-4">
-        <h1 className="text-3xl font-bold text-center">
+        <h1 className="text-3xl font-bold text-center pr-12">
           {currentUser
             ? `¡Qué gusto verte, ${
                 currentUser.name ?? currentUser.email ?? "Usuario"
