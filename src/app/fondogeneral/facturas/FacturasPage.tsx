@@ -385,6 +385,24 @@ export default function FacturasCreditoPage() {
     [getCompanyKey],
   );
 
+  const getFetchDateRange = useCallback(() => {
+    if (fromFilter && toFilter) {
+      const endDate = new Date(toFilter + "T23:59:59.999Z");
+      endDate.setDate(endDate.getDate() + 1);
+      return {
+        startIso: fromFilter + "T00:00:00.000Z",
+        endIso: endDate.toISOString(),
+      };
+    }
+    const day = currentDailyKey || dateKeyFromDate(new Date());
+    const nextDay = new Date(day + "T00:00:00.000Z");
+    nextDay.setDate(nextDay.getDate() + 1);
+    return {
+      startIso: day + "T00:00:00.000Z",
+      endIso: nextDay.toISOString(),
+    };
+  }, [fromFilter, toFilter, currentDailyKey]);
+
   const loadMovements = useCallback(async (companyName: string) => {
     if (!companyName) {
       setMovements([]);
@@ -393,14 +411,17 @@ export default function FacturasCreditoPage() {
 
     setMovementsLoading(true);
     try {
-      const data = await FacturasService.listMovementsByEmpresa(companyName, {
+      const range = getFetchDateRange();
+      const data = await FacturasService.listMovementsByDateRange(companyName, {
+        startIso: range.startIso,
+        endIso: range.endIso,
         limit: 800,
       });
       setMovements(data.filter((movement) => !isFacturaPaymentRecord(movement)));
     } finally {
       setMovementsLoading(false);
     }
-  }, []);
+  }, [getFetchDateRange]);
 
   useEffect(() => {
     setColumnWidths((prev) => {
@@ -1049,7 +1070,12 @@ export default function FacturasCreditoPage() {
     }
 
     setMovementsLoading(true);
-    FacturasService.listMovementsByEmpresa(selectedCompany, { limit: 800 })
+    const range = getFetchDateRange();
+    FacturasService.listMovementsByDateRange(selectedCompany, {
+      startIso: range.startIso,
+      endIso: range.endIso,
+      limit: 800,
+    })
       .then((data) => {
         if (cancelled) return;
         setMovements(data.filter((movement) => !isFacturaPaymentRecord(movement)));
@@ -1071,7 +1097,7 @@ export default function FacturasCreditoPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedCompany, showToast]);
+  }, [selectedCompany, getFetchDateRange, showToast]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2233,7 +2259,50 @@ export default function FacturasCreditoPage() {
                 </tr>
               </thead>
               <tbody>
-                {pagedMovements.map((movement) => {
+                {movementsLoading ? (
+                  <>
+                    <tr className="bg-cyan-500/5">
+                      <td colSpan={7} className="px-4 py-2">
+                        <div className="h-4 w-44 animate-pulse rounded bg-cyan-100/10" />
+                      </td>
+                    </tr>
+                    {Array.from({ length: 6 }, (_, i) => i).map((row) => (
+                      <tr key={row} className="[&>td]:border-b [&>td]:border-[var(--input-border)]/60">
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 animate-pulse rounded-xl bg-cyan-100/10" />
+                            <div className="space-y-2">
+                              <div className="h-4 w-20 animate-pulse rounded bg-cyan-100/10" />
+                              <div className="h-3 w-14 animate-pulse rounded bg-cyan-100/5" />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="space-y-2">
+                            <div className="h-4 w-36 animate-pulse rounded bg-cyan-100/10" />
+                            <div className="h-3 w-48 animate-pulse rounded bg-cyan-100/5" />
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="h-4 w-16 animate-pulse rounded bg-cyan-100/10" />
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="h-6 w-24 animate-pulse rounded bg-cyan-100/10" />
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="ml-auto h-6 w-28 animate-pulse rounded bg-cyan-100/10" />
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="h-6 w-20 animate-pulse rounded-full bg-cyan-100/10" />
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="ml-auto h-8 w-28 animate-pulse rounded-xl bg-cyan-100/10" />
+                        </td>
+                      </tr>
+                    ))}
+                  </>
+                ) : (
+                  pagedMovements.map((movement) => {
                   const amount = Math.abs(Number(movement.amount) || 0);
                   const signedAmount =
                     String(movement.invoiceDocType || "").trim().toUpperCase() === "NC"
@@ -2333,7 +2402,7 @@ export default function FacturasCreditoPage() {
                       </td>
                     </tr>
                   );
-                })}
+                }))}
 
                 {!movementsLoading && filteredMovements.length === 0 && (
                   <tr>

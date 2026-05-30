@@ -7,6 +7,8 @@ import {
   orderBy,
   query,
   setDoc,
+  where,
+  type QueryConstraint,
   type QueryDocumentSnapshot,
   type DocumentData,
 } from "firebase/firestore";
@@ -258,6 +260,36 @@ export class FacturasService {
       collection(db, this.COLLECTION_NAME, empresaId, this.MOVEMENTS_SUBCOLLECTION),
       orderBy("createdAt", "desc"),
       limit(Math.max(1, Math.min(2000, opts?.limit ?? 500))),
+    );
+
+    const snap = await getDocs(q);
+    return snap.docs.reduce<FacturaMovement[]>((acc, d: QueryDocumentSnapshot<DocumentData>) => {
+      const movement = sanitizeFacturaMovement({ id: d.id, ...(d.data() as any) });
+      if (movement) acc.push(movement);
+      return acc;
+    }, []);
+  }
+
+  static async listMovementsByDateRange(
+    empresa: string,
+    opts?: { startIso?: string; endIso?: string; limit?: number },
+  ): Promise<FacturaMovement[]> {
+    const empresaId = this.buildEmpresaDocId(empresa);
+    const constraints: QueryConstraint[] = [];
+
+    if (opts?.startIso) {
+      constraints.push(where("createdAt", ">=", opts.startIso));
+    }
+    if (opts?.endIso) {
+      constraints.push(where("createdAt", "<", opts.endIso));
+    }
+
+    constraints.push(orderBy("createdAt", "desc"));
+    constraints.push(limit(Math.max(1, Math.min(2000, opts?.limit ?? 500))));
+
+    const q = query(
+      collection(db, this.COLLECTION_NAME, empresaId, this.MOVEMENTS_SUBCOLLECTION),
+      ...constraints,
     );
 
     const snap = await getDocs(q);
