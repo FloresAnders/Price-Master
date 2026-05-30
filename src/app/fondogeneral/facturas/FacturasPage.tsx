@@ -2464,7 +2464,7 @@ export default function FacturasCreditoPage() {
                 <col style={{ width: columnWidths.accion }} />
               </colgroup>
                 <thead className="text-xs uppercase text-[var(--muted-foreground)]">
-                  <tr className="[&>th]:border-b [&>th]:border-[var(--input-border)] [&>th:not(:last-child)]:border-r [&>th:not(:last-child)]:border-[var(--input-border)]">
+                  <tr className="[&>th]:border-b [&>th]:border-[var(--input-border)]">
                   <th className="px-3 py-2 text-left font-semibold">
                     <div className="relative pr-2">
                       <div>Fecha</div>
@@ -2573,7 +2573,7 @@ export default function FacturasCreditoPage() {
                   return (
                     <tr
                       key={m.id}
-                      className="[&>td]:border-b [&>td]:border-[var(--input-border)] [&>td:not(:last-child)]:border-r [&>td:not(:last-child)]:border-[var(--input-border)] hover:bg-[var(--muted)]/10"
+                      className="[&>td]:border-b [&>td]:border-[var(--input-border)] hover:bg-[var(--muted)]/10"
                     >
                       <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
                         {(() => {
