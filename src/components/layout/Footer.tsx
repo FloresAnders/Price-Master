@@ -10,7 +10,7 @@ const socialButtonClass =
   "flex h-11 w-11 items-center justify-center rounded-xl border border-black/10 bg-black/5 text-[var(--foreground)] transition-all duration-200 hover:-translate-y-0.5 hover:border-black/20 hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:hover:border-white/20 dark:hover:bg-white/10";
 
 export default function Footer() {
-  const { version } = useVersion();
+  const { version, isLocalNewer } = useVersion();
   const [isGitHubModalOpen, setIsGitHubModalOpen] = useState(false);
   const googleSearchUrl = `https://www.google.com/search?q=${encodeURIComponent(
     "Time Master",
@@ -135,6 +135,11 @@ export default function Footer() {
                   <span className="rounded-full border border-black/10 bg-black/5 px-2 py-0.5 text-[11px] font-semibold text-[var(--foreground)] dark:border-white/10 dark:bg-white/10">
                     v{version}
                   </span>
+                  {isLocalNewer && (
+                    <span className="rounded-full border border-amber-400/40 bg-amber-400/15 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:border-amber-300/40 dark:bg-amber-400/20 dark:text-amber-300">
+                      PENDIENTE
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-[var(--muted-foreground)]">
                   Todos los derechos reservados.

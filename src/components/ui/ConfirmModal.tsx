@@ -19,9 +19,9 @@ interface ConfirmModalProps {
 
 const ConfirmModal: React.FC<ConfirmModalProps> = ({
   open,
-  title = "Confirmar acción",
+  title = "¿Estás seguro?",
   message,
-  confirmText = "Confirmar",
+  confirmText = "Sí, confirmar",
   cancelText = "Cancelar",
   loading = false,
   confirmDisabled = false,
@@ -70,24 +70,35 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
       onClick={(e) => e.stopPropagation()}
     >
       <div
-        className="bg-[var(--card-bg)] text-[var(--foreground)] rounded-lg shadow-2xl p-4 sm:p-6 w-full max-w-xs sm:max-w-sm border border-[var(--input-border)] flex flex-col items-center mx-2 relative"
+        className="bg-[var(--card-bg)] text-[var(--foreground)] rounded-xl shadow-lg p-6 w-full max-w-md border border-[var(--input-border)] flex flex-col items-stretch mx-3 relative"
         style={{ zIndex: 100000 }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex flex-col sm:flex-row items-center gap-2 mb-2 justify-center w-full">
-          <span className="flex-shrink-0 flex items-center justify-center mb-1 sm:mb-0">
+        <div className="flex items-start gap-3 mb-3">
+          <span
+            className={`flex items-center justify-center h-9 w-9 rounded-full shrink-0 text-white ${
+              actionType === "delete"
+                ? "bg-red-600"
+                : actionType === "change"
+                  ? "bg-yellow-500 text-black"
+                  : "bg-green-600"
+            }`}
+          >
             {icon}
           </span>
-          <h2 className="text-lg font-bold text-center w-full">{title}</h2>
+          <div className="flex-1">
+            <h2 className="text-lg font-semibold">{title}</h2>
+            <div className="mt-1 text-sm text-[var(--muted-foreground)] break-words whitespace-pre-line">
+              {message}
+            </div>
+          </div>
         </div>
-        <div className="mb-4 text-sm sm:text-base text-center w-full break-words whitespace-pre-line">
-          {message}
-        </div>
-        <div className="flex flex-col sm:flex-row justify-center gap-2 mt-4 w-full">
+
+        <div className="flex flex-col sm:flex-row-reverse gap-2 mt-5">
           {/** Single-button informational modal */}
           {singleButton ? (
             <button
-              className="px-4 py-2 rounded bg-[var(--button-bg)] text-[var(--button-text)] hover:bg-[var(--button-hover)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 justify-center w-full sm:w-auto"
+              className="px-4 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 justify-center w-full sm:w-auto"
               onClick={onCancel}
               disabled={loading}
               type="button"
@@ -98,7 +109,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
           ) : (
             <>
               <button
-                className="px-4 py-2 rounded bg-[var(--button-bg)] text-[var(--button-text)] hover:bg-[var(--button-hover)] disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 justify-center w-full sm:w-auto"
+                className="px-4 py-2 rounded-md border border-[var(--input-border)] bg-transparent text-[var(--foreground)] hover:bg-[var(--input-border)]/10 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 justify-center w-full sm:w-auto"
                 onClick={onCancel}
                 disabled={loading}
                 type="button"
@@ -107,7 +118,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                 {cancelText}
               </button>
               <button
-                className={`px-4 py-2 rounded text-white flex items-center gap-2 justify-center w-full sm:w-auto disabled:opacity-60 disabled:cursor-not-allowed ${
+                className={`px-4 py-2 rounded-md text-white flex items-center gap-2 justify-center w-full sm:w-auto disabled:opacity-60 disabled:cursor-not-allowed ${
                   actionType === "delete"
                     ? "bg-red-600 hover:bg-red-700"
                     : actionType === "change"
