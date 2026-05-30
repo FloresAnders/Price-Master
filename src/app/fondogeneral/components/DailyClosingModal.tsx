@@ -7,6 +7,7 @@ import React, {
 } from "react";
 
 import ConfirmModal from "../../../components/ui/ConfirmModal";
+// Usar botones nativos con clases Tailwind en vez de un componente Button central
 
 const CRC_DENOMINATIONS: readonly number[] = [
   20000, 10000, 5000, 2000, 1000, 500, 100, 50, 25,
@@ -123,6 +124,11 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const [confirmDiffOpen, setConfirmDiffOpen] = useState(false);
   const [pendingSubmitValues, setPendingSubmitValues] =
     useState<DailyClosingFormValues | null>(null);
+
+  const secondaryButtonClass =
+    "inline-flex h-11 items-center justify-center rounded-lg border border-[var(--input-border)] px-4 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20 disabled:cursor-not-allowed disabled:opacity-60";
+  const primaryButtonClass =
+    "inline-flex h-11 items-center justify-center rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60";
 
   const crcFormatter = useMemo(
     () =>
@@ -395,7 +401,6 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     setCrcCounts(buildInitialCounts(CRC_DENOMINATIONS));
     setUsdCounts(buildInitialCounts(USD_DENOMINATIONS));
   };
-
   if (!open) return null;
 
   return (
@@ -417,11 +422,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-11 items-center justify-center rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-4 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
-              style={{
-                backgroundColor: "var(--card-bg)",
-                color: "var(--foreground)",
-              }}
+              className={secondaryButtonClass}
             >
               Cerrar
             </button>
@@ -652,11 +653,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
             <button
               type="button"
               onClick={handleClearCounts}
-              className="inline-flex h-11 items-center justify-center rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-4 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
-              style={{
-                backgroundColor: "var(--card-bg)",
-                color: "var(--foreground)",
-              }}
+              className={secondaryButtonClass}
             >
               Limpiar conteo
             </button>
@@ -664,11 +661,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
               <button
                 type="button"
                 onClick={() => onShowHistory()}
-                className="inline-flex h-11 items-center justify-center rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-4 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
-                style={{
-                  backgroundColor: "var(--card-bg)",
-                  color: "var(--foreground)",
-                }}
+                className={secondaryButtonClass}
               >
                 Ver historial
               </button>
@@ -678,11 +671,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex h-11 items-center justify-center rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-4 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
-              style={{
-                backgroundColor: "var(--card-bg)",
-                color: "var(--foreground)",
-              }}
+              className={secondaryButtonClass}
             >
               Cancelar
             </button>
@@ -691,11 +680,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                 type="button"
                 onClick={handleSubmit}
                 disabled={submitDisabled}
-                className={`inline-flex h-11 items-center justify-center rounded-lg border px-4 text-sm font-semibold shadow-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)] ${
-                  submitDisabled
-                    ? "cursor-not-allowed border-[var(--input-border)] bg-[var(--muted)]/60 text-[var(--muted-foreground)] opacity-70"
-                    : "border-[var(--accent)] bg-[var(--accent)] text-white hover:-translate-y-0.5 hover:border-cyan-300/70 hover:bg-[var(--accent-hover)] hover:shadow-md hover:shadow-sky-950/25 active:translate-y-0 active:scale-[0.99]"
-                }`}
+                className={primaryButtonClass}
               >
                 {editId ? "Actualizar cierre" : "Guardar cierre"}
               </button>
