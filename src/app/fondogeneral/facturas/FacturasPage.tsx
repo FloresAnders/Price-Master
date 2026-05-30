@@ -9,6 +9,7 @@ import {
   RotateCcw,
   Search,
   CreditCard,
+  ShoppingCart,
   Clock,
   CheckCircle,
   Eye,
@@ -220,6 +221,9 @@ export default function FacturasCreditoPage() {
   );
   const [docTypeFilterLabel, setDocTypeFilterLabel] = useState("");
   const [isDocTypeDropdownOpen, setIsDocTypeDropdownOpen] = useState(false);
+  const [providerDropdownQuery, setProviderDropdownQuery] = useState("");
+  const [typeDropdownQuery, setTypeDropdownQuery] = useState("");
+  const [docTypeDropdownQuery, setDocTypeDropdownQuery] = useState("");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterEditedOnly, setFilterEditedOnly] = useState(false);
@@ -278,9 +282,9 @@ export default function FacturasCreditoPage() {
       proveedor: "250px",
       factura: "120px",
       tipo: "160px",
-      monto: "140px",
-      estado: "200px",
-      accion: "140px",
+      monto: "170px",
+      estado: "240px",
+      accion: "170px",
     };
     try {
       if (typeof window !== "undefined") {
@@ -396,6 +400,28 @@ export default function FacturasCreditoPage() {
     } finally {
       setMovementsLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    setColumnWidths((prev) => {
+      const next = { ...prev };
+      const minimums: Record<string, number> = {
+        monto: 170,
+        estado: 240,
+        accion: 170,
+      };
+      let changed = false;
+
+      Object.entries(minimums).forEach(([key, minimum]) => {
+        const current = parseInt(String(prev[key] || "0"), 10) || 0;
+        if (current < minimum) {
+          next[key] = `${minimum}px`;
+          changed = true;
+        }
+      });
+
+      return changed ? next : prev;
+    });
   }, []);
 
   const actorOwnerIdSet = useMemo(
@@ -1289,14 +1315,39 @@ export default function FacturasCreditoPage() {
 
   const filteredMovements = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
+    const providerQuery = providerDropdownQuery.trim().toLowerCase();
+    const typeQuery = typeDropdownQuery.trim().toLowerCase();
+    const docTypeQuery = docTypeDropdownQuery.trim().toLowerCase();
 
     return movements.filter((m) => {
-      if (filterProviderCode !== "all" && m.providerCode !== filterProviderCode)
+      if (filterProviderCode !== "all" && m.providerCode !== filterProviderCode) {
         return false;
-      if (filterPaymentType !== "all" && m.paymentType !== filterPaymentType)
+      }
+      if (filterProviderCode === "all" && providerQuery) {
+        const providerHaystack = [
+          m.providerCode,
+          providerNameByCode.get(m.providerCode) || "",
+        ]
+          .join(" ")
+          .toLowerCase();
+        if (!providerHaystack.includes(providerQuery)) return false;
+      }
+
+      if (filterPaymentType !== "all" && m.paymentType !== filterPaymentType) {
         return false;
-      if (docTypeFilter !== "all" && m.invoiceDocType !== docTypeFilter)
+      }
+      if (filterPaymentType === "all" && typeQuery) {
+        const typeHaystack = formatMovementType(m.paymentType).toLowerCase();
+        if (!typeHaystack.includes(typeQuery)) return false;
+      }
+
+      if (docTypeFilter !== "all" && m.invoiceDocType !== docTypeFilter) {
         return false;
+      }
+      if (docTypeFilter === "all" && docTypeQuery) {
+        const docHaystack = formatInvoiceDocTypeLabel(m.invoiceDocType).toLowerCase();
+        if (!docHaystack.includes(docTypeQuery)) return false;
+      }
 
       if (fromFilter || toFilter) {
         const key = dateKeyFromIso(m.createdAt);
@@ -1367,6 +1418,9 @@ export default function FacturasCreditoPage() {
     filterPartial,
     filterRebajadas,
     searchQuery,
+    providerDropdownQuery,
+    typeDropdownQuery,
+    docTypeDropdownQuery,
     providerNameByCode,
   ]);
 
@@ -1531,1235 +1585,758 @@ export default function FacturasCreditoPage() {
     [],
   );
 
+  const formatMovementDateTime = useCallback((value: string) => {
+    try {
+      const d = new Date(String(value || ""));
+      if (Number.isNaN(d.getTime())) return { date: "--/--/--", time: "--:--" };
+
+      const date = new Intl.DateTimeFormat("es-CR", {
+        dateStyle: "short",
+      }).format(d);
+      const time = new Intl.DateTimeFormat("es-CR", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      }).format(d);
+
+      return { date, time };
+    } catch {
+      return { date: "--/--/--", time: "--:--" };
+    }
+  }, []);
+
+  const providerInitials = useCallback((value: string) => {
+    const clean = String(value || "").trim();
+    if (!clean) return "?";
+    const pieces = clean.split(/\s+/).filter(Boolean);
+    if (pieces.length === 1) return pieces[0].slice(0, 2).toUpperCase();
+    return `${pieces[0]?.[0] ?? ""}${pieces[1]?.[0] ?? ""}`.toUpperCase();
+  }, []);
+
+  const providerTone = useCallback((value: string) => {
+    const key = String(value || "").trim().toLowerCase();
+    const palette = [
+      "from-slate-600 to-slate-800 text-slate-50",
+      "from-cyan-600 to-sky-700 text-slate-50",
+      "from-emerald-600 to-teal-700 text-slate-50",
+      "from-amber-600 to-orange-700 text-slate-50",
+      "from-violet-600 to-fuchsia-700 text-slate-50",
+    ];
+    let sum = 0;
+    for (let index = 0; index < key.length; index += 1) {
+      sum += key.charCodeAt(index);
+    }
+    return palette[sum % palette.length];
+  }, []);
+
+  const statusTone = useCallback((status: string) => {
+    switch (status) {
+      case "PAGADA":
+        return "border-emerald-400/55 bg-emerald-500/22 text-emerald-50 shadow-[0_0_0_1px_rgba(16,185,129,0.10)]";
+      case "REBAJADA":
+        return "border-cyan-400/50 bg-cyan-500/18 text-cyan-50 shadow-[0_0_0_1px_rgba(6,182,212,0.10)]";
+      case "PARCIAL":
+        return "border-amber-400/55 bg-amber-500/20 text-amber-50 shadow-[0_0_0_1px_rgba(245,158,11,0.10)]";
+      case "PENDIENTE":
+        return "border-amber-400/55 bg-amber-500/18 text-amber-50 shadow-[0_0_0_1px_rgba(245,158,11,0.10)]";
+      default:
+        return "border-slate-400/45 bg-slate-500/18 text-slate-100";
+    }
+  }, []);
+
+  const registerPaymentTone = pendingCierreDeCaja
+    ? "border-red-500/35 bg-red-500/12 text-red-100 hover:border-red-400/45 hover:bg-red-500/18"
+    : "border-amber-500/45 bg-amber-500/14 text-amber-100 hover:border-amber-300/55 hover:bg-amber-500/22";
+
   return (
-    <div className="w-full max-w-7xl mx-auto px-2 py-3 sm:px-4 sm:py-6 lg:py-8">
-      <div className="rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-3 shadow-sm sm:p-4 md:p-5 space-y-4">
-        <section className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/70 p-2 sm:p-3 md:p-4 space-y-3 sm:space-y-4">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-5">
-            {/* Proveedor */}
-            <div className="relative min-w-0" ref={providerDropdownRef}>
-              <button
-                type="button"
-                onClick={() => setIsProviderDropdownOpen((prev) => !prev)}
-                className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-[var(--foreground)] outline-none transition-colors hover:border-cyan-500/45 focus:border-[var(--accent)] flex items-center justify-between"
-                title="Filtrar por proveedor"
-                aria-label="Filtrar por proveedor"
-              >
-                <span className="flex items-center gap-2 truncate">
-                  <Search className="h-4 w-4 text-cyan-100/80" />
-                  <span className={providerFilter ? "" : "text-cyan-100/70"}>
-                    {providerFilter ||
-                      (providersLoading ? "Cargando..." : "Proveedor")}
-                  </span>
+    <div className="min-h-screen w-full bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.05),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(255,255,255,0.03),_transparent_26%),linear-gradient(180deg,_#0b0f16_0%,_#0d1117_42%,_#10151d_100%)] px-3 py-4 text-[var(--foreground)] sm:px-4 lg:px-6 lg:py-6">
+      <div className="mx-auto flex w-full max-w-none flex-col gap-4">
+        <section className="relative z-30 overflow-visible rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)]/82 shadow-[0_18px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+          <div className="space-y-4 border-b border-[var(--input-border)] p-4 sm:p-5">
+            <div className="grid gap-3 xl:grid-cols-[1.1fr_0.95fr_0.95fr_1.15fr_auto_auto]">
+              <div className="relative min-w-0" ref={providerDropdownRef}>
+                <input
+                  type="text"
+                  value={providerDropdownQuery}
+                  onChange={(event) => {
+                    setProviderDropdownQuery(event.target.value);
+                    setFilterProviderCode("all");
+                    setProviderFilter("");
+                    setIsProviderDropdownOpen(true);
+                  }}
+                  onFocus={() => setIsProviderDropdownOpen(true)}
+                  placeholder={providersLoading ? "Cargando proveedores..." : "Proveedor"}
+                  className="h-11 w-full rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] px-4 pr-10 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] focus:border-cyan-500/45 focus:ring-2 focus:ring-cyan-500/20"
+                  aria-label="Proveedor"
+                />
+                <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg border border-cyan-500/25 bg-cyan-500/8 text-cyan-300/90">
+                  <Search className="h-4 w-4" />
                 </span>
-                <span className="text-cyan-100/80">⌄</span>
-              </button>
-              {isProviderDropdownOpen && (
-                <div className="absolute z-[9999] mt-2 w-full max-h-56 overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] shadow-2xl shadow-black/70">
-                  <button
-                    type="button"
-                    className="w-full rounded px-3 py-2 text-left text-sm text-cyan-100/70 transition-colors hover:bg-cyan-950/80"
-                    onMouseDown={() => {
-                      setFilterProviderCode("all");
-                      setProviderFilter("");
-                      setIsProviderDropdownOpen(false);
-                    }}
-                  >
-                    Todos los proveedores
-                  </button>
-                  {providers.map((p) => (
+                {isProviderDropdownOpen && (
+                  <div className="absolute z-[90] mt-2 max-h-64 w-full overflow-y-auto rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)] shadow-2xl shadow-black/50">
                     <button
-                      key={p.code}
                       type="button"
-                      className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
-                        filterProviderCode === p.code
-                          ? "bg-cyan-500/20 text-cyan-50"
-                          : "text-[var(--foreground)]"
-                      }`}
+                      className="w-full px-4 py-2.5 text-left text-sm text-[var(--foreground)] transition-colors hover:bg-cyan-500/8"
                       onMouseDown={() => {
-                        setFilterProviderCode(p.code);
-                        setProviderFilter(`${p.name} (${p.code})`);
+                        setFilterProviderCode("all");
+                        setProviderFilter("");
+                        setProviderDropdownQuery("");
                         setIsProviderDropdownOpen(false);
                       }}
                     >
-                      {p.name} ({p.code})
+                      Todos los proveedores
                     </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Tipo */}
-            <div className="relative min-w-0" ref={typeDropdownRef}>
-              <button
-                type="button"
-                onClick={() => setIsTypeDropdownOpen((prev) => !prev)}
-                className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-[var(--foreground)] outline-none transition-colors hover:border-cyan-500/45 focus:border-[var(--accent)] flex items-center justify-between"
-                title="Filtrar por tipo"
-                aria-label="Filtrar por tipo"
-              >
-                <span className={typeFilter ? "" : "text-cyan-100/70"}>
-                  {typeFilter || "Tipo movimiento"}
-                </span>
-                <span className="text-cyan-100/80">⌄</span>
-              </button>
-              {isTypeDropdownOpen && (
-                <div className="absolute z-[9999] mt-2 w-full max-h-56 overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] shadow-2xl shadow-black/70">
-                  <button
-                    type="button"
-                    className="w-full rounded px-3 py-2 text-left text-sm text-cyan-100/70 transition-colors hover:bg-cyan-950/80"
-                    onMouseDown={() => {
-                      setFilterPaymentType("all");
-                      setTypeFilter("");
-                      setIsTypeDropdownOpen(false);
-                    }}
-                  >
-                    Todos los tipos
-                  </button>
-                  {[
-                    { group: "Ingresos", types: FONDO_INGRESO_TYPES },
-                    { group: "Gastos", types: FONDO_GASTO_TYPES },
-                    { group: "Egresos", types: FONDO_EGRESO_TYPES },
-                  ].map(({ group, types }) => (
-                    <React.Fragment key={group}>
-                      <div className="px-3 py-1.5 text-xs font-semibold text-cyan-100/50 uppercase">
-                        {group}
-                      </div>
-                      {types.map((t) => (
+                    {providers
+                      .filter((provider) => {
+                        const needle = providerDropdownQuery.trim().toLowerCase();
+                        if (!needle) return true;
+                        return `${provider.name} ${provider.code}`.toLowerCase().includes(needle);
+                      })
+                      .slice(0, 24)
+                      .map((provider) => (
                         <button
-                          key={t}
+                          key={provider.code}
                           type="button"
-                          className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
-                            filterPaymentType === t
-                              ? "bg-cyan-500/20 text-cyan-50"
-                              : "text-[var(--foreground)]"
+                          className={`w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-cyan-500/8 ${
+                            filterProviderCode === provider.code
+                              ? "bg-cyan-500/10 text-[var(--foreground)]"
+                              : "text-[var(--foreground)]/90"
                           }`}
                           onMouseDown={() => {
-                            setFilterPaymentType(t);
-                            setTypeFilter(formatMovementType(t));
+                            setFilterProviderCode(provider.code);
+                            setProviderFilter(`${provider.name} (${provider.code})`);
+                            setProviderDropdownQuery(`${provider.name} (${provider.code})`);
+                            setIsProviderDropdownOpen(false);
+                          }}
+                        >
+                          {provider.name} ({provider.code})
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="relative min-w-0" ref={typeDropdownRef}>
+                <input
+                  type="text"
+                  value={typeDropdownQuery}
+                  onChange={(event) => {
+                    setTypeDropdownQuery(event.target.value);
+                    setFilterPaymentType("all");
+                    setTypeFilter("");
+                    setIsTypeDropdownOpen(true);
+                  }}
+                  onFocus={() => setIsTypeDropdownOpen(true)}
+                  placeholder="Tipo movimiento"
+                  className="h-11 w-full rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] px-4 pr-10 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] focus:border-cyan-500/45 focus:ring-2 focus:ring-cyan-500/20"
+                  aria-label="Tipo movimiento"
+                />
+                <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg border border-cyan-500/25 bg-cyan-500/8 text-cyan-300/90">
+                  <Search className="h-4 w-4" />
+                </span>
+                {isTypeDropdownOpen && (
+                  <div className="absolute z-[90] mt-2 max-h-64 w-full overflow-y-auto rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)] shadow-2xl shadow-black/50">
+                    <button
+                      type="button"
+                      className="w-full px-4 py-2.5 text-left text-sm text-[var(--foreground)] transition-colors hover:bg-cyan-500/8"
+                      onMouseDown={() => {
+                        setFilterPaymentType("all");
+                        setTypeFilter("");
+                        setTypeDropdownQuery("");
+                        setIsTypeDropdownOpen(false);
+                      }}
+                    >
+                      Todos los tipos
+                    </button>
+                    {movementTypes
+                      .filter((type) => {
+                        const needle = typeDropdownQuery.trim().toLowerCase();
+                        if (!needle) return true;
+                        return formatMovementType(type).toLowerCase().includes(needle);
+                      })
+                      .slice(0, 30)
+                      .map((type) => (
+                        <button
+                          key={type}
+                          type="button"
+                          className={`w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-cyan-500/8 ${
+                            filterPaymentType === type
+                              ? "bg-cyan-500/10 text-[var(--foreground)]"
+                              : "text-[var(--foreground)]/90"
+                          }`}
+                          onMouseDown={() => {
+                            setFilterPaymentType(type);
+                            setTypeFilter(formatMovementType(type));
+                            setTypeDropdownQuery(formatMovementType(type));
                             setIsTypeDropdownOpen(false);
                           }}
                         >
-                          {formatMovementType(t)}
+                          {formatMovementType(type)}
                         </button>
                       ))}
-                      {types.length === 0 && (
-                        <div className="px-3 pb-2 text-xs text-cyan-100/40">
-                          —
-                        </div>
-                      )}
-                    </React.Fragment>
-                  ))}
-                </div>
-              )}
-            </div>
+                  </div>
+                )}
+              </div>
 
-            {/* Documento */}
-            <div className="relative min-w-0" ref={docTypeDropdownRef}>
-              <button
-                type="button"
-                onClick={() => setIsDocTypeDropdownOpen((prev) => !prev)}
-                className="h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-[var(--foreground)] outline-none transition-colors hover:border-cyan-500/45 focus:border-[var(--accent)] flex items-center justify-between"
-                title="Filtrar por documento"
-                aria-label="Filtrar por documento"
-              >
-                <span className={docTypeFilterLabel ? "" : "text-cyan-100/70"}>
-                  {docTypeFilterLabel || "Documento"}
+              <div className="relative min-w-0" ref={docTypeDropdownRef}>
+                <input
+                  type="text"
+                  value={docTypeDropdownQuery}
+                  onChange={(event) => {
+                    setDocTypeDropdownQuery(event.target.value);
+                    setDocTypeFilter("all");
+                    setDocTypeFilterLabel("");
+                    setIsDocTypeDropdownOpen(true);
+                  }}
+                  onFocus={() => setIsDocTypeDropdownOpen(true)}
+                  placeholder="Documento"
+                  className="h-11 w-full rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] px-4 pr-10 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] focus:border-cyan-500/45 focus:ring-2 focus:ring-cyan-500/20"
+                  aria-label="Documento"
+                />
+                <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg border border-cyan-500/25 bg-cyan-500/8 text-cyan-300/90">
+                  <Search className="h-4 w-4" />
                 </span>
-                <span className="text-cyan-100/80">⌄</span>
-              </button>
-              {isDocTypeDropdownOpen && (
-                <div className="absolute z-[9999] mt-2 w-full max-h-56 overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] shadow-2xl shadow-black/70">
-                  <button
-                    type="button"
-                    className="w-full rounded px-3 py-2 text-left text-sm text-cyan-100/70 transition-colors hover:bg-cyan-950/80"
-                    onMouseDown={() => {
-                      setDocTypeFilter("all");
-                      setDocTypeFilterLabel("");
-                      setIsDocTypeDropdownOpen(false);
-                    }}
-                  >
-                    Todos los documentos
-                  </button>
-                  {([
-                    { value: "FCR", label: "Factura a Credito" },
-                    { value: "NC", label: "Nota de Credito" },
-                    { value: "FCO", label: "Factura a Contado" },
-                  ] as const).map((item) => (
+                {isDocTypeDropdownOpen && (
+                  <div className="absolute z-[90] mt-2 max-h-64 w-full overflow-y-auto rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)] shadow-2xl shadow-black/50">
                     <button
-                      key={item.value}
                       type="button"
-                      className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
-                        docTypeFilter === item.value
-                          ? "bg-cyan-500/20 text-cyan-50"
-                          : "text-[var(--foreground)]"
-                      }`}
+                      className="w-full px-4 py-2.5 text-left text-sm text-[var(--foreground)] transition-colors hover:bg-cyan-500/8"
                       onMouseDown={() => {
-                        setDocTypeFilter(item.value);
-                        setDocTypeFilterLabel(item.label);
+                        setDocTypeFilter("all");
+                        setDocTypeFilterLabel("");
+                        setDocTypeDropdownQuery("");
                         setIsDocTypeDropdownOpen(false);
                       }}
                     >
-                      {item.label}
+                      Todos los documentos
                     </button>
-                  ))}
-                </div>
-              )}
+                    {[
+                      { value: "FCR", label: "Factura a Credito" },
+                      { value: "NC", label: "Nota de Credito" },
+                      { value: "FCO", label: "Factura a Contado" },
+                    ]
+                      .filter((item) => {
+                        const needle = docTypeDropdownQuery.trim().toLowerCase();
+                        if (!needle) return true;
+                        return `${item.label} ${item.value}`.toLowerCase().includes(needle);
+                      })
+                      .map((item) => (
+                        <button
+                          key={item.value}
+                          type="button"
+                          className={`w-full px-4 py-2.5 text-left text-sm transition-colors hover:bg-cyan-500/8 ${
+                            docTypeFilter === item.value
+                              ? "bg-cyan-500/10 text-[var(--foreground)]"
+                              : "text-[var(--foreground)]/90"
+                          }`}
+                          onMouseDown={() => {
+                            setDocTypeFilter(item.value as "FCR" | "NC" | "FCO");
+                            setDocTypeFilterLabel(item.label);
+                            setDocTypeDropdownQuery(item.label);
+                            setIsDocTypeDropdownOpen(false);
+                          }}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="relative min-w-0">
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Buscar factura, notas..."
+                  className="h-11 w-full rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] px-4 pr-11 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] focus:border-cyan-500/45 focus:ring-2 focus:ring-cyan-500/20"
+                  aria-label="Buscar movimientos"
+                />
+                <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg border border-cyan-500/25 bg-cyan-500/8 text-cyan-300/90">
+                  <Search className="h-4 w-4" />
+                </span>
+              </div>
+
+              <div className="relative min-w-0" ref={filtersDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setFiltersDropdownOpen((prev) => !prev)}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-cyan-500/25 bg-cyan-500/8 px-4 text-sm font-semibold text-cyan-100 transition-colors hover:border-cyan-500/45 hover:bg-cyan-500/12"
+                  aria-haspopup="menu"
+                  aria-expanded={filtersDropdownOpen}
+                  title="Vista"
+                >
+                  <Eye className="h-4 w-4" />
+                  <span>Vista</span>
+                </button>
+
+                {filtersDropdownOpen && (
+                  <div className="absolute left-0 top-full z-[95] mt-2 w-[300px] rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)] p-2 shadow-2xl shadow-black/50 backdrop-blur-xl">
+                    <label className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
+                      <input
+                        type="checkbox"
+                        checked={filterPendingCredit}
+                        onChange={(event) => setFilterPendingCredit(event.target.checked)}
+                        className="h-4 w-4 accent-amber-400"
+                      />
+                      <FileText className="h-4 w-4 shrink-0 text-amber-300/90" />
+                      <span className="leading-tight">Facturas de crédito pendientes</span>
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
+                      <input
+                        type="checkbox"
+                        checked={filterNCPending}
+                        onChange={(event) => setFilterNCPending(event.target.checked)}
+                        className="h-4 w-4 accent-cyan-400"
+                      />
+                      <BadgeCheck className="h-4 w-4 shrink-0 text-cyan-300/90" />
+                      <span className="leading-tight">Notas de crédito pendientes</span>
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
+                      <input
+                        type="checkbox"
+                        checked={filterPagada}
+                        onChange={(event) => setFilterPagada(event.target.checked)}
+                        className="h-4 w-4 accent-emerald-400"
+                      />
+                      <CheckCircle className="h-4 w-4 shrink-0 text-emerald-300/90" />
+                      <span className="leading-tight">Pagadas</span>
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
+                      <input
+                        type="checkbox"
+                        checked={filterPartial}
+                        onChange={(event) => setFilterPartial(event.target.checked)}
+                        className="h-4 w-4 accent-amber-400"
+                      />
+                      <Clock className="h-4 w-4 shrink-0 text-amber-300/90" />
+                      <span className="leading-tight">Parciales</span>
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
+                      <input
+                        type="checkbox"
+                        checked={filterRebajadas}
+                        onChange={(event) => setFilterRebajadas(event.target.checked)}
+                        className="h-4 w-4 accent-emerald-400"
+                      />
+                      <BadgeCheck className="h-4 w-4 shrink-0 text-emerald-300/90" />
+                      <span className="leading-tight">Rebajadas</span>
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
+                      <input
+                        type="checkbox"
+                        checked={filterEditedOnly}
+                        onChange={(event) => setFilterEditedOnly(event.target.checked)}
+                        className="h-4 w-4 rounded border-[var(--input-border)] accent-[var(--accent)]"
+                      />
+                      <Pencil className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
+                      <span>Editadas</span>
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterProviderCode("all");
+                  setProviderFilter("");
+                  setProviderDropdownQuery("");
+                  setFilterPaymentType("all");
+                  setTypeFilter("");
+                  setTypeDropdownQuery("");
+                  setDocTypeFilter("all");
+                  setDocTypeFilterLabel("");
+                  setDocTypeDropdownQuery("");
+                  setFilterEditedOnly(false);
+                  setFilterPendingCredit(false);
+                  setFilterNCPending(false);
+                  setFilterPagada(false);
+                  setFilterPartial(false);
+                  setFilterRebajadas(false);
+                  setSearchQuery("");
+                  setFromFilter(null);
+                  setToFilter(null);
+                  setQuickRange(null);
+                  setCalendarFromOpen(false);
+                  setCalendarToOpen(false);
+                  setIsProviderDropdownOpen(false);
+                  setIsTypeDropdownOpen(false);
+                  setIsDocTypeDropdownOpen(false);
+                  setFiltersDropdownOpen(false);
+                  const month = new Date();
+                  month.setDate(1);
+                  month.setHours(0, 0, 0, 0);
+                  setCalendarFromMonth(new Date(month));
+                  setCalendarToMonth(new Date(month));
+                  setPageIndex(0);
+                }}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] px-4 text-sm font-semibold text-[var(--foreground)] transition-colors hover:border-cyan-500/45 hover:bg-cyan-500/8"
+                title="Limpiar"
+              >
+                <RotateCcw className="h-4 w-4" />
+                <span>Limpiar</span>
+              </button>
             </div>
 
-            {/* Buscar */}
-            <div className="relative min-w-0">
-              <input
-                type="search"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar factura, notas..."
-                className="h-11 w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] py-2 pl-3 pr-11 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] hover:border-[var(--accent)]/60 focus-visible:ring-2 focus-visible:ring-[var(--accent)]/60 focus-visible:ring-offset-1"
-                aria-label="Buscar movimientos"
-              />
-              <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded border border-[var(--input-border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)]">
-                <Search className="h-4 w-4" />
-              </span>
-            </div>
-
-            <div className="flex h-11 min-w-0 flex-col justify-center gap-2 rounded border border-cyan-700/35 bg-cyan-950/25 px-3 py-0 text-sm text-[var(--foreground)] sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center justify-between gap-3 sm:w-full">
-                <div className="relative" ref={filtersDropdownRef}>
+            <div className="grid gap-3 xl:grid-cols-[1fr_auto] xl:items-end">
+              <div className="grid gap-3 md:grid-cols-[170px_170px_170px]">
+                <div className="min-w-0">
+                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    Desde
+                  </label>
                   <button
                     type="button"
-                    onClick={() => setFiltersDropdownOpen((prev) => !prev)}
-                    className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-[var(--input-border)] bg-transparent px-3 text-xs font-semibold tracking-wide text-[var(--foreground)] transition-all duration-150 hover:border-[var(--accent)] hover:bg-[var(--muted)]/20 active:scale-[0.98]"
-                    aria-haspopup="menu"
-                    aria-expanded={filtersDropdownOpen}
-                    title="Mostrar facturas en especifico estado o editados"
+                    ref={fromButtonRef}
+                    onClick={() => setCalendarFromOpen((prev) => !prev)}
+                    className="flex h-11 w-full items-center justify-between rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] px-4 text-sm text-[var(--foreground)] transition-colors hover:border-cyan-500/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/20"
                   >
-                    <Eye className="h-3.5 w-3.5" />
-                    <span>Vista</span>
+                    <span className="text-[var(--foreground)]/90">
+                      {fromFilter ? formatKeyToDisplay(fromFilter) : "dd/mm/yyyy"}
+                    </span>
+                    <CalendarDays className="h-4 w-4 text-cyan-300/85" />
                   </button>
-                  {filtersDropdownOpen && (
-                    <div className="absolute left-0 top-full z-[9999] mt-2 w-[220px] rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] shadow-2xl">
-                      <div className="flex flex-col py-1">
-                        <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
-                          <input
-                            type="checkbox"
-                            checked={filterPendingCredit}
-                            onChange={(e) => {
-                              const on = e.target.checked;
-                              setFilterPendingCredit(on);
-                              if (on) {
-                                setFilterNCPending(false);
-                                setFilterPagada(false);
-                                setFilterPartial(false);
-                                setFilterRebajadas(false);
-                                setFilterEditedOnly(false);
-                              }
-                            }}
-                            className="h-4 w-4 accent-amber-400"
-                          />
-                          <FileText className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
-                          <span className="leading-tight">Facturas de crédito pendientes</span>
-                        </label>
-                        <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
-                          <input
-                            type="checkbox"
-                            checked={filterNCPending}
-                            onChange={(e) => {
-                              const on = e.target.checked;
-                              setFilterNCPending(on);
-                              if (on) {
-                                setFilterPendingCredit(false);
-                                setFilterPagada(false);
-                                setFilterPartial(false);
-                                setFilterRebajadas(false);
-                                setFilterEditedOnly(false);
-                              }
-                            }}
-                            className="h-4 w-4 accent-amber-400"
-                          />
-                          <ClipboardList className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
-                          <span className="leading-tight">Notas de crédito pendientes</span>
-                        </label>
-                        <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
-                          <input
-                            type="checkbox"
-                            checked={filterPagada}
-                            onChange={(e) => {
-                              const on = e.target.checked;
-                              setFilterPagada(on);
-                              if (on) {
-                                setFilterPendingCredit(false);
-                                setFilterNCPending(false);
-                                setFilterPartial(false);
-                                setFilterRebajadas(false);
-                                setFilterEditedOnly(false);
-                              }
-                            }}
-                            className="h-4 w-4 accent-amber-400"
-                          />
-                          <BadgeCheck className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
-                          <span className="leading-tight">Pagadas</span>
-                        </label>
-                        <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
-                          <input
-                            type="checkbox"
-                            checked={filterPartial}
-                            onChange={(e) => {
-                              const on = e.target.checked;
-                              setFilterPartial(on);
-                              if (on) {
-                                setFilterPendingCredit(false);
-                                setFilterNCPending(false);
-                                setFilterPagada(false);
-                                setFilterRebajadas(false);
-                                setFilterEditedOnly(false);
-                              }
-                            }}
-                            className="h-4 w-4 accent-amber-400"
-                          />
-                          <Clock className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
-                          <span className="leading-tight">Parciales</span>
-                        </label>
-                        <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
-                          <input
-                            type="checkbox"
-                            checked={filterRebajadas}
-                            onChange={(e) => {
-                              const on = e.target.checked;
-                              setFilterRebajadas(on);
-                              if (on) {
-                                setFilterPendingCredit(false);
-                                setFilterNCPending(false);
-                                setFilterPagada(false);
-                                setFilterPartial(false);
-                                setFilterEditedOnly(false);
-                              }
-                            }}
-                            className="h-4 w-4 accent-amber-400"
-                          />
-                          <CheckCircle className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
-                          <span className="leading-tight">Rebajadas</span>
-                        </label>
-                        <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
-                          <input
-                            type="checkbox"
-                            checked={filterEditedOnly}
-                            onChange={(e) => {
-                              const on = e.target.checked;
-                              setFilterEditedOnly(on);
-                              if (on) {
-                                setFilterPendingCredit(false);
-                                setFilterNCPending(false);
-                                setFilterPagada(false);
-                                setFilterPartial(false);
-                                setFilterRebajadas(false);
-                              }
-                            }}
-                            className="h-4 w-4 rounded border-[var(--input-border)] accent-[var(--accent)]"
-                          />
-                          <Pencil className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
-                          <span>Editados</span>
-                        </label>
-                        <hr className="my-1 border-[var(--input-border)]" />
-                        <label className="flex cursor-pointer items-center gap-3 px-4 py-2 text-sm text-[var(--muted-foreground)] transition-colors hover:bg-[var(--muted)]/20">
-                          <input
-                            type="checkbox"
-                            checked={rememberFilters}
-                            onChange={(e) => {
-                              const on = e.target.checked;
-                              setRememberFilters(on);
-                              if (!on) {
-                                localStorage.removeItem("fg_filters");
-                              }
-                            }}
-                            className="h-4 w-4 accent-amber-400"
-                          />
-                          <Save className="h-4 w-4 shrink-0" />
-                          <span className="text-xs">Recordar ajustes</span>
-                        </label>
-                      </div>
-                    </div>
-                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFilterProviderCode("all");
-                    setFilterPaymentType("all");
-                    setDocTypeFilter("all");
-                    setDocTypeFilterLabel("");
-                    setFilterEditedOnly(false);
-                    setFilterPendingCredit(false);
-                    setFilterNCPending(false);
-                    setFilterPagada(false);
-                    setFilterPartial(false);
-                    setFilterRebajadas(false);
-                    setSearchQuery("");
-                    setFromFilter(null);
-                    setToFilter(null);
-                    setQuickRange(null);
 
-                    setCalendarFromOpen(false);
-                    setCalendarToOpen(false);
-                    const m = new Date();
-                    m.setDate(1);
-                    m.setHours(0, 0, 0, 0);
-                    setCalendarFromMonth(new Date(m));
-                    setCalendarToMonth(new Date(m));
-
-                    setPageIndex(0);
-                  }}
-                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded border border-[var(--input-border)] px-3 text-xs font-semibold uppercase tracking-wide text-[var(--foreground)] transition-all duration-150 hover:border-[var(--accent)] hover:bg-[var(--muted)] active:scale-[0.98]"
-                  title="Limpiar filtros"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  <span>Limpiar</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 border-t border-[var(--input-border)] pt-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
-            <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(150px,180px)_minmax(150px,180px)_minmax(150px,170px)] lg:items-end">
-              <div className="relative min-w-0">
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-                  Desde
-                </label>
-                <button
-                  type="button"
-                  ref={fromButtonRef}
-                  onClick={() => setCalendarFromOpen((prev) => !prev)}
-                  className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)] [&_[aria-disabled='true']]:opacity-25"
-                  title="Seleccionar fecha desde"
-                  aria-label="Seleccionar fecha desde"
-                >
-                  <span className="truncate text-sm font-medium">
-                    {fromFilter ? formatKeyToDisplay(fromFilter) : "dd/mm/yyyy"}
-                  </span>
-                  <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded border border-[var(--input-border)] bg-[var(--muted)]/20 text-[var(--muted-foreground)]">
-                    <CalendarDays className="h-4 w-4" />
-                  </span>
-                </button>
-
-                {calendarFromOpen && (
-                  <div
-                    ref={fromCalendarRef}
-                    className="absolute left-0 top-full mt-1 sm:mt-2 z-50 w-full min-w-[280px] sm:w-72"
-                    onClick={(e) => e.stopPropagation()}
+                <div className="min-w-0">
+                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    Hasta
+                  </label>
+                  <button
+                    type="button"
+                    ref={toButtonRef}
+                    onClick={() => setCalendarToOpen((prev) => !prev)}
+                    className="flex h-11 w-full items-center justify-between rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] px-4 text-sm text-[var(--foreground)] transition-colors hover:border-cyan-500/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/20"
                   >
-                    <div className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-2 sm:p-3 text-[var(--foreground)] shadow-lg">
-                      <div className="mb-2 flex items-center justify-between">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const m = new Date(calendarFromMonth);
-                            m.setMonth(m.getMonth() - 1);
-                            setCalendarFromMonth(new Date(m));
-                          }}
-                          className="p-1 rounded hover:bg-[var(--muted)]"
-                        >
-                          <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <div className="text-sm font-semibold capitalize">
-                          {calendarFromMonth.toLocaleString("es-CR", {
-                            month: "long",
-                            year: "numeric",
-                          })}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const m = new Date(calendarFromMonth);
-                            m.setMonth(m.getMonth() + 1);
-                            setCalendarFromMonth(new Date(m));
-                          }}
-                          className="p-1 rounded hover:bg-[var(--muted)]"
-                        >
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
+                    <span className="text-[var(--foreground)]/90">
+                      {toFilter ? formatKeyToDisplay(toFilter) : "dd/mm/yyyy"}
+                    </span>
+                    <CalendarDays className="h-4 w-4 text-cyan-300/85" />
+                  </button>
+                </div>
 
-                      <div className="grid grid-cols-7 gap-1 text-center text-xs text-[var(--muted-foreground)]">
-                        {["D", "L", "M", "M", "J", "V", "S"].map((d, i) => (
-                          <div key={`${d}-${i}`} className="py-1">
-                            {d}
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="mt-2 grid grid-cols-7 gap-1 text-sm">
-                        {(() => {
-                          const cells: React.ReactNode[] = [];
-                          const year = calendarFromMonth.getFullYear();
-                          const month = calendarFromMonth.getMonth();
-                          const first = new Date(year, month, 1);
-                          const start = first.getDay();
-                          const daysInMonth = new Date(
-                            year,
-                            month + 1,
-                            0,
-                          ).getDate();
-
-                          for (let i = 0; i < start; i++)
-                            cells.push(<div key={`pad-f-${i}`} />);
-
-                          for (let day = 1; day <= daysInMonth; day++) {
-                            const d = new Date(year, month, day);
-                            const key = dateKeyFromDate(d);
-                            const enabled = key <= todayKey;
-                            const isSelected = fromFilter === key;
-                            if (enabled) {
-                              cells.push(
-                                <button
-                                  key={key}
-                                  type="button"
-                                  onClick={() => {
-                                    setQuickRange(null);
-                                    setFromFilter(key);
-                                    setCalendarFromOpen(false);
-                                    setPageIndex(0);
-                                  }}
-                                  className={`py-1 rounded ${
-                                    isSelected
-                                      ? "bg-[var(--accent)] text-white"
-                                      : "hover:bg-[var(--muted)]"
-                                  }`}
-                                >
-                                  {day}
-                                </button>,
-                              );
-                            } else {
-                              cells.push(
-                                <div
-                                  key={key}
-                                  className="py-1 text-[var(--muted-foreground)] opacity-60"
-                                >
-                                  {day}
-                                </div>,
-                              );
-                            }
-                          }
-                          return cells;
-                        })()}
-                      </div>
-
-                      <div className="mt-3 flex justify-between">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const todayKey = dateKeyFromDate(new Date());
-                            setQuickRange(null);
-                            setFromFilter(todayKey);
-                            setCalendarFromOpen(false);
-                          }}
-                          className="px-2 py-1 rounded border border-[var(--input-border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
-                        >
-                          Limpiar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setCalendarFromOpen(false)}
-                          className="px-2 py-1 rounded border border-[var(--input-border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
-                        >
-                          Cerrar
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="relative min-w-0">
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-                  Hasta
-                </label>
-                <button
-                  type="button"
-                  ref={toButtonRef}
-                  onClick={() => setCalendarToOpen((prev) => !prev)}
-                  className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
-                  title="Seleccionar fecha hasta"
-                  aria-label="Seleccionar fecha hasta"
-                >
-                  <span className="truncate text-sm font-medium">
-                    {toFilter ? formatKeyToDisplay(toFilter) : "dd/mm/yyyy"}
-                  </span>
-                  <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded border border-[var(--input-border)] bg-[var(--muted)]/20 text-[var(--muted-foreground)]">
-                    <CalendarDays className="h-4 w-4" />
-                  </span>
-                </button>
-
-                {calendarToOpen && (
-                  <div
-                    ref={toCalendarRef}
-                    className="absolute left-0 top-full mt-2 z-50 w-full sm:w-64"
-                    onClick={(e) => e.stopPropagation()}
+                <div className="min-w-0">
+                  <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    Filtro
+                  </label>
+                  <select
+                    className="h-11 w-full rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] px-4 text-sm text-[var(--foreground)] outline-none transition-colors hover:border-cyan-500/45 focus:border-cyan-500/45"
+                    value={quickRange || ""}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setQuickRange(v || null);
+                      const now = new Date();
+                      let from: Date | null = null;
+                      let to: Date | null = null;
+                      if (v === "today") {
+                        const t = new Date(now);
+                        from = to = t;
+                      } else if (v === "yesterday") {
+                        const y = new Date(now);
+                        y.setDate(now.getDate() - 1);
+                        from = to = y;
+                      } else if (v === "thisweek") {
+                        const day = now.getDay();
+                        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+                        from = new Date(now.setDate(diff));
+                        to = new Date();
+                      } else if (v === "lastweek") {
+                        const day = now.getDay();
+                        const diff = now.getDate() - day + (day === 0 ? -6 : 1) - 7;
+                        from = new Date(now.getFullYear(), now.getMonth(), diff);
+                        to = new Date(now.getFullYear(), now.getMonth(), diff + 6);
+                      } else if (v === "lastmonth") {
+                        from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                        to = new Date(now.getFullYear(), now.getMonth(), 0);
+                      } else if (v === "month") {
+                        from = new Date(now.getFullYear(), now.getMonth(), 1);
+                        to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                      } else if (v === "last30") {
+                        const last = new Date();
+                        const first = new Date();
+                        first.setDate(last.getDate() - 29);
+                        from = first;
+                        to = last;
+                      }
+                      if (from && to) {
+                        setFromFilter(dateKeyFromDate(from));
+                        setToFilter(dateKeyFromDate(to));
+                        setPageIndex(0);
+                      }
+                    }}
                   >
-                    <div className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-3 text-[var(--foreground)] shadow-lg">
-                      <div className="mb-2 flex items-center justify-between">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const m = new Date(calendarToMonth);
-                            m.setMonth(m.getMonth() - 1);
-                            setCalendarToMonth(new Date(m));
-                          }}
-                          className="p-1 rounded hover:bg-[var(--muted)]"
-                        >
-                          <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <div className="text-sm font-semibold capitalize">
-                          {calendarToMonth.toLocaleString("es-CR", {
-                            month: "long",
-                            year: "numeric",
-                          })}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const m = new Date(calendarToMonth);
-                            m.setMonth(m.getMonth() + 1);
-                            setCalendarToMonth(new Date(m));
-                          }}
-                          className="p-1 rounded hover:bg-[var(--muted)]"
-                        >
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-7 gap-1 text-center text-xs text-[var(--muted-foreground)]">
-                        {["D", "L", "M", "M", "J", "V", "S"].map((d, i) => (
-                          <div key={`${d}-${i}`} className="py-1">
-                            {d}
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="mt-2 grid grid-cols-7 gap-1 text-sm">
-                        {(() => {
-                          const cells: React.ReactNode[] = [];
-                          const year = calendarToMonth.getFullYear();
-                          const month = calendarToMonth.getMonth();
-                          const first = new Date(year, month, 1);
-                          const start = first.getDay();
-                          const daysInMonth = new Date(
-                            year,
-                            month + 1,
-                            0,
-                          ).getDate();
-
-                          for (let i = 0; i < start; i++)
-                            cells.push(<div key={`pad-t-${i}`} />);
-
-                          for (let day = 1; day <= daysInMonth; day++) {
-                            const d = new Date(year, month, day);
-                            const key = dateKeyFromDate(d);
-                            const enabled = key <= todayKey;
-                            const isSelected = toFilter === key;
-                            if (enabled) {
-                              cells.push(
-                                <button
-                                  key={key}
-                                  type="button"
-                                  onClick={() => {
-                                    setQuickRange(null);
-                                    setToFilter(key);
-                                    setCalendarToOpen(false);
-                                    setPageIndex(0);
-                                  }}
-                                  className={`py-1 rounded ${
-                                    isSelected
-                                      ? "bg-[var(--accent)] text-white"
-                                      : "hover:bg-[var(--muted)]"
-                                  }`}
-                                >
-                                  {day}
-                                </button>,
-                              );
-                            } else {
-                              cells.push(
-                                <div
-                                  key={key}
-                                  className="py-1 text-[var(--muted-foreground)] opacity-60"
-                                >
-                                  {day}
-                                </div>,
-                              );
-                            }
-                          }
-                          return cells;
-                        })()}
-                      </div>
-
-                      <div className="mt-3 flex justify-between">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const todayKey = dateKeyFromDate(new Date());
-                            setQuickRange(null);
-                            setToFilter(todayKey);
-                            setCalendarToOpen(false);
-                          }}
-                          className="px-2 py-1 rounded border border-[var(--input-border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
-                        >
-                          Limpiar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setCalendarToOpen(false)}
-                          className="px-2 py-1 rounded border border-[var(--input-border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
-                        >
-                          Cerrar
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                    <option value="">Filtro de fecha</option>
+                    <option value="today">Hoy</option>
+                    <option value="yesterday">Ayer</option>
+                    <option value="thisweek">Esta semana</option>
+                    <option value="lastweek">Semana anterior</option>
+                    <option value="lastmonth">Mes anterior</option>
+                    <option value="last30">Últimos 30 días</option>
+                    <option value="month">Mes actual</option>
+                  </select>
+                </div>
               </div>
 
-              <div className="min-w-0">
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-                  Filtro
-                </label>
-                <select
-                  className="h-11 w-full min-w-0 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm font-medium text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/60 focus-visible:ring-2 focus-visible:ring-[var(--accent)]/60 focus-visible:ring-offset-1"
-                  value={quickRange || ""}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setQuickRange(v || null);
-                    const now = new Date();
-                    let from: Date | null = null;
-                    let to: Date | null = null;
-                    if (v === "today") {
-                      const t = new Date(now);
-                      from = to = t;
-                    } else if (v === "yesterday") {
-                      const y = new Date(now);
-                      y.setDate(now.getDate() - 1);
-                      from = to = y;
-                    } else if (v === "thisweek") {
-                      const day = now.getDay();
-                      const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Lunes
-                      from = new Date(now.setDate(diff));
-                      to = new Date();
-                    } else if (v === "lastweek") {
-                      const day = now.getDay();
-                      const diff =
-                        now.getDate() - day + (day === 0 ? -6 : 1) - 7;
-                      from = new Date(now.getFullYear(), now.getMonth(), diff);
-                      to = new Date(
-                        now.getFullYear(),
-                        now.getMonth(),
-                        diff + 6,
-                      );
-                    } else if (v === "lastmonth") {
-                      const first = new Date(
-                        now.getFullYear(),
-                        now.getMonth() - 1,
-                        1,
-                      );
-                      const last = new Date(
-                        now.getFullYear(),
-                        now.getMonth(),
-                        0,
-                      );
-                      from = first;
-                      to = last;
-                    } else if (v === "month") {
-                      const first = new Date(
-                        now.getFullYear(),
-                        now.getMonth(),
-                        1,
-                      );
-                      const last = new Date(
-                        now.getFullYear(),
-                        now.getMonth() + 1,
-                        0,
-                      );
-                      from = first;
-                      to = last;
-                    } else if (v === "last30") {
-                      const last = new Date();
-                      const first = new Date();
-                      first.setDate(last.getDate() - 29);
-                      from = first;
-                      to = last;
-                    }
-                    if (from && to) {
-                      setFromFilter(dateKeyFromDate(from));
-                      setToFilter(dateKeyFromDate(to));
-                      setPageIndex(0);
-                    }
-                  }}
-                >
-                  <option value="">Filtro de fecha</option>
-                  <option value="today">Hoy</option>
-                  <option value="yesterday">Ayer</option>
-                  <option value="thisweek">Esta semana</option>
-                  <option value="lastweek">Semana anterior</option>
-                  <option value="lastmonth">Mes anterior</option>
-                  <option value="last30">Últimos 30 días</option>
-                  <option value="month">Mes actual</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-end xl:w-auto xl:min-w-[348px]">
-              {/* Bloque empresa actual + select */}
-              <div className="flex w-full min-w-0 flex-col gap-1.5 text-sm text-[var(--foreground)] sm:flex-row sm:items-end sm:gap-4">
-                {/* Label empresa actual */}
-                <div className="min-w-0 sm:flex-1">
-                  <p className="text-[11px] uppercase tracking-wide text-[var(--muted-foreground)]">
-                    {user?.role === "user"
-                      ? "Empresa asignada"
-                      : "Empresa actual"}
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+                <div className="min-w-0 flex-1 rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)]/75 px-3 py-2.5 sm:px-4 sm:py-3">
+                  <p className="text-center text-[11px] uppercase tracking-[0.18em] text-slate-400 lg:text-left">
+                    {user?.role === "user" ? "Empresa asignada" : "Empresa actual"}
                   </p>
-                  <p
-                    className="truncate text-sm font-semibold text-[var(--foreground)]"
-                    title={currentCompanyLabel}
-                  >
+                  <p className="break-words text-center text-sm font-semibold leading-tight text-[var(--foreground)] lg:text-left" title={currentCompanyLabel}>
                     {currentCompanyLabel}
                   </p>
                   {availableCompaniesError && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {availableCompaniesError}
-                    </p>
+                    <p className="mt-1 text-center text-xs text-red-300 lg:text-left">{availableCompaniesError}</p>
                   )}
-                </div>
-
-                {user?.role !== "user" && (
-                  <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  {user?.role !== "user" && (
                     <select
                       id={companySelectId}
                       value={selectedCompany}
                       onChange={(e) => handleAdminCompanyChange(e.target.value)}
-                      disabled={
-                        availableCompaniesLoading ||
-                        sortedOwnerCompanies.length === 0
-                      }
-                      className="w-full min-w-0 max-w-full truncate rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/60 focus:border-[var(--accent)]"
+                      disabled={availableCompaniesLoading || sortedOwnerCompanies.length === 0}
+                      className="mt-2 h-10 w-full rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/45 focus:border-[var(--accent)]/45 disabled:cursor-not-allowed disabled:opacity-70 sm:mt-3 sm:h-11 sm:px-4"
                     >
-                      {availableCompaniesLoading && (
-                        <option value="">Cargando empresas...</option>
+                      {availableCompaniesLoading && <option value="">Cargando empresas...</option>}
+                      {!availableCompaniesLoading && sortedOwnerCompanies.length === 0 && (
+                        <option value="">Sin empresas disponibles</option>
                       )}
-                      {!availableCompaniesLoading &&
-                        sortedOwnerCompanies.length === 0 && (
-                          <option value="">Sin empresas disponibles</option>
-                        )}
-                      {!availableCompaniesLoading &&
-                        sortedOwnerCompanies.length > 0 && (
-                          <>
-                            <option value="" disabled hidden>
-                              Selecciona una empresa
+                      {!availableCompaniesLoading && sortedOwnerCompanies.length > 0 && (
+                        <>
+                          <option value="" disabled hidden>
+                            Selecciona una empresa
+                          </option>
+                          {sortedOwnerCompanies.map((emp, index) => (
+                            <option
+                              key={emp.id || emp.name || emp.ubicacion || `company-${index}`}
+                              value={getCompanyKey(emp)}
+                            >
+                              {getCompanyLabel(emp)}
                             </option>
-                            {sortedOwnerCompanies.map((emp, index) => (
-                              <option
-                                key={
-                                  emp.id ||
-                                  emp.name ||
-                                  emp.ubicacion ||
-                                  `company-${index}`
-                                }
-                                value={getCompanyKey(emp)}
-                              >
-                                {getCompanyLabel(emp)}
-                              </option>
-                            ))}
-                          </>
-                        )}
+                          ))}
+                        </>
+                      )}
                     </select>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
 
-              {/* Botón agregar */}
-              <div className="relative group min-w-0 sm:flex-shrink-0">
                 <button
                   type="button"
                   onClick={handleOpenCreateMovement}
-                  className="flex h-11 w-full items-center justify-center gap-2 rounded border border-[var(--accent)] bg-[var(--accent)] px-3 text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:bg-[var(--accent-hover)] hover:border-[var(--accent-hover)] hover:shadow-md hover:shadow-sky-950/25 active:translate-y-0 active:scale-[0.99] sm:w-auto sm:px-5"
+                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/35 bg-gradient-to-r from-cyan-600 to-sky-700 px-5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(8,145,178,0.28)] transition-transform hover:translate-y-[-1px] hover:from-cyan-500 hover:to-sky-600 lg:w-auto lg:shrink-0"
                 >
-                  <Plus className="h-4 w-4 flex-shrink-0" />
-                  <span className="truncate">Agregar FC/NC</span>
+                  <Plus className="h-4 w-4" />
+                  <span>Agregar FC/NC</span>
                 </button>
               </div>
             </div>
           </div>
         </section>
 
-        {selectedProviderPendingAlert && (
-          <section className="rounded-lg border border-amber-500/35 bg-amber-500/10 p-3 text-amber-50">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <div className="inline-flex items-center gap-2 text-sm font-semibold">
-                  <Clock className="h-4 w-4" />
-                  Proveedores con pagos pendientes
-                </div>
-                <p className="mt-1 text-xs text-amber-100/80">
-                  Hay facturas a crédito con saldo abierto. Registra los abonos desde esta sección para que queden enlazados al Fondo General.
-                </p>
-              </div>
-              <span className="rounded border border-amber-300/35 bg-amber-400/10 px-2.5 py-1 text-xs font-semibold">
-                {selectedProviderPendingAlert.count} factura
-                {selectedProviderPendingAlert.count === 1 ? "" : "s"}
+        <section className="overflow-hidden rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)]/82 shadow-[0_18px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+          <div className="flex flex-col gap-4 border-b border-[var(--input-border)] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div>
+              <h2 className="text-2xl font-semibold tracking-tight text-[var(--foreground)]">
+                Facturas ({filteredMovements.length})
+              </h2>
+              <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+                Mostrando {pageRange.from}-{pageRange.to} de {filteredMovements.length}
+              </p>
+            </div>
+              <div className="flex items-center gap-2 text-sm text-[var(--foreground)]">
+              <span className="rounded-full border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-1.5 text-xs font-semibold tracking-wide text-[var(--foreground)]/90">
+                {movementsLoading ? "Cargando..." : currentCompanyLabel}
               </span>
-            </div>
-            <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-              {[selectedProviderPendingAlert].map((item) => {
-                const balances = [
-                  item.crc > 0 ? formatAlertAmount("CRC", item.crc) : "",
-                  item.usd > 0 ? formatAlertAmount("USD", item.usd) : "",
-                ].filter(Boolean);
-                return (
-                  <div
-                    key={item.providerCode}
-                    className="rounded border border-amber-400/25 bg-black/10 px-3 py-2"
-                  >
-                    <div className="truncate text-sm font-semibold">
-                      {item.providerName}
-                    </div>
-                    <div className="mt-1 text-xs text-amber-100/80">
-                      {item.count} factura{item.count === 1 ? "" : "s"} sin saldar
-                    </div>
-                    <div className="mt-1 text-xs font-semibold">
-                      {balances.join(" / ")}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
-        <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/70">
-          <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--input-border)]">
-            <div className="text-sm font-semibold text-[var(--foreground)]">
-              Facturas ({filteredMovements.length})
-            </div>
-            <div className="text-xs text-[var(--muted-foreground)]">
-              {movementsLoading ? "Cargando..." : currentCompanyLabel}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2 border-b border-[var(--input-border)] px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-xs text-[var(--muted-foreground)]">
-              Mostrando {pageRange.from}-{pageRange.to} de {filteredMovements.length}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <select
-                value={isDailyView ? "daily" : String(effectiveRowsPerPage)}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v === "daily") {
-                    setRowsPerPage("daily");
-                    setCurrentDailyKey(dateKeyFromDate(new Date()));
-                  } else {
-                    setRowsPerPage(Number(v));
-                  }
-                  setPageIndex(0);
-                }}
-                className="h-9 rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-2 text-xs text-[var(--foreground)]"
-                aria-label="Filas por pagina"
-              >
-                <option value="daily" disabled={hasDateRangeFilter}>
-                  Diariamente
-                </option>
-                {[5, 10, 20].map((size) => (
-                  <option key={size} value={size}>
-                    {size} por pagina
+              <div className="flex items-center gap-2 rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] px-2 py-1.5">
+                <select
+                  value={isDailyView ? "daily" : String(effectiveRowsPerPage)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === "daily") {
+                      setRowsPerPage("daily");
+                      setCurrentDailyKey(dateKeyFromDate(new Date()));
+                    } else {
+                      setRowsPerPage(Number(v));
+                    }
+                    setPageIndex(0);
+                  }}
+                  className="h-8 rounded-lg border border-[var(--input-border)] bg-transparent px-2 text-xs text-[var(--foreground)] outline-none"
+                  aria-label="Filas por pagina"
+                >
+                  <option value="daily" disabled={hasDateRangeFilter}>
+                    Diariamente
                   </option>
-                ))}
-              </select>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isDailyView) {
-                      setCurrentDailyKey((prev) => {
-                        if (prev <= "1970-01-01") return "1970-01-01";
-                        const d = new Date(prev + "T12:00:00");
-                        d.setDate(d.getDate() - 1);
-                        return dateKeyFromDate(d);
-                      });
-                    } else {
-                      setPageIndex((prev) => Math.max(0, prev - 1));
-                    }
-                  }}
-                  disabled={
-                    isDailyView
-                      ? currentDailyKey <= "1970-01-01"
-                      : pageIndex === 0
-                  }
-                  className="inline-flex h-9 items-center justify-center rounded border border-[var(--input-border)] px-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <span className="min-w-[64px] text-center text-xs text-[var(--muted-foreground)]">
-                  {isDailyView
-                    ? formatKeyToDisplay(currentDailyKey)
-                    : `${pageIndex + 1} / ${totalPages}`}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isDailyView) {
-                      setCurrentDailyKey((prev) => {
-                        if (prev >= todayKey) return todayKey;
-                        const d = new Date(prev + "T12:00:00");
-                        d.setDate(d.getDate() + 1);
-                        const next = dateKeyFromDate(d);
-                        return next > todayKey ? todayKey : next;
-                      });
-                    } else {
-                      setPageIndex((prev) => Math.min(totalPages - 1, prev + 1));
-                    }
-                  }}
-                  disabled={
-                    isDailyView
-                      ? currentDailyKey >= todayKey
-                      : pageIndex >= totalPages - 1
-                  }
-                  className="inline-flex h-9 items-center justify-center rounded border border-[var(--input-border)] px-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
+                  {[5, 10, 20].map((size) => (
+                    <option key={size} value={size}>
+                      {size} por pagina
+                    </option>
+                  ))}
+                </select>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isDailyView) {
+                        setCurrentDailyKey((prev) => {
+                          if (prev <= "1970-01-01") return "1970-01-01";
+                          const d = new Date(prev + "T12:00:00");
+                          d.setDate(d.getDate() - 1);
+                          return dateKeyFromDate(d);
+                        });
+                      } else {
+                        setPageIndex((prev) => Math.max(0, prev - 1));
+                      }
+                    }}
+                    disabled={isDailyView ? currentDailyKey <= "1970-01-01" : pageIndex === 0}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--input-border)] text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/45 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <span className="min-w-[96px] text-center text-xs text-[var(--muted-foreground)]">
+                    {isDailyView ? formatKeyToDisplay(currentDailyKey) : `${pageIndex + 1} / ${totalPages}`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isDailyView) {
+                        setCurrentDailyKey((prev) => {
+                          if (prev >= todayKey) return todayKey;
+                          const d = new Date(prev + "T12:00:00");
+                          d.setDate(d.getDate() + 1);
+                          const next = dateKeyFromDate(d);
+                          return next > todayKey ? todayKey : next;
+                        });
+                      } else {
+                        setPageIndex((prev) => Math.min(totalPages - 1, prev + 1));
+                      }
+                    }}
+                    disabled={isDailyView ? currentDailyKey >= todayKey : pageIndex >= totalPages - 1}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--input-border)] text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/45 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px] border-separate border-spacing-0 text-sm">
-              <colgroup>
-                <col style={{ width: columnWidths.fecha }} />
-                <col style={{ width: columnWidths.proveedor }} />
-                <col style={{ width: columnWidths.factura }} />
-                <col style={{ width: columnWidths.tipo }} />
-                <col style={{ width: columnWidths.monto }} />
-                <col style={{ width: columnWidths.estado }} />
-                <col style={{ width: columnWidths.accion }} />
-              </colgroup>
-                <thead className="text-xs uppercase text-[var(--muted-foreground)]">
-                  <tr className="[&>th]:border-b [&>th]:border-[var(--input-border)]">
-                  <th className="px-3 py-2 text-left font-semibold">
-                    <div className="relative pr-2">
-                      <div>Fecha</div>
-                      <div
-                        onMouseDown={(e) => startResizing(e, "fecha")}
-                        className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                        style={{ touchAction: "none" }}
-                      >
-                        <div style={{ width: 2, height: "70%", background: "rgba(0,0,0,0.06)", borderRadius: 3 }} />
-                      </div>
-                    </div>
-                  </th>
-                  <th className="px-3 py-2 text-left font-semibold">
-                    <div className="relative pr-2">
-                      <div>Proveedor</div>
-                      <div
-                        onMouseDown={(e) => startResizing(e, "proveedor")}
-                        className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                        style={{ touchAction: "none" }}
-                      >
-                        <div style={{ width: 2, height: "70%", background: "rgba(0,0,0,0.06)", borderRadius: 3 }} />
-                      </div>
-                    </div>
-                  </th>
-                  <th className="px-3 py-2 text-left font-semibold">
-                    <div className="relative pr-2">
-                      <div>N° Factura</div>
-                      <div
-                        onMouseDown={(e) => startResizing(e, "factura")}
-                        className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                        style={{ touchAction: "none" }}
-                      >
-                        <div style={{ width: 2, height: "70%", background: "rgba(0,0,0,0.06)", borderRadius: 3 }} />
-                      </div>
-                    </div>
-                  </th>
-                  <th className="px-3 py-2 text-left font-semibold max-sm:hidden">
-                    <div className="relative pr-2">
-                      <div>Tipo Pago</div>
-                      <div
-                        onMouseDown={(e) => startResizing(e, "tipo")}
-                        className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                        style={{ touchAction: "none" }}
-                      >
-                        <div style={{ width: 2, height: "70%", background: "rgba(0,0,0,0.06)", borderRadius: 3 }} />
-                      </div>
-                    </div>
-                  </th>
-                  <th className="px-3 py-2 text-right font-semibold">
-                    <div className="relative pr-2">
-                      <div>Monto</div>
-                      <div
-                        onMouseDown={(e) => startResizing(e, "monto")}
-                        className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                        style={{ touchAction: "none" }}
-                      >
-                        <div style={{ width: 2, height: "70%", background: "rgba(0,0,0,0.06)", borderRadius: 3 }} />
-                      </div>
-                    </div>
-                  </th>
-                  <th className="px-3 py-2 text-left font-semibold">
-                    <div className="relative pr-2">
-                      <div>Estado</div>
-                      <div
-                        onMouseDown={(e) => startResizing(e, "estado")}
-                        className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                        style={{ touchAction: "none" }}
-                      >
-                        <div style={{ width: 2, height: "70%", background: "rgba(0,0,0,0.06)", borderRadius: 3 }} />
-                      </div>
-                    </div>
-                  </th>
-                  <th className="px-3 py-2 text-left font-semibold">
-                    <div className="relative pr-2">
-                      <div>Acción</div>
-                      <div
-                        onMouseDown={(e) => startResizing(e, "accion")}
-                        className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                        style={{ touchAction: "none" }}
-                      >
-                        <div style={{ width: 2, height: "70%", background: "rgba(0,0,0,0.06)", borderRadius: 3 }} />
-                      </div>
-                    </div>
-                  </th>
+            <table className="w-full min-w-[1120px] border-separate border-spacing-0 text-sm">
+              <thead>
+                <tr className="text-left text-[11px] uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
+                  <th className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">Fecha</th>
+                  <th className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">Proveedor</th>
+                  <th className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">N° Factura</th>
+                  <th className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">Tipo pago</th>
+                  <th className="border-b border-[var(--input-border)] px-4 py-3 text-right font-semibold">Monto</th>
+                  <th className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">Estado</th>
+                  <th className="border-b border-[var(--input-border)] px-4 py-3 text-right font-semibold">Acción</th>
                 </tr>
               </thead>
               <tbody>
-                {/* CAMBIAR ACA SI SE QUIERE VER SALDO NEGATIVO */}
-                {pagedMovements.map((m) => {
-                  const amount = Math.abs(Number(m.amount) || 0);
+                {pagedMovements.map((movement) => {
+                  const amount = Math.abs(Number(movement.amount) || 0);
                   const signedAmount =
-                    String(m.invoiceDocType || "").trim().toUpperCase() ===
-                    "NC"
+                    String(movement.invoiceDocType || "").trim().toUpperCase() === "NC"
                       ? -amount
                       : amount;
                   const amountLabel = signedAmount.toLocaleString("es-CR", {
                     style: "currency",
-                    currency: m.currency,
+                    currency: movement.currency,
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 0,
                   });
-                  const paymentStatus = resolveFacturaStatus(m);
-                  const paymentStatusLabel = resolveFacturaStatusLabel(m);
-                  const paymentBalance = resolveFacturaBalance(m);
+                  const paymentStatus = resolveFacturaStatus(movement);
+                  const paymentStatusLabel = resolveFacturaStatusLabel(movement);
+                  const paymentBalance = resolveFacturaBalance(movement);
                   const isPaid = paymentBalance === 0;
+                  const providerName = providerNameByCode.get(movement.providerCode) || movement.providerCode;
+                  const dateParts = formatMovementDateTime(movement.createdAt);
+
                   return (
                     <tr
-                      key={m.id}
-                      className="[&>td]:border-b [&>td]:border-[var(--input-border)] hover:bg-[var(--muted)]/10"
+                      key={movement.id}
+                      className="transition-colors hover:bg-[var(--muted)]/15 [&>td]:border-b [&>td]:border-[var(--input-border)]/60"
                     >
-                      <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                        {(() => {
-                          try {
-                            const d = new Date(String(m.createdAt || ""));
-                            if (Number.isNaN(d.getTime())) {
-                              return <div>{formatKeyToDisplay(dateKeyFromIso(m.createdAt))}</div>;
-                            }
-                            const localDateTimeFormatter = new Intl.DateTimeFormat("es-CR", {
-                              dateStyle: "short",
-                              timeStyle: "short",
-                            });
-                            const formatted = localDateTimeFormatter.format(d);
-                            const parts = String(formatted).split(",");
-                            return (
-                              <div className="flex flex-col">
-                                <span className="font-medium text-[var(--foreground)]">{parts[0]?.trim()}{parts.length>1?",":""}</span>
-                                {parts[1] && (
-                                  <span className="text-xs text-[var(--muted-foreground)]">{parts.slice(1).join(",").trim()}</span>
-                                )}
-                              </div>
-                            );
-                          } catch {
-                            return <div>{formatKeyToDisplay(dateKeyFromIso(m.createdAt))}</div>;
-                          }
-                        })()}
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="truncate max-w-[280px]">
-                          {providerNameByCode.get(m.providerCode) ||
-                            m.providerCode}
-                        </div>
-                        <div className="text-xs text-[var(--muted-foreground)]">
-                          {m.notes || m.providerCode}
+                      <td className="px-4 py-4 align-top">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--input-border)] bg-[var(--muted)]/20 text-[var(--foreground)]/90">
+                            <CalendarDays className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-[var(--foreground)]">{dateParts.date}</div>
+                            <div className="text-xs text-[var(--muted-foreground)]">{dateParts.time}</div>
+                          </div>
                         </div>
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        {m.invoiceNumber}
+                      <td className="px-4 py-4 align-top">
+                        <div className="flex items-center gap-3">
+                          <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-sm font-semibold shadow-sm ${providerTone(providerName)}`}>
+                            {providerInitials(providerName)}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-medium text-[var(--foreground)]">
+                              {providerName}
+                            </div>
+                            <div className="truncate text-xs text-[var(--muted-foreground)]">
+                              {movement.providerCode}
+                            </div>
+                          </div>
+                        </div>
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap max-sm:hidden">
-                        {formatMovementType(m.paymentType)}
+                      <td className="px-4 py-4 align-top text-sm text-[var(--foreground)]">{movement.invoiceNumber}</td>
+                      <td className="px-4 py-4 align-top text-sm text-[var(--foreground)]">
+                        <span className="inline-flex items-center gap-2 rounded-full border border-[var(--input-border)] bg-[var(--muted)]/18 px-3 py-1.5 font-medium">
+                          <ShoppingCart className="h-3.5 w-3.5 text-cyan-300/90" />
+                          {formatMovementType(movement.paymentType)}
+                        </span>
                       </td>
-                      <td className="px-3 py-2 text-right whitespace-nowrap text-xs tabular-nums">
-                        {amountLabel} {m.currency}
+                      <td className="px-4 py-4 align-top text-right text-sm font-semibold tabular-nums text-[var(--foreground)]">
+                        {amountLabel} {movement.currency}
                       </td>
-                      <td className="px-3 py-2 align-top">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-full border border-slate-500/40 bg-slate-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-slate-200">
-                            {formatInvoiceDocTypeLabel(m.invoiceDocType)}
+                      <td className="px-4 py-4 align-top">
+                        <div className="flex flex-col gap-2">
+                          <span className="inline-flex w-fit items-center rounded-full border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-1 text-xs font-medium text-[var(--foreground)]">
+                            {formatInvoiceDocTypeLabel(movement.invoiceDocType)}
                           </span>
-                          <span
-                            className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
-                              paymentStatus === "PAGADA"
-                                ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-100"
-                                : paymentStatus === "PARCIAL"
-                                  ? "border-amber-500/40 bg-amber-500/15 text-amber-100"
-                                  : "border-slate-500/40 bg-slate-500/10 text-slate-200"
-                            }`}
-                          >
-                            <span className="inline-flex items-center gap-1">
-                              {paymentStatus === "PAGADA" && (
-                                <CheckCircle className="h-3 w-3 text-emerald-300" />
-                              )}
-                              <span>{paymentStatusLabel}</span>
-                            </span>
+                          <span className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(paymentStatus)}`}>
+                            {paymentStatus === "PAGADA" && <CheckCircle className="h-3.5 w-3.5" />}
+                            <span>{paymentStatusLabel}</span>
                           </span>
-                        </div>
-                        {m.invoiceDocType === "FCR" && paymentBalance > 0 && (
-                          <div className="mt-1 flex flex-wrap items-center gap-2">
-                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-amber-100">
-                              <Clock className="h-3 w-3" />
-                              Saldo:{" "}
-                              {paymentBalance.toLocaleString("es-CR", {
+                          {movement.invoiceDocType === "FCR" && paymentBalance > 0 && (
+                            <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-1 text-xs font-semibold text-[var(--foreground)]">
+                              <Clock className="h-3.5 w-3.5" />
+                              Saldo: {paymentBalance.toLocaleString("es-CR", {
                                 style: "currency",
-                                currency: m.currency,
+                                currency: movement.currency,
                                 minimumFractionDigits: 0,
                                 maximumFractionDigits: 0,
                               })}
                             </span>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        {m.invoiceDocType === "FCR" && !isPaid ? (
+                      <td className="border-b border-[var(--input-border)]/60 px-4 py-4 align-top text-right">
+                        {movement.invoiceDocType === "FCR" && !isPaid ? (
                           <button
                             type="button"
-                            onClick={() => openPaymentModal(m)}
-                            disabled={isPaid || pendingCierreDeCaja}
-                            className={`inline-flex items-center gap-1 rounded border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                              isPaid || pendingCierreDeCaja
-                                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-100 cursor-not-allowed"
-                                : "border-amber-500/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20"
-                            }`}
+                            onClick={() => openPaymentModal(movement)}
+                            disabled={pendingCierreDeCaja}
+                            className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-colors ${registerPaymentTone}`}
                           >
                             <CreditCard className="h-3.5 w-3.5" />
                             {pendingCierreDeCaja ? "Bloqueado" : "Registrar Abono"}
                           </button>
                         ) : (
-                          <span className="text-xs text-[var(--muted-foreground)]">
-                            -
-                          </span>
+                          <span className="text-xs text-[var(--muted-foreground)]">-</span>
                         )}
                       </td>
                     </tr>
                   );
                 })}
+
                 {!movementsLoading && filteredMovements.length === 0 && (
                   <tr>
-                    <td
-                      colSpan={7}
-                      className="px-3 py-6 text-center text-sm text-[var(--muted-foreground)]"
-                    >
+                    <td colSpan={7} className="px-4 py-10 text-center text-sm text-[var(--muted-foreground)]">
                       No hay facturas para los filtros seleccionados.
                     </td>
                   </tr>
@@ -2767,7 +2344,8 @@ export default function FacturasCreditoPage() {
               </tbody>
             </table>
           </div>
-        </div>
+
+        </section>
 
         {paymentModalOpen && paymentTarget && (
           <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/65 px-3 py-6 backdrop-blur-sm">
