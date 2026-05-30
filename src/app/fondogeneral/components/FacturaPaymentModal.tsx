@@ -280,7 +280,7 @@ export default function FacturaPaymentModal({
                 </label>
                 <label className="space-y-1 text-sm text-[var(--foreground)]">
                   <span className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
-                    Encargado extra
+                    Encargado
                   </span>
                   <select
                     value={paymentManager2}
