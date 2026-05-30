@@ -127,6 +127,7 @@ import {
   runTransaction,
   serverTimestamp,
   writeBatch,
+  type WriteBatch,
   type QueryDocumentSnapshot,
   type DocumentData,
   waitForPendingWrites,
@@ -521,6 +522,29 @@ const getPrimaryMovementManager = (entry: Partial<FondoEntry>): string => {
   }
   return String(entry.manager || "").trim();
 };
+
+const getFcrPaymentInvoiceId = (entry: Partial<FondoEntry>): string | null => {
+  const paymentId = String(entry.id || "").trim();
+  const prefix = "fcr-pago-";
+  if (!paymentId.startsWith(prefix)) return null;
+
+  const rest = paymentId.slice(prefix.length);
+  const invoiceIdMatch = rest.match(/^(FAC-\d+-[A-Z0-9]+)-/);
+  return invoiceIdMatch ? invoiceIdMatch[1] : null;
+};
+
+const getFcrPaymentAmount = (entry: Partial<FondoEntry>): number =>
+  Math.max(
+    0,
+    Math.trunc(
+      Number(
+        (entry as any).amountEgreso ??
+          (entry as any).amountPayment ??
+          (entry as any).amount ??
+          0,
+      ) || 0,
+    ),
+  );
 
 /**
  * Simplifica un registro de auditoría guardando solo los campos que cambiaron.
@@ -6333,6 +6357,7 @@ export function FondoSection({
         deleteId?: string;
         before?: FondoEntry | null;
       },
+      extraWrites?: (batch: WriteBatch) => void,
     ): Promise<{
       ok: boolean;
       confirmed: boolean;
@@ -6583,24 +6608,33 @@ export function FondoSection({
           beforeEntry &&
           shouldDeleteFacturasMirror(beforeEntry);
 
+        const mergedExtraWrites =
+          extraWrites || shouldDeleteFacturaMirror
+            ? (batch: WriteBatch) => {
+                extraWrites?.(batch);
+                if (shouldDeleteFacturaMirror) {
+                  const deletedId = String(beforeEntry?.id || "");
+                  batch.delete(
+                    FacturasService.buildMovementRef(
+                      normalizedCompany,
+                      deletedId,
+                    ),
+                  );
+                  batch.delete(
+                    FacturasService.buildMovementRef(
+                      normalizedCompany,
+                      `${deletedId}-NC`,
+                    ),
+                  );
+                }
+              }
+            : undefined;
+
         await MovimientosFondosService.commitLedgerAndMovement(
           companyKey,
           baseStorage,
           movementChange,
-          shouldDeleteFacturaMirror
-            ? (batch) => {
-                const deletedId = String(beforeEntry?.id || "");
-                batch.delete(
-                  FacturasService.buildMovementRef(normalizedCompany, deletedId),
-                );
-                batch.delete(
-                  FacturasService.buildMovementRef(
-                    normalizedCompany,
-                    `${deletedId}-NC`,
-                  ),
-                );
-              }
-            : undefined,
+          mergedExtraWrites,
         );
 
         if (cacheUpdater) {
@@ -8808,6 +8842,132 @@ export function FondoSection({
         }
       }
 
+      const normalizedCompany = (company || "").trim();
+      let facturaRollbackWrites: ((batch: WriteBatch) => void) | undefined;
+      if (normalizedCompany.length > 0 && isPaidFcrMovement(entry)) {
+        const invoiceId = getFcrPaymentInvoiceId(entry);
+        if (invoiceId) {
+          const invoiceRef = FacturasService.buildMovementRef(
+            normalizedCompany,
+            invoiceId,
+          );
+          const invoiceSnap = await getDoc(invoiceRef);
+          if (!invoiceSnap.exists()) {
+            showToast(
+              "No se encontró la factura asociada al pago eliminado.",
+              "error",
+              5000,
+            );
+            return;
+          }
+
+          const invoiceData = invoiceSnap.data() as FacturaMovement;
+          const rollbackAt = new Date().toISOString();
+          const paymentAmount = getFcrPaymentAmount(entry);
+          const totalAmount = Math.max(
+            0,
+            Math.trunc(Number(invoiceData.originalAmount ?? invoiceData.amount) || 0),
+          );
+          const currentPaid = Math.max(
+            0,
+            Math.trunc(Number(invoiceData.paidAmount) || 0),
+          );
+          const nextPaid = Math.max(
+            0,
+            Math.min(totalAmount, currentPaid - paymentAmount),
+          );
+          const nextBalance = Math.max(0, totalAmount - nextPaid);
+          const nextStatus =
+            nextBalance === 0
+              ? "PAGADA"
+              : nextPaid > 0
+                ? "PARCIAL"
+                : "PENDIENTE";
+
+          const appliedCreditNotes = Array.isArray(entry.appliedCreditNotes)
+            ? entry.appliedCreditNotes
+            : [];
+          const noteWrites = await Promise.all(
+            appliedCreditNotes.map(async (note) => {
+              const noteId = String(note?.id || "").trim();
+              const appliedAmount = Math.max(
+                0,
+                Math.trunc(Number(note?.appliedAmount) || 0),
+              );
+              if (!noteId || appliedAmount <= 0) return null;
+
+              const noteRef = FacturasService.buildMovementRef(
+                normalizedCompany,
+                noteId,
+              );
+              const noteSnap = await getDoc(noteRef);
+              if (!noteSnap.exists()) return null;
+
+              const noteData = noteSnap.data() as FacturaMovement;
+              const noteTotal = Math.max(
+                0,
+                Math.trunc(Number(noteData.originalAmount ?? noteData.amount) || 0),
+              );
+              const currentNotePaid = Math.max(
+                0,
+                Math.trunc(Number(noteData.paidAmount) || 0),
+              );
+              const nextNotePaid = Math.max(
+                0,
+                Math.min(noteTotal, currentNotePaid - appliedAmount),
+              );
+              const nextNoteBalance = Math.max(0, noteTotal - nextNotePaid);
+              const nextNoteStatus =
+                nextNotePaid <= 0
+                  ? "PENDIENTE"
+                  : nextNoteBalance === 0
+                    ? "REBAJADA"
+                    : "PARCIAL";
+
+              return {
+                noteRef,
+                payload: {
+                  ...noteData,
+                  id: noteId,
+                  empresa: normalizedCompany,
+                  paidAmount: nextNotePaid,
+                  balanceDue: nextNoteBalance,
+                  amountDue: nextNoteBalance,
+                  paymentStatus: nextNoteStatus,
+                  updateAt: rollbackAt,
+                } as FacturaMovement,
+              };
+            }),
+          );
+
+          facturaRollbackWrites = (batch) => {
+            batch.set(
+              invoiceRef,
+              stripUndefinedDeep({
+                ...invoiceData,
+                id: invoiceId,
+                empresa: normalizedCompany,
+                paidAmount: nextPaid,
+                balanceDue: nextBalance,
+                amountDue: nextBalance,
+                paymentStatus: nextStatus,
+                updateAt: rollbackAt,
+              }),
+              { merge: true },
+            );
+
+            noteWrites.forEach((noteWrite) => {
+              if (!noteWrite) return;
+              batch.set(
+                noteWrite.noteRef,
+                stripUndefinedDeep(noteWrite.payload),
+                { merge: true },
+              );
+            });
+          };
+        }
+      }
+
       // Preparar la lista actualizada SIN el movimiento a eliminar
       const updatedEntries = fondoEntries.filter((e) => e.id !== entry.id);
 
@@ -8815,7 +8975,7 @@ export function FondoSection({
       const saved = await persistMovementToFirestore(updatedEntries, "delete", {
         deleteId: entry.id,
         before: entry,
-      });
+      }, facturaRollbackWrites);
 
       if (!saved.ok) {
         showToast(
@@ -13040,7 +13200,7 @@ export function FondoSection({
 
       <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-w-0">
-          {fondoEntries.length === 0 ? (
+          {fondoEntries.length === 0 && !showPendingClosingCreditInvoices ? (
             isFondoMovementsLoading ? (
               <FondoMovementsSkeleton />
             ) : (
