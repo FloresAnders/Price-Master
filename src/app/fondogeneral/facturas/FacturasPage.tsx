@@ -2464,12 +2464,11 @@ export default function FacturasCreditoPage() {
                 <col style={{ width: columnWidths.estado }} />
                 <col style={{ width: columnWidths.accion }} />
               </colgroup>
-              <thead className="text-xs uppercase text-[var(--muted-foreground)]">
-                <tr className="border-b border-[var(--input-border)]">
+                <thead className="text-xs uppercase text-[var(--muted-foreground)]">
+                  <tr className="[&>th]:border-b [&>th]:border-[var(--input-border)] [&>th:not(:last-child)]:border-r [&>th:not(:last-child)]:border-[var(--input-border)]">
                   <th className="px-3 py-2 text-left font-semibold">
                     <div className="relative pr-2">
                       <div>Fecha</div>
-                      <div className="absolute top-1/4 right-10 h-1/2 w-px bg-[var(--input-border)] pointer-events-none" />
                       <div
                         onMouseDown={(e) => startResizing(e, "fecha")}
                         className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
@@ -2482,7 +2481,6 @@ export default function FacturasCreditoPage() {
                   <th className="px-3 py-2 text-left font-semibold">
                     <div className="relative pr-2">
                       <div>Proveedor</div>
-                      <div className="absolute top-1/4 right-10 h-1/2 w-px bg-[var(--input-border)] pointer-events-none" />
                       <div
                         onMouseDown={(e) => startResizing(e, "proveedor")}
                         className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
@@ -2495,7 +2493,6 @@ export default function FacturasCreditoPage() {
                   <th className="px-3 py-2 text-left font-semibold">
                     <div className="relative pr-2">
                       <div>N° Factura</div>
-                      <div className="absolute top-1/4 right-10 h-1/2 w-px bg-[var(--input-border)] pointer-events-none" />
                       <div
                         onMouseDown={(e) => startResizing(e, "factura")}
                         className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
@@ -2508,7 +2505,6 @@ export default function FacturasCreditoPage() {
                   <th className="px-3 py-2 text-left font-semibold max-sm:hidden">
                     <div className="relative pr-2">
                       <div>Tipo Pago</div>
-                      <div className="absolute top-1/4 right-10 h-1/2 w-px bg-[var(--input-border)] pointer-events-none" />
                       <div
                         onMouseDown={(e) => startResizing(e, "tipo")}
                         className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
@@ -2521,7 +2517,6 @@ export default function FacturasCreditoPage() {
                   <th className="px-3 py-2 text-right font-semibold">
                     <div className="relative pr-2">
                       <div>Monto</div>
-                      <div className="absolute top-1/4 right-10 h-1/2 w-px bg-[var(--input-border)] pointer-events-none" />
                       <div
                         onMouseDown={(e) => startResizing(e, "monto")}
                         className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
@@ -2534,7 +2529,6 @@ export default function FacturasCreditoPage() {
                   <th className="px-3 py-2 text-left font-semibold">
                     <div className="relative pr-2">
                       <div>Estado</div>
-                      <div className="absolute top-1/4 right-10 h-1/2 w-px bg-[var(--input-border)] pointer-events-none" />
                       <div
                         onMouseDown={(e) => startResizing(e, "estado")}
                         className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
@@ -2547,7 +2541,6 @@ export default function FacturasCreditoPage() {
                   <th className="px-3 py-2 text-left font-semibold">
                     <div className="relative pr-2">
                       <div>Acción</div>
-                      <div className="absolute top-1/4 right-10 h-1/2 w-px bg-[var(--input-border)] pointer-events-none" />
                       <div
                         onMouseDown={(e) => startResizing(e, "accion")}
                         className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
@@ -2581,7 +2574,7 @@ export default function FacturasCreditoPage() {
                   return (
                     <tr
                       key={m.id}
-                      className="border-b border-[var(--input-border)] hover:bg-[var(--muted)]/10"
+                      className="[&>td]:border-b [&>td]:border-[var(--input-border)] [&>td:not(:last-child)]:border-r [&>td:not(:last-child)]:border-[var(--input-border)] hover:bg-[var(--muted)]/10"
                     >
                       <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
                         {(() => {
