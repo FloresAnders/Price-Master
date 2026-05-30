@@ -13633,7 +13633,7 @@ export function FondoSection({
                                     </div>
                                     {balanceAmount > 0 ? (
                                       <span className="inline-flex items-center justify-end gap-1 rounded border border-amber-400/30 bg-amber-500/10 px-2 py-1 text-xs font-semibold text-amber-100">
-                                        <Clock className="h-3.5 w-3.5" />
+                                        <Banknote className="h-3.5 w-3.5" />
                                         Saldo:{" "}
                                         {formatByCurrency(
                                           invoice.currency,
@@ -14253,7 +14253,7 @@ export function FondoSection({
                                         <div className="mt-0.5 flex w-full min-w-0 flex-col gap-1 self-start text-left">
                                           <div className="flex w-full flex-col items-center gap-0 rounded border border-[var(--input-border)] bg-[var(--muted)]/20 px-2 py-1">
                                             <span className="flex items-center justify-center gap-1 text-xs text-[var(--muted-foreground)]">
-                                              <Clock className="h-3 w-3 shrink-0" />
+                                              <Banknote className="h-3 w-3 shrink-0" />
                                               Saldo anterior
                                             </span>
                                             <span className="w-full pl-4 text-center text-sm font-semibold text-[var(--foreground)] whitespace-nowrap">

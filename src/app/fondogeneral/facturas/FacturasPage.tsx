@@ -2300,11 +2300,12 @@ export default function FacturasCreditoPage() {
                           </span>
                           <span className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(paymentStatus)}`}>
                             {paymentStatus === "PAGADA" && <CheckCircle className="h-3.5 w-3.5" />}
+                            {paymentStatus === "PENDIENTE" && <Clock className="h-3.5 w-3.5" />}
                             <span>{paymentStatusLabel}</span>
                           </span>
                           {movement.invoiceDocType === "FCR" && paymentBalance > 0 && (
                             <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-1 text-xs font-semibold text-[var(--foreground)]">
-                              <Clock className="h-3.5 w-3.5" />
+                              <CreditCard className="h-3.5 w-3.5" />
                               Saldo: {paymentBalance.toLocaleString("es-CR", {
                                 style: "currency",
                                 currency: movement.currency,
