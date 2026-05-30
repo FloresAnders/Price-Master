@@ -1,4 +1,5 @@
 {
   "lsp": true,
-  "model": "big-pickle"
+  "model": "big-pickle",
+  "skills": ["caveman"]
 }

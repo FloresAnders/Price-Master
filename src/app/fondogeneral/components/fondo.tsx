@@ -13096,7 +13096,7 @@ export function FondoSection({
                       else if (v === "daily") setPageSize("daily");
                       else setPageSize(Number.parseInt(v, 10) || 10);
                     }}
-                    className="h-9 min-w-0 flex-1 rounded border border-cyan-700/35 bg-cyan-950/25 px-2 text-xs text-[var(--foreground)] outline-none transition-colors hover:border-cyan-500/45 sm:flex-initial"
+                    className="h-9 min-w-0 flex-1 rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-2 text-xs text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/60 sm:flex-initial"
                   >
                     <option value="daily">Diariamente</option>
                     <option value="5">5</option>

@@ -255,7 +255,10 @@ export default function FacturasCreditoPage() {
   });
 
   const [pageIndex, setPageIndex] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [rowsPerPage, setRowsPerPage] = useState<"daily" | number>("daily");
+  const [currentDailyKey, setCurrentDailyKey] = useState(() =>
+    dateKeyFromDate(new Date()),
+  );
 
   const [filtersDropdownOpen, setFiltersDropdownOpen] = useState(false);
 
@@ -1381,6 +1384,7 @@ export default function FacturasCreditoPage() {
   };
 
   const totalPages = useMemo(() => {
+    if (rowsPerPage === "daily" || rowsPerPage === "all") return 1;
     const total = Math.ceil(filteredMovements.length / rowsPerPage);
     return Math.max(1, total);
   }, [filteredMovements.length, rowsPerPage]);
@@ -1393,6 +1397,7 @@ export default function FacturasCreditoPage() {
 
   useEffect(() => {
     setPageIndex(0);
+    setCurrentDailyKey(dateKeyFromDate(new Date()));
   }, [
     filterProviderCode,
     filterPaymentType,
@@ -1405,13 +1410,22 @@ export default function FacturasCreditoPage() {
   ]);
 
   const pagedMovements = useMemo(() => {
+    if (rowsPerPage === "all") return filteredMovements;
+    if (rowsPerPage === "daily") {
+      return filteredMovements.filter(
+        (m) => dateKeyFromIso(m.createdAt) === currentDailyKey,
+      );
+    }
     const start = pageIndex * rowsPerPage;
     return filteredMovements.slice(start, start + rowsPerPage);
-  }, [filteredMovements, pageIndex, rowsPerPage]);
+  }, [filteredMovements, pageIndex, rowsPerPage, currentDailyKey]);
 
   const pageRange = useMemo(() => {
     if (filteredMovements.length === 0) {
       return { from: 0, to: 0 };
+    }
+    if (rowsPerPage === "daily" || rowsPerPage === "all") {
+      return { from: 1, to: filteredMovements.length };
     }
     const from = pageIndex * rowsPerPage + 1;
     const to = Math.min(filteredMovements.length, (pageIndex + 1) * rowsPerPage);
@@ -1839,14 +1853,21 @@ export default function FacturasCreditoPage() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <select
-                value={rowsPerPage}
+                value={rowsPerPage === "daily" ? "daily" : String(rowsPerPage)}
                 onChange={(e) => {
-                  setRowsPerPage(Number(e.target.value));
+                  const v = e.target.value;
+                  if (v === "daily") {
+                    setRowsPerPage("daily");
+                    setCurrentDailyKey(dateKeyFromDate(new Date()));
+                  } else {
+                    setRowsPerPage(Number(v));
+                  }
                   setPageIndex(0);
                 }}
                 className="h-9 rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-2 text-xs text-[var(--foreground)]"
                 aria-label="Filas por pagina"
               >
+                <option value="daily">Diariamente</option>
                 {[5, 10, 20].map((size) => (
                   <option key={size} value={size}>
                     {size} por pagina
@@ -1856,19 +1877,52 @@ export default function FacturasCreditoPage() {
               <div className="flex items-center gap-1">
                 <button
                   type="button"
-                  onClick={() => setPageIndex((prev) => Math.max(0, prev - 1))}
-                  disabled={pageIndex === 0}
+                  onClick={() => {
+                    if (rowsPerPage === "daily") {
+                      setCurrentDailyKey((prev) => {
+                        if (prev <= "1970-01-01") return "1970-01-01";
+                        const d = new Date(prev + "T12:00:00");
+                        d.setDate(d.getDate() - 1);
+                        return dateKeyFromDate(d);
+                      });
+                    } else {
+                      setPageIndex((prev) => Math.max(0, prev - 1));
+                    }
+                  }}
+                  disabled={
+                    rowsPerPage === "daily"
+                      ? currentDailyKey <= "1970-01-01"
+                      : pageIndex === 0
+                  }
                   className="inline-flex h-9 items-center justify-center rounded border border-[var(--input-border)] px-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
                 <span className="min-w-[64px] text-center text-xs text-[var(--muted-foreground)]">
-                  {pageIndex + 1} / {totalPages}
+                  {rowsPerPage === "daily"
+                    ? formatKeyToDisplay(currentDailyKey)
+                    : `${pageIndex + 1} / ${totalPages}`}
                 </span>
                 <button
                   type="button"
-                  onClick={() => setPageIndex((prev) => Math.min(totalPages - 1, prev + 1))}
-                  disabled={pageIndex >= totalPages - 1}
+                  onClick={() => {
+                    if (rowsPerPage === "daily") {
+                      setCurrentDailyKey((prev) => {
+                        if (prev >= todayKey) return todayKey;
+                        const d = new Date(prev + "T12:00:00");
+                        d.setDate(d.getDate() + 1);
+                        const next = dateKeyFromDate(d);
+                        return next > todayKey ? todayKey : next;
+                      });
+                    } else {
+                      setPageIndex((prev) => Math.min(totalPages - 1, prev + 1));
+                    }
+                  }}
+                  disabled={
+                    rowsPerPage === "daily"
+                      ? currentDailyKey >= todayKey
+                      : pageIndex >= totalPages - 1
+                  }
                   className="inline-flex h-9 items-center justify-center rounded border border-[var(--input-border)] px-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <ChevronRight className="h-4 w-4" />
