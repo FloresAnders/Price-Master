@@ -2618,6 +2618,7 @@ export default function FacturasCreditoPage() {
                           </span>
                           <span className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(paymentStatus)}`}>
                             {paymentStatus === "PAGADA" && <CheckCircle className="h-3.5 w-3.5" />}
+                            {paymentStatus === "PARCIAL" && <Clock className="h-3.5 w-3.5" />}
                             {paymentStatus === "PENDIENTE" && <Clock className="h-3.5 w-3.5" />}
                             <span>{paymentStatusLabel}</span>
                           </span>
