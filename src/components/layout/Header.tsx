@@ -1140,7 +1140,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
             {/* Mobile fondo general navigation */}
             {isFondoSection && canManageFondoGeneral && (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {/* Agregar proveedor */}
                 <button
                   onClick={() => {
@@ -1173,6 +1173,23 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 >
                   <Banknote className="w-4 h-4" />
                   <span>{fondoMenuLabel}</span>
+                </button>
+
+                {/* FC/NC */}
+                <button
+                  onClick={() => {
+                    safeWindow.location.hash("#facturas");
+                    setShowMobileMenu(false);
+                  }}
+                  className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${
+                    currentHash === "#facturas"
+                      ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                      : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                  }`}
+                  title="FC/NC"
+                >
+                  <Banknote className="w-4 h-4" />
+                  <span>FC/NC</span>
                 </button>
 
                 {/* Reportes */}
