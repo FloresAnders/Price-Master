@@ -141,6 +141,8 @@ export class TokenService {
       role: userData.role,
       permissions: userData.permissions,
       eliminate: userData.eliminate,
+      photoUrl: userData.photoUrl,
+      fullName: userData.fullName,
     };
 
     const tokenPayload: TokenPayload = {

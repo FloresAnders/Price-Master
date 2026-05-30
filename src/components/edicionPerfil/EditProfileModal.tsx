@@ -46,7 +46,7 @@ export default function EditProfileModal({
   const { user } = useAuth();
 
   const [profile, setProfile] = useState<UserRecord | null>(null);
-  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
@@ -154,6 +154,7 @@ export default function EditProfileModal({
   useEffect(() => {
     if (!isOpen) {
       setProfile(null);
+      setProfileLoading(true);
       setProfileError(null);
       setFormData({
         name: "",
