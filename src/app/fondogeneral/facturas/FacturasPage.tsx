@@ -2394,7 +2394,7 @@ export default function FacturasCreditoPage() {
           </div>
         </section>
 
-        <section className="overflow-hidden rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)]/82 shadow-[0_18px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+        <section className="rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)]/82 shadow-[0_18px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
           <div className="flex flex-col gap-4 border-b border-[var(--input-border)] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div>
               <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)]">
@@ -2404,11 +2404,11 @@ export default function FacturasCreditoPage() {
                 Mostrando {pageRange.from}-{pageRange.to} de {filteredMovements.length}
               </p>
             </div>
-              <div className="flex items-center gap-2 text-sm text-[var(--foreground)]">
-              <span className="rounded-full border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-1.5 text-xs font-semibold tracking-wide text-[var(--foreground)]/90">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2 text-sm text-[var(--foreground)]">
+              <span className="self-start rounded-full border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-1.5 text-xs font-semibold tracking-wide text-[var(--foreground)]/90">
                 {movementsLoading ? "Cargando..." : currentCompanyLabel}
               </span>
-              <div className="flex items-center gap-2 rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] px-2 py-1.5">
+              <div className="flex w-full items-center gap-1.5 rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] px-1.5 py-1 sm:w-auto sm:gap-2 sm:px-2 sm:py-1.5">
                 <select
                   value={isDailyView ? "daily" : String(effectiveRowsPerPage)}
                   onChange={(e) => {
@@ -2421,7 +2421,7 @@ export default function FacturasCreditoPage() {
                     }
                     setPageIndex(0);
                   }}
-                  className="h-8 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-2 text-xs text-[var(--foreground)] outline-none transition-colors hover:border-cyan-500/45"
+                  className="h-7 min-w-0 flex-1 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-1.5 text-[10px] text-[var(--foreground)] outline-none transition-colors hover:border-cyan-500/45 sm:h-8 sm:flex-initial sm:px-2 sm:text-xs"
                   aria-label="Filas por pagina"
                 >
                   <option value="daily" disabled={hasDateRangeFilter}>
@@ -2433,7 +2433,7 @@ export default function FacturasCreditoPage() {
                     </option>
                   ))}
                 </select>
-                <div className="flex items-center gap-1">
+                <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
                   <button
                     type="button"
                     onClick={() => {
@@ -2449,11 +2449,11 @@ export default function FacturasCreditoPage() {
                       }
                     }}
                     disabled={isDailyView ? currentDailyKey <= "1970-01-01" : pageIndex === 0}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--input-border)] text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/45 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--input-border)] text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/45 disabled:cursor-not-allowed disabled:opacity-40 sm:h-8 sm:w-8"
                   >
-                    <ChevronLeft className="h-4 w-4" />
+                    <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
                   </button>
-                  <span className="min-w-[96px] text-center text-xs text-[var(--muted-foreground)]">
+                  <span className="min-w-[52px] text-center text-[10px] text-[var(--muted-foreground)] sm:min-w-[96px] sm:text-xs">
                     {isDailyView ? formatKeyToDisplay(currentDailyKey) : `${pageIndex + 1} / ${totalPages}`}
                   </span>
                   <button
@@ -2472,9 +2472,9 @@ export default function FacturasCreditoPage() {
                       }
                     }}
                     disabled={isDailyView ? currentDailyKey >= todayKey : pageIndex >= totalPages - 1}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--input-border)] text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/45 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--input-border)] text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/45 disabled:cursor-not-allowed disabled:opacity-40 sm:h-8 sm:w-8"
                   >
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
                   </button>
                 </div>
               </div>
