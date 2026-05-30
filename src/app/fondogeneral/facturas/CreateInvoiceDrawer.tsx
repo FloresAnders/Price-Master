@@ -87,10 +87,14 @@ export default function CreateInvoiceDrawer({
 
   // Update symbol when currency changes (if there's already a value)
   React.useEffect(() => {
-    if (!createAmount) return;
+    // If there's no createAmount, ensure display is cleared.
+    if (!createAmount) {
+      setDisplayAmount("");
+      return;
+    }
     const symbol = createCurrency === "CRC" ? "₡" : "$";
     setDisplayAmount(symbol + Number(createAmount).toLocaleString("es-CR"));
-  }, [createCurrency]);
+  }, [createCurrency, createAmount]);
 
   return (
     <Drawer
