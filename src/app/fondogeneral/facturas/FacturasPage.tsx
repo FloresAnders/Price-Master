@@ -1384,7 +1384,7 @@ export default function FacturasCreditoPage() {
   };
 
   const totalPages = useMemo(() => {
-    if (rowsPerPage === "daily" || rowsPerPage === "all") return 1;
+    if (rowsPerPage === "daily") return 1;
     const total = Math.ceil(filteredMovements.length / rowsPerPage);
     return Math.max(1, total);
   }, [filteredMovements.length, rowsPerPage]);
@@ -1410,7 +1410,6 @@ export default function FacturasCreditoPage() {
   ]);
 
   const pagedMovements = useMemo(() => {
-    if (rowsPerPage === "all") return filteredMovements;
     if (rowsPerPage === "daily") {
       return filteredMovements.filter(
         (m) => dateKeyFromIso(m.createdAt) === currentDailyKey,
@@ -1424,7 +1423,7 @@ export default function FacturasCreditoPage() {
     if (filteredMovements.length === 0) {
       return { from: 0, to: 0 };
     }
-    if (rowsPerPage === "daily" || rowsPerPage === "all") {
+    if (rowsPerPage === "daily") {
       return { from: 1, to: filteredMovements.length };
     }
     const from = pageIndex * rowsPerPage + 1;
