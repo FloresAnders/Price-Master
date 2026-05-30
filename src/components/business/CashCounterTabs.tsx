@@ -141,8 +141,8 @@ function CashCounter({ id, data, onUpdate, onDelete, onCurrencyOpen }: CashCount
 
   const kd = (e: React.KeyboardEvent<HTMLInputElement>, i: number) => {
     const d = denoms[i];
-    if (e.key === "+") { e.preventDefault(); inc(d.value); return; }
-    if (e.key === "-") { e.preventDefault(); dec(d.value); return; }
+    if (e.key === "+" || e.key === "ArrowRight") { e.preventDefault(); inc(d.value); return; }
+    if (e.key === "-" || e.key === "ArrowLeft") { e.preventDefault(); dec(d.value); return; }
     if (e.key === "Enter" || e.key === "Tab" || e.key === "ArrowDown") {
       e.preventDefault();
       if (e.shiftKey && (e.key === "Enter" || e.key === "Tab")) { const p = i - 1; refs.current[p >= 0 ? p : denoms.length - 1]?.focus(); }
