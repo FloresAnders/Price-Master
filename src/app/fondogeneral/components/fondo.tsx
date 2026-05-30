@@ -13040,7 +13040,7 @@ export function FondoSection({
 
       <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
         <div className="min-w-0">
-          {fondoEntries.length === 0 ? (
+          {fondoEntries.length === 0 && !showPendingClosingCreditInvoices ? (
             isFondoMovementsLoading ? (
               <FondoMovementsSkeleton />
             ) : (
