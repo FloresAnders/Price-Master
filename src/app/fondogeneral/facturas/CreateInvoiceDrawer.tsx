@@ -164,88 +164,90 @@ export default function CreateInvoiceDrawer({
                 <span>Solo compra inventario</span>
               </label>
 
-              {createProviderCode && (
-                <button
-                  type="button"
-                  aria-label="Limpiar proveedor seleccionado"
-                  title="Limpiar proveedor seleccionado"
-                  onMouseDown={(event) => {
-                    event.preventDefault();
-                    setCreateProviderCode("");
-                    setCreateProviderFilter("");
-                    setIsCreateProviderDropdownOpen(false);
+              <div className="relative">
+                {createProviderCode && (
+                  <button
+                    type="button"
+                    aria-label="Limpiar proveedor seleccionado"
+                    title="Limpiar proveedor seleccionado"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      setCreateProviderCode("");
+                      setCreateProviderFilter("");
+                      setIsCreateProviderDropdownOpen(false);
+                    }}
+                    className="absolute left-2 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center text-red-400 transition-colors hover:text-red-300"
+                  >
+                    <XCircle className="h-4 w-4" />
+                  </button>
+                )}
+
+                <input
+                  value={createProviderFilter}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setCreateProviderFilter(value);
+                    setIsCreateProviderDropdownOpen(true);
+                    if (value.trim() === "") {
+                      setCreateProviderCode("");
+                    }
                   }}
-                  className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-red-400 transition-colors hover:text-red-300"
-                >
-                  <XCircle className="h-4 w-4" />
-                </button>
-              )}
-
-              <input
-                value={createProviderFilter}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  setCreateProviderFilter(value);
-                  setIsCreateProviderDropdownOpen(true);
-                  if (value.trim() === "") {
-                    setCreateProviderCode("");
+                  onFocus={() => setIsCreateProviderDropdownOpen(true)}
+                  onBlur={() => {
+                    setTimeout(() => setIsCreateProviderDropdownOpen(false), 200);
+                  }}
+                  disabled={createSubmitting}
+                  placeholder={
+                    providersLoading
+                      ? "Cargando proveedores..."
+                      : "Buscar proveedor"
                   }
-                }}
-                onFocus={() => setIsCreateProviderDropdownOpen(true)}
-                onBlur={() => {
-                  setTimeout(() => setIsCreateProviderDropdownOpen(false), 200);
-                }}
-                disabled={createSubmitting}
-                placeholder={
-                  providersLoading
-                    ? "Cargando proveedores..."
-                    : "Buscar proveedor"
-                }
-                className={`w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 ${
-                  createProviderCode ? "pl-10 pr-11" : "px-3 pr-11"
-                }`}
-              />
+                  className={`w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 ${
+                    createProviderCode ? "pl-10 pr-11" : "px-3 pr-11"
+                  }`}
+                />
 
-              <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center text-cyan-100/80">
-                {providersLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Search className="h-4 w-4" />
-                )}
-              </span>
+                <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center text-cyan-100/80">
+                  {providersLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Search className="h-4 w-4" />
+                  )}
+                </span>
 
-              {isCreateProviderDropdownOpen &&
-                filteredCreateProviders.length > 0 &&
-                !createSubmitting && (
-                  <div className="absolute z-[9999] mt-2 max-h-64 w-full overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] shadow-2xl shadow-black/70">
-                    {filteredCreateProviders.map((provider) => (
-                      <button
-                        key={provider.code}
-                        type="button"
-                        className="w-full cursor-pointer border-b border-cyan-900/60 bg-[#0d1117] p-3 text-left transition-colors last:border-b-0 hover:bg-cyan-950/80"
-                        onMouseDown={() => {
-                          setCreateProviderCode(provider.code);
-                          setCreateProviderFilter(
-                            `${provider.name} (${provider.code})`,
-                          );
-                          setIsCreateProviderDropdownOpen(false);
-                        }}
-                        onTouchEnd={(event) => {
-                          event.preventDefault();
-                          setCreateProviderCode(provider.code);
-                          setCreateProviderFilter(
-                            `${provider.name} (${provider.code})`,
-                          );
-                          setIsCreateProviderDropdownOpen(false);
-                        }}
-                      >
-                        <div className="truncate text-sm text-[var(--foreground)]">
-                          {provider.name} ({provider.code})
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
+                {isCreateProviderDropdownOpen &&
+                  filteredCreateProviders.length > 0 &&
+                  !createSubmitting && (
+                    <div className="absolute z-[9999] mt-2 max-h-64 w-full overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] shadow-2xl shadow-black/70">
+                      {filteredCreateProviders.map((provider) => (
+                        <button
+                          key={provider.code}
+                          type="button"
+                          className="w-full cursor-pointer border-b border-cyan-900/60 bg-[#0d1117] p-3 text-left transition-colors last:border-b-0 hover:bg-cyan-950/80"
+                          onMouseDown={() => {
+                            setCreateProviderCode(provider.code);
+                            setCreateProviderFilter(
+                              `${provider.name} (${provider.code})`,
+                            );
+                            setIsCreateProviderDropdownOpen(false);
+                          }}
+                          onTouchEnd={(event) => {
+                            event.preventDefault();
+                            setCreateProviderCode(provider.code);
+                            setCreateProviderFilter(
+                              `${provider.name} (${provider.code})`,
+                            );
+                            setIsCreateProviderDropdownOpen(false);
+                          }}
+                        >
+                          <div className="truncate text-sm text-[var(--foreground)]">
+                            {provider.name} ({provider.code})
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+              </div>
             </div>
 
             <input
