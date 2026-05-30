@@ -1,7 +1,19 @@
 "use client";
 
 import React from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Coins,
+  DollarSign,
+  Calendar,
+  FileText,
+  GitCompareArrows,
+  CheckCircle,
+  User,
+  Clock,
+  CalendarDays,
+} from "lucide-react";
 
 type Currency = "CRC" | "USD";
 
@@ -45,9 +57,12 @@ export default function DailyClosingHistorySection({
       <div className="mb-4 rounded border border-[var(--input-border)] bg-[var(--muted)]/5 p-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div className="w-full sm:max-w-xs">
-            <label className="block text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide mb-1">
-              Filtro de fecha
-            </label>
+            <div className="flex items-center gap-1.5 mb-1">
+              <Calendar className="h-3 w-3 text-[var(--accent)]" strokeWidth={1.5} />
+              <label className="block text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">
+                Filtro de fecha
+              </label>
+            </div>
             <select
               className="w-full rounded-md border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
               style={{
@@ -114,46 +129,57 @@ export default function DailyClosingHistorySection({
                   key={record.id}
                   className="rounded border border-[var(--input-border)] bg-[var(--muted)]/10 p-4"
                 >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="text-sm font-semibold text-[var(--foreground)]">
-                        {closingDateLabel}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-2.5">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-cyan-700/30 bg-cyan-950/20">
+                        <CalendarDays className="h-4 w-4 text-cyan-300" strokeWidth={1.5} />
                       </div>
-                      <div className="text-xs text-[var(--muted-foreground)]">
-                        Registrado: {createdAtLabel}
+                      <div>
+                        <div className="text-sm font-semibold text-[var(--foreground)]">
+                          {closingDateLabel}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-[var(--muted-foreground)]">
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" strokeWidth={1.5} />
+                            {createdAtLabel}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                    <div className="text-xs text-[var(--muted-foreground)]">
-                      Encargado:{" "}
+                    <div className="flex items-center gap-1.5 text-xs text-[var(--muted-foreground)]">
+                      <User className="h-3 w-3" strokeWidth={1.5} />
                       <span className="font-medium text-[var(--foreground)]">
                         {record.manager || "—"}
                       </span>
                     </div>
                   </div>
+                  <hr className="my-3 border-[var(--input-border)]/50" />
 
                   <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div className="rounded border border-[var(--input-border)]/60 bg-[var(--muted)]/10 p-3">
-                      <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
+                    <div className="rounded border border-amber-700/20 bg-amber-950/10 p-3">
+                      <div className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
+                        <Coins className="h-3.5 w-3.5 text-amber-400" strokeWidth={1.5} />
                         Colones
                       </div>
                       {showCRC ? (
                         <div className="mt-2 space-y-1 text-sm text-[var(--foreground)]">
-                          <div>
-                            Conteo: {formatByCurrency("CRC", record.totalCRC)}
+                          <div className="flex items-center justify-between">
+                            <span className="text-[var(--muted-foreground)]">Conteo</span>
+                            <span className="font-medium">{formatByCurrency("CRC", record.totalCRC)}</span>
                           </div>
-                          <div>
-                            Saldo registrado:{" "}
-                            {formatByCurrency("CRC", record.recordedBalanceCRC)}
+                          <div className="flex items-center justify-between">
+                            <span className="text-[var(--muted-foreground)]">Saldo registrado</span>
+                            <span className="font-medium">{formatByCurrency("CRC", record.recordedBalanceCRC)}</span>
                           </div>
-                          <div
-                            className={getDailyClosingDiffClass(record.diffCRC)}
-                          >
-                            Diferencia:{" "}
-                            {formatDailyClosingDiff("CRC", record.diffCRC)}
+                          <div className="flex items-center justify-between">
+                            <span className="text-[var(--muted-foreground)]">Diferencia</span>
+                            <span className={getDailyClosingDiffClass(record.diffCRC)}>
+                              {formatDailyClosingDiff("CRC", record.diffCRC)}
+                            </span>
                           </div>
                           {crcLines.length > 0 && (
-                            <div className="pt-1 text-xs text-[var(--muted-foreground)]">
-                              Detalle: {crcLines.join(", ")}
+                            <div className="pt-1 text-xs text-[var(--muted-foreground)] border-t border-[var(--input-border)]/40 mt-1.5 pt-1.5">
+                              {crcLines.join(", ")}
                             </div>
                           )}
                         </div>
@@ -164,28 +190,30 @@ export default function DailyClosingHistorySection({
                       )}
                     </div>
 
-                    <div className="rounded border border-[var(--input-border)]/60 bg-[var(--muted)]/10 p-3">
-                      <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
+                    <div className="rounded border border-emerald-700/20 bg-emerald-950/10 p-3">
+                      <div className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
+                        <DollarSign className="h-3.5 w-3.5 text-emerald-400" strokeWidth={1.5} />
                         Dólares
                       </div>
                       {showUSD ? (
                         <div className="mt-2 space-y-1 text-sm text-[var(--foreground)]">
-                          <div>
-                            Conteo: {formatByCurrency("USD", record.totalUSD)}
+                          <div className="flex items-center justify-between">
+                            <span className="text-[var(--muted-foreground)]">Conteo</span>
+                            <span className="font-medium">{formatByCurrency("USD", record.totalUSD)}</span>
                           </div>
-                          <div>
-                            Saldo registrado:{" "}
-                            {formatByCurrency("USD", record.recordedBalanceUSD)}
+                          <div className="flex items-center justify-between">
+                            <span className="text-[var(--muted-foreground)]">Saldo registrado</span>
+                            <span className="font-medium">{formatByCurrency("USD", record.recordedBalanceUSD)}</span>
                           </div>
-                          <div
-                            className={getDailyClosingDiffClass(record.diffUSD)}
-                          >
-                            Diferencia:{" "}
-                            {formatDailyClosingDiff("USD", record.diffUSD)}
+                          <div className="flex items-center justify-between">
+                            <span className="text-[var(--muted-foreground)]">Diferencia</span>
+                            <span className={getDailyClosingDiffClass(record.diffUSD)}>
+                              {formatDailyClosingDiff("USD", record.diffUSD)}
+                            </span>
                           </div>
                           {usdLines.length > 0 && (
-                            <div className="pt-1 text-xs text-[var(--muted-foreground)]">
-                              Detalle: {usdLines.join(", ")}
+                            <div className="pt-1 text-xs text-[var(--muted-foreground)] border-t border-[var(--input-border)]/40 mt-1.5 pt-1.5">
+                              {usdLines.join(", ")}
                             </div>
                           )}
                         </div>
@@ -198,8 +226,11 @@ export default function DailyClosingHistorySection({
                   </div>
 
                   {record.notes && record.notes.length > 0 && (
-                    <div className="mt-3 text-xs text-[var(--muted-foreground)]">
-                      Notas: {record.notes}
+                    <div className="mt-3 rounded border border-[var(--input-border)]/40 bg-[var(--muted)]/5 p-2.5">
+                      <div className="flex items-start gap-2 text-xs text-[var(--muted-foreground)]">
+                        <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--accent)]" strokeWidth={1.5} />
+                        <span>{record.notes}</span>
+                      </div>
                     </div>
                   )}
 
@@ -218,9 +249,11 @@ export default function DailyClosingHistorySection({
                       const isExpanded = expandedClosings.has(record.id);
                       return (
                         <div className="mt-3">
-                          <div className="flex items-center justify-between p-3 rounded border-l-4 border-green-500 bg-green-900/5 text-sm">
+                          <hr className="mb-3 border-[var(--input-border)]/40" />
+                          <div className="flex items-center justify-between p-3 rounded border-l-4 border-green-500 bg-green-950/15 text-sm">
                             <div>
-                              <div className="font-medium">
+                              <div className="flex items-center gap-2 font-medium">
+                                <CheckCircle className="h-4 w-4 text-green-400" strokeWidth={1.5} />
                                 Cierre editado — diferencias resueltas
                               </div>
                               <div className="text-xs text-[var(--muted-foreground)]">
@@ -368,7 +401,9 @@ export default function DailyClosingHistorySection({
 
                       return (
                         <div className="mt-3">
-                          <div className="text-sm font-medium mb-2">
+                          <hr className="mb-3 border-[var(--input-border)]/40" />
+                          <div className="flex items-center gap-2 text-sm font-medium mb-2">
+                            <GitCompareArrows className="h-4 w-4 text-cyan-400" strokeWidth={1.5} />
                             Ajustes relacionados
                           </div>
                           <div className="space-y-2">
@@ -503,22 +538,25 @@ export default function DailyClosingHistorySection({
                           </div>
 
                           {showPostAdjustmentBalances && (
-                            <div className="mt-3 text-xs text-[var(--muted-foreground)]">
-                              <div className="font-medium text-[var(--muted-foreground)]">
+                            <div className="mt-4 rounded border border-[var(--input-border)]/40 bg-[var(--muted)]/5 p-3">
+                              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)] mb-2">
+                                <CheckCircle className="h-3 w-3 text-cyan-400" strokeWidth={1.5} />
                                 Saldo posterior a ajustes
                               </div>
-                              {typeof postAdjBalanceCRC === "number" && (
-                                <div>
-                                  CRC:{" "}
-                                  {formatByCurrency("CRC", postAdjBalanceCRC)}
-                                </div>
-                              )}
-                              {typeof postAdjBalanceUSD === "number" && (
-                                <div>
-                                  USD:{" "}
-                                  {formatByCurrency("USD", postAdjBalanceUSD)}
-                                </div>
-                              )}
+                              <div className="space-y-1 text-xs">
+                                {typeof postAdjBalanceCRC === "number" && (
+                                  <div className="flex items-center justify-between text-[var(--foreground)]">
+                                    <span className="text-[var(--muted-foreground)]">CRC</span>
+                                    <span className="font-medium">{formatByCurrency("CRC", postAdjBalanceCRC)}</span>
+                                  </div>
+                                )}
+                                {typeof postAdjBalanceUSD === "number" && (
+                                  <div className="flex items-center justify-between text-[var(--foreground)]">
+                                    <span className="text-[var(--muted-foreground)]">USD</span>
+                                    <span className="font-medium">{formatByCurrency("USD", postAdjBalanceUSD)}</span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )}
                         </div>
