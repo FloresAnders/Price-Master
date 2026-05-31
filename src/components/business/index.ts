@@ -1,5 +1,5 @@
 export { default as SupplierOrders } from "./SupplierOrders";
-export { default as ControlHorario } from "./ControlHorario";
+export { ControlHorario } from "./control-horario";
 export { default as TimingControl } from "./TimingControl";
 export { CashCounterTabs } from "./cash-counter-tabs";
 export { default as PayrollExporter } from "./PayrollExporter";
