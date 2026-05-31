@@ -2,24 +2,22 @@
 
 import React from "react";
 import type { ReactElement } from "react";
-import {
-  ExportCcssConfig,
-  ImportCcssConfig,
-  ExportEmpresas,
-  ImportEmpresas,
-  ExportPayrollRecords,
-  ImportPayrollRecords,
-  ExportScans,
-  ImportScans,
-  ExportSchedules,
-  ImportSchedules,
-  ExportSessionStatus,
-  ImportSessionStatus,
-  ExportSorteos,
-  ImportSorteos,
-  ExportUsers,
-  ImportUsers,
-} from ".";
+import ExportCcssConfig from "./ExportCcssConfig";
+import ImportCcssConfig from "./ImportCcssConfig";
+import ExportEmpresas from "./ExportEmpresas";
+import ImportEmpresas from "./ImportEmpresas";
+import ExportPayrollRecords from "./ExportPayrollRecords";
+import ImportPayrollRecords from "./ImportPayrollRecords";
+import ExportScans from "./ExportScans";
+import ImportScans from "./ImportScans";
+import ExportSchedules from "./ExportSchedules";
+import ImportSchedules from "./ImportSchedules";
+import ExportSessionStatus from "./ExportSessionStatus";
+import ImportSessionStatus from "./ImportSessionStatus";
+import ExportSorteos from "./ExportSorteos";
+import ImportSorteos from "./ImportSorteos";
+import ExportUsers from "./ExportUsers";
+import ImportUsers from "./ImportUsers";
 
 type Props = {
   open: boolean;
