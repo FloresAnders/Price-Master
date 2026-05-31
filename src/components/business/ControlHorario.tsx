@@ -2422,7 +2422,7 @@ export default function ControlHorario({
               <thead>
                 <tr>
                   <th
-                    className="border border-[var(--input-border)] p-2 font-bold text-center text-[var(--foreground)] min-w-[80px] sm:min-w-[100px] sticky left-0 z-20 text-xs bg-slate-400/10"
+                    className="border border-[var(--input-border)] p-2 font-bold text-center text-[var(--foreground)] min-w-[80px] sm:min-w-[100px] sticky left-0 z-20 text-xs bg-[var(--card-bg)]"
                     style={{
                       minWidth: "80px",
                       left: 0,
@@ -2452,7 +2452,7 @@ export default function ControlHorario({
                     return (
                       <th
                         key={day}
-                        className={`border border-[var(--input-border)] p-2 font-bold text-center transition-all text-xs relative bg-slate-400/10 ${
+                        className={`border border-[var(--input-border)] p-2 font-bold text-center transition-all text-xs relative bg-[var(--card-bg)] ${
                           isToday
                             ? " bg-gradient-to-b from-green-500 to-green-600 text-white shadow-md"
                             : " hover:bg-[var(--muted)]"
@@ -2479,7 +2479,7 @@ export default function ControlHorario({
                 ).map((name, index) => (
                   <tr key={`${name}-${index}`}>
                     <td
-                      className="border border-[var(--input-border)] p-2 font-semibold text-[var(--foreground)] min-w-[80px] sm:min-w-[100px] sticky left-0 z-10 group cursor-pointer text-xs bg-slate-400/10 hover:bg-slate-400/20 transition-colors"
+                      className="border border-[var(--input-border)] p-2 font-semibold text-[var(--foreground)] min-w-[80px] sm:min-w-[100px] sticky left-0 z-10 group cursor-pointer text-xs bg-[var(--card-bg)] hover:bg-[var(--muted)]/30 transition-colors"
                       style={{
                         minWidth: "80px",
                         left: 0,

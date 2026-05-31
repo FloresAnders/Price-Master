@@ -68,7 +68,7 @@ import {
   findLatestMovementByInvoiceNumber,
   sendDuplicateInvoiceAlertEmail,
 } from "../../../services/duplicate-invoice-alert";
-import { AuditHistoryModal } from "./AuditHistoryModal";
+import { AuditHistoryModal } from "./audit-history-modal";
 import {
   MovimientosFondosService,
   MovementAccountKey,
