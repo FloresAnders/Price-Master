@@ -789,6 +789,8 @@ export default function DataEditor() {
             ownerId: ownerIdToUse,
             name: empresa.name || "",
             ubicacion: empresa.ubicacion || "",
+            horarioApertura: empresa.horarioApertura || "",
+            horarioCierre: empresa.horarioCierre || "",
             empleados: empresa.empleados || [],
           });
         }

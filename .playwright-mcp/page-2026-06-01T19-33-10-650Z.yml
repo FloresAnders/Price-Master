@@ -1,0 +1,40 @@
+- generic [ref=e1]:
+  - navigation [ref=e2]:
+    - heading "Contica | Iniciar Sesión" [level=1] [ref=e3]
+  - generic [ref=e12]:
+    - img "..." [ref=e16]
+    - generic [ref=e18]:
+      - generic [ref=e19]:
+        - generic [ref=e20]:
+          - generic [ref=e22]: email
+          - generic [ref=e23]:
+            - generic [ref=e24]: Usuario o correo electrónico
+            - textbox [ref=e25]: CALCULO-PRECIOS
+        - generic [ref=e26]:
+          - generic [ref=e27] [cursor=pointer]: visibility_off
+          - generic [ref=e28]:
+            - generic [ref=e29]: Contraseña
+            - textbox [ref=e30]: CALCULO26
+      - generic [ref=e31]:
+        - paragraph [ref=e33]:
+          - link "Olvidé mi contraseña" [ref=e34] [cursor=pointer]:
+            - /url: javascript:;
+        - generic [ref=e40]:
+          - checkbox "Mantener sesión iniciada" [ref=e41] [cursor=pointer]
+          - generic [ref=e42] [cursor=pointer]: Mantener sesión iniciada
+    - generic [ref=e43]:
+      - button "Iniciar sesión" [active] [ref=e44] [cursor=pointer]
+      - generic [ref=e51]: o
+      - paragraph [ref=e45]:
+        - text: ¿No tienes cuenta?
+        - link "¡Regístrate aquí!" [ref=e46] [cursor=pointer]:
+          - /url: ../user/new.php
+      - generic [ref=e47]:
+        - separator [ref=e48]
+        - paragraph [ref=e49]: La constancia es el camino al éxito, ¡no te detengas!
+  - alert [ref=e52]:
+    - generic [ref=e54]: warning
+    - text: El usuario o la contraseña son incorrectos.
+    - link:
+      - /url: "#"
+    - button "Close" [ref=e55] [cursor=pointer]: ×

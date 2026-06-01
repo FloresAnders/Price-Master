@@ -1,0 +1,2 @@
+[    1011ms] TypeError: Cannot read properties of null (reading 'addEventListener')
+    at https://contica.app/app/assets_b5/js/material-dashboard.js?v=1.1.3:1118:6

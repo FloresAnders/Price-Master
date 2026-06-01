@@ -123,6 +123,8 @@ export default function EmpresasEditorSection({
                     : "",
                 name: "",
                 ubicacion: "",
+                horarioApertura: "",
+                horarioCierre: "",
                 empleados: [
                   {
                     Empleado: "",
@@ -156,7 +158,7 @@ export default function EmpresasEditorSection({
               <>
                 {!isEditing && (
                   <>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-3 sm:mb-4">
                       <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2.5 sm:px-4 sm:py-3">
                         <p className="text-[10px] sm:text-xs font-medium text-[var(--muted-foreground)]">
                           Nombre
@@ -171,6 +173,22 @@ export default function EmpresasEditorSection({
                         </p>
                         <p className="text-sm sm:text-base font-semibold text-[var(--foreground)] break-words">
                           {empresa.ubicacion || "Sin ubicación"}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2.5 sm:px-4 sm:py-3">
+                        <p className="text-[10px] sm:text-xs font-medium text-[var(--muted-foreground)]">
+                          Apertura
+                        </p>
+                        <p className="text-sm sm:text-base font-semibold text-[var(--foreground)] break-words">
+                          {empresa.horarioApertura || "Sin horario"}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2.5 sm:px-4 sm:py-3">
+                        <p className="text-[10px] sm:text-xs font-medium text-[var(--muted-foreground)]">
+                          Cierre
+                        </p>
+                        <p className="text-sm sm:text-base font-semibold text-[var(--foreground)] break-words">
+                          {empresa.horarioCierre || "Sin horario"}
                         </p>
                       </div>
                     </div>
@@ -192,7 +210,7 @@ export default function EmpresasEditorSection({
 
                 {isEditing && (
                   <>
-                    <div className="grid grid-cols-1 gap-3 sm:gap-4 mb-3 sm:mb-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
                       <div>
                         <label className="block text-xs sm:text-sm font-medium mb-1">
                           Nombre de la empresa:
@@ -212,6 +230,7 @@ export default function EmpresasEditorSection({
                           }}
                         />
                       </div>
+
                       <div>
                         <label className="block text-xs sm:text-sm font-medium mb-1">
                           Ubicación:
@@ -224,6 +243,52 @@ export default function EmpresasEditorSection({
                             copy[idx] = {
                               ...copy[idx],
                               ubicacion: e.target.value,
+                            };
+                            setEmpresasData(copy);
+                          }}
+                          className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
+                          style={{
+                            background: "var(--input-bg)",
+                            color: "var(--foreground)",
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium mb-1">
+                          Horario de apertura:
+                        </label>
+                        <input
+                          type="time"
+                          value={empresa.horarioApertura || ""}
+                          onChange={(e) => {
+                            const copy = [...empresasData];
+                            copy[idx] = {
+                              ...copy[idx],
+                              horarioApertura: e.target.value,
+                            };
+                            setEmpresasData(copy);
+                          }}
+                          className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
+                          style={{
+                            background: "var(--input-bg)",
+                            color: "var(--foreground)",
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium mb-1">
+                          Horario de cierre:
+                        </label>
+                        <input
+                          type="time"
+                          value={empresa.horarioCierre || ""}
+                          onChange={(e) => {
+                            const copy = [...empresasData];
+                            copy[idx] = {
+                              ...copy[idx],
+                              horarioCierre: e.target.value,
                             };
                             setEmpresasData(copy);
                           }}
@@ -594,7 +659,10 @@ export default function EmpresasEditorSection({
                             if (e.id) {
                               await EmpresasService.updateEmpresa(e.id, e);
                               showToast("Empresa actualizada", "success");
-                              setEditMode((prev) => ({ ...prev, [key]: false }));
+                              setEditMode((prev) => ({
+                                ...prev,
+                                [key]: false,
+                              }));
                               clearColChangedForEmpresa(e, idx);
                             } else {
                               const ownerIdToUse = resolveOwnerIdForActor(
@@ -616,11 +684,16 @@ export default function EmpresasEditorSection({
                                     ownerId: ownerIdToUse,
                                     name: e.name || "",
                                     ubicacion: e.ubicacion || "",
+                                    horarioApertura: e.horarioApertura || "",
+                                    horarioCierre: e.horarioCierre || "",
                                     empleados: e.empleados || [],
                                   });
                                   await loadData();
                                   showToast("Empresa creada", "success");
-                                  setEditMode((prev) => ({ ...prev, [key]: false }));
+                                  setEditMode((prev) => ({
+                                    ...prev,
+                                    [key]: false,
+                                  }));
                                   clearColChangedForEmpresa(e, idx);
                                 } catch (err) {
                                   const message =

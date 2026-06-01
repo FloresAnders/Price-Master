@@ -216,6 +216,8 @@ export class EmpresasService {
         ownerId: empresa.ownerId || "",
         name: empresa.name || "",
         ubicacion: empresa.ubicacion || "",
+        horarioApertura: empresa.horarioApertura || "",
+        horarioCierre: empresa.horarioCierre || "",
         empleados: empleadosToSave,
       });
       return empresa.id;
@@ -225,6 +227,8 @@ export class EmpresasService {
       ownerId: empresa.ownerId || "",
       name: empresa.name || "",
       ubicacion: empresa.ubicacion || "",
+      horarioApertura: empresa.horarioApertura || "",
+      horarioCierre: empresa.horarioCierre || "",
       empleados: empleadosToSave,
     });
   }

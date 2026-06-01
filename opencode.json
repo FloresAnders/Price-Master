@@ -1,5 +1,12 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "lsp": true,
-  "model": "big-pickle"
+  "model": "big-pickle",
+  "mcp": {
+    "playwright": {
+      "type": "local",
+      "command": ["npx", "-y", "@playwright/mcp", "--browser", "msedge"],
+      "enabled": true
+    }
+  }
 }

@@ -19,6 +19,8 @@ export interface Empresas {
   ownerId: string;
   name: string;
   ubicacion: string;
+  horarioApertura?: string;
+  horarioCierre?: string;
   empleados: EmpresaEmpleado[];
 }
 
