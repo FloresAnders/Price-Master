@@ -1883,7 +1883,7 @@ export default function FacturasCreditoPage() {
       <div className="mx-auto flex w-full max-w-none flex-col gap-4">
         <section className="relative z-30 overflow-visible rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)]/82 shadow-[0_18px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
           <div className="space-y-4 border-b border-[var(--input-border)] p-4 sm:p-5">
-            <div className="grid gap-3 xl:grid-cols-[1.1fr_0.95fr_0.95fr_1.15fr_auto_auto]">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-[1.1fr_0.95fr_0.95fr_1.15fr_auto_auto]">
               <div className="relative min-w-0" ref={providerDropdownRef}>
                 <input
                   type="text"
@@ -2244,7 +2244,7 @@ export default function FacturasCreditoPage() {
             </div>
 
             <div className="grid gap-3 xl:grid-cols-[1fr_auto] xl:items-end">
-              <div className="grid gap-3 md:grid-cols-[170px_170px_170px]">
+              <div className="grid gap-3 sm:grid-cols-3">
                 <div className="relative min-w-0">
                   <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                     Desde
@@ -2589,7 +2589,7 @@ export default function FacturasCreditoPage() {
               </div>
 
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                <div className="flex min-w-0 flex-1 items-center gap-4 rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)]/75 px-4 py-3">
+                <div className="flex min-w-0 flex-1 flex-col gap-3 rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)]/75 px-4 py-3 sm:flex-row sm:items-center sm:gap-4">
                   <div className="shrink-0">
                     <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
                       {user?.role === "user"
@@ -2620,7 +2620,7 @@ export default function FacturasCreditoPage() {
                         availableCompaniesLoading ||
                         sortedOwnerCompanies.length === 0
                       }
-                      className="ml-auto h-11 min-w-[260px] rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] px-4 text-sm text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/45 focus:border-[var(--accent)]/45 disabled:cursor-not-allowed disabled:opacity-70"
+                      className="ml-auto h-11 w-full rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] px-4 text-sm text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/45 focus:border-[var(--accent)]/45 disabled:cursor-not-allowed disabled:opacity-70 sm:min-w-[200px] sm:w-auto lg:min-w-[260px]"
                     >
                       {availableCompaniesLoading && (
                         <option value="">Cargando empresas...</option>
@@ -2660,7 +2660,7 @@ export default function FacturasCreditoPage() {
                 <button
                   type="button"
                   onClick={handleOpenCreateMovement}
-                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/35 bg-gradient-to-r from-cyan-600 to-sky-700 px-5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(8,145,178,0.28)] transition-transform hover:translate-y-[-1px] hover:from-cyan-500 hover:to-sky-600 lg:w-auto lg:shrink-0"
+                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/35 bg-gradient-to-r from-cyan-600 to-sky-700 px-5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(8,145,178,0.28)] transition-transform hover:translate-y-[-1px] hover:from-cyan-500 hover:to-sky-600 sm:w-auto sm:shrink-0"
                 >
                   <Plus className="h-4 w-4" />
                   <span>Agregar FC/NC</span>
