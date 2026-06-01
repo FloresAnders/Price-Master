@@ -900,7 +900,16 @@ export default function FacturasCreditoPage() {
           manager2: paymentManager2Value || undefined,
         });
       const paymentMovementId = String((paymentMovement as any).id || "");
-      // Update the invoice and register the actual payment only in Fondo General.
+      const targetAccountKey = updatedMovement.accountId;
+      if (targetAccountKey === "CajaNegra") {
+        showToast(
+          "Desde Caja Negra no se debe gestionar facturas a crédito.",
+          "error",
+          4500,
+        );
+        return;
+      }
+
       setPaymentSubmitting(true);
       try {
         const docId = movementDocId; // MovimientosFondos document id
@@ -920,7 +929,7 @@ export default function FacturasCreditoPage() {
 
         // Adjust balances: subtract payment from currentBalance for the account/currency
         const state = ledger.state ?? MovimientosFondosService.createEmptyMovementStorage(selectedCompany).state;
-        const acctKey = "FondoGeneral" as const;
+        const acctKey = targetAccountKey;
         const currency = paymentMovement.currency as MovementCurrencyKey;
         const amountToApply = Math.trunc(paymentAmountToApply || 0);
         let found = false;
@@ -959,7 +968,7 @@ export default function FacturasCreditoPage() {
         const movRef = MovimientosFondosService.buildMovementRef(
           docId,
           paymentMovementId,
-          "FondoGeneral",
+          targetAccountKey,
         );
         batch.set(movRef, stripUndefinedDeep(paymentMovement));
 

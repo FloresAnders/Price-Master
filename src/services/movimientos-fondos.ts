@@ -230,7 +230,7 @@ export class MovimientosFondosService {
     return {
       id: `fcr-pago-${invoice.id}-${paymentKey}`,
       empresa: String(input.company || invoice.empresa || "").trim(),
-      accountId: "FondoGeneral",
+      accountId: invoice.accountId,
       providerCode: invoice.providerCode,
       invoiceNumber: invoice.invoiceNumber,
       invoiceDocType: "FCR",

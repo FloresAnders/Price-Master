@@ -8184,13 +8184,21 @@ export function FondoSection({
             selectedPendingCreditInvoiceIds.length > 0
           ) {
             try {
-              const selectedIds = new Set(selectedPendingCreditInvoiceIds);
-              const invoicesToPay = pendingClosingCreditInvoices.filter(
-                (invoice) =>
-                  selectedIds.has(invoice.id) &&
-                  invoice.providerCode === selectedProvider &&
-                  invoice.currency === movementCurrency,
-              );
+              if (accountKey === "CajaNegra") {
+                showToast(
+                  "Desde Caja Negra no se debe gestionar facturas a crédito.",
+                  "error",
+                  4500,
+                );
+                setSelectedPendingCreditInvoiceIds([]);
+              } else {
+                const selectedIds = new Set(selectedPendingCreditInvoiceIds);
+                const invoicesToPay = pendingClosingCreditInvoices.filter(
+                  (invoice) =>
+                    selectedIds.has(invoice.id) &&
+                    invoice.providerCode === selectedProvider &&
+                    invoice.currency === movementCurrency,
+                );
 
               if (invoicesToPay.length > 0) {
                 const docId =
@@ -8218,7 +8226,7 @@ export function FondoSection({
                   MovimientosFondosService.createEmptyMovementStorage(
                     normalizedCompany,
                   ).state;
-                const acctKey = "FondoGeneral" as const;
+                const acctKey = accountKey;
                 const currency = movementCurrency as MovementCurrencyKey;
                 const nowISO = entry.createdAt;
                 let totalPaymentApplied = 0;
@@ -8261,6 +8269,7 @@ export function FondoSection({
 
                   const updatedMovement: FacturaMovement = {
                     ...invoice,
+                    accountId: acctKey,
                     amount: totalAmount,
                     originalAmount: totalAmount,
                     amountDue: nextBalanceDue,
@@ -8296,7 +8305,7 @@ export function FondoSection({
                   const movRef = MovimientosFondosService.buildMovementRef(
                     docId,
                     paymentMovementId,
-                    "FondoGeneral",
+                    acctKey,
                   );
                   batch.set(movRef, stripUndefinedDeep(paymentMovement));
 
@@ -8346,7 +8355,7 @@ export function FondoSection({
                   try {
                     const cacheKey = buildV2MovementsCacheKey(
                       docId,
-                      "FondoGeneral",
+                      acctKey,
                     );
                     const cached = v2MovementsCacheRef.current[cacheKey];
                     if (cached?.loaded) {
@@ -8358,7 +8367,7 @@ export function FondoSection({
                         ...cached,
                         movements: [...paymentEntries, ...cached.movements],
                       };
-                      rebuildEntriesFromV2Cache(docId, "FondoGeneral");
+                      rebuildEntriesFromV2Cache(docId, acctKey);
                     }
                     applyLedgerStateFromStorage(ledger.state);
                   } catch (refreshErr) {
@@ -8368,6 +8377,7 @@ export function FondoSection({
                     );
                   }
                 }
+              }
               }
             } catch (err) {
               console.warn(
@@ -9600,7 +9610,7 @@ export function FondoSection({
 
   const selectedProviderPendingCreditInvoices = useMemo(
     () =>
-      selectedProvider
+      selectedProvider && !isCajaNegra
         ? pendingClosingCreditInvoices
             .filter((invoice) => invoice.providerCode === selectedProvider)
             .map((invoice) => {
@@ -9628,7 +9638,7 @@ export function FondoSection({
             })
             .filter((invoice) => invoice.balanceDue > 0)
         : [],
-    [pendingClosingCreditInvoices, selectedProvider],
+        [isCajaNegra, pendingClosingCreditInvoices, selectedProvider],
   );
 
   useEffect(() => {
@@ -9970,6 +9980,14 @@ export function FondoSection({
 
   const openClosingInvoicePaymentModal = useCallback(
     (invoice: FacturaMovement) => {
+      if (isCajaNegra) {
+        showToast(
+          "Desde Caja Negra no se debe gestionar facturas a crédito.",
+          "error",
+          4500,
+        );
+        return;
+      }
       if (pendingCierreDeCaja) {
         setPendingCierreModalOpen(true);
         return;
@@ -9995,7 +10013,7 @@ export function FondoSection({
       setClosingPaymentCreditNoteIds([]);
       setClosingPaymentModalOpen(true);
     },
-    [pendingCierreDeCaja],
+    [isCajaNegra, pendingCierreDeCaja, showToast],
   );
 
   const closeClosingInvoicePaymentModal = useCallback(() => {
@@ -10077,6 +10095,15 @@ export function FondoSection({
   const submitClosingInvoicePayment = useCallback(
     async (mode: "partial" | "full") => {
       if (!company || !closingPaymentTarget) return;
+
+      if (isCajaNegra) {
+        showToast(
+          "Desde Caja Negra no se debe gestionar facturas a crédito.",
+          "error",
+          4500,
+        );
+        return;
+      }
 
       if (pendingCierreDeCaja) {
         setPendingCierreModalOpen(true);
@@ -10206,6 +10233,7 @@ export function FondoSection({
 
       const updatedMovement: FacturaMovement = {
         ...closingPaymentTarget,
+        accountId: accountKey,
         amount: totalAmount,
         originalAmount: totalAmount,
         amountPayment: paymentAmountToApply,
@@ -10229,6 +10257,7 @@ export function FondoSection({
           manager2: paymentManager2Value || undefined,
         });
       const paymentMovementId = String((paymentMovement as any).id || "");
+      const targetAccountKey = accountKey;
 
       setClosingPaymentSubmitting(true);
       try {
@@ -10251,7 +10280,7 @@ export function FondoSection({
         const state =
           ledger.state ??
           MovimientosFondosService.createEmptyMovementStorage(company).state;
-        const acctKey = "FondoGeneral" as const;
+        const acctKey = targetAccountKey;
         const currency = (paymentMovement as any)
           .currency as MovementCurrencyKey;
         const amountToApply = Math.trunc(paymentAmountToApply || 0);
@@ -10328,7 +10357,7 @@ export function FondoSection({
         const movRef = MovimientosFondosService.buildMovementRef(
           docId,
           paymentMovementId,
-          "FondoGeneral",
+          targetAccountKey,
         );
         batch.set(movRef, stripUndefinedDeep(paymentMovement));
 
@@ -10360,7 +10389,7 @@ export function FondoSection({
         }
         storageSnapshotRef.current = stripUndefinedDeep(ledger) as any;
         try {
-          const cacheKey = buildV2MovementsCacheKey(docId, "FondoGeneral");
+          const cacheKey = buildV2MovementsCacheKey(docId, targetAccountKey);
           const cached = v2MovementsCacheRef.current[cacheKey];
           if (cached?.loaded) {
             v2MovementsCacheRef.current[cacheKey] = {
@@ -10373,7 +10402,7 @@ export function FondoSection({
                 ...cached.movements,
               ],
             };
-            rebuildEntriesFromV2Cache(docId, "FondoGeneral");
+            rebuildEntriesFromV2Cache(docId, targetAccountKey);
           } else {
             applyLedgerStateFromStorage(ledger.state);
           }
@@ -10398,6 +10427,8 @@ export function FondoSection({
       closingPaymentNotes,
       closingPaymentTarget,
       company,
+      accountKey,
+      isCajaNegra,
       pendingCierreDeCaja,
       selectedProviderPendingCreditNotes,
       showToast,
