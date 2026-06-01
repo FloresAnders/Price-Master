@@ -58,7 +58,9 @@ const formatInvoiceDocTypeLabel = (value: string) => {
 const stripUndefinedDeep = <T,>(value: T): T => {
   if (value === undefined) return value;
   if (Array.isArray(value)) {
-    return (value.map((v) => stripUndefinedDeep(v)).filter((v) => v !== undefined) as any) as T;
+    return value
+      .map((v) => stripUndefinedDeep(v))
+      .filter((v) => v !== undefined) as any as T;
   }
   if (value && typeof value === "object") {
     const out: Record<string, unknown> = {};
@@ -96,7 +98,11 @@ const formatKeyToDisplay = (key: string): string => {
 
 const resolveFacturaPaidAmount = (movement: FacturaMovement): number => {
   const amount = Math.max(0, Math.trunc(Number(movement.amount) || 0));
-  if (String(movement.invoiceDocType || "").trim().toUpperCase() === "FCO") {
+  if (
+    String(movement.invoiceDocType || "")
+      .trim()
+      .toUpperCase() === "FCO"
+  ) {
     return amount;
   }
   const paidAmount = Math.max(0, Math.trunc(Number(movement.paidAmount) || 0));
@@ -105,7 +111,11 @@ const resolveFacturaPaidAmount = (movement: FacturaMovement): number => {
 
 const resolveFacturaBalance = (movement: FacturaMovement): number => {
   const amount = Math.max(0, Math.trunc(Number(movement.amount) || 0));
-  if (String(movement.invoiceDocType || "").trim().toUpperCase() === "FCO") {
+  if (
+    String(movement.invoiceDocType || "")
+      .trim()
+      .toUpperCase() === "FCO"
+  ) {
     return 0;
   }
   const paidAmount = resolveFacturaPaidAmount(movement);
@@ -117,7 +127,11 @@ const resolveFacturaBalance = (movement: FacturaMovement): number => {
 const resolveFacturaStatus = (
   movement: FacturaMovement,
 ): "PENDIENTE" | "PARCIAL" | "PAGADA" => {
-  if (String(movement.invoiceDocType || "").trim().toUpperCase() === "FCO") {
+  if (
+    String(movement.invoiceDocType || "")
+      .trim()
+      .toUpperCase() === "FCO"
+  ) {
     return "PAGADA";
   }
   if (movement.paymentStatus === "PAGADA") return "PAGADA";
@@ -134,7 +148,9 @@ const resolveFacturaStatusLabel = (movement: FacturaMovement): string => {
   const status = resolveFacturaStatus(movement);
   if (
     status === "PAGADA" &&
-    String(movement.invoiceDocType || "").trim().toUpperCase() === "NC"
+    String(movement.invoiceDocType || "")
+      .trim()
+      .toUpperCase() === "NC"
   ) {
     return "REBAJADA";
   }
@@ -216,9 +232,9 @@ export default function FacturasCreditoPage() {
   const [filterPaymentType, setFilterPaymentType] = useState<string>("all");
   const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
 
-  const [docTypeFilter, setDocTypeFilter] = useState<"all" | "FCR" | "NC" | "FCO">(
-    "all",
-  );
+  const [docTypeFilter, setDocTypeFilter] = useState<
+    "all" | "FCR" | "NC" | "FCO"
+  >("all");
   const [docTypeFilterLabel, setDocTypeFilterLabel] = useState("");
   const [isDocTypeDropdownOpen, setIsDocTypeDropdownOpen] = useState(false);
   const [providerDropdownQuery, setProviderDropdownQuery] = useState("");
@@ -232,7 +248,12 @@ export default function FacturasCreditoPage() {
   const [filterPagada, setFilterPagada] = useState(false);
   const [filterPartial, setFilterPartial] = useState(false);
   const [filterRebajadas, setFilterRebajadas] = useState(false);
-  const hasActiveStatusFilter = filterPendingCredit || filterNCPending || filterPagada || filterPartial || filterRebajadas;
+  const hasActiveStatusFilter =
+    filterPendingCredit ||
+    filterNCPending ||
+    filterPagada ||
+    filterPartial ||
+    filterRebajadas;
   const [rememberFilters, setRememberFilters] = useState(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("fg_rememberFilters") === "true";
@@ -277,30 +298,36 @@ export default function FacturasCreditoPage() {
   const filtersDropdownRef = React.useRef<HTMLDivElement | null>(null);
 
   // Column widths for resizable columns (px based) with persistence
-  const [columnWidths, setColumnWidths] = useState<Record<string, string>>(() => {
-    const defaults: Record<string, string> = {
-      fecha: "80px",
-      proveedor: "250px",
-      factura: "120px",
-      tipo: "160px",
-      monto: "170px",
-      estado: "240px",
-      accion: "170px",
-    };
-    try {
-      if (typeof window !== "undefined") {
-        const raw = localStorage.getItem("facturas-columnWidths");
-        if (raw) {
-          const parsed = JSON.parse(raw || "{}");
-          return { ...defaults, ...parsed };
+  const [columnWidths, setColumnWidths] = useState<Record<string, string>>(
+    () => {
+      const defaults: Record<string, string> = {
+        fecha: "80px",
+        proveedor: "250px",
+        factura: "120px",
+        tipo: "160px",
+        monto: "170px",
+        estado: "240px",
+        accion: "170px",
+      };
+      try {
+        if (typeof window !== "undefined") {
+          const raw = localStorage.getItem("facturas-columnWidths");
+          if (raw) {
+            const parsed = JSON.parse(raw || "{}");
+            return { ...defaults, ...parsed };
+          }
         }
+      } catch {
+        // ignore and use defaults
       }
-    } catch {
-      // ignore and use defaults
-    }
-    return defaults;
-  });
-  const resizingRef = React.useRef<{ key: string; startX: number; startWidth: number } | null>(null);
+      return defaults;
+    },
+  );
+  const resizingRef = React.useRef<{
+    key: string;
+    startX: number;
+    startWidth: number;
+  } | null>(null);
 
   const startResizing = (event: React.MouseEvent, key: string) => {
     event.preventDefault();
@@ -331,7 +358,10 @@ export default function FacturasCreditoPage() {
   useEffect(() => {
     try {
       if (typeof window !== "undefined") {
-        localStorage.setItem("facturas-columnWidths", JSON.stringify(columnWidths));
+        localStorage.setItem(
+          "facturas-columnWidths",
+          JSON.stringify(columnWidths),
+        );
       }
     } catch {
       // ignore storage errors
@@ -404,29 +434,36 @@ export default function FacturasCreditoPage() {
     };
   }, [fromFilter, toFilter, currentDailyKey]);
 
-  const loadMovements = useCallback(async (companyName: string) => {
-    if (!companyName) {
-      setMovements([]);
-      return;
-    }
+  const loadMovements = useCallback(
+    async (companyName: string) => {
+      if (!companyName) {
+        setMovements([]);
+        return;
+      }
 
-    setMovementsLoading(true);
-    try {
-      const data = hasActiveStatusFilter
-        ? await FacturasService.listMovementsByEmpresa(companyName, { limit: 800 })
-        : await (async () => {
-            const range = getFetchDateRange();
-            return FacturasService.listMovementsByDateRange(companyName, {
-              startIso: range.startIso,
-              endIso: range.endIso,
+      setMovementsLoading(true);
+      try {
+        const data = hasActiveStatusFilter
+          ? await FacturasService.listMovementsByEmpresa(companyName, {
               limit: 800,
-            });
-          })();
-      setMovements(data.filter((movement) => !isFacturaPaymentRecord(movement)));
-    } finally {
-      setMovementsLoading(false);
-    }
-  }, [getFetchDateRange, hasActiveStatusFilter]);
+            })
+          : await (async () => {
+              const range = getFetchDateRange();
+              return FacturasService.listMovementsByDateRange(companyName, {
+                startIso: range.startIso,
+                endIso: range.endIso,
+                limit: 800,
+              });
+            })();
+        setMovements(
+          data.filter((movement) => !isFacturaPaymentRecord(movement)),
+        );
+      } finally {
+        setMovementsLoading(false);
+      }
+    },
+    [getFetchDateRange, hasActiveStatusFilter],
+  );
 
   useEffect(() => {
     setColumnWidths((prev) => {
@@ -707,9 +744,7 @@ export default function FacturasCreditoPage() {
     }
 
     setSelectedCompany(
-      preferred
-        ? getCompanyKey(preferred)
-        : getCompanyKey(visibleCompanies[0]),
+      preferred ? getCompanyKey(preferred) : getCompanyKey(visibleCompanies[0]),
     );
   }, [
     getCompanyKey,
@@ -747,7 +782,9 @@ export default function FacturasCreditoPage() {
   );
 
   const canSubmitFullPayment = useMemo(
-    () => selectedPaymentBalance > 0 && enteredPaymentAmount === selectedPaymentBalance,
+    () =>
+      selectedPaymentBalance > 0 &&
+      enteredPaymentAmount === selectedPaymentBalance,
     [enteredPaymentAmount, selectedPaymentBalance],
   );
 
@@ -922,20 +959,27 @@ export default function FacturasCreditoPage() {
           baseStorage = null;
         }
         const ledger =
-          baseStorage ?? MovimientosFondosService.createEmptyMovementStorage(selectedCompany);
+          baseStorage ??
+          MovimientosFondosService.createEmptyMovementStorage(selectedCompany);
         ledger.company = selectedCompany;
         // Do not persist operations array to main doc; movements are in subcollection
         ledger.operations = { movements: [] };
 
         // Adjust balances: subtract payment from currentBalance for the account/currency
-        const state = ledger.state ?? MovimientosFondosService.createEmptyMovementStorage(selectedCompany).state;
+        const state =
+          ledger.state ??
+          MovimientosFondosService.createEmptyMovementStorage(selectedCompany)
+            .state;
         const acctKey = targetAccountKey;
         const currency = paymentMovement.currency as MovementCurrencyKey;
         const amountToApply = Math.trunc(paymentAmountToApply || 0);
         let found = false;
         state.balancesByAccount = state.balancesByAccount.map((b) => {
           if (b.accountId === acctKey && b.currency === currency) {
-            const current = typeof b.currentBalance === "number" ? b.currentBalance : b.initialBalance || 0;
+            const current =
+              typeof b.currentBalance === "number"
+                ? b.currentBalance
+                : b.initialBalance || 0;
             const next = current - amountToApply;
             found = true;
             return { ...b, currentBalance: next };
@@ -962,7 +1006,11 @@ export default function FacturasCreditoPage() {
           { merge: true },
         );
         // Persist ledger main doc
-        const mainRef = doc(db, MovimientosFondosService.COLLECTION_NAME, docId);
+        const mainRef = doc(
+          db,
+          MovimientosFondosService.COLLECTION_NAME,
+          docId,
+        );
         batch.set(mainRef, stripUndefinedDeep(ledger) as any);
         // Persist movement in MovimientosFondos subcollection
         const movRef = MovimientosFondosService.buildMovementRef(
@@ -976,7 +1024,9 @@ export default function FacturasCreditoPage() {
 
         await loadMovements(selectedCompany);
         showToast(
-          nextStatus === "PAGADA" ? "Factura pagada y movimiento generado." : "Abono registrado.",
+          nextStatus === "PAGADA"
+            ? "Factura pagada y movimiento generado."
+            : "Abono registrado.",
           "success",
           3500,
         );
@@ -1008,9 +1058,8 @@ export default function FacturasCreditoPage() {
       setPendingCierreDeCaja(false);
       if (!selectedCompany || providersLoading) return;
       try {
-        const docId = MovimientosFondosService.buildCompanyMovementsKey(
-          selectedCompany,
-        );
+        const docId =
+          MovimientosFondosService.buildCompanyMovementsKey(selectedCompany);
         if (!docId) return;
         const page = await MovimientosFondosService.listMovementsPage(docId, {
           pageSize: 400,
@@ -1023,10 +1072,15 @@ export default function FacturasCreditoPage() {
           const provCode = (m as any).providerCode;
           if (!provCode) continue;
           const provider = providers.find((p) => p.code === provCode);
-          if (provider?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME) {
-            const created = String((m as any).createdAt || (m as any).updateAt || "");
+          if (
+            provider?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME
+          ) {
+            const created = String(
+              (m as any).createdAt || (m as any).updateAt || "",
+            );
             const parsed = Date.parse(created);
-            if (!Number.isNaN(parsed) && parsed > cierreEntryTs) cierreEntryTs = parsed;
+            if (!Number.isNaN(parsed) && parsed > cierreEntryTs)
+              cierreEntryTs = parsed;
           }
         }
 
@@ -1041,7 +1095,8 @@ export default function FacturasCreditoPage() {
               const records = DailyClosingsService.extractAllClosings(doc);
               for (const r of records) {
                 const ts = Date.parse(r.createdAt || r.closingDate || "");
-                if (!Number.isNaN(ts) && ts > latestDailyClosingTs) latestDailyClosingTs = ts;
+                if (!Number.isNaN(ts) && ts > latestDailyClosingTs)
+                  latestDailyClosingTs = ts;
               }
             }
             if (!cancelled) {
@@ -1097,7 +1152,9 @@ export default function FacturasCreditoPage() {
     loadPromise
       .then((data) => {
         if (cancelled) return;
-        setMovements(data.filter((movement) => !isFacturaPaymentRecord(movement)));
+        setMovements(
+          data.filter((movement) => !isFacturaPaymentRecord(movement)),
+        );
       })
       .catch((err) => {
         console.error("[FACTURAS] Error loading movements:", err);
@@ -1254,7 +1311,9 @@ export default function FacturasCreditoPage() {
         setFilterPartial(!!parsed.filterPartial);
         setFilterRebajadas(!!parsed.filterRebajadas);
         setFilterEditedOnly(!!parsed.filterEditedOnly);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
   }, []);
 
@@ -1305,11 +1364,21 @@ export default function FacturasCreditoPage() {
   const pendingSupplierAlerts = useMemo(() => {
     const map = new Map<
       string,
-      { providerCode: string; providerName: string; count: number; crc: number; usd: number }
+      {
+        providerCode: string;
+        providerName: string;
+        count: number;
+        crc: number;
+        usd: number;
+      }
     >();
 
     for (const movement of movements) {
-      if (String(movement.invoiceDocType || "").trim().toUpperCase() !== "FCR") {
+      if (
+        String(movement.invoiceDocType || "")
+          .trim()
+          .toUpperCase() !== "FCR"
+      ) {
         continue;
       }
       const balance = resolveFacturaBalance(movement);
@@ -1317,15 +1386,13 @@ export default function FacturasCreditoPage() {
         continue;
       }
       const providerCode = movement.providerCode;
-      const current =
-        map.get(providerCode) ??
-        {
-          providerCode,
-          providerName: providerNameByCode.get(providerCode) || providerCode,
-          count: 0,
-          crc: 0,
-          usd: 0,
-        };
+      const current = map.get(providerCode) ?? {
+        providerCode,
+        providerName: providerNameByCode.get(providerCode) || providerCode,
+        count: 0,
+        crc: 0,
+        usd: 0,
+      };
       current.count += 1;
       if (movement.currency === "USD") current.usd += balance;
       else current.crc += balance;
@@ -1343,9 +1410,9 @@ export default function FacturasCreditoPage() {
   const selectedProviderPendingAlert = useMemo(
     () =>
       filterProviderCode !== "all"
-        ? pendingSupplierAlerts.find(
+        ? (pendingSupplierAlerts.find(
             (item) => item.providerCode === filterProviderCode,
-          ) ?? null
+          ) ?? null)
         : null,
     [filterProviderCode, pendingSupplierAlerts],
   );
@@ -1365,7 +1432,10 @@ export default function FacturasCreditoPage() {
     const docTypeQuery = docTypeDropdownQuery.trim().toLowerCase();
 
     return movements.filter((m) => {
-      if (filterProviderCode !== "all" && m.providerCode !== filterProviderCode) {
+      if (
+        filterProviderCode !== "all" &&
+        m.providerCode !== filterProviderCode
+      ) {
         return false;
       }
       if (filterProviderCode === "all" && providerQuery) {
@@ -1390,7 +1460,9 @@ export default function FacturasCreditoPage() {
         return false;
       }
       if (docTypeFilter === "all" && docTypeQuery) {
-        const docHaystack = formatInvoiceDocTypeLabel(m.invoiceDocType).toLowerCase();
+        const docHaystack = formatInvoiceDocTypeLabel(
+          m.invoiceDocType,
+        ).toLowerCase();
         if (!docHaystack.includes(docTypeQuery)) return false;
       }
 
@@ -1413,19 +1485,31 @@ export default function FacturasCreditoPage() {
       if (filterPendingCredit) {
         const status = resolveFacturaStatus(m);
         if (status !== "PENDIENTE") return false;
-        if (String(m.invoiceDocType || "").trim().toUpperCase() !== "FCR") return false;
+        if (
+          String(m.invoiceDocType || "")
+            .trim()
+            .toUpperCase() !== "FCR"
+        )
+          return false;
       }
 
       if (filterNCPending) {
         const status = resolveFacturaStatus(m);
         if (status !== "PENDIENTE") return false;
-        if (String(m.invoiceDocType || "").trim().toUpperCase() !== "NC") return false;
+        if (
+          String(m.invoiceDocType || "")
+            .trim()
+            .toUpperCase() !== "NC"
+        )
+          return false;
       }
 
       if (filterPagada) {
         const status = resolveFacturaStatus(m);
         if (status !== "PAGADA") return false;
-        const dt = String(m.invoiceDocType || "").trim().toUpperCase();
+        const dt = String(m.invoiceDocType || "")
+          .trim()
+          .toUpperCase();
         if (dt !== "FCR" && dt !== "FCO") return false;
       }
 
@@ -1489,7 +1573,8 @@ export default function FacturasCreditoPage() {
     setCreateDrawerOpen(true);
   };
 
-  const hasDateRangeFilter = Boolean(fromFilter || toFilter) || hasActiveStatusFilter;
+  const hasDateRangeFilter =
+    Boolean(fromFilter || toFilter) || hasActiveStatusFilter;
   const effectiveRowsPerPage = hasDateRangeFilter
     ? typeof rowsPerPage === "number"
       ? rowsPerPage
@@ -1532,7 +1617,13 @@ export default function FacturasCreditoPage() {
     }
     const start = pageIndex * effectiveRowsPerPage;
     return filteredMovements.slice(start, start + effectiveRowsPerPage);
-  }, [filteredMovements, pageIndex, effectiveRowsPerPage, currentDailyKey, isDailyView]);
+  }, [
+    filteredMovements,
+    pageIndex,
+    effectiveRowsPerPage,
+    currentDailyKey,
+    isDailyView,
+  ]);
 
   const pageRange = useMemo(() => {
     if (filteredMovements.length === 0) {
@@ -1612,30 +1703,24 @@ export default function FacturasCreditoPage() {
     return match ? getCompanyLabel(match).split(" - ")[0] : selected;
   }, [selectedCompany, sortedOwnerCompanies, getCompanyKey, getCompanyLabel]);
 
-  const handleAdminCompanyChange = useCallback(
-    (nextCompany: string) => {
-      const value = String(nextCompany || "").trim();
-      setSelectedCompany(value);
-      try {
-        const prev = localStorage.getItem(SHARED_COMPANY_STORAGE_KEY);
-        localStorage.setItem(SHARED_COMPANY_STORAGE_KEY, value);
-        window.dispatchEvent(
-          new StorageEvent("storage", {
-            key: SHARED_COMPANY_STORAGE_KEY,
-            newValue: value,
-            oldValue: prev,
-            storageArea: localStorage,
-          }),
-        );
-      } catch (error) {
-        console.error(
-          "Error saving selected company to localStorage:",
-          error,
-        );
-      }
-    },
-    [],
-  );
+  const handleAdminCompanyChange = useCallback((nextCompany: string) => {
+    const value = String(nextCompany || "").trim();
+    setSelectedCompany(value);
+    try {
+      const prev = localStorage.getItem(SHARED_COMPANY_STORAGE_KEY);
+      localStorage.setItem(SHARED_COMPANY_STORAGE_KEY, value);
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: SHARED_COMPANY_STORAGE_KEY,
+          newValue: value,
+          oldValue: prev,
+          storageArea: localStorage,
+        }),
+      );
+    } catch (error) {
+      console.error("Error saving selected company to localStorage:", error);
+    }
+  }, []);
 
   const formatMovementDateTime = useCallback((value: string) => {
     try {
@@ -1666,7 +1751,9 @@ export default function FacturasCreditoPage() {
   }, []);
 
   const providerTone = useCallback((value: string) => {
-    const key = String(value || "").trim().toLowerCase();
+    const key = String(value || "")
+      .trim()
+      .toLowerCase();
     const palette = [
       "from-slate-600 to-slate-800 text-slate-50",
       "from-cyan-600 to-sky-700 text-slate-50",
@@ -1717,7 +1804,9 @@ export default function FacturasCreditoPage() {
                     setIsProviderDropdownOpen(true);
                   }}
                   onFocus={() => setIsProviderDropdownOpen(true)}
-                  placeholder={providersLoading ? "Cargando proveedores..." : "Proveedor"}
+                  placeholder={
+                    providersLoading ? "Cargando proveedores..." : "Proveedor"
+                  }
                   className="h-11 w-full rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] px-4 pr-10 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] focus:border-cyan-500/45 focus:ring-2 focus:ring-cyan-500/20"
                   aria-label="Proveedor"
                 />
@@ -1740,9 +1829,13 @@ export default function FacturasCreditoPage() {
                     </button>
                     {providers
                       .filter((provider) => {
-                        const needle = providerDropdownQuery.trim().toLowerCase();
+                        const needle = providerDropdownQuery
+                          .trim()
+                          .toLowerCase();
                         if (!needle) return true;
-                        return `${provider.name} ${provider.code}`.toLowerCase().includes(needle);
+                        return `${provider.name} ${provider.code}`
+                          .toLowerCase()
+                          .includes(needle);
                       })
                       .slice(0, 24)
                       .map((provider) => (
@@ -1756,8 +1849,12 @@ export default function FacturasCreditoPage() {
                           }`}
                           onMouseDown={() => {
                             setFilterProviderCode(provider.code);
-                            setProviderFilter(`${provider.name} (${provider.code})`);
-                            setProviderDropdownQuery(`${provider.name} (${provider.code})`);
+                            setProviderFilter(
+                              `${provider.name} (${provider.code})`,
+                            );
+                            setProviderDropdownQuery(
+                              `${provider.name} (${provider.code})`,
+                            );
                             setIsProviderDropdownOpen(false);
                           }}
                         >
@@ -1804,7 +1901,9 @@ export default function FacturasCreditoPage() {
                       .filter((type) => {
                         const needle = typeDropdownQuery.trim().toLowerCase();
                         if (!needle) return true;
-                        return formatMovementType(type).toLowerCase().includes(needle);
+                        return formatMovementType(type)
+                          .toLowerCase()
+                          .includes(needle);
                       })
                       .slice(0, 30)
                       .map((type) => (
@@ -1868,9 +1967,13 @@ export default function FacturasCreditoPage() {
                       { value: "FCO", label: "Factura a Contado" },
                     ]
                       .filter((item) => {
-                        const needle = docTypeDropdownQuery.trim().toLowerCase();
+                        const needle = docTypeDropdownQuery
+                          .trim()
+                          .toLowerCase();
                         if (!needle) return true;
-                        return `${item.label} ${item.value}`.toLowerCase().includes(needle);
+                        return `${item.label} ${item.value}`
+                          .toLowerCase()
+                          .includes(needle);
                       })
                       .map((item) => (
                         <button
@@ -1882,7 +1985,9 @@ export default function FacturasCreditoPage() {
                               : "text-[var(--foreground)]/90"
                           }`}
                           onMouseDown={() => {
-                            setDocTypeFilter(item.value as "FCR" | "NC" | "FCO");
+                            setDocTypeFilter(
+                              item.value as "FCR" | "NC" | "FCO",
+                            );
                             setDocTypeFilterLabel(item.label);
                             setDocTypeDropdownQuery(item.label);
                             setIsDocTypeDropdownOpen(false);
@@ -1928,27 +2033,37 @@ export default function FacturasCreditoPage() {
                       <input
                         type="checkbox"
                         checked={filterPendingCredit}
-                        onChange={(event) => setFilterPendingCredit(event.target.checked)}
+                        onChange={(event) =>
+                          setFilterPendingCredit(event.target.checked)
+                        }
                         className="h-4 w-4 accent-amber-400"
                       />
                       <FileText className="h-4 w-4 shrink-0 text-amber-300/90" />
-                      <span className="leading-tight">Facturas de crédito pendientes</span>
+                      <span className="leading-tight">
+                        Facturas de crédito pendientes
+                      </span>
                     </label>
                     <label className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
                       <input
                         type="checkbox"
                         checked={filterNCPending}
-                        onChange={(event) => setFilterNCPending(event.target.checked)}
+                        onChange={(event) =>
+                          setFilterNCPending(event.target.checked)
+                        }
                         className="h-4 w-4 accent-cyan-400"
                       />
                       <BadgeCheck className="h-4 w-4 shrink-0 text-cyan-300/90" />
-                      <span className="leading-tight">Notas de crédito pendientes</span>
+                      <span className="leading-tight">
+                        Notas de crédito pendientes
+                      </span>
                     </label>
                     <label className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
                       <input
                         type="checkbox"
                         checked={filterPagada}
-                        onChange={(event) => setFilterPagada(event.target.checked)}
+                        onChange={(event) =>
+                          setFilterPagada(event.target.checked)
+                        }
                         className="h-4 w-4 accent-emerald-400"
                       />
                       <CheckCircle className="h-4 w-4 shrink-0 text-emerald-300/90" />
@@ -1958,7 +2073,9 @@ export default function FacturasCreditoPage() {
                       <input
                         type="checkbox"
                         checked={filterPartial}
-                        onChange={(event) => setFilterPartial(event.target.checked)}
+                        onChange={(event) =>
+                          setFilterPartial(event.target.checked)
+                        }
                         className="h-4 w-4 accent-amber-400"
                       />
                       <Clock className="h-4 w-4 shrink-0 text-amber-300/90" />
@@ -1968,7 +2085,9 @@ export default function FacturasCreditoPage() {
                       <input
                         type="checkbox"
                         checked={filterRebajadas}
-                        onChange={(event) => setFilterRebajadas(event.target.checked)}
+                        onChange={(event) =>
+                          setFilterRebajadas(event.target.checked)
+                        }
                         className="h-4 w-4 accent-emerald-400"
                       />
                       <BadgeCheck className="h-4 w-4 shrink-0 text-emerald-300/90" />
@@ -1978,7 +2097,9 @@ export default function FacturasCreditoPage() {
                       <input
                         type="checkbox"
                         checked={filterEditedOnly}
-                        onChange={(event) => setFilterEditedOnly(event.target.checked)}
+                        onChange={(event) =>
+                          setFilterEditedOnly(event.target.checked)
+                        }
                         className="h-4 w-4 rounded border-[var(--input-border)] accent-[var(--accent)]"
                       />
                       <Pencil className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
@@ -2044,7 +2165,9 @@ export default function FacturasCreditoPage() {
                     className="flex h-11 w-full items-center justify-between rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] px-4 text-sm text-[var(--foreground)] transition-colors hover:border-cyan-500/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/20"
                   >
                     <span className="text-[var(--foreground)]/90">
-                      {fromFilter ? formatKeyToDisplay(fromFilter) : "dd/mm/yyyy"}
+                      {fromFilter
+                        ? formatKeyToDisplay(fromFilter)
+                        : "dd/mm/yyyy"}
                     </span>
                     <CalendarDays className="h-4 w-4 text-cyan-300/85" />
                   </button>
@@ -2326,11 +2449,24 @@ export default function FacturasCreditoPage() {
                         to = new Date();
                       } else if (v === "lastweek") {
                         const day = now.getDay();
-                        const diff = now.getDate() - day + (day === 0 ? -6 : 1) - 7;
-                        from = new Date(now.getFullYear(), now.getMonth(), diff);
-                        to = new Date(now.getFullYear(), now.getMonth(), diff + 6);
+                        const diff =
+                          now.getDate() - day + (day === 0 ? -6 : 1) - 7;
+                        from = new Date(
+                          now.getFullYear(),
+                          now.getMonth(),
+                          diff,
+                        );
+                        to = new Date(
+                          now.getFullYear(),
+                          now.getMonth(),
+                          diff + 6,
+                        );
                       } else if (v === "lastmonth") {
-                        from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                        from = new Date(
+                          now.getFullYear(),
+                          now.getMonth() - 1,
+                          1,
+                        );
                         to = new Date(now.getFullYear(), now.getMonth(), 0);
                       } else if (v === "month") {
                         from = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -2361,44 +2497,71 @@ export default function FacturasCreditoPage() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
-                <div className="min-w-0 flex-1 rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)]/75 px-3 py-2.5 sm:px-4 sm:py-3">
-                  <p className="text-center text-[11px] uppercase tracking-[0.18em] text-slate-400 lg:text-left">
-                    {user?.role === "user" ? "Empresa asignada" : "Empresa actual"}
-                  </p>
-                  <p className="break-words text-center text-sm font-semibold leading-tight text-[var(--foreground)] lg:text-left" title={currentCompanyLabel}>
-                    {currentCompanyLabel}
-                  </p>
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                <div className="flex min-w-0 flex-1 items-center gap-4 rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)]/75 px-4 py-3">
+                  <div className="shrink-0">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+                      {user?.role === "user"
+                        ? "Empresa asignada"
+                        : "Empresa actual"}
+                    </p>
+
+                    <p
+                      className="text-sm font-semibold text-[var(--foreground)]"
+                      title={currentCompanyLabel}
+                    >
+                      {currentCompanyLabel}
+                    </p>
+                  </div>
+
                   {availableCompaniesError && (
-                    <p className="mt-1 text-center text-xs text-red-300 lg:text-left">{availableCompaniesError}</p>
+                    <p className="text-xs text-red-300">
+                      {availableCompaniesError}
+                    </p>
                   )}
+
                   {user?.role !== "user" && (
                     <select
                       id={companySelectId}
                       value={selectedCompany}
                       onChange={(e) => handleAdminCompanyChange(e.target.value)}
-                      disabled={availableCompaniesLoading || sortedOwnerCompanies.length === 0}
-                      className="mt-2 h-10 w-full rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/45 focus:border-[var(--accent)]/45 disabled:cursor-not-allowed disabled:opacity-70 sm:mt-3 sm:h-11 sm:px-4"
+                      disabled={
+                        availableCompaniesLoading ||
+                        sortedOwnerCompanies.length === 0
+                      }
+                      className="ml-auto h-11 min-w-[260px] rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] px-4 text-sm text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/45 focus:border-[var(--accent)]/45 disabled:cursor-not-allowed disabled:opacity-70"
                     >
-                      {availableCompaniesLoading && <option value="">Cargando empresas...</option>}
-                      {!availableCompaniesLoading && sortedOwnerCompanies.length === 0 && (
-                        <option value="">Sin empresas disponibles</option>
+                      {availableCompaniesLoading && (
+                        <option value="">Cargando empresas...</option>
                       )}
-                      {!availableCompaniesLoading && sortedOwnerCompanies.length > 0 && (
-                        <>
-                          <option value="" disabled hidden>
-                            Selecciona una empresa
-                          </option>
-                          {sortedOwnerCompanies.map((emp, index) => (
-                            <option
-                              key={emp.id || emp.name || emp.ubicacion || `company-${index}`}
-                              value={getCompanyKey(emp)}
-                            >
-                              {getCompanyLabel(emp)}
+
+                      {!availableCompaniesLoading &&
+                        sortedOwnerCompanies.length === 0 && (
+                          <option value="">Sin empresas disponibles</option>
+                        )}
+
+                      {!availableCompaniesLoading &&
+                        sortedOwnerCompanies.length > 0 && (
+                          <>
+                            <option value="" disabled hidden>
+                              Selecciona una empresa
                             </option>
-                          ))}
-                        </>
-                      )}
+
+                            {sortedOwnerCompanies.map((emp, index) => (
+                              <option
+                                key={
+                                  emp.id ||
+                                  emp.name ||
+                                  emp.ubicacion ||
+                                  `company-${index}`
+                                }
+                                value={getCompanyKey(emp)}
+                              >
+                                {getCompanyLabel(emp)}
+                              </option>
+                            ))}
+                          </>
+                        )}
                     </select>
                   )}
                 </div>
@@ -2423,10 +2586,11 @@ export default function FacturasCreditoPage() {
                 Facturas ({filteredMovements.length})
               </h2>
               <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-                Mostrando {pageRange.from}-{pageRange.to} de {filteredMovements.length}
+                Mostrando {pageRange.from}-{pageRange.to} de{" "}
+                {filteredMovements.length}
               </p>
             </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2 text-sm text-[var(--foreground)]">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2 text-sm text-[var(--foreground)]">
               <span className="self-start rounded-full border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-1.5 text-xs font-semibold tracking-wide text-[var(--foreground)]/90">
                 {movementsLoading ? "Cargando..." : currentCompanyLabel}
               </span>
@@ -2470,13 +2634,19 @@ export default function FacturasCreditoPage() {
                         setPageIndex((prev) => Math.max(0, prev - 1));
                       }
                     }}
-                    disabled={isDailyView ? currentDailyKey <= "1970-01-01" : pageIndex === 0}
+                    disabled={
+                      isDailyView
+                        ? currentDailyKey <= "1970-01-01"
+                        : pageIndex === 0
+                    }
                     className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--input-border)] text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/45 disabled:cursor-not-allowed disabled:opacity-40 sm:h-8 sm:w-8"
                   >
                     <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
                   </button>
                   <span className="min-w-[52px] text-center text-[10px] text-[var(--muted-foreground)] sm:min-w-[96px] sm:text-xs">
-                    {isDailyView ? formatKeyToDisplay(currentDailyKey) : `${pageIndex + 1} / ${totalPages}`}
+                    {isDailyView
+                      ? formatKeyToDisplay(currentDailyKey)
+                      : `${pageIndex + 1} / ${totalPages}`}
                   </span>
                   <button
                     type="button"
@@ -2490,10 +2660,16 @@ export default function FacturasCreditoPage() {
                           return next > todayKey ? todayKey : next;
                         });
                       } else {
-                        setPageIndex((prev) => Math.min(totalPages - 1, prev + 1));
+                        setPageIndex((prev) =>
+                          Math.min(totalPages - 1, prev + 1),
+                        );
                       }
                     }}
-                    disabled={isDailyView ? currentDailyKey >= todayKey : pageIndex >= totalPages - 1}
+                    disabled={
+                      isDailyView
+                        ? currentDailyKey >= todayKey
+                        : pageIndex >= totalPages - 1
+                    }
                     className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--input-border)] text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/45 disabled:cursor-not-allowed disabled:opacity-40 sm:h-8 sm:w-8"
                   >
                     <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -2507,13 +2683,27 @@ export default function FacturasCreditoPage() {
             <table className="w-full min-w-[1120px] border-separate border-spacing-0 text-sm">
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
-                  <th className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">Fecha</th>
-                  <th className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">Proveedor</th>
-                  <th className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">N° Factura</th>
-                  <th className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">Tipo pago</th>
-                  <th className="border-b border-[var(--input-border)] px-4 py-3 text-right font-semibold">Monto</th>
-                  <th className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">Estado</th>
-                  <th className="border-b border-[var(--input-border)] px-4 py-3 text-right font-semibold">Acción</th>
+                  <th className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">
+                    Fecha
+                  </th>
+                  <th className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">
+                    Proveedor
+                  </th>
+                  <th className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">
+                    N° Factura
+                  </th>
+                  <th className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">
+                    Tipo pago
+                  </th>
+                  <th className="border-b border-[var(--input-border)] px-4 py-3 text-right font-semibold">
+                    Monto
+                  </th>
+                  <th className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">
+                    Estado
+                  </th>
+                  <th className="border-b border-[var(--input-border)] px-4 py-3 text-right font-semibold">
+                    Acción
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -2525,7 +2715,10 @@ export default function FacturasCreditoPage() {
                       </td>
                     </tr>
                     {Array.from({ length: 6 }, (_, i) => i).map((row) => (
-                      <tr key={row} className="[&>td]:border-b [&>td]:border-[var(--input-border)]/60">
+                      <tr
+                        key={row}
+                        className="[&>td]:border-b [&>td]:border-[var(--input-border)]/60"
+                      >
                         <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
                             <div className="h-10 w-10 animate-pulse rounded-xl bg-cyan-100/10" />
@@ -2561,111 +2754,146 @@ export default function FacturasCreditoPage() {
                   </>
                 ) : (
                   pagedMovements.map((movement) => {
-                  const amount = Math.abs(Number(movement.amount) || 0);
-                  const signedAmount =
-                    String(movement.invoiceDocType || "").trim().toUpperCase() === "NC"
-                      ? -amount
-                      : amount;
-                  const amountLabel = signedAmount.toLocaleString("es-CR", {
-                    style: "currency",
-                    currency: movement.currency,
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0,
-                  });
-                  const paymentStatus = resolveFacturaStatus(movement);
-                  const paymentStatusLabel = resolveFacturaStatusLabel(movement);
-                  const paymentBalance = resolveFacturaBalance(movement);
-                  const isPaid = paymentBalance === 0;
-                  const providerName = providerNameByCode.get(movement.providerCode) || movement.providerCode;
-                  const dateParts = formatMovementDateTime(movement.createdAt);
+                    const amount = Math.abs(Number(movement.amount) || 0);
+                    const signedAmount =
+                      String(movement.invoiceDocType || "")
+                        .trim()
+                        .toUpperCase() === "NC"
+                        ? -amount
+                        : amount;
+                    const amountLabel = signedAmount.toLocaleString("es-CR", {
+                      style: "currency",
+                      currency: movement.currency,
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 0,
+                    });
+                    const paymentStatus = resolveFacturaStatus(movement);
+                    const paymentStatusLabel =
+                      resolveFacturaStatusLabel(movement);
+                    const paymentBalance = resolveFacturaBalance(movement);
+                    const isPaid = paymentBalance === 0;
+                    const providerName =
+                      providerNameByCode.get(movement.providerCode) ||
+                      movement.providerCode;
+                    const dateParts = formatMovementDateTime(
+                      movement.createdAt,
+                    );
 
-                  return (
-                    <tr
-                      key={movement.id}
-                      className="transition-colors hover:bg-[var(--muted)]/15 [&>td]:border-b [&>td]:border-[var(--input-border)]/60"
-                    >
-                      <td className="px-4 py-4 align-top">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--input-border)] bg-[var(--muted)]/20 text-[var(--foreground)]/90">
-                            <CalendarDays className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium text-[var(--foreground)]">{dateParts.date}</div>
-                            <div className="text-xs text-[var(--muted-foreground)]">{dateParts.time}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 align-top">
-                        <div className="flex items-center gap-3">
-                          <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-sm font-semibold shadow-sm ${providerTone(providerName)}`}>
-                            {providerInitials(providerName)}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="truncate text-sm font-medium text-[var(--foreground)]">
-                              {providerName}
+                    return (
+                      <tr
+                        key={movement.id}
+                        className="transition-colors hover:bg-[var(--muted)]/15 [&>td]:border-b [&>td]:border-[var(--input-border)]/60"
+                      >
+                        <td className="px-4 py-4 align-top">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--input-border)] bg-[var(--muted)]/20 text-[var(--foreground)]/90">
+                              <CalendarDays className="h-4 w-4" />
                             </div>
-                            <div className="truncate text-xs text-[var(--muted-foreground)]">
-                              {movement.providerCode}
+                            <div>
+                              <div className="text-sm font-medium text-[var(--foreground)]">
+                                {dateParts.date}
+                              </div>
+                              <div className="text-xs text-[var(--muted-foreground)]">
+                                {dateParts.time}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 align-top text-sm text-[var(--foreground)]">{movement.invoiceNumber}</td>
-                      <td className="px-4 py-4 align-top text-sm text-[var(--foreground)]">
-                        <span className="inline-flex items-center gap-2 rounded-full border border-[var(--input-border)] bg-[var(--muted)]/18 px-3 py-1.5 font-medium">
-                          <ShoppingCart className="h-3.5 w-3.5 text-cyan-300/90" />
-                          {formatMovementType(movement.paymentType)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 align-top text-right text-sm font-semibold tabular-nums text-[var(--foreground)]">
-                        {amountLabel} {movement.currency}
-                      </td>
-                      <td className="px-4 py-4 align-top">
-                        <div className="flex flex-col gap-2">
-                          <span className="inline-flex w-fit items-center rounded-full border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-1 text-xs font-medium text-[var(--foreground)]">
-                            {formatInvoiceDocTypeLabel(movement.invoiceDocType)}
+                        </td>
+                        <td className="px-4 py-4 align-top">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-sm font-semibold shadow-sm ${providerTone(providerName)}`}
+                            >
+                              {providerInitials(providerName)}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-medium text-[var(--foreground)]">
+                                {providerName}
+                              </div>
+                              <div className="truncate text-xs text-[var(--muted-foreground)]">
+                                {movement.providerCode}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 align-top text-sm text-[var(--foreground)]">
+                          {movement.invoiceNumber}
+                        </td>
+                        <td className="px-4 py-4 align-top text-sm text-[var(--foreground)]">
+                          <span className="inline-flex items-center gap-2 rounded-full border border-[var(--input-border)] bg-[var(--muted)]/18 px-3 py-1.5 font-medium">
+                            <ShoppingCart className="h-3.5 w-3.5 text-cyan-300/90" />
+                            {formatMovementType(movement.paymentType)}
                           </span>
-                          <span className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(paymentStatus)}`}>
-                            {paymentStatus === "PAGADA" && <CheckCircle className="h-3.5 w-3.5" />}
-                            {paymentStatus === "PARCIAL" && <Clock className="h-3.5 w-3.5" />}
-                            {paymentStatus === "PENDIENTE" && <Clock className="h-3.5 w-3.5" />}
-                            <span>{paymentStatusLabel}</span>
-                          </span>
-                          {movement.invoiceDocType === "FCR" && paymentBalance > 0 && (
-                            <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-1 text-xs font-semibold text-[var(--foreground)]">
+                        </td>
+                        <td className="px-4 py-4 align-top text-right text-sm font-semibold tabular-nums text-[var(--foreground)]">
+                          {amountLabel} {movement.currency}
+                        </td>
+                        <td className="px-4 py-4 align-top">
+                          <div className="flex flex-col gap-2">
+                            <span className="inline-flex w-fit items-center rounded-full border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-1 text-xs font-medium text-[var(--foreground)]">
+                              {formatInvoiceDocTypeLabel(
+                                movement.invoiceDocType,
+                              )}
+                            </span>
+                            <span
+                              className={`inline-flex w-fit items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(paymentStatus)}`}
+                            >
+                              {paymentStatus === "PAGADA" && (
+                                <CheckCircle className="h-3.5 w-3.5" />
+                              )}
+                              {paymentStatus === "PARCIAL" && (
+                                <Clock className="h-3.5 w-3.5" />
+                              )}
+                              {paymentStatus === "PENDIENTE" && (
+                                <Clock className="h-3.5 w-3.5" />
+                              )}
+                              <span>{paymentStatusLabel}</span>
+                            </span>
+                            {movement.invoiceDocType === "FCR" &&
+                              paymentBalance > 0 && (
+                                <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-1 text-xs font-semibold text-[var(--foreground)]">
+                                  <CreditCard className="h-3.5 w-3.5" />
+                                  Saldo:{" "}
+                                  {paymentBalance.toLocaleString("es-CR", {
+                                    style: "currency",
+                                    currency: movement.currency,
+                                    minimumFractionDigits: 0,
+                                    maximumFractionDigits: 0,
+                                  })}
+                                </span>
+                              )}
+                          </div>
+                        </td>
+                        <td className="border-b border-[var(--input-border)]/60 px-4 py-4 align-top text-right">
+                          {movement.invoiceDocType === "FCR" && !isPaid ? (
+                            <button
+                              type="button"
+                              onClick={() => openPaymentModal(movement)}
+                              disabled={pendingCierreDeCaja}
+                              className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-colors ${registerPaymentTone}`}
+                            >
                               <CreditCard className="h-3.5 w-3.5" />
-                              Saldo: {paymentBalance.toLocaleString("es-CR", {
-                                style: "currency",
-                                currency: movement.currency,
-                                minimumFractionDigits: 0,
-                                maximumFractionDigits: 0,
-                              })}
+                              {pendingCierreDeCaja
+                                ? "Bloqueado"
+                                : "Registrar Abono"}
+                            </button>
+                          ) : (
+                            <span className="text-xs text-[var(--muted-foreground)]">
+                              -
                             </span>
                           )}
-                        </div>
-                      </td>
-                      <td className="border-b border-[var(--input-border)]/60 px-4 py-4 align-top text-right">
-                        {movement.invoiceDocType === "FCR" && !isPaid ? (
-                          <button
-                            type="button"
-                            onClick={() => openPaymentModal(movement)}
-                            disabled={pendingCierreDeCaja}
-                            className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-colors ${registerPaymentTone}`}
-                          >
-                            <CreditCard className="h-3.5 w-3.5" />
-                            {pendingCierreDeCaja ? "Bloqueado" : "Registrar Abono"}
-                          </button>
-                        ) : (
-                          <span className="text-xs text-[var(--muted-foreground)]">-</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                }))}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
 
                 {!movementsLoading && filteredMovements.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-10 text-center text-sm text-[var(--muted-foreground)]">
+                    <td
+                      colSpan={7}
+                      className="px-4 py-10 text-center text-sm text-[var(--muted-foreground)]"
+                    >
                       No hay facturas para los filtros seleccionados.
                     </td>
                   </tr>
@@ -2673,7 +2901,6 @@ export default function FacturasCreditoPage() {
               </tbody>
             </table>
           </div>
-
         </section>
 
         {paymentModalOpen && paymentTarget && (
@@ -2764,15 +2991,20 @@ export default function FacturasCreditoPage() {
                       inputMode="numeric"
                       value={
                         paymentAmount
-                          ? Math.trunc(Number(paymentAmount)).toLocaleString("es-CR", {
-                              style: "currency",
-                              currency: paymentTarget.currency,
-                              minimumFractionDigits: 0,
-                              maximumFractionDigits: 0,
-                            })
+                          ? Math.trunc(Number(paymentAmount)).toLocaleString(
+                              "es-CR",
+                              {
+                                style: "currency",
+                                currency: paymentTarget.currency,
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 0,
+                              },
+                            )
                           : ""
                       }
-                      onChange={(event) => setPaymentAmount(event.target.value.replace(/\D/g, ""))}
+                      onChange={(event) =>
+                        setPaymentAmount(event.target.value.replace(/\D/g, ""))
+                      }
                       className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
                     />
                   </label>
