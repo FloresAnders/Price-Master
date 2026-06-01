@@ -52,6 +52,7 @@ export function useProviders(company?: string) {
       name: string,
       type?: string,
       correonotifi?: string,
+      agent?: ProviderEntry["agent"],
       visit?: ProviderEntry["visit"],
       explicitCategory?: "Ingreso" | "Gasto" | "Egreso",
     ) => {
@@ -69,6 +70,7 @@ export function useProviders(company?: string) {
           name,
           type,
           correonotifi,
+          agent,
           visit,
           explicitCategory,
         );
@@ -118,6 +120,7 @@ export function useProviders(company?: string) {
       name: string,
       type?: string,
       correonotifi?: string,
+      agent?: ProviderEntry["agent"],
       visit?: ProviderEntry["visit"],
       explicitCategory?: "Ingreso" | "Gasto" | "Egreso",
     ) => {
@@ -136,6 +139,7 @@ export function useProviders(company?: string) {
           name,
           type,
           correonotifi,
+          agent,
           visit,
           explicitCategory,
         );

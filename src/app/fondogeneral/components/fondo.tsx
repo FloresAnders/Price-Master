@@ -1376,6 +1376,9 @@ export function ProviderSection({ id }: { id?: string }) {
 
   const [providerName, setProviderName] = useState("");
   const [providerType, setProviderType] = useState<FondoMovementType | "">("");
+  const [providerAgentName, setProviderAgentName] = useState("");
+  const [providerAgentPhone, setProviderAgentPhone] = useState("");
+  const [showProviderAgentFields, setShowProviderAgentFields] = useState(false);
   const [editingProviderCode, setEditingProviderCode] = useState<string | null>(
     null,
   );
@@ -1391,6 +1394,10 @@ export function ProviderSection({ id }: { id?: string }) {
 
   type ProviderVisitDay = "D" | "L" | "M" | "MI" | "J" | "V" | "S";
   type ProviderVisitFrequency = "SEMANAL" | "QUINCENAL" | "MENSUAL" | "22 DIAS";
+  type ProviderAgentConfig = {
+    name: string;
+    phone: string;
+  };
   type ProviderVisitConfig = {
     createOrderDays: ProviderVisitDay[];
     receiveOrderDays: ProviderVisitDay[];
@@ -1437,6 +1444,37 @@ export function ProviderSection({ id }: { id?: string }) {
     ProviderVisitFrequency | ""
   >("");
   const [visitStartDateISO, setVisitStartDateISO] = useState<string>("");
+
+  const formatProviderPhone = useCallback((value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 8);
+    if (digits.length <= 4) return digits;
+    return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+  }, []);
+
+  const resetProviderFormState = useCallback(() => {
+    setFormError(null);
+    setProviderTypeError("");
+    setProviderName("");
+    setProviderType("");
+    setEditingProviderCode(null);
+    setAddNotification(false);
+    setSelectedAdminId("");
+    setProviderAgentName("");
+    setProviderAgentPhone("");
+    setShowProviderAgentFields(false);
+    setAddVisit(false);
+    setVisitCreateDays([]);
+    setVisitReceiveDays([]);
+    setVisitFrequency("");
+    setVisitStartDateISO("");
+  }, []);
+
+  const getProviderAgent = useCallback((): ProviderAgentConfig | undefined => {
+    const name = providerAgentName.trim();
+    const phone = formatProviderPhone(providerAgentPhone).trim();
+    if (!name && !phone) return undefined;
+    return { name, phone };
+  }, [formatProviderPhone, providerAgentName, providerAgentPhone]);
 
   const isCompraInventarioProvider =
     typeof providerType === "string" &&
@@ -1526,6 +1564,7 @@ export function ProviderSection({ id }: { id?: string }) {
     name: string;
     providerType?: FondoMovementType;
     correonotifi?: string;
+    agent?: ProviderAgentConfig;
     visit?: ProviderVisitConfig;
   }>(null);
 
@@ -1657,10 +1696,7 @@ export function ProviderSection({ id }: { id?: string }) {
         setAdminCompany(event.newValue);
         // Reset form state when company changes from external source
         setProviderDrawerOpen(false);
-        setFormError(null);
-        setProviderName("");
-        setProviderType("");
-        setEditingProviderCode(null);
+        resetProviderFormState();
         setDeletingCode(null);
         setConfirmState({ open: false, code: "", name: "" });
         setCurrentPage(1);
@@ -2021,14 +2057,8 @@ export function ProviderSection({ id }: { id?: string }) {
         console.error("Error saving selected company to localStorage:", error);
       }
       setProviderDrawerOpen(false);
-      setFormError(null);
-      setProviderTypeError("");
-      setProviderName("");
-      setProviderType("");
-      setEditingProviderCode(null);
+      resetProviderFormState();
       setDeletingCode(null);
-      setAddNotification(false);
-      setSelectedAdminId("");
       setConfirmState({ open: false, code: "", name: "" });
       setCurrentPage(1);
       setSearchTerm("");
@@ -2051,6 +2081,9 @@ export function ProviderSection({ id }: { id?: string }) {
     setProviderName(prov.name ?? "");
     setProviderType((prov.type as FondoMovementType) ?? "");
     setProviderTypeError("");
+    setProviderAgentName(prov.agent?.name ?? "");
+    setProviderAgentPhone(formatProviderPhone(prov.agent?.phone ?? ""));
+    setShowProviderAgentFields(Boolean(prov.agent));
     // Cargar datos de notificación si existen
     if (prov.correonotifi && prov.correonotifi.trim().length > 0) {
       setAddNotification(true);
@@ -2578,6 +2611,7 @@ export function ProviderSection({ id }: { id?: string }) {
           try {
             setSaving(true);
             setFormError(null);
+            const agent = getProviderAgent();
 
             if (pending.mode === "update" && pending.code) {
               await updateProvider(
@@ -2585,6 +2619,7 @@ export function ProviderSection({ id }: { id?: string }) {
                 pending.name,
                 pending.providerType,
                 pending.correonotifi,
+                agent,
                 pending.visit,
                 getCategoryForType(pending.providerType),
               );
@@ -2593,6 +2628,7 @@ export function ProviderSection({ id }: { id?: string }) {
                 pending.name,
                 pending.providerType,
                 pending.correonotifi,
+                agent,
                 pending.visit,
                 getCategoryForType(pending.providerType),
               );
@@ -2604,16 +2640,7 @@ export function ProviderSection({ id }: { id?: string }) {
             }
 
             pendingProviderSaveRef.current = null;
-            setProviderName("");
-            setProviderType("");
-            setEditingProviderCode(null);
-            setAddNotification(false);
-            setSelectedAdminId("");
-
-            setAddVisit(false);
-            setVisitCreateDays([]);
-            setVisitReceiveDays([]);
-            setVisitFrequency("");
+            resetProviderFormState();
 
             setProviderDrawerOpen(false);
             setSimilarConfirmOpen(false);
@@ -2638,16 +2665,7 @@ export function ProviderSection({ id }: { id?: string }) {
         open={providerDrawerOpen}
         onClose={() => {
           setProviderDrawerOpen(false);
-          setFormError(null);
-          setProviderTypeError("");
-          setProviderName("");
-          setProviderType("");
-          setEditingProviderCode(null);
-
-          setAddVisit(false);
-          setVisitCreateDays([]);
-          setVisitReceiveDays([]);
-          setVisitFrequency("");
+          resetProviderFormState();
         }}
         PaperProps={{
           sx: {
@@ -2675,18 +2693,7 @@ export function ProviderSection({ id }: { id?: string }) {
               aria-label="Cerrar"
               onClick={() => {
                 setProviderDrawerOpen(false);
-                setFormError(null);
-                setProviderTypeError("");
-                setProviderName("");
-                setProviderType("");
-                setEditingProviderCode(null);
-                setAddNotification(false);
-                setSelectedAdminId("");
-
-                setAddVisit(false);
-                setVisitCreateDays([]);
-                setVisitReceiveDays([]);
-                setVisitFrequency("");
+                resetProviderFormState();
               }}
               sx={{ color: "var(--foreground)" }}
             >
@@ -2843,6 +2850,75 @@ export function ProviderSection({ id }: { id?: string }) {
                 </div>
               )}
 
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowProviderAgentFields((current) => {
+                      const next = !current;
+                      if (!next) {
+                        setProviderAgentName("");
+                        setProviderAgentPhone("");
+                      }
+                      return next;
+                    });
+                  }}
+                  disabled={!company || saving}
+                  className="inline-flex items-center gap-2 rounded-md border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-xs text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-[var(--accent)]" />
+                  <span>
+                    {showProviderAgentFields ? "Ocultar agente" : "Agregar agente"}
+                  </span>
+                </button>
+
+                {showProviderAgentFields && (
+                  <div className="mt-3 space-y-3 rounded border border-[var(--input-border)] bg-[var(--input-bg)] p-3">
+                    <div>
+                      <label className="text-xs text-[var(--muted-foreground)] mb-1 block">
+                        Nombre del agente
+                      </label>
+                      <input
+                        type="text"
+                        value={providerAgentName}
+                        onChange={(e) => setProviderAgentName(e.target.value)}
+                        placeholder="Nombre del agente"
+                        className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                        style={{
+                          backgroundColor: "var(--card-bg)",
+                          color: "var(--foreground)",
+                        }}
+                        disabled={!company || saving}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-[var(--muted-foreground)] mb-1 block">
+                        Número de teléfono
+                      </label>
+                      <input
+                        type="tel"
+                        inputMode="tel"
+                        value={providerAgentPhone}
+                        onChange={(e) =>
+                          setProviderAgentPhone(
+                            formatProviderPhone(e.target.value),
+                          )
+                        }
+                        placeholder="8888-8888"
+                        maxLength={9}
+                        className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                        style={{
+                          backgroundColor: "var(--card-bg)",
+                          color: "var(--foreground)",
+                        }}
+                        disabled={!company || saving}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {isCompraInventarioProvider && (
                 <div className="mt-2 rounded border border-[var(--input-border)] p-3 bg-[var(--input-bg)]">
                   <div className="flex items-center gap-2">
@@ -2991,18 +3067,7 @@ export function ProviderSection({ id }: { id?: string }) {
                 type="button"
                 onClick={() => {
                   setProviderDrawerOpen(false);
-                  setFormError(null);
-                  setProviderName("");
-                  setProviderType("");
-                  setEditingProviderCode(null);
-                  setAddNotification(false);
-                  setSelectedAdminId("");
-
-                  setAddVisit(false);
-                  setVisitCreateDays([]);
-                  setVisitReceiveDays([]);
-                  setVisitFrequency("");
-                  setVisitStartDateISO("");
+                  resetProviderFormState();
                 }}
                 className="px-4 py-2 border border-[var(--input-border)] rounded text-[var(--foreground)] hover:bg-[var(--muted)]"
                 disabled={saving}
@@ -3013,6 +3078,7 @@ export function ProviderSection({ id }: { id?: string }) {
                 type="button"
                 onClick={async () => {
                   const name = providerName.trim().toUpperCase();
+                  const agent = getProviderAgent();
                   if (!name) {
                     setFormError("Nombre requerido.");
                     return;
@@ -3129,6 +3195,7 @@ export function ProviderSection({ id }: { id?: string }) {
                           name,
                           providerType: normalizedProviderType,
                           correonotifi,
+                          agent,
                           visit,
                         };
                         setSimilarConfirmMessage(
@@ -3196,6 +3263,7 @@ export function ProviderSection({ id }: { id?: string }) {
                         name,
                         normalizedProviderType,
                         correonotifi,
+                        agent,
                         visit,
                       );
                     } else {
@@ -3222,6 +3290,7 @@ export function ProviderSection({ id }: { id?: string }) {
                           name,
                           providerType: normalizedProviderType,
                           correonotifi,
+                          agent,
                           visit,
                         };
                         setSimilarConfirmMessage(
@@ -3288,6 +3357,7 @@ export function ProviderSection({ id }: { id?: string }) {
                         name,
                         normalizedProviderType,
                         correonotifi,
+                        agent,
                         visit,
                         getCategoryForType(normalizedProviderType),
                       );
@@ -3297,17 +3367,7 @@ export function ProviderSection({ id }: { id?: string }) {
                         normalizedProviderType,
                       );
                     }
-                    setProviderName("");
-                    setEditingProviderCode(null);
-                    setAddNotification(false);
-                    setSelectedAdminId("");
-
-                    setAddVisit(false);
-                    setVisitCreateDays([]);
-                    setVisitReceiveDays([]);
-                    setVisitFrequency("");
-
-                    setProviderTypeError("");
+                    resetProviderFormState();
                     setProviderDrawerOpen(false);
                   } catch (err) {
                     const message =

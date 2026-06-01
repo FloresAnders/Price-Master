@@ -63,6 +63,17 @@ const normalizeVisitConfig = (
     Number.isFinite(startDateKeyRaw) &&
     startDateKeyRaw > 0
   ) {
+
+const normalizeProviderAgent = (
+  raw: unknown,
+): ProviderEntry["agent"] | undefined => {
+  if (!raw || typeof raw !== "object") return undefined;
+  const data = raw as Record<string, unknown>;
+  const name = typeof data.name === "string" ? data.name.trim() : "";
+  const phone = typeof data.phone === "string" ? data.phone.trim() : "";
+  if (!name && !phone) return undefined;
+  return { name, phone };
+};
     startDateKey = startDateKeyRaw;
   } else if (typeof startDateKeyRaw === "string") {
     const trimmed = startDateKeyRaw.trim();
@@ -79,6 +90,17 @@ const normalizeVisitConfig = (
     frequency,
     startDateKey,
   };
+};
+
+const normalizeProviderAgent = (
+  raw: unknown,
+): ProviderEntry["agent"] | undefined => {
+  if (!raw || typeof raw !== "object") return undefined;
+  const data = raw as Record<string, unknown>;
+  const name = typeof data.name === "string" ? data.name.trim() : "";
+  const phone = typeof data.phone === "string" ? data.phone.trim() : "";
+  if (!name && !phone) return undefined;
+  return { name, phone };
 };
 
 /**
@@ -209,6 +231,7 @@ const normalizeProviderEntry = (
     typeof data.correonotifi === "string"
       ? data.correonotifi.trim()
       : undefined;
+  const agent = normalizeProviderAgent(data.agent);
   const visit = normalizeVisitConfig(data.visit);
   const movementCount =
     typeof data.movementCount === "number" &&
@@ -226,6 +249,7 @@ const normalizeProviderEntry = (
     createdAt,
     updatedAt,
     correonotifi,
+    agent,
     visit,
     movementCount,
   };
@@ -291,6 +315,54 @@ const normalizeProvidersDocument = (
   };
 };
 
+const serializeProviderEntry = (provider: ProviderEntry): Record<string, unknown> => {
+  const out: Record<string, unknown> = {
+    code: provider.code,
+    name: provider.name,
+    company: provider.company,
+  };
+  if (typeof provider.type === "string" && provider.type.length > 0) {
+    out.type = provider.type;
+  }
+  if (typeof provider.category === "string" && provider.category.length > 0) {
+    out.category = provider.category;
+  }
+  if (typeof provider.createdAt === "string" && provider.createdAt.length > 0) {
+    out.createdAt = provider.createdAt;
+  }
+  if (typeof provider.updatedAt === "string" && provider.updatedAt.length > 0) {
+    out.updatedAt = provider.updatedAt;
+  }
+  if (
+    typeof provider.correonotifi === "string" &&
+    provider.correonotifi.length > 0
+  ) {
+    out.correonotifi = provider.correonotifi;
+  }
+  if (provider.agent) {
+    out.agent = provider.agent;
+  }
+  if (provider.visit) {
+    out.visit = {
+      createOrderDays: provider.visit.createOrderDays,
+      receiveOrderDays: provider.visit.receiveOrderDays,
+      frequency: provider.visit.frequency,
+    };
+    if (
+      typeof provider.visit.startDateKey === "number" &&
+      Number.isFinite(provider.visit.startDateKey)
+    ) {
+      (out.visit as any).startDateKey = provider.visit.startDateKey;
+    }
+  }
+  out.movementCount =
+    typeof provider.movementCount === "number" &&
+    Number.isFinite(provider.movementCount)
+      ? provider.movementCount
+      : 0;
+  return out;
+};
+
 export class ProvidersService {
   private static readonly COLLECTION_NAME = "proveedores";
   private static readonly CACHE_TTL_MS = 15_000;
@@ -302,6 +374,7 @@ export class ProvidersService {
   private static cloneProviders(providers: ProviderEntry[]): ProviderEntry[] {
     return (providers || []).map((p) => ({
       ...p,
+      agent: p.agent ? { ...p.agent } : undefined,
       visit: p.visit
         ? {
             ...p.visit,
@@ -351,6 +424,7 @@ export class ProvidersService {
     providerName: string,
     providerType?: string,
     correonotifi?: string,
+    agent?: ProviderEntry["agent"],
     visit?: ProviderEntry["visit"],
     explicitCategory?: "Ingreso" | "Gasto" | "Egreso",
   ): Promise<ProviderEntry> {
@@ -398,9 +472,14 @@ export class ProvidersService {
       const now = new Date().toISOString();
       const trimmedCorreo =
         typeof correonotifi === "string" ? correonotifi.trim() : undefined;
+      const sanitizedAgent = normalizeProviderAgent(agent);
       const sanitizedVisit = visit
         ? normalizeVisitConfig(visit as unknown)
         : undefined;
+      const shouldPersistAgent = Boolean(
+        sanitizedAgent &&
+          (sanitizedAgent.name.length > 0 || sanitizedAgent.phone.length > 0),
+      );
       const shouldPersistVisit = Boolean(
         normalizedType === "COMPRA INVENTARIO" &&
           sanitizedVisit &&
@@ -418,6 +497,7 @@ export class ProvidersService {
         updatedAt: now,
         correonotifi:
           trimmedCorreo && trimmedCorreo.length > 0 ? trimmedCorreo : undefined,
+        agent: shouldPersistAgent ? sanitizedAgent : undefined,
         visit: shouldPersistVisit ? sanitizedVisit : undefined,
         movementCount: 0,
       };
@@ -433,42 +513,7 @@ export class ProvidersService {
       const firestoreDoc: Record<string, unknown> = {
         company: updatedDocument.company,
         nextCode: updatedDocument.nextCode,
-        providers: updatedDocument.providers.map((p) => {
-          const out: Record<string, unknown> = {
-            code: p.code,
-            name: p.name,
-            company: p.company,
-          };
-          if (typeof p.type === "string" && p.type.length > 0)
-            out.type = p.type;
-          if (typeof p.category === "string" && p.category.length > 0)
-            out.category = p.category;
-          if (typeof p.createdAt === "string" && p.createdAt.length > 0)
-            out.createdAt = p.createdAt;
-          if (typeof p.updatedAt === "string" && p.updatedAt.length > 0)
-            out.updatedAt = p.updatedAt;
-          if (typeof p.correonotifi === "string" && p.correonotifi.length > 0)
-            out.correonotifi = p.correonotifi;
-          if (p.visit) {
-            out.visit = {
-              createOrderDays: p.visit.createOrderDays,
-              receiveOrderDays: p.visit.receiveOrderDays,
-              frequency: p.visit.frequency,
-            };
-            if (
-              typeof p.visit.startDateKey === "number" &&
-              Number.isFinite(p.visit.startDateKey)
-            ) {
-              (out.visit as any).startDateKey = p.visit.startDateKey;
-            }
-          }
-          out.movementCount =
-            typeof p.movementCount === "number" &&
-            Number.isFinite(p.movementCount)
-              ? p.movementCount
-              : 0;
-          return out;
-        }),
+        providers: updatedDocument.providers.map((p) => serializeProviderEntry(p)),
       };
 
       transaction.set(docRef, firestoreDoc);
@@ -662,6 +707,7 @@ export class ProvidersService {
     providerName: string,
     providerType?: string,
     correonotifi?: string,
+    agent?: ProviderEntry["agent"],
     visit?: ProviderEntry["visit"],
     explicitCategory?: "Ingreso" | "Gasto" | "Egreso",
   ): Promise<ProviderEntry> {
@@ -716,9 +762,14 @@ export class ProvidersService {
       const category = explicitCategory || getCategoryFromType(normalizedType);
       const trimmedCorreo =
         typeof correonotifi === "string" ? correonotifi.trim() : undefined;
+      const sanitizedAgent = normalizeProviderAgent(agent);
       const sanitizedVisit = visit
         ? normalizeVisitConfig(visit as unknown)
         : undefined;
+      const shouldPersistAgent = Boolean(
+        sanitizedAgent &&
+          (sanitizedAgent.name.length > 0 || sanitizedAgent.phone.length > 0),
+      );
       const shouldPersistVisit = Boolean(
         normalizedType === "COMPRA INVENTARIO" &&
           sanitizedVisit &&
@@ -734,6 +785,7 @@ export class ProvidersService {
         updatedAt: new Date().toISOString(),
         correonotifi:
           trimmedCorreo && trimmedCorreo.length > 0 ? trimmedCorreo : undefined,
+        agent: shouldPersistAgent ? sanitizedAgent : undefined,
         visit: shouldPersistVisit ? sanitizedVisit : undefined,
         movementCount: document.providers[targetIndex].movementCount ?? 0,
       };
@@ -749,42 +801,7 @@ export class ProvidersService {
       const firestoreDoc: Record<string, unknown> = {
         company: updatedDocument.company,
         nextCode: updatedDocument.nextCode,
-        providers: updatedDocument.providers.map((p) => {
-          const out: Record<string, unknown> = {
-            code: p.code,
-            name: p.name,
-            company: p.company,
-          };
-          if (typeof p.type === "string" && p.type.length > 0)
-            out.type = p.type;
-          if (typeof p.category === "string" && p.category.length > 0)
-            out.category = p.category;
-          if (typeof p.createdAt === "string" && p.createdAt.length > 0)
-            out.createdAt = p.createdAt;
-          if (typeof p.updatedAt === "string" && p.updatedAt.length > 0)
-            out.updatedAt = p.updatedAt;
-          if (typeof p.correonotifi === "string" && p.correonotifi.length > 0)
-            out.correonotifi = p.correonotifi;
-          if (p.visit) {
-            out.visit = {
-              createOrderDays: p.visit.createOrderDays,
-              receiveOrderDays: p.visit.receiveOrderDays,
-              frequency: p.visit.frequency,
-            };
-            if (
-              typeof p.visit.startDateKey === "number" &&
-              Number.isFinite(p.visit.startDateKey)
-            ) {
-              (out.visit as any).startDateKey = p.visit.startDateKey;
-            }
-          }
-          out.movementCount =
-            typeof p.movementCount === "number" &&
-            Number.isFinite(p.movementCount)
-              ? p.movementCount
-              : 0;
-          return out;
-        }),
+        providers: updatedDocument.providers.map((p) => serializeProviderEntry(p)),
       };
 
       transaction.set(docRef, firestoreDoc);

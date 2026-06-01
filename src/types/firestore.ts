@@ -73,6 +73,10 @@ export interface ProviderEntry {
   createdAt?: string;
   updatedAt?: string;
   correonotifi?: string;
+  agent?: {
+    name: string;
+    phone: string;
+  };
   visit?: {
     createOrderDays: Array<"D" | "L" | "M" | "MI" | "J" | "V" | "S">;
     receiveOrderDays: Array<"D" | "L" | "M" | "MI" | "J" | "V" | "S">;
@@ -100,6 +104,10 @@ export interface ProductEntry {
   descripcion?: string;
   pesoengramos: number;
   precio: number;
+  agent?: {
+    name: string;
+    phone: string;
+  };
   precioxgramo: number;
   createdAt?: string;
   /**
