@@ -546,6 +546,15 @@ const getFcrPaymentAmount = (entry: Partial<FondoEntry>): number =>
     ),
   );
 
+const roundCreditNotePaymentAmount = (
+  amount: number,
+  currency: MovementCurrencyKey,
+): number => {
+  const normalized = Math.max(0, Math.trunc(Number(amount) || 0));
+  if (currency !== "CRC") return normalized;
+  return Math.floor(normalized / 1000) * 1000;
+};
+
 /**
  * Simplifica un registro de auditoría guardando solo los campos que cambiaron.
  * @param before Estado anterior del movimiento
@@ -7301,7 +7310,10 @@ export function FondoSection({
       return {
         notes,
         total,
-        amountPayment: Math.max(0, Math.trunc(invoiceAmount) - total),
+        amountPayment: roundCreditNotePaymentAmount(
+          Math.max(0, Math.trunc(invoiceAmount) - total),
+          movementCurrency,
+        ),
       };
     };
     const selectedCreditNotesRequestedTotal =
@@ -7332,6 +7344,12 @@ export function FondoSection({
             Math.max(0, egresoValue - creditNoteApplication.total),
           )
         : 0;
+    const totalCreditNotesAppliedAmount =
+      creditNoteApplication.total + manualCreditNoteAppliedAmount;
+    const roundedCreditNotePaymentAmount = roundCreditNotePaymentAmount(
+      Math.max(0, egresoValue - totalCreditNotesAppliedAmount),
+      movementCurrency,
+    );
     const selectedCreditInvoiceIdSet = new Set(selectedPendingCreditInvoiceIds);
     const selectedCreditInvoicesTotal = isEgreso
       ? selectedProviderPendingCreditInvoices.reduce((sum, invoice) => {
@@ -7342,11 +7360,7 @@ export function FondoSection({
       : 0;
     const egresoBalanceImpact =
       isEgreso && effectiveInvoiceDocType === "FCO"
-        ? Math.max(
-            0,
-            creditNoteApplication.amountPayment - manualCreditNoteAppliedAmount,
-          )
-            + selectedCreditInvoicesTotal
+        ? roundedCreditNotePaymentAmount + selectedCreditInvoicesTotal
         : egresoValue;
 
     // Validar que no quede saldo negativo en la moneda del movimiento.
@@ -7971,7 +7985,10 @@ export function FondoSection({
             isEgreso &&
             effectiveInvoiceDocType === "FCO" &&
             appliedCreditNotes.length > 0
-              ? Math.max(0, egresoValue - totalAppliedCreditNotes)
+              ? roundCreditNotePaymentAmount(
+                  Math.max(0, egresoValue - totalAppliedCreditNotes),
+                  movementCurrency,
+                )
               : undefined,
           appliedCreditNotes:
             appliedCreditNotes.length > 0 ? appliedCreditNotes : undefined,
@@ -9256,7 +9273,10 @@ export function FondoSection({
   }, [egreso, selectedAppliedCreditNotes]);
 
   const computedAmountPayment = isEgreso
-    ? Math.max(0, Math.trunc(Number(egreso) || 0) - creditNotesAppliedTotal)
+    ? roundCreditNotePaymentAmount(
+        Math.max(0, Math.trunc(Number(egreso) || 0) - creditNotesAppliedTotal),
+        movementCurrency,
+      )
     : undefined;
 
   useEffect(() => {

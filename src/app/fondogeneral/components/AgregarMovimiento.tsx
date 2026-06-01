@@ -311,10 +311,12 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     invoiceDocType === "FCO" &&
     baseAmount > 0 &&
     selectedCreditNotesRequestedTotal > baseAmount;
-  const totalToSave = Math.max(
-    0,
-    baseAmount - appliedCreditNotesTotal,
-  );
+  const totalAfterCreditNotes = Math.max(0, baseAmount - appliedCreditNotesTotal);
+  const totalToSave =
+    appliedCreditNotesTotal > 0 && currency === "CRC"
+      ? Math.floor(totalAfterCreditNotes / 1000) * 1000
+      : totalAfterCreditNotes;
+  const adjustmentApplied = Math.max(0, totalAfterCreditNotes - totalToSave);
 
   return (
     <div className="space-y-4">
@@ -971,12 +973,20 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
               </span>
             </div>
           )}
+          {adjustmentApplied > 0 && (
+            <div className="flex items-center justify-between">
+              <span className="text-cyan-100/70">Ajuste Aplicado</span>
+              <span className="font-semibold text-amber-200">
+                - {formatCurrencyAmount(adjustmentApplied)}
+              </span>
+            </div>
+          )}
           <div className="h-px bg-cyan-700/25" />
-          <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center justify-between text-base">
             <span className="font-semibold text-[var(--foreground)]">
               Total a guardar
             </span>
-            <span className="font-semibold text-cyan-100">
+            <span className="text-xl font-bold text-cyan-50">
               {formatCurrencyAmount(totalToSave)}
             </span>
           </div>
