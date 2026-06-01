@@ -130,6 +130,17 @@ const resolveFacturaStatus = (
   if (
     String(movement.invoiceDocType || "")
       .trim()
+      .toUpperCase() === "NC" &&
+    Math.max(0, Math.trunc(Number(movement.amount) || 0)) === 0 &&
+    !["PAGADA", "REBAJADA"].includes(
+      String(movement.paymentStatus || "PENDIENTE").toUpperCase(),
+    )
+  ) {
+    return "PENDIENTE";
+  }
+  if (
+    String(movement.invoiceDocType || "")
+      .trim()
       .toUpperCase() === "FCO"
   ) {
     return "PAGADA";
@@ -222,6 +233,12 @@ export default function FacturasCreditoPage() {
   const [createNotes, setCreateNotes] = useState("");
   const [createManager, setCreateManager] = useState("");
   const [createFormError, setCreateFormError] = useState<string | null>(null);
+  const [confirmZeroNCOpen, setConfirmZeroNCOpen] = useState(false);
+  const [editZeroNCTarget, setEditZeroNCTarget] =
+    useState<FacturaMovement | null>(null);
+  const [editZeroNCAmount, setEditZeroNCAmount] = useState("");
+  const [editZeroNCError, setEditZeroNCError] = useState<string | null>(null);
+  const [editZeroNCSubmitting, setEditZeroNCSubmitting] = useState(false);
 
   // Filter state (mirrors Fondo toolbar names)
   const [providerFilter, setProviderFilter] = useState("");
@@ -601,7 +618,7 @@ export default function FacturasCreditoPage() {
     setCreateFormError(null);
   }, []);
 
-  const submitCreateMovement = useCallback(async () => {
+  const submitCreateMovement = useCallback(async (confirmedZeroNC = false) => {
     const empresa = String(selectedCompany || "").trim();
     if (!empresa) {
       setCreateFormError("Selecciona una empresa antes de guardar la factura.");
@@ -623,8 +640,14 @@ export default function FacturasCreditoPage() {
     }
 
     const amount = Math.max(0, Math.trunc(Number(createAmount) || 0));
-    if (amount <= 0) {
+    if (amount <= 0 && createInvoiceDocType !== "NC") {
       setCreateFormError("Ingresa un monto mayor a cero.");
+      return;
+    }
+
+    if (amount <= 0 && createInvoiceDocType === "NC" && !confirmedZeroNC) {
+      setCreateFormError(null);
+      setConfirmZeroNCOpen(true);
       return;
     }
 
@@ -657,6 +680,7 @@ export default function FacturasCreditoPage() {
       paidAmount: undefined,
       balanceDue: amount,
       paymentStatus: "PENDIENTE",
+      zeroAmountEditCount: isCreditNote && amount === 0 ? 0 : undefined,
     };
 
     setCreateSubmitting(true);
@@ -690,6 +714,73 @@ export default function FacturasCreditoPage() {
     createProviderCode,
     loadMovements,
     resetCreateForm,
+    selectedCompany,
+    showToast,
+  ]);
+
+  const openEditZeroNCModal = useCallback((movement: FacturaMovement) => {
+    setEditZeroNCTarget(movement);
+    setEditZeroNCAmount("");
+    setEditZeroNCError(null);
+  }, []);
+
+  const closeEditZeroNCModal = useCallback(() => {
+    if (editZeroNCSubmitting) return;
+    setEditZeroNCTarget(null);
+    setEditZeroNCAmount("");
+    setEditZeroNCError(null);
+  }, [editZeroNCSubmitting]);
+
+  const submitEditZeroNCAmount = useCallback(async () => {
+    if (!editZeroNCTarget) return;
+    const amount = Math.max(0, Math.trunc(Number(editZeroNCAmount) || 0));
+    if (amount <= 0) {
+      setEditZeroNCError("Ingresa un monto mayor a cero.");
+      return;
+    }
+    if (Math.max(0, Math.trunc(Number(editZeroNCTarget.amount) || 0)) !== 0) {
+      setEditZeroNCError("Esta nota de credito ya tiene monto.");
+      return;
+    }
+    if (Math.max(0, Math.trunc(Number(editZeroNCTarget.zeroAmountEditCount) || 0)) > 0) {
+      setEditZeroNCError("Esta nota de credito ya fue editada una vez.");
+      return;
+    }
+
+    const nowISO = new Date().toISOString();
+    const updatedMovement: FacturaMovement = {
+      ...editZeroNCTarget,
+      amount,
+      originalAmount: amount,
+      amountDue: amount,
+      amountEgreso: 0,
+      amountIngreso: amount,
+      paidAmount: undefined,
+      balanceDue: amount,
+      paymentStatus: "PENDIENTE",
+      updateAt: nowISO,
+      zeroAmountEditCount: 1,
+      zeroAmountEditedAt: nowISO,
+    };
+
+    setEditZeroNCSubmitting(true);
+    setEditZeroNCError(null);
+    try {
+      await FacturasService.upsertMovement(selectedCompany, updatedMovement);
+      await loadMovements(selectedCompany);
+      showToast("Monto de nota de credito actualizado.", "success", 3500);
+      setEditZeroNCTarget(null);
+      setEditZeroNCAmount("");
+    } catch (error) {
+      console.error("[FACTURAS] Error updating zero NC amount:", error);
+      setEditZeroNCError("No se pudo actualizar el monto.");
+    } finally {
+      setEditZeroNCSubmitting(false);
+    }
+  }, [
+    editZeroNCAmount,
+    editZeroNCTarget,
+    loadMovements,
     selectedCompany,
     showToast,
   ]);
@@ -2772,6 +2863,17 @@ export default function FacturasCreditoPage() {
                       resolveFacturaStatusLabel(movement);
                     const paymentBalance = resolveFacturaBalance(movement);
                     const isPaid = paymentBalance === 0;
+                    const canEditZeroNC =
+                      String(movement.invoiceDocType || "")
+                        .trim()
+                        .toUpperCase() === "NC" &&
+                      Math.max(0, Math.trunc(Number(movement.amount) || 0)) ===
+                        0 &&
+                      paymentStatus === "PENDIENTE" &&
+                      Math.max(
+                        0,
+                        Math.trunc(Number(movement.zeroAmountEditCount) || 0),
+                      ) === 0;
                     const providerName =
                       providerNameByCode.get(movement.providerCode) ||
                       movement.providerCode;
@@ -2876,6 +2978,15 @@ export default function FacturasCreditoPage() {
                               {pendingCierreDeCaja
                                 ? "Bloqueado"
                                 : "Registrar Abono"}
+                            </button>
+                          ) : canEditZeroNC ? (
+                            <button
+                              type="button"
+                              onClick={() => openEditZeroNCModal(movement)}
+                              className="inline-flex items-center gap-2 rounded-xl border border-amber-400/45 bg-amber-500/10 px-3.5 py-2 text-xs font-semibold text-amber-200 transition-colors hover:bg-amber-500/20"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                              Editar monto
                             </button>
                           ) : (
                             <span className="text-xs text-[var(--muted-foreground)]">
@@ -3074,6 +3185,78 @@ export default function FacturasCreditoPage() {
           </div>
         )}
 
+        {editZeroNCTarget && (
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/65 px-3 py-6 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)] shadow-2xl shadow-black/60">
+              <div className="flex items-start justify-between gap-4 border-b border-[var(--input-border)] px-4 py-4">
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
+                    Nota de credito pendiente
+                  </div>
+                  <h3 className="mt-1 text-lg font-semibold text-[var(--foreground)]">
+                    {editZeroNCTarget.invoiceNumber}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeEditZeroNCModal}
+                  className="rounded-full border border-[var(--input-border)] p-2 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--muted)]/20 hover:text-[var(--foreground)]"
+                  aria-label="Cerrar modal"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <form
+                className="space-y-4 px-4 py-4"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void submitEditZeroNCAmount();
+                }}
+              >
+                {editZeroNCError && (
+                  <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                    {editZeroNCError}
+                  </div>
+                )}
+                <label className="block space-y-1 text-sm text-[var(--foreground)]">
+                  <span className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
+                    Monto
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={editZeroNCAmount}
+                    onChange={(event) =>
+                      setEditZeroNCAmount(event.target.value.replace(/\D/g, ""))
+                    }
+                    placeholder="0"
+                    disabled={editZeroNCSubmitting}
+                    className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
+                  />
+                </label>
+                <div className="flex justify-end gap-2 border-t border-[var(--input-border)] pt-4">
+                  <button
+                    type="button"
+                    onClick={closeEditZeroNCModal}
+                    disabled={editZeroNCSubmitting}
+                    className="inline-flex items-center justify-center rounded-lg border border-[var(--input-border)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20 disabled:opacity-60"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={editZeroNCSubmitting}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)] disabled:opacity-60"
+                  >
+                    <Save className="h-4 w-4" />
+                    {editZeroNCSubmitting ? "Guardando..." : "Guardar monto"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {pendingCierreModalOpen && (
           <ConfirmModal
             open={pendingCierreModalOpen}
@@ -3085,6 +3268,21 @@ export default function FacturasCreditoPage() {
             singleButtonText="Entendido"
             onCancel={closePendingCierreModal}
             onConfirm={() => {}}
+          />
+        )}
+
+        {confirmZeroNCOpen && (
+          <ConfirmModal
+            open={confirmZeroNCOpen}
+            title="Guardar NC en monto 0"
+            message="La nota de credito quedara pendiente con monto 0. Luego se podra editar solo el monto una unica vez. ¿Deseas continuar?"
+            confirmText="Guardar en 0"
+            cancelText="Cancelar"
+            onCancel={() => setConfirmZeroNCOpen(false)}
+            onConfirm={() => {
+              setConfirmZeroNCOpen(false);
+              void submitCreateMovement(true);
+            }}
           />
         )}
 

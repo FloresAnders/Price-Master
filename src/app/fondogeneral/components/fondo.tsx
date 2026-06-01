@@ -3988,6 +3988,12 @@ export function FondoSection({
   } | null>(null);
   const [pendingCierreDeCaja, setPendingCierreDeCaja] = useState(false);
   const [pendingCierreModalOpen, setPendingCierreModalOpen] = useState(false);
+  const [pendingZeroAmountCreditNotes, setPendingZeroAmountCreditNotes] =
+    useState<FacturaMovement[]>([]);
+  const [
+    pendingZeroAmountCreditNoteModalOpen,
+    setPendingZeroAmountCreditNoteModalOpen,
+  ] = useState(false);
   const [negativeBalanceModal, setNegativeBalanceModal] = useState<{
     open: boolean;
     amount: number;
@@ -4017,6 +4023,7 @@ export function FondoSection({
 
     if (!company) {
       setPendingClosingCreditInvoices([]);
+      setPendingZeroAmountCreditNotes([]);
       return () => {
         cancelled = true;
       };
@@ -4059,11 +4066,24 @@ export function FondoSection({
             return bDate - aDate;
           });
         setPendingClosingCreditInvoices(pending);
+        const pendingZeroNotes = movements.filter((movement) => {
+          if (normalizeInvoiceDocType(movement.invoiceDocType) !== "NC") {
+            return false;
+          }
+          if (Math.max(0, Math.trunc(Number(movement.amount) || 0)) !== 0) {
+            return false;
+          }
+          return !["PAGADA", "REBAJADA"].includes(
+            String(movement.paymentStatus || "PENDIENTE").toUpperCase(),
+          );
+        });
+        setPendingZeroAmountCreditNotes(pendingZeroNotes);
       })
       .catch((error) => {
         console.error("[FONDO] Error loading pending credit invoices:", error);
         if (!cancelled) {
           setPendingClosingCreditInvoices([]);
+          setPendingZeroAmountCreditNotes([]);
         }
       });
 
@@ -9940,6 +9960,14 @@ export function FondoSection({
   }, [openCreateMovementDrawer]);
 
   const handleOpenCreateMovement = () => {
+    if (
+      accountKey === "FondoGeneral" &&
+      pendingZeroAmountCreditNotes.length > 0
+    ) {
+      setPendingZeroAmountCreditNoteModalOpen(true);
+      return;
+    }
+
     // Confirmación solo para cuentas (BCR/BN/BAC), para evitar confusiones.
     // Skip confirmation for Caja Negra (no company/account confirmation needed)
     if (accountKey !== "FondoGeneral" && !isCajaNegra) {
@@ -15234,6 +15262,24 @@ export function FondoSection({
         singleButton
         singleButtonText="Entendido"
         onCancel={closePendingCierreModal}
+        onConfirm={() => {}}
+      />
+
+      <ConfirmModal
+        open={pendingZeroAmountCreditNoteModalOpen}
+        title="NC pendiente en monto 0"
+        message={`Existe ${
+          pendingZeroAmountCreditNotes.length === 1
+            ? "una nota de credito pendiente con monto 0"
+            : `${pendingZeroAmountCreditNotes.length} notas de credito pendientes con monto 0`
+        }. Debes corregir el monto desde FC/NC antes de agregar un movimiento.`}
+        singleButton
+        singleButtonText="Ir a FC/NC"
+        actionType="change"
+        onCancel={() => {
+          setPendingZeroAmountCreditNoteModalOpen(false);
+          window.location.hash = "#facturas";
+        }}
         onConfirm={() => {}}
       />
 

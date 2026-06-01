@@ -39,6 +39,8 @@ export type FacturaMovement = {
   paidAmount?: number;
   paymentStatus?: "PENDIENTE" | "PARCIAL" | "PAGADA" | "REBAJADA";
   updateAt?: string;
+  zeroAmountEditCount?: number;
+  zeroAmountEditedAt?: string;
 };
 
 export type AppliedCreditNote = {
@@ -172,6 +174,14 @@ const sanitizeFacturaMovement = (raw: unknown): FacturaMovement | null => {
       : "PENDIENTE";
   const updateAt =
     typeof candidate.updateAt === "string" ? candidate.updateAt : "";
+  const zeroAmountEditCount = Math.max(
+    0,
+    Math.trunc(Number(candidate.zeroAmountEditCount) || 0),
+  );
+  const zeroAmountEditedAt =
+    typeof candidate.zeroAmountEditedAt === "string"
+      ? candidate.zeroAmountEditedAt
+      : "";
 
   return {
     id,
@@ -203,6 +213,11 @@ const sanitizeFacturaMovement = (raw: unknown): FacturaMovement | null => {
     paymentType: typeof candidate.paymentType === "string" ? candidate.paymentType : "",
     providerCode,
     updateAt: updateAt || undefined,
+    zeroAmountEditCount:
+      candidate.zeroAmountEditCount !== undefined
+        ? zeroAmountEditCount
+        : undefined,
+    zeroAmountEditedAt: zeroAmountEditedAt || undefined,
   };
 };
 
