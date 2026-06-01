@@ -229,7 +229,7 @@ export default function CreateInvoiceDrawer({
                         onChange={(event) =>
                           setCreateOnlyInventoryProviders(event.target.checked)
                         }
-                        disabled={createSubmitting}
+                        disabled={!createSubmitting}
                         className="h-3.5 w-3.5 rounded border-cyan-700/35 bg-cyan-950/25 text-cyan-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                       />
                       <span className="text-[10px] font-semibold uppercase tracking-wide text-cyan-100/60">
