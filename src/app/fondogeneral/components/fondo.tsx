@@ -57,6 +57,10 @@ import { UsersService } from "../../../services/users";
 import { ProvidersService } from "../../../services/providers";
 import { FondoMovementTypesService } from "../../../services/fondo-movement-types";
 import { SchedulesService } from "../../../services/schedules";
+import {
+  resolveManagerFromControlHorario,
+  type ShiftCode,
+} from "@/utils/controlHorarioManager";
 import { generateMovementNotificationEmail } from "../../../services/email-templates/notificacion-movimiento";
 import { generateEgresoProviderCreatedEmail } from "../../../services/email-templates/proveedor-egreso-creado";
 import {
@@ -3793,6 +3797,63 @@ export function FondoSection({
       }>);
   const movementProvidersLoading = isCajaNegra ? false : providersLoading;
 
+  const fgSchedulesMonthCacheRef = useRef<
+    Map<
+      string,
+      {
+        at: number;
+        promise: Promise<
+          Awaited<
+            ReturnType<typeof SchedulesService.getSchedulesByLocationYearMonth>
+          >
+        >;
+      }
+    >
+  >(new Map());
+  const FG_SCHEDULES_CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
+  const getFGMonthlySchedulesCached = useCallback(
+    async (locationValue: string, year: number, month0: number) => {
+      const key = `${locationValue}__${year}__${month0}`;
+      const now = Date.now();
+      const cached = fgSchedulesMonthCacheRef.current.get(key);
+      if (cached && now - cached.at < FG_SCHEDULES_CACHE_TTL_MS) {
+        return cached.promise;
+      }
+      const promise = SchedulesService.getSchedulesByLocationYearMonth(
+        locationValue,
+        year,
+        month0,
+      );
+      fgSchedulesMonthCacheRef.current.set(key, { at: now, promise });
+      return promise;
+    },
+    [],
+  );
+
+  const activeEmpresaForCompany = useMemo(() => {
+    const normalizeCompanyKey = (value: unknown) =>
+      String(value || "")
+        .trim()
+        .toLowerCase();
+
+    const normalizedSelected = normalizeCompanyKey(company);
+    if (!normalizedSelected) return null;
+
+    return (
+      ownerCompanies.find((emp) => {
+        const candidates = [emp?.name, emp?.ubicacion, emp?.id]
+          .map(normalizeCompanyKey)
+          .filter(Boolean);
+        return candidates.includes(normalizedSelected);
+      }) ?? null
+    );
+  }, [company, ownerCompanies]);
+
+  const [missingShiftModalOpen, setMissingShiftModalOpen] = useState(false);
+  const [missingShiftExpectedShift, setMissingShiftExpectedShift] =
+    useState<ShiftCode>("D");
+  const [missingShiftDateKey, setMissingShiftDateKey] = useState("");
+
   const [fondoTypesLoaded, setFondoTypesLoaded] = useState(false);
   const [ingresoTypes, setIngresoTypes] = useState<string[]>([]);
   const [gastoTypes, setGastoTypes] = useState<string[]>([]);
@@ -3856,6 +3917,7 @@ export function FondoSection({
   const [amountError, setAmountError] = useState("");
   const [managerError, setManagerError] = useState("");
   const [manager2Error, setManager2Error] = useState("");
+  const [managerLockedByShift, setManagerLockedByShift] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -7216,11 +7278,101 @@ export function FondoSection({
     setConfirmOpenCreateMovement(false);
   }, []);
 
+  const resolveShiftManagerForNow = useCallback(
+    async (nowISO: string) => {
+      const empresa = activeEmpresaForCompany;
+      const normalizedCompany = (company || "").trim();
+      if (!empresa || !normalizedCompany) return null;
+
+      const companyKeysToTry = (() => {
+        const set = new Set<string>();
+        set.add(normalizedCompany);
+        [empresa?.name, empresa?.ubicacion, empresa?.id]
+          .map((v) => (typeof v === "string" ? v.trim() : String(v || "").trim()))
+          .filter(Boolean)
+          .forEach((v) => set.add(v));
+        return Array.from(set);
+      })();
+
+      const ymParts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Costa_Rica",
+        year: "numeric",
+        month: "2-digit",
+      }).formatToParts(new Date(nowISO));
+      const year = Number(ymParts.find((p) => p.type === "year")?.value);
+      const month1 = Number(ymParts.find((p) => p.type === "month")?.value);
+      const month0 = Math.max(0, Math.min(11, month1 - 1));
+      if (!Number.isFinite(year) || !Number.isFinite(month1)) return null;
+
+      const schedulesLists = await Promise.all(
+        companyKeysToTry.map((key) => getFGMonthlySchedulesCached(key, year, month0)),
+      );
+      const monthSchedules = schedulesLists.flat();
+      return resolveManagerFromControlHorario({ nowISO, empresa, monthSchedules });
+    },
+    [activeEmpresaForCompany, company, getFGMonthlySchedulesCached],
+  );
+
+  useEffect(() => {
+    const shouldAuto =
+      isRegularUser &&
+      accountKey === "FondoGeneral" &&
+      namespace === "fg" &&
+      movementModalOpen;
+
+    if (!shouldAuto) {
+      setManagerLockedByShift(false);
+      return;
+    }
+
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const nowISO = new Date().toISOString();
+        const resolution = await resolveShiftManagerForNow(nowISO);
+        if (cancelled || !resolution) return;
+
+        if (resolution.mode === "manual") {
+          setManagerLockedByShift(false);
+          return;
+        }
+
+        if (resolution.mode === "missing") {
+          setManagerLockedByShift(false);
+          return;
+        }
+
+        setManagerLockedByShift(true);
+        if (resolution.mode === "auto") {
+          setManager(resolution.manager);
+          setManagerError("");
+        }
+      } catch (err) {
+        console.error("[FG] Error auto-locking manager by shift:", err);
+      }
+    };
+
+    void tick();
+    const interval = window.setInterval(tick, 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [
+    accountKey,
+    isRegularUser,
+    movementModalOpen,
+    namespace,
+    resolveShiftManagerForNow,
+  ]);
+
   const handleSubmitFondo = async () => {
     if (!company) return;
     if (isSaving || movementSubmitInProgressRef.current) return; // Prevenir múltiples envíos
 
     let hasErrors = false;
+    const nowISO = new Date().toISOString();
+    let effectiveManager = manager;
 
     const effectiveInvoiceNumber =
       isCajaNegra && !editingEntryId ? getTodayInvoiceMMDD() : invoiceNumber;
@@ -7248,6 +7400,70 @@ export function FondoSection({
       setInvoiceError("");
     }
 
+    const shouldAutoManagerFromControlHorario =
+      isRegularUser &&
+      accountKey === "FondoGeneral" &&
+      namespace === "fg" &&
+      !editingEntryId;
+
+    if (shouldAutoManagerFromControlHorario) {
+      try {
+        const empresa = activeEmpresaForCompany;
+        if (empresa) {
+          const normalizedCompany = (company || "").trim();
+          const companyKeysToTry = (() => {
+            const set = new Set<string>();
+            if (normalizedCompany) set.add(normalizedCompany);
+            [empresa?.name, empresa?.ubicacion, empresa?.id]
+              .map((v) =>
+                typeof v === "string" ? v.trim() : String(v || "").trim(),
+              )
+              .filter(Boolean)
+              .forEach((v) => set.add(v));
+            return Array.from(set);
+          })();
+
+          const parts = new Intl.DateTimeFormat("en-US", {
+            timeZone: "America/Costa_Rica",
+            year: "numeric",
+            month: "2-digit",
+          }).formatToParts(new Date(nowISO));
+          const year = Number(parts.find((p) => p.type === "year")?.value);
+          const month1 = Number(parts.find((p) => p.type === "month")?.value);
+          const month0 = Math.max(0, Math.min(11, month1 - 1));
+
+          if (Number.isFinite(year) && Number.isFinite(month1)) {
+            const schedulesLists = await Promise.all(
+              companyKeysToTry.map((key) =>
+                getFGMonthlySchedulesCached(key, year, month0),
+              ),
+            );
+            const monthSchedules = schedulesLists.flat();
+            const resolution = resolveManagerFromControlHorario({
+              nowISO,
+              empresa,
+              monthSchedules,
+            });
+
+            if (resolution.mode === "missing") {
+              setMissingShiftExpectedShift(resolution.expectedShift);
+              setMissingShiftDateKey(resolution.dateKey);
+              setMissingShiftModalOpen(true);
+              return;
+            }
+
+            if (resolution.mode === "auto") {
+              effectiveManager = resolution.manager;
+              setManager(resolution.manager);
+              setManagerError("");
+            }
+          }
+        }
+      } catch (err) {
+        console.error("[FG] Error resolving manager from control horario:", err);
+      }
+    }
+
     const trimmedManager2 = manager2.trim();
     if (isEditingPaidFcrMovement) {
       setManagerError("");
@@ -7257,7 +7473,7 @@ export function FondoSection({
       } else {
         setManager2Error("");
       }
-    } else if (!manager) {
+    } else if (!effectiveManager) {
       setManagerError("Selecciona un encargado");
       hasErrors = true;
     } else {
@@ -8030,8 +8246,8 @@ export function FondoSection({
                 )
               : undefined,
           appliedCreditNotes:
-            appliedCreditNotes.length > 0 ? appliedCreditNotes : undefined,
-          manager,
+             appliedCreditNotes.length > 0 ? appliedCreditNotes : undefined,
+          manager: effectiveManager,
           notes: trimmedNotes,
           createdAt: iso,
           currency: movementCurrency,
@@ -9909,6 +10125,11 @@ export function FondoSection({
     !company ||
     managerOptionsLoading ||
     employeeOptions.length === 0 ||
+    (isRegularUser &&
+      accountKey === "FondoGeneral" &&
+      namespace === "fg" &&
+      !editingEntryId &&
+      managerLockedByShift) ||
     // Superadmin: manager is auto-assigned when creating.
     (Boolean(isSuperAdminUser) && !editingEntryId);
   const invoiceDisabled = !company || isInvoiceAutoDateLocked;
@@ -9987,12 +10208,35 @@ export function FondoSection({
     openCreateMovementDrawer();
   }, [openCreateMovementDrawer]);
 
-  const handleOpenCreateMovement = () => {
+  const handleOpenCreateMovement = async () => {
     // Confirmación solo para cuentas (BCR/BN/BAC), para evitar confusiones.
     // Skip confirmation for Caja Negra (no company/account confirmation needed)
     if (accountKey !== "FondoGeneral" && !isCajaNegra) {
       setConfirmOpenCreateMovement(true);
       return;
+    }
+
+    if (
+      isRegularUser &&
+      accountKey === "FondoGeneral" &&
+      namespace === "fg" &&
+      !isCajaNegra
+    ) {
+      try {
+        const nowISO = new Date().toISOString();
+        const resolution = await resolveShiftManagerForNow(nowISO);
+        if (resolution?.mode === "missing") {
+          setMissingShiftExpectedShift(resolution.expectedShift);
+          setMissingShiftDateKey(resolution.dateKey);
+          setMissingShiftModalOpen(true);
+          return;
+        }
+      } catch (err) {
+        console.error(
+          "[FG] Error checking control horario before opening movement:",
+          err,
+        );
+      }
     }
 
     // Si hubo un cierre pendiente (guardado en localStorage), solicitar confirmación de conteo físico.
@@ -15273,6 +15517,21 @@ export function FondoSection({
         actionType="change"
         onConfirm={confirmOpenCreateMovementNow}
         onCancel={cancelOpenCreateMovement}
+      />
+
+      <ConfirmModal
+        open={missingShiftModalOpen}
+        title="Turno no asignado"
+        message={`No se cuenta con un turno (${missingShiftExpectedShift}) asignado para ${missingShiftDateKey || "hoy"}. Debes asignarlo en Control Horario para continuar.`}
+        confirmText="Ir a Control Horario"
+        cancelText="Cancelar"
+        actionType="change"
+        onConfirm={() => {
+          setMissingShiftModalOpen(false);
+          setMovementModalOpen(false);
+          window.location.hash = "#controlhorario";
+        }}
+        onCancel={() => setMissingShiftModalOpen(false)}
       />
 
       <ConfirmModal

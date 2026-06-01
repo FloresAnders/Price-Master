@@ -52,6 +52,7 @@ type CreateInvoiceDrawerProps = {
   setCreateAmount: (value: string) => void;
   createManager: string;
   setCreateManager: (value: string) => void;
+  managerSelectDisabled: boolean;
   employeesLoading: boolean;
   paymentEmployeeOptions: string[];
   createNotes: string;
@@ -87,6 +88,7 @@ export default function CreateInvoiceDrawer({
   setCreateAmount,
   createManager,
   setCreateManager,
+  managerSelectDisabled,
   employeesLoading,
   paymentEmployeeOptions,
   createNotes,
@@ -455,11 +457,13 @@ export default function CreateInvoiceDrawer({
                     <button
                       type="button"
                       className={`${fieldBase} flex items-center justify-between text-left ${
-                        createSubmitting || employeesLoading
+                        createSubmitting ||
+                        employeesLoading ||
+                        managerSelectDisabled
                           ? "cursor-not-allowed opacity-60"
                           : "cursor-pointer"
                       }`}
-                      disabled={createSubmitting || employeesLoading}
+                      disabled={createSubmitting || employeesLoading || managerSelectDisabled}
                       onClick={() => setIsManagerDropdownOpen((prev) => !prev)}
                     >
                       <span className={createManager ? "" : "text-cyan-100/70"}>
@@ -472,7 +476,8 @@ export default function CreateInvoiceDrawer({
                     </button>
                     {isManagerDropdownOpen &&
                       !createSubmitting &&
-                      !employeesLoading && (
+                      !employeesLoading &&
+                      !managerSelectDisabled && (
                         <div className="absolute z-[9999] mt-2 max-h-56 w-full overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] p-1 shadow-2xl shadow-black/70">
                           <button
                             type="button"

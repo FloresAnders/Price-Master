@@ -33,8 +33,13 @@ import {
 } from "@/services/movimientos-fondos";
 import { DailyClosingsService } from "@/services/daily-closings";
 import { EmpresasService } from "@/services/empresas";
+import { SchedulesService } from "@/services/schedules";
 import CreateInvoiceDrawer from "./CreateInvoiceDrawer";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import {
+  resolveManagerFromControlHorario,
+  type ShiftCode,
+} from "@/utils/controlHorarioManager";
 
 import type { Empresas } from "../../../types/firestore";
 
@@ -397,12 +402,67 @@ export default function FacturasCreditoPage() {
   >(null);
   const [companyEmployees, setCompanyEmployees] = useState<string[]>([]);
   const [employeesLoading, setEmployeesLoading] = useState(false);
+  const [createManagerLockedByShift, setCreateManagerLockedByShift] =
+    useState(false);
+
+  const [missingShiftModalOpen, setMissingShiftModalOpen] = useState(false);
+  const [missingShiftExpectedShift, setMissingShiftExpectedShift] =
+    useState<ShiftCode>("D");
+  const [missingShiftDateKey, setMissingShiftDateKey] = useState("");
+
+  const schedulesMonthCacheRef = React.useRef<
+    Map<
+      string,
+      {
+        at: number;
+        promise: Promise<
+          Awaited<
+            ReturnType<typeof SchedulesService.getSchedulesByLocationYearMonth>
+          >
+        >;
+      }
+    >
+  >(new Map());
+  const SCHEDULES_CACHE_TTL_MS = 5 * 60 * 1000;
+  const getMonthlySchedulesCached = useCallback(
+    async (locationValue: string, year: number, month0: number) => {
+      const key = `${locationValue}__${year}__${month0}`;
+      const now = Date.now();
+      const cached = schedulesMonthCacheRef.current.get(key);
+      if (cached && now - cached.at < SCHEDULES_CACHE_TTL_MS) return cached.promise;
+      const promise = SchedulesService.getSchedulesByLocationYearMonth(
+        locationValue,
+        year,
+        month0,
+      );
+      schedulesMonthCacheRef.current.set(key, { at: now, promise });
+      return promise;
+    },
+    [],
+  );
 
   const getCompanyKey = useCallback(
     (emp: Empresas) =>
       String(emp?.name || emp?.ubicacion || emp?.id || "").trim(),
     [],
   );
+
+  const selectedEmpresaMeta = useMemo(() => {
+    const normalize = (value: unknown) =>
+      String(value || "")
+        .trim()
+        .toLowerCase();
+    const normalizedSelected = normalize(selectedCompany);
+    if (!normalizedSelected) return null;
+    return (
+      availableCompanies.find((emp) => {
+        const candidates = [emp?.name, emp?.ubicacion, emp?.id]
+          .map(normalize)
+          .filter(Boolean);
+        return candidates.includes(normalizedSelected);
+      }) ?? null
+    );
+  }, [availableCompanies, selectedCompany]);
 
   const getCompanyLabel = useCallback(
     (emp: Empresas) => {
@@ -618,6 +678,83 @@ export default function FacturasCreditoPage() {
     setCreateFormError(null);
   }, []);
 
+  const resolveShiftManagerForNow = useCallback(
+    async (nowISO: string) => {
+      const empresa = selectedEmpresaMeta;
+      const normalizedCompany = String(selectedCompany || "").trim();
+      if (!empresa || !normalizedCompany) return null;
+
+      const companyKeysToTry = (() => {
+        const set = new Set<string>();
+        set.add(normalizedCompany);
+        [empresa?.name, empresa?.ubicacion, empresa?.id]
+          .map((v) => (typeof v === "string" ? v.trim() : String(v || "").trim()))
+          .filter(Boolean)
+          .forEach((v) => set.add(v));
+        return Array.from(set);
+      })();
+
+      const ymParts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Costa_Rica",
+        year: "numeric",
+        month: "2-digit",
+      }).formatToParts(new Date(nowISO));
+      const year = Number(ymParts.find((p) => p.type === "year")?.value);
+      const month1 = Number(ymParts.find((p) => p.type === "month")?.value);
+      const month0 = Math.max(0, Math.min(11, month1 - 1));
+      if (!Number.isFinite(year) || !Number.isFinite(month1)) return null;
+
+      const schedulesLists = await Promise.all(
+        companyKeysToTry.map((key) => getMonthlySchedulesCached(key, year, month0)),
+      );
+      const monthSchedules = schedulesLists.flat();
+      return resolveManagerFromControlHorario({ nowISO, empresa, monthSchedules });
+    },
+    [getMonthlySchedulesCached, selectedCompany, selectedEmpresaMeta],
+  );
+
+  useEffect(() => {
+    const shouldAuto = user?.role === "user" && createDrawerOpen;
+
+    if (!shouldAuto) {
+      setCreateManagerLockedByShift(false);
+      return;
+    }
+
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const nowISO = new Date().toISOString();
+        const resolution = await resolveShiftManagerForNow(nowISO);
+        if (cancelled || !resolution) return;
+
+        if (resolution.mode === "manual") {
+          setCreateManagerLockedByShift(false);
+          return;
+        }
+
+        if (resolution.mode === "missing") {
+          setCreateManagerLockedByShift(false);
+          return;
+        }
+
+        setCreateManagerLockedByShift(true);
+        if (resolution.mode === "auto") {
+          setCreateManager(resolution.manager);
+        }
+      } catch (err) {
+        console.error("[FACTURAS] Error auto-locking manager by shift:", err);
+      }
+    };
+
+    void tick();
+    const interval = window.setInterval(tick, 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [createDrawerOpen, resolveShiftManagerForNow, user?.role]);
+
   const submitCreateMovement = useCallback(async (confirmedZeroNC = false) => {
     const empresa = String(selectedCompany || "").trim();
     if (!empresa) {
@@ -651,13 +788,34 @@ export default function FacturasCreditoPage() {
       return;
     }
 
-    const manager = String(createManager || "").trim();
-    if (!manager) {
+    const nowISO = new Date().toISOString();
+    let effectiveManager = String(createManager || "").trim();
+
+    if (user?.role === "user") {
+      try {
+        const resolution = await resolveShiftManagerForNow(nowISO);
+        if (resolution) {
+          if (resolution.mode === "missing") {
+            setMissingShiftExpectedShift(resolution.expectedShift);
+            setMissingShiftDateKey(resolution.dateKey);
+            setMissingShiftModalOpen(true);
+            return;
+          }
+          if (resolution.mode === "auto") {
+            effectiveManager = resolution.manager;
+            setCreateManager(resolution.manager);
+          }
+        }
+      } catch (err) {
+        console.error("[FACTURAS] Error resolving manager from control horario:", err);
+      }
+    }
+
+    if (!effectiveManager) {
       setCreateFormError("Selecciona un encargado.");
       return;
     }
 
-    const nowISO = new Date().toISOString();
     const isCreditNote = createInvoiceDocType === "NC";
 
     const movement: FacturaMovement = {
@@ -672,7 +830,7 @@ export default function FacturasCreditoPage() {
       createdAt: nowISO,
       currency: createCurrency,
       invoiceNumber,
-      manager,
+      manager: effectiveManager,
       notes: String(createNotes || "").trim(),
       invoiceDocType: createInvoiceDocType,
       paymentType: createPaymentType || "FACTURA A CREDITO",
@@ -714,8 +872,10 @@ export default function FacturasCreditoPage() {
     createProviderCode,
     loadMovements,
     resetCreateForm,
+    resolveShiftManagerForNow,
     selectedCompany,
     showToast,
+    user?.role,
   ]);
 
   const openEditZeroNCModal = useCallback((movement: FacturaMovement) => {
@@ -1651,7 +1811,7 @@ export default function FacturasCreditoPage() {
     providerNameByCode,
   ]);
 
-  const handleOpenCreateMovement = () => {
+  const handleOpenCreateMovement = async () => {
     if (!selectedCompany) {
       showToast(
         "Selecciona una empresa antes de agregar una factura.",
@@ -1659,6 +1819,24 @@ export default function FacturasCreditoPage() {
         4000,
       );
       return;
+    }
+
+    if (user?.role === "user") {
+      try {
+        const nowISO = new Date().toISOString();
+        const resolution = await resolveShiftManagerForNow(nowISO);
+        if (resolution?.mode === "missing") {
+          setMissingShiftExpectedShift(resolution.expectedShift);
+          setMissingShiftDateKey(resolution.dateKey);
+          setMissingShiftModalOpen(true);
+          return;
+        }
+      } catch (err) {
+        console.error(
+          "[FACTURAS] Error checking control horario before opening drawer:",
+          err,
+        );
+      }
     }
     resetCreateForm();
     setCreateDrawerOpen(true);
@@ -3286,6 +3464,21 @@ export default function FacturasCreditoPage() {
           />
         )}
 
+        <ConfirmModal
+          open={missingShiftModalOpen}
+          title="Turno no asignado"
+          message={`No se cuenta con un turno (${missingShiftExpectedShift}) asignado para ${missingShiftDateKey || "hoy"}. Debes asignarlo en Control Horario para continuar.`}
+          confirmText="Ir a Control Horario"
+          cancelText="Cancelar"
+          actionType="change"
+          onConfirm={() => {
+            setMissingShiftModalOpen(false);
+            setCreateDrawerOpen(false);
+            window.location.hash = "#controlhorario";
+          }}
+          onCancel={() => setMissingShiftModalOpen(false)}
+        />
+
         <CreateInvoiceDrawer
           open={createDrawerOpen}
           onClose={handleCloseCreateDrawer}
@@ -3314,6 +3507,7 @@ export default function FacturasCreditoPage() {
           setCreateAmount={setCreateAmount}
           createManager={createManager}
           setCreateManager={setCreateManager}
+          managerSelectDisabled={createManagerLockedByShift}
           employeesLoading={employeesLoading}
           paymentEmployeeOptions={paymentEmployeeOptions}
           createNotes={createNotes}

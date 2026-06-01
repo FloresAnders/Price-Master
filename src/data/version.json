@@ -1,19 +1,19 @@
 {
-  "version": "1.6.14",
+  "version": "1.6.15",
   "versionstorage": "1.1.20",
   "notasDeSistemas": "1.1.24",
   "releaseNotes": [
     {
       "date": "2026-06-01",
-      "title": "ICorrección de redondeo en el total al momento de pagar" ,
-      "description": "Ahora se muestra el total redondeado al momento de pagar"
+      "title": "Auto-validar Control Horario antes de abrir “Agregar Movimiento” y “Agregar FC/NC”" ,
+      "description": "Si dentro del horario laboral no existe el turno requerido (D/N), se muestra un modal informativo de “Turno no asignado” y se redirige a #controlhorario para que el usuario pueda asignar el turno correspondiente. Esto garantiza que los movimientos y facturas se registren con la información de turno correcta, mejorando la precisión en el control de horarios y evitando errores en la gestión de movimientos y facturas."
     }
   ],
   "systemNotes": [
     {
       "date": "2026-06-01",
-      "title": "ICorrección de redondeo en el total al momento de pagar" ,
-      "description": "Ahora se muestra el total redondeado al momento de pagar"
+      "title": "Auto-validar Control Horario antes de abrir “Agregar Movimiento” y “Agregar FC/NC”" ,
+      "description": "Si dentro del horario laboral no existe el turno requerido (D/N), se muestra un modal informativo de “Turno no asignado” y se redirige a #controlhorario para que el usuario pueda asignar el turno correspondiente. Esto garantiza que los movimientos y facturas se registren con la información de turno correcta, mejorando la precisión en el control de horarios y evitando errores en la gestión de movimientos y facturas."
     }
   ],
   "_comment": "hacer una pagina de 'en mantenimiento' para secciones en desarrollo y a exepcion de un usuario admin"
