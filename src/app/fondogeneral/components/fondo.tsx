@@ -7265,10 +7265,10 @@ export function FondoSection({
     const egresoValue = isEgreso ? Number.parseInt(egreso, 10) : 0;
     const ingresoValue = isIngreso ? Number.parseInt(ingreso, 10) : 0;
     const trimmedNotes = notes.trim();
-    const movementSelectedProviderData = providers.find(
+    const movementSelectedProviderData = movementProviders.find(
       (p) => p.code === selectedProvider,
     );
-    const shouldMirrorMovementToFacturas = isInventoryPurchaseProviderType(
+    const shouldMirrorMovementToFacturas = !isCajaNegra && isInventoryPurchaseProviderType(
       movementSelectedProviderData?.type,
     );
 
@@ -7779,7 +7779,7 @@ export function FondoSection({
         if (updatedEntry) {
           const facturaEntry = updatedEntry as FondoEntry;
           const normalizedCompany = (company || "").trim();
-          if (isPaidFcrMovement(facturaEntry)) {
+          if (isPaidFcrMovement(facturaEntry) && !isCajaNegra) {
             // Actualizar la factura original al editar un abono
             const paymentId = String(facturaEntry.id || "");
             const prefix = "fcr-pago-";
