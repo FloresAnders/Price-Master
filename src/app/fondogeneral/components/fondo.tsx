@@ -13853,6 +13853,12 @@ export function FondoSection({
                                   0,
                                 )
                               : 0;
+                            const appliedCreditNotesAdjustment = Math.max(
+                              0,
+                              invoiceEgresoAmount -
+                                appliedCreditNotesTotal -
+                                normalizedEgreso,
+                            );
                             let isEntryEgreso =
                               isEgresoType(fe.paymentType) ||
                               isGastoType(fe.paymentType);
@@ -14448,6 +14454,22 @@ export function FondoSection({
                                                     }`} />
                                                   </span>
                                                 </button>
+                                                {appliedCreditNotesAdjustment >
+                                                  0 && (
+                                                  <div className="flex w-full items-center gap-0 rounded border border-orange-500/15 bg-orange-500/10 px-2 py-1">
+                                                    <span className="flex items-center justify-center gap-1 text-xs text-orange-200">
+                                                      <RotateCcw className="h-3 w-3 shrink-0" />
+                                                      Ajuste
+                                                    </span>
+                                                    <span className="flex w-full items-center justify-end gap-1 pl-4 text-center text-sm font-semibold text-orange-200 whitespace-nowrap">
+                                                      -
+                                                      {formatByCurrency(
+                                                        entryCurrency,
+                                                        appliedCreditNotesAdjustment,
+                                                      )}
+                                                    </span>
+                                                  </div>
+                                                )}
                                                 {hasAppliedCreditNotes &&
                                                   isAppliedCreditNotesExpanded &&
                                                   Array.isArray(
