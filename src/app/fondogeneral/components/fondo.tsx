@@ -3854,6 +3854,19 @@ export function FondoSection({
     useState<ShiftCode>("D");
   const [missingShiftDateKey, setMissingShiftDateKey] = useState("");
 
+  const isDelifoodCompany = useMemo(() => {
+    const normalize = (value: unknown) =>
+      String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "");
+
+    const normalizedCompany = normalize(company);
+    const normalizedEmpresaName = normalize(activeEmpresaForCompany?.name);
+
+    return normalizedCompany === "delifood" || normalizedEmpresaName === "delifood";
+  }, [activeEmpresaForCompany?.name, company]);
+
   const [fondoTypesLoaded, setFondoTypesLoaded] = useState(false);
   const [ingresoTypes, setIngresoTypes] = useState<string[]>([]);
   const [gastoTypes, setGastoTypes] = useState<string[]>([]);
@@ -7404,7 +7417,8 @@ export function FondoSection({
       isRegularUser &&
       accountKey === "FondoGeneral" &&
       namespace === "fg" &&
-      !editingEntryId;
+      !editingEntryId &&
+      !isDelifoodCompany;
 
     if (shouldAutoManagerFromControlHorario) {
       try {
@@ -10220,7 +10234,8 @@ export function FondoSection({
       isRegularUser &&
       accountKey === "FondoGeneral" &&
       namespace === "fg" &&
-      !isCajaNegra
+      !isCajaNegra &&
+      !isDelifoodCompany
     ) {
       try {
         const nowISO = new Date().toISOString();
