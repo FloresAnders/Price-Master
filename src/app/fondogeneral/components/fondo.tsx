@@ -468,8 +468,11 @@ function FondoMovementsSkeleton({
   );
 }
 
-const normalizeInvoiceDocType = (value: unknown): "FCO" | "FCR" =>
-  value === "FCR" ? "FCR" : "FCO";
+const normalizeInvoiceDocType = (value: unknown): "FCO" | "FCR" | "NC" => {
+  if (value === "FCR") return "FCR";
+  if (value === "NC") return "NC";
+  return "FCO";
+};
 
 const resolveEffectiveEgresoAmount = (
   entry: Partial<FondoEntry> | null | undefined,
@@ -1055,7 +1058,7 @@ export const sanitizeFondoEntries = (
       id,
       providerCode,
       invoiceNumber,
-      invoiceDocType: normalizeInvoiceDocType((entry as any).invoiceDocType),
+      invoiceDocType: normalizeInvoiceDocType((entry as any).invoiceDocType) as "FCO" | "FCR",
       paymentType,
       currency,
       accountId,
@@ -3871,6 +3874,7 @@ export function FondoSection({
     FacturasService.listMovementsByEmpresa(company, { limit: 800 })
       .then((items) => {
         if (cancelled) return;
+        let pendingNotesCount = 0;
         const pendingNotes = items.reduce<PendingCreditNoteOption[]>(
           (acc, movement) => {
             if (movement.providerCode !== selectedProvider) return acc;
@@ -3889,6 +3893,8 @@ export function FondoSection({
               return acc;
             }
 
+            pendingNotesCount += 1;
+
             const balanceDue = Math.max(
               0,
               Math.trunc(Number(movement.balanceDue) || 0),
@@ -3904,7 +3910,7 @@ export function FondoSection({
             const pendingBalance =
               balanceDue > 0 ? balanceDue : Math.max(0, amount - paidAmount);
 
-            if (pendingBalance > 0) {
+            if (pendingBalance > 0 || amount === 0) {
               acc.push({
                 id: movement.id,
                 invoiceNumber: movement.invoiceNumber,
@@ -3920,7 +3926,7 @@ export function FondoSection({
         );
 
         setSelectedProviderPendingCreditNotes(pendingNotes);
-        setSelectedProviderPendingNcCount(pendingNotes.length);
+        setSelectedProviderPendingNcCount(pendingNotesCount);
       })
       .catch((error) => {
         if (!cancelled) {
@@ -7278,10 +7284,20 @@ export function FondoSection({
 
     if (hasErrors) return;
 
+    const selectedZeroAmountNC = selectedAppliedCreditNoteIds.some((id) =>
+      selectedProviderPendingCreditNotes.some(
+        (note) => note.id === id && note.amount === 0,
+      ),
+    );
+    if (selectedZeroAmountNC) {
+      setPendingZeroAmountCreditNoteModalOpen(true);
+      return;
+    }
+
     if (isEgreso && (Number.isNaN(egresoValue) || egresoValue <= 0)) return;
     if (isIngreso && (Number.isNaN(ingresoValue) || ingresoValue <= 0)) return;
 
-    const effectiveInvoiceDocType = normalizeInvoiceDocType(invoiceDocType);
+    const effectiveInvoiceDocType = normalizeInvoiceDocType(invoiceDocType) as "FCO" | "FCR";
     if (!editingEntryId && effectiveInvoiceDocType === "FCR") {
       setInvoiceError(
         "Las facturas a crédito se crean desde Facturas de crédito y notas de crédito.",
@@ -8530,7 +8546,7 @@ export function FondoSection({
       providerTypesMap.get(entry.providerCode) ?? entry.paymentType;
     setPaymentType(correctPaymentType);
     setInvoiceNumber(entry.invoiceNumber);
-    setInvoiceDocType(normalizeInvoiceDocType((entry as any).invoiceDocType));
+    setInvoiceDocType(normalizeInvoiceDocType((entry as any).invoiceDocType) as "FCO" | "FCR");
     setManager(entry.manager);
     setManager2(String((entry as any).manager2 || ""));
     setSelectedAppliedCreditNoteIds([]);
@@ -9960,14 +9976,6 @@ export function FondoSection({
   }, [openCreateMovementDrawer]);
 
   const handleOpenCreateMovement = () => {
-    if (
-      accountKey === "FondoGeneral" &&
-      pendingZeroAmountCreditNotes.length > 0
-    ) {
-      setPendingZeroAmountCreditNoteModalOpen(true);
-      return;
-    }
-
     // Confirmación solo para cuentas (BCR/BN/BAC), para evitar confusiones.
     // Skip confirmation for Caja Negra (no company/account confirmation needed)
     if (accountKey !== "FondoGeneral" && !isCajaNegra) {
