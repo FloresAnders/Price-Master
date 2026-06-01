@@ -552,9 +552,11 @@ const getFcrPaymentAmount = (entry: Partial<FondoEntry>): number =>
 const roundCreditNotePaymentAmount = (
   amount: number,
   currency: MovementCurrencyKey,
+  accountKey?: string,
 ): number => {
   const normalized = Math.max(0, Math.trunc(Number(amount) || 0));
   if (currency !== "CRC") return normalized;
+  if (accountKey && accountKey !== "FondoGeneral") return normalized;
   return Math.floor(normalized / 1000) * 1000;
 };
 
@@ -7349,6 +7351,7 @@ export function FondoSection({
         amountPayment: roundCreditNotePaymentAmount(
           Math.max(0, Math.trunc(invoiceAmount) - total),
           movementCurrency,
+          accountKey,
         ),
       };
     };
@@ -7385,6 +7388,7 @@ export function FondoSection({
     const roundedInvoicePaymentAmount = roundCreditNotePaymentAmount(
       Math.max(0, egresoValue - totalCreditNotesAppliedAmount),
       movementCurrency,
+      accountKey,
     );
     const selectedCreditInvoiceIdSet = new Set(selectedPendingCreditInvoiceIds);
     const selectedCreditInvoicesTotal = isEgreso
@@ -8022,6 +8026,7 @@ export function FondoSection({
               ? roundCreditNotePaymentAmount(
                   Math.max(0, egresoValue - totalAppliedCreditNotes),
                   movementCurrency,
+                  accountKey,
                 )
               : undefined,
           appliedCreditNotes:
@@ -9310,6 +9315,7 @@ export function FondoSection({
     ? roundCreditNotePaymentAmount(
         Math.max(0, Math.trunc(Number(egreso) || 0) - creditNotesAppliedTotal),
         movementCurrency,
+        accountKey,
       )
     : undefined;
 
@@ -9821,7 +9827,7 @@ export function FondoSection({
       if (
         prov &&
         prov.type &&
-        (isCajaNegra || isFondoMovementType(prov.type))
+        isFondoMovementType(prov.type)
       ) {
         nextPaymentType = prov.type as FondoEntry["paymentType"];
         setPaymentType(nextPaymentType);
@@ -9939,9 +9945,15 @@ export function FondoSection({
         if (
           prov &&
           prov.type &&
-          (isCajaNegra || isFondoMovementType(prov.type))
+          isFondoMovementType(prov.type)
         ) {
           setPaymentType(prov.type as FondoEntry["paymentType"]);
+        } else if (prov?.category === "Ingreso") {
+          setPaymentType(FONDO_INGRESO_TYPES[0] as FondoEntry["paymentType"]);
+        } else if (prov?.category === "Gasto") {
+          setPaymentType(FONDO_GASTO_TYPES[0] as FondoEntry["paymentType"]);
+        } else if (prov?.category === "Egreso") {
+          setPaymentType(FONDO_EGRESO_TYPES[0] as FondoEntry["paymentType"]);
         } else if (isCajaNegra) {
           const upper = (prov?.code || selectedProvider).toUpperCase();
           setPaymentType(
@@ -10224,6 +10236,7 @@ export function FondoSection({
       const maxCashPayment = roundCreditNotePaymentAmount(
         maxCashPaymentBeforeAdjustment,
         closingPaymentTarget.currency,
+        accountKey,
       );
       const paymentAmountToApply =
         mode === "full" ? maxCashPayment : enteredAmount;
@@ -13086,6 +13099,7 @@ export function FondoSection({
                   onManagerChange={handleManagerChange}
                   manager2={manager2}
                   onManager2Change={handleManager2Change}
+                  accountKey={accountKey}
                   showManager2={isEditingPaidFcrMovement}
                   managerSelectDisabled={
                     managerSelectDisabled || isEditingPaidFcrMovement

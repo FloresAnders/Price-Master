@@ -76,6 +76,7 @@ type AgregarMovimientoProps = {
   manager2?: string;
   onManager2Change?: (value: string) => void;
   showManager2?: boolean;
+  accountKey?: string;
   managerSelectDisabled: boolean;
   manager2SelectDisabled?: boolean;
   employeeOptions: string[];
@@ -173,6 +174,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   onManager2Change,
   showManager2 = false,
   manager2SelectDisabled = false,
+  accountKey,
   balanceCRC = 0,
   balanceUSD = 0,
   isCompraInventarioProvider = true,
@@ -313,7 +315,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     selectedCreditNotesRequestedTotal > baseAmount;
   const totalAfterCreditNotes = Math.max(0, baseAmount - appliedCreditNotesTotal);
   const totalToSave =
-    isEgreso && invoiceDocType === "FCO" && currency === "CRC"
+    isEgreso && invoiceDocType === "FCO" && currency === "CRC" && (!accountKey || accountKey === "FondoGeneral")
       ? Math.floor(totalAfterCreditNotes / 1000) * 1000
       : totalAfterCreditNotes;
   const adjustmentApplied = Math.max(0, totalAfterCreditNotes - totalToSave);

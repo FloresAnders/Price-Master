@@ -49,9 +49,11 @@ type FacturaPaymentModalProps = {
 const roundCreditNotePaymentAmount = (
   amount: number,
   currency: "CRC" | "USD",
+  accountKey?: string,
 ): number => {
   const normalized = Math.max(0, Math.trunc(Number(amount) || 0));
   if (currency !== "CRC") return normalized;
+  if (accountKey && accountKey !== "FondoGeneral") return normalized;
   return Math.floor(normalized / 1000) * 1000;
 };
 
@@ -134,6 +136,7 @@ export default function FacturaPaymentModal({
       ? roundCreditNotePaymentAmount(
           maxCashPaymentBeforeAdjustment,
           target.currency,
+          target.accountId,
         )
       : maxCashPaymentBeforeAdjustment;
   const adjustmentApplied = Math.max(
