@@ -46,6 +46,15 @@ type FacturaPaymentModalProps = {
   allowPartialPayment?: boolean;
 };
 
+const roundCreditNotePaymentAmount = (
+  amount: number,
+  currency: "CRC" | "USD",
+): number => {
+  const normalized = Math.max(0, Math.trunc(Number(amount) || 0));
+  if (currency !== "CRC") return normalized;
+  return Math.floor(normalized / 1000) * 1000;
+};
+
 export default function FacturaPaymentModal({
   open,
   target,
@@ -116,9 +125,20 @@ export default function FacturaPaymentModal({
   const creditNotesOverLimit =
     selectedPaymentBalance > 0 &&
     selectedCreditNotesRequestedTotal > selectedPaymentBalance;
-  const maxCashPayment = Math.max(
+  const maxCashPaymentBeforeAdjustment = Math.max(
     0,
     Math.trunc(selectedPaymentBalance) - Math.trunc(creditNotesAppliedTotal),
+  );
+  const maxCashPayment =
+    target
+      ? roundCreditNotePaymentAmount(
+          maxCashPaymentBeforeAdjustment,
+          target.currency,
+        )
+      : maxCashPaymentBeforeAdjustment;
+  const adjustmentApplied = Math.max(
+    0,
+    maxCashPaymentBeforeAdjustment - maxCashPayment,
   );
   const finalAmountPayment = allowPartialPayment
     ? Math.min(enteredPaymentAmount, maxCashPayment)
@@ -453,12 +473,20 @@ export default function FacturaPaymentModal({
                       </span>
                     </div>
                   )}
+                  {adjustmentApplied > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-cyan-100/70">Ajuste Aplicado</span>
+                      <span className="font-semibold text-amber-200">
+                        - {formatCurrencyAmount(adjustmentApplied, target.currency)}
+                      </span>
+                    </div>
+                  )}
                   <div className="h-px bg-cyan-700/25" />
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center justify-between text-base">
                     <span className="font-semibold text-[var(--foreground)]">
                       Total a pagar
                     </span>
-                    <span className="font-semibold text-cyan-100">
+                    <span className="text-xl font-bold text-cyan-50">
                       {formatCurrencyAmount(finalAmountPayment, target.currency)}
                     </span>
                   </div>

@@ -7346,7 +7346,7 @@ export function FondoSection({
         : 0;
     const totalCreditNotesAppliedAmount =
       creditNoteApplication.total + manualCreditNoteAppliedAmount;
-    const roundedCreditNotePaymentAmount = roundCreditNotePaymentAmount(
+    const roundedInvoicePaymentAmount = roundCreditNotePaymentAmount(
       Math.max(0, egresoValue - totalCreditNotesAppliedAmount),
       movementCurrency,
     );
@@ -7360,7 +7360,7 @@ export function FondoSection({
       : 0;
     const egresoBalanceImpact =
       isEgreso && effectiveInvoiceDocType === "FCO"
-        ? roundedCreditNotePaymentAmount + selectedCreditInvoicesTotal
+        ? roundedInvoicePaymentAmount + selectedCreditInvoicesTotal
         : egresoValue;
 
     // Validar que no quede saldo negativo en la moneda del movimiento.
@@ -7982,9 +7982,7 @@ export function FondoSection({
           amountEgreso: isEgreso ? egresoValue : 0,
           amountIngreso: isIngreso ? ingresoValue : 0,
           amountPayment:
-            isEgreso &&
-            effectiveInvoiceDocType === "FCO" &&
-            appliedCreditNotes.length > 0
+            isEgreso && effectiveInvoiceDocType === "FCO"
               ? roundCreditNotePaymentAmount(
                   Math.max(0, egresoValue - totalAppliedCreditNotes),
                   movementCurrency,
@@ -10183,23 +10181,24 @@ export function FondoSection({
         (sum, note) => sum + Math.max(0, Math.trunc(note.appliedAmount)),
         0,
       );
-      const maxCashPayment = Math.max(0, balance - creditNotesAmountToApply);
+      const maxCashPaymentBeforeAdjustment = Math.max(
+        0,
+        balance - creditNotesAmountToApply,
+      );
+      const maxCashPayment = roundCreditNotePaymentAmount(
+        maxCashPaymentBeforeAdjustment,
+        closingPaymentTarget.currency,
+      );
       const paymentAmountToApply =
         mode === "full" ? maxCashPayment : enteredAmount;
+      const creditNoteAdjustmentAmount =
+        mode === "full"
+          ? Math.max(0, maxCashPaymentBeforeAdjustment - paymentAmountToApply)
+          : 0;
       const totalAppliedToInvoice =
-        paymentAmountToApply + creditNotesAmountToApply;
-
-      if (mode === "full" && creditNotesAmountToApply === 0 && enteredAmount !== maxCashPayment) {
-        showToast(
-          `El monto debe coincidir con el saldo pendiente (${formatByCurrency(
-            closingPaymentTarget.currency,
-            maxCashPayment,
-          )}).`,
-          "error",
-          4000,
-        );
-        return;
-      }
+        paymentAmountToApply +
+        creditNotesAmountToApply +
+        creditNoteAdjustmentAmount;
 
       if (paymentAmountToApply <= 0) {
         showToast("Ingrese un monto valido para el pago.", "error", 4000);
@@ -14400,7 +14399,9 @@ export function FondoSection({
                                             </span>
                                           </div>
                                           {isEntryEgreso &&
-                                            appliedCreditNotesTotal > 0 && (
+                                            (appliedCreditNotesTotal > 0 ||
+                                              appliedCreditNotesAdjustment >
+                                                0) && (
                                               <>
                                                 <div className="flex w-full items-center gap-0 rounded bg-sky-500/10 px-2 py-1">
                                                   <span className="flex items-center justify-center gap-1 text-xs text-sky-200">
@@ -14414,46 +14415,49 @@ export function FondoSection({
                                                     )}
                                                   </span>
                                                 </div>
-                                                <button
-                                                  type="button"
-                                                  onClick={() => {
-                                                    setExpandedAppliedCreditNotesRows(
-                                                      (prev) => {
-                                                        const next = new Set(
-                                                          prev,
-                                                        );
-                                                        if (next.has(fe.id)) {
-                                                          next.delete(fe.id);
-                                                        } else {
-                                                          next.add(fe.id);
-                                                        }
-                                                        return next;
-                                                      },
-                                                    );
-                                                  }}
-                                                  title={isAppliedCreditNotesExpanded ? "Ocultar NCs" : "Ver NCs aplicadas"}
-                                                  aria-expanded={isAppliedCreditNotesExpanded}
-                                                  className={`flex w-full gap-0 rounded border px-2 py-1 text-left transition-all ${
-                                                    isAppliedCreditNotesExpanded
-                                                      ? "border-yellow-500/40 bg-yellow-500/30"
-                                                      : "border-yellow-500/20 bg-yellow-500/20 hover:border-yellow-500/30 hover:bg-yellow-500/25"
-                                                  }`}
-                                                >
-                                                  <span className="flex items-center justify-center gap-1 text-xs text-yellow-300">
-                                                    <Tag className="h-3 w-3 shrink-0" />
-                                                    NC
-                                                  </span>
-                                                  <span className="flex items-center justify-end gap-1 pl-4 text-center text-sm font-semibold text-yellow-300 whitespace-nowrap">
-                                                    -
-                                                    {formatByCurrency(
-                                                      entryCurrency,
-                                                      appliedCreditNotesTotal,
-                                                    )}
-                                                    <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${
-                                                      isAppliedCreditNotesExpanded ? "rotate-180" : ""
-                                                    }`} />
-                                                  </span>
-                                                </button>
+                                                {appliedCreditNotesTotal >
+                                                  0 && (
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      setExpandedAppliedCreditNotesRows(
+                                                        (prev) => {
+                                                          const next = new Set(
+                                                            prev,
+                                                          );
+                                                          if (next.has(fe.id)) {
+                                                            next.delete(fe.id);
+                                                          } else {
+                                                            next.add(fe.id);
+                                                          }
+                                                          return next;
+                                                        },
+                                                      );
+                                                    }}
+                                                    title={isAppliedCreditNotesExpanded ? "Ocultar NCs" : "Ver NCs aplicadas"}
+                                                    aria-expanded={isAppliedCreditNotesExpanded}
+                                                    className={`flex w-full gap-0 rounded border px-2 py-1 text-left transition-all ${
+                                                      isAppliedCreditNotesExpanded
+                                                        ? "border-yellow-500/40 bg-yellow-500/30"
+                                                        : "border-yellow-500/20 bg-yellow-500/20 hover:border-yellow-500/30 hover:bg-yellow-500/25"
+                                                    }`}
+                                                  >
+                                                    <span className="flex items-center justify-center gap-1 text-xs text-yellow-300">
+                                                      <Tag className="h-3 w-3 shrink-0" />
+                                                      NC
+                                                    </span>
+                                                    <span className="flex items-center justify-end gap-1 pl-4 text-center text-sm font-semibold text-yellow-300 whitespace-nowrap">
+                                                      -
+                                                      {formatByCurrency(
+                                                        entryCurrency,
+                                                        appliedCreditNotesTotal,
+                                                      )}
+                                                      <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${
+                                                        isAppliedCreditNotesExpanded ? "rotate-180" : ""
+                                                      }`} />
+                                                    </span>
+                                                  </button>
+                                                )}
                                                 {appliedCreditNotesAdjustment >
                                                   0 && (
                                                   <div className="flex w-full items-center gap-0 rounded border border-orange-500/15 bg-orange-500/10 px-2 py-1">

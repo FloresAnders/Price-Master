@@ -313,7 +313,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     selectedCreditNotesRequestedTotal > baseAmount;
   const totalAfterCreditNotes = Math.max(0, baseAmount - appliedCreditNotesTotal);
   const totalToSave =
-    appliedCreditNotesTotal > 0 && currency === "CRC"
+    isEgreso && invoiceDocType === "FCO" && currency === "CRC"
       ? Math.floor(totalAfterCreditNotes / 1000) * 1000
       : totalAfterCreditNotes;
   const adjustmentApplied = Math.max(0, totalAfterCreditNotes - totalToSave);
