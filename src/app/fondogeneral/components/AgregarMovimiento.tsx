@@ -13,13 +13,13 @@ import {
   WalletCards,
   XCircle,
 } from "lucide-react";
-import type { FondoMovementType } from "./fondo";
+import type { FondoMovementType } from "../types";
 import {
   formatMovementType,
   isEgresoType,
   isGastoType,
   isIngresoType,
-} from "./fondo";
+} from "../utils/movementTypes";
 
 type ProviderOption = {
   code: string;

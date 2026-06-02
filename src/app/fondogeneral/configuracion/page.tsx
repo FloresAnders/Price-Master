@@ -20,7 +20,7 @@ import {
   type MovementCurrencyKey,
   type MovementStorage,
 } from "@/services/movimientos-fondos";
-import type { FondoEntry } from "../components/fondo";
+import type { FondoEntry } from "..";
 
 const ACCOUNT_LABELS: Record<MovementAccountKey, string> = {
   FondoGeneral: "Fondo General",
