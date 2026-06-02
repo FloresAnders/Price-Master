@@ -156,6 +156,8 @@ const AUTO_ADJUSTMENT_MANAGER = "SISTEMA";
 const AUTO_ADJUSTMENT_CLOSING_TYPE = "AJUSTE CIERRE";
 
 const CIERRE_FONDO_VENTAS_PROVIDER_NAME = "CIERRE FONDO VENTAS";
+const CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END = 15;
+const CIERRE_FONDO_VENTAS_MINUTES_AFTER_END = 45;
 const INGRESO_DESDE_FONDO_VENTAS_NAME = "INGRESO DESDE FONDO VENTAS";
 
 const normalizeMovementLabel = (value: unknown): string =>
@@ -10130,12 +10132,54 @@ export function FondoSection({
           };
 
           const nowMin = normalizeMin(nowTiming.currentMin);
-          const shiftEndMin =
-            nowTiming.expectedShift === "D"
-              ? normalizeMin(nowTiming.shiftChangeMin)
-              : normalizeMin(nowTiming.closeMin);
-          const minutesUntilEnd = (shiftEndMin - nowMin + 1440) % 1440;
-          const minutesUntilAllowed = Math.max(0, minutesUntilEnd - 15);
+          const shiftDEndMin = normalizeMin(nowTiming.shiftChangeMin);
+          const shiftNEndMin = normalizeMin(nowTiming.closeMin);
+          const getClosingShiftForMinute = (minute: number): ShiftCode | null => {
+            const normalizedMinute = normalizeMin(minute);
+            const isInWindow = (endMin: number) => {
+              const normalizedEnd = normalizeMin(endMin);
+              const minutesUntilEnd =
+                (normalizedEnd - normalizedMinute + 1440) % 1440;
+              const minutesAfterEnd =
+                (normalizedMinute - normalizedEnd + 1440) % 1440;
+              return (
+                minutesUntilEnd <= CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END ||
+                minutesAfterEnd <= CIERRE_FONDO_VENTAS_MINUTES_AFTER_END
+              );
+            };
+
+            if (isInWindow(shiftDEndMin)) return "D";
+            if (isInWindow(shiftNEndMin)) return "N";
+            return null;
+          };
+          const closingShift = getClosingShiftForMinute(nowMin);
+          const minutesUntilDWindow =
+            (normalizeMin(
+              shiftDEndMin - CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
+            ) -
+              nowMin +
+              1440) %
+            1440;
+          const minutesUntilNWindow =
+            (normalizeMin(
+              shiftNEndMin - CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
+            ) -
+              nowMin +
+              1440) %
+            1440;
+          const minutesUntilAllowed = Math.min(
+            minutesUntilDWindow,
+            minutesUntilNWindow,
+          );
+
+          if (!closingShift) {
+            showToast(
+              `El \"CIERRE FONDO VENTAS\" solo se puede registrar desde ${CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END} minutos antes y hasta ${CIERRE_FONDO_VENTAS_MINUTES_AFTER_END} minutos despues del fin del turno. Faltan ${minutesUntilAllowed} min.`,
+              "warning",
+              6000,
+            );
+            return;
+          }
 
           // Enforzar 2 cierres por dÃ­a: uno al final de D y otro al final de N (cierre).
           // Bloquear duplicados por ventana.
@@ -10152,12 +10196,12 @@ export function FondoSection({
                 if (!info) return;
                 if (info.dateKey !== nowKey) return;
                 const minute = normalizeMin(info.minuteOfDay);
-                const isD = minute < normalizeMin(nowTiming.shiftChangeMin);
-                if (isD) hasDCierre = true;
-                else hasNCierre = true;
+                const existingShift = getClosingShiftForMinute(minute);
+                if (existingShift === "D") hasDCierre = true;
+                if (existingShift === "N") hasNCierre = true;
               });
 
-              if (nowTiming.expectedShift === "D" && hasDCierre) {
+              if (closingShift === "D" && hasDCierre) {
                 showToast(
                   'Ya existe un "CIERRE FONDO VENTAS" para el turno D de hoy.',
                   "warning",
@@ -10165,7 +10209,7 @@ export function FondoSection({
                 );
                 return;
               }
-              if (nowTiming.expectedShift === "N" && hasNCierre) {
+              if (closingShift === "N" && hasNCierre) {
                 showToast(
                   'Ya existe un "CIERRE FONDO VENTAS" para el turno N de hoy.',
                   "warning",
@@ -10178,14 +10222,6 @@ export function FondoSection({
             console.error("[FG] Error checking duplicate cierres:", dupErr);
           }
 
-          if (minutesUntilEnd > 15) {
-            showToast(
-              `El \"CIERRE FONDO VENTAS\" solo se puede registrar dentro de los Ãºltimos 15 minutos del turno. Faltan ${minutesUntilAllowed} min.`,
-              "warning",
-              6000,
-            );
-            return;
-          }
         }
       } catch (err) {
         console.error(
