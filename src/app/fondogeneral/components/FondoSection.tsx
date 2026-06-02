@@ -552,15 +552,15 @@ export function FondoSection({
       ? hasGeneralAccess
       : hasGeneralAccess && hasSpecificAccess;
   const namespaceDescription =
-    NAMESPACE_DESCRIPTIONS[namespace] || "esta secci�n del Fondo General";
+    NAMESPACE_DESCRIPTIONS[namespace] || "esta sección del Fondo General";
   const accountKey = useMemo(
     () => getAccountKeyFromNamespace(namespace),
     [namespace],
   );
 
-  // Caja Negra: proveedores fijos y detecci�n
+  // Caja Negra: proveedores fijos y detección
 
-  // Caja Negra: proveedores fijos y detecci�n
+  // Caja Negra: proveedores fijos y detección
   const isCajaNegra = accountKey === "CajaNegra";
   const cajaNegraProviders: Array<{
     code: string;
@@ -1166,11 +1166,11 @@ export function FondoSection({
   const [confirmOpenCreateMovement, setConfirmOpenCreateMovement] =
     useState(false);
 
-  // Modal: primer movimiento despu�s del �ltimo cierre de Fondo General
+  // Modal: primer movimiento después del último cierre de Fondo General
   const [confirmPhysicalCountOpen, setConfirmPhysicalCountOpen] =
     useState(false);
   const [physicalCountWasDone, setPhysicalCountWasDone] = useState(false);
-  // Estado para indicar que se est� guardando un movimiento y prevenir m�ltiples env�os
+  // Estado para indicar que se está guardando un movimiento y prevenir múltiples envíos
   const [isSaving, setIsSaving] = useState(false);
   const enabledBalanceCurrencies = useMemo(
     () =>
@@ -1180,8 +1180,8 @@ export function FondoSection({
     [currencyEnabled],
   );
 
-  // Marca en localStorage para confirmar conteo f�sico antes del primer movimiento
-  // despu�s del cierre de hoy. IMPORTANTE: debe leerse en tiempo real (no memoizada)
+  // Marca en localStorage para confirmar conteo físico antes del primer movimiento
+  // después del cierre de hoy. IMPORTANTE: debe leerse en tiempo real (no memoizada)
   // porque localStorage puede cambiar sin alterar dependencias de React.
   // Legacy keys (previous formats)
   const buildLegacyPhysicalCountStorageKey = useCallback(() => {
@@ -1250,8 +1250,8 @@ export function FondoSection({
       // Compatibilidad con el formato anterior: JSON { dateKey, id, at }
       try {
         const parsed = JSON.parse(raw) as any;
-        // Si hay un JSON, asumir que hubo cierre => pedir confirmaci�n.
-        // En el esquema anterior esto era por d�a; ahora lo volvemos global.
+        // Si hay un JSON, asumir que hubo cierre => pedir confirmación.
+        // En el esquema anterior esto era por día; ahora lo volvemos global.
         return Boolean(parsed);
       } catch {
         return false;
@@ -1892,7 +1892,7 @@ export function FondoSection({
     const normalizedCompany = (company || "").trim();
     const normalizedCompanyLower = normalizedCompany.toLowerCase();
 
-    // NO cargar movimientos si los tipos a�n no est�n listos
+    // NO cargar movimientos si los tipos aún no están listos
     if (normalizedCompany.length === 0 || !fondoTypesLoaded) {
       setEntriesHydrated(false);
       setHydratedCompany("");
@@ -2319,7 +2319,7 @@ export function FondoSection({
         cierreEntryTs = 0;
         break;
       }
-      // Buscar el nombre del proveedor por su c�digo
+      // Buscar el nombre del proveedor por su código
       const providerData = providers.find((p) => p.code === entry.providerCode);
       if (
         providerData?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME
@@ -2349,7 +2349,7 @@ export function FondoSection({
 
     setPendingCierreDeCaja(hasPendingCierreDeCaja);
     console.log(
-      "[CIERRE-DEBUG] Estado pendingCierreDeCaja despu�s de cargar:",
+      "[CIERRE-DEBUG] Estado pendingCierreDeCaja después de cargar:",
       hasPendingCierreDeCaja,
       {
         cierreEntryTs,
@@ -2711,8 +2711,8 @@ export function FondoSection({
   const normalizeMoneyInput = (value: string) => value.replace(/[^0-9]/g, "");
 
   /**
-   * Env�a un correo de notificaci�n cuando se crea o edita un movimiento,
-   * solo si el proveedor tiene configurado un correo de notificaci�n.
+   * Envía un correo de notificación cuando se crea o edita un movimiento,
+   * solo si el proveedor tiene configurado un correo de notificación.
    */
   const sendMovementNotification = useCallback(
     async (
@@ -2757,7 +2757,7 @@ export function FondoSection({
           operationType,
         });
 
-        // Crear documento en la colecci�n 'mail' para que la extensi�n Firebase Trigger Email lo procese
+        // Crear documento en la colección 'mail' para que la extensión Firebase Trigger Email lo procese
         try {
           const docRef = await addDoc(collection(db, "mail"), {
             to: provider.correonotifi,
@@ -2769,28 +2769,28 @@ export function FondoSection({
           console.log(
             `[MAIL-DOC] Documento creado en 'mail' para movimiento: ${docRef.id}`,
           );
-          showToast("Correo de notificaci�n enviado correctamente", "success");
+          showToast("Correo de notificación enviado correctamente", "success");
         } catch (err) {
           console.error(
             '[MAIL-DOC] Error creando documento en "mail" para movimiento:',
             err,
           );
-          showToast("Error al enviar correo de notificaci�n", "error");
+          showToast("Error al enviar correo de notificación", "error");
         }
       } catch (err) {
         console.error(
           "[EMAIL-NOTIFICATION] Error preparing notification:",
           err,
         );
-        // No lanzar error, la notificaci�n es secundaria
+        // No lanzar error, la notificación es secundaria
       }
     },
     [company, providers, showToast],
   );
 
   /**
-   * Funci�n auxiliar para persistir movimientos a Firestore de forma inmediata.
-   * Retorna true si se guard� correctamente, false si hubo error.
+   * Función auxiliar para persistir movimientos a Firestore de forma inmediata.
+    * Retorna true si se guardó correctamente, false si hubo error.
    */
   const persistMovementToFirestore = useCallback(
     async (
@@ -2838,7 +2838,7 @@ export function FondoSection({
 
         // IMPORTANTE:
         // Con filtros de rango (Desde/Hasta) en v2, `updatedEntries` puede NO contener
-        // todos los movimientos hist�ricos. Por eso NO podemos recalcular currentBalance
+        // todos los movimientos históricos. Por eso NO podemos recalcular currentBalance
         // sumando `updatedEntries`. En su lugar, actualizamos balances por delta:
         // - create: + (ingreso-egreso)
         // - delete: - (ingreso-egreso)
@@ -3103,8 +3103,8 @@ export function FondoSection({
           );
         }
 
-        // setDoc puede resolver con escritura local; esperamos un poco por confirmaci�n del backend
-        // para evitar casos de "se guard�" cuando el usuario estaba offline/intermitente.
+        // setDoc puede resolver con escritura local; esperamos un poco por confirmación del backend
+        // para evitar casos de "se guardó" cuando el usuario estaba offline/intermitente.
         let confirmed = false;
         try {
           const timeoutMs = 8000;
@@ -3121,7 +3121,7 @@ export function FondoSection({
           ]);
         } catch (pendingErr) {
           console.warn(
-            `[PERSIST-IMMEDIATE] ?? ${operationType} guardado localmente pero sin confirmaci�n del servidor a�n`,
+            `[PERSIST-IMMEDIATE] ${operationType} guardado localmente pero sin confirmación del servidor aún`,
             pendingErr,
           );
         }
@@ -3130,7 +3130,7 @@ export function FondoSection({
           `[PERSIST-IMMEDIATE] ? ${operationType} guardado (confirmed=${confirmed})`,
         );
 
-        // Actualizar snapshot despu�s de guardar
+        // Actualizar snapshot después de guardar
         storageSnapshotRef.current = baseStorage;
 
         return {
@@ -3207,7 +3207,7 @@ export function FondoSection({
       }
 
       if (accountKey !== "FondoGeneral") {
-        throw new Error("Esta acci�n solo aplica al Fondo General");
+        throw new Error("Esta acción solo aplica al Fondo General");
       }
 
       const trimmedReason = String(reason || "").trim();
@@ -3216,7 +3216,7 @@ export function FondoSection({
       }
 
       if (deleteLatestClosingInProgressRef.current) {
-        throw new Error("Ya hay una eliminaci�n en progreso");
+        throw new Error("Ya hay una eliminación en progreso");
       }
       deleteLatestClosingInProgressRef.current = true;
 
@@ -3226,7 +3226,7 @@ export function FondoSection({
           await DailyClosingsService.getDocument(normalizedCompany);
         if (!closingsDoc) {
           throw new Error(
-            "No se encontr� historial de cierres para esta empresa",
+            "No se encontró historial de cierres para esta empresa",
           );
         }
 
@@ -3240,7 +3240,7 @@ export function FondoSection({
         const companyKey =
           MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
 
-        // Buscar ajustes vinculados al cierre (aunque no est�n cargados en el rango actual)
+        // Buscar ajustes vinculados al cierre (aunque no estén cargados en el rango actual)
         const related =
           await MovimientosFondosService.listMovementsByOriginalEntryId<FondoEntry>(
             companyKey,
@@ -3351,8 +3351,8 @@ export function FondoSection({
           // ignore storage errors
         }
 
-        // Si acabamos de eliminar el �ltimo cierre, no tiene sentido pedir confirmaci�n de conteo f�sico
-        // para el �primer movimiento despu�s del cierre�.
+        // Si acabamos de eliminar el último cierre, no tiene sentido pedir confirmación de conteo físico
+        // para el "primer movimiento después del cierre".
         try {
           const key = buildPhysicalCountStorageKey();
           if (key) localStorage.setItem(key, "false");
@@ -3444,7 +3444,7 @@ export function FondoSection({
           const payload = { at: savedAtMs, fingerprint };
           lastMovementDedupeRef.current = payload;
           // NOTE: "INGRESO DESDE FONDO VENTAS" no debe activar el cooldown de 1 minuto
-          // para el siguiente movimiento. Detectar tambi�n por nombre visible del proveedor.
+          // para el siguiente movimiento. Detectar también por nombre visible del proveedor.
           const provider = providers.find((p) => p.code === entry.providerCode);
           const providerDisplayName = provider?.name || entry.providerCode;
           const isIngresoDesdeFV = isIngresoDesdeFondoVentasMovement(
@@ -3487,7 +3487,7 @@ export function FondoSection({
         // ignore
       }
 
-      // Limpiar flag de edici�n en progreso
+      // Limpiar flag de edición en progreso
       editingInProgressRef.current = false;
 
       // Solo actualizar la UI si el guardado fue exitoso
@@ -3499,16 +3499,16 @@ export function FondoSection({
         showToast("Movimiento guardado correctamente", "success", 3000);
       } else {
         showToast(
-          "Movimiento guardado localmente; pendiente de sincronizaci�n (revisa tu conexi�n).",
+          "Movimiento guardado localmente; pendiente de sincronización (revisa tu conexión).",
           "warning",
           6000,
         );
       }
 
-      // Enviar notificaci�n por correo si el proveedor tiene correonotifi
+      // Enviar notificación por correo si el proveedor tiene correonotifi
       sendMovementNotification(entry, "create").catch((err) => {
         console.error(
-          "[NOTIFICATION] Error en notificaci�n de movimiento:",
+          "[NOTIFICATION] Error en notificación de movimiento:",
           err,
         );
       });
@@ -3689,7 +3689,7 @@ export function FondoSection({
 
   const handleSubmitFondo = async () => {
     if (!company) return;
-    if (isSaving || movementSubmitInProgressRef.current) return; // Prevenir m�ltiples env�os
+    if (isSaving || movementSubmitInProgressRef.current) return; // Prevenir múltiples envíos
 
     let hasErrors = false;
     const nowISO = new Date().toISOString();
@@ -3710,12 +3710,12 @@ export function FondoSection({
       !providerExists &&
       !(editingEntryId && editingEntry?.providerCode === selectedProvider)
     ) {
-      setProviderError("Proveedor no v�lido");
+      setProviderError("Proveedor no válido");
       hasErrors = true;
     }
 
     if (!/^[0-9]{1,4}$/.test(effectiveInvoiceNumber)) {
-      setInvoiceError("Ingresa un n�mero de factura v�lido (1-4 d�gitos)");
+      setInvoiceError("Ingresa un número de factura válido (1-4 dígitos)");
       hasErrors = true;
     } else {
       setInvoiceError("");
@@ -3790,7 +3790,7 @@ export function FondoSection({
     if (isEditingPaidFcrMovement) {
       setManagerError("");
       if (!trimmedManager2) {
-        setManager2Error("Selecciona quien pag� la factura");
+        setManager2Error("Selecciona quién pagó la factura");
         hasErrors = true;
       } else {
         setManager2Error("");
@@ -3813,10 +3813,10 @@ export function FondoSection({
     );
 
     if (isEgreso && (Number.isNaN(egresoValue) || egresoValue <= 0)) {
-      setAmountError("Ingresa un monto v�lido para egreso");
+      setAmountError("Ingresa un monto válido para egreso");
       hasErrors = true;
     } else if (isIngreso && (Number.isNaN(ingresoValue) || ingresoValue <= 0)) {
-      setAmountError("Ingresa un monto v�lido para ingreso");
+      setAmountError("Ingresa un monto válido para ingreso");
       hasErrors = true;
     } else {
       setAmountError("");
@@ -3840,7 +3840,7 @@ export function FondoSection({
     const effectiveInvoiceDocType = normalizeInvoiceDocType(invoiceDocType) as "FCO" | "FCR";
     if (!editingEntryId && effectiveInvoiceDocType === "FCR") {
       setInvoiceError(
-        "Las facturas a cr�dito se crean desde Facturas de cr�dito y notas de cr�dito.",
+        "Las facturas a crédito se crean desde Facturas de crédito y notas de crédito.",
       );
       return;
     }
@@ -3942,9 +3942,9 @@ export function FondoSection({
         : egresoValue;
 
     // Validar que no quede saldo negativo en la moneda del movimiento.
-    // Nota: este l�mite de �saldo insuficiente� solo aplica para usuarios regulares.
+    // Nota: este límite de "saldo insuficiente" solo aplica para usuarios regulares.
     // Admin/Superadmin pueden registrar egresos que dejen saldo negativo.
-    // En edici�n se revierte primero el impacto del movimiento original.
+    // En edición se revierte primero el impacto del movimiento original.
     if (
       isEgreso &&
       effectiveInvoiceDocType !== "FCR" &&
@@ -4134,28 +4134,28 @@ export function FondoSection({
         const changes: string[] = [];
         if (selectedProvider !== original.providerCode)
           changes.push(
-            `Proveedor: ${original.providerCode} ? ${selectedProvider}`,
+            `Proveedor: ${original.providerCode} -> ${selectedProvider}`,
           );
         if (paddedInvoice !== original.invoiceNumber)
           changes.push(
-            `N� factura: ${original.invoiceNumber} ? ${paddedInvoice}`,
+            `Nro. factura: ${original.invoiceNumber} -> ${paddedInvoice}`,
           );
         if (paymentType !== original.paymentType)
-          changes.push(`Tipo: ${original.paymentType} ? ${paymentType}`);
+          changes.push(`Tipo: ${original.paymentType} -> ${paymentType}`);
         const originalAmount = isEgresoType(original.paymentType)
           ? original.amountEgreso
           : original.amountIngreso;
         const newAmount = isEgreso ? egresoValue : ingresoValue;
         if (Number.isFinite(originalAmount) && originalAmount !== newAmount)
-          changes.push(`Monto: ${originalAmount} ? ${newAmount}`);
+          changes.push(`Monto: ${originalAmount} -> ${newAmount}`);
         if (!isEditingPaidFcr && manager !== original.manager)
-          changes.push(`Encargado: ${original.manager} ? ${manager}`);
+          changes.push(`Encargado: ${original.manager} -> ${manager}`);
         if (isEditingPaidFcr && effectiveManager2 !== originalManager2)
           changes.push(
-            `Encargado pago: ${originalManager2 || "(vac�o)"} ? ${effectiveManager2 || "(vac�o)"}`,
+            `Encargado pago: ${originalManager2 || "(vacío)"} -> ${effectiveManager2 || "(vacío)"}`,
           );
         if (trimmedNotes !== (original.notes ?? ""))
-          changes.push(`Notas: "${original.notes}" ? "${trimmedNotes}"`);
+          changes.push(`Notas: "${original.notes}" -> "${trimmedNotes}"`);
 
         // Preparar el movimiento editado ANTES de persistir
         let updatedEntry: FondoEntry | null = null;
@@ -4181,13 +4181,13 @@ export function FondoSection({
             history = [];
           }
 
-          // Validar l�mite m�ximo de ediciones
+          // Validar límite máximo de ediciones
           if (history.length >= MAX_AUDIT_EDITS) {
             showToast(
-              `No se pueden realizar m�s de ${MAX_AUDIT_EDITS} ediciones en un mismo movimiento`,
+              `No se pueden realizar más de ${MAX_AUDIT_EDITS} ediciones en un mismo movimiento`,
               "error",
             );
-            return e; // No permitir m�s ediciones
+            return e; // No permitir más ediciones
           }
 
           const previousAppliedNotes = Array.isArray(e.appliedCreditNotes)
@@ -4307,7 +4307,7 @@ export function FondoSection({
           return;
         }
 
-        // Registrar timestamp de la �ltima edici�n guardada
+        // Registrar timestamp de la última edición guardada
         lastEditSaveTimestampRef.current = Date.now();
         editingInProgressRef.current = false;
 
@@ -4397,18 +4397,18 @@ export function FondoSection({
           showToast("Movimiento editado correctamente", "success", 3000);
         } else {
           showToast(
-            "Edici�n guardada localmente; pendiente de sincronizaci�n (revisa tu conexi�n).",
+            "Edición guardada localmente; pendiente de sincronización (revisa tu conexión).",
             "warning",
             6000,
           );
         }
 
-        // Enviar notificaci�n por correo si el proveedor tiene correonotifi
+        // Enviar notificación por correo si el proveedor tiene correonotifi
         const editedEntry = updatedEntries.find((e) => e.id === editingEntryId);
         if (editedEntry) {
           sendMovementNotification(editedEntry, "edit").catch((err) => {
             console.error(
-              "[NOTIFICATION] Error en notificaci�n de movimiento editado:",
+              "[NOTIFICATION] Error en notificación de movimiento editado:",
               err,
             );
           });
@@ -4500,7 +4500,7 @@ export function FondoSection({
                   ? "Fondo Ventas"
                   : "otro cierre";
             showToast(
-              `Otro cierre (${kindLabel}) se est� registrando. Intente en ${formatToastWaitTime(
+              `Otro cierre (${kindLabel}) se está registrando. Intente en ${formatToastWaitTime(
                 acquired.remainingSec,
               )}.`,
               "warning",
@@ -4576,7 +4576,7 @@ export function FondoSection({
           currency: movementCurrency,
         };
 
-        // Cr�dito (FCR): se registra solo en Facturas y NO afecta el Fondo.
+        // Crédito (FCR): se registra solo en Facturas y NO afecta el Fondo.
         if (effectiveInvoiceDocType === "FCR") {
           if (!shouldMirrorMovementToFacturas) {
             showToast(
@@ -4634,15 +4634,15 @@ export function FondoSection({
             );
           }
 
-          // Notificaci�n por correo (mismo comportamiento)
+          // Notificación por correo (mismo comportamiento)
           sendMovementNotification(entry, "create").catch((err) => {
             console.error(
-              "[NOTIFICATION] Error en notificaci�n de movimiento (FCR):",
+              "[NOTIFICATION] Error en notificación de movimiento (FCR):",
               err,
             );
           });
 
-          showToast("Factura a cr�dito registrada", "success", 3000);
+          showToast("Factura a crédito registrada", "success", 3000);
           resetFondoForm();
           if (!movementAutoCloseLocked) {
             setMovementModalOpen(false);
@@ -4781,7 +4781,7 @@ export function FondoSection({
             try {
               if (accountKey === "CajaNegra") {
                 showToast(
-                  "Desde Caja Negra no se debe gestionar facturas a cr�dito.",
+                    "Desde Caja Negra no se debe gestionar facturas a crédito.",
                   "error",
                   4500,
                 );
@@ -5057,13 +5057,13 @@ export function FondoSection({
   };
 
   const startEditingEntry = (entry: FondoEntry) => {
-    // Verificar si hay una edici�n en progreso o guardada recientemente (�ltimos 2 segundos)
+        // Verificar si hay una edición en progreso o guardada recientemente (últimos 2 segundos)
     const now = Date.now();
     const timeSinceLastEdit = now - lastEditSaveTimestampRef.current;
 
     if (editingInProgressRef.current) {
       showToast(
-        "Ya hay una edici�n en progreso. Completa o cancela la edici�n actual antes de editar otro movimiento.",
+        "Ya hay una edición en progreso. Completa o cancela la edición actual antes de editar otro movimiento.",
         "warning",
         5000,
       );
@@ -5079,7 +5079,7 @@ export function FondoSection({
       return;
     }
 
-    // Marcar que hay una edici�n en progreso
+    // Marcar que hay una edición en progreso
     editingInProgressRef.current = true;
 
     // Allow editing of entries even if previously edited; we accumulate audit history.
@@ -5115,7 +5115,7 @@ export function FondoSection({
 
   const isMovementLocked = useCallback(
     (entry: FondoEntry): boolean => {
-      // Los ajustes autom�ticos siempre est�n bloqueados
+      // Los ajustes automáticos siempre están bloqueados
       if (isAutoAdjustmentProvider(entry.providerCode)) {
         return true;
       }
@@ -5136,7 +5136,7 @@ export function FondoSection({
         const movementTime = new Date(entry.createdAt).getTime();
         const lockTime = new Date(lockedUntil).getTime();
 
-        // Bloqueado si el movimiento es anterior o igual al �ltimo cierre
+        // Bloqueado si el movimiento es anterior o igual al último cierre
         const isLocked = movementTime <= lockTime;
 
         return isLocked;
@@ -5161,7 +5161,7 @@ export function FondoSection({
 
     if (isMovementLocked(entry)) {
       showToast(
-        "Este movimiento est� bloqueado (anterior al �ltimo cierre).",
+        "Este movimiento está bloqueado (anterior al último cierre).",
         "info",
         5000,
       );
@@ -5169,7 +5169,7 @@ export function FondoSection({
     }
 
     if (isAutoAdjustmentProvider(entry.providerCode)) {
-      showToast("Los ajustes autom�ticos no se pueden editar.", "info", 5000);
+      showToast("Los ajustes automáticos no se pueden editar.", "info", 5000);
       return;
     }
 
@@ -5178,7 +5178,7 @@ export function FondoSection({
       entry.appliedCreditNotes.length > 0
     ) {
       showToast(
-        "Este movimiento tiene notas de cr�dito aplicadas y no se puede editar.",
+        "Este movimiento tiene notas de crédito aplicadas y no se puede editar.",
         "info",
         5000,
       );
@@ -5276,7 +5276,7 @@ export function FondoSection({
       .toUpperCase();
     if (!/^[0-9]{1,4}$/.test(invoiceNumberValue)) {
       setManualCreditNoteError(
-        "Ingresa un n�mero de factura v�lido (1-4 d�gitos).",
+        "Ingresa un número de factura válido (1-4 dígitos).",
       );
       return;
     }
@@ -5322,12 +5322,12 @@ export function FondoSection({
           ? prev
           : [...(prev || []), "manual-nc-draft"],
       );
-      showToast("Nota de cr�dito manual lista para guardar", "success", 3000);
+      showToast("Nota de crédito manual lista para guardar", "success", 3000);
       closeManualCreditNoteModal();
     } catch (error) {
       console.error("[FG] Error saving manual credit note:", error);
       if (!manualCreditNoteError) {
-        setManualCreditNoteError("No se pudo guardar la nota de cr�dito.");
+        setManualCreditNoteError("No se pudo guardar la nota de crédito.");
       }
     } finally {
       setManualCreditNoteSaving(false);
@@ -5414,14 +5414,14 @@ export function FondoSection({
 
   const handleDeleteMovement = useCallback(
     (entry: FondoEntry) => {
-      // Restricci�n: solo se permite borrar el ÚLTIMO "CIERRE FONDO VENTAS".
+      // Restricción: solo se permite borrar el ÚLTIMO "CIERRE FONDO VENTAS".
       if (isCierreFondoVentasMovement(entry)) {
         if (
           !latestCierreFondoVentasMovementId ||
           entry.id !== latestCierreFondoVentasMovementId
         ) {
           showToast(
-            "Solo se permite eliminar el �ltimo cierre de Fondo Ventas.",
+            "Solo se permite eliminar el último cierre de Fondo Ventas.",
             "warning",
             6000,
           );
@@ -5445,14 +5445,14 @@ export function FondoSection({
 
       if (isMovementLocked(entry)) {
         showToast(
-          "Este movimiento est� bloqueado (anterior al �ltimo cierre) y no puede eliminarse.",
+          "Este movimiento está bloqueado (anterior al último cierre) y no puede eliminarse.",
           "error",
         );
         return;
       }
 
       if (isAutoAdjustmentProvider(entry.providerCode)) {
-        showToast("Los ajustes autom�ticos no se pueden eliminar.", "error");
+        showToast("Los ajustes automáticos no se pueden eliminar.", "error");
         return;
       }
 
@@ -5472,18 +5472,18 @@ export function FondoSection({
     const entry = confirmDeleteEntry.entry;
     if (!entry) return;
 
-    if (isSaving) return; // Prevenir m�ltiples env�os
+    if (isSaving) return; // Prevenir múltiples envíos
     setIsSaving(true);
 
     try {
-      // Restricci�n: solo se permite borrar el ÚLTIMO "CIERRE FONDO VENTAS".
+      // Restricción: solo se permite borrar el ÚLTIMO "CIERRE FONDO VENTAS".
       if (isCierreFondoVentasMovement(entry)) {
         if (
           !latestCierreFondoVentasMovementId ||
           entry.id !== latestCierreFondoVentasMovementId
         ) {
           showToast(
-            "Solo se permite eliminar el �ltimo cierre de Fondo Ventas.",
+            "Solo se permite eliminar el último cierre de Fondo Ventas.",
             "warning",
             6000,
           );
@@ -5519,7 +5519,7 @@ export function FondoSection({
           const invoiceSnap = await getDoc(invoiceRef);
           if (!invoiceSnap.exists()) {
             showToast(
-              "No se encontr� la factura asociada al pago eliminado.",
+              "No se encontró la factura asociada al pago eliminado.",
               "error",
               5000,
             );
@@ -5648,7 +5648,7 @@ export function FondoSection({
           "error",
           5000,
         );
-        return; // NO actualizar la UI si fall� el guardado
+        return; // NO actualizar la UI si falló el guardado
       }
 
       // If deleting a "CIERRE FONDO VENTAS" movement, reset lock/cooldowns so it can be recreated immediately.
@@ -5695,7 +5695,7 @@ export function FondoSection({
         showToast("Movimiento eliminado exitosamente", "success");
       } else {
         showToast(
-          "Eliminaci�n guardada localmente; pendiente de sincronizaci�n (revisa tu conexi�n).",
+          "Eliminación guardada localmente; pendiente de sincronización (revisa tu conexión).",
           "warning",
           6000,
         );
@@ -5731,7 +5731,7 @@ export function FondoSection({
   // Solo aplica cuando editamos, no cuando creamos un nuevo movimiento
   const isEditingCierreFondoVentas = useMemo(() => {
     if (!editingEntryId) return false;
-    // Buscar el movimiento original que se est� editando
+    // Buscar el movimiento original que se está editando
     const originalEntry = fondoEntries.find((e) => e.id === editingEntryId);
     if (!originalEntry) return false;
     // Verificar si el proveedor ORIGINAL del movimiento es CIERRE FONDO VENTAS
@@ -5879,7 +5879,7 @@ export function FondoSection({
 
   const balanceAfterByIdCRC = useMemo(() => {
     // Derivar balances desde el currentBalance real (persistido), no desde initialAmount + subset.
-    // Caminamos hacia atr�s: balanceAfter(entry) se obtiene restando deltas de movimientos m�s recientes.
+    // Caminamos hacia atrás: balanceAfter(entry) se obtiene restando deltas de movimientos más recientes.
     let running = Math.trunc(currentBalanceCRC);
     const orderedDesc = [...fondoEntries]
       .filter((e) => ((e.currency as any) || "CRC") === "CRC")
@@ -6146,7 +6146,7 @@ export function FondoSection({
   const formatByCurrency = (currency: "CRC" | "USD", value: number) =>
     currency === "USD"
       ? `$ ${amountFormatterUSD.format(Math.trunc(value))}`
-      : `� ${amountFormatter.format(Math.trunc(value))}`;
+      : `₡ ${amountFormatter.format(Math.trunc(value))}`;
 
   const pendingSupplierPaymentAlerts = useMemo(() => {
     const map = new Map<
@@ -6308,10 +6308,10 @@ export function FondoSection({
   }, [movementProviders, selectedProvider]);
 
   const isInvoiceDocTypeLockedToContado = useMemo(() => {
-    // Solo aplica al crear; en edici�n se respeta el valor hist�rico.
+    // Solo aplica al crear; en edición se respeta el valor histórico.
     if (editingEntryId) return false;
     if (!selectedProvider) return false;
-    // Regla de negocio: solo proveedores tipo COMPRA INVENTARIO pueden usar cr�dito (FCR)
+    // Regla de negocio: solo proveedores tipo COMPRA INVENTARIO pueden usar crédito (FCR)
     return !isInventoryPurchaseProviderType(selectedProviderData?.type);
   }, [editingEntryId, selectedProvider, selectedProviderData]);
 
@@ -6335,10 +6335,10 @@ export function FondoSection({
     );
   }, [isCajaNegra, selectedProvider, selectedProviderData]);
 
-  // Si el proveedor es un cierre/ajuste autom�tico, usar DDMM como N� factura y bloquear edici�n.
+   // Si el proveedor es un cierre/ajuste automático, usar DDMM como Nro. factura y bloquear edición.
   useEffect(() => {
     if (!isInvoiceAutoDateLocked) return;
-    // Al editar un movimiento existente, no sobrescribir el N� factura guardado.
+    // Al editar un movimiento existente, no sobrescribir el Nro. factura guardado.
     if (editingEntryId) return;
     const today = isCajaNegra ? getTodayInvoiceMMDD() : getTodayInvoiceDDMM();
     if (invoiceNumber !== today) {
@@ -6416,7 +6416,7 @@ export function FondoSection({
             return;
           }
 
-          // Enforzar 2 cierres por dÃ�a: uno al final de D y otro al final de N (cierre).
+          // Enforzar 2 cierres por día: uno al final de D y otro al final de N (cierre).
           // Bloquear duplicados por ventana.
           try {
             const nowKey = getCostaRicaDateKeyAndMinute(nowISO)?.dateKey;
@@ -6646,7 +6646,7 @@ export function FondoSection({
   }, [openCreateMovementDrawer]);
 
   const handleOpenCreateMovement = async () => {
-    // Confirmaci�n solo para cuentas (BCR/BN/BAC), para evitar confusiones.
+    // Confirmación solo para cuentas (BCR/BN/BAC), para evitar confusiones.
     // Skip confirmation for Caja Negra (no company/account confirmation needed)
     if (accountKey !== "FondoGeneral" && !isCajaNegra) {
       setConfirmOpenCreateMovement(true);
@@ -6677,7 +6677,7 @@ export function FondoSection({
       }
     }
 
-    // Si hubo un cierre pendiente (guardado en localStorage), solicitar confirmaci�n de conteo f�sico.
+    // Si hubo un cierre pendiente (guardado en localStorage), solicitar confirmación de conteo físico.
     if (shouldPromptPhysicalCount()) {
       setPhysicalCountWasDone(false);
       setConfirmPhysicalCountOpen(true);
@@ -6730,7 +6730,7 @@ export function FondoSection({
     (invoice: FacturaMovement) => {
       if (isCajaNegra) {
         showToast(
-          "Desde Caja Negra no se debe gestionar facturas a cr�dito.",
+          "Desde Caja Negra no se debe gestionar facturas a crédito.",
           "error",
           4500,
         );
@@ -6846,7 +6846,7 @@ export function FondoSection({
 
       if (isCajaNegra) {
         showToast(
-          "Desde Caja Negra no se debe gestionar facturas a cr�dito.",
+          "Desde Caja Negra no se debe gestionar facturas a crédito.",
           "error",
           4500,
         );
@@ -7292,7 +7292,7 @@ export function FondoSection({
                 ? "Fondo Ventas"
                 : "otro cierre";
           showToast(
-            `Otro cierre (${kindLabel}) se est� registrando. Intente en ${formatToastWaitTime(
+            `Otro cierre (${kindLabel}) se está registrando. Intente en ${formatToastWaitTime(
               acquired.remainingSec,
             )}.`,
             "warning",
@@ -7315,11 +7315,11 @@ export function FondoSection({
         dailyClosingSubmitInProgressRef.current ||
         dailyClosingsRequestCountRef.current > 0
       ) {
-        showToast(
-          "Ya hay un cierre guard�ndose. Espere un momento.",
-          "warning",
-          4000,
-        );
+          showToast(
+            "Ya hay un cierre guardándose. Espere un momento.",
+            "warning",
+            4000,
+          );
         return;
       }
 
@@ -7342,7 +7342,7 @@ export function FondoSection({
           const remainingMs = SAVE_COOLDOWN_MS - (nowMs - lastSavedAtMs);
           const remainingSec = Math.ceil(remainingMs / 1000);
           showToast(
-            `Ya se registr� un cierre hace poco. Espere ${formatToastWaitTime(
+            `Ya se registró un cierre hace poco. Espere ${formatToastWaitTime(
               remainingSec,
             )} para crear otro.`,
             "warning",
@@ -7389,7 +7389,7 @@ export function FondoSection({
       loadingDailyClosingKeysRef.current.delete(closingDateKey);
       setDailyClosingsHydrated(true);
 
-      // Guardar en localStorage el �ltimo cierre (para pedir confirmaci�n en el primer movimiento despu�s del cierre)
+      // Guardar en localStorage el último cierre (para pedir confirmación en el primer movimiento después del cierre)
       if (typeof window !== "undefined") {
         try {
           const key = buildPhysicalCountStorageKey();
@@ -7419,8 +7419,8 @@ export function FondoSection({
 
         const subject = `[ALERTA][CIERRE] Error al guardar cierre (${normalizedCompany})`;
         const text = [
-          `D�nde: ${where}`,
-          `Cu�ndo: ${whenISO}`,
+          `Dónde: ${where}`,
+          `Cuándo: ${whenISO}`,
           `Empresa: ${normalizedCompany}`,
           `Usuario: ${(user?.email || "N/A").toString()}`,
           `Cierre ID: ${record.id}`,
@@ -7476,7 +7476,7 @@ export function FondoSection({
     }
 
     // IMPORTANT: Do NOT release the cross-device guard on success.
-    // Let it expire (lockedUntilMs) so other devices/tabs can't create a close �almost at the same time�.
+    // Let it expire (lockedUntilMs) so other devices/tabs can't create a close "almost at the same time".
 
     const notificationRecipients = new Set<string>();
     const adminRecipient = ownerAdminEmail?.trim();
@@ -7515,7 +7515,7 @@ export function FondoSection({
       );
     }
 
-    // Crear documentos en la colecci�n 'mail' para que la extensi�n Firebase Trigger Email los procese
+    // Crear documentos en la colección 'mail' para que la extensión Firebase Trigger Email los procese
     for (const recipient of notificationRecipients) {
       if (!recipient) continue;
       try {
@@ -7716,7 +7716,7 @@ export function FondoSection({
           { beforeCount: fondoEntries.length },
         );
 
-        // Persistir eliminaci�n de ajustes para que el currentBalance se revierta.
+        // Persistir eliminación de ajustes para que el currentBalance se revierta.
         try {
           const toRemoveNow = fondoEntries.filter(
             (e) =>
@@ -7819,7 +7819,7 @@ export function FondoSection({
           return filtered;
         });
 
-        // Aplicar balances junto con la actualizaci�n de movimientos para evitar saltos visuales.
+        // Aplicar balances junto con la actualización de movimientos para evitar saltos visuales.
         if (latestLedgerSnapshot) {
           setLedgerSnapshot(latestLedgerSnapshot);
         }
@@ -7830,7 +7830,7 @@ export function FondoSection({
         newMovements.forEach((m) => (m.originalEntryId = record.id));
 
         // Persistir ajustes al documento principal para actualizar currentBalance.
-        // En edici�n: actualiza/elimina por moneda; en creaci�n: crea movimientos nuevos.
+        // En edición: actualiza/elimina por moneda; en creación: crea movimientos nuevos.
         try {
           const normalizeCurrency = (value: unknown): MovementCurrencyKey =>
             value === "USD" ? "USD" : "CRC";
@@ -8043,10 +8043,10 @@ export function FondoSection({
             return next;
           });
 
-          // Persistencia: ya se hizo v�a persistMovementToFirestore (incluye subcolecci�n v2 + documento principal)
+          // Persistencia: ya se hizo vía persistMovementToFirestore (incluye subcolección v2 + documento principal)
         }
 
-        // Aplicar balances junto con la actualizaci�n de movimientos para evitar saltos visuales.
+        // Aplicar balances junto con la actualización de movimientos para evitar saltos visuales.
         if (latestLedgerSnapshot) {
           setLedgerSnapshot(latestLedgerSnapshot);
         }
@@ -8184,7 +8184,7 @@ export function FondoSection({
       const usdDiff = record.diffUSD ?? 0;
       if (crcDiff === 0 && usdDiff === 0) {
         try {
-          showToast("Cierre completo � sin diferencias", "success", 4000);
+          showToast("Cierre completo, sin diferencias", "success", 4000);
         } catch {
           // swallow toast errors to avoid breaking flow
         }
@@ -8195,7 +8195,7 @@ export function FondoSection({
             parts.push(`CRC ${formatDailyClosingDiff("CRC", crcDiff)}`);
           if (usdDiff !== 0)
             parts.push(`USD ${formatDailyClosingDiff("USD", usdDiff)}`);
-          const message = `Cierre con diferencias � ${parts.join(" / ")}`;
+          const message = `Cierre con diferencias: ${parts.join(" / ")}`;
           showToast(message, "warning", 6000);
         } catch {
           // swallow toast errors
@@ -8207,7 +8207,7 @@ export function FondoSection({
 
     // Actualizar lockedUntil DESPUÉS de agregar todos los movimientos
     // para que persistEntries tenga el estado completo
-    // Solo actualizar si no es edici�n de un cierre existente
+    // Solo actualizar si no es edición de un cierre existente
     if (!editingDailyClosingId && storageSnapshotRef.current) {
       if (!storageSnapshotRef.current.state) {
         storageSnapshotRef.current.state =
@@ -8215,7 +8215,7 @@ export function FondoSection({
             company,
           ).state;
       }
-      // Bloquear hasta la fecha de creaci�n del cierre
+      // Bloquear hasta la fecha de creación del cierre
       storageSnapshotRef.current.state.lockedUntil = createdAt;
 
       // Persistir inmediatamente para asegurar que se guarde incluso sin movimientos
@@ -8293,7 +8293,7 @@ export function FondoSection({
       resetFondoForm();
       setMovementAutoCloseLocked(false);
       setSelectedProvider("");
-      // Solo resetear filtros si no est� activo keepFiltersAcrossCompanies
+      // Solo resetear filtros si no está activo keepFiltersAcrossCompanies
       if (!keepFiltersAcrossCompanies) {
         const todayKey = dateKeyFromDate(new Date());
         setFilterProviderCode("all");
@@ -8321,7 +8321,7 @@ export function FondoSection({
     ],
   );
 
-  // Escuchar cambios de empresa desde ProviderSection (sincronizaci�n bidireccional)
+  // Escuchar cambios de empresa desde ProviderSection (sincronización bidireccional)
   useEffect(() => {
     if (!canSelectCompany) return;
 
@@ -8350,7 +8350,7 @@ export function FondoSection({
         resetFondoForm();
         setMovementAutoCloseLocked(false);
         setSelectedProvider("");
-        // Solo resetear filtros si no est� activo keepFiltersAcrossCompanies
+        // Solo resetear filtros si no está activo keepFiltersAcrossCompanies
         if (!keepFiltersAcrossCompanies) {
           const todayKey = dateKeyFromDate(new Date());
           setFilterProviderCode("all");
@@ -8870,7 +8870,7 @@ export function FondoSection({
                         />
                         <FileText className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
                         <span className="leading-tight">
-                          Facturas de cr�dito pendientes
+                          Facturas de crédito pendientes
                         </span>
                       </label>
                       <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
@@ -8890,7 +8890,7 @@ export function FondoSection({
                 )}
               </div>
 
-              {/* Bot�n limpiar */}
+              {/* Botón limpiar */}
               <button
                 type="button"
                 onClick={() => {
@@ -9293,7 +9293,7 @@ export function FondoSection({
                 <option value="thisweek">Esta semana</option>
                 <option value="lastweek">Semana anterior</option>
                 <option value="lastmonth">Mes anterior</option>
-                <option value="last30">Últimos 30 d�as</option>
+                <option value="last30">Últimos 30 días</option>
                 <option value="month">Mes actual</option>
               </select>
             </div>
@@ -9628,7 +9628,7 @@ export function FondoSection({
             }}
           >
             <Typography variant="h6" component="h3" sx={{ fontWeight: 600 }}>
-              Agregar nota de Cr�dito
+              Agregar nota de Crédito
             </Typography>
             <IconButton
               aria-label="Cerrar"
@@ -9939,7 +9939,7 @@ export function FondoSection({
                     <div className="text-xs sm:text-sm text-[var(--muted-foreground)] flex flex-col sm:flex-row sm:items-center gap-2">
                       <span>
                         Filtro:{" "}
-                        {fromFilter ? formatGroupLabel(fromFilter) : "�"}
+                        {fromFilter ? formatGroupLabel(fromFilter) : "-"}
                         {toFilter ? ` ? ${formatGroupLabel(toFilter)}` : ""}
                       </span>
                       <button
@@ -10040,7 +10040,7 @@ export function FondoSection({
                           <div className="relative pr-2">
                             <div className="flex items-center gap-2">
                               <FileText className="w-4 h-4" />
-                              N� factura
+                               Nro. factura
                             </div>
                             <div
                               onMouseDown={(e) => startResizing(e, "factura")}
@@ -10122,8 +10122,8 @@ export function FondoSection({
                                 }
                                 title={
                                   sortAsc
-                                    ? "Mostrar m�s reciente arriba"
-                                    : "Mostrar m�s reciente abajo"
+                                    ? "Mostrar más reciente arriba"
+                                    : "Mostrar más reciente abajo"
                                 }
                                 aria-label="Invertir orden de movimientos"
                                 className="p-1 border border-[var(--input-border)] rounded hover:bg-[var(--muted)]"
@@ -10157,7 +10157,7 @@ export function FondoSection({
                               colSpan={7}
                               className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-amber-100"
                             >
-                              Facturas cr�dito pendientes
+                               Facturas crédito pendientes
                             </td>
                           </tr>
                           {pendingClosingCreditInvoices.map((invoice) => {
@@ -10281,7 +10281,7 @@ export function FondoSection({
                                     onClick={() => {
                                       openClosingInvoicePaymentModal(invoice);
                                     }}
-                                    title="Gestionar esta factura desde Facturas de cr�dito y notas de cr�dito"
+                                    title="Gestionar esta factura desde Facturas de crédito y notas de crédito"
                                     className="inline-flex items-center gap-1.5 rounded border border-amber-400/35 bg-amber-500/10 px-2.5 py-1.5 text-xs font-medium text-amber-100 transition-all duration-150 hover:-translate-y-0.5 hover:border-amber-300 hover:bg-amber-500/20"
                                   >
                                     <FileText className="w-4 h-4" />
@@ -10466,7 +10466,7 @@ export function FondoSection({
                                 const lines: string[] = history.map((h) => {
                                   const at = h?.at
                                     ? dateTimeFormatter.format(new Date(h.at))
-                                    : "�";
+                                      : "-";
                                   const before = h?.before ?? {};
                                   const after = h?.after ?? {};
                                   const parts: string[] = [];
@@ -10477,8 +10477,8 @@ export function FondoSection({
                                     "providerCode" in after
                                   ) {
                                     parts.push(
-                                      `Proveedor: ${before.providerCode ?? "�"} ? ${
-                                        after.providerCode ?? "�"
+                                      `Proveedor: ${before.providerCode ?? "-"} -> ${
+                                        after.providerCode ?? "-"
                                       }`,
                                     );
                                   }
@@ -10487,8 +10487,8 @@ export function FondoSection({
                                     "invoiceNumber" in after
                                   ) {
                                     parts.push(
-                                      `Factura: ${before.invoiceNumber ?? "�"} ? ${
-                                        after.invoiceNumber ?? "�"
+                                      `Factura: ${before.invoiceNumber ?? "-"} -> ${
+                                        after.invoiceNumber ?? "-"
                                       }`,
                                     );
                                   }
@@ -10497,8 +10497,8 @@ export function FondoSection({
                                     "paymentType" in after
                                   ) {
                                     parts.push(
-                                      `Tipo: ${before.paymentType ?? "�"} ? ${
-                                        after.paymentType ?? "�"
+                                      `Tipo: ${before.paymentType ?? "-"} -> ${
+                                        after.paymentType ?? "-"
                                       }`,
                                     );
                                   }
@@ -10557,8 +10557,8 @@ export function FondoSection({
                                     "manager" in after
                                   ) {
                                     parts.push(
-                                      `Encargado: ${before.manager ?? "�"} ? ${
-                                        after.manager ?? "�"
+                                      `Encargado: ${before.manager ?? "-"} -> ${
+                                        after.manager ?? "-"
                                       }`,
                                     );
                                   }
@@ -10736,7 +10736,7 @@ export function FondoSection({
                                           if (isSuccessfulClosing) {
                                             return (
                                               <div className="text-center text-[var(--muted-foreground)]">
-                                                �
+                                                -
                                               </div>
                                             );
                                           }
@@ -10838,7 +10838,7 @@ export function FondoSection({
                                       })()
                                     ) : isSuccessfulClosing ? (
                                       <div className="text-center text-[var(--muted-foreground)]">
-                                        �
+                                        -
                                       </div>
                                     ) : (
                                       <div className="flex flex-col gap-1 text-right">
@@ -11046,7 +11046,7 @@ export function FondoSection({
                                                     }
                                                     title={
                                                       isAutoAdjustment
-                                                        ? "Los ajustes autom�ticos no se pueden editar"
+                                                        ? "Los ajustes automáticos no se pueden editar"
                                                         : "Editar movimiento"
                                                     }
                                                   >
@@ -11070,7 +11070,7 @@ export function FondoSection({
                                                     isSuperAdminUser
                                                       ? 'Eliminar "CIERRE FONDO VENTAS" (superadmin)'
                                                       : isCierreVentasRow
-                                                        ? "Eliminar �ltimo cierre de Fondo Ventas"
+                                                         ? "Eliminar último cierre de Fondo Ventas"
                                                         : "Eliminar movimiento"
                                                   }
                                                 >
@@ -11097,8 +11097,8 @@ export function FondoSection({
                                                       },
                                                     );
                                                   }}
-                                                  title="Ver informaci�n de pago FCR"
-                                                  aria-label="Ver informaci�n de pago FCR"
+                                                  title="Ver información de pago FCR"
+                                                  aria-label="Ver información de pago FCR"
                                                   aria-expanded={
                                                     isFcrInfoExpanded
                                                   }
@@ -11130,8 +11130,8 @@ export function FondoSection({
                                                       },
                                                     );
                                                   }}
-                                                  title="Ver notas de cr�dito aplicadas"
-                                                  aria-label="Ver notas de cr�dito aplicadas"
+                                                   title="Ver notas de crédito aplicadas"
+                                                   aria-label="Ver notas de crédito aplicadas"
                                                   aria-expanded={
                                                     isAppliedCreditNotesExpanded
                                                   }
@@ -11156,7 +11156,7 @@ export function FondoSection({
                                           <div className="mb-2 flex items-center gap-2 border-b border-sky-500/20 pb-2">
                                             <Info className="w-4 h-4 text-sky-300" />
                                             <span className="font-medium">
-                                              Notas de cr�dito aplicadas
+                                               Notas de crédito aplicadas
                                             </span>
                                           </div>
                                           <div className="divide-y divide-sky-500/15">
@@ -11276,7 +11276,7 @@ export function FondoSection({
                                           </div>
                                           <div>
                                             <span className="text-[var(--muted-foreground)]">
-                                              Registr� factura:
+                                              Registró factura:
                                             </span>{" "}
                                             <span className="font-medium">
                                               {fe.manager || "-"}
@@ -11441,7 +11441,7 @@ export function FondoSection({
                           aria-expanded={superAdminTotalsOpen}
                         >
                           <div className="text-center font-semibold text-sm text-[var(--muted-foreground)] flex-1">
-                            Total del d�a
+                            Total del día
                           </div>
                           {superAdminTotalsOpen ? (
                             <ChevronUp className="w-4 h-4 text-[var(--muted-foreground)]" />
@@ -11451,7 +11451,7 @@ export function FondoSection({
                         </button>
                       ) : (
                         <div className="mb-2 text-center font-semibold text-sm text-[var(--muted-foreground)]">
-                          Total del d�a
+                          Total del día
                         </div>
                       )}
 
@@ -11473,7 +11473,7 @@ export function FondoSection({
                                     <div className="text-xs uppercase tracking-wide">
                                       {currency === "CRC"
                                         ? "Colones"
-                                        : "D�lares"}
+                                        : "Dólares"}
                                     </div>
                                     <div className="mt-2 text-[var(--foreground)]">
                                       <div className="flex items-center gap-2">
@@ -11540,7 +11540,7 @@ export function FondoSection({
                 </p>
                 <div className="mt-4 space-y-4 border-t border-white/10 pt-4">
                   {enabledBalanceCurrencies.map((currency) => {
-                    const label = currency === "CRC" ? "Colones" : "D�lares";
+                    const label = currency === "CRC" ? "Colones" : "Dólares";
                     const value =
                       currency === "CRC"
                         ? currentBalanceCRC
@@ -11663,12 +11663,12 @@ export function FondoSection({
 
       <ConfirmModal
         open={confirmPhysicalCountOpen}
-        title="Confirmar conteo f�sico"
+        title="Confirmar conteo físico"
         message={
           <div className="text-left space-y-3">
             <div className="text-sm text-[var(--muted-foreground)]">
-              Antes de registrar el primer movimiento despu�s del �ltimo cierre,
-              confirma que el fondo fue contado f�sicamente.
+              Antes de registrar el primer movimiento después del último cierre,
+              confirma que el fondo fue contado físicamente.
             </div>
 
             <label className="flex items-start gap-2 cursor-pointer select-none">
@@ -11677,10 +11677,10 @@ export function FondoSection({
                 className="mt-0.5 cursor-pointer"
                 checked={physicalCountWasDone}
                 onChange={(e) => setPhysicalCountWasDone(e.target.checked)}
-                aria-label="Confirmar que el fondo fue contado f�sicamente"
+                aria-label="Confirmar que el fondo fue contado físicamente"
               />
               <span className="text-sm">
-                S�, el fondo fue contado f�sicamente
+                Sí, el fondo fue contado físicamente
               </span>
             </label>
           </div>
@@ -11757,7 +11757,7 @@ export function FondoSection({
         message={
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Esta acci�n no puede llevarse a cabo porque el saldo quedar�a en
+              Esta acción no puede llevarse a cabo porque el saldo quedaría en
               negativo.
             </p>
 
@@ -11767,7 +11767,7 @@ export function FondoSection({
                   Monto de la salida
                 </span>
                 <span className="font-semibold">
-                  {negativeBalanceModal.currency === "USD" ? "$ " : "� "}
+                  {negativeBalanceModal.currency === "USD" ? "$ " : "₡ "}
                   {new Intl.NumberFormat(
                     negativeBalanceModal.currency === "USD" ? "en-US" : "es-CR",
                     {
@@ -11786,7 +11786,7 @@ export function FondoSection({
                 </span>
                 <span className="font-semibold text-destructive flex items-center gap-1">
                   <span>?</span>
-                  {negativeBalanceModal.currency === "USD" ? "$ " : "� "}
+                  {negativeBalanceModal.currency === "USD" ? "$ " : "₡ "}
                   {new Intl.NumberFormat(
                     negativeBalanceModal.currency === "USD" ? "en-US" : "es-CR",
                     {
@@ -11825,9 +11825,7 @@ export function FondoSection({
       <ConfirmModal
         open={confirmDeleteEntry.open}
         title="Eliminar movimiento"
-        message={`�Est� seguro que desea eliminar el movimiento #${
-          confirmDeleteEntry.entry?.invoiceNumber || ""
-        }? Esta acci�n no se puede deshacer.`}
+        message={`¿Está seguro que desea eliminar el movimiento #${confirmDeleteEntry.entry?.invoiceNumber || ""}? Esta acción no se puede deshacer.`}
         confirmText="Eliminar"
         onConfirm={confirmDeleteMovement}
         onCancel={cancelDeleteMovement}
