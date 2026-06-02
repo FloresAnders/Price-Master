@@ -67,6 +67,18 @@ const getCRParts = (date: Date): CRParts | null => {
   return { year, month0, month1, day, hour, minute };
 };
 
+export const getCostaRicaDateKeyAndMinute = (
+  iso: string,
+): { dateKey: string; minuteOfDay: number } | null => {
+  const d = new Date(iso);
+  const parts = getCRParts(d);
+  if (!parts) return null;
+  const dateKey = `${parts.year}-${String(parts.month1).padStart(2, "0")}-${String(
+    parts.day,
+  ).padStart(2, "0")}`;
+  return { dateKey, minuteOfDay: parts.hour * 60 + parts.minute };
+};
+
 const parseHHMMToMinutes = (value: unknown): number | null => {
   const raw = String(value || "").trim();
   if (!raw) return null;
@@ -110,14 +122,35 @@ const getEmployeeHoursPerShift = (
   return hours;
 };
 
-const findSchedule = (
+const findBestSchedule = (
   schedules: ScheduleEntry[],
   day: number,
   shift: ShiftCode,
-): ScheduleEntry | undefined =>
-  schedules.find(
+): ScheduleEntry | undefined => {
+  const matches = schedules.filter(
     (entry) => entry.day === day && String(entry.shift || "").trim() === shift,
   );
+  if (matches.length === 0) return undefined;
+
+  const score = (entry: ScheduleEntry) => {
+    const hasEmployee = String(entry.employeeName || "").trim().length > 0 ? 2 : 0;
+    const horas = Number(entry.horasPorDia);
+    const hasHoras = Number.isFinite(horas) && horas > 0 ? 1 : 0;
+    return hasEmployee + hasHoras;
+  };
+
+  let best = matches[0];
+  let bestScore = score(best);
+  for (let i = 1; i < matches.length; i++) {
+    const cur = matches[i];
+    const curScore = score(cur);
+    if (curScore > bestScore) {
+      best = cur;
+      bestScore = curScore;
+    }
+  }
+  return best;
+};
 
 export const resolveManagerFromControlHorario = (args: {
   nowISO: string;
@@ -147,22 +180,22 @@ export const resolveManagerFromControlHorario = (args: {
     parts.day,
   ).padStart(2, "0")}`;
 
-  const entryD = findSchedule(args.monthSchedules, parts.day, "D");
+  const entryD = findBestSchedule(args.monthSchedules, parts.day, "D");
   if (!entryD || !String(entryD.employeeName || "").trim()) {
     return { mode: "missing", withinHorario: true, expectedShift: "D", dateKey };
   }
 
+  const employeeHours = getEmployeeHoursPerShift(args.empresa, entryD.employeeName);
   const dayHoursRaw = Number(entryD.horasPorDia);
-  const dayHours =
-    Number.isFinite(dayHoursRaw) && dayHoursRaw > 0
-      ? dayHoursRaw
-      : getEmployeeHoursPerShift(args.empresa, entryD.employeeName) ?? 8;
+  const scheduleHours =
+    Number.isFinite(dayHoursRaw) && dayHoursRaw > 0 ? dayHoursRaw : null;
+  const dayHours = employeeHours ?? scheduleHours ?? 8;
 
   const shiftChangeMin = openMin + Math.round(dayHours * 60);
   const expectedShift: ShiftCode = nowMin >= shiftChangeMin ? "N" : "D";
 
   if (expectedShift === "N") {
-    const entryN = findSchedule(args.monthSchedules, parts.day, "N");
+    const entryN = findBestSchedule(args.monthSchedules, parts.day, "N");
     if (!entryN || !String(entryN.employeeName || "").trim()) {
       return { mode: "missing", withinHorario: true, expectedShift: "N", dateKey };
     }
@@ -182,3 +215,70 @@ export const resolveManagerFromControlHorario = (args: {
   };
 };
 
+export const getControlHorarioShiftTiming = (args: {
+  nowISO: string;
+  empresa: Empresas | null | undefined;
+  monthSchedules: ScheduleEntry[];
+}):
+  | {
+      withinHorario: false;
+      reason: "outside_horario" | "missing_horario_config" | "invalid_now";
+    }
+  | {
+      withinHorario: true;
+      dateKey: string;
+      openMin: number;
+      closeMin: number;
+      shiftChangeMin: number;
+      currentMin: number;
+      expectedShift: ShiftCode;
+      dayHours: number;
+      entryD?: ScheduleEntry;
+      entryN?: ScheduleEntry;
+    } => {
+  const now = new Date(args.nowISO);
+  const parts = getCRParts(now);
+  if (!parts) return { withinHorario: false, reason: "invalid_now" };
+
+  const openMin = parseHHMMToMinutes(args.empresa?.horarioApertura);
+  const closeMin = parseHHMMToMinutes(args.empresa?.horarioCierre);
+  if (openMin === null || closeMin === null) {
+    return { withinHorario: false, reason: "missing_horario_config" };
+  }
+
+  const currentMin = parts.hour * 60 + parts.minute;
+  if (!isWithinHorario(currentMin, openMin, closeMin)) {
+    return { withinHorario: false, reason: "outside_horario" };
+  }
+
+  const dateKey = `${parts.year}-${String(parts.month1).padStart(2, "0")}-${String(
+    parts.day,
+  ).padStart(2, "0")}`;
+
+  const entryD = findBestSchedule(args.monthSchedules, parts.day, "D");
+  const entryN = findBestSchedule(args.monthSchedules, parts.day, "N");
+
+  const employeeHours = entryD?.employeeName
+    ? getEmployeeHoursPerShift(args.empresa, entryD.employeeName)
+    : null;
+  const dayHoursRaw = Number(entryD?.horasPorDia);
+  const scheduleHours =
+    Number.isFinite(dayHoursRaw) && dayHoursRaw > 0 ? dayHoursRaw : null;
+  const dayHours = employeeHours ?? scheduleHours ?? 8;
+
+  const shiftChangeMin = openMin + Math.round(dayHours * 60);
+  const expectedShift: ShiftCode = currentMin >= shiftChangeMin ? "N" : "D";
+
+  return {
+    withinHorario: true,
+    dateKey,
+    openMin,
+    closeMin,
+    shiftChangeMin,
+    currentMin,
+    expectedShift,
+    dayHours,
+    entryD,
+    entryN,
+  };
+};

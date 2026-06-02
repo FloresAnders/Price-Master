@@ -59,6 +59,8 @@ import { FondoMovementTypesService } from "../../../services/fondo-movement-type
 import { SchedulesService } from "../../../services/schedules";
 import {
   resolveManagerFromControlHorario,
+  getControlHorarioShiftTiming,
+  getCostaRicaDateKeyAndMinute,
   type ShiftCode,
 } from "@/utils/controlHorarioManager";
 import { generateMovementNotificationEmail } from "../../../services/email-templates/notificacion-movimiento";
@@ -3839,14 +3841,45 @@ export function FondoSection({
     const normalizedSelected = normalizeCompanyKey(company);
     if (!normalizedSelected) return null;
 
-    return (
-      ownerCompanies.find((emp) => {
-        const candidates = [emp?.name, emp?.ubicacion, emp?.id]
-          .map(normalizeCompanyKey)
-          .filter(Boolean);
-        return candidates.includes(normalizedSelected);
-      }) ?? null
-    );
+    const matches = ownerCompanies.filter((emp) => {
+      const candidates = [emp?.name, emp?.ubicacion, emp?.id]
+        .map(normalizeCompanyKey)
+        .filter(Boolean);
+      return candidates.includes(normalizedSelected);
+    });
+
+    if (matches.length === 0) return null;
+    if (matches.length === 1) return matches[0];
+
+    const score = (emp: Empresas) => {
+      const name = normalizeCompanyKey(emp?.name);
+      const ubicacion = normalizeCompanyKey(emp?.ubicacion);
+      const id = normalizeCompanyKey(emp?.id);
+      const exact =
+        normalizedSelected === name ||
+        normalizedSelected === ubicacion ||
+        normalizedSelected === id
+          ? 3
+          : 0;
+      const hasOpen = String(emp?.horarioApertura || "").trim() ? 2 : 0;
+      const hasClose = String(emp?.horarioCierre || "").trim() ? 2 : 0;
+      const hasEmployees =
+        Array.isArray(emp?.empleados) && emp.empleados.length > 0 ? 1 : 0;
+      return exact + hasOpen + hasClose + hasEmployees;
+    };
+
+    let best = matches[0];
+    let bestScore = score(best);
+    for (let i = 1; i < matches.length; i++) {
+      const cur = matches[i];
+      const curScore = score(cur);
+      if (curScore > bestScore) {
+        best = cur;
+        bestScore = curScore;
+      }
+    }
+
+    return best;
   }, [company, ownerCompanies]);
 
   const [missingShiftModalOpen, setMissingShiftModalOpen] = useState(false);
@@ -7326,6 +7359,41 @@ export function FondoSection({
     [activeEmpresaForCompany, company, getFGMonthlySchedulesCached],
   );
 
+  const resolveShiftTimingForNow = useCallback(
+    async (nowISO: string) => {
+      const empresa = activeEmpresaForCompany;
+      const normalizedCompany = (company || "").trim();
+      if (!empresa || !normalizedCompany) return null;
+
+      const companyKeysToTry = (() => {
+        const set = new Set<string>();
+        set.add(normalizedCompany);
+        [empresa?.name, empresa?.ubicacion, empresa?.id]
+          .map((v) => (typeof v === "string" ? v.trim() : String(v || "").trim()))
+          .filter(Boolean)
+          .forEach((v) => set.add(v));
+        return Array.from(set);
+      })();
+
+      const ymParts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Costa_Rica",
+        year: "numeric",
+        month: "2-digit",
+      }).formatToParts(new Date(nowISO));
+      const year = Number(ymParts.find((p) => p.type === "year")?.value);
+      const month1 = Number(ymParts.find((p) => p.type === "month")?.value);
+      const month0 = Math.max(0, Math.min(11, month1 - 1));
+      if (!Number.isFinite(year) || !Number.isFinite(month1)) return null;
+
+      const schedulesLists = await Promise.all(
+        companyKeysToTry.map((key) => getFGMonthlySchedulesCached(key, year, month0)),
+      );
+      const monthSchedules = schedulesLists.flat();
+      return getControlHorarioShiftTiming({ nowISO, empresa, monthSchedules });
+    },
+    [activeEmpresaForCompany, company, getFGMonthlySchedulesCached],
+  );
+
   useEffect(() => {
     const shouldAuto =
       isRegularUser &&
@@ -10042,14 +10110,98 @@ export function FondoSection({
     }
   }, [isInvoiceAutoDateLocked, editingEntryId, invoiceNumber, isCajaNegra]);
 
-  const handleProviderChange = (value: string) => {
+  const handleProviderChange = async (value: string) => {
+    const prov = movementProviders.find((p) => p.code === value);
+    const isCierreFondoVentasValue =
+      !editingEntryId &&
+      accountKey === "FondoGeneral" &&
+      (String(value || "").trim().toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME ||
+        prov?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME);
+
+    if (isCierreFondoVentasValue) {
+      try {
+        const nowISO = new Date().toISOString();
+        const nowTiming = await resolveShiftTimingForNow(nowISO);
+        if (nowTiming?.withinHorario) {
+          const normalizeMin = (min: number) => {
+            if (!Number.isFinite(min)) return 0;
+            const m = Math.trunc(min) % 1440;
+            return m < 0 ? m + 1440 : m;
+          };
+
+          const nowMin = normalizeMin(nowTiming.currentMin);
+          const shiftEndMin =
+            nowTiming.expectedShift === "D"
+              ? normalizeMin(nowTiming.shiftChangeMin)
+              : normalizeMin(nowTiming.closeMin);
+          const minutesUntilEnd = (shiftEndMin - nowMin + 1440) % 1440;
+          const minutesUntilAllowed = Math.max(0, minutesUntilEnd - 15);
+
+          // Enforzar 2 cierres por dÃ­a: uno al final de D y otro al final de N (cierre).
+          // Bloquear duplicados por ventana.
+          try {
+            const nowKey = getCostaRicaDateKeyAndMinute(nowISO)?.dateKey;
+            if (nowKey) {
+              const cierresToday = fondoEntries.filter((e) =>
+                isCierreFondoVentasMovement(e),
+              );
+              let hasDCierre = false;
+              let hasNCierre = false;
+              cierresToday.forEach((e) => {
+                const info = getCostaRicaDateKeyAndMinute(String(e.createdAt || ""));
+                if (!info) return;
+                if (info.dateKey !== nowKey) return;
+                const minute = normalizeMin(info.minuteOfDay);
+                const isD = minute < normalizeMin(nowTiming.shiftChangeMin);
+                if (isD) hasDCierre = true;
+                else hasNCierre = true;
+              });
+
+              if (nowTiming.expectedShift === "D" && hasDCierre) {
+                showToast(
+                  'Ya existe un "CIERRE FONDO VENTAS" para el turno D de hoy.',
+                  "warning",
+                  5500,
+                );
+                return;
+              }
+              if (nowTiming.expectedShift === "N" && hasNCierre) {
+                showToast(
+                  'Ya existe un "CIERRE FONDO VENTAS" para el turno N de hoy.',
+                  "warning",
+                  5500,
+                );
+                return;
+              }
+            }
+          } catch (dupErr) {
+            console.error("[FG] Error checking duplicate cierres:", dupErr);
+          }
+
+          if (minutesUntilEnd > 15) {
+            showToast(
+              `El \"CIERRE FONDO VENTAS\" solo se puede registrar dentro de los Ãºltimos 15 minutos del turno. Faltan ${minutesUntilAllowed} min.`,
+              "warning",
+              6000,
+            );
+            return;
+          }
+        }
+      } catch (err) {
+        console.error(
+          "[FG] Error validating cierre fondo ventas on provider select:",
+          err,
+        );
+      }
+    }
+
     setSelectedProvider(value);
     setProviderError(""); // Clear error when user starts typing
     const oldPaymentType = paymentType;
     let nextPaymentType: FondoEntry["paymentType"] = "COMPRA INVENTARIO";
     let shouldAutoDateInvoice = false;
     try {
-      const prov = movementProviders.find((p) => p.code === value);
+      // (prov) already resolved above
       shouldAutoDateInvoice =
         isCajaNegra ||
         isAutoAdjustmentProvider(value) ||
