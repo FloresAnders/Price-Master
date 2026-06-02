@@ -618,7 +618,9 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   );
   const isSupplierWeekRoute = currentHash === "#SupplierWeek";
   const shouldShowSupplierWeekCard =
-    hasSupplierWeekPermission && (!showFavoritesView || isSupplierWeekRoute);
+    hasSupplierWeekPermission &&
+    (!showFavoritesView || isSupplierWeekRoute) &&
+    (isSupplierWeekRoute || showSupplierWeekInMenu);
   const showOnlySupplierWeek = isSupplierWeekRoute && hasSupplierWeekPermission;
   const showExpandedSupplierWeek =
     hasSupplierWeekPermission &&
