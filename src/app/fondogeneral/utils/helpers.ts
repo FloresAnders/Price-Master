@@ -239,6 +239,17 @@ export const normalizeInvoiceDocType = (value: unknown): "FCO" | "FCR" | "NC" =>
   return "FCO";
 };
 
+export const formatByCurrency = (currency: "CRC" | "USD", value: number) =>
+  currency === "USD"
+    ? `$ ${new Intl.NumberFormat("en-US", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(Math.trunc(value))}`
+    : `₡ ${new Intl.NumberFormat("es-CR", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(Math.trunc(value))}`;
+
 export const resolveEffectiveEgresoAmount = (
   entry: Partial<FondoEntry> | null | undefined,
 ): number => {

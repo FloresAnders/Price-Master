@@ -62,7 +62,6 @@ import {
   getCostaRicaDateKeyAndMinute,
   type ShiftCode,
 } from "@/utils/controlHorarioManager";
-import { generateMovementNotificationEmail } from "../../../services/email-templates/notificacion-movimiento";
 import { generateEgresoProviderCreatedEmail } from "../../../services/email-templates/proveedor-egreso-creado";
 import {
   FacturasService,
@@ -89,15 +88,21 @@ import {
 import {
   DailyClosingsService,
   DailyClosingRecord,
-  DailyClosingsDocument,
+
 } from "../../../services/daily-closings";
 import { buildDailyClosingEmailTemplate } from "../../../services/email-templates/daily-closing";
 import AgregarMovimiento from "./AgregarMovimiento";
 import DailyClosingModal, { DailyClosingFormValues } from "./DailyClosingModal";
 import FacturaPaymentModal from "./FacturaPaymentModal";
 import { FondoMovementsSkeleton } from "./FondoMovementsSkeleton";
+import { ensureV2MovementsLoaded as ensureV2MovementsLoadedFn } from "../utils/v2movementsLoader";
+import { handleSaveManualCreditNote as handleSaveManualCreditNoteFn } from "../utils/manualCreditNote";
+import { handleSubmitFondo as handleSubmitFondoFn } from "../utils/submitFondo";
 import { useActorOwnership } from "../../../hooks/useActorOwnership";
 import type { FondoEntry, FondoMovementType } from "../types";
+import { submitClosingInvoicePayment as submitClosingInvoicePaymentFn } from "../utils/closingInvoicePayment";
+import { persistMovementToFirestore as persistMovementToFirestoreFn } from "../utils/persistence";
+import { handleConfirmDailyClosing as handleConfirmDailyClosingFn } from "../utils/dailyClosing";
 import {
   FONDO_INGRESO_TYPES,
   FONDO_GASTO_TYPES,
@@ -142,7 +147,6 @@ import {
   type WriteBatch,
   type QueryDocumentSnapshot,
   type DocumentData,
-  waitForPendingWrites,
 } from "firebase/firestore";
 
 import {
@@ -165,12 +169,10 @@ import {
   hasGeneralClosingNoDiffNotes,
   isInventoryPurchasePaymentType,
   isInventoryPurchaseProviderType,
-  getCanonicalClosingPaymentType,
   normalizeStoredType,
   normalizeInvoiceDocType,
   resolveEffectiveEgresoAmount,
   isPaidFcrMovement,
-  shouldDeleteFacturasMirror,
   getPrimaryMovementDateISO,
   getPrimaryMovementTime,
   getPrimaryMovementManager,
@@ -180,14 +182,10 @@ import {
   getChangedFields,
   compressAuditHistory,
   buildStorageKey,
-  buildDailyClosingStorageKey,
   sanitizeMoneyNumber,
   sanitizeBreakdown,
   sanitizeAdjustmentResolution,
-  sanitizeDailyClosings,
-  dailyClosingSortValue,
   mergeDailyClosingRecords,
-  flattenDailyClosingsDocument,
   isMovementAccountKey,
   getAccountKeyFromNamespace,
   coerceIdentifier,
@@ -202,16 +200,37 @@ import {
   type ClosingGuardKind,
   type PendingCreditNoteOption,
 } from "../utils/helpers";
+import {
+  buildV2MovementsCacheKey,
+  buildLocalDayIsoRange,
+  resolveV2DocKey,
+} from "../utils/v2movements";
 import { useFondoMovementTypes } from "../hooks/useFondoMovementTypes";
 import { useSuperAdminUsers } from "../hooks/useSuperAdminUsers";
 import { useFondoFilters } from "../hooks/useFondoFilters";
+import { useDailyClosingState } from "../hooks/useDailyClosingState";
+import { useMovementForm } from "../hooks/useMovementForm";
 import {
-  buildClosingGuardDocId,
+  isMovementLocked as isMovementLockedFn,
+  isCierreFondoVentasMovement as isCierreFondoVentasMovementFn,
+  handleDeleteMovement as handleDeleteMovementFn,
+  confirmDeleteMovement as confirmDeleteMovementFn,
+  cancelDeleteMovement as cancelDeleteMovementFn,
+} from "../utils/movementDeletion";
+import {
   acquireClosingGuard,
-  touchClosingGuard,
-  releaseClosingGuard,
   forceClearClosingGuards,
+  releaseClosingGuard,
+  touchClosingGuard,
 } from "../utils/closingGuards";
+import {
+  buildPhysicalCountStorageKey as buildPhysicalCountStorageKeyFn,
+  buildLegacyPhysicalCountStorageKey as buildLegacyPhysicalCountStorageKeyFn,
+  cleanupPhysicalCountLegacyKeys as cleanupPhysicalCountLegacyKeysFn,
+  shouldPromptPhysicalCount as shouldPromptPhysicalCountFn,
+} from "../utils/physicalCount";
+import { sendMovementNotification } from "../utils/notifications";
+import { handleDeleteLatestDailyClosing as deleteLatestDailyClosingFn, persistCreatedMovement as persistCreatedMovementFn } from "../utils/mutations";
 
 const AccessRestrictedMessage = ({ description }: { description: string }) => (
   <div className="flex flex-col items-center justify-center p-8 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] text-center">
@@ -717,7 +736,6 @@ export function FondoSection({
   const [companyEmployees, setCompanyEmployees] = useState<string[]>([]);
   const [employeesLoading, setEmployeesLoading] = useState(false);
 
-  const [selectedProvider, setSelectedProvider] = useState("");
   const [selectedProviderPendingNcCount, setSelectedProviderPendingNcCount] =
     useState(0);
   const [
@@ -728,27 +746,7 @@ export function FondoSection({
     useState<string[]>([]);
   const [selectedPendingCreditInvoiceIds, setSelectedPendingCreditInvoiceIds] =
     useState<string[]>([]);
-  const [invoiceNumber, setInvoiceNumber] = useState("");
-  const defaultPaymentType: FondoEntry["paymentType"] =
-    mode === "ingreso"
-      ? FONDO_INGRESO_TYPES[0]
-      : mode === "egreso"
-        ? FONDO_EGRESO_TYPES[0]
-        : "COMPRA INVENTARIO";
-  const [paymentType, setPaymentType] =
-    useState<FondoEntry["paymentType"]>(defaultPaymentType);
-  const [egreso, setEgreso] = useState("");
-  const [ingreso, setIngreso] = useState("");
-  const [manager, setManager] = useState("");
-  const [manager2, setManager2] = useState("");
-  const [notes, setNotes] = useState("");
-  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
-  const { superAdminUsers, superAdminUsersLoading } = useSuperAdminUsers(
-    isSuperAdminUser,
-    editingEntryId,
-  );
-  const [initialAmount, setInitialAmount] = useState("0");
-  const [initialAmountUSD, setInitialAmountUSD] = useState("0");
+
   // Snapshot de balances persistidos. NO depende de `fondoEntries` para evitar
   // que filtros (rango de fecha) alteren el currentBalance.
   const [ledgerSnapshot, setLedgerSnapshot] = useState<{
@@ -762,117 +760,7 @@ export function FondoSection({
     initialUSD: 0,
     currentUSD: 0,
   }));
-  const [movementModalOpen, setMovementModalOpen] = useState(false);
-  const [movementAutoCloseLocked, setMovementAutoCloseLocked] = useState(false);
-  const [movementCurrency, setMovementCurrency] = useState<"CRC" | "USD">(
-    "CRC",
-  );
-  const [invoiceDocType, setInvoiceDocType] = useState<"FCO" | "FCR">("FCO");
-  const [providerError, setProviderError] = useState("");
-  const [invoiceError, setInvoiceError] = useState("");
-  const [amountError, setAmountError] = useState("");
-  const [managerError, setManagerError] = useState("");
-  const [manager2Error, setManager2Error] = useState("");
-  const [managerLockedByShift, setManagerLockedByShift] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    if (!company || !selectedProvider) {
-      setSelectedProviderPendingNcCount(0);
-      setSelectedProviderPendingCreditNotes([]);
-      setSelectedAppliedCreditNoteIds([]);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    setSelectedProviderPendingNcCount(0);
-    setSelectedProviderPendingCreditNotes([]);
-    setSelectedAppliedCreditNoteIds([]);
-
-    FacturasService.listMovementsByEmpresa(company, { limit: 800 })
-      .then((items) => {
-        if (cancelled) return;
-        let pendingNotesCount = 0;
-        const pendingNotes = items.reduce<PendingCreditNoteOption[]>(
-          (acc, movement) => {
-            if (movement.providerCode !== selectedProvider) return acc;
-            if (
-              String(movement.invoiceDocType || "")
-                .trim()
-                .toUpperCase() !== "NC"
-            ) {
-              return acc;
-            }
-            if (
-              ["PAGADA", "REBAJADA"].includes(
-                String(movement.paymentStatus || "PENDIENTE").toUpperCase(),
-              )
-            ) {
-              return acc;
-            }
-
-            pendingNotesCount += 1;
-
-            const balanceDue = Math.max(
-              0,
-              Math.trunc(Number(movement.balanceDue) || 0),
-            );
-            const amount = Math.max(
-              0,
-              Math.trunc(Number(movement.amount) || 0),
-            );
-            const paidAmount = Math.max(
-              0,
-              Math.trunc(Number(movement.paidAmount) || 0),
-            );
-            const pendingBalance =
-              balanceDue > 0 ? balanceDue : Math.max(0, amount - paidAmount);
-
-            if (pendingBalance > 0 || amount === 0) {
-              acc.push({
-                id: movement.id,
-                invoiceNumber: movement.invoiceNumber,
-                amount,
-                balanceDue: pendingBalance,
-                paidAmount,
-                currency: movement.currency === "USD" ? "USD" : "CRC",
-              });
-            }
-            return acc;
-          },
-          [],
-        );
-
-        setSelectedProviderPendingCreditNotes(pendingNotes);
-        setSelectedProviderPendingNcCount(pendingNotesCount);
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          console.error("[FONDO] Error checking pending credit notes:", error);
-          setSelectedProviderPendingNcCount(0);
-          setSelectedProviderPendingCreditNotes([]);
-          setSelectedAppliedCreditNoteIds([]);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [company, selectedProvider]);
-  const [dailyClosingModalOpen, setDailyClosingModalOpen] = useState(false);
-  const [editingDailyClosingId, setEditingDailyClosingId] = useState<
-    string | null
-  >(null);
-  const [dailyClosingInitialValues, setDailyClosingInitialValues] =
-    useState<DailyClosingFormValues | null>(null);
-  const [dailyClosings, setDailyClosings] = useState<DailyClosingRecord[]>([]);
-  const [dailyClosingsHydrated, setDailyClosingsHydrated] = useState(false);
-  const [dailyClosingsRefreshing, setDailyClosingsRefreshing] = useState(false);
-  const [dailyClosingHistoryOpen, setDailyClosingHistoryOpen] = useState(false);
-  const [dailyClosingHistoryRange, setDailyClosingHistoryRange] =
-    useState<string>("today");
   const [pendingClosingCreditInvoices, setPendingClosingCreditInvoices] =
     useState<FacturaMovement[]>([]);
   const [
@@ -927,21 +815,9 @@ export function FondoSection({
     resultingNegativeAmount: number;
   }>({ open: false, amount: 0, currency: "CRC", resultingNegativeAmount: 0 });
 
-  const dailyClosingsRequestCountRef = useRef(0);
-  const dailyClosingHistoryRequestIdRef = useRef(0);
   const isComponentMountedRef = useRef(true);
-  const loadedDailyClosingKeysRef = useRef<Set<string>>(new Set());
-  const loadingDailyClosingKeysRef = useRef<Set<string>>(new Set());
-  const lastEditSaveTimestampRef = useRef<number>(0);
-  const editingInProgressRef = useRef<boolean>(false);
   const dailyClosingSubmitInProgressRef = useRef<boolean>(false);
   const lastDailyClosingSavedAtRef = useRef<number>(0);
-  const movementSubmitInProgressRef = useRef<boolean>(false);
-  const lastMovementDedupeRef = useRef<{
-    at: number;
-    fingerprint: string;
-  } | null>(null);
-  const lastMovementCreatedAtRef = useRef<number>(0);
   const deleteLatestClosingInProgressRef = useRef<boolean>(false);
 
   useEffect(() => {
@@ -1107,28 +983,107 @@ export function FondoSection({
     dateOnlyFormatter,
   } = fondoFilters;
 
-  const beginDailyClosingsRequest = useCallback(() => {
-    dailyClosingsRequestCountRef.current += 1;
-    setDailyClosingsRefreshing(true);
-  }, []);
+  const {
+    dailyClosingModalOpen,
+    setDailyClosingModalOpen,
+    editingDailyClosingId,
+    setEditingDailyClosingId,
+    dailyClosingInitialValues,
+    setDailyClosingInitialValues,
+    dailyClosings,
+    setDailyClosings,
+    dailyClosingsHydrated,
+    setDailyClosingsHydrated,
+    dailyClosingsRefreshing,
+    setDailyClosingsRefreshing,
+    dailyClosingHistoryOpen,
+    setDailyClosingHistoryOpen,
+    dailyClosingHistoryRange,
+    setDailyClosingHistoryRange,
+    beginDailyClosingsRequest,
+    finishDailyClosingsRequest,
+    latestDailyClosing,
+    latestDailyClosingLabel,
+    dailyClosingDateFormatter,
+    dailyClosingsRequestCountRef,
+    loadedDailyClosingKeysRef,
+    loadingDailyClosingKeysRef,
+  } = useDailyClosingState({ company, accountKey });
 
-  const finishDailyClosingsRequest = useCallback(() => {
-    dailyClosingsRequestCountRef.current = Math.max(
-      0,
-      dailyClosingsRequestCountRef.current - 1,
-    );
-    if (!isComponentMountedRef.current) return;
-    if (dailyClosingsRequestCountRef.current === 0) {
-      setDailyClosingsRefreshing(false);
-    }
-  }, []);
+  const {
+    selectedProvider,
+    setSelectedProvider,
+    invoiceNumber,
+    setInvoiceNumber,
+    paymentType,
+    setPaymentType,
+    egreso,
+    setEgreso,
+    ingreso,
+    setIngreso,
+    manager,
+    setManager,
+    manager2,
+    setManager2,
+    notes,
+    setNotes,
+    editingEntryId,
+    setEditingEntryId,
+    initialAmount,
+    setInitialAmount,
+    initialAmountUSD,
+    setInitialAmountUSD,
+    movementModalOpen,
+    setMovementModalOpen,
+    movementAutoCloseLocked,
+    setMovementAutoCloseLocked,
+    movementCurrency,
+    setMovementCurrency,
+    invoiceDocType,
+    setInvoiceDocType,
+    providerError,
+    setProviderError,
+    invoiceError,
+    setInvoiceError,
+    amountError,
+    setAmountError,
+    managerError,
+    setManagerError,
+    manager2Error,
+    setManager2Error,
+    managerLockedByShift,
+    setManagerLockedByShift,
+    isSaving,
+    setIsSaving,
+    confirmOpenCreateMovement,
+    setConfirmOpenCreateMovement,
+    confirmPhysicalCountOpen,
+    setConfirmPhysicalCountOpen,
+    physicalCountWasDone,
+    setPhysicalCountWasDone,
+    confirmDeleteEntry,
+    setConfirmDeleteEntry,
+    lastEditSaveTimestampRef,
+    editingInProgressRef,
+    movementSubmitInProgressRef,
+    lastMovementDedupeRef,
+    lastMovementCreatedAtRef,
+    editingEntry,
+    editingProviderCode,
+    isEditingPaidFcrMovement,
+    handleEgresoChange,
+    handleIngresoChange,
+    handleNotesChange,
+    handleManagerChange,
+    handleManager2Change,
+    cancelOpenCreateMovement,
+    resetFormFields,
+  } = useMovementForm({ mode, fondoEntries });
+  const { superAdminUsers, superAdminUsersLoading } = useSuperAdminUsers(
+    Boolean(isSuperAdminUser),
+    editingEntryId,
+  );
 
-  useEffect(() => {
-    isComponentMountedRef.current = true;
-    return () => {
-      isComponentMountedRef.current = false;
-    };
-  }, []);
   const [entriesHydrated, setEntriesHydrated] = useState(false);
   const [hydratedCompany, setHydratedCompany] = useState("");
   const [hydratedAccountKey, setHydratedAccountKey] =
@@ -1156,22 +1111,7 @@ export function FondoSection({
     USD: true,
   });
   const [companyData, setCompanyData] = useState<Empresas | null>(null);
-  const [confirmDeleteEntry, setConfirmDeleteEntry] = useState<{
-    open: boolean;
-    entry: FondoEntry | null;
-  }>({
-    open: false,
-    entry: null,
-  });
-  const [confirmOpenCreateMovement, setConfirmOpenCreateMovement] =
-    useState(false);
 
-  // Modal: primer movimiento después del último cierre de Fondo General
-  const [confirmPhysicalCountOpen, setConfirmPhysicalCountOpen] =
-    useState(false);
-  const [physicalCountWasDone, setPhysicalCountWasDone] = useState(false);
-  // Estado para indicar que se está guardando un movimiento y prevenir múltiples envíos
-  const [isSaving, setIsSaving] = useState(false);
   const enabledBalanceCurrencies = useMemo(
     () =>
       (["CRC", "USD"] as MovementCurrencyKey[]).filter(
@@ -1184,138 +1124,25 @@ export function FondoSection({
   // después del cierre de hoy. IMPORTANTE: debe leerse en tiempo real (no memoizada)
   // porque localStorage puede cambiar sin alterar dependencias de React.
   // Legacy keys (previous formats)
-  const buildLegacyPhysicalCountStorageKey = useCallback(() => {
-    if (accountKey !== "FondoGeneral") return null;
-    const normalizedCompany = (company || "").trim();
-    if (normalizedCompany.length === 0) return null;
-    // Legacy format (no date, with accountKey)
-    return `fondogeneral-lastClosing:${normalizedCompany}:${accountKey}`;
-  }, [company, accountKey]);
+  const buildLegacyPhysicalCountStorageKey = useCallback(
+    () => buildLegacyPhysicalCountStorageKeyFn(accountKey, company),
+    [company, accountKey],
+  );
 
-  // New key: one per company (feature only applies to FondoGeneral)
-  const buildPhysicalCountStorageKey = useCallback(() => {
-    if (accountKey !== "FondoGeneral") return null;
-    const normalizedCompany = (company || "").trim();
-    if (normalizedCompany.length === 0) return null;
-    return `fondogeneral-lastClosing:${normalizedCompany}`;
-  }, [company, accountKey]);
+  const buildPhysicalCountStorageKey = useCallback(
+    () => buildPhysicalCountStorageKeyFn(accountKey, company),
+    [company, accountKey],
+  );
 
-  const cleanupPhysicalCountLegacyKeys = useCallback(() => {
-    if (typeof window === "undefined") return;
-    if (accountKey !== "FondoGeneral") return;
-    const normalizedCompany = (company || "").trim();
-    if (normalizedCompany.length === 0) return;
+  const cleanupPhysicalCountLegacyKeys = useCallback(
+    () => cleanupPhysicalCountLegacyKeysFn(accountKey, company),
+    [accountKey, company],
+  );
 
-    // Remove per-day keys: fondogeneral-lastClosing:<company>:FondoGeneral:<YYYY-MM-DD>
-    const dateScopedPrefix = `fondogeneral-lastClosing:${normalizedCompany}:FondoGeneral:`;
-    try {
-      for (let i = localStorage.length - 1; i >= 0; i--) {
-        const k = localStorage.key(i);
-        if (k && k.startsWith(dateScopedPrefix)) {
-          localStorage.removeItem(k);
-        }
-      }
-    } catch {
-      // ignore
-    }
-
-    // Also remove legacy key (no date, with accountKey)
-    try {
-      const legacyKey = buildLegacyPhysicalCountStorageKey();
-      if (legacyKey) localStorage.removeItem(legacyKey);
-    } catch {
-      // ignore
-    }
-  }, [accountKey, company, buildLegacyPhysicalCountStorageKey]);
-
-  const shouldPromptPhysicalCount = useCallback((): boolean => {
-    if (accountKey !== "FondoGeneral") return false;
-    if (typeof window === "undefined") return false;
-
-    const newKey = buildPhysicalCountStorageKey();
-    if (!newKey) return false;
-
-    const normalizeBoolean = (raw: string | null): boolean | null => {
-      if (raw === "true") return true;
-      if (raw === "false") return false;
-      if (raw === null) return null;
-      return null;
-    };
-
-    const tryMigrateLegacyValue = (raw: string | null): boolean => {
-      const asBool = normalizeBoolean(raw);
-      if (asBool === true) return true;
-      if (asBool === false || raw === null) return false;
-
-      // Compatibilidad con el formato anterior: JSON { dateKey, id, at }
-      try {
-        const parsed = JSON.parse(raw) as any;
-        // Si hay un JSON, asumir que hubo cierre => pedir confirmación.
-        // En el esquema anterior esto era por día; ahora lo volvemos global.
-        return Boolean(parsed);
-      } catch {
-        return false;
-      }
-    };
-
-    try {
-      // New format: value "true"/"false" (global per company)
-      const rawNew = localStorage.getItem(newKey);
-      const boolNew = normalizeBoolean(rawNew);
-      if (boolNew !== null) return boolNew;
-
-      // If for some reason JSON was stored in the new key, treat it as pending.
-      if (tryMigrateLegacyValue(rawNew)) {
-        localStorage.setItem(newKey, "true");
-        return true;
-      }
-
-      // Migrate legacy key (no date, with accountKey)
-      const legacyKey = buildLegacyPhysicalCountStorageKey();
-      const rawLegacy = legacyKey ? localStorage.getItem(legacyKey) : null;
-      const legacyPending = tryMigrateLegacyValue(rawLegacy);
-
-      // Migrate date-scoped keys (older format): if any is true, make it global.
-      const normalizedCompany = (company || "").trim();
-      const dateScopedPrefix = `fondogeneral-lastClosing:${normalizedCompany}:FondoGeneral:`;
-      let dateScopedPending = false;
-      if (normalizedCompany.length > 0) {
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i);
-          if (!k || !k.startsWith(dateScopedPrefix)) continue;
-          const v = localStorage.getItem(k);
-          if (normalizeBoolean(v) === true || tryMigrateLegacyValue(v)) {
-            dateScopedPending = true;
-            break;
-          }
-        }
-      }
-
-      const pending = legacyPending || dateScopedPending;
-      if (pending) {
-        localStorage.setItem(newKey, "true");
-      }
-
-      // Cleanup old keys to enforce the new single-key scheme
-      cleanupPhysicalCountLegacyKeys();
-
-      return pending;
-    } catch {
-      return false;
-    }
-  }, [
-    accountKey,
-    buildPhysicalCountStorageKey,
-    buildLegacyPhysicalCountStorageKey,
-    cleanupPhysicalCountLegacyKeys,
-    company,
-  ]);
-  const closingsStorageKey = useMemo(() => {
-    if (accountKey !== "FondoGeneral") return null;
-    const normalizedCompany = (company || "").trim();
-    if (normalizedCompany.length === 0) return null;
-    return buildDailyClosingStorageKey(normalizedCompany, accountKey);
-  }, [company, accountKey]);
+  const shouldPromptPhysicalCount = useCallback(
+    (): boolean => shouldPromptPhysicalCountFn(accountKey, company),
+    [accountKey, company],
+  );
   // Audit modal state: show full before/after history when an edited entry is clicked
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditModalData, setAuditModalData] = useState<{
@@ -1389,108 +1216,7 @@ export function FondoSection({
     >
   >({});
 
-  const buildV2MovementsCacheKey = useCallback(
-    (docKey: string, targetAccountKey: MovementAccountKey) =>
-      `${docKey}::${targetAccountKey}`,
-    [],
-  );
 
-  const buildLocalDayIsoRange = useCallback((isoDateKey: string) => {
-    const [yStr, mStr, dStr] = String(isoDateKey || "").split("-");
-    const y = Number(yStr);
-    const m = Number(mStr);
-    const d = Number(dStr);
-
-    if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
-      const now = new Date();
-      const start = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-        0,
-        0,
-        0,
-        0,
-      );
-      const end = new Date(start);
-      end.setDate(end.getDate() + 1);
-      return {
-        startIso: start.toISOString(),
-        endIsoExclusive: end.toISOString(),
-      };
-    }
-
-    const start = new Date(y, m - 1, d, 0, 0, 0, 0);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 1);
-    return {
-      startIso: start.toISOString(),
-      endIsoExclusive: end.toISOString(),
-    };
-  }, []);
-
-  const resolveActiveMovementsQuery = useCallback((): {
-    queryKey: string;
-    startIso: string;
-    endIsoExclusive: string;
-  } => {
-    if (fromFilter && toFilter) {
-      const fromKey = fromFilter.trim();
-      const toKey = toFilter.trim();
-      const startKey = fromKey > toKey ? toKey : fromKey;
-      const endKey = fromKey > toKey ? fromKey : toKey;
-      const startRange = buildLocalDayIsoRange(startKey);
-      const endRange = buildLocalDayIsoRange(endKey);
-      return {
-        queryKey: `range:${startKey}..${endKey}`,
-        startIso: startRange.startIso,
-        endIsoExclusive: endRange.endIsoExclusive,
-      };
-    }
-
-    const dayKey = pageSize === "daily" ? currentDailyKey : todayKey;
-    const range = buildLocalDayIsoRange(dayKey);
-    return {
-      queryKey: `day:${dayKey}`,
-      startIso: range.startIso,
-      endIsoExclusive: range.endIsoExclusive,
-    };
-  }, [
-    fromFilter,
-    toFilter,
-    pageSize,
-    currentDailyKey,
-    todayKey,
-    buildLocalDayIsoRange,
-  ]);
-
-  const resolveV2DocKey = useCallback(() => {
-    const normalizedCompany = (company || "").trim();
-    const companyKey =
-      MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
-    const legacyOwnerKey = resolvedOwnerId
-      ? MovimientosFondosService.buildLegacyOwnerMovementsKey(resolvedOwnerId)
-      : null;
-
-    const targetAccountKey = accountKeyRef.current;
-    const companyCacheKey = buildV2MovementsCacheKey(
-      companyKey,
-      targetAccountKey,
-    );
-    const legacyCacheKey = legacyOwnerKey
-      ? buildV2MovementsCacheKey(legacyOwnerKey, targetAccountKey)
-      : null;
-
-    if (v2MovementsCacheRef.current[companyCacheKey]?.loaded) return companyKey;
-    if (
-      legacyOwnerKey &&
-      legacyCacheKey &&
-      v2MovementsCacheRef.current[legacyCacheKey]?.loaded
-    )
-      return legacyOwnerKey;
-
-    return companyKey || legacyOwnerKey || "";
-  }, [company, resolvedOwnerId, buildV2MovementsCacheKey]);
 
   const rebuildEntriesFromV2Cache = useCallback(
     (docKey: string, targetAccountKey: MovementAccountKey) => {
@@ -1525,136 +1251,23 @@ export function FondoSection({
   );
 
   const ensureV2MovementsLoaded = useCallback(
-    async (docKey: string, options?: { append?: boolean }) => {
-      if (!docKey) return;
-
-      const targetAccountKey = accountKeyRef.current;
-      const cacheKey = buildV2MovementsCacheKey(docKey, targetAccountKey);
-      const { queryKey, startIso, endIsoExclusive } =
-        resolveActiveMovementsQuery();
-
-      const cached = v2MovementsCacheRef.current[cacheKey] ?? {
-        loaded: false,
-        movements: [] as FondoEntry[],
-        cursor: null as QueryDocumentSnapshot<DocumentData> | null,
-        exhausted: false,
-        loading: false,
-        queryKey: undefined as string | undefined,
-        startIso: undefined as string | undefined,
-        endIsoExclusive: undefined as string | undefined,
-      };
-
-      if (cached.loading) return;
-
-      const queryUnchanged =
-        cached.loaded &&
-        cached.queryKey === queryKey &&
-        cached.startIso === startIso &&
-        cached.endIsoExclusive === endIsoExclusive;
-
-      const append = Boolean(options?.append);
-      // If query params changed, we must reset regardless of append intent.
-      if (queryUnchanged && !append) {
-        rebuildEntriesFromV2Cache(docKey, targetAccountKey);
-        return;
-      }
-
-      const computeRemoteBatchSize = () => {
-        // Hard cap for daily mode per requirement.
-        if (pageSize === "daily") return 100;
-        // Never do unbounded reads; treat "all" as a capped batch.
-        if (pageSize === "all") return 100;
-        if (typeof pageSize === "number") {
-          // Fetch a bit more than one UI page to reduce roundtrips, but keep it bounded.
-          return Math.max(1, Math.min(100, Math.trunc(pageSize) * 3));
-        }
-        return 100;
-      };
-
-      const remoteBatchSize = computeRemoteBatchSize();
-
-      console.log("[FG-QUERY] MovimientosFondos v2 query", {
-        docKey,
-        accountKey: targetAccountKey,
-        queryKey,
-        createdAt: {
-          gte: startIso,
-          lt: endIsoExclusive,
-        },
-        orderBy: "createdAt desc",
-        pageSize: remoteBatchSize,
-        append,
-        ui: {
-          pageSizeMode: pageSize,
-          currentDailyKey,
-          todayKey,
-          fromFilter,
-          toFilter,
-        },
-      });
-
-      const shouldReset = !queryUnchanged || !append;
-      const nextCache = {
-        ...cached,
-        loaded: false,
-        movements: shouldReset ? ([] as FondoEntry[]) : cached.movements,
-        cursor: shouldReset
-          ? (null as QueryDocumentSnapshot<DocumentData> | null)
-          : cached.cursor,
-        exhausted: shouldReset ? false : cached.exhausted,
-        loading: true,
-        queryKey,
-        startIso,
-        endIsoExclusive,
-      };
-
-      v2MovementsCacheRef.current[cacheKey] = nextCache;
-      beginMovementsLoading();
-
-      try {
-        const pageResult =
-          await MovimientosFondosService.listMovementsPageByCreatedAtRange(
-            docKey,
-            {
-              startIso,
-              endIsoExclusive,
-              pageSize: remoteBatchSize,
-              cursor: shouldReset ? null : nextCache.cursor,
-              accountId: targetAccountKey,
-            },
-          );
-
-        const mergedMovements = shouldReset
-          ? (pageResult.items as FondoEntry[])
-          : [...nextCache.movements, ...(pageResult.items as FondoEntry[])];
-
-        v2MovementsCacheRef.current[cacheKey] = {
-          ...nextCache,
-          loaded: true,
-          movements: mergedMovements,
-          cursor: pageResult.cursor,
-          exhausted: pageResult.exhausted,
-          loading: false,
-        };
-      } finally {
-        const latest = v2MovementsCacheRef.current[cacheKey];
-        if (latest) {
-          v2MovementsCacheRef.current[cacheKey] = {
-            ...latest,
-            loading: false,
-          };
-        }
-        endMovementsLoading();
-      }
-
-      rebuildEntriesFromV2Cache(docKey, targetAccountKey);
-    },
+    (docKey: string, options?: { append?: boolean }) =>
+      ensureV2MovementsLoadedFn(docKey, options, {
+        rebuildEntriesFromV2Cache,
+        beginMovementsLoading,
+        endMovementsLoading,
+        pageSize,
+        currentDailyKey,
+        todayKey,
+        fromFilter,
+        toFilter,
+        accountKeyRef,
+        v2MovementsCacheRef,
+      }),
     [
       rebuildEntriesFromV2Cache,
       beginMovementsLoading,
       endMovementsLoading,
-      resolveActiveMovementsQuery,
-      buildV2MovementsCacheKey,
       pageSize,
       currentDailyKey,
       todayKey,
@@ -1666,7 +1279,7 @@ export function FondoSection({
   // When using numeric pagination, load more remote pages only if needed.
   useEffect(() => {
     if (!entriesHydrated) return;
-    const docKey = resolveV2DocKey();
+    const docKey = resolveV2DocKey({ company, resolvedOwnerId, v2MovementsCache: v2MovementsCacheRef.current, accountKey: accountKeyRef.current, MovimientosFondosService });
     if (!docKey) return;
     const cacheKey = buildV2MovementsCacheKey(docKey, accountKey);
     const cached = v2MovementsCacheRef.current[cacheKey];
@@ -1693,8 +1306,6 @@ export function FondoSection({
     pageIndex,
     fondoEntries.length,
     accountKey,
-    buildV2MovementsCacheKey,
-    resolveV2DocKey,
     ensureV2MovementsLoaded,
   ]);
 
@@ -1874,19 +1485,6 @@ export function FondoSection({
     superAdminUsers,
     manager,
   ]);
-
-  const editingEntry = useMemo(
-    () =>
-      editingEntryId
-        ? (fondoEntries.find((entry) => entry.id === editingEntryId) ?? null)
-        : null,
-    [editingEntryId, fondoEntries],
-  );
-  const isEditingPaidFcrMovement = useMemo(
-    () => (editingEntry ? isPaidFcrMovement(editingEntry) : false),
-    [editingEntry],
-  );
-  const editingProviderCode = editingEntry?.providerCode ?? null;
 
   useEffect(() => {
     const normalizedCompany = (company || "").trim();
@@ -2239,7 +1837,7 @@ export function FondoSection({
   // When switching tabs, do not reload from Firestore: just filter cached v2 movements in-memory.
   useEffect(() => {
     if (!entriesHydrated) return;
-    const docKey = resolveV2DocKey();
+    const docKey = resolveV2DocKey({ company, resolvedOwnerId, v2MovementsCache: v2MovementsCacheRef.current, accountKey: accountKeyRef.current, MovimientosFondosService });
     if (!docKey) return;
     const cacheKey = buildV2MovementsCacheKey(docKey, accountKey);
     const cached = v2MovementsCacheRef.current[cacheKey];
@@ -2270,14 +1868,12 @@ export function FondoSection({
     accountKey,
     entriesHydrated,
     applyLedgerStateFromStorage,
-    buildV2MovementsCacheKey,
-    resolveV2DocKey,
   ]);
 
   // On-demand v2 loading: keep Firestore reads constrained to the active day/range.
   useEffect(() => {
     if (!entriesHydrated) return;
-    const docKey = resolveV2DocKey();
+    const docKey = resolveV2DocKey({ company, resolvedOwnerId, v2MovementsCache: v2MovementsCacheRef.current, accountKey: accountKeyRef.current, MovimientosFondosService });
     if (!docKey) return;
 
     // Only query the remote range when BOTH Desde/Hasta are set.
@@ -2290,7 +1886,6 @@ export function FondoSection({
     fromFilter,
     toFilter,
     currentDailyKey,
-    resolveV2DocKey,
     ensureV2MovementsLoaded,
   ]);
 
@@ -2383,201 +1978,6 @@ export function FondoSection({
     selectedProvider,
     editingEntryId,
     editingProviderCode,
-  ]);
-
-  useEffect(() => {
-    // Reset cached results when switching company/account.
-    loadedDailyClosingKeysRef.current = new Set();
-    loadingDailyClosingKeysRef.current = new Set();
-    dailyClosingsRequestCountRef.current = 0;
-    dailyClosingHistoryRequestIdRef.current += 1;
-    setDailyClosingsRefreshing(false);
-    setDailyClosingsHydrated(false);
-    setDailyClosings([]);
-  }, [company, accountKey]);
-
-  const resolveDailyClosingRangeBounds = useCallback(
-    (range: string): { fromTs: number; toTs: number } | null => {
-      if (!range || range === "todo") return null;
-      const now = new Date();
-      let from: Date | null = null;
-      let to: Date | null = null;
-
-      if (range === "today") {
-        const t = new Date(now);
-        from = t;
-        to = t;
-      } else if (range === "yesterday") {
-        const y = new Date(now);
-        y.setDate(y.getDate() - 1);
-        from = y;
-        to = y;
-      } else if (range === "thisweek") {
-        const d = new Date(now);
-        const day = d.getDay();
-        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-        const start = new Date(d);
-        start.setDate(diff);
-        from = start;
-        to = new Date(now);
-      } else if (range === "lastweek") {
-        const d = new Date(now);
-        const day = d.getDay();
-        const diff = d.getDate() - day + (day === 0 ? -6 : 1) - 7;
-        const start = new Date(d);
-        start.setDate(diff);
-        const end = new Date(start);
-        end.setDate(start.getDate() + 6);
-        from = start;
-        to = end;
-      } else if (range === "lastmonth") {
-        from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        to = new Date(now.getFullYear(), now.getMonth(), 0);
-      } else if (range === "month") {
-        from = new Date(now.getFullYear(), now.getMonth(), 1);
-        to = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      } else if (range === "last30") {
-        const end = new Date(now);
-        const start = new Date(now);
-        start.setDate(start.getDate() - 29);
-        from = start;
-        to = end;
-      }
-
-      if (!from || !to) return null;
-      const fromTs = new Date(
-        from.getFullYear(),
-        from.getMonth(),
-        from.getDate(),
-        0,
-        0,
-        0,
-        0,
-      ).getTime();
-      const toTs = new Date(
-        to.getFullYear(),
-        to.getMonth(),
-        to.getDate(),
-        23,
-        59,
-        59,
-        999,
-      ).getTime();
-      return { fromTs, toTs };
-    },
-    [],
-  );
-
-  const loadDailyClosingsForHistoryRange = useCallback(
-    async (range: string) => {
-      if (accountKey !== "FondoGeneral") {
-        setDailyClosings([]);
-        setDailyClosingsHydrated(true);
-        return;
-      }
-
-      const normalizedCompany = (company || "").trim();
-      if (normalizedCompany.length === 0) {
-        setDailyClosings([]);
-        setDailyClosingsHydrated(true);
-        return;
-      }
-
-      const resolvedRange = range && range.length > 0 ? range : "today";
-
-      dailyClosingHistoryRequestIdRef.current += 1;
-      const requestId = dailyClosingHistoryRequestIdRef.current;
-      setDailyClosingsHydrated(false);
-      beginDailyClosingsRequest();
-
-      try {
-        const bounds = resolveDailyClosingRangeBounds(resolvedRange);
-        const document =
-          await DailyClosingsService.getDocument(normalizedCompany);
-        if (!isComponentMountedRef.current) return;
-        if (requestId !== dailyClosingHistoryRequestIdRef.current) return;
-
-        const base = document
-          ? DailyClosingsService.extractAllClosings(document)
-          : [];
-
-        if (closingsStorageKey) {
-          try {
-            localStorage.setItem(closingsStorageKey, JSON.stringify(base));
-          } catch (storageErr) {
-            console.error("Error storing daily closings:", storageErr);
-          }
-        }
-        const filtered = bounds
-          ? base.filter((record) => {
-              const ts = Date.parse(record?.closingDate ?? "");
-              if (Number.isNaN(ts)) return true;
-              if (ts < bounds.fromTs) return false;
-              if (ts > bounds.toTs) return false;
-              return true;
-            })
-          : base;
-        setDailyClosings(filtered);
-      } catch (err) {
-        console.error("Error reading daily closings from Firestore:", err);
-        if (!isComponentMountedRef.current) return;
-        if (requestId !== dailyClosingHistoryRequestIdRef.current) return;
-
-        try {
-          if (closingsStorageKey) {
-            const stored = localStorage.getItem(closingsStorageKey);
-            if (stored) {
-              const parsed = JSON.parse(stored) as unknown;
-              const all = sanitizeDailyClosings(parsed);
-              const bounds = resolveDailyClosingRangeBounds(resolvedRange);
-              const filtered = bounds
-                ? all.filter((record) => {
-                    const ts = Date.parse(record?.closingDate ?? "");
-                    if (Number.isNaN(ts)) return true;
-                    if (ts < bounds.fromTs) return false;
-                    if (ts > bounds.toTs) return false;
-                    return true;
-                  })
-                : all;
-              setDailyClosings(filtered);
-            } else {
-              setDailyClosings([]);
-            }
-          } else {
-            setDailyClosings([]);
-          }
-        } catch (storageErr) {
-          console.error("Error reading stored daily closings:", storageErr);
-          setDailyClosings([]);
-        }
-      } finally {
-        if (
-          isComponentMountedRef.current &&
-          requestId === dailyClosingHistoryRequestIdRef.current
-        ) {
-          setDailyClosingsHydrated(true);
-        }
-        finishDailyClosingsRequest();
-      }
-    },
-    [
-      accountKey,
-      company,
-      closingsStorageKey,
-      beginDailyClosingsRequest,
-      finishDailyClosingsRequest,
-      resolveDailyClosingRangeBounds,
-    ],
-  );
-
-  useEffect(() => {
-    // Lazy-load: only query when the history modal is open.
-    if (!dailyClosingHistoryOpen) return;
-    void loadDailyClosingsForHistoryRange(dailyClosingHistoryRange);
-  }, [
-    dailyClosingHistoryOpen,
-    dailyClosingHistoryRange,
-    loadDailyClosingsForHistoryRange,
   ]);
 
   useEffect(() => {
@@ -2708,92 +2108,18 @@ export function FondoSection({
     editingInProgressRef.current = false;
   }, []);
 
-  const normalizeMoneyInput = (value: string) => value.replace(/[^0-9]/g, "");
-
   /**
    * Envía un correo de notificación cuando se crea o edita un movimiento,
    * solo si el proveedor tiene configurado un correo de notificación.
    */
-  const sendMovementNotification = useCallback(
-    async (
-      entry: FondoEntry,
-      operationType: "create" | "edit",
-    ): Promise<void> => {
-      try {
-        // Buscar el proveedor para obtener su correonotifi
-        const provider = providers.find((p) => p.code === entry.providerCode);
 
-        // Si el proveedor no tiene correonotifi, no enviar correo
-        if (
-          !provider?.correonotifi ||
-          provider.correonotifi.trim().length === 0
-        ) {
-          return;
-        }
-
-        // Obtener el nombre del proveedor
-        const providerName = provider.name || entry.providerCode;
-
-        // Calcular el monto y tipo
-        const amount =
-          entry.amountEgreso > 0 ? entry.amountEgreso : entry.amountIngreso;
-        const amountType: "Egreso" | "Ingreso" =
-          entry.amountEgreso > 0 ? "Egreso" : "Ingreso";
-        const currency = (entry.currency as "CRC" | "USD") || "CRC";
-
-        // Generar el contenido del correo usando la plantilla
-        const emailContent = generateMovementNotificationEmail({
-          company: company || "",
-          providerName,
-          providerCode: entry.providerCode,
-          paymentType: entry.paymentType,
-          invoiceNumber: entry.invoiceNumber,
-          amount,
-          amountType,
-          currency,
-          manager: entry.manager,
-          notes: entry.notes,
-          createdAt: entry.createdAt,
-          operationType,
-        });
-
-        // Crear documento en la colección 'mail' para que la extensión Firebase Trigger Email lo procese
-        try {
-          const docRef = await addDoc(collection(db, "mail"), {
-            to: provider.correonotifi,
-            subject: emailContent.subject,
-            text: emailContent.text,
-            html: emailContent.html,
-            createdAt: serverTimestamp(),
-          });
-          console.log(
-            `[MAIL-DOC] Documento creado en 'mail' para movimiento: ${docRef.id}`,
-          );
-          showToast("Correo de notificación enviado correctamente", "success");
-        } catch (err) {
-          console.error(
-            '[MAIL-DOC] Error creando documento en "mail" para movimiento:',
-            err,
-          );
-          showToast("Error al enviar correo de notificación", "error");
-        }
-      } catch (err) {
-        console.error(
-          "[EMAIL-NOTIFICATION] Error preparing notification:",
-          err,
-        );
-        // No lanzar error, la notificación es secundaria
-      }
-    },
-    [company, providers, showToast],
-  );
 
   /**
    * Función auxiliar para persistir movimientos a Firestore de forma inmediata.
     * Retorna true si se guardó correctamente, false si hubo error.
    */
   const persistMovementToFirestore = useCallback(
-    async (
+    (
       updatedEntries: FondoEntry[],
       operationType: "create" | "edit" | "delete",
       change?: {
@@ -2802,355 +2128,23 @@ export function FondoSection({
         before?: FondoEntry | null;
       },
       extraWrites?: (batch: WriteBatch) => void,
-    ): Promise<{
-      ok: boolean;
-      confirmed: boolean;
-      ledgerSnapshot?: {
-        initialCRC: number;
-        currentCRC: number;
-        initialUSD: number;
-        currentUSD: number;
-      };
-    }> => {
-      const normalizedCompany = (company || "").trim();
-      if (normalizedCompany.length === 0) {
-        console.error("[PERSIST-IMMEDIATE] No company specified");
-        return { ok: false, confirmed: false };
-      }
-
-      const companyKey =
-        MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
-
-      try {
-        const baseStorage = storageSnapshotRef.current
-          ? MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(
-              storageSnapshotRef.current,
-              normalizedCompany,
-            )
-          : MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
-              normalizedCompany,
-            );
-
-        baseStorage.company = normalizedCompany;
-
-        // V2: movements live in a subcollection. Never persist the array to the main document.
-        baseStorage.operations = { movements: [] };
-
-        // IMPORTANTE:
-        // Con filtros de rango (Desde/Hasta) en v2, `updatedEntries` puede NO contener
-        // todos los movimientos históricos. Por eso NO podemos recalcular currentBalance
-        // sumando `updatedEntries`. En su lugar, actualizamos balances por delta:
-        // - create: + (ingreso-egreso)
-        // - delete: - (ingreso-egreso)
-        // - edit:   + (after - before)
-
-        const parseBalance = (value: unknown) => {
-          const parsed = typeof value === "number" ? value : Number(value);
-          return Number.isFinite(parsed) ? Math.trunc(parsed) : 0;
-        };
-
-        const normalizeCurrency = (value: unknown): MovementCurrencyKey =>
-          value === "USD" ? "USD" : "CRC";
-
-        const movementDelta = (
-          entry: Partial<FondoEntry> | null | undefined,
-        ): { currency: MovementCurrencyKey; delta: number } | null => {
-          if (!entry) return null;
-          const currency = normalizeCurrency(entry.currency);
-          const ingreso = parseBalance((entry as any).amountIngreso ?? 0);
-          const egreso = resolveEffectiveEgresoAmount(entry);
-          return { currency, delta: ingreso - egreso };
-        };
-
-        const normalizedInitialCRC =
-          initialAmount.trim().length > 0 ? initialAmount.trim() : "0";
-        const normalizedInitialUSD =
-          initialAmountUSD.trim().length > 0 ? initialAmountUSD.trim() : "0";
-        const parsedInitialCRC = Number(normalizedInitialCRC) || 0;
-        const parsedInitialUSD = Number(normalizedInitialUSD) || 0;
-
-        const stateSnapshot =
-          baseStorage.state ??
-          MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
-            normalizedCompany,
-          ).state;
-
-        const existingCRC = stateSnapshot.balancesByAccount.find(
-          (balance) =>
-            balance.accountId === accountKey && balance.currency === "CRC",
-        );
-        const existingUSD = stateSnapshot.balancesByAccount.find(
-          (balance) =>
-            balance.accountId === accountKey && balance.currency === "USD",
-        );
-
-        const prevInitialCRC = existingCRC
-          ? parseBalance(existingCRC.initialBalance ?? 0)
-          : parseBalance(ledgerSnapshot.initialCRC);
-        const prevInitialUSD = existingUSD
-          ? parseBalance(existingUSD.initialBalance ?? 0)
-          : parseBalance(ledgerSnapshot.initialUSD);
-        const prevCurrentCRC = existingCRC
-          ? parseBalance(existingCRC.currentBalance ?? prevInitialCRC)
-          : parseBalance(ledgerSnapshot.currentCRC);
-        const prevCurrentUSD = existingUSD
-          ? parseBalance(existingUSD.currentBalance ?? prevInitialUSD)
-          : parseBalance(ledgerSnapshot.currentUSD);
-
-        const deltas: Record<MovementCurrencyKey, number> = { CRC: 0, USD: 0 };
-
-        const resolveBeforeFallback = (): FondoEntry | null => {
-          const targetId =
-            operationType === "delete"
-              ? change?.deleteId
-              : operationType === "edit"
-                ? change?.upsert?.id
-                : null;
-          if (!targetId) return null;
-          const cacheKey = buildV2MovementsCacheKey(companyKey, accountKey);
-          const cached = v2MovementsCacheRef.current[cacheKey];
-          return cached?.movements?.find((m) => m.id === targetId) ?? null;
-        };
-
-        const beforeEntry = change?.before ?? resolveBeforeFallback();
-        const afterEntry = change?.upsert;
-
-        if (operationType === "create") {
-          const d = movementDelta(afterEntry);
-          if (d) deltas[d.currency] += d.delta;
-        } else if (operationType === "delete") {
-          const d = movementDelta(beforeEntry);
-          if (d) deltas[d.currency] -= d.delta;
-        } else if (operationType === "edit") {
-          const before = movementDelta(beforeEntry);
-          if (before) deltas[before.currency] -= before.delta;
-          const after = movementDelta(afterEntry);
-          if (after) deltas[after.currency] += after.delta;
-        }
-
-        const nextCurrentCRC =
-          prevCurrentCRC + (parsedInitialCRC - prevInitialCRC) + deltas.CRC;
-        const nextCurrentUSD =
-          prevCurrentUSD + (parsedInitialUSD - prevInitialUSD) + deltas.USD;
-        const nextAccountBalances = stateSnapshot.balancesByAccount.filter(
-          (balance) => balance.accountId !== accountKey,
-        );
-        nextAccountBalances.push(
-          {
-            accountId: accountKey,
-            currency: "CRC",
-            enabled: currencyEnabled.CRC,
-            initialBalance: parsedInitialCRC,
-            currentBalance: nextCurrentCRC,
-          },
-          {
-            accountId: accountKey,
-            currency: "USD",
-            enabled: currencyEnabled.USD,
-            initialBalance: parsedInitialUSD,
-            currentBalance: nextCurrentUSD,
-          },
-        );
-        stateSnapshot.balancesByAccount = nextAccountBalances;
-        stateSnapshot.updatedAt = new Date().toISOString();
-
-        // Preservar lockedUntil del snapshot actual si existe
-        if (storageSnapshotRef.current?.state?.lockedUntil) {
-          stateSnapshot.lockedUntil =
-            storageSnapshotRef.current.state.lockedUntil;
-        }
-        baseStorage.state = stateSnapshot;
-
-        // Guardar en Firestore (ledger + movimiento) de forma ATÓMICA
-        console.log(
-          `[PERSIST-IMMEDIATE] Guardando ${operationType} a Firestore...`,
-          {
-            company: normalizedCompany,
-            accountKey,
-            entriesCount: updatedEntries.length,
-          },
-        );
-
-        let cacheUpdater: (() => void) | null = null;
-        let movementChange:
-          | {
-              type: "upsert";
-              movement: FondoEntry & { id: string };
-              accountId?: MovementAccountKey;
-            }
-          | {
-              type: "delete";
-              movementId: string;
-              accountId?: MovementAccountKey;
-            }
-          | { type: "none" } = { type: "none" };
-
-        if (operationType === "delete") {
-          const deleteId = change?.deleteId;
-          if (!deleteId) {
-            throw new Error(
-              "[PERSIST-IMMEDIATE] delete requires change.deleteId",
-            );
-          }
-          movementChange = {
-            type: "delete",
-            movementId: deleteId,
-            accountId: accountKey,
-          };
-          cacheUpdater = () => {
-            const cacheKey = buildV2MovementsCacheKey(companyKey, accountKey);
-            const cached = v2MovementsCacheRef.current[cacheKey];
-            if (cached?.loaded) {
-              v2MovementsCacheRef.current[cacheKey] = {
-                ...cached,
-                loaded: true,
-                movements: cached.movements.filter((m) => m.id !== deleteId),
-              };
-            }
-          };
-        } else {
-          const movement = change?.upsert;
-          if (!movement) {
-            throw new Error(
-              "[PERSIST-IMMEDIATE] create/edit requires change.upsert",
-            );
-          }
-          const normalizedCurrency: MovementCurrencyKey =
-            movement.currency === "USD" ? "USD" : "CRC";
-          const canonicalPaymentType = getCanonicalClosingPaymentType(movement);
-          const storedMovement: FondoEntry = {
-            ...(movement as FondoEntry),
-            paymentType: canonicalPaymentType,
-            accountId: accountKey,
-            currency: normalizedCurrency,
-            empresa: normalizedCompany,
-          };
-          movementChange = {
-            type: "upsert",
-            movement: storedMovement,
-            accountId: accountKey,
-          };
-          cacheUpdater = () => {
-            const cacheKey = buildV2MovementsCacheKey(companyKey, accountKey);
-            const cached = v2MovementsCacheRef.current[cacheKey];
-            if (cached?.loaded) {
-              const next = [
-                storedMovement,
-                ...cached.movements.filter((m) => m.id !== storedMovement.id),
-              ];
-              v2MovementsCacheRef.current[cacheKey] = {
-                ...cached,
-                loaded: true,
-                movements: next,
-              };
-            }
-          };
-        }
-
-        const shouldDeleteFacturaMirror =
-          operationType === "delete" &&
-          beforeEntry &&
-          shouldDeleteFacturasMirror(beforeEntry);
-
-        const mergedExtraWrites =
-          extraWrites || shouldDeleteFacturaMirror
-            ? (batch: WriteBatch) => {
-                extraWrites?.(batch);
-                if (shouldDeleteFacturaMirror) {
-                  const deletedId = String(beforeEntry?.id || "");
-                  batch.delete(
-                    FacturasService.buildMovementRef(
-                      normalizedCompany,
-                      deletedId,
-                    ),
-                  );
-                  batch.delete(
-                    FacturasService.buildMovementRef(
-                      normalizedCompany,
-                      `${deletedId}-NC`,
-                    ),
-                  );
-                }
-              }
-            : undefined;
-
-        await MovimientosFondosService.commitLedgerAndMovement(
-          companyKey,
-          baseStorage,
-          movementChange,
-          mergedExtraWrites,
-        );
-
-        if (cacheUpdater) {
-          try {
-            cacheUpdater();
-          } catch (cacheErr) {
-            console.warn(
-              "[PERSIST-IMMEDIATE] cache update failed after commit:",
-              cacheErr,
-            );
-          }
-        }
-
-        // Guardar snapshot liviano en localStorage DESPUÉS del commit.
-        // Esto evita que un fallo de Firestore deje un snapshot local inconsistente.
-        try {
-          localStorage.setItem(companyKey, JSON.stringify(baseStorage));
-        } catch (storageError) {
-          console.warn(
-            "[PERSIST-IMMEDIATE] localStorage write failed:",
-            storageError,
-          );
-        }
-
-        // setDoc puede resolver con escritura local; esperamos un poco por confirmación del backend
-        // para evitar casos de "se guardó" cuando el usuario estaba offline/intermitente.
-        let confirmed = false;
-        try {
-          const timeoutMs = 8000;
-          await Promise.race([
-            waitForPendingWrites(db).then(() => {
-              confirmed = true;
-            }),
-            new Promise<void>((_, reject) => {
-              setTimeout(
-                () => reject(new Error("waitForPendingWrites timeout")),
-                timeoutMs,
-              );
-            }),
-          ]);
-        } catch (pendingErr) {
-          console.warn(
-            `[PERSIST-IMMEDIATE] ${operationType} guardado localmente pero sin confirmación del servidor aún`,
-            pendingErr,
-          );
-        }
-
-        console.log(
-          `[PERSIST-IMMEDIATE] ? ${operationType} guardado (confirmed=${confirmed})`,
-        );
-
-        // Actualizar snapshot después de guardar
-        storageSnapshotRef.current = baseStorage;
-
-        return {
-          ok: true,
-          confirmed,
-          ledgerSnapshot: {
-            initialCRC: parsedInitialCRC,
-            currentCRC: nextCurrentCRC,
-            initialUSD: parsedInitialUSD,
-            currentUSD: nextCurrentUSD,
-          },
-        };
-      } catch (err) {
-        console.error(
-          `[PERSIST-IMMEDIATE] ? Error guardando ${operationType} a Firestore:`,
-          err,
-        );
-        return { ok: false, confirmed: false };
-      }
-    },
+    ) =>
+      persistMovementToFirestoreFn(
+        updatedEntries,
+        operationType,
+        change,
+        extraWrites,
+        {
+          company,
+          accountKey,
+          initialAmount,
+          initialAmountUSD,
+          currencyEnabled,
+          ledgerSnapshot,
+          storageSnapshotRef,
+          v2MovementsCacheRef,
+        },
+      ),
     [
       company,
       accountKey,
@@ -3161,392 +2155,77 @@ export function FondoSection({
     ],
   );
 
-  const latestDailyClosing = useMemo(() => {
-    if (!dailyClosings || dailyClosings.length === 0) return null;
-    const sorted = dailyClosings
-      .slice()
-      .sort((a, b) => dailyClosingSortValue(b) - dailyClosingSortValue(a));
-    return sorted[0] ?? null;
-  }, [dailyClosings]);
-
-  const latestDailyClosingLabel = useMemo(() => {
-    if (!latestDailyClosing) return "";
-    try {
-      const localDailyClosingDateFormatter = new Intl.DateTimeFormat("es-CR", {
-        dateStyle: "long",
-      });
-      const localDateTimeFormatter = new Intl.DateTimeFormat("es-CR", {
-        dateStyle: "short",
-        timeStyle: "short",
-      });
-      const closingDate = new Date(latestDailyClosing.closingDate);
-      const closingLabel = Number.isNaN(closingDate.getTime())
-        ? String(latestDailyClosing.closingDate)
-        : localDailyClosingDateFormatter.format(closingDate);
-      const createdAtDate = new Date(latestDailyClosing.createdAt);
-      const createdLabel = Number.isNaN(createdAtDate.getTime())
-        ? String(latestDailyClosing.createdAt)
-        : localDateTimeFormatter.format(createdAtDate);
-      return `${closingLabel} (registrado: ${createdLabel})`;
-    } catch {
-      return String(
-        latestDailyClosing.closingDate || latestDailyClosing.createdAt || "",
-      );
-    }
-  }, [latestDailyClosing]);
-
   const handleDeleteLatestDailyClosing = useCallback(
-    async (reason: string): Promise<void> => {
-      if (!isSuperAdminUser) {
-        throw new Error("No autorizado");
-      }
-
-      const normalizedCompany = (company || "").trim();
-      if (!normalizedCompany) {
-        throw new Error("No se pudo identificar la empresa");
-      }
-
-      if (accountKey !== "FondoGeneral") {
-        throw new Error("Esta acción solo aplica al Fondo General");
-      }
-
-      const trimmedReason = String(reason || "").trim();
-      if (!trimmedReason) {
-        throw new Error("Debe indicar un motivo");
-      }
-
-      if (deleteLatestClosingInProgressRef.current) {
-        throw new Error("Ya hay una eliminación en progreso");
-      }
-      deleteLatestClosingInProgressRef.current = true;
-
-      try {
-        // Fuente de verdad: documento en Firestore
-        const closingsDoc =
-          await DailyClosingsService.getDocument(normalizedCompany);
-        if (!closingsDoc) {
-          throw new Error(
-            "No se encontró historial de cierres para esta empresa",
-          );
-        }
-
-        const sorted = DailyClosingsService.extractAllClosings(closingsDoc);
-        const latest = sorted[0];
-        if (!latest) {
-          throw new Error("No hay cierres para eliminar");
-        }
-        const latestAfter = sorted[1] ?? null;
-
-        const companyKey =
-          MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
-
-        // Buscar ajustes vinculados al cierre (aunque no estén cargados en el rango actual)
-        const related =
-          await MovimientosFondosService.listMovementsByOriginalEntryId<FondoEntry>(
-            companyKey,
-            latest.id,
-            { limitCount: 50 },
-          );
-
-        const relatedAdjustments = (related || []).filter((m) =>
-          isAutoAdjustmentProvider((m as any)?.providerCode),
-        );
-
-        const lockedUntilBefore =
-          storageSnapshotRef.current?.state?.lockedUntil ?? null;
-        const lockedUntilAfter = latestAfter?.createdAt ?? null;
-
-        // 1) Eliminar el cierre y guardar respaldo en cierresEliminados (respaldo primero)
-        await DailyClosingsService.deleteLatestClosing(normalizedCompany, {
-          expectedClosingId: latest.id,
-          reason: trimmedReason,
-          deletedBy: {
-            uid: (user as any)?.id,
-            email: user?.email,
-            name: user?.name,
-            role: user?.role,
-          },
-          relatedAdjustments,
-          lockedUntilBefore,
-          lockedUntilAfter,
-        });
-
-        setDailyClosings((prev) => prev.filter((d) => d.id !== latest.id));
-        setExpandedClosings((prev) => {
-          const next = new Set(prev);
-          next.delete(latest.id);
-          return next;
-        });
-
-        // 2) Eliminar movimientos de ajuste para revertir el saldo
-        let latestLedgerSnapshot: {
-          initialCRC: number;
-          currentCRC: number;
-          initialUSD: number;
-          currentUSD: number;
-        } | null = null;
-
-        for (const adj of relatedAdjustments) {
-          const before =
-            fondoEntries.find((e) => e.id === adj.id) ?? (adj as any);
-          const saved = await persistMovementToFirestore(
-            fondoEntries,
-            "delete",
-            {
-              deleteId: adj.id,
-              before,
-            },
-          );
-          if (!saved.ok) {
-            throw new Error(
-              "El cierre fue eliminado, pero no se pudo borrar un ajuste al saldo asociado. Revise los movimientos.",
-            );
-          }
-          if (saved.ledgerSnapshot) {
-            latestLedgerSnapshot = saved.ledgerSnapshot;
-          }
-        }
-
-        if (relatedAdjustments.length > 0) {
-          const ids = new Set(relatedAdjustments.map((a) => a.id));
-          setFondoEntries((prev) => prev.filter((e) => !ids.has(e.id)));
-          if (latestLedgerSnapshot) {
-            setLedgerSnapshot(latestLedgerSnapshot);
-          }
-        }
-
-        // 3) Ajustar lockedUntil al cierre anterior (o removerlo si ya no hay cierres)
-        const baseLedger = storageSnapshotRef.current
-          ? MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(
-              storageSnapshotRef.current,
-              normalizedCompany,
-            )
-          : ((await MovimientosFondosService.getDocument<FondoEntry>(
-              companyKey,
-            )) ??
-            MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
-              normalizedCompany,
-            ));
-
-        baseLedger.company = normalizedCompany;
-        baseLedger.operations = { movements: [] };
-        if (!baseLedger.state) {
-          baseLedger.state =
-            MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
-              normalizedCompany,
-            ).state;
-        }
-        if (lockedUntilAfter) {
-          baseLedger.state.lockedUntil = lockedUntilAfter;
-        } else {
-          delete (baseLedger.state as any).lockedUntil;
-        }
-        baseLedger.state.updatedAt = new Date().toISOString();
-
-        await MovimientosFondosService.saveDocument(companyKey, baseLedger);
-        storageSnapshotRef.current = baseLedger;
-        try {
-          localStorage.setItem(companyKey, JSON.stringify(baseLedger));
-        } catch {
-          // ignore storage errors
-        }
-
-        // Si acabamos de eliminar el último cierre, no tiene sentido pedir confirmación de conteo físico
-        // para el "primer movimiento después del cierre".
-        try {
-          const key = buildPhysicalCountStorageKey();
-          if (key) localStorage.setItem(key, "false");
-          cleanupPhysicalCountLegacyKeys();
-        } catch {
-          // ignore
-        }
-        setPendingCierreDeCaja(false);
-
-        // Reset cross-device lock + local cooldowns so user can re-do either closing immediately.
-        await forceClearClosingGuards(
-          normalizedCompany,
-          "delete_latest_fondo_general",
-          user,
-        );
-        try {
-          lastDailyClosingSavedAtRef.current = 0;
-          lastMovementCreatedAtRef.current = 0;
-          lastMovementDedupeRef.current = null;
-          if (typeof window !== "undefined") {
-            const dailyKey = `fondogeneral-lastDailyClosingSavedAt:${normalizedCompany}`;
-            const createdKey = `fondogeneral-lastMovementCreatedAt:${normalizedCompany}:${accountKey}`;
-            const dedupeKey = `fondogeneral-lastMovementDedupe:${normalizedCompany}:${accountKey}`;
-            localStorage.removeItem(dailyKey);
-            localStorage.removeItem(createdKey);
-            localStorage.removeItem(dedupeKey);
-          }
-        } catch {
-          // ignore
-        }
-
-        showToast("Último cierre eliminado", "success", 4000);
-      } finally {
-        deleteLatestClosingInProgressRef.current = false;
-      }
-    },
+    (reason: string) =>
+      deleteLatestDailyClosingFn(reason, {
+        isSuperAdminUser,
+        company,
+        accountKey,
+        user,
+        fondoEntries,
+        setFondoEntries,
+        setLedgerSnapshot,
+        setDailyClosings,
+        setExpandedClosings,
+        setPendingCierreDeCaja,
+        persistMovementToFirestore,
+        buildPhysicalCountStorageKey,
+        cleanupPhysicalCountLegacyKeys,
+        showToast,
+        deleteLatestClosingInProgressRef,
+        lastDailyClosingSavedAtRef,
+        lastMovementCreatedAtRef,
+        lastMovementDedupeRef,
+        storageSnapshotRef,
+      }),
     [
       isSuperAdminUser,
       company,
       accountKey,
       user,
       fondoEntries,
+      setFondoEntries,
+       setLedgerSnapshot,
+      setDailyClosings,
+      setExpandedClosings,
+      setPendingCierreDeCaja,
       persistMovementToFirestore,
-      isAutoAdjustmentProvider,
       buildPhysicalCountStorageKey,
       cleanupPhysicalCountLegacyKeys,
       showToast,
+      deleteLatestClosingInProgressRef,
+      lastDailyClosingSavedAtRef,
+      lastMovementCreatedAtRef,
+      lastMovementDedupeRef,
+      storageSnapshotRef,
     ],
   );
 
   const persistCreatedMovement = useCallback(
-    async (
-      entry: FondoEntry,
-      updatedEntries: FondoEntry[],
-    ): Promise<boolean> => {
-      // PRIMERO persistir a Firestore, LUEGO actualizar UI
-      const saved = await persistMovementToFirestore(updatedEntries, "create", {
-        upsert: entry,
-      });
-
-      if (!saved.ok) {
-        showToast(
-          "Error al guardar el movimiento. Por favor, intente de nuevo.",
-          "error",
-          5000,
-        );
-        editingInProgressRef.current = false;
-        return false;
-      }
-
-      // Mark a dedupe window after a successful save (prevents instant duplicates)
-      try {
-        const normalizedCompany = (company || "").trim();
-        if (normalizedCompany.length > 0) {
-          const savedAtMs = Date.now();
-          const fingerprintParts = [
-            `provider=${entry.providerCode || ""}`,
-            `invoice=${entry.invoiceNumber || ""}`,
-            `invoiceDocType=${normalizeInvoiceDocType((entry as any).invoiceDocType)}`,
-            `type=${entry.paymentType || ""}`,
-            `egreso=${Math.trunc(entry.amountEgreso || 0)}`,
-            `payment=${Math.trunc(entry.amountPayment || 0)}`,
-            `ingreso=${Math.trunc(entry.amountIngreso || 0)}`,
-            `manager=${(entry.manager || "").trim()}`,
-            `currency=${(entry as any).currency || "CRC"}`,
-            `notes=${(entry.notes || "").trim()}`,
-          ];
-          const fingerprint = fingerprintParts.join("|");
-          const payload = { at: savedAtMs, fingerprint };
-          lastMovementDedupeRef.current = payload;
-          // NOTE: "INGRESO DESDE FONDO VENTAS" no debe activar el cooldown de 1 minuto
-          // para el siguiente movimiento. Detectar también por nombre visible del proveedor.
-          const provider = providers.find((p) => p.code === entry.providerCode);
-          const providerDisplayName = provider?.name || entry.providerCode;
-          const isIngresoDesdeFV = isIngresoDesdeFondoVentasMovement(
-            entry,
-            providerDisplayName,
-          );
-          // Do NOT mark created cooldown for Caja Negra movements
-          const shouldMarkCreatedCooldown = !isIngresoDesdeFV && !isCajaNegra;
-          if (shouldMarkCreatedCooldown)
-            lastMovementCreatedAtRef.current = savedAtMs;
-          if (typeof window !== "undefined") {
-            const key = `fondogeneral-lastMovementDedupe:${normalizedCompany}:${accountKey}`;
-            const createdKey = `fondogeneral-lastMovementCreatedAt:${normalizedCompany}:${accountKey}`;
-            try {
-              localStorage.setItem(key, JSON.stringify(payload));
-              if (shouldMarkCreatedCooldown) {
-                localStorage.setItem(
-                  createdKey,
-                  JSON.stringify({ at: savedAtMs }),
-                );
-              } else if (!isCajaNegra) {
-                // Only write the special ignore-payload for INGRESO_DESDE_FONDO_VENTAS
-                const previous = parseLastCreatedCooldown(
-                  localStorage.getItem(createdKey),
-                );
-                const prevAt = getEffectiveLastCreatedAtMs(previous);
-                const ignorePayload: LastCreatedCooldownPayload = {
-                  at: savedAtMs,
-                  kind: "INGRESO_DESDE_FONDO_VENTAS",
-                  ...(prevAt > 0 ? { prevAt } : {}),
-                };
-                localStorage.setItem(createdKey, JSON.stringify(ignorePayload));
-              }
-            } catch {
-              // ignore storage errors
-            }
-          }
-        }
-      } catch {
-        // ignore
-      }
-
-      // Limpiar flag de edición en progreso
-      editingInProgressRef.current = false;
-
-      // Solo actualizar la UI si el guardado fue exitoso
-      setFondoEntries(updatedEntries);
-      if (saved.ledgerSnapshot) {
-        setLedgerSnapshot(saved.ledgerSnapshot);
-      }
-      if (saved.confirmed) {
-        showToast("Movimiento guardado correctamente", "success", 3000);
-      } else {
-        showToast(
-          "Movimiento guardado localmente; pendiente de sincronización (revisa tu conexión).",
-          "warning",
-          6000,
-        );
-      }
-
-      // Enviar notificación por correo si el proveedor tiene correonotifi
-      sendMovementNotification(entry, "create").catch((err) => {
-        console.error(
-          "[NOTIFICATION] Error en notificación de movimiento:",
-          err,
-        );
-      });
-
-      // Si hubo un cierre pendiente (marca en localStorage), al crear un movimiento manual se borra.
-      if (
-        accountKey === "FondoGeneral" &&
-        !isAutoAdjustmentProvider(entry.providerCode)
-      ) {
-        try {
-          const key = buildPhysicalCountStorageKey();
-          if (key) localStorage.setItem(key, "false");
-          cleanupPhysicalCountLegacyKeys();
-        } catch {
-          // ignore storage errors
-        }
-      }
-
-      const selectedProviderData = providers.find(
-        (p) => p.code === entry.providerCode,
-      );
-      if (
-        selectedProviderData?.name?.toUpperCase() ===
-        CIERRE_FONDO_VENTAS_PROVIDER_NAME
-      ) {
-        setPendingCierreDeCaja(true);
-      }
-      resetFondoForm();
-      if (!movementAutoCloseLocked) {
-        setMovementModalOpen(false);
-      }
-
-      return true;
-    },
+    (entry: FondoEntry, updatedEntries: FondoEntry[]) =>
+      persistCreatedMovementFn(entry, updatedEntries, {
+        persistMovementToFirestore,
+        showToast,
+        providers,
+        accountKey,
+        company,
+        user,
+        buildPhysicalCountStorageKey,
+        cleanupPhysicalCountLegacyKeys,
+        resetFondoForm,
+        movementAutoCloseLocked,
+        isCajaNegra,
+        setFondoEntries,
+        setLedgerSnapshot,
+        setPendingCierreDeCaja,
+        setMovementModalOpen,
+        editingInProgressRef,
+        lastMovementDedupeRef,
+        lastMovementCreatedAtRef,
+      }),
     [
       persistMovementToFirestore,
       showToast,
-      sendMovementNotification,
       providers,
       accountKey,
       company,
@@ -3555,14 +2234,16 @@ export function FondoSection({
       cleanupPhysicalCountLegacyKeys,
       resetFondoForm,
       movementAutoCloseLocked,
+      isCajaNegra,
       setFondoEntries,
       setLedgerSnapshot,
+      setPendingCierreDeCaja,
+      setMovementModalOpen,
+      editingInProgressRef,
+      lastMovementDedupeRef,
+      lastMovementCreatedAtRef,
     ],
   );
-
-  const cancelOpenCreateMovement = useCallback(() => {
-    setConfirmOpenCreateMovement(false);
-  }, []);
 
   const resolveShiftManagerForNow = useCallback(
     async (nowISO: string) => {
@@ -3688,1372 +2369,83 @@ export function FondoSection({
   ]);
 
   const handleSubmitFondo = async () => {
-    if (!company) return;
-    if (isSaving || movementSubmitInProgressRef.current) return; // Prevenir múltiples envíos
-
-    let hasErrors = false;
-    const nowISO = new Date().toISOString();
-    let effectiveManager = manager;
-
-    const effectiveInvoiceNumber =
-      isCajaNegra && !editingEntryId ? getTodayInvoiceMMDD() : invoiceNumber;
-
-    if (!selectedProvider) {
-      setProviderError("Selecciona un proveedor");
-      hasErrors = true;
-    } else {
-      setProviderError("");
-    }
-
-    const providerExists = selectedProviderExists;
-    if (
-      !providerExists &&
-      !(editingEntryId && editingEntry?.providerCode === selectedProvider)
-    ) {
-      setProviderError("Proveedor no válido");
-      hasErrors = true;
-    }
-
-    if (!/^[0-9]{1,4}$/.test(effectiveInvoiceNumber)) {
-      setInvoiceError("Ingresa un número de factura válido (1-4 dígitos)");
-      hasErrors = true;
-    } else {
-      setInvoiceError("");
-    }
-
-    const shouldAutoManagerFromControlHorario =
-      isRegularUser &&
-      accountKey === "FondoGeneral" &&
-      namespace === "fg" &&
-      !editingEntryId &&
-      !isDelifoodCompany;
-
-    if (shouldAutoManagerFromControlHorario) {
-      try {
-        const empresa = activeEmpresaForCompany;
-        if (empresa) {
-          const normalizedCompany = (company || "").trim();
-          const companyKeysToTry = (() => {
-            const set = new Set<string>();
-            if (normalizedCompany) set.add(normalizedCompany);
-            [empresa?.name, empresa?.ubicacion, empresa?.id]
-              .map((v) =>
-                typeof v === "string" ? v.trim() : String(v || "").trim(),
-              )
-              .filter(Boolean)
-              .forEach((v) => set.add(v));
-            return Array.from(set);
-          })();
-
-          const parts = new Intl.DateTimeFormat("en-US", {
-            timeZone: "America/Costa_Rica",
-            year: "numeric",
-            month: "2-digit",
-          }).formatToParts(new Date(nowISO));
-          const year = Number(parts.find((p) => p.type === "year")?.value);
-          const month1 = Number(parts.find((p) => p.type === "month")?.value);
-          const month0 = Math.max(0, Math.min(11, month1 - 1));
-
-          if (Number.isFinite(year) && Number.isFinite(month1)) {
-            const schedulesLists = await Promise.all(
-              companyKeysToTry.map((key) =>
-                getFGMonthlySchedulesCached(key, year, month0),
-              ),
-            );
-            const monthSchedules = schedulesLists.flat();
-            const resolution = resolveManagerFromControlHorario({
-              nowISO,
-              empresa,
-              monthSchedules,
-            });
-
-            if (resolution.mode === "missing") {
-              setMissingShiftExpectedShift(resolution.expectedShift);
-              setMissingShiftDateKey(resolution.dateKey);
-              setMissingShiftModalOpen(true);
-              return;
-            }
-
-            if (resolution.mode === "auto") {
-              effectiveManager = resolution.manager;
-              setManager(resolution.manager);
-              setManagerError("");
-            }
-          }
-        }
-      } catch (err) {
-        console.error("[FG] Error resolving manager from control horario:", err);
-      }
-    }
-
-    const trimmedManager2 = manager2.trim();
-    if (isEditingPaidFcrMovement) {
-      setManagerError("");
-      if (!trimmedManager2) {
-        setManager2Error("Selecciona quién pagó la factura");
-        hasErrors = true;
-      } else {
-        setManager2Error("");
-      }
-    } else if (!effectiveManager) {
-      setManagerError("Selecciona un encargado");
-      hasErrors = true;
-    } else {
-      setManagerError("");
-      setManager2Error("");
-    }
-    const egresoValue = isEgreso ? Number.parseInt(egreso, 10) : 0;
-    const ingresoValue = isIngreso ? Number.parseInt(ingreso, 10) : 0;
-    const trimmedNotes = notes.trim();
-    const movementSelectedProviderData = movementProviders.find(
-      (p) => p.code === selectedProvider,
-    );
-    const shouldMirrorMovementToFacturas = !isCajaNegra && isInventoryPurchaseProviderType(
-      movementSelectedProviderData?.type,
-    );
-
-    if (isEgreso && (Number.isNaN(egresoValue) || egresoValue <= 0)) {
-      setAmountError("Ingresa un monto válido para egreso");
-      hasErrors = true;
-    } else if (isIngreso && (Number.isNaN(ingresoValue) || ingresoValue <= 0)) {
-      setAmountError("Ingresa un monto válido para ingreso");
-      hasErrors = true;
-    } else {
-      setAmountError("");
-    }
-
-    if (hasErrors) return;
-
-    const selectedZeroAmountNC = selectedAppliedCreditNoteIds.some((id) =>
-      selectedProviderPendingCreditNotes.some(
-        (note) => note.id === id && note.amount === 0,
-      ),
-    );
-    if (selectedZeroAmountNC) {
-      setPendingZeroAmountCreditNoteModalOpen(true);
-      return;
-    }
-
-    if (isEgreso && (Number.isNaN(egresoValue) || egresoValue <= 0)) return;
-    if (isIngreso && (Number.isNaN(ingresoValue) || ingresoValue <= 0)) return;
-
-    const effectiveInvoiceDocType = normalizeInvoiceDocType(invoiceDocType) as "FCO" | "FCR";
-    if (!editingEntryId && effectiveInvoiceDocType === "FCR") {
-      setInvoiceError(
-        "Las facturas a crédito se crean desde Facturas de crédito y notas de crédito.",
-      );
-      return;
-    }
-
-    if (effectiveInvoiceDocType === "FCR" && !shouldMirrorMovementToFacturas) {
-      setInvoiceError(
-        'Solo los proveedores de tipo "COMPRA INVENTARIO" pueden generar facturas.',
-      );
-      return;
-    }
-
-    const buildAppliedCreditNotes = (
-      invoiceAmount: number,
-    ): { notes: AppliedCreditNote[]; total: number; amountPayment: number } => {
-      if (!isEgreso || editingEntryId || effectiveInvoiceDocType !== "FCO") {
-        return { notes: [], total: 0, amountPayment: invoiceAmount };
-      }
-
-      const selectedIds = new Set(selectedAppliedCreditNoteIds);
-      let remaining = Math.max(0, Math.trunc(invoiceAmount));
-      let total = 0;
-      const notes: AppliedCreditNote[] = [];
-
-      selectedProviderPendingCreditNotes.forEach((note) => {
-        if (remaining <= 0 || !selectedIds.has(note.id)) return;
-        if (note.currency !== movementCurrency) return;
-        const appliedAmount = Math.min(
-          remaining,
-          Math.max(0, Math.trunc(Number(note.balanceDue) || 0)),
-        );
-        if (appliedAmount <= 0) return;
-        total += appliedAmount;
-        remaining -= appliedAmount;
-        notes.push({
-          id: note.id,
-          invoiceNumber: note.invoiceNumber,
-          amount: note.amount,
-          appliedAmount,
-          currency: note.currency,
-        });
-      });
-
-      return {
-        notes,
-        total,
-        amountPayment: roundCreditNotePaymentAmount(
-          Math.max(0, Math.trunc(invoiceAmount) - total),
-          movementCurrency,
-          accountKey,
-        ),
-      };
-    };
-    const selectedCreditNotesRequestedTotal =
-      isEgreso && effectiveInvoiceDocType === "FCO"
-        ? selectedProviderPendingCreditNotes.reduce((sum, note) => {
-            if (!selectedAppliedCreditNoteIds.includes(note.id)) return sum;
-            if (note.currency !== movementCurrency) return sum;
-            return sum + Math.max(0, Math.trunc(note.balanceDue));
-          }, 0)
-        : 0;
-    if (
-      isEgreso &&
-      effectiveInvoiceDocType === "FCO" &&
-      selectedCreditNotesRequestedTotal > egresoValue
-    ) {
-      showToast(
-        "Las notas de credito seleccionadas superan el saldo disponible. Desmarca alguna para continuar.",
-        "error",
-        5000,
-      );
-      return;
-    }
-    const creditNoteApplication = buildAppliedCreditNotes(egresoValue);
-    const manualCreditNoteAppliedAmount =
-      isEgreso && effectiveInvoiceDocType === "FCO" && manualCreditNoteDraft
-        ? Math.min(
-            manualCreditNoteDraft.amount,
-            Math.max(0, egresoValue - creditNoteApplication.total),
-          )
-        : 0;
-    const totalCreditNotesAppliedAmount =
-      creditNoteApplication.total + manualCreditNoteAppliedAmount;
-    const roundedInvoicePaymentAmount = roundCreditNotePaymentAmount(
-      Math.max(0, egresoValue - totalCreditNotesAppliedAmount),
-      movementCurrency,
+    await handleSubmitFondoFn({
+      company,
+      isSaving,
+      movementSubmitInProgressRef,
+      manager,
+      isCajaNegra,
+      editingEntryId,
+      getTodayInvoiceMMDD,
+      invoiceNumber,
+      invoiceDocType,
+      selectedProvider,
+      setProviderError,
+      selectedProviderExists,
+      editingEntry,
+      setInvoiceError,
+      isRegularUser,
       accountKey,
-    );
-    const selectedCreditInvoiceIdSet = new Set(selectedPendingCreditInvoiceIds);
-    const selectedCreditInvoicesTotal = isEgreso
-      ? selectedProviderPendingCreditInvoices.reduce((sum, invoice) => {
-          if (!selectedCreditInvoiceIdSet.has(invoice.id)) return sum;
-          if (invoice.currency !== movementCurrency) return sum;
-          return sum + Math.max(0, Math.trunc(invoice.balanceDue));
-        }, 0)
-      : 0;
-    const egresoBalanceImpact =
-      isEgreso && effectiveInvoiceDocType === "FCO"
-        ? roundedInvoicePaymentAmount + selectedCreditInvoicesTotal
-        : egresoValue;
-
-    // Validar que no quede saldo negativo en la moneda del movimiento.
-    // Nota: este límite de "saldo insuficiente" solo aplica para usuarios regulares.
-    // Admin/Superadmin pueden registrar egresos que dejen saldo negativo.
-    // En edición se revierte primero el impacto del movimiento original.
-    if (
-      isEgreso &&
-      effectiveInvoiceDocType !== "FCR" &&
-      !isAdminUser &&
-      !isSuperAdminUser
-    ) {
-      const currentBalance =
-        movementCurrency === "USD"
-          ? ledgerSnapshot.currentUSD
-          : ledgerSnapshot.currentCRC;
-
-      let effectiveBalance = currentBalance;
-      if (editingEntryId) {
-        const originalEntry = fondoEntries.find((e) => e.id === editingEntryId);
-        if (originalEntry) {
-          const originalCurrency: MovementCurrencyKey =
-            originalEntry.currency === "USD" ? "USD" : "CRC";
-          if (originalCurrency === movementCurrency) {
-            effectiveBalance += resolveEffectiveEgresoAmount(originalEntry);
-            effectiveBalance -= Math.trunc(
-              Number(originalEntry.amountIngreso) || 0,
-            );
-          }
-        }
-      }
-      const resultingBalance = effectiveBalance - egresoBalanceImpact;
-      console.log(
-        `Validando saldo negativo: effectiveBalance=${effectiveBalance}, egresoValue=${egresoBalanceImpact}, resultingBalance=${resultingBalance}`,
-      );
-
-      if (resultingBalance < 0) {
-        setNegativeBalanceModal({
-          open: true,
-          amount: egresoBalanceImpact,
-          currency: movementCurrency,
-          resultingNegativeAmount: resultingBalance,
-        });
-        return;
-      }
-    }
-
-    const paddedInvoice = effectiveInvoiceNumber.padStart(4, "0");
-
-    // Dedupe window only for NEW movements (edits remain allowed)
-    if (!editingEntryId) {
-      try {
-        const normalizedCompany = (company || "").trim();
-        if (normalizedCompany.length > 0) {
-          // Enforce minimum interval between ANY new movements
-          const nowMs = Date.now();
-          const createdKey = `fondogeneral-lastMovementCreatedAt:${normalizedCompany}:${accountKey}`;
-          let lastCreatedAtMs = lastMovementCreatedAtRef.current;
-          if (typeof window !== "undefined") {
-            try {
-              const payload = parseLastCreatedCooldown(
-                localStorage.getItem(createdKey),
-              );
-              const effectiveAt = getEffectiveLastCreatedAtMs(payload);
-              if (effectiveAt > 0) {
-                lastCreatedAtMs = Math.max(lastCreatedAtMs, effectiveAt);
-              }
-            } catch {
-              // ignore
-            }
-          }
-
-          // Admins/Superadmins are exempt from the 1-minute cooldown.
-          // Additionally, if the NEW movement is "INGRESO DESDE FONDO VENTAS",
-          // it should NOT be blocked by a prior movement's cooldown.
-          const providerForSelected = movementProviders.find(
-            (p) => p.code === selectedProvider,
-          );
-          const providerDisplayForSelected =
-            providerForSelected?.name || selectedProvider;
-          const newIsIngresoDesdeFV = isIngresoDesdeFondoVentasMovement(
-            {
-              providerCode: selectedProvider,
-              paymentType,
-              notes: trimmedNotes,
-            },
-            providerDisplayForSelected,
-          );
-
-          if (!newIsIngresoDesdeFV) {
-            if (
-              !isAdminUser &&
-              !isSuperAdminUser &&
-              !isCajaNegra &&
-              lastCreatedAtMs > 0 &&
-              nowMs - lastCreatedAtMs < MOVEMENT_COOLDOWN_MS
-            ) {
-              const remainingMs = MOVEMENT_COOLDOWN_MS - (nowMs - lastCreatedAtMs);
-              const remainingSec = Math.ceil(remainingMs / 1000);
-              showToast(
-                `Espere ${formatToastWaitTime(remainingSec)} para agregar otro movimiento.`,
-                "warning",
-                5000,
-              );
-              return;
-            }
-          }
-
-          const fingerprintParts = [
-            `provider=${selectedProvider || ""}`,
-            `invoice=${paddedInvoice || ""}`,
-            `invoiceDocType=${normalizeInvoiceDocType(invoiceDocType)}`,
-            `type=${paymentType || ""}`,
-            `egreso=${Math.trunc(isEgreso ? egresoValue : 0)}`,
-            `payment=${Math.trunc(
-              isEgreso && effectiveInvoiceDocType === "FCO"
-                ? creditNoteApplication.amountPayment
-                : 0,
-            )}`,
-            `creditInvoices=${Math.trunc(selectedCreditInvoicesTotal)}`,
-            `ingreso=${Math.trunc(isIngreso ? ingresoValue : 0)}`,
-            `manager=${(manager || "").trim()}`,
-            `currency=${movementCurrency || "CRC"}`,
-            `notes=${trimmedNotes}`,
-          ];
-          const fingerprint = fingerprintParts.join("|");
-          const key = `fondogeneral-lastMovementDedupe:${normalizedCompany}:${accountKey}`;
-
-          let last = lastMovementDedupeRef.current;
-          if (!last && typeof window !== "undefined") {
-            try {
-              const raw = localStorage.getItem(key);
-              if (raw) {
-                const parsed = JSON.parse(raw) as any;
-                if (
-                  parsed &&
-                  typeof parsed.at === "number" &&
-                  typeof parsed.fingerprint === "string"
-                ) {
-                  last = { at: parsed.at, fingerprint: parsed.fingerprint };
-                }
-              }
-            } catch {
-              // ignore
-            }
-          }
-
-          if (
-            last &&
-            last.fingerprint === fingerprint &&
-            nowMs - last.at < CACHE_TTL_MS &&
-            !isCajaNegra
-          ) {
-            const remainingMs = CACHE_TTL_MS - (nowMs - last.at);
-            const remainingSec = Math.ceil(remainingMs / 1000);
-            showToast(
-              `Movimiento duplicado detectado. Espere ${formatToastWaitTime(
-                remainingSec,
-              )} para volver a guardarlo.`,
-              "warning",
-              5000,
-            );
-            return;
-          }
-
-          // lock immediately to avoid double-click duplicates before state updates
-          movementSubmitInProgressRef.current = true;
-        }
-      } catch {
-        // If dedupe fails for any reason, still lock to prevent double-submit
-        movementSubmitInProgressRef.current = true;
-      }
-    }
-
-    setIsSaving(true);
-
-    try {
-      if (editingEntryId) {
-        // Update the existing entry in-place so balances remain correct.
-        const original = fondoEntries.find((e) => e.id === editingEntryId);
-        if (!original) {
-          setIsSaving(false);
-          return;
-        }
-
-        const isEditingPaidFcr = isPaidFcrMovement(original);
-        const originalManager2 = String(original.manager2 || "").trim();
-        const effectiveManager = isEditingPaidFcr ? original.manager : manager;
-        const effectiveManager2 = isEditingPaidFcr
-          ? trimmedManager2
-          : originalManager2;
-
-        const changes: string[] = [];
-        if (selectedProvider !== original.providerCode)
-          changes.push(
-            `Proveedor: ${original.providerCode} -> ${selectedProvider}`,
-          );
-        if (paddedInvoice !== original.invoiceNumber)
-          changes.push(
-            `Nro. factura: ${original.invoiceNumber} -> ${paddedInvoice}`,
-          );
-        if (paymentType !== original.paymentType)
-          changes.push(`Tipo: ${original.paymentType} -> ${paymentType}`);
-        const originalAmount = isEgresoType(original.paymentType)
-          ? original.amountEgreso
-          : original.amountIngreso;
-        const newAmount = isEgreso ? egresoValue : ingresoValue;
-        if (Number.isFinite(originalAmount) && originalAmount !== newAmount)
-          changes.push(`Monto: ${originalAmount} -> ${newAmount}`);
-        if (!isEditingPaidFcr && manager !== original.manager)
-          changes.push(`Encargado: ${original.manager} -> ${manager}`);
-        if (isEditingPaidFcr && effectiveManager2 !== originalManager2)
-          changes.push(
-            `Encargado pago: ${originalManager2 || "(vacío)"} -> ${effectiveManager2 || "(vacío)"}`,
-          );
-        if (trimmedNotes !== (original.notes ?? ""))
-          changes.push(`Notas: "${original.notes}" -> "${trimmedNotes}"`);
-
-        // Preparar el movimiento editado ANTES de persistir
-        let updatedEntry: FondoEntry | null = null;
-        const updatedEntries = fondoEntries.map((e) => {
-          if (e.id !== editingEntryId) return e;
-          // append to existing history if present
-          let history: any[] = [];
-          try {
-            const existing = e.auditDetails
-              ? (JSON.parse(e.auditDetails) as any)
-              : null;
-            if (existing && Array.isArray(existing.history))
-              history = existing.history.slice();
-            else if (existing && existing.before && existing.after)
-              history = [
-                {
-                  at: existing.at ?? e.createdAt,
-                  before: existing.before,
-                  after: existing.after,
-                },
-              ];
-          } catch {
-            history = [];
-          }
-
-          // Validar límite máximo de ediciones
-          if (history.length >= MAX_AUDIT_EDITS) {
-            showToast(
-              `No se pueden realizar más de ${MAX_AUDIT_EDITS} ediciones en un mismo movimiento`,
-              "error",
-            );
-            return e; // No permitir más ediciones
-          }
-
-          const previousAppliedNotes = Array.isArray(e.appliedCreditNotes)
-            ? e.appliedCreditNotes
-            : [];
-          let remainingAppliedBase = isEgreso ? egresoValue : 0;
-          const nextAppliedCreditNotes = previousAppliedNotes.reduce<
-            AppliedCreditNote[]
-          >((acc, note) => {
-            if (remainingAppliedBase <= 0) return acc;
-            const appliedAmount = Math.min(
-              remainingAppliedBase,
-              Math.max(0, Math.trunc(Number(note.appliedAmount) || 0)),
-            );
-            if (appliedAmount > 0) {
-              acc.push({ ...note, appliedAmount });
-              remainingAppliedBase -= appliedAmount;
-            }
-            return acc;
-          }, []);
-          const nextAppliedTotal = nextAppliedCreditNotes.reduce(
-            (sum, note) => sum + Math.max(0, Math.trunc(note.appliedAmount)),
-            0,
-          );
-          const nextAmountPayment =
-            isEgreso && nextAppliedCreditNotes.length > 0
-              ? Math.max(0, egresoValue - nextAppliedTotal)
-              : undefined;
-
-          // Crear registro simplificado con solo los campos que cambiaron
-          const changedFields = getChangedFields(
-            {
-              providerCode: e.providerCode,
-              invoiceNumber: e.invoiceNumber,
-              invoiceDocType: normalizeInvoiceDocType(
-                (e as any).invoiceDocType,
-              ),
-              paymentType: e.paymentType,
-              amountEgreso: e.amountEgreso,
-              amountIngreso: e.amountIngreso,
-              amountPayment: e.amountPayment,
-              appliedCreditNotes: e.appliedCreditNotes,
-              manager: e.manager,
-              manager2: e.manager2,
-              notes: e.notes,
-              currency: e.currency,
-            },
-            {
-              providerCode: selectedProvider,
-              invoiceNumber: paddedInvoice,
-              invoiceDocType: normalizeInvoiceDocType(invoiceDocType),
-              paymentType,
-              amountEgreso: isEgreso ? egresoValue : 0,
-              amountIngreso: isEgreso ? 0 : ingresoValue,
-              amountPayment: nextAmountPayment,
-              appliedCreditNotes: nextAppliedCreditNotes,
-              manager: effectiveManager,
-              manager2: effectiveManager2,
-              notes: trimmedNotes,
-              currency: movementCurrency,
-            },
-          );
-          const newRecord = { at: new Date().toISOString(), ...changedFields };
-          history.push(newRecord);
-          // Comprimir historial para evitar QuotaExceededError
-          const compressedHistory = compressAuditHistory(history);
-          // keep original createdAt so chronological order and balances are preserved
-          const baseAmountDue = Math.max(0, Math.trunc(Number(e.amountDue ?? e.balanceDue) || 0));
-          const basePaymentAmount = Math.max(0, Math.trunc(Number(e.amountEgreso) || 0));
-          const newPaymentAmount = isEgreso ? egresoValue : 0;
-          const nextAmountDue = isEditingPaidFcr
-            ? Math.max(0, baseAmountDue - (newPaymentAmount - basePaymentAmount))
-            : baseAmountDue;
-          updatedEntry = {
-            ...e,
-            providerCode: selectedProvider,
-            invoiceNumber: paddedInvoice,
-            invoiceDocType: normalizeInvoiceDocType(invoiceDocType),
-            accountId: accountKey,
-            empresa: company,
-            paymentType,
-            amountEgreso: isEgreso ? egresoValue : 0,
-            amountIngreso: isEgreso ? 0 : ingresoValue,
-            amountPayment: nextAmountPayment,
-            amountDue: nextAmountDue,
-            balanceDue: nextAmountDue,
-            appliedCreditNotes:
-              nextAppliedCreditNotes.length > 0
-                ? nextAppliedCreditNotes
-                : undefined,
-            manager: effectiveManager,
-            manager2: effectiveManager2 || undefined,
-            notes: trimmedNotes,
-            // mark as edited/audited and preserve originalEntryId (point to initial id)
-            isAudit: true,
-            originalEntryId: e.originalEntryId ?? e.id,
-            auditDetails: JSON.stringify({ history: compressedHistory }),
-            currency: movementCurrency,
-          } as FondoEntry;
-          return updatedEntry;
-        });
-
-        // PRIMERO persistir a Firestore, LUEGO actualizar UI
-        const saved = await persistMovementToFirestore(updatedEntries, "edit", {
-          upsert: updatedEntry ?? undefined,
-          before: original,
-        });
-
-        if (!saved.ok) {
-          showToast(
-            "Error al guardar el movimiento. Por favor, intente de nuevo.",
-            "error",
-            5000,
-          );
-          setIsSaving(false);
-          editingInProgressRef.current = false;
-          return;
-        }
-
-        // Registrar timestamp de la última edición guardada
-        lastEditSaveTimestampRef.current = Date.now();
-        editingInProgressRef.current = false;
-
-        // Solo actualizar la UI si el guardado fue exitoso
-        setFondoEntries(updatedEntries);
-        if (saved.ledgerSnapshot) {
-          setLedgerSnapshot(saved.ledgerSnapshot);
-        }
-
-        // Mantener una copia en Facturas (best-effort)
-        if (updatedEntry) {
-          const facturaEntry = updatedEntry as FondoEntry;
-          const normalizedCompany = (company || "").trim();
-          if (isPaidFcrMovement(facturaEntry) && !isCajaNegra) {
-            // Actualizar la factura original al editar un abono
-            const paymentId = String(facturaEntry.id || "");
-            const prefix = "fcr-pago-";
-            if (paymentId.startsWith(prefix) && normalizedCompany.length > 0) {
-              const rest = paymentId.slice(prefix.length);
-              const invoiceIdMatch = rest.match(/^(FAC-\d+-[A-Z0-9]+)-/);
-              if (invoiceIdMatch) {
-                const invoiceId = invoiceIdMatch[1];
-                const invoiceRef = FacturasService.buildMovementRef(normalizedCompany, invoiceId);
-                try {
-                  const invoiceSnap = await getDoc(invoiceRef);
-                  if (invoiceSnap.exists()) {
-                    const invoiceData = invoiceSnap.data() as FacturaMovement;
-                    const oldPaymentAmount = Math.max(0, Math.trunc(Number(original.amountEgreso) || 0));
-                    const newPaymentAmount = Math.max(0, Math.trunc(Number(facturaEntry.amountEgreso) || 0));
-                    const diff = newPaymentAmount - oldPaymentAmount;
-                    if (diff !== 0) {
-                      const totalAmount = Math.max(0, Math.trunc(Number(invoiceData.originalAmount ?? invoiceData.amount) || 0));
-                      const currentPaid = Math.max(0, Math.trunc(Number(invoiceData.paidAmount) || 0));
-                      const nextPaid = Math.min(totalAmount, Math.max(0, currentPaid + diff));
-                      const nextBalance = Math.max(0, totalAmount - nextPaid);
-                      const nextStatus = nextBalance === 0 ? "PAGADA" : nextPaid > 0 ? "PARCIAL" : "PENDIENTE";
-                      await FacturasService.upsertMovement(normalizedCompany, {
-                        ...(invoiceData as any),
-                        id: invoiceId,
-                        empresa: normalizedCompany,
-                        paidAmount: nextPaid,
-                        balanceDue: nextBalance,
-                        paymentStatus: nextStatus,
-                      } as FacturaMovement);
-                    }
-                  }
-                } catch { /* fallo al leer factura */ }
-              }
-            }
-          } else {
-            if (normalizedCompany.length > 0) {
-              if (shouldMirrorMovementToFacturas) {
-                const facturaAmount = Math.abs(
-                  (facturaEntry.amountIngreso || 0) -
-                    (facturaEntry.amountEgreso || 0),
-                );
-                const facturaCopy: FacturaMovement = {
-                  id: String(facturaEntry.id),
-                  empresa: normalizedCompany,
-                  accountId: accountKey,
-                  amount: facturaAmount,
-                  providerCode: facturaEntry.providerCode,
-                  invoiceNumber: facturaEntry.invoiceNumber,
-                  invoiceDocType: normalizeInvoiceDocType(
-                    (facturaEntry as any).invoiceDocType,
-                  ),
-                  paymentType: facturaEntry.paymentType,
-                  amountEgreso: facturaEntry.amountEgreso,
-                  amountIngreso: facturaEntry.amountIngreso,
-                  amountPayment: facturaEntry.amountPayment,
-                  appliedCreditNotes: facturaEntry.appliedCreditNotes,
-                  manager: facturaEntry.manager,
-                  manager2: facturaEntry.manager2,
-                  notes: facturaEntry.notes,
-                  createdAt: facturaEntry.createdAt,
-                  currency: facturaEntry.currency === "USD" ? "USD" : "CRC",
-                };
-                void FacturasService.upsertMovement(
-                  normalizedCompany,
-                  facturaCopy,
-                );
-              }
-            }
-          }
-        }
-        if (saved.confirmed) {
-          showToast("Movimiento editado correctamente", "success", 3000);
-        } else {
-          showToast(
-            "Edición guardada localmente; pendiente de sincronización (revisa tu conexión).",
-            "warning",
-            6000,
-          );
-        }
-
-        // Enviar notificación por correo si el proveedor tiene correonotifi
-        const editedEntry = updatedEntries.find((e) => e.id === editingEntryId);
-        if (editedEntry) {
-          sendMovementNotification(editedEntry, "edit").catch((err) => {
-            console.error(
-              "[NOTIFICATION] Error en notificación de movimiento editado:",
-              err,
-            );
-          });
-        }
-
-        try {
-          // compute simple before/after CRC balances to help debug balance update issues
-          const sumBalance = (entries: FondoEntry[]) => {
-            let ingresosCRC = 0;
-            let egresosCRC = 0;
-            entries.forEach((en) => {
-              const cur = (en.currency as "CRC" | "USD") || "CRC";
-              if (cur === "CRC") {
-                ingresosCRC += en.amountIngreso || 0;
-                egresosCRC += resolveEffectiveEgresoAmount(en);
-              }
-            });
-            return (Number(initialAmount) || 0) + ingresosCRC - egresosCRC;
-          };
-          const beforeBalance = sumBalance(fondoEntries);
-          const afterBalance = sumBalance(updatedEntries);
-          console.info("[FG-DEBUG] Edited movement saved", editingEntryId, {
-            prevCount: fondoEntries.length,
-            nextCount: updatedEntries.length,
-            beforeBalanceCRC: beforeBalance,
-            afterBalanceCRC: afterBalance,
-          });
-        } catch {
-          console.info(
-            "[FG-DEBUG] Edited movement saved (error computing debug balances)",
-            editingEntryId,
-          );
-        }
-
-        resetFondoForm();
-        if (!movementAutoCloseLocked) {
-          setMovementModalOpen(false);
-        }
-        setIsSaving(false);
-        return;
-      }
-
-      // CREAR nuevo movimiento
-      // If this is a CIERRE FONDO VENTAS movement, prevent concurrent Fondo General closings (and vice versa)
-      let closingGuard: { token: string; docId: string } | null = null;
-      try {
-        const normalizedCompany = (company || "").trim();
-        const requiresDuplicateInvoiceCheck =
-          shouldMirrorMovementToFacturas &&
-          isInventoryPurchasePaymentType(paymentType);
-        const previousInvoiceMovement = requiresDuplicateInvoiceCheck
-          ? await findLatestMovementByInvoiceNumber(
-              normalizedCompany,
-              paddedInvoice,
-              selectedProvider,
-            )
-          : null;
-
-        if (previousInvoiceMovement) {
-          console.log(
-            "[INVOICE-DUPLICATE] Coincidencia detectada antes de guardar COMPRA DE INVENTARIO.",
-            {
-              company: normalizedCompany,
-              invoiceNumber: paddedInvoice,
-              previousMovementId: previousInvoiceMovement.id,
-            },
-          );
-        }
-
-        const selectedProviderData = providers.find(
-          (p) => p.code === selectedProvider,
-        );
-        const isCierreVentas =
-          selectedProviderData?.name?.toUpperCase() ===
-          CIERRE_FONDO_VENTAS_PROVIDER_NAME;
-        // Enforce cross-device guard ONLY for regular users.
-        // Admin/superadmin are allowed to create a closing even during the lock window.
-        if (normalizedCompany.length > 0 && isCierreVentas && isRegularUser) {
-          const acquired = await acquireClosingGuard(
-            normalizedCompany,
-            "FONDO_VENTAS",
-            user,
-          );
-          if (!acquired.ok) {
-            const kindLabel =
-              acquired.lockedKind === "FONDO_GENERAL"
-                ? "Fondo General"
-                : acquired.lockedKind === "FONDO_VENTAS"
-                  ? "Fondo Ventas"
-                  : "otro cierre";
-            showToast(
-              `Otro cierre (${kindLabel}) se está registrando. Intente en ${formatToastWaitTime(
-                acquired.remainingSec,
-              )}.`,
-              "warning",
-              6000,
-            );
-            return;
-          }
-          closingGuard = { token: acquired.token, docId: acquired.docId };
-        }
-
-        const now = new Date();
-        const iso = now.toISOString();
-        // Use local time for the document id to avoid UTC surprises when searching by hour.
-        const yyyy = now.getFullYear();
-        const MM = String(now.getMonth() + 1).padStart(2, "0");
-        const DD = String(now.getDate()).padStart(2, "0");
-        const HH = String(now.getHours()).padStart(2, "0");
-        const mm = String(now.getMinutes()).padStart(2, "0");
-        const ss = String(now.getSeconds()).padStart(2, "0");
-        const mmm = String(now.getMilliseconds()).padStart(3, "0");
-        const dateKey = `${yyyy}_${MM}_${DD}`; // YYYY_MM_DD (local)
-        const timeKey = `${HH}_${mm}_${ss}_${mmm}`; // HH_MM_SS_mmm (local, URL-safe)
-        const movementId = `${dateKey}-${timeKey}_${accountKey}`;
-        const manualCreditNoteApplied =
-          isEgreso &&
-          effectiveInvoiceDocType === "FCO" &&
-          manualCreditNoteDraft &&
-          manualCreditNoteAppliedAmount > 0
-            ? [
-                {
-                  id: `manual-nc-${movementId}`,
-                  invoiceNumber: manualCreditNoteDraft.invoiceNumber,
-                  amount: manualCreditNoteDraft.amount,
-                  appliedAmount: manualCreditNoteAppliedAmount,
-                  currency: movementCurrency,
-                  observation: manualCreditNoteDraft.observation,
-                } as AppliedCreditNote,
-              ]
-            : [];
-        const appliedCreditNotes = [
-          ...creditNoteApplication.notes,
-          ...manualCreditNoteApplied,
-        ];
-        const totalAppliedCreditNotes =
-          creditNoteApplication.total +
-          manualCreditNoteApplied.reduce(
-            (sum, note) => sum + Math.max(0, Math.trunc(note.appliedAmount)),
-            0,
-          );
-        const entry: FondoEntry = {
-          id: movementId,
-          empresa: company,
-          accountId: accountKey,
-          providerCode: selectedProvider,
-          invoiceNumber: paddedInvoice,
-          invoiceDocType: effectiveInvoiceDocType,
-          paymentType,
-          amountEgreso: isEgreso ? egresoValue : 0,
-          amountIngreso: isIngreso ? ingresoValue : 0,
-          amountPayment:
-            isEgreso && effectiveInvoiceDocType === "FCO"
-              ? roundCreditNotePaymentAmount(
-                  Math.max(0, egresoValue - totalAppliedCreditNotes),
-                  movementCurrency,
-                  accountKey,
-                )
-              : undefined,
-          appliedCreditNotes:
-             appliedCreditNotes.length > 0 ? appliedCreditNotes : undefined,
-          manager: effectiveManager,
-          notes: trimmedNotes,
-          createdAt: iso,
-          currency: movementCurrency,
-        };
-
-        // Crédito (FCR): se registra solo en Facturas y NO afecta el Fondo.
-        if (effectiveInvoiceDocType === "FCR") {
-          if (!shouldMirrorMovementToFacturas) {
-            showToast(
-              'Solo los proveedores de tipo "COMPRA INVENTARIO" pueden generar facturas.',
-              "error",
-              5000,
-            );
-            return;
-          }
-          const normalizedCompany = (company || "").trim();
-          if (normalizedCompany.length === 0) {
-            showToast(
-              "No se pudo registrar la factura: falta empresa.",
-              "error",
-              5000,
-            );
-            return;
-          }
-
-          if (shouldMirrorMovementToFacturas) {
-            const facturaCopy: FacturaMovement = {
-              id: entry.id,
-              empresa: normalizedCompany,
-              accountId: accountKey,
-              amount: Math.abs(
-                (entry.amountIngreso || 0) - (entry.amountEgreso || 0),
-              ),
-              providerCode: entry.providerCode,
-              invoiceNumber: entry.invoiceNumber,
-              invoiceDocType: "FCR",
-              paymentType: entry.paymentType,
-              amountEgreso: entry.amountEgreso,
-              amountIngreso: entry.amountIngreso,
-              manager: entry.manager,
-              notes: entry.notes,
-              createdAt: entry.createdAt,
-              currency: entry.currency === "USD" ? "USD" : "CRC",
-            };
-
-            await FacturasService.upsertMovement(
-              normalizedCompany,
-              facturaCopy,
-            );
-          }
-
-          try {
-            await ProvidersService.incrementMovementCount(
-              normalizedCompany,
-              selectedProvider,
-            );
-          } catch (err) {
-            console.warn(
-              "[FG] Could not increment provider movement count (FCR):",
-              err,
-            );
-          }
-
-          // Notificación por correo (mismo comportamiento)
-          sendMovementNotification(entry, "create").catch((err) => {
-            console.error(
-              "[NOTIFICATION] Error en notificación de movimiento (FCR):",
-              err,
-            );
-          });
-
-          showToast("Factura a crédito registrada", "success", 3000);
-          resetFondoForm();
-          if (!movementAutoCloseLocked) {
-            setMovementModalOpen(false);
-          }
-          return;
-        }
-
-        // Preparar la lista actualizada ANTES de persistir
-        const updatedEntries = [entry, ...fondoEntries];
-        const createdOk = await persistCreatedMovement(entry, updatedEntries);
-
-        if (createdOk && previousInvoiceMovement) {
-          void sendDuplicateInvoiceAlertEmail({
-            company,
-            ownerAdminEmail,
-            activeOwnerId,
-            userEmail: user?.email,
-            currentEntry: entry,
-            previousEntry: previousInvoiceMovement,
-            resolveProviderName: (providerCode: string) =>
-              providers.find((p) => p.code === providerCode)?.name ||
-              providerCode,
-          });
-        }
-
-        if (createdOk) {
-          try {
-            if (normalizedCompany.length > 0) {
-              await ProvidersService.incrementMovementCount(
-                normalizedCompany,
-                selectedProvider,
-              );
-            }
-          } catch (err) {
-            console.warn(
-              "[FG] Could not increment provider movement count:",
-              err,
-            );
-          }
-
-          if (normalizedCompany.length > 0 && manualCreditNoteDraft) {
-            try {
-              if (shouldMirrorMovementToFacturas) {
-                const manualCreditNoteMovement: FacturaMovement = {
-                  id: `${entry.id}-NC`,
-                  empresa: normalizedCompany,
-                  accountId: accountKey,
-                  amount: manualCreditNoteDraft.amount,
-                  amountEgreso: 0,
-                  amountIngreso: manualCreditNoteDraft.amount,
-                  amountPayment: manualCreditNoteDraft.amount,
-                  balanceDue: 0,
-                  createdAt: entry.createdAt,
-                  currency: movementCurrency,
-                  invoiceNumber: manualCreditNoteDraft.invoiceNumber,
-                  manager,
-                  manager2: manager2 || undefined,
-                  notes: manualCreditNoteDraft.observation ?? "",
-                  invoiceDocType: "NC",
-                  paymentType,
-                  providerCode: selectedProvider,
-                  paidAmount: manualCreditNoteDraft.amount,
-                  paymentStatus: "PAGADA",
-                };
-                await FacturasService.upsertMovement(
-                  normalizedCompany,
-                  manualCreditNoteMovement,
-                );
-              }
-            } catch (err) {
-              console.warn("[FG] Could not upsert manual NC in Facturas:", err);
-            }
-          }
-
-          if (
-            normalizedCompany.length > 0 &&
-            entry.appliedCreditNotes &&
-            entry.appliedCreditNotes.length > 0
-          ) {
-            try {
-              const batch = writeBatch(db);
-              entry.appliedCreditNotes.forEach((note) => {
-                const pendingNote = selectedProviderPendingCreditNotes.find(
-                  (item) => item.id === note.id,
-                );
-                if (!pendingNote) return;
-                const nextPaidAmount = Math.min(
-                  pendingNote.amount,
-                  pendingNote.paidAmount + note.appliedAmount,
-                );
-                const nextBalanceDue = Math.max(
-                  0,
-                  pendingNote.amount - nextPaidAmount,
-                );
-                batch.set(
-                  FacturasService.buildMovementRef(normalizedCompany, note.id),
-                  {
-                    paidAmount: nextPaidAmount,
-                    balanceDue: nextBalanceDue,
-                    paymentStatus: nextBalanceDue === 0 ? "REBAJADA" : "PARCIAL",
-                    updateAt: entry.createdAt,
-                  },
-                  { merge: true },
-                );
-              });
-              await batch.commit();
-              setSelectedProviderPendingCreditNotes((prev) =>
-                prev
-                  .map((note) => {
-                    const applied = entry.appliedCreditNotes?.find(
-                      (item) => item.id === note.id,
-                    );
-                    if (!applied) return note;
-                    const paidAmount = Math.min(
-                      note.amount,
-                      note.paidAmount + applied.appliedAmount,
-                    );
-                    return {
-                      ...note,
-                      paidAmount,
-                      balanceDue: Math.max(0, note.amount - paidAmount),
-                    };
-                  })
-                  .filter((note) => note.balanceDue > 0),
-              );
-              setSelectedAppliedCreditNoteIds([]);
-            } catch (err) {
-              console.warn("[FG] Could not update applied credit notes:", err);
-            }
-          }
-
-          if (
-            normalizedCompany.length > 0 &&
-            selectedPendingCreditInvoiceIds.length > 0
-          ) {
-            try {
-              if (accountKey === "CajaNegra") {
-                showToast(
-                    "Desde Caja Negra no se debe gestionar facturas a crédito.",
-                  "error",
-                  4500,
-                );
-                setSelectedPendingCreditInvoiceIds([]);
-              } else {
-                const selectedIds = new Set(selectedPendingCreditInvoiceIds);
-                const invoicesToPay = pendingClosingCreditInvoices.filter(
-                  (invoice) =>
-                    selectedIds.has(invoice.id) &&
-                    invoice.providerCode === selectedProvider &&
-                    invoice.currency === movementCurrency,
-                );
-
-              if (invoicesToPay.length > 0) {
-                const docId =
-                  MovimientosFondosService.buildCompanyMovementsKey(
-                    normalizedCompany,
-                  );
-
-                let baseStorage = null;
-                try {
-                  baseStorage = await MovimientosFondosService.getDocument(docId);
-                } catch {
-                  baseStorage = null;
-                }
-
-                const ledger =
-                  baseStorage ??
-                  MovimientosFondosService.createEmptyMovementStorage(
-                    normalizedCompany,
-                  );
-                ledger.company = normalizedCompany;
-                ledger.operations = { movements: [] };
-
-                const state =
-                  ledger.state ??
-                  MovimientosFondosService.createEmptyMovementStorage(
-                    normalizedCompany,
-                  ).state;
-                const acctKey = accountKey;
-                const currency = movementCurrency as MovementCurrencyKey;
-                const nowISO = entry.createdAt;
-                let totalPaymentApplied = 0;
-
-                const batch = writeBatch(db);
-
-                const paymentMovements: Array<Record<string, unknown>> = [];
-
-                invoicesToPay.forEach((invoice) => {
-                  const totalAmount = Math.max(
-                    0,
-                    Math.trunc(
-                      Number(invoice.originalAmount ?? invoice.amount) || 0,
-                    ),
-                  );
-                  const paidAmount = Math.max(
-                    0,
-                    Math.trunc(Number(invoice.paidAmount) || 0),
-                  );
-                  const balance = Math.max(
-                    0,
-                    Math.trunc(
-                      Number(invoice.balanceDue ?? totalAmount - paidAmount) ||
-                        0,
-                    ),
-                  );
-                  if (balance <= 0) return;
-
-                  const nextPaidAmount = Math.min(
-                    totalAmount,
-                    paidAmount + balance,
-                  );
-                  const nextBalanceDue = Math.max(0, totalAmount - nextPaidAmount);
-                  const nextStatus =
-                    nextBalanceDue === 0
-                      ? "PAGADA"
-                      : nextPaidAmount > 0
-                        ? "PARCIAL"
-                        : "PENDIENTE";
-
-                  const updatedMovement: FacturaMovement = {
-                    ...invoice,
-                    accountId: acctKey,
-                    amount: totalAmount,
-                    originalAmount: totalAmount,
-                    amountDue: nextBalanceDue,
-                    amountPayment: balance,
-                    paidAmount: nextPaidAmount,
-                    balanceDue: nextBalanceDue,
-                    paymentStatus: nextStatus,
-                    updateAt: nowISO,
-                  };
-
-                  batch.set(
-                    FacturasService.buildMovementRef(
-                      normalizedCompany,
-                      invoice.id,
-                    ),
-                    stripUndefinedDeep(updatedMovement),
-                    { merge: true },
-                  );
-
-                  const paymentMovement =
-                    MovimientosFondosService.buildInvoicePaymentMovement({
-                      company: normalizedCompany,
-                      invoice: updatedMovement,
-                      paymentAmount: balance,
-                      updateAt: nowISO,
-                      manager2: manager2?.trim() || undefined,
-                    });
-                  paymentMovements.push(paymentMovement);
-
-                  const paymentMovementId = String(
-                    (paymentMovement as any).id || "",
-                  );
-                  const movRef = MovimientosFondosService.buildMovementRef(
-                    docId,
-                    paymentMovementId,
-                    acctKey,
-                  );
-                  batch.set(movRef, stripUndefinedDeep(paymentMovement));
-
-                  totalPaymentApplied += balance;
-                });
-
-                if (totalPaymentApplied > 0) {
-                  let found = false;
-                  state.balancesByAccount = state.balancesByAccount.map((b) => {
-                    if (b.accountId === acctKey && b.currency === currency) {
-                      const current =
-                        typeof b.currentBalance === "number"
-                          ? b.currentBalance
-                          : b.initialBalance || 0;
-                      const next = current - totalPaymentApplied;
-                      found = true;
-                      return { ...b, currentBalance: next };
-                    }
-                    return b;
-                  });
-                  if (!found) {
-                    state.balancesByAccount.push({
-                      accountId: acctKey,
-                      currency,
-                      enabled: true,
-                      initialBalance: 0,
-                      currentBalance: -totalPaymentApplied,
-                    });
-                  }
-                  state.updatedAt = new Date().toISOString();
-                  ledger.state = state;
-
-                  const mainRef = doc(
-                    db,
-                    MovimientosFondosService.COLLECTION_NAME,
-                    docId,
-                  );
-                  batch.set(mainRef, stripUndefinedDeep(ledger) as any);
-                  await batch.commit();
-
-                  setPendingClosingCreditInvoices((prev) =>
-                    prev.filter((invoice) => !selectedIds.has(invoice.id)),
-                  );
-                  setSelectedPendingCreditInvoiceIds([]);
-
-                  storageSnapshotRef.current = stripUndefinedDeep(ledger) as any;
-                  try {
-                    const cacheKey = buildV2MovementsCacheKey(
-                      docId,
-                      acctKey,
-                    );
-                    const cached = v2MovementsCacheRef.current[cacheKey];
-                    if (cached?.loaded) {
-                      const paymentEntries = paymentMovements.map((movement) => ({
-                        ...(movement as unknown as FondoEntry),
-                        id: String((movement as any).id || ""),
-                      }));
-                      v2MovementsCacheRef.current[cacheKey] = {
-                        ...cached,
-                        movements: [...paymentEntries, ...cached.movements],
-                      };
-                      rebuildEntriesFromV2Cache(docId, acctKey);
-                    }
-                    applyLedgerStateFromStorage(ledger.state);
-                  } catch (refreshErr) {
-                    console.error(
-                      "[FONDO] Error refreshing UI after credit invoice payment:",
-                      refreshErr,
-                    );
-                  }
-                }
-              }
-              }
-            } catch (err) {
-              console.warn(
-                "[FG] Could not update selected credit invoices:",
-                err,
-              );
-            }
-          }
-
-          // Mantener copia en Facturas (best-effort)
-          try {
-            if (normalizedCompany.length > 0) {
-              if (shouldMirrorMovementToFacturas) {
-                const facturaCopy: FacturaMovement = {
-                  id: entry.id,
-                  empresa: normalizedCompany,
-                  accountId: accountKey,
-                  amount: Math.abs(
-                    (entry.amountIngreso || 0) - (entry.amountEgreso || 0),
-                  ),
-                  providerCode: entry.providerCode,
-                  invoiceNumber: entry.invoiceNumber,
-                  invoiceDocType: "FCO",
-                  paymentType: entry.paymentType,
-                  amountEgreso: entry.amountEgreso,
-                  amountIngreso: entry.amountIngreso,
-                  amountPayment: entry.amountPayment,
-                  appliedCreditNotes: entry.appliedCreditNotes,
-                  manager: entry.manager,
-                  notes: entry.notes,
-                  createdAt: entry.createdAt,
-                  currency: entry.currency === "USD" ? "USD" : "CRC",
-                };
-                await FacturasService.upsertMovement(
-                  normalizedCompany,
-                  facturaCopy,
-                );
-              }
-            }
-          } catch (err) {
-            console.warn("[FG] Could not upsert Facturas copy:", err);
-          }
-        }
-
-        // If an admin/superadmin created a cierre, touch the guard on success so regular users
-        // are blocked for the lock window.
-        if (
-          createdOk &&
-          normalizedCompany.length > 0 &&
-          isCierreVentas &&
-          !isRegularUser
-        ) {
-          void touchClosingGuard(normalizedCompany, "FONDO_VENTAS", user);
-        }
-
-        // If save failed, release guard so user can retry immediately.
-        if (!createdOk && closingGuard) {
-          try {
-            if (normalizedCompany.length > 0) {
-              void releaseClosingGuard(normalizedCompany, closingGuard);
-            }
-          } catch {
-            // ignore
-          }
-        }
-      } catch (err) {
-        // Unexpected error: release guard to avoid blocking retries.
-        try {
-          const normalizedCompany = (company || "").trim();
-          if (closingGuard && normalizedCompany.length > 0) {
-            void releaseClosingGuard(normalizedCompany, closingGuard);
-          }
-        } catch {
-          // ignore
-        }
-        throw err;
-      }
-    } finally {
-      setIsSaving(false);
-      movementSubmitInProgressRef.current = false;
-    }
+      namespace,
+      isDelifoodCompany,
+      activeEmpresaForCompany,
+      getFGMonthlySchedulesCached,
+      setMissingShiftExpectedShift,
+      setMissingShiftDateKey,
+      setMissingShiftModalOpen,
+      setManager,
+      setManagerError,
+      manager2,
+      isEditingPaidFcrMovement,
+      setManager2Error,
+      isEgreso,
+      isIngreso,
+      egreso,
+      ingreso,
+      notes,
+      movementProviders,
+      paymentType,
+      setAmountError,
+      showToast,
+      selectedAppliedCreditNoteIds,
+      selectedProviderPendingCreditNotes,
+      setPendingZeroAmountCreditNoteModalOpen,
+      isAdminUser,
+      isSuperAdminUser,
+      ledgerSnapshot,
+      fondoEntries,
+      initialAmount,
+      lastMovementCreatedAtRef,
+      lastMovementDedupeRef,
+      lastEditSaveTimestampRef,
+      setIsSaving,
+      editingInProgressRef,
+      persistMovementToFirestore,
+      persistCreatedMovement,
+      setFondoEntries,
+      setLedgerSnapshot,
+      movementAutoCloseLocked,
+      resetFondoForm,
+      setMovementModalOpen,
+      ownerAdminEmail,
+      activeOwnerId,
+      user,
+      manualCreditNoteDraft,
+      setSelectedProviderPendingCreditNotes,
+      setSelectedAppliedCreditNoteIds,
+      pendingClosingCreditInvoices,
+      selectedPendingCreditInvoiceIds,
+      setPendingClosingCreditInvoices,
+      selectedProviderPendingCreditInvoices,
+      setSelectedPendingCreditInvoiceIds,
+      v2MovementsCacheRef,
+      rebuildEntriesFromV2Cache,
+      applyLedgerStateFromStorage,
+      storageSnapshotRef,
+      setNegativeBalanceModal,
+      providers,
+      movementCurrency,
+    });
   };
 
   const startEditingEntry = (entry: FondoEntry) => {
@@ -5114,37 +2506,11 @@ export function FondoSection({
   };
 
   const isMovementLocked = useCallback(
-    (entry: FondoEntry): boolean => {
-      // Los ajustes automáticos siempre están bloqueados
-      if (isAutoAdjustmentProvider(entry.providerCode)) {
-        return true;
-      }
-
-      // El bloqueo por cierres solo aplica para Fondo General
-      if (accountKey !== "FondoGeneral") {
-        return false;
-      }
-
-      // Si no hay snapshot o no hay lockedUntil, no hay bloqueo
-      const lockedUntil = storageSnapshotRef.current?.state?.lockedUntil;
-
-      if (!lockedUntil) {
-        return false;
-      }
-
-      try {
-        const movementTime = new Date(entry.createdAt).getTime();
-        const lockTime = new Date(lockedUntil).getTime();
-
-        // Bloqueado si el movimiento es anterior o igual al último cierre
-        const isLocked = movementTime <= lockTime;
-
-        return isLocked;
-      } catch {
-        // Si hay error parseando fechas, no bloquear
-        return false;
-      }
-    },
+    (entry: FondoEntry): boolean =>
+      isMovementLockedFn(entry, {
+        accountKey,
+        storageSnapshotRef,
+      }),
     [accountKey],
   );
 
@@ -5262,76 +2628,19 @@ export function FondoSection({
   };
 
   const handleSaveManualCreditNote = async () => {
-    const target = manualCreditNoteTarget;
-    if (!target) return;
-
-    const normalizedCompany = (company || "").trim();
-    if (!normalizedCompany) {
-      setManualCreditNoteError("No se pudo determinar la empresa.");
-      return;
-    }
-
-    const invoiceNumberValue = String(manualCreditNoteInvoiceNumber || "")
-      .trim()
-      .toUpperCase();
-    if (!/^[0-9]{1,4}$/.test(invoiceNumberValue)) {
-      setManualCreditNoteError(
-        "Ingresa un número de factura válido (1-4 dígitos).",
-      );
-      return;
-    }
-
-    const amountValue = Math.max(
-      0,
-      Math.trunc(Number(manualCreditNoteAmount) || 0),
-    );
-    if (amountValue <= 0) {
-      setManualCreditNoteError("Ingresa un monto mayor a cero.");
-      return;
-    }
-
-    const observationValue = String(manualCreditNoteObservation || "").trim();
-
-    const targetCurrency = (target.currency as "CRC" | "USD") || "CRC";
-    const targetBaseAmount = Math.max(
-      0,
-      Math.trunc(Number(target.amountEgreso || target.amountIngreso) || 0),
-    );
-
-    if (amountValue > targetBaseAmount) {
-      setManualCreditNoteError(
-        `El monto supera el saldo disponible para aplicar (${formatByCurrency(
-          targetCurrency,
-          targetBaseAmount,
-        )}).`,
-      );
-      return;
-    }
-
-    setManualCreditNoteSaving(true);
-    setManualCreditNoteError("");
-    try {
-      setManualCreditNoteDraft({
-        invoiceNumber: invoiceNumberValue,
-        amount: amountValue,
-        observation: observationValue || undefined,
-      });
-      // Marcar la NC manual como seleccionada para que aparezca inmediatamente
-      setSelectedAppliedCreditNoteIds((prev) =>
-        prev && prev.includes("manual-nc-draft")
-          ? prev
-          : [...(prev || []), "manual-nc-draft"],
-      );
-      showToast("Nota de crédito manual lista para guardar", "success", 3000);
-      closeManualCreditNoteModal();
-    } catch (error) {
-      console.error("[FG] Error saving manual credit note:", error);
-      if (!manualCreditNoteError) {
-        setManualCreditNoteError("No se pudo guardar la nota de crédito.");
-      }
-    } finally {
-      setManualCreditNoteSaving(false);
-    }
+    await handleSaveManualCreditNoteFn({
+      manualCreditNoteTarget,
+      company,
+      manualCreditNoteInvoiceNumber,
+      manualCreditNoteAmount,
+      manualCreditNoteObservation,
+      setManualCreditNoteError,
+      setManualCreditNoteSaving,
+      setManualCreditNoteDraft,
+      setSelectedAppliedCreditNoteIds,
+      showToast,
+      closeManualCreditNoteModal,
+    });
   };
 
   // Check if current user is the principal admin (owner) of the company
@@ -5396,334 +2705,99 @@ export function FondoSection({
   }, [fondoEntries, providers, cierreFondoVentasProviderCode]);
 
   const isCierreFondoVentasMovement = useCallback(
-    (entry: FondoEntry): boolean => {
-      try {
-        if (cierreFondoVentasProviderCode) {
-          return entry.providerCode === cierreFondoVentasProviderCode;
-        }
-        const providerName = providers
-          .find((p) => p.code === entry.providerCode)
-          ?.name?.toUpperCase();
-        return providerName === CIERRE_FONDO_VENTAS_PROVIDER_NAME;
-      } catch {
-        return false;
-      }
-    },
+    (entry: FondoEntry): boolean =>
+      isCierreFondoVentasMovementFn(entry, {
+        providers,
+        cierreFondoVentasProviderCode,
+      }),
     [providers, cierreFondoVentasProviderCode],
   );
 
   const handleDeleteMovement = useCallback(
     (entry: FondoEntry) => {
-      // Restricción: solo se permite borrar el ÚLTIMO "CIERRE FONDO VENTAS".
-      if (isCierreFondoVentasMovement(entry)) {
-        if (
-          !latestCierreFondoVentasMovementId ||
-          entry.id !== latestCierreFondoVentasMovementId
-        ) {
-          showToast(
-            "Solo se permite eliminar el último cierre de Fondo Ventas.",
-            "warning",
-            6000,
-          );
-          return;
-        }
-      }
-
-      // Default: only principal admin can delete movements.
-      // Exception: superadmin can delete only "CIERRE FONDO VENTAS" movements.
-      if (!isPrincipalAdmin) {
-        const canSuperDeleteVentas =
-          Boolean(isSuperAdminUser) && isCierreFondoVentasMovement(entry);
-        if (!canSuperDeleteVentas) {
-          showToast(
-            "Solo el administrador principal puede eliminar movimientos",
-            "error",
-          );
-          return;
-        }
-      }
-
-      if (isMovementLocked(entry)) {
-        showToast(
-          "Este movimiento está bloqueado (anterior al último cierre) y no puede eliminarse.",
-          "error",
-        );
-        return;
-      }
-
-      if (isAutoAdjustmentProvider(entry.providerCode)) {
-        showToast("Los ajustes automáticos no se pueden eliminar.", "error");
-        return;
-      }
-
-      setConfirmDeleteEntry({ open: true, entry });
+      void handleDeleteMovementFn(entry, {
+        accountKey,
+        company,
+        providers,
+        cierreFondoVentasProviderCode,
+        latestCierreFondoVentasMovementId,
+        isPrincipalAdmin,
+        isSuperAdminUser,
+        showToast,
+        setConfirmDeleteEntry,
+        storageSnapshotRef,
+      });
     },
     [
+      accountKey,
+      company,
+      providers,
+      cierreFondoVentasProviderCode,
+      latestCierreFondoVentasMovementId,
       isPrincipalAdmin,
       isSuperAdminUser,
-      isCierreFondoVentasMovement,
-      latestCierreFondoVentasMovementId,
-      isMovementLocked,
       showToast,
+      setConfirmDeleteEntry,
+      storageSnapshotRef,
     ],
   );
 
-  const confirmDeleteMovement = useCallback(async () => {
-    const entry = confirmDeleteEntry.entry;
-    if (!entry) return;
-
-    if (isSaving) return; // Prevenir múltiples envíos
-    setIsSaving(true);
-
-    try {
-      // Restricción: solo se permite borrar el ÚLTIMO "CIERRE FONDO VENTAS".
-      if (isCierreFondoVentasMovement(entry)) {
-        if (
-          !latestCierreFondoVentasMovementId ||
-          entry.id !== latestCierreFondoVentasMovementId
-        ) {
-          showToast(
-            "Solo se permite eliminar el último cierre de Fondo Ventas.",
-            "warning",
-            6000,
-          );
-          setConfirmDeleteEntry({ open: false, entry: null });
-          return;
-        }
-      }
-
-      // Permission guard (in case state was manipulated).
-      if (!isPrincipalAdmin) {
-        const canSuperDeleteVentas =
-          Boolean(isSuperAdminUser) && isCierreFondoVentasMovement(entry);
-        if (!canSuperDeleteVentas) {
-          showToast(
-            "No autorizado para eliminar este movimiento",
-            "error",
-            5000,
-          );
-          setConfirmDeleteEntry({ open: false, entry: null });
-          return;
-        }
-      }
-
-      const normalizedCompany = (company || "").trim();
-      let facturaRollbackWrites: ((batch: WriteBatch) => void) | undefined;
-      if (normalizedCompany.length > 0 && isPaidFcrMovement(entry)) {
-        const invoiceId = getFcrPaymentInvoiceId(entry);
-        if (invoiceId) {
-          const invoiceRef = FacturasService.buildMovementRef(
-            normalizedCompany,
-            invoiceId,
-          );
-          const invoiceSnap = await getDoc(invoiceRef);
-          if (!invoiceSnap.exists()) {
-            showToast(
-              "No se encontró la factura asociada al pago eliminado.",
-              "error",
-              5000,
-            );
-            return;
-          }
-
-          const invoiceData = invoiceSnap.data() as FacturaMovement;
-          const rollbackAt = new Date().toISOString();
-          const paymentAmount = getFcrPaymentAmount(entry);
-          const totalAmount = Math.max(
-            0,
-            Math.trunc(Number(invoiceData.originalAmount ?? invoiceData.amount) || 0),
-          );
-          const currentPaid = Math.max(
-            0,
-            Math.trunc(Number(invoiceData.paidAmount) || 0),
-          );
-          const nextPaid = Math.max(
-            0,
-            Math.min(totalAmount, currentPaid - paymentAmount),
-          );
-          const nextBalance = Math.max(0, totalAmount - nextPaid);
-          const nextStatus =
-            nextBalance === 0
-              ? "PAGADA"
-              : nextPaid > 0
-                ? "PARCIAL"
-                : "PENDIENTE";
-
-          const appliedCreditNotes = Array.isArray(entry.appliedCreditNotes)
-            ? entry.appliedCreditNotes
-            : [];
-          const noteWrites = await Promise.all(
-            appliedCreditNotes.map(async (note) => {
-              const noteId = String(note?.id || "").trim();
-              const appliedAmount = Math.max(
-                0,
-                Math.trunc(Number(note?.appliedAmount) || 0),
-              );
-              if (!noteId || appliedAmount <= 0) return null;
-
-              const noteRef = FacturasService.buildMovementRef(
-                normalizedCompany,
-                noteId,
-              );
-              const noteSnap = await getDoc(noteRef);
-              if (!noteSnap.exists()) return null;
-
-              const noteData = noteSnap.data() as FacturaMovement;
-              const noteTotal = Math.max(
-                0,
-                Math.trunc(Number(noteData.originalAmount ?? noteData.amount) || 0),
-              );
-              const currentNotePaid = Math.max(
-                0,
-                Math.trunc(Number(noteData.paidAmount) || 0),
-              );
-              const nextNotePaid = Math.max(
-                0,
-                Math.min(noteTotal, currentNotePaid - appliedAmount),
-              );
-              const nextNoteBalance = Math.max(0, noteTotal - nextNotePaid);
-              const nextNoteStatus =
-                nextNotePaid <= 0
-                  ? "PENDIENTE"
-                  : nextNoteBalance === 0
-                    ? "REBAJADA"
-                    : "PARCIAL";
-
-              return {
-                noteRef,
-                payload: {
-                  ...noteData,
-                  id: noteId,
-                  empresa: normalizedCompany,
-                  paidAmount: nextNotePaid,
-                  balanceDue: nextNoteBalance,
-                  amountDue: nextNoteBalance,
-                  paymentStatus: nextNoteStatus,
-                  updateAt: rollbackAt,
-                } as FacturaMovement,
-              };
-            }),
-          );
-
-          facturaRollbackWrites = (batch) => {
-            batch.set(
-              invoiceRef,
-              stripUndefinedDeep({
-                ...invoiceData,
-                id: invoiceId,
-                empresa: normalizedCompany,
-                paidAmount: nextPaid,
-                balanceDue: nextBalance,
-                amountDue: nextBalance,
-                paymentStatus: nextStatus,
-                updateAt: rollbackAt,
-              }),
-              { merge: true },
-            );
-
-            noteWrites.forEach((noteWrite) => {
-              if (!noteWrite) return;
-              batch.set(
-                noteWrite.noteRef,
-                stripUndefinedDeep(noteWrite.payload),
-                { merge: true },
-              );
-            });
-          };
-        }
-      }
-
-      // Preparar la lista actualizada SIN el movimiento a eliminar
-      const updatedEntries = fondoEntries.filter((e) => e.id !== entry.id);
-
-      // PRIMERO persistir a Firestore, LUEGO actualizar UI
-      const saved = await persistMovementToFirestore(updatedEntries, "delete", {
-        deleteId: entry.id,
-        before: entry,
-      }, facturaRollbackWrites);
-
-      if (!saved.ok) {
-        showToast(
-          "Error al eliminar el movimiento. Por favor, intente de nuevo.",
-          "error",
-          5000,
-        );
-        return; // NO actualizar la UI si falló el guardado
-      }
-
-      // If deleting a "CIERRE FONDO VENTAS" movement, reset lock/cooldowns so it can be recreated immediately.
-      try {
-        const normalizedCompany = (company || "").trim();
-        const providerName = providers
-          .find((p) => p.code === entry.providerCode)
-          ?.name?.toUpperCase();
-        const isCierreVentas =
-          providerName === CIERRE_FONDO_VENTAS_PROVIDER_NAME;
-        if (normalizedCompany.length > 0 && isCierreVentas) {
-        await forceClearClosingGuards(
-          normalizedCompany,
-          "delete_cierre_fondo_ventas",
-          user,
-        );
-
-          lastDailyClosingSavedAtRef.current = 0;
-          lastMovementCreatedAtRef.current = 0;
-          lastMovementDedupeRef.current = null;
-          if (typeof window !== "undefined") {
-            const dailyKey = `fondogeneral-lastDailyClosingSavedAt:${normalizedCompany}`;
-            const createdKey = `fondogeneral-lastMovementCreatedAt:${normalizedCompany}:${accountKey}`;
-            const dedupeKey = `fondogeneral-lastMovementDedupe:${normalizedCompany}:${accountKey}`;
-            localStorage.removeItem(dailyKey);
-            localStorage.removeItem(createdKey);
-            localStorage.removeItem(dedupeKey);
-          }
-        }
-      } catch {
-        // ignore
-      }
-
-      // Solo actualizar la UI si el guardado fue exitoso
-      setFondoEntries(updatedEntries);
-      if (saved.ledgerSnapshot) {
-        setLedgerSnapshot(saved.ledgerSnapshot);
-      }
-
-      // Close modal
-      setConfirmDeleteEntry({ open: false, entry: null });
-
-      if (saved.confirmed) {
-        showToast("Movimiento eliminado exitosamente", "success");
-      } else {
-        showToast(
-          "Eliminación guardada localmente; pendiente de sincronización (revisa tu conexión).",
-          "warning",
-          6000,
-        );
-      }
-    } finally {
-      setIsSaving(false);
-    }
-  }, [
-    confirmDeleteEntry,
-    showToast,
-    fondoEntries,
-    isPrincipalAdmin,
-    isSuperAdminUser,
-    isCierreFondoVentasMovement,
-    latestCierreFondoVentasMovementId,
-    setConfirmDeleteEntry,
-    company,
-    providers,
-    accountKey,
-    isSaving,
-    persistMovementToFirestore,
-    setLedgerSnapshot,
-    user,
-  ]);
+  const confirmDeleteMovement = useCallback(
+    () => {
+      void confirmDeleteMovementFn({
+        accountKey,
+        company,
+        providers,
+        cierreFondoVentasProviderCode,
+        latestCierreFondoVentasMovementId,
+        isPrincipalAdmin,
+        isSuperAdminUser,
+        isSaving,
+        showToast,
+        setConfirmDeleteEntry,
+        confirmDeleteEntry,
+        setIsSaving,
+        fondoEntries,
+        setFondoEntries,
+        setLedgerSnapshot,
+        persistMovementToFirestore,
+        user,
+        storageSnapshotRef,
+        lastDailyClosingSavedAtRef,
+        lastMovementCreatedAtRef,
+        lastMovementDedupeRef,
+      });
+    },
+    [
+      accountKey,
+      company,
+      providers,
+      cierreFondoVentasProviderCode,
+      latestCierreFondoVentasMovementId,
+      isPrincipalAdmin,
+      isSuperAdminUser,
+      isSaving,
+      showToast,
+      setConfirmDeleteEntry,
+      confirmDeleteEntry,
+      setIsSaving,
+      fondoEntries,
+      setFondoEntries,
+       setLedgerSnapshot,
+      persistMovementToFirestore,
+      user,
+      storageSnapshotRef,
+      lastDailyClosingSavedAtRef,
+      lastMovementCreatedAtRef,
+      lastMovementDedupeRef,
+    ],
+  );
 
   const cancelDeleteMovement = useCallback(() => {
-    setConfirmDeleteEntry({ open: false, entry: null });
-  }, []);
+    void cancelDeleteMovementFn({
+      setConfirmDeleteEntry,
+    });
+  }, [setConfirmDeleteEntry]);
 
   const isProviderSelectDisabled =
     !company || movementProvidersLoading || movementProviders.length === 0;
@@ -6131,10 +3205,6 @@ export function FondoSection({
       }),
     [],
   );
-  const dailyClosingDateFormatter = useMemo(
-    () => new Intl.DateTimeFormat("es-CR", { dateStyle: "long" }),
-    [],
-  );
   const dateTimeFormatter = useMemo(
     () =>
       new Intl.DateTimeFormat("es-CR", {
@@ -6535,25 +3605,6 @@ export function FondoSection({
     setInvoiceNumber(value.replace(/\D/g, "").slice(0, 4));
     setInvoiceError(""); // Clear error when user starts typing
   };
-  // paymentType is derived from the selected provider; no manual change handler needed
-  const handleEgresoChange = (value: string) => {
-    setEgreso(normalizeMoneyInput(value));
-    setAmountError(""); // Clear error when user starts typing
-  };
-  const handleIngresoChange = (value: string) => {
-    setIngreso(normalizeMoneyInput(value));
-    setAmountError(""); // Clear error when user starts typing
-  };
-  const handleNotesChange = (value: string) => setNotes(value);
-  const handleManagerChange = (value: string) => {
-    setManager(value);
-    setManagerError(""); // Clear error when user starts typing
-  };
-  const handleManager2Change = (value: string) => {
-    setManager2(value);
-    setManager2Error("");
-  };
-
   const managerOptionsLoading = Boolean(isSuperAdminUser && editingEntryId)
     ? superAdminUsersLoading
     : employeesLoading;
@@ -6841,350 +3892,54 @@ export function FondoSection({
   }, [closingPaymentSelectedCreditNotes, closingPaymentTarget]);
 
   const submitClosingInvoicePayment = useCallback(
-    async (mode: "partial" | "full") => {
-      if (!company || !closingPaymentTarget) return;
-
-      if (isCajaNegra) {
-        showToast(
-          "Desde Caja Negra no se debe gestionar facturas a crédito.",
-          "error",
-          4500,
-        );
-        return;
-      }
-
-      if (pendingCierreDeCaja) {
-        setPendingCierreModalOpen(true);
-        return;
-      }
-
-      const totalAmount = Math.max(
-        0,
-        Math.trunc(
-          Number(
-            closingPaymentTarget.originalAmount ?? closingPaymentTarget.amount,
-          ) || 0,
-        ),
-      );
-      const paidAmount = Math.max(
-        0,
-        Math.trunc(Number(closingPaymentTarget.paidAmount) || 0),
-      );
-      const balance = Math.max(
-        0,
-        Math.min(
-          totalAmount,
-          Math.trunc(
-            Number(
-              closingPaymentTarget.balanceDue ?? totalAmount - paidAmount,
-            ) || 0,
-          ),
-        ),
-      );
-      const enteredAmount = Math.max(
-        0,
-        Math.trunc(Number(closingPaymentAmount) || 0),
-      );
-      const selectedNoteIds = new Set(closingPaymentCreditNoteIds);
-      let remainingForNotes = balance;
-      const appliedCreditNotes = selectedProviderPendingCreditNotes.reduce<
-        AppliedCreditNote[]
-      >((acc, note) => {
-        if (remainingForNotes <= 0 || !selectedNoteIds.has(note.id)) return acc;
-        if (note.currency !== closingPaymentTarget.currency) return acc;
-        const appliedAmount = Math.min(
-          remainingForNotes,
-          Math.max(0, Math.trunc(Number(note.balanceDue) || 0)),
-        );
-        if (appliedAmount <= 0) return acc;
-        remainingForNotes -= appliedAmount;
-        acc.push({
-          id: note.id,
-          invoiceNumber: note.invoiceNumber,
-          amount: note.amount,
-          appliedAmount,
-          currency: note.currency,
-        });
-        return acc;
-      }, []);
-      const creditNotesAmountToApply = appliedCreditNotes.reduce(
-        (sum, note) => sum + Math.max(0, Math.trunc(note.appliedAmount)),
-        0,
-      );
-      const maxCashPaymentBeforeAdjustment = Math.max(
-        0,
-        balance - creditNotesAmountToApply,
-      );
-      const maxCashPayment = roundCreditNotePaymentAmount(
-        maxCashPaymentBeforeAdjustment,
-        closingPaymentTarget.currency,
+    (mode: "partial" | "full") =>
+      submitClosingInvoicePaymentFn(mode, {
+        company,
         accountKey,
-      );
-      const paymentAmountToApply =
-        mode === "full" ? maxCashPayment : enteredAmount;
-      const creditNoteAdjustmentAmount =
-        mode === "full"
-          ? Math.max(0, maxCashPaymentBeforeAdjustment - paymentAmountToApply)
-          : 0;
-      const totalAppliedToInvoice =
-        paymentAmountToApply +
-        creditNotesAmountToApply +
-        creditNoteAdjustmentAmount;
-
-      if (paymentAmountToApply <= 0) {
-        showToast("Ingrese un monto valido para el pago.", "error", 4000);
-        return;
-      }
-
-      if (paymentAmountToApply > maxCashPayment) {
-        showToast(
-          "El monto no puede superar el saldo disponible despues de aplicar las notas de credito.",
-          "error",
-          4000,
-        );
-        return;
-      }
-
-      if (totalAppliedToInvoice <= 0) {
-        showToast("No hay monto por aplicar a la factura.", "error", 4000);
-        return;
-      }
-
-      if (totalAppliedToInvoice > balance) {
-        showToast(
-          "El total aplicado supera el saldo pendiente de la factura.",
-          "error",
-          4000,
-        );
-        return;
-      }
-
-      const nowISO = new Date().toISOString();
-      const nextPaidAmount = Math.min(
-        totalAmount,
-        paidAmount + totalAppliedToInvoice,
-      );
-      const nextBalanceDue = Math.max(0, totalAmount - nextPaidAmount);
-      const nextStatus =
-        nextBalanceDue === 0
-          ? "PAGADA"
-          : nextPaidAmount > 0
-            ? "PARCIAL"
-            : "PENDIENTE";
-      const cleanedNotes = closingPaymentNotes.trim();
-      const cleanedManager2 = closingPaymentManager2.trim();
-      const paymentManager2Value = cleanedManager2 || null;
-      const nextAppliedCreditNotes = [
-        ...(Array.isArray(closingPaymentTarget.appliedCreditNotes)
-          ? closingPaymentTarget.appliedCreditNotes
-          : []),
-        ...appliedCreditNotes,
-      ];
-
-      const updatedMovement: FacturaMovement = {
-        ...closingPaymentTarget,
-        accountId: accountKey,
-        amount: totalAmount,
-        originalAmount: totalAmount,
-        amountPayment: paymentAmountToApply,
-        amountDue: nextBalanceDue,
-        paidAmount: nextPaidAmount,
-        balanceDue: nextBalanceDue,
-        paymentStatus: nextStatus,
-        notes: cleanedNotes,
-        appliedCreditNotes:
-          nextAppliedCreditNotes.length > 0 ? nextAppliedCreditNotes : undefined,
-        updateAt: nowISO,
-        ...(paymentManager2Value ? { manager2: paymentManager2Value } : {}),
-      };
-
-      const paymentMovement =
-        MovimientosFondosService.buildInvoicePaymentMovement({
-          company,
-          invoice: updatedMovement,
-          paymentAmount: paymentAmountToApply,
-          updateAt: nowISO,
-          manager2: paymentManager2Value || undefined,
-        });
-      const paymentMovementId = String((paymentMovement as any).id || "");
-      const targetAccountKey = accountKey;
-
-      setClosingPaymentSubmitting(true);
-      try {
-        const docId =
-          MovimientosFondosService.buildCompanyMovementsKey(company);
-
-        // Load ledger
-        let baseStorage = null;
-        try {
-          baseStorage = await MovimientosFondosService.getDocument(docId);
-        } catch {
-          baseStorage = null;
-        }
-        const ledger =
-          baseStorage ??
-          MovimientosFondosService.createEmptyMovementStorage(company);
-        ledger.company = company;
-        ledger.operations = { movements: [] };
-
-        const state =
-          ledger.state ??
-          MovimientosFondosService.createEmptyMovementStorage(company).state;
-        const acctKey = targetAccountKey;
-        const currency = (paymentMovement as any)
-          .currency as MovementCurrencyKey;
-        const amountToApply = Math.trunc(paymentAmountToApply || 0);
-        let found = false;
-        state.balancesByAccount = state.balancesByAccount.map((b) => {
-          if (b.accountId === acctKey && b.currency === currency) {
-            const current =
-              typeof b.currentBalance === "number"
-                ? b.currentBalance
-                : b.initialBalance || 0;
-            const next = current - amountToApply;
-            found = true;
-            return { ...b, currentBalance: next };
-          }
-          return b;
-        });
-        if (!found) {
-          state.balancesByAccount.push({
-            accountId: acctKey,
-            currency,
-            enabled: true,
-            initialBalance: 0,
-            currentBalance: -amountToApply,
-          });
-        }
-        state.updatedAt = new Date().toISOString();
-        ledger.state = state;
-
-        const batch = writeBatch(db);
-        batch.set(
-          FacturasService.buildMovementRef(company, closingPaymentTarget.id),
-          stripUndefinedDeep(updatedMovement),
-          { merge: true },
-        );
-
-        if (appliedCreditNotes.length > 0) {
-          appliedCreditNotes.forEach((note) => {
-            const pendingNote = selectedProviderPendingCreditNotes.find(
-              (item) => item.id === note.id,
-            );
-            const noteAmount = Math.max(
-              0,
-              Math.trunc(Number(pendingNote?.amount ?? note.amount) || 0),
-            );
-            const previousPaid = Math.max(
-              0,
-              Math.trunc(Number(pendingNote?.paidAmount) || 0),
-            );
-            const nextPaidAmount = Math.min(
-              noteAmount,
-              previousPaid + Math.trunc(Number(note.appliedAmount) || 0),
-            );
-            const nextBalanceDue = Math.max(0, noteAmount - nextPaidAmount);
-
-            batch.set(
-              FacturasService.buildMovementRef(company, note.id),
-              {
-                paidAmount: nextPaidAmount,
-                balanceDue: nextBalanceDue,
-                paymentStatus: nextBalanceDue === 0 ? "REBAJADA" : "PARCIAL",
-                updateAt: nowISO,
-              },
-              { merge: true },
-            );
-          });
-        }
-
-        const mainRef = doc(
-          db,
-          MovimientosFondosService.COLLECTION_NAME,
-          docId,
-        );
-        batch.set(mainRef, stripUndefinedDeep(ledger) as any);
-        const movRef = MovimientosFondosService.buildMovementRef(
-          docId,
-          paymentMovementId,
-          targetAccountKey,
-        );
-        batch.set(movRef, stripUndefinedDeep(paymentMovement));
-
-        await batch.commit();
-        setPendingClosingCreditInvoices((current) =>
-          current.filter((movement) => movement.id !== closingPaymentTarget.id),
-        );
-        if (appliedCreditNotes.length > 0) {
-          setSelectedProviderPendingCreditNotes((prev) =>
-            prev
-              .map((note) => {
-                const applied = appliedCreditNotes.find(
-                  (item) => item.id === note.id,
-                );
-                if (!applied) return note;
-                const paidAmount = Math.min(
-                  note.amount,
-                  note.paidAmount + applied.appliedAmount,
-                );
-                return {
-                  ...note,
-                  paidAmount,
-                  balanceDue: Math.max(0, note.amount - paidAmount),
-                };
-              })
-              .filter((note) => note.balanceDue > 0),
-          );
-          setClosingPaymentCreditNoteIds([]);
-        }
-        storageSnapshotRef.current = stripUndefinedDeep(ledger) as any;
-        try {
-          const cacheKey = buildV2MovementsCacheKey(docId, targetAccountKey);
-          const cached = v2MovementsCacheRef.current[cacheKey];
-          if (cached?.loaded) {
-            v2MovementsCacheRef.current[cacheKey] = {
-              ...cached,
-              movements: [
-                {
-                  ...(paymentMovement as unknown as FondoEntry),
-                  id: paymentMovementId,
-                },
-                ...cached.movements,
-              ],
-            };
-            rebuildEntriesFromV2Cache(docId, targetAccountKey);
-          } else {
-            applyLedgerStateFromStorage(ledger.state);
-          }
-        } catch (refreshErr) {
-          console.error(
-            "[FONDO] Error refreshing UI after payment:",
-            refreshErr,
-          );
-        }
-        closeClosingInvoicePaymentModal();
-      } catch (error) {
-        console.error("[FONDO] Error saving credit invoice payment:", error);
-      } finally {
-        setClosingPaymentSubmitting(false);
-      }
-    },
+        isCajaNegra,
+        pendingCierreDeCaja,
+        closingPaymentTarget,
+        closingPaymentAmount,
+        closingPaymentNotes,
+        closingPaymentManager2,
+        closingPaymentCreditNoteIds,
+        selectedProviderPendingCreditNotes,
+        showToast,
+        setPendingCierreModalOpen,
+        setClosingPaymentSubmitting,
+        setPendingClosingCreditInvoices,
+        setSelectedProviderPendingCreditNotes,
+        setClosingPaymentCreditNoteIds,
+        closeClosingInvoicePaymentModal,
+        applyLedgerStateFromStorage,
+        rebuildEntriesFromV2Cache,
+        storageSnapshotRef,
+        v2MovementsCacheRef,
+        persistMovementToFirestore,
+      }),
     [
-      closeClosingInvoicePaymentModal,
+      accountKey,
       closingPaymentAmount,
       closingPaymentCreditNoteIds,
       closingPaymentManager2,
       closingPaymentNotes,
       closingPaymentTarget,
+      closeClosingInvoicePaymentModal,
       company,
-      accountKey,
       isCajaNegra,
       pendingCierreDeCaja,
-      selectedProviderPendingCreditNotes,
-      showToast,
-      applyLedgerStateFromStorage,
-      buildV2MovementsCacheKey,
+      persistMovementToFirestore,
       rebuildEntriesFromV2Cache,
+      selectedProviderPendingCreditNotes,
+      setClosingPaymentSubmitting,
+      setClosingPaymentCreditNoteIds,
+      setPendingCierreModalOpen,
+      setPendingClosingCreditInvoices,
+      setSelectedProviderPendingCreditNotes,
+      showToast,
+      storageSnapshotRef,
+      v2MovementsCacheRef,
+      applyLedgerStateFromStorage,
     ],
   );
 
@@ -7218,1043 +3973,42 @@ export function FondoSection({
   ]);
 
   const handleConfirmDailyClosing = async (closing: DailyClosingFormValues) => {
-    if (accountKey !== "FondoGeneral") {
-      setDailyClosingModalOpen(false);
-      return;
-    }
-
-    const managerName = closing.manager.trim();
-    if (!managerName) {
-      setDailyClosingModalOpen(false);
-      return;
-    }
-
-    let closingDateValue = closing.closingDate
-      ? new Date(closing.closingDate)
-      : new Date();
-    if (Number.isNaN(closingDateValue.getTime())) {
-      closingDateValue = new Date();
-    }
-
-    const createdAtDate = new Date();
-    const createdAt = createdAtDate.toISOString();
-    const diffCRC =
-      Math.trunc(closing.totalCRC) - Math.trunc(currentBalanceCRC);
-    const diffUSD =
-      Math.trunc(closing.totalUSD) - Math.trunc(currentBalanceUSD);
-    const userNotes = closing.notes.trim();
-    const closingDateKey = dateKeyFromDate(closingDateValue);
-
-    const record: DailyClosingRecord = {
-      id: editingDailyClosingId ?? `${Date.now()}`,
-      createdAt: editingDailyClosingId
-        ? (dailyClosings.find((d) => d.id === editingDailyClosingId)
-            ?.createdAt ?? createdAt)
-        : createdAt,
-      closingDate: closingDateValue.toISOString(),
-      manager: managerName,
-      totalCRC: Math.trunc(closing.totalCRC),
-      totalUSD: Math.trunc(closing.totalUSD),
-      recordedBalanceCRC: Math.trunc(currentBalanceCRC),
-      recordedBalanceUSD: Math.trunc(currentBalanceUSD),
-      diffCRC,
-      diffUSD,
-      notes: userNotes,
-      breakdownCRC: closing.breakdownCRC ?? {},
-      breakdownUSD: closing.breakdownUSD ?? {},
-    };
-
-    const normalizedCompany = (company || "").trim();
-    if (normalizedCompany.length === 0) {
-      setDailyClosingModalOpen(false);
-      showToast("Error: No se pudo identificar la empresa", "error");
-      return;
-    }
-
-    // Cross-device/tabs guard: prevent Fondo General closing while another closing is being created.
-    // Enforced only for regular users (edits are allowed).
-    let closingGuard: { token: string; docId: string } | null = null;
-    try {
-      const isEditingClosing = Boolean(editingDailyClosingId);
-      // Enforce guard ONLY for regular users.
-      // Admin/superadmin are allowed to create a closing even during the lock window.
-      if (!isEditingClosing && isRegularUser) {
-        const acquired = await acquireClosingGuard(
-          normalizedCompany,
-          "FONDO_GENERAL",
-          user,
-        );
-        if (!acquired.ok) {
-          const kindLabel =
-            acquired.lockedKind === "FONDO_GENERAL"
-              ? "Fondo General"
-              : acquired.lockedKind === "FONDO_VENTAS"
-                ? "Fondo Ventas"
-                : "otro cierre";
-          showToast(
-            `Otro cierre (${kindLabel}) se está registrando. Intente en ${formatToastWaitTime(
-              acquired.remainingSec,
-            )}.`,
-            "warning",
-            6000,
-          );
-          return;
-        }
-        closingGuard = { token: acquired.token, docId: acquired.docId };
-      }
-    } catch {
-      // ignore; fall back to client-side cooldown
-    }
-
-    // Prevent duplicate daily closings created almost instantly.
-    // Requirement: enforce at least 1 minute between NEW closings for role "user" (edits are allowed).
-    const isEditingClosing = Boolean(editingDailyClosingId);
-    const dailyClosingCooldownKey = `fondogeneral-lastDailyClosingSavedAt:${normalizedCompany}`;
-    if (!isEditingClosing) {
-      if (
-        dailyClosingSubmitInProgressRef.current ||
-        dailyClosingsRequestCountRef.current > 0
-      ) {
-          showToast(
-            "Ya hay un cierre guardándose. Espere un momento.",
-            "warning",
-            4000,
-          );
-        return;
-      }
-
-      const nowMs = Date.now();
-      let lastSavedAtMs = lastDailyClosingSavedAtRef.current;
-      if (typeof window !== "undefined") {
-        try {
-          const stored = Number(localStorage.getItem(dailyClosingCooldownKey));
-          if (Number.isFinite(stored) && stored > 0) {
-            lastSavedAtMs = Math.max(lastSavedAtMs, stored);
-          }
-        } catch {
-          // ignore storage errors
-        }
-      }
-
-      // Cooldown between NEW closings only for regular users.
-      if (isRegularUser) {
-        if (lastSavedAtMs > 0 && nowMs - lastSavedAtMs < SAVE_COOLDOWN_MS) {
-          const remainingMs = SAVE_COOLDOWN_MS - (nowMs - lastSavedAtMs);
-          const remainingSec = Math.ceil(remainingMs / 1000);
-          showToast(
-            `Ya se registró un cierre hace poco. Espere ${formatToastWaitTime(
-              remainingSec,
-            )} para crear otro.`,
-            "warning",
-            5000,
-          );
-          return;
-        }
-      }
-
-      // Lock immediately to avoid double-click / double-submit duplicates.
-      dailyClosingSubmitInProgressRef.current = true;
-    }
-
-    // Save to Firestore first and wait for confirmation
-    beginDailyClosingsRequest();
-    try {
-      await DailyClosingsService.saveClosing(normalizedCompany, record);
-      console.log(
-        `[CIERRE] ? Cierre guardado exitosamente en Firestore. ID: ${record.id}, Fecha: ${record.closingDate}`,
-      );
-
-      // If an admin/superadmin created a NEW closing, touch the guard on success so regular users
-      // are blocked for the lock window.
-      if (!isEditingClosing && !isRegularUser) {
-        void touchClosingGuard(normalizedCompany, "FONDO_GENERAL", user);
-      }
-
-      // Mark cooldown only after a successful save (so retries after errors are allowed).
-      if (!isEditingClosing) {
-        const savedAt = Date.now();
-        lastDailyClosingSavedAtRef.current = savedAt;
-        if (typeof window !== "undefined") {
-          try {
-            localStorage.setItem(dailyClosingCooldownKey, String(savedAt));
-          } catch {
-            // ignore storage errors
-          }
-        }
-      }
-
-      // Only update local state after successful save
-      setDailyClosings((prev) => mergeDailyClosingRecords(prev, [record]));
-      loadedDailyClosingKeysRef.current.add(closingDateKey);
-      loadingDailyClosingKeysRef.current.delete(closingDateKey);
-      setDailyClosingsHydrated(true);
-
-      // Guardar en localStorage el último cierre (para pedir confirmación en el primer movimiento después del cierre)
-      if (typeof window !== "undefined") {
-        try {
-          const key = buildPhysicalCountStorageKey();
-          if (key) localStorage.setItem(key, "true");
-          cleanupPhysicalCountLegacyKeys();
-        } catch {
-          // ignore storage errors
-        }
-      }
-
-      setPendingCierreDeCaja(false);
-      setDailyClosingModalOpen(false);
-    } catch (err) {
-      console.error("[CIERRE] ? Error guardando cierre en Firestore:", err);
-
-      // Alert email for save failures (non-blocking)
-      try {
-        const whenISO = new Date().toISOString();
-        const where =
-          "FondoSection.handleConfirmDailyClosing -> DailyClosingsService.saveClosing";
-        const errorMessage =
-          err instanceof Error
-            ? `${err.name}: ${err.message}${err.stack ? `\n\nStack:\n${err.stack}` : ""}`
-            : typeof err === "string"
-              ? err
-              : JSON.stringify(err);
-
-        const subject = `[ALERTA][CIERRE] Error al guardar cierre (${normalizedCompany})`;
-        const text = [
-          `Dónde: ${where}`,
-          `Cuándo: ${whenISO}`,
-          `Empresa: ${normalizedCompany}`,
-          `Usuario: ${(user?.email || "N/A").toString()}`,
-          `Cierre ID: ${record.id}`,
-          `Fecha cierre: ${record.closingDate}`,
-          "",
-          `Error: ${errorMessage}`,
-        ].join("\n");
-
-        const recipients = [
-          "chavesa698@gmail.com",
-          "price.master.srl@gmail.com",
-        ];
-        void Promise.all(
-          recipients.map((to) =>
-            addDoc(collection(db, "mail"), {
-              to,
-              subject,
-              text,
-              createdAt: serverTimestamp(),
-            }),
-          ),
-        ).catch((mailErr) => {
-          console.error(
-            "[CIERRE] ? Error encolando email de alerta:",
-            mailErr,
-          );
-        });
-      } catch (mailErr) {
-        console.error("[CIERRE] ? Error preparando email de alerta:", mailErr);
-      }
-
-      showToast(
-        "Error al guardar el cierre. Por favor, intente de nuevo.",
-        "error",
-        5000,
-      );
-
-      // Release cross-device guard on failure so users can retry immediately.
-      if (closingGuard) {
-        try {
-          void releaseClosingGuard(normalizedCompany, closingGuard);
-        } catch {
-          // ignore
-        }
-        closingGuard = null;
-      }
-      return;
-    } finally {
-      finishDailyClosingsRequest();
-      if (!isEditingClosing) {
-        dailyClosingSubmitInProgressRef.current = false;
-      }
-    }
-
-    // IMPORTANT: Do NOT release the cross-device guard on success.
-    // Let it expire (lockedUntilMs) so other devices/tabs can't create a close "almost at the same time".
-
-    const notificationRecipients = new Set<string>();
-    const adminRecipient = ownerAdminEmail?.trim();
-    if (adminRecipient) {
-      notificationRecipients.add(adminRecipient);
-    } else if (activeOwnerId) {
-      console.warn("Daily closing email: missing admin recipient for owner.", {
-        ownerId: activeOwnerId,
-        company: normalizedCompany,
-      });
-    }
-    const userEmail = user?.email?.trim();
-    if (userEmail) notificationRecipients.add(userEmail);
-
-    const emailTemplate = buildDailyClosingEmailTemplate({
-      company: normalizedCompany,
+    return await handleConfirmDailyClosingFn(closing, {
       accountKey,
-      closingDateISO: record.closingDate,
-      manager: record.manager,
-      totalCRC: record.totalCRC,
-      totalUSD: record.totalUSD,
-      recordedBalanceCRC: record.recordedBalanceCRC,
-      recordedBalanceUSD: record.recordedBalanceUSD,
-      diffCRC: record.diffCRC,
-      diffUSD: record.diffUSD,
-      notes: record.notes,
+      activeOwnerId,
+      beginDailyClosingsRequest,
+      buildPhysicalCountStorageKey: () => buildPhysicalCountStorageKeyFn(accountKey, company),
+      cleanupPhysicalCountLegacyKeys: () => cleanupPhysicalCountLegacyKeysFn(accountKey, company),
+      company,
+      currentBalanceCRC,
+      currentBalanceUSD,
+      dailyClosingSubmitInProgressRef,
+      dailyClosings,
+      dailyClosingsRequestCountRef,
+      editingDailyClosingId,
+      finishDailyClosingsRequest,
+      fondoEntries,
+      formatToastWaitTime,
+      isRegularUser,
+      lastDailyClosingSavedAtRef,
+      loadedDailyClosingKeysRef,
+      loadingDailyClosingKeysRef,
+      ownerAdminEmail,
+      persistMovementToFirestore,
+      setDailyClosingInitialValues,
+      setDailyClosingModalOpen,
+      setDailyClosings,
+      setDailyClosingsHydrated,
+      setEditingDailyClosingId,
+      setFondoEntries,
+      setLedgerSnapshot,
+      setPendingCierreDeCaja,
+      showToast,
+      storageSnapshotRef,
+      user,
     });
 
-    if (notificationRecipients.size === 0 && activeOwnerId) {
-      console.warn(
-        "Daily closing email: skipped sending notification because no recipients were resolved.",
-        {
-          ownerId: activeOwnerId,
-          company: normalizedCompany,
-        },
-      );
-    }
 
-    // Crear documentos en la colección 'mail' para que la extensión Firebase Trigger Email los procese
-    for (const recipient of notificationRecipients) {
-      if (!recipient) continue;
-      try {
-        const docRef = await addDoc(collection(db, "mail"), {
-          to: recipient,
-          subject: emailTemplate.subject,
-          text: emailTemplate.text,
-          html: emailTemplate.html,
-          createdAt: serverTimestamp(),
-        });
-        console.log(
-          `[MAIL-DOC] Documento creado en 'mail' para ${recipient}, ID: ${docRef.id}`,
-        );
-        showToast("Correo de cierre diario enviado correctamente", "success");
-      } catch (err) {
-        console.error(
-          `[MAIL-DOC] Error creando documento en 'mail' para ${recipient}:`,
-          err,
-        );
-        showToast("Error al enviar correo de cierre diario", "error");
-      }
-    }
-
-    // Create or update movement(s) that reflect the difference so the balance updates accordingly.
-    // We create one FondoEntry per currency where diff != 0. These are regular movements (editable)
-    // and will appear in the movements list so users can later edit them (and edits will be audited
-    // using the existing edit flow which marks entries as 'Editado').
-    try {
-      const newMovements: FondoEntry[] = [];
-      let latestLedgerSnapshot: {
-        initialCRC: number;
-        currentCRC: number;
-        initialUSD: number;
-        currentUSD: number;
-      } | null = null;
-
-      const closingBalanceCRC = Math.trunc(record.totalCRC ?? 0);
-      const closingBalanceUSD = Math.trunc(record.totalUSD ?? 0);
-
-      const buildCierreMovementBaseId = (when: Date) => {
-        // Local time, URL-safe: 2025_12_15-02_10_38_929_CIERRE
-        const yyyy = when.getFullYear();
-        const MM = String(when.getMonth() + 1).padStart(2, "0");
-        const DD = String(when.getDate()).padStart(2, "0");
-        const HH = String(when.getHours()).padStart(2, "0");
-        const mm = String(when.getMinutes()).padStart(2, "0");
-        const ss = String(when.getSeconds()).padStart(2, "0");
-        const mmm = String(when.getMilliseconds()).padStart(3, "0");
-        const dateKey = `${yyyy}_${MM}_${DD}`;
-        const timeKey = `${HH}_${mm}_${ss}_${mmm}`;
-        return `${dateKey}-${timeKey}_CIERRE`;
-      };
-
-      const cierreBaseId = buildCierreMovementBaseId(createdAtDate);
-      // If we're editing an existing closing, compute diffs relative to the balance
-      // excluding the previous generated adjustment(s). This avoids flipping an
-      // existing entry from egreso -> ingreso and double-counting.
-      let adjustedDiffCRC = record.diffCRC;
-      let adjustedDiffUSD = record.diffUSD;
-      if (editingDailyClosingId) {
-        let prevCRCContribution = 0;
-        let prevUSDContribution = 0;
-        fondoEntries.forEach((e) => {
-          if (
-            e.originalEntryId === record.id &&
-            isAutoAdjustmentProvider(e.providerCode)
-          ) {
-            const contrib = (e.amountIngreso || 0) - (e.amountEgreso || 0);
-            if ((e.currency as any) === "USD") {
-              prevUSDContribution += contrib;
-            } else {
-              prevCRCContribution += contrib;
-            }
-          }
-        });
-
-        const baseBalanceCRC = currentBalanceCRC - prevCRCContribution;
-        const baseBalanceUSD = currentBalanceUSD - prevUSDContribution;
-        adjustedDiffCRC =
-          Math.trunc(closing.totalCRC) - Math.trunc(baseBalanceCRC);
-        adjustedDiffUSD =
-          Math.trunc(closing.totalUSD) - Math.trunc(baseBalanceUSD);
-        // update the record diffs so persistence reflects the adjusted values
-        record.diffCRC = adjustedDiffCRC;
-        record.diffUSD = adjustedDiffUSD;
-        // When editing a closing, the recorded balance should reflect the underlying
-        // account balance excluding previous automatic adjustments, so store the
-        // base balance instead of the currentBalance (which contains those adjustments).
-        try {
-          record.recordedBalanceCRC = Math.trunc(baseBalanceCRC);
-          record.recordedBalanceUSD = Math.trunc(baseBalanceUSD);
-        } catch (rbErr) {
-          console.error(
-            "[FG-DEBUG] Error setting recordedBalance on edited closing:",
-            rbErr,
-          );
-        }
-
-        console.info("[FG-DEBUG] Editing closing values", {
-          closingTotalCRC: closing.totalCRC,
-          currentBalanceCRC,
-          prevCRCContribution,
-          baseBalanceCRC,
-          adjustedDiffCRC,
-        });
-      }
-
-      const willCreateInfo = adjustedDiffCRC === 0 && adjustedDiffUSD === 0;
-      const willCreateCRC = !willCreateInfo && Boolean(adjustedDiffCRC);
-      const willCreateUSD = !willCreateInfo && Boolean(adjustedDiffUSD);
-      const plannedCount =
-        Number(willCreateCRC) + Number(willCreateUSD) + Number(willCreateInfo);
-
-      if (adjustedDiffCRC && adjustedDiffCRC !== 0) {
-        const diff = Math.trunc(adjustedDiffCRC);
-        const isPositive = diff > 0;
-        const paymentType = AUTO_ADJUSTMENT_CLOSING_TYPE;
-        const invoiceDDMM = getTodayInvoiceDDMM(createdAtDate);
-        const entry: FondoEntry = {
-          id: cierreBaseId,
-          providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
-          invoiceNumber: invoiceDDMM,
-          paymentType,
-          amountEgreso: isPositive ? 0 : Math.abs(diff),
-          amountIngreso: isPositive ? diff : 0,
-          manager: AUTO_ADJUSTMENT_MANAGER,
-          notes: `AJUSTE APLICADO AL SALDO ACTUAL\n[ALERT_ICON]Diferencia CRC: ${
-            diff >= 0 ? "+ " : "- "
-          }${formatByCurrency("CRC", Math.abs(diff))}.${
-            userNotes ? ` Notas: ${userNotes}` : ""
-          }`,
-          createdAt,
-          accountId: accountKey,
-          currency: "CRC",
-          breakdown: closing.breakdownCRC ?? {},
-          closingBalanceCRC,
-          closingBalanceUSD,
-        } as FondoEntry;
-        newMovements.push(entry);
-      }
-
-      if (adjustedDiffUSD && adjustedDiffUSD !== 0) {
-        const diff = Math.trunc(adjustedDiffUSD);
-        const isPositive = diff > 0;
-        const paymentType = AUTO_ADJUSTMENT_CLOSING_TYPE;
-        const invoiceDDMM = getTodayInvoiceDDMM(createdAtDate);
-        const entry: FondoEntry = {
-          id: plannedCount > 1 ? `${cierreBaseId}_USD` : cierreBaseId,
-          providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
-          invoiceNumber: invoiceDDMM,
-          paymentType,
-          amountEgreso: isPositive ? 0 : Math.abs(diff),
-          amountIngreso: isPositive ? diff : 0,
-          manager: AUTO_ADJUSTMENT_MANAGER,
-          notes: `AJUSTE APLICADO AL SALDO ACTUAL\n[ALERT_ICON]Diferencia USD: ${
-            diff >= 0 ? "+ " : "- "
-          }${formatByCurrency("USD", Math.abs(diff))}.${
-            userNotes ? ` Notas: ${userNotes}` : ""
-          }`,
-          createdAt,
-          accountId: accountKey,
-          currency: "USD",
-          closingBalanceCRC,
-          closingBalanceUSD,
-        } as FondoEntry;
-        if ((entry as any).currency === "USD")
-          (entry as any).breakdown = closing.breakdownUSD ?? {};
-        newMovements.push(entry);
-      }
-
-      if (adjustedDiffCRC === 0 && adjustedDiffUSD === 0) {
-        const invoiceDDMM = getTodayInvoiceDDMM(createdAtDate);
-        const entry: FondoEntry = {
-          id: cierreBaseId,
-          providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
-          invoiceNumber: invoiceDDMM,
-          paymentType: "INFORMATIVO" as any, // Tipo especial para cierres sin diferencias
-          amountEgreso: 0,
-          amountIngreso: 0,
-          manager: AUTO_ADJUSTMENT_MANAGER,
-          notes: `[CHECK_ICON]Sin diferencias.${
-            userNotes ? ` Notas: ${userNotes}` : ""
-          }`,
-          createdAt,
-          accountId: accountKey,
-          currency: "CRC",
-          breakdown: closing.breakdownCRC ?? {},
-          closingBalanceCRC,
-          closingBalanceUSD,
-        } as FondoEntry;
-        newMovements.push(entry);
-      }
-      if (editingDailyClosingId && newMovements.length === 0) {
-        // No diff now: remove previous adjustment movements linked to this closing
-        console.info(
-          "[FG-DEBUG] Removing previous adjustment movements for closing",
-          record.id,
-          { beforeCount: fondoEntries.length },
-        );
-
-        // Persistir eliminación de ajustes para que el currentBalance se revierta.
-        try {
-          const toRemoveNow = fondoEntries.filter(
-            (e) =>
-              e.originalEntryId === record.id &&
-              isAutoAdjustmentProvider(e.providerCode),
-          );
-          for (const removed of toRemoveNow) {
-            const saved = await persistMovementToFirestore(
-              fondoEntries,
-              "delete",
-              {
-                deleteId: removed.id,
-                before: removed,
-              },
-            );
-            if (saved.ok && saved.ledgerSnapshot) {
-              latestLedgerSnapshot = saved.ledgerSnapshot;
-            }
-          }
-        } catch (persistRemoveErr) {
-          console.error(
-            "[FG-DEBUG] Error persisting deletion of adjustment movements:",
-            persistRemoveErr,
-          );
-        }
-
-        setFondoEntries((prev) => {
-          const toRemove = prev.filter(
-            (e) =>
-              e.originalEntryId === record.id &&
-              isAutoAdjustmentProvider(e.providerCode),
-          );
-          const filtered = prev.filter(
-            (e) =>
-              !(
-                e.originalEntryId === record.id &&
-                isAutoAdjustmentProvider(e.providerCode)
-              ),
-          );
-          console.info("[FG-DEBUG] After remove, count:", filtered.length);
-          if (toRemove.length > 0) {
-            try {
-              const resolution = {
-                removedAdjustments: toRemove.map((r) => ({
-                  id: r.id,
-                  currency: r.currency,
-                  amount: (r.amountIngreso || 0) - (r.amountEgreso || 0),
-                  amountIngreso: r.amountIngreso || 0,
-                  amountEgreso: r.amountEgreso || 0,
-                  manager: r.manager,
-                  createdAt: r.createdAt,
-                })),
-                note: "Ajustes eliminados manualmente al editar el cierre",
-              } as any;
-
-              setDailyClosings((prevClosings) => {
-                const updated = prevClosings.map((d) => {
-                  if (d.id !== record.id) return d;
-                  return {
-                    ...d,
-                    adjustmentResolution: resolution,
-                  } as DailyClosingRecord;
-                });
-                try {
-                  const updatedRecord = updated.find((d) => d.id === record.id);
-                  if (updatedRecord && normalizedCompany.length > 0) {
-                    // Fire-and-forget save for adjustment updates (non-critical)
-                    void DailyClosingsService.saveClosing(
-                      normalizedCompany,
-                      updatedRecord,
-                    )
-                      .then(() => {
-                        console.log(
-                          `[CIERRE] ? Ajuste de cierre guardado exitosamente. ID: ${updatedRecord.id}`,
-                        );
-                      })
-                      .catch((saveErr) => {
-                        console.error(
-                          "[CIERRE] ? Error saving updated daily closing with resolution:",
-                          saveErr,
-                        );
-                      });
-                  }
-                } catch (saveErr) {
-                  console.error(
-                    "[CIERRE] ? Error persisting daily closing resolution:",
-                    saveErr,
-                  );
-                }
-                return updated;
-              });
-            } catch (err) {
-              console.error(
-                "Error preparing adjustment resolution summary:",
-                err,
-              );
-            }
-          }
-
-          return filtered;
-        });
-
-        // Aplicar balances junto con la actualización de movimientos para evitar saltos visuales.
-        if (latestLedgerSnapshot) {
-          setLedgerSnapshot(latestLedgerSnapshot);
-        }
-      }
-
-      if (newMovements.length > 0) {
-        // link movements to the daily closing via originalEntryId
-        newMovements.forEach((m) => (m.originalEntryId = record.id));
-
-        // Persistir ajustes al documento principal para actualizar currentBalance.
-        // En edición: actualiza/elimina por moneda; en creación: crea movimientos nuevos.
-        try {
-          const normalizeCurrency = (value: unknown): MovementCurrencyKey =>
-            value === "USD" ? "USD" : "CRC";
-
-          const plannedCurrencies = new Set<MovementCurrencyKey>(
-            newMovements.map((m) => normalizeCurrency(m.currency)),
-          );
-
-          const existingAdjustments = editingDailyClosingId
-            ? fondoEntries.filter(
-                (e) =>
-                  e.originalEntryId === record.id &&
-                  isAutoAdjustmentProvider(e.providerCode),
-              )
-            : [];
-
-          const existingByCurrency = new Map<MovementCurrencyKey, FondoEntry>();
-          existingAdjustments.forEach((e) => {
-            existingByCurrency.set(normalizeCurrency(e.currency), e);
-          });
-
-          // Remove previous adjustments that are no longer present (editing scenario)
-          if (editingDailyClosingId) {
-            for (const prevAdj of existingAdjustments) {
-              const cur = normalizeCurrency(prevAdj.currency);
-              if (!plannedCurrencies.has(cur)) {
-                const saved = await persistMovementToFirestore(
-                  fondoEntries,
-                  "delete",
-                  {
-                    deleteId: prevAdj.id,
-                    before: prevAdj,
-                  },
-                );
-                if (saved.ok && saved.ledgerSnapshot) {
-                  latestLedgerSnapshot = saved.ledgerSnapshot;
-                }
-              }
-            }
-          }
-
-          // Upsert per currency
-          for (const movement of newMovements) {
-            const cur = normalizeCurrency(movement.currency);
-            const existing = existingByCurrency.get(cur);
-
-            if (editingDailyClosingId && existing) {
-              const updatedForPersist: FondoEntry = {
-                ...existing,
-                paymentType: movement.paymentType,
-                invoiceNumber: movement.invoiceNumber,
-                amountEgreso: movement.amountEgreso,
-                amountIngreso: movement.amountIngreso,
-                notes: movement.notes,
-                breakdown: movement.breakdown ?? existing.breakdown,
-                createdAt: movement.createdAt,
-                manager: AUTO_ADJUSTMENT_MANAGER,
-                providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
-                accountId: accountKey,
-                currency: cur,
-                originalEntryId: record.id,
-                closingBalanceCRC: movement.closingBalanceCRC,
-                closingBalanceUSD: movement.closingBalanceUSD,
-              } as FondoEntry;
-
-              const saved = await persistMovementToFirestore(
-                fondoEntries,
-                "edit",
-                {
-                  upsert: updatedForPersist,
-                  before: existing,
-                },
-              );
-              if (saved.ok && saved.ledgerSnapshot) {
-                latestLedgerSnapshot = saved.ledgerSnapshot;
-              }
-            } else {
-              // Creating a new adjustment movement
-              const saved = await persistMovementToFirestore(
-                [movement, ...fondoEntries],
-                "create",
-                { upsert: movement },
-              );
-              if (saved.ok && saved.ledgerSnapshot) {
-                latestLedgerSnapshot = saved.ledgerSnapshot;
-              }
-            }
-          }
-        } catch (persistAdjErr) {
-          console.error(
-            "[FG-DEBUG] Error persisting daily closing adjustments to main ledger:",
-            persistAdjErr,
-          );
-        }
-
-        if (editingDailyClosingId) {
-          // update existing related movement(s), preserve audit history
-          setFondoEntries((prev) => {
-            console.info(
-              "[FG-DEBUG] Updating existing related adjustment movements for closing",
-              record.id,
-              { prevCount: prev.length, newMovements },
-            );
-            const updated = prev.map((e) => {
-              if (
-                e.originalEntryId === record.id &&
-                isAutoAdjustmentProvider(e.providerCode)
-              ) {
-                const match = newMovements.find(
-                  (nm) => nm.currency === e.currency,
-                );
-                if (!match) return e;
-                // build audit history
-                let history: any[] = [];
-                try {
-                  const existing = e.auditDetails
-                    ? (JSON.parse(e.auditDetails) as any)
-                    : null;
-                  if (existing && Array.isArray(existing.history))
-                    history = existing.history.slice();
-                  else if (existing && existing.before && existing.after)
-                    history = [
-                      {
-                        at: existing.at ?? e.createdAt,
-                        before: existing.before,
-                        after: existing.after,
-                      },
-                    ];
-                } catch {
-                  history = [];
-                }
-                // Crear registro simplificado con solo los campos que cambiaron
-                const changedFields = getChangedFields(
-                  {
-                    providerCode: e.providerCode,
-                    invoiceNumber: e.invoiceNumber,
-                    paymentType: e.paymentType,
-                    amountEgreso: e.amountEgreso,
-                    amountIngreso: e.amountIngreso,
-                    manager: e.manager,
-                    notes: e.notes,
-                    currency: e.currency,
-                  },
-                  {
-                    providerCode: e.providerCode,
-                    invoiceNumber: match.invoiceNumber,
-                    paymentType: match.paymentType,
-                    amountEgreso: match.amountEgreso,
-                    amountIngreso: match.amountIngreso,
-                    manager: AUTO_ADJUSTMENT_MANAGER,
-                    notes: match.notes,
-                    currency: match.currency,
-                  },
-                );
-                const newRecord = {
-                  at: new Date().toISOString(),
-                  ...changedFields,
-                };
-                history.push(newRecord);
-                // Comprimir historial para evitar QuotaExceededError
-                const compressedHistory = compressAuditHistory(history);
-                return {
-                  ...e,
-                  paymentType: match.paymentType,
-                  amountEgreso: match.amountEgreso,
-                  amountIngreso: match.amountIngreso,
-                  breakdown: match.breakdown ?? e.breakdown,
-                  notes: match.notes,
-                  createdAt: match.createdAt,
-                  manager: AUTO_ADJUSTMENT_MANAGER,
-                  closingBalanceCRC: match.closingBalanceCRC,
-                  closingBalanceUSD: match.closingBalanceUSD,
-                  isAudit: true,
-                  originalEntryId: e.originalEntryId ?? e.id,
-                  auditDetails: JSON.stringify({ history: compressedHistory }),
-                } as FondoEntry;
-              }
-              return e;
-            });
-            // If some newMovements have no existing entry, prepend them
-            newMovements.forEach((nm) => {
-              const exists = updated.some(
-                (u) =>
-                  u.originalEntryId === record.id &&
-                  u.currency === nm.currency &&
-                  isAutoAdjustmentProvider(u.providerCode),
-              );
-              if (!exists) {
-                updated.unshift(nm);
-              }
-            });
-            console.info(
-              "[FG-DEBUG] Updated fondoEntries count after merge:",
-              updated.length,
-            );
-            return updated;
-          });
-        } else {
-          // Prepend so the most recent movement appears first (consistent with createdAt)
-          console.info(
-            "[FG-DEBUG] Prepending new adjustment movements",
-            newMovements,
-          );
-          setFondoEntries((prev) => {
-            const next = [...newMovements, ...prev];
-            console.info(
-              "[FG-DEBUG] fondoEntries count after prepend:",
-              next.length,
-            );
-            return next;
-          });
-
-          // Persistencia: ya se hizo vía persistMovementToFirestore (incluye subcolección v2 + documento principal)
-        }
-
-        // Aplicar balances junto con la actualización de movimientos para evitar saltos visuales.
-        if (latestLedgerSnapshot) {
-          setLedgerSnapshot(latestLedgerSnapshot);
-        }
-
-        // Build a human-readable summary of the adjustments we just applied
-        try {
-          const addedParts: string[] = newMovements.map((m) => {
-            const amt = (m.amountIngreso || 0) - (m.amountEgreso || 0);
-            const sign = amt >= 0 ? "+" : "-";
-            return `${m.currency} ${sign} ${formatByCurrency(
-              m.currency as "CRC" | "USD",
-              Math.abs(amt),
-            )}`;
-          });
-          const note = `Ajustes aplicados: ${addedParts.join(" / ")}`;
-
-          // Compute the net added contribution by currency and the previous contribution
-          const totalNewCRC = newMovements.reduce(
-            (s, m) =>
-              s +
-              (m.currency === "CRC"
-                ? (m.amountIngreso || 0) - (m.amountEgreso || 0)
-                : 0),
-            0,
-          );
-          const totalNewUSD = newMovements.reduce(
-            (s, m) =>
-              s +
-              (m.currency === "USD"
-                ? (m.amountIngreso || 0) - (m.amountEgreso || 0)
-                : 0),
-            0,
-          );
-
-          // compute existing previous contribution linked to this closing (before we mutate fondoEntries)
-          const prevCRCContributionExisting = fondoEntries.reduce(
-            (s, e) =>
-              s +
-              (e.originalEntryId === record.id &&
-              isAutoAdjustmentProvider(e.providerCode) &&
-              e.currency === "CRC"
-                ? (e.amountIngreso || 0) - (e.amountEgreso || 0)
-                : 0),
-            0,
-          );
-          const prevUSDContributionExisting = fondoEntries.reduce(
-            (s, e) =>
-              s +
-              (e.originalEntryId === record.id &&
-              isAutoAdjustmentProvider(e.providerCode) &&
-              e.currency === "USD"
-                ? (e.amountIngreso || 0) - (e.amountEgreso || 0)
-                : 0),
-            0,
-          );
-
-          // New recorded balance = currentBalance (which includes existing adjustments) - prevExisting + newAdded
-          const postAdjustmentBalanceCRC = Math.trunc(
-            currentBalanceCRC - prevCRCContributionExisting + totalNewCRC,
-          );
-          const postAdjustmentBalanceUSD = Math.trunc(
-            currentBalanceUSD - prevUSDContributionExisting + totalNewUSD,
-          );
-          const hasCRCAdjustments =
-            totalNewCRC !== 0 || prevCRCContributionExisting !== 0;
-          const hasUSDAdjustments =
-            totalNewUSD !== 0 || prevUSDContributionExisting !== 0;
-
-          // Persist a readable note and store the balance after adjustments under adjustmentResolution
-          setDailyClosings((prevClosings) => {
-            const updated = prevClosings.map((d) => {
-              if (d.id !== record.id) return d;
-              const existingResolution = d.adjustmentResolution || {};
-              const updatedResolution: DailyClosingRecord["adjustmentResolution"] =
-                {
-                  ...(existingResolution.removedAdjustments
-                    ? {
-                        removedAdjustments:
-                          existingResolution.removedAdjustments,
-                      }
-                    : {}),
-                  note,
-                  ...(hasCRCAdjustments ? { postAdjustmentBalanceCRC } : {}),
-                  ...(hasUSDAdjustments ? { postAdjustmentBalanceUSD } : {}),
-                };
-              return {
-                ...d,
-                adjustmentResolution: updatedResolution,
-              } as DailyClosingRecord;
-            });
-
-            try {
-              const updatedRecord = updated.find((d) => d.id === record.id);
-              if (updatedRecord && normalizedCompany.length > 0) {
-                // Fire-and-forget save for adjustment notes (non-critical)
-                void DailyClosingsService.saveClosing(
-                  normalizedCompany,
-                  updatedRecord,
-                )
-                  .then(() => {
-                    console.log(
-                      `[CIERRE] ? Nota de ajuste guardada exitosamente. ID: ${updatedRecord.id}`,
-                    );
-                  })
-                  .catch((saveErr) => {
-                    console.error(
-                      "[CIERRE] ? Error saving daily closing with adjustment note:",
-                      saveErr,
-                    );
-                  });
-              }
-            } catch (saveErr) {
-              console.error(
-                "[CIERRE] ? Error persisting daily closing adjustment note:",
-                saveErr,
-              );
-            }
-
-            return updated;
-          });
-        } catch (noteErr) {
-          console.error("Error building/persisting adjustment note:", noteErr);
-        }
-      }
-    } catch (err) {
-      console.error(
-        "Error creating movement(s) for daily closing difference:",
-        err,
-      );
-    }
-
-    // Show toast: success when no diffs, warning when there are diffs
-    try {
-      const crcDiff = record.diffCRC ?? 0;
-      const usdDiff = record.diffUSD ?? 0;
-      if (crcDiff === 0 && usdDiff === 0) {
-        try {
-          showToast("Cierre completo, sin diferencias", "success", 4000);
-        } catch {
-          // swallow toast errors to avoid breaking flow
-        }
-      } else {
-        try {
-          const parts: string[] = [];
-          if (crcDiff !== 0)
-            parts.push(`CRC ${formatDailyClosingDiff("CRC", crcDiff)}`);
-          if (usdDiff !== 0)
-            parts.push(`USD ${formatDailyClosingDiff("USD", usdDiff)}`);
-          const message = `Cierre con diferencias: ${parts.join(" / ")}`;
-          showToast(message, "warning", 6000);
-        } catch {
-          // swallow toast errors
-        }
-      }
-    } catch {
-      // defensive: ignore
-    }
-
-    // Actualizar lockedUntil DESPUÉS de agregar todos los movimientos
-    // para que persistEntries tenga el estado completo
-    // Solo actualizar si no es edición de un cierre existente
-    if (!editingDailyClosingId && storageSnapshotRef.current) {
-      if (!storageSnapshotRef.current.state) {
-        storageSnapshotRef.current.state =
-          MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
-            company,
-          ).state;
-      }
-      // Bloquear hasta la fecha de creación del cierre
-      storageSnapshotRef.current.state.lockedUntil = createdAt;
-
-      // Persistir inmediatamente para asegurar que se guarde incluso sin movimientos
-      const normalizedCompany = (company || "").trim();
-      if (normalizedCompany.length > 0) {
-        const companyKey =
-          MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
-        try {
-          // Actualizar localStorage
-          localStorage.setItem(
-            companyKey,
-            JSON.stringify(storageSnapshotRef.current),
-          );
-
-          // Actualizar Firestore
-          void MovimientosFondosService.saveDocument(
-            companyKey,
-            storageSnapshotRef.current,
-          )
-            .then(() =>
-              console.log(
-                "[LOCK-DEBUG] Force saved to Firestore after closing",
-              ),
-            )
-            .catch((err) => {
-              console.error(
-                "Error force saving lockedUntil to Firestore:",
-                err,
-              );
-            });
-        } catch (err) {
-          console.error("Error force persisting lockedUntil:", err);
-        }
-      }
-    }
-
-    // Reset editing state after confirm
-    setEditingDailyClosingId(null);
-    setDailyClosingInitialValues(null);
   };
 
   const handleAdminCompanyChange = useCallback(
@@ -11861,3 +7615,4 @@ export function FondoSection({
     </div>
   );
 }
+
