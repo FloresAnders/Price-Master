@@ -481,29 +481,31 @@ export function FondoFiltersToolbar({
               fromButtonRef={fromButtonRef}
               toButtonRef={toButtonRef}
               showTopBorder={false}
+              rightSlot={
+                accountKey === "FondoGeneral" ? (
+                  <div className="relative group flex items-end sm:shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDailyClosingHistoryRange("today");
+                        setDailyClosingHistoryOpen(true);
+                      }}
+                      disabled={closingsAreLoading}
+                      className="inline-flex h-11 w-full items-center justify-center rounded border border-cyan-700/35 bg-cyan-950/25 text-cyan-100/80 transition-colors hover:border-cyan-500/45 hover:bg-cyan-900/25 hover:text-[var(--foreground)] disabled:opacity-60 sm:w-11"
+                      title="Cierres anteriores"
+                      aria-label="Cierres anteriores"
+                    >
+                      <Clock className="h-4 w-4" />
+                    </button>
+                    <div className="hidden sm:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[var(--card-bg)] border border-[var(--input-border)] text-[var(--foreground)] text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                      Cierres anteriores
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[var(--input-border)]"></div>
+                    </div>
+                  </div>
+                ) : null
+              }
             />
           </div>
-          {accountKey === "FondoGeneral" && (
-            <div className="relative group flex items-end sm:shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  setDailyClosingHistoryRange("today");
-                  setDailyClosingHistoryOpen(true);
-                }}
-                disabled={closingsAreLoading}
-                className="inline-flex h-11 w-full items-center justify-center rounded border border-cyan-700/35 bg-cyan-950/25 text-cyan-100/80 transition-colors hover:border-cyan-500/45 hover:bg-cyan-900/25 hover:text-[var(--foreground)] disabled:opacity-60 sm:w-11"
-                title="Cierres anteriores"
-                aria-label="Cierres anteriores"
-              >
-                <Clock className="h-4 w-4" />
-              </button>
-              <div className="hidden sm:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[var(--card-bg)] border border-[var(--input-border)] text-[var(--foreground)] text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
-                Cierres anteriores
-                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[var(--input-border)]"></div>
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:w-auto lg:min-w-[348px]">

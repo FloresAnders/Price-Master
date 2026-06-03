@@ -30,6 +30,7 @@ interface Props {
   toCalendarRef: MutableRefObject<HTMLDivElement | null>;
   fromButtonRef: MutableRefObject<HTMLButtonElement | null>;
   toButtonRef: MutableRefObject<HTMLButtonElement | null>;
+  rightSlot?: ReactNode;
   showTopBorder?: boolean;
   className?: string;
 }
@@ -117,6 +118,7 @@ export function FondoDateRangeFilters({
   toCalendarRef,
   fromButtonRef,
   toButtonRef,
+  rightSlot,
   showTopBorder = true,
   className,
 }: Props) {
@@ -130,7 +132,7 @@ export function FondoDateRangeFilters({
         .filter(Boolean)
         .join(" ")}
     >
-      <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(150px,180px)_minmax(150px,180px)_minmax(150px,170px)] xl:items-end">
+      <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(150px,180px)_minmax(150px,180px)_minmax(150px,170px)_auto] xl:items-end">
         <div className="relative min-w-0">
           <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
             Desde
@@ -424,6 +426,8 @@ export function FondoDateRangeFilters({
             <option value="month">Mes actual</option>
           </select>
         </div>
+
+        {rightSlot ? <div className="flex items-end">{rightSlot}</div> : null}
       </div>
     </div>
   );
