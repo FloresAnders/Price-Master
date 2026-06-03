@@ -483,7 +483,7 @@ export function FondoFiltersToolbar({
               showTopBorder={false}
               rightSlot={
                 accountKey === "FondoGeneral" ? (
-                  <div className="relative group flex items-end sm:shrink-0">
+                  <div className="relative group flex w-full items-end sm:w-auto sm:shrink-0">
                     <button
                       type="button"
                       onClick={() => {
@@ -491,7 +491,7 @@ export function FondoFiltersToolbar({
                         setDailyClosingHistoryOpen(true);
                       }}
                       disabled={closingsAreLoading}
-                      className="inline-flex h-11 w-full items-center justify-center rounded border border-cyan-700/35 bg-cyan-950/25 text-cyan-100/80 transition-colors hover:border-cyan-500/45 hover:bg-cyan-900/25 hover:text-[var(--foreground)] disabled:opacity-60 sm:w-11"
+                      className="inline-flex h-12 w-full items-center justify-center rounded border border-cyan-700/35 bg-cyan-950/25 text-cyan-100/80 transition-colors hover:border-cyan-500/45 hover:bg-cyan-900/25 hover:text-[var(--foreground)] disabled:opacity-60 sm:h-11 sm:w-11"
                       title="Cierres anteriores"
                       aria-label="Cierres anteriores"
                     >
