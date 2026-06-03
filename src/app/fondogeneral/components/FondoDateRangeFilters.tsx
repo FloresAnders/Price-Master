@@ -30,6 +30,8 @@ interface Props {
   toCalendarRef: MutableRefObject<HTMLDivElement | null>;
   fromButtonRef: MutableRefObject<HTMLButtonElement | null>;
   toButtonRef: MutableRefObject<HTMLButtonElement | null>;
+  showTopBorder?: boolean;
+  className?: string;
 }
 
 function renderMonthCells({
@@ -115,10 +117,20 @@ export function FondoDateRangeFilters({
   toCalendarRef,
   fromButtonRef,
   toButtonRef,
+  showTopBorder = true,
+  className,
 }: Props) {
   return (
-    <div className="grid grid-cols-1 gap-3 border-t border-[var(--input-border)] pt-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
-      <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-[minmax(150px,180px)_minmax(150px,180px)_minmax(150px,170px)_44px] xl:items-end">
+    <div
+      className={[
+        "w-full min-w-0",
+        showTopBorder ? "border-t border-[var(--input-border)] pt-3" : "",
+        className ?? "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(150px,180px)_minmax(150px,180px)_minmax(150px,170px)] xl:items-end">
         <div className="relative min-w-0">
           <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
             Desde

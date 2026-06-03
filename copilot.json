@@ -1,0 +1,33 @@
+﻿{
+    "useSubagents":  true,
+    "defaultAgent":  "general",
+               "instructions": [
+                               "AGENTS.md"
+               ],
+               "skills": {
+                               "paths": [
+                                   ".opencode/skills",
+                                   ".agents/skills/frontend-design",
+                                   ".agents/skills/code-review-excellence",
+                                   ".agents/skills/typescript-advanced-types",
+                                   ".agents/skills/nextjs-app-router-patterns",
+                                   ".agents/skills/accessibility",
+                                   ".agents/skills/documentation-writer",
+                                   ".agents/skills/shadcn"
+                               ]
+               },
+               "agents": {
+                               "enabled": [
+                                   "general",
+                                   "explore",
+                                   "architecture",
+                                   "dependency",
+                                   "research",
+                                   "debug",
+                                   "testing",
+                                   "review",
+                                   "docs",
+                                   "refactor"
+                               ]
+               }
+}

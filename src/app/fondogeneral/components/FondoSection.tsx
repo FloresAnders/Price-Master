@@ -8,11 +8,7 @@ import React, {
   useRef,
 } from "react";
 import {
-  UserPlus,
-  Plus,
   Pencil,
-  Trash2,
-  X,
   Banknote,
   Clock,
   Layers,
@@ -23,45 +19,24 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Lock,
-  LockOpen,
   ChevronDown,
-  AlertTriangle,
   CheckCircle,
-  Info,
   RotateCcw,
-  Mail,
-  MessageSquare,
   Loader2,
 } from "lucide-react";
 import { useAuth } from "../../../hooks/useAuth";
 import { useProviders } from "../../../hooks/useProviders";
 import useToast from "../../../hooks/useToast";
-import type { UserPermissions, Empresas, User } from "../../../types/firestore";
+import type { Empresas } from "../../../types/firestore";
 import { getDefaultPermissions } from "../../../utils/permissions";
 import ConfirmModal from "../../../components/ui/ConfirmModal";
 import DailyClosingHistoryModal from "../../../components/modals/DailyClosingHistoryModal";
 import { ManualCreditNoteDrawer } from "./ManualCreditNoteDrawer";
 import { FondoConfirmModals } from "./FondoConfirmModals";
-import { EmpresasService } from "../../../services/empresas";
-import { UsersService } from "../../../services/users";
-import { ProvidersService } from "../../../services/providers";
-import { SchedulesService } from "../../../services/schedules";
 import {
-  resolveManagerFromControlHorario,
-  getControlHorarioShiftTiming,
   getCostaRicaDateKeyAndMinute,
   type ShiftCode,
 } from "@/utils/controlHorarioManager";
-import { generateEgresoProviderCreatedEmail } from "../../../services/email-templates/proveedor-egreso-creado";
-import {
-  FacturasService,
-  type AppliedCreditNote,
-  type FacturaMovement,
-} from "../../../services/facturas";
-import {
-  findLatestMovementByInvoiceNumber,
-  sendDuplicateInvoiceAlertEmail,
-} from "../../../services/duplicate-invoice-alert";
 import { AuditHistoryModal } from "./audit-history-modal";
 import {
   MovimientosFondosService,
@@ -70,135 +45,80 @@ import {
   MovementStorage,
   MovementStorageState,
 } from "../../../services/movimientos-fondos";
-import {
-  ReportesMovimientosService,
-  ReporteMovimientosDetailItem,
-  type ReporteMovimientoCurrency,
-} from "../../../services/reportes-movimientos";
-import {
-  DailyClosingsService,
-  DailyClosingRecord,
 
-} from "../../../services/daily-closings";
-import { buildDailyClosingEmailTemplate } from "../../../services/email-templates/daily-closing";
+
 import DailyClosingModal, { DailyClosingFormValues } from "./DailyClosingModal";
 import FacturaPaymentModal from "./FacturaPaymentModal";
 import { FondoTotalsSummary } from "./FondoTotalsSummary";
 import { FondoCurrentBalanceCard } from "./FondoCurrentBalanceCard";
 import { PendingCreditInvoicesSection } from "./PendingCreditInvoicesSection";
 import { FondoMovementsSkeleton } from "./FondoMovementsSkeleton";
+import { MovementActionsCell } from "./MovementActionsCell";
+import { AppliedCreditNotesDetails } from "./AppliedCreditNotesDetails";
+import { PaidFcrInfoRow } from "./PaidFcrInfoRow";
 import { CompanySelectorContent } from "./CompanySelectorContent";
 import { FondoFiltersToolbar } from "./FondoFiltersToolbar";
 import { MovementDrawer } from "./MovementDrawer";
+import { MovementNotesBlock } from "./MovementNotesBlock";
 import { handleSaveManualCreditNote as handleSaveManualCreditNoteFn } from "../utils/manualCreditNote";
 import { handleSubmitFondo as handleSubmitFondoFn } from "../utils/submitFondo";
 import { useActorOwnership } from "../../../hooks/useActorOwnership";
 import type { FondoEntry, FondoMovementType } from "../types";
-import { submitClosingInvoicePayment as submitClosingInvoicePaymentFn } from "../utils/closingInvoicePayment";
 import { persistMovementToFirestore as persistMovementToFirestoreFn } from "../utils/persistence";
 import { handleConfirmDailyClosing as handleConfirmDailyClosingFn } from "../utils/dailyClosing";
 import { resetStateForCompanyChange } from "../utils/companyReset";
 import { useMovementsLoadingState } from "../hooks/useMovementsLoadingState";
+import { useShiftScheduleResolver } from "../hooks/useShiftScheduleResolver";
 import {
   FONDO_INGRESO_TYPES,
   FONDO_GASTO_TYPES,
   FONDO_EGRESO_TYPES,
-  FONDO_TYPE_OPTIONS,
   AUTO_ADJUSTMENT_PROVIDER_CODE,
   AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY,
-  AUTO_ADJUSTMENT_MANAGER,
-  AUTO_ADJUSTMENT_CLOSING_TYPE,
   CIERRE_FONDO_VENTAS_PROVIDER_NAME,
   CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
   CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
-  INGRESO_DESDE_FONDO_VENTAS_NAME,
-  MAX_AUDIT_EDITS,
   FONDO_KEY_SUFFIX,
-  DAILY_CLOSINGS_STORAGE_PREFIX,
   SHARED_COMPANY_STORAGE_KEY,
   NAMESPACE_PERMISSIONS,
   NAMESPACE_DESCRIPTIONS,
-  ACCOUNT_KEY_BY_NAMESPACE,
-  MOVEMENT_ACCOUNT_KEYS,
-  SAVE_COOLDOWN_MS,
-  CACHE_TTL_MS,
-  MOVEMENT_COOLDOWN_MS,
-  CLOSING_GUARD_LOCK_DURATION_MS,
 } from "../constants";
-import { db } from "@/config/firebase";
-import { findBestStringMatch } from "../../../utils/stringSimilarity";
-import {
-  dateKeyToISODate,
-  dateToKey,
-  isoDateToDateKey,
-} from "../../../utils/dateKey";
+
 import { useV2MovementsHydration } from "../hooks/useV2MovementsHydration";
 import {
-  addDoc,
-  collection,
-  doc,
-  getDoc,
-  runTransaction,
-  serverTimestamp,
-  writeBatch,
   type WriteBatch,
-  type QueryDocumentSnapshot,
-  type DocumentData,
 } from "firebase/firestore";
 
 import {
-  stripUndefinedDeep,
-  normalizeMovementLabel,
-  parseLastCreatedCooldown,
-  getEffectiveLastCreatedAtMs,
   isAutoAdjustmentProvider,
-  isIngresoDesdeFondoVentasMovement,
-  getMovementTypeKey,
-  includesMovementType,
-  getCanonicalFondoMovementType,
   isFondoMovementType,
   isIngresoType,
   isGastoType,
   isEgresoType,
   formatMovementType,
-  isGeneralClosingProviderName,
   hasGeneralClosingAdjustmentNotes,
   hasGeneralClosingNoDiffNotes,
-  isInventoryPurchasePaymentType,
   isInventoryPurchaseProviderType,
-  normalizeStoredType,
   normalizeInvoiceDocType,
   resolveEffectiveEgresoAmount,
   isPaidFcrMovement,
   getPrimaryMovementDateISO,
   getPrimaryMovementTime,
   getPrimaryMovementManager,
-  getFcrPaymentInvoiceId,
-  getFcrPaymentAmount,
+
   roundCreditNotePaymentAmount,
-  getChangedFields,
-  compressAuditHistory,
+
   buildStorageKey,
-  sanitizeMoneyNumber,
-  sanitizeBreakdown,
-  sanitizeAdjustmentResolution,
-  mergeDailyClosingRecords,
+
   isMovementAccountKey,
   getAccountKeyFromNamespace,
-  coerceIdentifier,
-  coerceInvoice,
-  coerceNotes,
-  coerceTruncNumber,
-  resolveCreatedAt,
+
   sanitizeFondoEntries,
   formatToastWaitTime,
-  type LastCreatedCooldownPayload,
-  type ClosingGuardKind,
   type PendingCreditNoteOption,
 } from "../utils/helpers";
 import {
   buildV2MovementsCacheKey,
-  buildLocalDayIsoRange,
   resolveV2DocKey,
 } from "../utils/v2movements";
 import { useFondoMovementTypes } from "../hooks/useFondoMovementTypes";
@@ -206,7 +126,11 @@ import { useSuperAdminUsers } from "../hooks/useSuperAdminUsers";
 import { useFondoFilters } from "../hooks/useFondoFilters";
 import { useDailyClosingState } from "../hooks/useDailyClosingState";
 import { useMovementForm } from "../hooks/useMovementForm";
+import { useClosingInvoicePayment } from "../hooks/useClosingInvoicePayment";
 import { usePendingClosingCreditInvoices } from "../hooks/usePendingClosingCreditInvoices";
+import { useFondoCompanyResolution } from "../hooks/useFondoCompanyResolution";
+import { useFondoCompanyMetadata } from "../hooks/useFondoCompanyMetadata";
+import { usePendingCierreDeCajaStatus } from "../hooks/usePendingCierreDeCajaStatus";
 import {
   isMovementLocked as isMovementLockedFn,
   isCierreFondoVentasMovement as isCierreFondoVentasMovementFn,
@@ -214,12 +138,7 @@ import {
   confirmDeleteMovement as confirmDeleteMovementFn,
   cancelDeleteMovement as cancelDeleteMovementFn,
 } from "../utils/movementDeletion";
-import {
-  acquireClosingGuard,
-  forceClearClosingGuards,
-  releaseClosingGuard,
-  touchClosingGuard,
-} from "../utils/closingGuards";
+
 import {
   buildPhysicalCountStorageKey as buildPhysicalCountStorageKeyFn,
   buildLegacyPhysicalCountStorageKey as buildLegacyPhysicalCountStorageKeyFn,
@@ -228,7 +147,6 @@ import {
   handleConfirmPhysicalCount as handleConfirmPhysicalCountFn,
   shouldPromptPhysicalCount as shouldPromptPhysicalCountFn,
 } from "../utils/physicalCount";
-import { sendMovementNotification } from "../utils/notifications";
 import { handleDeleteLatestDailyClosing as deleteLatestDailyClosingFn, persistCreatedMovement as persistCreatedMovementFn } from "../utils/mutations";
 
 const AccessRestrictedMessage = ({ description }: { description: string }) => (
@@ -263,30 +181,6 @@ export function FondoSection({
   const { user, loading: authLoading } = useAuth();
   const assignedCompany = user?.ownercompanie?.trim() ?? "";
   const { ownerIds: actorOwnerIds, primaryOwnerId } = useActorOwnership(user);
-  const allowedOwnerIds = useMemo(() => {
-    const set = new Set<string>();
-    actorOwnerIds.forEach((id) => {
-      const normalized =
-        typeof id === "string" ? id.trim() : String(id || "").trim();
-      if (normalized) set.add(normalized);
-    });
-    if (user?.ownerId) {
-      const normalized = String(user.ownerId).trim();
-      if (normalized) set.add(normalized);
-    }
-    return set;
-  }, [actorOwnerIds, user?.ownerId]);
-  const allowedOwnerIdsKey = useMemo(
-    () => Array.from(allowedOwnerIds).sort().join("|"),
-    [allowedOwnerIds],
-  );
-  const resolvedOwnerId = useMemo(() => {
-    const normalizedPrimary = (primaryOwnerId || "").trim();
-    if (normalizedPrimary) return normalizedPrimary;
-    const [firstAllowed] = Array.from(allowedOwnerIds);
-    if (firstAllowed) return firstAllowed;
-    return "";
-  }, [allowedOwnerIds, primaryOwnerId]);
   const isAdminUser = user?.role === "admin";
   const isSuperAdminUser = user?.role === "superadmin";
   const isRegularUser = user?.role === "user";
@@ -311,254 +205,28 @@ export function FondoSection({
     error: providersError,
   } = useProviders(company);
   const { showToast } = useToast();
-  const [ownerAdminEmail, setOwnerAdminEmail] = useState<string | null>(null);
-  const [ownerCompanies, setOwnerCompanies] = useState<Empresas[]>([]);
-  const [ownerCompaniesLoading, setOwnerCompaniesLoading] = useState(false);
-  const [ownerCompaniesError, setOwnerCompaniesError] = useState<string | null>(
-    null,
-  );
-
-  const sortedOwnerCompanies = useMemo(() => {
-    const normalize = (value: unknown) =>
-      String(value || "")
-        .trim()
-        .toLowerCase();
-
-    const valueKey = (emp: Empresas) =>
-      normalize(emp?.name || emp?.ubicacion || emp?.id || "");
-
-    const score = (emp: Empresas) =>
-      (normalize(emp?.id) ? 2 : 0) +
-      (normalize(emp?.name) ? 1 : 0) +
-      (normalize(emp?.ubicacion) ? 1 : 0);
-
-    const byKey = new Map<string, Empresas>();
-    ownerCompanies.forEach((emp) => {
-      const key = valueKey(emp);
-      if (!key) return;
-      const existing = byKey.get(key);
-      if (!existing || score(emp) > score(existing)) {
-        byKey.set(key, emp);
-      }
-    });
-
-    const deduped = Array.from(byKey.values());
-
-    const ubicacionesWithNamed = new Set<string>();
-    deduped.forEach((emp) => {
-      const name = normalize(emp?.name);
-      const ubicacion = normalize(emp?.ubicacion);
-      if (name && ubicacion) ubicacionesWithNamed.add(ubicacion);
-    });
-
-    const cleaned = deduped.filter((emp) => {
-      const name = normalize(emp?.name);
-      const ubicacion = normalize(emp?.ubicacion);
-      if (!name && ubicacion && ubicacionesWithNamed.has(ubicacion))
-        return false;
-      return true;
-    });
-
-    return cleaned.sort((a, b) =>
-      (a.name || a.ubicacion || "").localeCompare(
-        b.name || b.ubicacion || "",
-        "es",
-        {
-          sensitivity: "base",
-        },
-      ),
-    );
-  }, [ownerCompanies]);
-
-  useEffect(() => {
-    const normalizeCompanyKey = (value: unknown) =>
-      String(value || "")
-        .trim()
-        .toLowerCase();
-    const getEmpresaCompanyKey = (emp: Empresas) =>
-      String(emp?.name || emp?.ubicacion || emp?.id || "").trim();
-    const normalizedAssignedCompany = normalizeCompanyKey(assignedCompany);
-
-    if (authLoading || !user) {
-      setOwnerCompanies([]);
-      setOwnerCompaniesLoading(false);
-      setOwnerCompaniesError(null);
-      return;
-    }
-
-    if (!canSelectCompany && !normalizedAssignedCompany) {
-      setOwnerCompanies([]);
-      setResolvedCompany("");
-      setOwnerCompaniesLoading(false);
-      setOwnerCompaniesError(null);
-      return;
-    }
-
-    if (isAdminUser && allowedOwnerIds.size === 0) {
-      setOwnerCompanies([]);
-      setOwnerCompaniesLoading(false);
-      setOwnerCompaniesError(
-        "No se pudo determinar el ownerId asociado a tu cuenta.",
-      );
-      return;
-    }
-
-    let isMounted = true;
-    setOwnerCompaniesLoading(true);
-    setOwnerCompaniesError(null);
-
-    EmpresasService.getAllEmpresas()
-      .then((empresas) => {
-        if (!isMounted) return;
-        const filtered = isAdminUser
-          ? empresas.filter((emp) => {
-              const owner = (emp.ownerId || "").trim();
-              if (!owner) return false;
-              return allowedOwnerIds.has(owner);
-            })
-          : canSelectCompany
-            ? empresas
-            : empresas.filter((emp) => {
-                const candidates = [emp.name, emp.ubicacion, emp.id]
-                  .map(normalizeCompanyKey)
-                  .filter(Boolean);
-                return candidates.includes(normalizedAssignedCompany);
-              });
-        setOwnerCompanies(filtered);
-        if (canSelectCompany) {
-          setAdminCompany((current) => {
-            const normalizedCurrent = normalizeCompanyKey(current);
-            if (normalizedCurrent.length > 0) {
-              const exists = filtered.some((emp) => {
-                const candidates = [emp.name, emp.ubicacion, emp.id]
-                  .map(normalizeCompanyKey)
-                  .filter(Boolean);
-                return candidates.includes(normalizedCurrent);
-              });
-              if (exists) return current;
-            }
-
-            const fallback = filtered[0];
-            return fallback ? getEmpresaCompanyKey(fallback) : "";
-          });
-        }
-        if (!canSelectCompany) {
-          const fallback = filtered[0];
-          setResolvedCompany(
-            fallback ? getEmpresaCompanyKey(fallback) : assignedCompany,
-          );
-        }
-      })
-      .catch((err) => {
-        if (!isMounted) return;
-        setOwnerCompanies([]);
-        setOwnerCompaniesError(
-          err instanceof Error
-            ? err.message
-            : "No se pudieron cargar las empresas disponibles.",
-        );
-      })
-      .finally(() => {
-        if (isMounted) setOwnerCompaniesLoading(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [
-    allowedOwnerIds,
-    allowedOwnerIdsKey,
-    assignedCompany,
+  const {
+    ownerAdminEmail,
+    ownerCompanies,
+    ownerCompaniesLoading,
+    ownerCompaniesError,
+    sortedOwnerCompanies,
+    activeOwnerId,
+    activeEmpresaForCompany,
+    resolvedOwnerId,
+  } = useFondoCompanyResolution({
+    user,
     authLoading,
+    actorOwnerIds,
+    primaryOwnerId,
+    assignedCompany,
     canSelectCompany,
     isAdminUser,
-    user,
-  ]);
-
-  const activeOwnerId = useMemo(() => {
-    const normalizeCompanyKey = (value: unknown) =>
-      String(value || "")
-        .trim()
-        .toLowerCase();
-
-    if (canSelectCompany) {
-      const normalizedCompany = normalizeCompanyKey(adminCompany);
-      if (normalizedCompany.length > 0) {
-        const match = ownerCompanies.find((emp) => {
-          const candidates = [emp.name, emp.ubicacion, emp.id]
-            .map(normalizeCompanyKey)
-            .filter(Boolean);
-          return candidates.includes(normalizedCompany);
-        });
-        const ownerId =
-          typeof match?.ownerId === "string" ? match.ownerId.trim() : "";
-        if (ownerId) return ownerId;
-      }
-
-      const fallbackAdminOwner =
-        typeof ownerCompanies[0]?.ownerId === "string"
-          ? ownerCompanies[0].ownerId.trim()
-          : "";
-      if (fallbackAdminOwner) return fallbackAdminOwner;
-    }
-
-    const normalizedAssignedCompany = normalizeCompanyKey(company);
-    if (normalizedAssignedCompany.length > 0 && ownerCompanies.length > 0) {
-      const match = ownerCompanies.find((emp) => {
-        const candidates = [emp.name, emp.ubicacion, emp.id]
-          .map(normalizeCompanyKey)
-          .filter(Boolean);
-        return candidates.includes(normalizedAssignedCompany);
-      });
-      const ownerId =
-        typeof match?.ownerId === "string" ? match.ownerId.trim() : "";
-      if (ownerId) return ownerId;
-    }
-
-    return resolvedOwnerId;
-  }, [
-    adminCompany,
-    canSelectCompany,
     company,
-    ownerCompanies,
-    resolvedOwnerId,
-  ]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    if (!activeOwnerId) {
-      setOwnerAdminEmail(null);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    setOwnerAdminEmail(null);
-
-    const loadAdminEmail = async () => {
-      try {
-        const admin = await UsersService.getPrimaryAdminByOwner(activeOwnerId);
-        if (cancelled) return;
-        const email =
-          typeof admin?.email === "string" ? admin.email.trim() : "";
-        setOwnerAdminEmail(email.length > 0 ? email : null);
-      } catch (error) {
-        if (cancelled) return;
-        console.error(
-          "Error loading owner admin email for daily closing notifications:",
-          error,
-        );
-        setOwnerAdminEmail(null);
-      }
-    };
-
-    void loadAdminEmail();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeOwnerId]);
+    adminCompany,
+    setResolvedCompany,
+    setAdminCompany,
+  });
   const permissions =
     user?.permissions || getDefaultPermissions(user?.role || "user");
   const hasGeneralAccess = Boolean(permissions.fondogeneral);
@@ -627,88 +295,15 @@ export function FondoSection({
       }>);
   const movementProvidersLoading = isCajaNegra ? false : providersLoading;
 
-  const fgSchedulesMonthCacheRef = useRef<
-    Map<
-      string,
-      {
-        at: number;
-        promise: Promise<
-          Awaited<
-            ReturnType<typeof SchedulesService.getSchedulesByLocationYearMonth>
-          >
-        >;
-      }
-    >
-  >(new Map());
-  const FG_SCHEDULES_CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
-  const getFGMonthlySchedulesCached = useCallback(
-    async (locationValue: string, year: number, month0: number) => {
-      const key = `${locationValue}__${year}__${month0}`;
-      const now = Date.now();
-      const cached = fgSchedulesMonthCacheRef.current.get(key);
-      if (cached && now - cached.at < FG_SCHEDULES_CACHE_TTL_MS) {
-        return cached.promise;
-      }
-      const promise = SchedulesService.getSchedulesByLocationYearMonth(
-        locationValue,
-        year,
-        month0,
-      );
-      fgSchedulesMonthCacheRef.current.set(key, { at: now, promise });
-      return promise;
-    },
-    [],
-  );
+  const {
+    getFGMonthlySchedulesCached,
+    resolveShiftManagerForNow,
+    resolveShiftTimingForNow,
+  } = useShiftScheduleResolver({
+    company,
+    empresa: activeEmpresaForCompany,
+  });
 
-  const activeEmpresaForCompany = useMemo(() => {
-    const normalizeCompanyKey = (value: unknown) =>
-      String(value || "")
-        .trim()
-        .toLowerCase();
-
-    const normalizedSelected = normalizeCompanyKey(company);
-    if (!normalizedSelected) return null;
-
-    const matches = ownerCompanies.filter((emp) => {
-      const candidates = [emp?.name, emp?.ubicacion, emp?.id]
-        .map(normalizeCompanyKey)
-        .filter(Boolean);
-      return candidates.includes(normalizedSelected);
-    });
-
-    if (matches.length === 0) return null;
-    if (matches.length === 1) return matches[0];
-
-    const score = (emp: Empresas) => {
-      const name = normalizeCompanyKey(emp?.name);
-      const ubicacion = normalizeCompanyKey(emp?.ubicacion);
-      const id = normalizeCompanyKey(emp?.id);
-      const exact =
-        normalizedSelected === name ||
-        normalizedSelected === ubicacion ||
-        normalizedSelected === id
-          ? 3
-          : 0;
-      const hasOpen = String(emp?.horarioApertura || "").trim() ? 2 : 0;
-      const hasClose = String(emp?.horarioCierre || "").trim() ? 2 : 0;
-      const hasEmployees =
-        Array.isArray(emp?.empleados) && emp.empleados.length > 0 ? 1 : 0;
-      return exact + hasOpen + hasClose + hasEmployees;
-    };
-
-    let best = matches[0];
-    let bestScore = score(best);
-    for (let i = 1; i < matches.length; i++) {
-      const cur = matches[i];
-      const curScore = score(cur);
-      if (curScore > bestScore) {
-        best = cur;
-        bestScore = curScore;
-      }
-    }
-
-    return best;
-  }, [company, ownerCompanies]);
 
   const [missingShiftModalOpen, setMissingShiftModalOpen] = useState(false);
   const [missingShiftExpectedShift, setMissingShiftExpectedShift] =
@@ -732,10 +327,10 @@ export function FondoSection({
     useFondoMovementTypes(activeOwnerId);
 
   const [fondoEntries, setFondoEntries] = useState<FondoEntry[]>([]);
-  const [companyEmployees, setCompanyEmployees] = useState<string[]>([]);
-  const [employeesLoading, setEmployeesLoading] = useState(false);
+  const { companyEmployees, employeesLoading, companyData } =
+    useFondoCompanyMetadata({ company, namespace });
 
-  const [selectedProviderPendingNcCount, setSelectedProviderPendingNcCount] =
+  const [selectedProviderPendingNcCount] =
     useState(0);
   const [
     selectedProviderPendingCreditNotes,
@@ -770,16 +365,6 @@ export function FondoSection({
     showPendingClosingCreditInvoices,
     setShowPendingClosingCreditInvoices,
   ] = useState(false);
-  const [closingPaymentModalOpen, setClosingPaymentModalOpen] = useState(false);
-  const [closingPaymentTarget, setClosingPaymentTarget] =
-    useState<FacturaMovement | null>(null);
-  const [closingPaymentAmount, setClosingPaymentAmount] = useState("");
-  const [closingPaymentNotes, setClosingPaymentNotes] = useState("");
-  const [closingPaymentManager2, setClosingPaymentManager2] = useState("");
-  const [closingPaymentCreditNoteIds, setClosingPaymentCreditNoteIds] =
-    useState<string[]>([]);
-  const [closingPaymentSubmitting, setClosingPaymentSubmitting] =
-    useState(false);
   const [expandedClosings, setExpandedClosings] = useState<Set<string>>(
     new Set(),
   );
@@ -803,7 +388,6 @@ export function FondoSection({
     amount: number;
     observation?: string;
   } | null>(null);
-  const [pendingCierreDeCaja, setPendingCierreDeCaja] = useState(false);
   const [pendingCierreModalOpen, setPendingCierreModalOpen] = useState(false);
   const [
     pendingZeroAmountCreditNoteModalOpen,
@@ -836,7 +420,6 @@ export function FondoSection({
     pageIndex,
     setPageIndex,
     currentDailyKey,
-    setCurrentDailyKey,
     todayKey,
     providersMap,
     sortAsc,
@@ -934,7 +517,6 @@ export function FondoSection({
     loadedDailyClosingKeysRef,
     loadingDailyClosingKeysRef,
   } = useDailyClosingState({ company, accountKey });
-
   const {
     selectedProvider,
     setSelectedProvider,
@@ -1013,6 +595,16 @@ export function FondoSection({
   const [hydratedCompany, setHydratedCompany] = useState("");
   const [hydratedAccountKey, setHydratedAccountKey] =
     useState<MovementAccountKey>(accountKey);
+  const { pendingCierreDeCaja, setPendingCierreDeCaja } =
+    usePendingCierreDeCajaStatus({
+      entriesHydrated,
+      providers,
+      fondoEntries,
+      dailyClosings,
+      getPrimaryMovementTime,
+      isAutoAdjustmentProvider,
+      cierreFondoVentasProviderName: CIERRE_FONDO_VENTAS_PROVIDER_NAME,
+    });
   const {
     movementsLoading,
     beginMovementsLoading,
@@ -1024,8 +616,6 @@ export function FondoSection({
     CRC: true,
     USD: true,
   });
-  const [companyData, setCompanyData] = useState<Empresas | null>(null);
-
   const enabledBalanceCurrencies = useMemo(
     () =>
       (["CRC", "USD"] as MovementCurrencyKey[]).filter(
@@ -1659,82 +1249,6 @@ export function FondoSection({
   ]);
 
   useEffect(() => {
-    if (
-      !entriesHydrated ||
-      providers.length === 0 ||
-      fondoEntries.length === 0
-    ) {
-      return;
-    }
-
-    const sortedEntries = [...fondoEntries].sort(
-      (a, b) => getPrimaryMovementTime(b) - getPrimaryMovementTime(a),
-    );
-    // Determine if there is a pending "CIERRE FONDO VENTAS" that has not
-    // been superseded by an auto-adjustment (CIERRE DE FONDO GENERAL) or by a
-    // confirmed daily closing record. We consider the most recent cierre entry
-    // and compare it with the latest daily closing saved for the company.
-    let hasPendingCierreDeCaja = false;
-    let cierreEntryTs = 0;
-    for (const entry of sortedEntries) {
-      // If we find an auto-adjustment (CIERRE DE FONDO GENERAL) newer than any
-      // cierre entry, there is no pending cierre.
-      if (isAutoAdjustmentProvider(entry.providerCode)) {
-        cierreEntryTs = 0;
-        break;
-      }
-      // Buscar el nombre del proveedor por su código
-      const providerData = providers.find((p) => p.code === entry.providerCode);
-      if (
-        providerData?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME
-      ) {
-        const parsed = Date.parse(String(entry.createdAt || ""));
-        cierreEntryTs = Number.isFinite(parsed) ? parsed : 0;
-        break;
-      }
-    }
-
-    if (cierreEntryTs > 0) {
-      // If we have daily closings loaded, compare timestamps: if the latest
-      // daily closing is at or after the cierre entry, consider it confirmed
-      // (not pending). Otherwise keep as pending.
-      let latestDailyClosingTs = 0;
-      if (Array.isArray(dailyClosings) && dailyClosings.length > 0) {
-        for (const record of dailyClosings) {
-          const ts = Date.parse(record.createdAt || record.closingDate || "");
-          if (Number.isFinite(ts) && ts > latestDailyClosingTs)
-            latestDailyClosingTs = ts;
-        }
-      }
-      hasPendingCierreDeCaja = cierreEntryTs > latestDailyClosingTs;
-    } else {
-      hasPendingCierreDeCaja = false;
-    }
-
-    setPendingCierreDeCaja(hasPendingCierreDeCaja);
-    console.log(
-      "[CIERRE-DEBUG] Estado pendingCierreDeCaja después de cargar:",
-      hasPendingCierreDeCaja,
-      {
-        cierreEntryTs,
-        latestDailyClosingTs: Array.isArray(dailyClosings)
-          ? Math.max(
-              ...dailyClosings.map(
-                (r) => Date.parse(r.createdAt || r.closingDate || "") || 0,
-              ),
-            )
-          : 0,
-      },
-    );
-  }, [
-    entriesHydrated,
-    providers,
-    fondoEntries,
-    dailyClosings,
-    dailyClosingsHydrated,
-  ]);
-
-  useEffect(() => {
     if (!selectedProvider) return;
     const exists = movementProviders.some((p) => p.code === selectedProvider);
     const isEditingSameProvider =
@@ -1748,81 +1262,6 @@ export function FondoSection({
     editingEntryId,
     editingProviderCode,
   ]);
-
-  useEffect(() => {
-    let isActive = true;
-    setCompanyEmployees([]);
-
-    if (!company) {
-      setEmployeesLoading(false);
-      return () => {
-        isActive = false;
-      };
-    }
-
-    // Solo cargar empleados de la empresa si estamos en fondogeneral (fg) o cajanegra (cn)
-    // Para otros fondos (BCR, BN, BAC), no cargar empleados
-    if (namespace !== "fg" && namespace !== "cn") {
-      setEmployeesLoading(false);
-      return () => {
-        isActive = false;
-      };
-    }
-
-    setEmployeesLoading(true);
-    EmpresasService.getAllEmpresas()
-      .then((empresas) => {
-        if (!isActive) return;
-        const match = empresas.find(
-          (emp) => emp.name?.toLowerCase() === company.toLowerCase(),
-        );
-        const names =
-          match?.empleados?.map((emp) => emp.Empleado).filter(Boolean) ?? [];
-        setCompanyEmployees(names as string[]);
-      })
-      .catch((err) => {
-        console.error("Error loading company employees:", err);
-        if (isActive) setCompanyEmployees([]);
-      })
-      .finally(() => {
-        if (isActive) setEmployeesLoading(false);
-      });
-
-    return () => {
-      isActive = false;
-    };
-  }, [company, namespace]);
-
-  // Load company data to check ownerId for delete permissions
-  useEffect(() => {
-    let isActive = true;
-    setCompanyData(null);
-
-    if (!company) {
-      return () => {
-        isActive = false;
-      };
-    }
-
-    EmpresasService.getAllEmpresas()
-      .then((empresas) => {
-        if (!isActive) return;
-        const match = empresas.find(
-          (emp) => emp.name?.toLowerCase() === company.toLowerCase(),
-        );
-        if (match) {
-          setCompanyData(match);
-        }
-      })
-      .catch((err) => {
-        console.error("Error loading company data:", err);
-        if (isActive) setCompanyData(null);
-      });
-
-    return () => {
-      isActive = false;
-    };
-  }, [company]);
 
   useEffect(() => {
     // Keep legacy validation for non-superadmin actors.
@@ -1924,6 +1363,46 @@ export function FondoSection({
     ],
   );
 
+  const {
+    closingPaymentModalOpen,
+    setClosingPaymentModalOpen,
+    closingPaymentTarget,
+    setClosingPaymentTarget,
+    closingPaymentAmount,
+    setClosingPaymentAmount,
+    closingPaymentNotes,
+    setClosingPaymentNotes,
+    closingPaymentManager2,
+    setClosingPaymentManager2,
+    closingPaymentCreditNoteIds,
+    setClosingPaymentCreditNoteIds,
+    closingPaymentSubmitting,
+    openClosingInvoicePaymentModal,
+    closeClosingInvoicePaymentModal,
+    handleMovementCreditInvoiceSelect,
+    closingPaymentAvailableCreditNotes,
+    closingPaymentCreditNotesTotal,
+    submitClosingInvoicePayment,
+  } = useClosingInvoicePayment({
+    company,
+    accountKey,
+    isCajaNegra,
+    pendingCierreDeCaja,
+    pendingClosingCreditInvoices,
+    selectedProviderPendingCreditNotes,
+    showToast,
+    setPendingCierreModalOpen,
+    setPendingClosingCreditInvoices,
+    setSelectedProviderPendingCreditNotes,
+    applyLedgerStateFromStorage,
+    rebuildEntriesFromV2Cache,
+    storageSnapshotRef,
+    v2MovementsCacheRef,
+    persistMovementToFirestore,
+    setSelectedProvider,
+    setMovementModalOpen,
+  });
+
   const handleDeleteLatestDailyClosing = useCallback(
     (reason: string) =>
       deleteLatestDailyClosingFn(reason, {
@@ -2012,76 +1491,6 @@ export function FondoSection({
       lastMovementDedupeRef,
       lastMovementCreatedAtRef,
     ],
-  );
-
-  const resolveShiftManagerForNow = useCallback(
-    async (nowISO: string) => {
-      const empresa = activeEmpresaForCompany;
-      const normalizedCompany = (company || "").trim();
-      if (!empresa || !normalizedCompany) return null;
-
-      const companyKeysToTry = (() => {
-        const set = new Set<string>();
-        set.add(normalizedCompany);
-        [empresa?.name, empresa?.ubicacion, empresa?.id]
-          .map((v) => (typeof v === "string" ? v.trim() : String(v || "").trim()))
-          .filter(Boolean)
-          .forEach((v) => set.add(v));
-        return Array.from(set);
-      })();
-
-      const ymParts = new Intl.DateTimeFormat("en-US", {
-        timeZone: "America/Costa_Rica",
-        year: "numeric",
-        month: "2-digit",
-      }).formatToParts(new Date(nowISO));
-      const year = Number(ymParts.find((p) => p.type === "year")?.value);
-      const month1 = Number(ymParts.find((p) => p.type === "month")?.value);
-      const month0 = Math.max(0, Math.min(11, month1 - 1));
-      if (!Number.isFinite(year) || !Number.isFinite(month1)) return null;
-
-      const schedulesLists = await Promise.all(
-        companyKeysToTry.map((key) => getFGMonthlySchedulesCached(key, year, month0)),
-      );
-      const monthSchedules = schedulesLists.flat();
-      return resolveManagerFromControlHorario({ nowISO, empresa, monthSchedules });
-    },
-    [activeEmpresaForCompany, company, getFGMonthlySchedulesCached],
-  );
-
-  const resolveShiftTimingForNow = useCallback(
-    async (nowISO: string) => {
-      const empresa = activeEmpresaForCompany;
-      const normalizedCompany = (company || "").trim();
-      if (!empresa || !normalizedCompany) return null;
-
-      const companyKeysToTry = (() => {
-        const set = new Set<string>();
-        set.add(normalizedCompany);
-        [empresa?.name, empresa?.ubicacion, empresa?.id]
-          .map((v) => (typeof v === "string" ? v.trim() : String(v || "").trim()))
-          .filter(Boolean)
-          .forEach((v) => set.add(v));
-        return Array.from(set);
-      })();
-
-      const ymParts = new Intl.DateTimeFormat("en-US", {
-        timeZone: "America/Costa_Rica",
-        year: "numeric",
-        month: "2-digit",
-      }).formatToParts(new Date(nowISO));
-      const year = Number(ymParts.find((p) => p.type === "year")?.value);
-      const month1 = Number(ymParts.find((p) => p.type === "month")?.value);
-      const month0 = Math.max(0, Math.min(11, month1 - 1));
-      if (!Number.isFinite(year) || !Number.isFinite(month1)) return null;
-
-      const schedulesLists = await Promise.all(
-        companyKeysToTry.map((key) => getFGMonthlySchedulesCached(key, year, month0)),
-      );
-      const monthSchedules = schedulesLists.flat();
-      return getControlHorarioShiftTiming({ nowISO, empresa, monthSchedules });
-    },
-    [activeEmpresaForCompany, company, getFGMonthlySchedulesCached],
   );
 
   useEffect(() => {
@@ -3571,172 +2980,6 @@ export function FondoSection({
     setClosingPaymentTarget(null);
   };
 
-  const openClosingInvoicePaymentModal = useCallback(
-    (invoice: FacturaMovement) => {
-      if (isCajaNegra) {
-        showToast(
-          "Desde Caja Negra no se debe gestionar facturas a crédito.",
-          "error",
-          4500,
-        );
-        return;
-      }
-      if (pendingCierreDeCaja) {
-        setPendingCierreModalOpen(true);
-        return;
-      }
-      const totalAmount = Math.max(
-        0,
-        Math.trunc(Number(invoice.originalAmount ?? invoice.amount) || 0),
-      );
-      const paidAmount = Math.max(
-        0,
-        Math.trunc(Number(invoice.paidAmount) || 0),
-      );
-      const balanceDue = Math.max(
-        0,
-        Math.trunc(Number(invoice.balanceDue ?? totalAmount - paidAmount) || 0),
-      );
-
-      setSelectedProvider(invoice.providerCode);
-      setClosingPaymentTarget(invoice);
-      setClosingPaymentAmount(String(balanceDue || totalAmount));
-      setClosingPaymentNotes(String(invoice.notes || ""));
-      setClosingPaymentManager2(String(invoice.manager2 || ""));
-      setClosingPaymentCreditNoteIds([]);
-      setClosingPaymentModalOpen(true);
-    },
-    [isCajaNegra, pendingCierreDeCaja, showToast],
-  );
-
-  const closeClosingInvoicePaymentModal = useCallback(() => {
-    setClosingPaymentModalOpen(false);
-    setClosingPaymentTarget(null);
-    setClosingPaymentAmount("");
-    setClosingPaymentNotes("");
-    setClosingPaymentManager2("");
-    setClosingPaymentCreditNoteIds([]);
-  }, []);
-
-  const openSelectedPendingCreditInvoicePayment = useCallback(
-    (invoiceId: string) => {
-      const invoice = pendingClosingCreditInvoices.find(
-        (item) => item.id === invoiceId,
-      );
-      if (invoice) openClosingInvoicePaymentModal(invoice);
-    },
-    [openClosingInvoicePaymentModal, pendingClosingCreditInvoices],
-  );
-
-  const handleMovementCreditInvoiceSelect = useCallback(
-    (invoiceId: string) => {
-      const invoice = pendingClosingCreditInvoices.find(
-        (item) => item.id === invoiceId,
-      );
-      if (invoice) {
-        openClosingInvoicePaymentModal(invoice);
-        setMovementModalOpen(false);
-      }
-    },
-    [openClosingInvoicePaymentModal, pendingClosingCreditInvoices],
-  );
-
-  const closingPaymentAvailableCreditNotes = useMemo(() => {
-    if (!closingPaymentTarget) return [];
-    return selectedProviderPendingCreditNotes.filter(
-      (note) => note.currency === closingPaymentTarget.currency,
-    );
-  }, [closingPaymentTarget, selectedProviderPendingCreditNotes]);
-
-  const closingPaymentSelectedCreditNotes = useMemo(() => {
-    const selectedIds = new Set(closingPaymentCreditNoteIds);
-    return closingPaymentAvailableCreditNotes.filter((note) =>
-      selectedIds.has(note.id),
-    );
-  }, [closingPaymentAvailableCreditNotes, closingPaymentCreditNoteIds]);
-
-  const closingPaymentCreditNotesTotal = useMemo(() => {
-    if (!closingPaymentTarget) return 0;
-    const totalAmount = Math.max(
-      0,
-      Math.trunc(
-        Number(closingPaymentTarget.originalAmount ?? closingPaymentTarget.amount) ||
-          0,
-      ),
-    );
-    const paidAmount = Math.max(
-      0,
-      Math.trunc(Number(closingPaymentTarget.paidAmount) || 0),
-    );
-    let remaining = Math.max(
-      0,
-      Math.trunc(Number(closingPaymentTarget.balanceDue ?? totalAmount - paidAmount) || 0),
-    );
-    let total = 0;
-    closingPaymentSelectedCreditNotes.forEach((note) => {
-      if (remaining <= 0) return;
-      const applied = Math.min(
-        remaining,
-        Math.max(0, Math.trunc(Number(note.balanceDue) || 0)),
-      );
-      total += applied;
-      remaining -= applied;
-    });
-    return total;
-  }, [closingPaymentSelectedCreditNotes, closingPaymentTarget]);
-
-  const submitClosingInvoicePayment = useCallback(
-    (mode: "partial" | "full") =>
-      submitClosingInvoicePaymentFn(mode, {
-        company,
-        accountKey,
-        isCajaNegra,
-        pendingCierreDeCaja,
-        closingPaymentTarget,
-        closingPaymentAmount,
-        closingPaymentNotes,
-        closingPaymentManager2,
-        closingPaymentCreditNoteIds,
-        selectedProviderPendingCreditNotes,
-        showToast,
-        setPendingCierreModalOpen,
-        setClosingPaymentSubmitting,
-        setPendingClosingCreditInvoices,
-        setSelectedProviderPendingCreditNotes,
-        setClosingPaymentCreditNoteIds,
-        closeClosingInvoicePaymentModal,
-        applyLedgerStateFromStorage,
-        rebuildEntriesFromV2Cache,
-        storageSnapshotRef,
-        v2MovementsCacheRef,
-        persistMovementToFirestore,
-      }),
-    [
-      accountKey,
-      closingPaymentAmount,
-      closingPaymentCreditNoteIds,
-      closingPaymentManager2,
-      closingPaymentNotes,
-      closingPaymentTarget,
-      closeClosingInvoicePaymentModal,
-      company,
-      isCajaNegra,
-      pendingCierreDeCaja,
-      persistMovementToFirestore,
-      rebuildEntriesFromV2Cache,
-      selectedProviderPendingCreditNotes,
-      setClosingPaymentSubmitting,
-      setClosingPaymentCreditNoteIds,
-      setPendingCierreModalOpen,
-      setPendingClosingCreditInvoices,
-      setSelectedProviderPendingCreditNotes,
-      showToast,
-      storageSnapshotRef,
-      v2MovementsCacheRef,
-      applyLedgerStateFromStorage,
-    ],
-  );
-
   const handleCancelPhysicalCount = useCallback(() => {
     handleCancelPhysicalCountFn(setConfirmPhysicalCountOpen);
   }, []);
@@ -5012,75 +4255,7 @@ export function FondoSection({
                                         </span>
                                       )}
                                     </div>
-                                    {fe.notes && (
-                                      <div className="mt-1 flex w-full items-start gap-2 rounded border border-[var(--input-border)] bg-[var(--muted)]/20 px-2 py-1.5">
-                                        <MessageSquare className="h-3 w-3 shrink-0 mt-0.5 text-[var(--muted-foreground)]" />
-                                        <div className="text-xs text-[var(--muted-foreground)] break-words min-w-0 [&>div]:w-full">
-                                          {(() => {
-                                            if (
-                                              fe.notes.includes("[ALERT_ICON]")
-                                            ) {
-                                              const parts = fe.notes.split("\n");
-                                              const headerText =
-                                                parts.find(
-                                                  (p) =>
-                                                    !p.includes("[ALERT_ICON]"),
-                                                ) || "";
-                                              const alertLine =
-                                                parts.find((p) =>
-                                                  p.includes("[ALERT_ICON]"),
-                                                ) || "";
-                                              const noteText = alertLine.replace(
-                                                "[ALERT_ICON]",
-                                                "",
-                                              );
-                                              return (
-                                                <div className="flex flex-col gap-1">
-                                                  {headerText && (
-                                                    <div className="text-[10px] font-semibold text-[var(--foreground)] uppercase tracking-wide">
-                                                      {headerText}
-                                                    </div>
-                                                  )}
-                                                  <div className="flex items-center gap-1.5">
-                                                    <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
-                                                    {(() => {
-                                                      const isPositive = /:\s*\+/.test(noteText);
-                                                      const isNegative = /:\s*\-/.test(noteText);
-                                                      if (isPositive || isNegative) {
-                                                        const bgClass = isPositive
-                                                          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                                                          : "border-red-500/30 bg-red-500/10 text-red-300";
-                                                        return (
-                                                          <span className={`rounded border ${bgClass} px-1.5 py-0.5 text-[11px] font-semibold`}>
-                                                            {noteText}
-                                                          </span>
-                                                        );
-                                                      }
-                                                      return <span>{noteText}</span>;
-                                                    })()}
-                                                  </div>
-                                                </div>
-                                              );
-                                            }
-                                            if (
-                                              fe.notes.startsWith("[CHECK_ICON]")
-                                            ) {
-                                              const noteText = fe.notes.replace(
-                                                "[CHECK_ICON]",
-                                                "",
-                                              );
-                                              return (
-                                                <div className="flex items-center gap-1.5">
-                                                  <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
-                                                  <span>{noteText}</span>
-                                                </div>
-                                              );
-                                            }
-                                            return <span>{fe.notes}</span>;
-                                          })()}
-                                        </div>
-                                      </div>
-                                    )}
+                                    <MovementNotesBlock notes={fe.notes} />
                                   </td>
                                   <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
                                     <span className="inline-flex max-w-full items-center rounded border border-[var(--input-border)] bg-[var(--muted)]/15 px-2 py-1 text-xs text-[var(--foreground)]">
@@ -5383,414 +4558,74 @@ export function FondoSection({
                                   <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
                                     {primaryManager}
                                   </td>
-                                  <td className="px-3 py-2 align-top">
-                                    {(!isLockedMovement || isPaidFcrEntry) && (
-                                      <div className="flex items-center gap-2">
-                                        {(() => {
-                                          const isCierreVentasRow =
-                                            isCierreFondoVentasMovement(fe);
-                                          const isLatestCierreVentas =
-                                            isCierreVentasRow &&
-                                            Boolean(
-                                              latestCierreFondoVentasMovementId,
-                                            ) &&
-                                            fe.id ===
-                                              latestCierreFondoVentasMovementId;
-                                          const canDelete =
-                                            !isLockedMovement &&
-                                            !isAutoAdjustment &&
-                                            (isPrincipalAdmin ||
-                                              (isSuperAdminUser &&
-                                                isCierreVentasRow)) &&
-                                            (!isCierreVentasRow ||
-                                              isLatestCierreVentas);
-                                          const canEdit =
-                                            !isLockedMovement &&
-                                            !isAutoAdjustment &&
-                                            (!isSuperAdminUser ||
-                                              !isCierreVentasRow);
-
-                                          return (
-                                            <>
-                                              {canEdit && (
-                                                <>
-                                                  <button
-                                                    type="button"
-                                                    className="inline-flex items-center gap-1.5 rounded border border-[var(--input-border)] bg-[var(--input-bg)] px-2.5 py-1.5 text-xs font-medium text-[var(--foreground)] transition-all duration-150 hover:-translate-y-0.5 hover:border-[var(--accent)] hover:bg-[var(--muted)] disabled:translate-y-0 disabled:opacity-50"
-                                                    onClick={() =>
-                                                      handleEditMovement(fe)
-                                                    }
-                                                    disabled={
-                                                      editingEntryId === fe.id
-                                                    }
-                                                    title={
-                                                      isAutoAdjustment
-                                                        ? "Los ajustes automáticos no se pueden editar"
-                                                        : "Editar movimiento"
-                                                    }
-                                                  >
-                                                    <Pencil className="w-4 h-4" />
-                                                    {editingEntryId === fe.id
-                                                      ? "Editando"
-                                                      : "Editar"}
-                                                  </button>
-                                                </>
-                                              )}
-
-                                              {canDelete && (
-                                                <button
-                                                  type="button"
-                                                  className="inline-flex items-center gap-1.5 rounded border border-red-500/40 bg-red-500/10 px-2.5 py-1.5 text-xs font-medium text-red-400 transition-all duration-150 hover:-translate-y-0.5 hover:border-red-400 hover:bg-red-500/20"
-                                                  onClick={() =>
-                                                    handleDeleteMovement(fe)
-                                                  }
-                                                  title={
-                                                    isCierreVentasRow &&
-                                                    isSuperAdminUser
-                                                      ? 'Eliminar "CIERRE FONDO VENTAS" (superadmin)'
-                                                      : isCierreVentasRow
-                                                         ? "Eliminar último cierre de Fondo Ventas"
-                                                        : "Eliminar movimiento"
-                                                  }
-                                                >
-                                                  <Trash2 className="w-4 h-4" />
-                                                  Eliminar
-                                                </button>
-                                              )}
-                                              {isPaidFcrEntry && (
-                                                <button
-                                                  type="button"
-                                                  className="inline-flex items-center justify-center rounded border border-emerald-500/40 bg-emerald-500/10 p-1.5 text-emerald-400 transition-all duration-150 hover:-translate-y-0.5 hover:border-emerald-400 hover:bg-emerald-500/20"
-                                                  onClick={() => {
-                                                    setExpandedFcrInfoRows(
-                                                      (prev) => {
-                                                        const next = new Set(
-                                                          prev,
-                                                        );
-                                                        if (next.has(fe.id)) {
-                                                          next.delete(fe.id);
-                                                        } else {
-                                                          next.add(fe.id);
-                                                        }
-                                                        return next;
-                                                      },
-                                                    );
-                                                  }}
-                                                  title="Ver información de pago FCR"
-                                                  aria-label="Ver información de pago FCR"
-                                                  aria-expanded={
-                                                    isFcrInfoExpanded
-                                                  }
-                                                >
-                                                  <Info className="w-4 h-4" />
-                                                </button>
-                                              )}
-                                              {hasAppliedCreditNotes &&
-                                                !isPaidFcrEntry && (
-                                                <button
-                                                  type="button"
-                                                  className={`inline-flex items-center justify-center rounded border border-sky-500/40 p-1.5 text-sky-300 transition-all duration-150 hover:-translate-y-0.5 hover:border-sky-400 hover:bg-sky-500/20 ${
-                                                    isAppliedCreditNotesExpanded
-                                                      ? "bg-sky-500/20"
-                                                      : "bg-sky-500/10"
-                                                  }`}
-                                                  onClick={() => {
-                                                    setExpandedAppliedCreditNotesRows(
-                                                      (prev) => {
-                                                        const next = new Set(
-                                                          prev,
-                                                        );
-                                                        if (next.has(fe.id)) {
-                                                          next.delete(fe.id);
-                                                        } else {
-                                                          next.add(fe.id);
-                                                        }
-                                                        return next;
-                                                      },
-                                                    );
-                                                  }}
-                                                   title="Ver notas de crédito aplicadas"
-                                                   aria-label="Ver notas de crédito aplicadas"
-                                                  aria-expanded={
-                                                    isAppliedCreditNotesExpanded
-                                                  }
-                                                >
-                                                  <Info className="w-3.5 h-3.5" />
-                                                </button>
-                                              )}
-                                            </>
-                                          );
-                                        })()}
-                                      </div>
-                                    )}
-                                  </td>
+                                  <MovementActionsCell
+                                    entry={fe}
+                                    isLockedMovement={isLockedMovement}
+                                    isPaidFcrEntry={isPaidFcrEntry}
+                                    hasAppliedCreditNotes={hasAppliedCreditNotes}
+                                    isAppliedCreditNotesExpanded={isAppliedCreditNotesExpanded}
+                                    isFcrInfoExpanded={isFcrInfoExpanded}
+                                    isAutoAdjustment={isAutoAdjustment}
+                                    isPrincipalAdmin={isPrincipalAdmin}
+                                    isSuperAdminUser={isSuperAdminUser}
+                                    latestCierreFondoVentasMovementId={latestCierreFondoVentasMovementId}
+                                    editingEntryId={editingEntryId}
+                                    isCierreFondoVentasMovement={isCierreFondoVentasMovement}
+                                    onEdit={handleEditMovement}
+                                    onDelete={handleDeleteMovement}
+                                    onToggleFcrInfo={(entryId) => {
+                                      setExpandedFcrInfoRows((prev) => {
+                                        const next = new Set(prev);
+                                        if (next.has(entryId)) {
+                                          next.delete(entryId);
+                                        } else {
+                                          next.add(entryId);
+                                        }
+                                        return next;
+                                      });
+                                    }}
+                                    onToggleAppliedCreditNotes={(entryId) => {
+                                      setExpandedAppliedCreditNotesRows((prev) => {
+                                        const next = new Set(prev);
+                                        if (next.has(entryId)) {
+                                          next.delete(entryId);
+                                        } else {
+                                          next.add(entryId);
+                                        }
+                                        return next;
+                                      });
+                                    }}
+                                  />
                                 </tr>
 
                                 {hasAppliedCreditNotes &&
                                   isAppliedCreditNotesExpanded &&
                                   !isPaidFcrEntry && (
-                                    <tr className="bg-sky-500/5 [&>td]:border-b [&>td]:border-cyan-900/35">
-                                      <td colSpan={7} className="px-3 py-2">
-                                        <div className="rounded-lg border border-sky-500/25 border-l-2 border-l-sky-400/60 bg-sky-500/10 p-3 text-xs text-[var(--foreground)]">
-                                          <div className="mb-2 flex items-center gap-2 border-b border-sky-500/20 pb-2">
-                                            <Info className="w-4 h-4 text-sky-300" />
-                                            <span className="font-medium">
-                                               Notas de crédito aplicadas
-                                            </span>
-                                          </div>
-                                          <div className="divide-y divide-sky-500/15">
-                                            {fe.appliedCreditNotes?.map(
-                                              (note) => {
-                                                const noteAmount = Math.max(
-                                                  0,
-                                                  Math.trunc(
-                                                    Number(note.amount) || 0,
-                                                  ),
-                                                );
-                                                const appliedAmount = Math.max(
-                                                  0,
-                                                  Math.trunc(
-                                                    Number(
-                                                      note.appliedAmount,
-                                                    ) || 0,
-                                                  ),
-                                                );
-                                                const noteLabel =
-                                                  note.invoiceNumber
-                                                    ? `NC #${note.invoiceNumber}`
-                                                    : `NC ${note.id}`;
-
-                                                return (
-                                                  <div
-                                                    key={note.id}
-                                                    className="py-2"
-                                                  >
-                                                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-                                                      <div>
-                                                        <div className="font-semibold text-[var(--foreground)]">
-                                                          {noteLabel}
-                                                        </div>
-                                                        <div className="text-xs text-[var(--muted-foreground)]">
-                                                          Moneda:{" "}
-                                                          {note.currency}
-                                                        </div>
-                                                      </div>
-                                                      <div className="text-right">
-                                                        <div className="text-[var(--muted-foreground)]">
-                                                          Monto NC:{" "}
-                                                          <span className="font-medium text-[var(--foreground)]">
-                                                            {formatByCurrency(
-                                                              note.currency,
-                                                              noteAmount,
-                                                            )}
-                                                          </span>
-                                                        </div>
-                                                        <div className="flex items-center justify-end gap-1.5">
-                                                          <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                                                          <span className="text-[var(--muted-foreground)]">
-                                                            Aplicado:
-                                                          </span>
-                                                          <span className="font-medium text-emerald-400">
-                                                            {formatByCurrency(
-                                                              note.currency,
-                                                              appliedAmount,
-                                                            )}
-                                                          </span>
-                                                        </div>
-                                                        {note.observation && (
-                                                          <div className="mt-1 max-w-sm text-xs text-[var(--muted-foreground)]">
-                                                            Obs:{" "}
-                                                            {note.observation}
-                                                          </div>
-                                                        )}
-                                                      </div>
-                                                    </div>
-                                                  </div>
-                                                );
-                                              },
-                                            )}
-                                          </div>
-                                          <div className="mt-2 rounded-md border border-sky-500/20 bg-sky-500/10 px-2 py-2 text-right">
-                                            <span className="font-semibold text-[var(--foreground)]">
-                                              Total aplicado:{" "}
-                                            </span>
-                                            <span className="text-base font-semibold text-emerald-400">
-                                              {formatByCurrency(
-                                                entryCurrency,
-                                                appliedCreditNotesTotal,
-                                              )}
-                                            </span>
-                                          </div>
-                                        </div>
-                                      </td>
-                                    </tr>
+                                    <AppliedCreditNotesDetails
+                                      notes={fe.appliedCreditNotes!}
+                                      currency={entryCurrency}
+                                      appliedCreditNotesTotal={appliedCreditNotesTotal}
+                                      formatByCurrency={formatByCurrency}
+                                      variant="sky"
+                                      colSpan={7}
+                                    />
                                   )}
 
                                 {isPaidFcrEntry && isFcrInfoExpanded && (
-                                  <tr className="bg-emerald-500/5 [&>td]:border-b [&>td]:border-cyan-900/35">
-                                    <td colSpan={7} className="px-3 py-2">
-                                      <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 p-3 text-xs text-[var(--foreground)]">
-                                        <div className="mb-2 flex items-center gap-2 text-emerald-300">
-                                          <Info className="w-4 h-4" />
-                                          <span className="font-semibold">
-                                            Detalle de Factura Credito pagada
-                                          </span>
-                                        </div>
-                                        <div className="grid gap-1.5 sm:grid-cols-2">
-                                          <div>
-                                            <span className="text-[var(--muted-foreground)]">
-                                              Encargado de pago:
-                                            </span>{" "}
-                                            <span className="font-medium">
-                                              {primaryManager || "-"}
-                                            </span>
-                                          </div>
-                                          <div>
-                                            <span className="text-[var(--muted-foreground)]">
-                                              Fecha de pago:
-                                            </span>{" "}
-                                            <span className="font-medium">
-                                              {formattedDate}
-                                            </span>
-                                          </div>
-                                          <div>
-                                            <span className="text-[var(--muted-foreground)]">
-                                              Registró factura:
-                                            </span>{" "}
-                                            <span className="font-medium">
-                                              {fe.manager || "-"}
-                                            </span>
-                                          </div>
-                                          <div>
-                                            <span className="text-[var(--muted-foreground)]">
-                                              Fecha registro factura:
-                                            </span>{" "}
-                                            <span className="font-medium">
-                                              {formattedOriginalRegisteredAt}
-                                            </span>
-                                          </div>
-                                          <div>
-                                            <span className="text-[var(--muted-foreground)]">
-                                              Monto factura original:
-                                            </span>{" "}
-                                            <span className="font-medium">
-                                              {originalFcrAmount === null
-                                                ? "-"
-                                                : formatByCurrency(
-                                                    entryCurrency,
-                                                    originalFcrAmount,
-                                                  )}
-                                            </span>
-                                          </div>
-                                          <div>
-                                            <span className="text-[var(--muted-foreground)]">
-                                              Monto adeudado:
-                                            </span>{" "}
-                                            <span className="font-medium">
-                                              {owedFcrAmount === null
-                                                ? "-"
-                                                : formatByCurrency(
-                                                    entryCurrency,
-                                                    owedFcrAmount,
-                                                  )}
-                                            </span>
-                                          </div>
-                                        </div>
-                                        {hasAppliedCreditNotes && (
-                                          <div className="mt-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
-                                            <div className="mb-2 flex items-center gap-2 border-b border-emerald-500/15 pb-2 text-emerald-200">
-                                              <Info className="w-4 h-4" />
-                                              <span className="font-semibold">
-                                                Notas de credito aplicadas
-                                              </span>
-                                            </div>
-                                            <div className="divide-y divide-emerald-500/10">
-                                              {fe.appliedCreditNotes?.map(
-                                                (note) => {
-                                                  const noteAmount = Math.max(
-                                                    0,
-                                                    Math.trunc(
-                                                      Number(note.amount) ||
-                                                        0,
-                                                    ),
-                                                  );
-                                                  const appliedAmount = Math.max(
-                                                    0,
-                                                    Math.trunc(
-                                                      Number(
-                                                        note.appliedAmount,
-                                                      ) || 0,
-                                                    ),
-                                                  );
-                                                  const noteLabel =
-                                                    note.invoiceNumber
-                                                      ? `NC #${note.invoiceNumber}`
-                                                      : `NC ${note.id}`;
-
-                                                  return (
-                                                    <div
-                                                      key={note.id}
-                                                      className="py-2"
-                                                    >
-                                                      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-                                                        <div>
-                                                          <div className="font-semibold text-[var(--foreground)]">
-                                                            {noteLabel}
-                                                          </div>
-                                                          <div className="text-xs text-[var(--muted-foreground)]">
-                                                            Moneda: {note.currency}
-                                                          </div>
-                                                        </div>
-                                                        <div className="text-right">
-                                                          <div className="text-[var(--muted-foreground)]">
-                                                            Monto NC:{" "}
-                                                            <span className="font-medium text-[var(--foreground)]">
-                                                              {formatByCurrency(
-                                                                note.currency,
-                                                                noteAmount,
-                                                              )}
-                                                            </span>
-                                                          </div>
-                                                          <div className="flex items-center justify-end gap-1.5">
-                                                            <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                                                            <span className="text-[var(--muted-foreground)]">
-                                                              Aplicado:
-                                                            </span>
-                                                            <span className="font-medium text-emerald-400">
-                                                              {formatByCurrency(
-                                                                note.currency,
-                                                                appliedAmount,
-                                                              )}
-                                                            </span>
-                                                          </div>
-                                                          {note.observation && (
-                                                            <div className="mt-1 max-w-sm text-xs text-[var(--muted-foreground)]">
-                                                              Obs: {note.observation}
-                                                            </div>
-                                                          )}
-                                                        </div>
-                                                      </div>
-                                                    </div>
-                                                  );
-                                                },
-                                              )}
-                                            </div>
-                                            <div className="mt-2 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-2 text-right">
-                                              <span className="font-semibold text-[var(--foreground)]">
-                                                Total aplicado:{" "}
-                                              </span>
-                                              <span className="text-base font-semibold text-emerald-300">
-                                                {formatByCurrency(
-                                                  entryCurrency,
-                                                  appliedCreditNotesTotal,
-                                                )}
-                                              </span>
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </td>
-                                  </tr>
+                                  <PaidFcrInfoRow
+                                    primaryManager={primaryManager}
+                                    formattedDate={formattedDate}
+                                    manager={fe.manager}
+                                    formattedOriginalRegisteredAt={formattedOriginalRegisteredAt}
+                                    originalFcrAmount={originalFcrAmount}
+                                    owedFcrAmount={owedFcrAmount}
+                                    entryCurrency={entryCurrency}
+                                    hasAppliedCreditNotes={hasAppliedCreditNotes}
+                                    appliedCreditNotes={fe.appliedCreditNotes ?? []}
+                                    appliedCreditNotesTotal={appliedCreditNotesTotal}
+                                    formatByCurrency={formatByCurrency}
+                                    colSpan={7}
+                                  />
                                 )}
                               </React.Fragment>
                             );
@@ -6081,4 +4916,3 @@ export function FondoSection({
     </div>
   );
 }
-

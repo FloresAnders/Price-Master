@@ -152,7 +152,7 @@ export function FondoFiltersToolbar({
 }: Props) {
   return (
     <section className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/70 p-2 sm:p-3 md:p-4 space-y-3 sm:space-y-4">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] xl:items-center">
         {/* Proveedor: busqueda con autocomplete como en el drawer de agregar movimiento */}
         <div className="relative min-w-0">
           <div className="relative">
@@ -374,8 +374,8 @@ export function FondoFiltersToolbar({
           </span>
         </div>
 
-        <div className="flex min-h-11 w-full items-center justify-center rounded-xl border border-cyan-700/35 bg-cyan-950/20 px-3 py-2 text-sm text-[var(--foreground)]">
-          <div className="flex w-full flex-col items-center justify-center gap-2 sm:flex-row sm:justify-center">
+        <div className="flex min-h-11 w-full items-center rounded-xl border border-cyan-700/35 bg-cyan-950/20 px-3 py-2 text-sm text-[var(--foreground)] xl:justify-self-end">
+          <div className="flex w-full flex-col items-center justify-center gap-2 sm:flex-row sm:justify-center xl:w-auto">
             {/* Dropdown Vista */}
             <div className="relative w-full sm:w-auto" ref={filtersDropdownRef}>
               <button
@@ -454,106 +454,111 @@ export function FondoFiltersToolbar({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 border-t border-[var(--input-border)] pt-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
-        <FondoDateRangeFilters
-          quickRange={quickRange}
-          todayKey={todayKey}
-          fromFilter={fromFilter}
-          toFilter={toFilter}
-          calendarFromOpen={calendarFromOpen}
-          calendarToOpen={calendarToOpen}
-          calendarFromMonth={calendarFromMonth}
-          calendarToMonth={calendarToMonth}
-          formatKeyToDisplay={formatKeyToDisplay}
-          setQuickRange={setQuickRange}
-          setFromFilter={setFromFilter}
-          setToFilter={setToFilter}
-          setPageSize={setPageSize}
-          setPageIndex={setPageIndex}
-          setCalendarFromOpen={setCalendarFromOpen}
-          setCalendarToOpen={setCalendarToOpen}
-          setCalendarFromMonth={setCalendarFromMonth}
-          setCalendarToMonth={setCalendarToMonth}
-          fromCalendarRef={fromCalendarRef}
-          toCalendarRef={toCalendarRef}
-          fromButtonRef={fromButtonRef}
-          toButtonRef={toButtonRef}
-        />
-        {accountKey === "FondoGeneral" && (
-          <div className="relative group flex items-end">
-            <button
-              type="button"
-              onClick={() => {
-                setDailyClosingHistoryRange("today");
-                setDailyClosingHistoryOpen(true);
-              }}
-              disabled={closingsAreLoading}
-              className="inline-flex h-11 w-full items-center justify-center rounded border border-cyan-700/35 bg-cyan-950/25 text-cyan-100/80 transition-colors hover:border-cyan-500/45 hover:bg-cyan-900/25 hover:text-[var(--foreground)] disabled:opacity-60 sm:w-11"
-              title="Cierres anteriores"
-              aria-label="Cierres anteriores"
-            >
-              <Clock className="h-4 w-4" />
-            </button>
-            <div className="hidden sm:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[var(--card-bg)] border border-[var(--input-border)] text-[var(--foreground)] text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
-              Cierres anteriores
-              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[var(--input-border)]"></div>
-            </div>
+      <div className="grid grid-cols-1 gap-3 border-t border-[var(--input-border)] pt-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-end">
+          <div className="min-w-0 flex-1">
+            <FondoDateRangeFilters
+              quickRange={quickRange}
+              todayKey={todayKey}
+              fromFilter={fromFilter}
+              toFilter={toFilter}
+              calendarFromOpen={calendarFromOpen}
+              calendarToOpen={calendarToOpen}
+              calendarFromMonth={calendarFromMonth}
+              calendarToMonth={calendarToMonth}
+              formatKeyToDisplay={formatKeyToDisplay}
+              setQuickRange={setQuickRange}
+              setFromFilter={setFromFilter}
+              setToFilter={setToFilter}
+              setPageSize={setPageSize}
+              setPageIndex={setPageIndex}
+              setCalendarFromOpen={setCalendarFromOpen}
+              setCalendarToOpen={setCalendarToOpen}
+              setCalendarFromMonth={setCalendarFromMonth}
+              setCalendarToMonth={setCalendarToMonth}
+              fromCalendarRef={fromCalendarRef}
+              toCalendarRef={toCalendarRef}
+              fromButtonRef={fromButtonRef}
+              toButtonRef={toButtonRef}
+              showTopBorder={false}
+            />
           </div>
-        )}
-      </div>
-
-      <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:w-auto xl:min-w-[348px]">
-        {accountKey === "FondoGeneral" && (
-          <div className="relative group min-w-0 flex flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-2">
+          {accountKey === "FondoGeneral" && (
+            <div className="relative group flex items-end sm:shrink-0">
               <button
                 type="button"
-                onClick={handleOpenDailyClosing}
-                disabled={!pendingCierreDeCaja}
-                className={`flex h-11 flex-1 items-center justify-center gap-2 rounded border px-3 text-sm font-semibold shadow-sm transition-all duration-150 ${
-                  !pendingCierreDeCaja
-                    ? "cursor-not-allowed border-[var(--input-border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)] opacity-70"
-                    : "border-yellow-600/40 bg-yellow-500/10 text-yellow-400/80 hover:-translate-y-0.5 hover:border-yellow-500/60 hover:bg-yellow-500/20 hover:shadow-md hover:shadow-yellow-950/20 active:translate-y-0 active:scale-[0.99]"
-                }`}
+                onClick={() => {
+                  setDailyClosingHistoryRange("today");
+                  setDailyClosingHistoryOpen(true);
+                }}
+                disabled={closingsAreLoading}
+                className="inline-flex h-11 w-full items-center justify-center rounded border border-cyan-700/35 bg-cyan-950/25 text-cyan-100/80 transition-colors hover:border-cyan-500/45 hover:bg-cyan-900/25 hover:text-[var(--foreground)] disabled:opacity-60 sm:w-11"
+                title="Cierres anteriores"
+                aria-label="Cierres anteriores"
               >
-                <Banknote className="h-4 w-4 flex-shrink-0" />
-                <span className="truncate">Registrar cierre</span>
+                <Clock className="h-4 w-4" />
               </button>
+              <div className="hidden sm:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[var(--card-bg)] border border-[var(--input-border)] text-[var(--foreground)] text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                Cierres anteriores
+                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[var(--input-border)]"></div>
+              </div>
             </div>
-            {!pendingCierreDeCaja && (
-              <div className="hidden sm:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-yellow-500 text-black text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
-                ?? Debe agregar un movimiento de &quot;CIERRE FONDO VENTAS&quot; primero
-                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-yellow-500"></div>
+          )}
+        </div>
+
+        <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:w-auto lg:min-w-[348px]">
+          {accountKey === "FondoGeneral" && (
+            <div className="relative group min-w-0 flex flex-col gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleOpenDailyClosing}
+                  disabled={!pendingCierreDeCaja}
+                  className={`flex h-11 flex-1 items-center justify-center gap-2 rounded border px-3 text-sm font-semibold shadow-sm transition-all duration-150 ${
+                    !pendingCierreDeCaja
+                      ? "cursor-not-allowed border-[var(--input-border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)] opacity-70"
+                      : "border-yellow-600/40 bg-yellow-500/10 text-yellow-400/80 hover:-translate-y-0.5 hover:border-yellow-500/60 hover:bg-yellow-500/20 hover:shadow-md hover:shadow-yellow-950/20 active:translate-y-0 active:scale-[0.99]"
+                  }`}
+                >
+                  <Banknote className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">Registrar cierre</span>
+                </button>
               </div>
-            )}
+              {!pendingCierreDeCaja && (
+                <div className="hidden sm:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-yellow-500 text-black text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                  ?? Debe agregar un movimiento de &quot;CIERRE FONDO VENTAS&quot; primero
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-yellow-500"></div>
+                </div>
+              )}
+            </div>
+          )}
+          <div className="relative group min-w-0">
+            <button
+              type="button"
+              onClick={handleOpenCreateMovement}
+              disabled={
+                (accountKey === "FondoGeneral" && pendingCierreDeCaja) ||
+                !entriesHydrated
+              }
+              className={`flex h-11 w-full items-center justify-center gap-2 rounded border px-3 text-sm font-semibold shadow-sm transition-all duration-150 ${
+                (accountKey === "FondoGeneral" && pendingCierreDeCaja) ||
+                !entriesHydrated
+                  ? "cursor-not-allowed border-[var(--input-border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)] opacity-70"
+                  : "border-cyan-500/50 bg-transparent text-cyan-300 hover:-translate-y-0.5 hover:border-cyan-400/70 hover:bg-cyan-500/10 hover:shadow-md hover:shadow-cyan-950/25 active:translate-y-0 active:scale-[0.99]"
+              }`}
+            >
+              <Plus className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate">Agregar movimiento</span>
+            </button>
+            {accountKey === "FondoGeneral" &&
+              pendingCierreDeCaja &&
+              entriesHydrated && (
+                <div className="hidden sm:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-yellow-500 text-black text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                  Debe realizar el &quot;Registrar cierre&quot; para seguir agregando movimientos
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-yellow-500"></div>
+                </div>
+              )}
           </div>
-        )}
-        <div className="relative group min-w-0">
-          <button
-            type="button"
-            onClick={handleOpenCreateMovement}
-            disabled={
-              (accountKey === "FondoGeneral" && pendingCierreDeCaja) ||
-              !entriesHydrated
-            }
-            className={`flex h-11 w-full items-center justify-center gap-2 rounded border px-3 text-sm font-semibold shadow-sm transition-all duration-150 ${
-              (accountKey === "FondoGeneral" && pendingCierreDeCaja) ||
-              !entriesHydrated
-                ? "cursor-not-allowed border-[var(--input-border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)] opacity-70"
-                : "border-cyan-500/50 bg-transparent text-cyan-300 hover:-translate-y-0.5 hover:border-cyan-400/70 hover:bg-cyan-500/10 hover:shadow-md hover:shadow-cyan-950/25 active:translate-y-0 active:scale-[0.99]"
-            }`}
-          >
-            <Plus className="h-4 w-4 flex-shrink-0" />
-            <span className="truncate">Agregar movimiento</span>
-          </button>
-          {accountKey === "FondoGeneral" &&
-            pendingCierreDeCaja &&
-            entriesHydrated && (
-              <div className="hidden sm:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-yellow-500 text-black text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
-                Debe realizar el &quot;Registrar cierre&quot; para seguir agregando movimientos
-                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-yellow-500"></div>
-              </div>
-            )}
         </div>
       </div>
     </section>
