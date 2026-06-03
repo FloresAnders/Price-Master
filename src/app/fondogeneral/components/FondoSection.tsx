@@ -7,11 +7,6 @@ import React, {
   useCallback,
   useRef,
 } from "react";
-import Box from "@mui/material/Box";
-import Drawer from "@mui/material/Drawer";
-import IconButton from "@mui/material/IconButton";
-import Typography from "@mui/material/Typography";
-import Divider from "@mui/material/Divider";
 import {
   UserPlus,
   Plus,
@@ -25,24 +20,17 @@ import {
   FileText,
   UserCircle,
   ArrowUpDown,
-  EyeIcon,
   ArrowUpRight,
   ArrowDownRight,
   Lock,
   LockOpen,
-  CalendarDays,
-  ChevronLeft,
-  ChevronRight,
   ChevronDown,
-  ChevronUp,
-  Search,
   AlertTriangle,
   CheckCircle,
   Info,
   RotateCcw,
   Mail,
   MessageSquare,
-  XCircle,
   Loader2,
 } from "lucide-react";
 import { useAuth } from "../../../hooks/useAuth";
@@ -52,6 +40,8 @@ import type { UserPermissions, Empresas, User } from "../../../types/firestore";
 import { getDefaultPermissions } from "../../../utils/permissions";
 import ConfirmModal from "../../../components/ui/ConfirmModal";
 import DailyClosingHistoryModal from "../../../components/modals/DailyClosingHistoryModal";
+import { ManualCreditNoteDrawer } from "./ManualCreditNoteDrawer";
+import { FondoConfirmModals } from "./FondoConfirmModals";
 import { EmpresasService } from "../../../services/empresas";
 import { UsersService } from "../../../services/users";
 import { ProvidersService } from "../../../services/providers";
@@ -91,11 +81,15 @@ import {
 
 } from "../../../services/daily-closings";
 import { buildDailyClosingEmailTemplate } from "../../../services/email-templates/daily-closing";
-import AgregarMovimiento from "./AgregarMovimiento";
 import DailyClosingModal, { DailyClosingFormValues } from "./DailyClosingModal";
 import FacturaPaymentModal from "./FacturaPaymentModal";
+import { FondoTotalsSummary } from "./FondoTotalsSummary";
+import { FondoCurrentBalanceCard } from "./FondoCurrentBalanceCard";
+import { PendingCreditInvoicesSection } from "./PendingCreditInvoicesSection";
 import { FondoMovementsSkeleton } from "./FondoMovementsSkeleton";
-import { ensureV2MovementsLoaded as ensureV2MovementsLoadedFn } from "../utils/v2movementsLoader";
+import { CompanySelectorContent } from "./CompanySelectorContent";
+import { FondoFiltersToolbar } from "./FondoFiltersToolbar";
+import { MovementDrawer } from "./MovementDrawer";
 import { handleSaveManualCreditNote as handleSaveManualCreditNoteFn } from "../utils/manualCreditNote";
 import { handleSubmitFondo as handleSubmitFondoFn } from "../utils/submitFondo";
 import { useActorOwnership } from "../../../hooks/useActorOwnership";
@@ -103,6 +97,8 @@ import type { FondoEntry, FondoMovementType } from "../types";
 import { submitClosingInvoicePayment as submitClosingInvoicePaymentFn } from "../utils/closingInvoicePayment";
 import { persistMovementToFirestore as persistMovementToFirestoreFn } from "../utils/persistence";
 import { handleConfirmDailyClosing as handleConfirmDailyClosingFn } from "../utils/dailyClosing";
+import { resetStateForCompanyChange } from "../utils/companyReset";
+import { useMovementsLoadingState } from "../hooks/useMovementsLoadingState";
 import {
   FONDO_INGRESO_TYPES,
   FONDO_GASTO_TYPES,
@@ -136,6 +132,7 @@ import {
   dateToKey,
   isoDateToDateKey,
 } from "../../../utils/dateKey";
+import { useV2MovementsHydration } from "../hooks/useV2MovementsHydration";
 import {
   addDoc,
   collection,
@@ -193,7 +190,6 @@ import {
   coerceNotes,
   coerceTruncNumber,
   resolveCreatedAt,
-  dateKeyFromDate,
   sanitizeFondoEntries,
   formatToastWaitTime,
   type LastCreatedCooldownPayload,
@@ -210,6 +206,7 @@ import { useSuperAdminUsers } from "../hooks/useSuperAdminUsers";
 import { useFondoFilters } from "../hooks/useFondoFilters";
 import { useDailyClosingState } from "../hooks/useDailyClosingState";
 import { useMovementForm } from "../hooks/useMovementForm";
+import { usePendingClosingCreditInvoices } from "../hooks/usePendingClosingCreditInvoices";
 import {
   isMovementLocked as isMovementLockedFn,
   isCierreFondoVentasMovement as isCierreFondoVentasMovementFn,
@@ -227,6 +224,8 @@ import {
   buildPhysicalCountStorageKey as buildPhysicalCountStorageKeyFn,
   buildLegacyPhysicalCountStorageKey as buildLegacyPhysicalCountStorageKeyFn,
   cleanupPhysicalCountLegacyKeys as cleanupPhysicalCountLegacyKeysFn,
+  handleCancelPhysicalCount as handleCancelPhysicalCountFn,
+  handleConfirmPhysicalCount as handleConfirmPhysicalCountFn,
   shouldPromptPhysicalCount as shouldPromptPhysicalCountFn,
 } from "../utils/physicalCount";
 import { sendMovementNotification } from "../utils/notifications";
@@ -761,8 +760,12 @@ export function FondoSection({
     currentUSD: 0,
   }));
 
-  const [pendingClosingCreditInvoices, setPendingClosingCreditInvoices] =
-    useState<FacturaMovement[]>([]);
+  const {
+    pendingClosingCreditInvoices,
+    setPendingClosingCreditInvoices,
+    pendingZeroAmountCreditNotes,
+    setPendingZeroAmountCreditNotes,
+  } = usePendingClosingCreditInvoices({ company });
   const [
     showPendingClosingCreditInvoices,
     setShowPendingClosingCreditInvoices,
@@ -802,8 +805,6 @@ export function FondoSection({
   } | null>(null);
   const [pendingCierreDeCaja, setPendingCierreDeCaja] = useState(false);
   const [pendingCierreModalOpen, setPendingCierreModalOpen] = useState(false);
-  const [pendingZeroAmountCreditNotes, setPendingZeroAmountCreditNotes] =
-    useState<FacturaMovement[]>([]);
   const [
     pendingZeroAmountCreditNoteModalOpen,
     setPendingZeroAmountCreditNoteModalOpen,
@@ -819,80 +820,6 @@ export function FondoSection({
   const dailyClosingSubmitInProgressRef = useRef<boolean>(false);
   const lastDailyClosingSavedAtRef = useRef<number>(0);
   const deleteLatestClosingInProgressRef = useRef<boolean>(false);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    if (!company) {
-      setPendingClosingCreditInvoices([]);
-      setPendingZeroAmountCreditNotes([]);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    FacturasService.listMovementsByEmpresa(company, { limit: 800 })
-      .then((movements) => {
-        if (cancelled) return;
-        const pending = movements
-          .filter((movement) => {
-            if (normalizeInvoiceDocType(movement.invoiceDocType) !== "FCR") {
-              return false;
-            }
-            const totalAmount = Math.max(
-              0,
-              Math.trunc(
-                Number(movement.originalAmount ?? movement.amount) || 0,
-              ),
-            );
-            const paidAmount = Math.max(
-              0,
-              Math.trunc(Number(movement.paidAmount) || 0),
-            );
-            const balanceDue = Math.max(
-              0,
-              Math.trunc(
-                Number(movement.balanceDue ?? totalAmount - paidAmount) || 0,
-              ),
-            );
-            return (
-              balanceDue > 0 &&
-              !["PAGADA", "REBAJADA"].includes(
-                String(movement.paymentStatus || "").toUpperCase(),
-              )
-            );
-          })
-          .sort((a, b) => {
-            const aDate = new Date(a.createdAt || 0).getTime();
-            const bDate = new Date(b.createdAt || 0).getTime();
-            return bDate - aDate;
-          });
-        setPendingClosingCreditInvoices(pending);
-        const pendingZeroNotes = movements.filter((movement) => {
-          if (normalizeInvoiceDocType(movement.invoiceDocType) !== "NC") {
-            return false;
-          }
-          if (Math.max(0, Math.trunc(Number(movement.amount) || 0)) !== 0) {
-            return false;
-          }
-          return !["PAGADA", "REBAJADA"].includes(
-            String(movement.paymentStatus || "PENDIENTE").toUpperCase(),
-          );
-        });
-        setPendingZeroAmountCreditNotes(pendingZeroNotes);
-      })
-      .catch((error) => {
-        console.error("[FONDO] Error loading pending credit invoices:", error);
-        if (!cancelled) {
-          setPendingClosingCreditInvoices([]);
-          setPendingZeroAmountCreditNotes([]);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [company]);
 
   // SAVE_COOLDOWN_MS → SAVE_COOLDOWN_MS
   // buildClosingGuardDocId, acquireClosingGuard, touchClosingGuard,
@@ -928,7 +855,6 @@ export function FondoSection({
     setCalendarToMonth,
     filterProviderCode,
     setFilterProviderCode,
-    providerFilter,
     setProviderFilter,
     isProviderDropdownOpen,
     setIsProviderDropdownOpen,
@@ -937,7 +863,6 @@ export function FondoSection({
     filteredProvidersForFilter,
     filterPaymentType,
     setFilterPaymentType,
-    typeFilter,
     setTypeFilter,
     isTypeDropdownOpen,
     setIsTypeDropdownOpen,
@@ -1088,22 +1013,11 @@ export function FondoSection({
   const [hydratedCompany, setHydratedCompany] = useState("");
   const [hydratedAccountKey, setHydratedAccountKey] =
     useState<MovementAccountKey>(accountKey);
-  const [movementsLoading, setMovementsLoading] = useState(false);
-  const movementsLoadingCountRef = useRef(0);
-  const beginMovementsLoading = useCallback(() => {
-    movementsLoadingCountRef.current += 1;
-    setMovementsLoading(true);
-  }, []);
-  const endMovementsLoading = useCallback(() => {
-    movementsLoadingCountRef.current = Math.max(
-      0,
-      movementsLoadingCountRef.current - 1,
-    );
-    if (!isComponentMountedRef.current) return;
-    if (movementsLoadingCountRef.current === 0) {
-      setMovementsLoading(false);
-    }
-  }, []);
+  const {
+    movementsLoading,
+    beginMovementsLoading,
+    endMovementsLoading,
+  } = useMovementsLoadingState({ isComponentMountedRef });
   const [currencyEnabled, setCurrencyEnabled] = useState<
     Record<MovementCurrencyKey, boolean>
   >({
@@ -1148,185 +1062,40 @@ export function FondoSection({
   const [auditModalData, setAuditModalData] = useState<{
     history?: any[];
   } | null>(null);
-  const storageSnapshotRef = useRef<MovementStorage<FondoEntry> | null>(null);
-
   // Keep latest accountKey without re-triggering full remote reloads on tab switch.
   const accountKeyRef = useRef<MovementAccountKey>(accountKey);
   useEffect(() => {
     accountKeyRef.current = accountKey;
   }, [accountKey]);
-
-  const applyLedgerStateFromStorage = useCallback(
-    (state?: MovementStorageState | null) => {
-      if (!state) return;
-
-      const parseBalance = (value: unknown) => {
-        const parsed = typeof value === "number" ? value : Number(value);
-        return Number.isFinite(parsed) ? Math.trunc(parsed) : 0;
-      };
-
-      const resolveSettings = (currency: MovementCurrencyKey) => {
-        const accountBalance = state.balancesByAccount?.find(
-          (balance) =>
-            balance.accountId === accountKey && balance.currency === currency,
-        );
-        return {
-          enabled: accountBalance?.enabled ?? true,
-          initialBalance: parseBalance(accountBalance?.initialBalance ?? 0),
-          currentBalance: parseBalance(accountBalance?.currentBalance ?? 0),
-        };
-      };
-
-      const crcSettings = resolveSettings("CRC");
-      const usdSettings = resolveSettings("USD");
-
-      setCurrencyEnabled({
-        CRC: crcSettings.enabled,
-        USD: usdSettings.enabled,
-      });
-
-      setInitialAmount(crcSettings.initialBalance.toString());
-      setInitialAmountUSD(usdSettings.initialBalance.toString());
-
-      setLedgerSnapshot({
-        initialCRC: crcSettings.initialBalance,
-        currentCRC: crcSettings.currentBalance,
-        initialUSD: usdSettings.initialBalance,
-        currentUSD: usdSettings.currentBalance,
-      });
-    },
-    [accountKey],
-  );
-
-  // Cache v2 movements per companyKey to avoid re-reading the whole subcollection when switching tabs.
-  // Also stores a Firestore cursor so we can load more pages only when needed.
-  const v2MovementsCacheRef = useRef<
-    Record<
-      string,
-      {
-        loaded: boolean;
-        movements: FondoEntry[];
-        cursor: QueryDocumentSnapshot<DocumentData> | null;
-        exhausted: boolean;
-        loading: boolean;
-        queryKey?: string;
-        startIso?: string;
-        endIsoExclusive?: string;
-      }
-    >
-  >({});
-
-
-
-  const rebuildEntriesFromV2Cache = useCallback(
-    (docKey: string, targetAccountKey: MovementAccountKey) => {
-      const cacheKey = buildV2MovementsCacheKey(docKey, targetAccountKey);
-      const cached = v2MovementsCacheRef.current[cacheKey];
-      if (!cached?.loaded) return;
-
-      const scopedEntries = cached.movements.filter((rawEntry) => {
-        const candidate = rawEntry as Partial<FondoEntry>;
-        const movementAccount = isMovementAccountKey(candidate.accountId)
-          ? candidate.accountId
-          : targetAccountKey;
-        return movementAccount === targetAccountKey;
-      });
-
-      const entries = sanitizeFondoEntries(
-        scopedEntries,
-        undefined,
-        targetAccountKey,
-      ).sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      );
-      setFondoEntries(entries);
-
-      const state = storageSnapshotRef.current?.state;
-      if (state) {
-        applyLedgerStateFromStorage(state);
-      }
-    },
-    [applyLedgerStateFromStorage, buildV2MovementsCacheKey],
-  );
-
-  const ensureV2MovementsLoaded = useCallback(
-    (docKey: string, options?: { append?: boolean }) =>
-      ensureV2MovementsLoadedFn(docKey, options, {
-        rebuildEntriesFromV2Cache,
-        beginMovementsLoading,
-        endMovementsLoading,
-        pageSize,
-        currentDailyKey,
-        todayKey,
-        fromFilter,
-        toFilter,
-        accountKeyRef,
-        v2MovementsCacheRef,
-      }),
-    [
-      rebuildEntriesFromV2Cache,
-      beginMovementsLoading,
-      endMovementsLoading,
-      pageSize,
-      currentDailyKey,
-      todayKey,
-      fromFilter,
-      toFilter,
-    ],
-  );
-
-  // When using numeric pagination, load more remote pages only if needed.
-  useEffect(() => {
-    if (!entriesHydrated) return;
-    const docKey = resolveV2DocKey({ company, resolvedOwnerId, v2MovementsCache: v2MovementsCacheRef.current, accountKey: accountKeyRef.current, MovimientosFondosService });
-    if (!docKey) return;
-    const cacheKey = buildV2MovementsCacheKey(docKey, accountKey);
-    const cached = v2MovementsCacheRef.current[cacheKey];
-    if (!cached?.loaded || cached.loading || cached.exhausted) return;
-
-    if (pageSize === "daily") return;
-
-    if (pageSize === "all") {
-      // "Todos" should keep fetching batches until the active range is exhausted.
-      void ensureV2MovementsLoaded(docKey, { append: true });
-      return;
-    }
-
-    if (typeof pageSize !== "number" || pageSize <= 0) return;
-
-    const needed = (pageIndex + 1) * pageSize;
-    if (cached.movements.length >= needed) return;
-
-    // Append one more batch when user navigates past what we have.
-    void ensureV2MovementsLoaded(docKey, { append: true });
-  }, [
-    entriesHydrated,
+  const {
+    storageSnapshotRef,
+    v2MovementsCacheRef,
+    applyLedgerStateFromStorage,
+    rebuildEntriesFromV2Cache,
+    ensureV2MovementsLoaded,
+  } = useV2MovementsHydration({
+    company,
+    resolvedOwnerId,
+    accountKey,
     pageSize,
     pageIndex,
-    fondoEntries.length,
-    accountKey,
-    ensureV2MovementsLoaded,
-  ]);
-
-  useEffect(() => {
-    setCurrencyEnabled({ CRC: true, USD: true });
-    setMovementCurrency("CRC");
-    setInitialAmount("0");
-    setInitialAmountUSD("0");
-    storageSnapshotRef.current = null;
-  }, [company, accountKey]);
-
-  useEffect(() => {
-    if (currencyEnabled[movementCurrency]) return;
-    if (currencyEnabled.CRC) {
-      setMovementCurrency("CRC");
-      return;
-    }
-    if (currencyEnabled.USD) {
-      setMovementCurrency("USD");
-    }
-  }, [currencyEnabled, movementCurrency]);
+    entriesHydrated,
+    movementCurrency,
+    currencyEnabled,
+    currentDailyKey,
+    todayKey,
+    fromFilter,
+    toFilter,
+    fondoEntriesLength: fondoEntries.length,
+    beginMovementsLoading,
+    endMovementsLoading,
+    setFondoEntries,
+    setCurrencyEnabled,
+    setInitialAmount,
+    setInitialAmountUSD,
+    setLedgerSnapshot,
+    setMovementCurrency,
+  });
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
@@ -2905,6 +2674,31 @@ export function FondoSection({
     selectedProviderPendingCreditNotes,
   ]);
 
+  const movementPendingCreditNotes = useMemo(
+    () =>
+      invoiceDocType === "FCO"
+        ? manualCreditNoteDraft
+          ? [
+              {
+                id: "manual-nc-draft",
+                invoiceNumber: manualCreditNoteDraft.invoiceNumber,
+                amount: manualCreditNoteDraft.amount,
+                balanceDue: manualCreditNoteDraft.amount,
+                currency: movementCurrency,
+              },
+              ...selectedProviderPendingCreditNotes,
+            ]
+          : selectedProviderPendingCreditNotes
+        : [],
+    [invoiceDocType, manualCreditNoteDraft, movementCurrency, selectedProviderPendingCreditNotes],
+  );
+
+  const selectedProviderType = selectedProvider
+    ? providerTypesMap.get(selectedProvider) ?? ""
+    : "";
+  const isCompraInventarioProvider =
+    selectedProviderType.trim().toUpperCase() === "COMPRA INVENTARIO";
+
   const creditNotesAppliedTotal = useMemo(() => {
     let remaining = Math.max(0, Math.trunc(Number(egreso) || 0));
     let total = 0;
@@ -3944,7 +3738,7 @@ export function FondoSection({
   );
 
   const handleCancelPhysicalCount = useCallback(() => {
-    setConfirmPhysicalCountOpen(false);
+    handleCancelPhysicalCountFn(setConfirmPhysicalCountOpen);
   }, []);
 
   const closePendingCierreModal = useCallback(() => {
@@ -3952,25 +3746,13 @@ export function FondoSection({
   }, []);
 
   const handleConfirmPhysicalCount = useCallback(() => {
-    setConfirmPhysicalCountOpen(false);
-    // Marcar como confirmado inmediatamente para no volver a solicitar el conteo
-    // aunque el usuario cierre el formulario sin guardar un movimiento.
-    if (typeof window !== "undefined" && accountKey === "FondoGeneral") {
-      try {
-        const key = buildPhysicalCountStorageKey();
-        if (key) localStorage.setItem(key, "false");
-        cleanupPhysicalCountLegacyKeys();
-      } catch {
-        // ignore
-      }
-    }
-    openCreateMovementDrawer();
-  }, [
-    openCreateMovementDrawer,
-    accountKey,
-    buildPhysicalCountStorageKey,
-    cleanupPhysicalCountLegacyKeys,
-  ]);
+    handleConfirmPhysicalCountFn({
+      accountKey,
+      company,
+      openCreateMovementDrawer,
+      setConfirmPhysicalCountOpen,
+    });
+  }, [accountKey, company, openCreateMovementDrawer]);
 
   const handleConfirmDailyClosing = async (closing: DailyClosingFormValues) => {
     return await handleConfirmDailyClosingFn(closing, {
@@ -4030,41 +3812,35 @@ export function FondoSection({
       } catch (error) {
         console.error("Error saving selected company to localStorage:", error);
       }
-      setEntriesHydrated(false);
-      setHydratedCompany("");
-      setFondoEntries([]);
-      storageSnapshotRef.current = null;
-      setInitialAmount("0");
-      setInitialAmountUSD("0");
-      setDailyClosingsHydrated(false);
-      setDailyClosings([]);
-      setDailyClosingsRefreshing(false);
-      dailyClosingsRequestCountRef.current = 0;
-      loadedDailyClosingKeysRef.current = new Set();
-      loadingDailyClosingKeysRef.current = new Set();
-      setCurrencyEnabled({ CRC: true, USD: true });
-      setMovementModalOpen(false);
-      resetFondoForm();
-      setMovementAutoCloseLocked(false);
-      setSelectedProvider("");
-      // Solo resetear filtros si no está activo keepFiltersAcrossCompanies
-      if (!keepFiltersAcrossCompanies) {
-        const todayKey = dateKeyFromDate(new Date());
-        setFilterProviderCode("all");
-        setFilterPaymentType(
-          mode === "all"
-            ? "all"
-            : mode === "ingreso"
-              ? FONDO_INGRESO_TYPES[0]
-              : FONDO_EGRESO_TYPES[0],
-        );
-        setFilterEditedOnly(false);
-        setSearchQuery("");
-        setFromFilter(todayKey);
-        setToFilter(todayKey);
-        setQuickRange("today");
-      }
-      setPageIndex(0);
+      resetStateForCompanyChange({
+        mode,
+        keepFiltersAcrossCompanies,
+        setEntriesHydrated,
+        setHydratedCompany,
+        setFondoEntries,
+        storageSnapshotRef,
+        setInitialAmount,
+        setInitialAmountUSD,
+        setDailyClosingsHydrated,
+        setDailyClosings,
+        setDailyClosingsRefreshing,
+        dailyClosingsRequestCountRef,
+        loadedDailyClosingKeysRef,
+        loadingDailyClosingKeysRef,
+        setCurrencyEnabled,
+        setMovementModalOpen,
+        resetFondoForm,
+        setMovementAutoCloseLocked,
+        setSelectedProvider,
+        setFilterProviderCode,
+        setFilterPaymentType,
+        setFilterEditedOnly,
+        setSearchQuery,
+        setFromFilter,
+        setToFilter,
+        setQuickRange,
+        setPageIndex,
+      });
     },
     [
       canSelectCompany,
@@ -4087,41 +3863,35 @@ export function FondoSection({
       ) {
         setAdminCompany(event.newValue);
         // Reset state when company changes from external source
-        setEntriesHydrated(false);
-        setHydratedCompany("");
-        setFondoEntries([]);
-        storageSnapshotRef.current = null;
-        setInitialAmount("0");
-        setInitialAmountUSD("0");
-        setDailyClosingsHydrated(false);
-        setDailyClosings([]);
-        setDailyClosingsRefreshing(false);
-        dailyClosingsRequestCountRef.current = 0;
-        loadedDailyClosingKeysRef.current = new Set();
-        loadingDailyClosingKeysRef.current = new Set();
-        setCurrencyEnabled({ CRC: true, USD: true });
-        setMovementModalOpen(false);
-        resetFondoForm();
-        setMovementAutoCloseLocked(false);
-        setSelectedProvider("");
-        // Solo resetear filtros si no está activo keepFiltersAcrossCompanies
-        if (!keepFiltersAcrossCompanies) {
-          const todayKey = dateKeyFromDate(new Date());
-          setFilterProviderCode("all");
-          setFilterPaymentType(
-            mode === "all"
-              ? "all"
-              : mode === "ingreso"
-                ? FONDO_INGRESO_TYPES[0]
-                : FONDO_EGRESO_TYPES[0],
-          );
-          setFilterEditedOnly(false);
-          setSearchQuery("");
-          setFromFilter(todayKey);
-          setToFilter(todayKey);
-          setQuickRange("today");
-        }
-        setPageIndex(0);
+        resetStateForCompanyChange({
+          mode,
+          keepFiltersAcrossCompanies,
+          setEntriesHydrated,
+          setHydratedCompany,
+          setFondoEntries,
+          storageSnapshotRef,
+          setInitialAmount,
+          setInitialAmountUSD,
+          setDailyClosingsHydrated,
+          setDailyClosings,
+          setDailyClosingsRefreshing,
+          dailyClosingsRequestCountRef,
+          loadedDailyClosingKeysRef,
+          loadingDailyClosingKeysRef,
+          setCurrencyEnabled,
+          setMovementModalOpen,
+          resetFondoForm,
+          setMovementAutoCloseLocked,
+          setSelectedProvider,
+          setFilterProviderCode,
+          setFilterPaymentType,
+          setFilterEditedOnly,
+          setSearchQuery,
+          setFromFilter,
+          setToFilter,
+          setQuickRange,
+          setPageIndex,
+        });
       }
     };
 
@@ -4232,57 +4002,17 @@ export function FondoSection({
     if (!showCompanySelector) return null;
 
     return (
-      <div className="flex w-full min-w-0 flex-col gap-3 text-sm text-[var(--foreground)] xl:flex-row xl:items-end xl:gap-4">
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] uppercase tracking-wide text-[var(--muted-foreground)] ">
-            Empresa actual
-          </p>
-          <p
-            className="truncate text-sm font-semibold text-[var(--foreground)]"
-            title={currentCompanyLabel}
-          >
-            {currentCompanyLabel}
-          </p>
-          {ownerCompaniesError && (
-            <p className="text-xs text-red-500 mt-1">{ownerCompaniesError}</p>
-          )}
-        </div>
-        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <select
-            id={companySelectId}
-            value={company}
-            onChange={(e) => handleAdminCompanyChange(e.target.value)}
-            disabled={
-              ownerCompaniesLoading || sortedOwnerCompanies.length === 0
-            }
-            className="w-full min-w-0 max-w-full truncate rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/60 focus:border-[var(--accent)]"
-          >
-            {ownerCompaniesLoading && (
-              <option value="">Cargando empresas...</option>
-            )}
-            {!ownerCompaniesLoading && sortedOwnerCompanies.length === 0 && (
-              <option value="">Sin empresas disponibles</option>
-            )}
-            {!ownerCompaniesLoading && sortedOwnerCompanies.length > 0 && (
-              <>
-                <option value="" disabled hidden>
-                  Selecciona una empresa
-                </option>
-                {sortedOwnerCompanies.map((emp, index) => (
-                  <option
-                    key={
-                      emp.id || emp.name || emp.ubicacion || `company-${index}`
-                    }
-                    value={getCompanyKey(emp)}
-                  >
-                    {getCompanyLabel(emp)}
-                  </option>
-                ))}
-              </>
-            )}
-          </select>
-        </div>
-      </div>
+      <CompanySelectorContent
+        company={company}
+        companySelectId={companySelectId}
+        currentCompanyLabel={currentCompanyLabel}
+        getCompanyKey={getCompanyKey}
+        getCompanyLabel={getCompanyLabel}
+        handleAdminCompanyChange={handleAdminCompanyChange}
+        ownerCompaniesError={ownerCompaniesError}
+        ownerCompaniesLoading={ownerCompaniesLoading}
+        sortedOwnerCompanies={sortedOwnerCompanies}
+      />
     );
   }, [
     showCompanySelector,
@@ -4363,775 +4093,65 @@ export function FondoSection({
         </div>
       )}
 
-      <section className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/70 p-2 sm:p-3 md:p-4 space-y-3 sm:space-y-4">
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">
-          {/* Proveedor: busqueda con autocomplete como en el drawer de agregar movimiento */}
-          <div className="relative min-w-0">
-            <div className="relative">
-              {filterProviderCode !== "all" && (
-                <button
-                  type="button"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    setFilterProviderCode("all");
-                    setProviderFilter("");
-                    setProviderSearchInput("");
-                  }}
-                  className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-red-400 transition-colors hover:text-red-300"
-                  tabIndex={-1}
-                >
-                  <XCircle className="h-4 w-4" />
-                </button>
-              )}
-              <input
-                value={providerSearchInput}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setProviderSearchInput(value);
-                  setIsProviderDropdownOpen(true);
-                  if (value.trim() === "") {
-                    setFilterProviderCode("all");
-                    setProviderFilter("");
-                  }
-                }}
-                onFocus={() => setIsProviderDropdownOpen(true)}
-                onBlur={() => {
-                  setTimeout(() => setIsProviderDropdownOpen(false), 200);
-                }}
-                className={`h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)] ${
-                  filterProviderCode !== "all" ? "pl-10 pr-11" : "pr-11"
-                }`}
-                placeholder={
-                  movementProvidersLoading
-                    ? "Cargando proveedores..."
-                    : "  Buscar proveedor"
-                }
-              />
-              <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center text-cyan-100/80">
-                <Search className="h-4 w-4" />
-              </span>
-            </div>
-            {isProviderDropdownOpen && !movementProvidersLoading && (
-              <div className="absolute z-[9999] mt-2 w-full max-h-64 overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] shadow-2xl shadow-black/70">
-                {providerSearchInput.trim() === "" && (
-                  <button
-                    type="button"
-                    className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
-                      filterProviderCode === "all"
-                        ? "bg-cyan-500/20 text-cyan-50"
-                        : "text-cyan-100/70"
-                    }`}
-                    onMouseDown={() => {
-                      setFilterProviderCode("all");
-                      setProviderFilter("");
-                      setProviderSearchInput("");
-                      setIsProviderDropdownOpen(false);
-                    }}
-                  >
-                    Todos los proveedores
-                  </button>
-                )}
-                {filteredProvidersForFilter.length > 0 ? (
-                  filteredProvidersForFilter.map((p) => (
-                    <button
-                      key={p.code}
-                      type="button"
-                      className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
-                        filterProviderCode === p.code
-                          ? "bg-cyan-500/20 text-cyan-50"
-                          : "text-[var(--foreground)]"
-                      }`}
-                      onMouseDown={() => {
-                        setFilterProviderCode(p.code);
-                        setProviderFilter(`${p.name} (${p.code})`);
-                        setProviderSearchInput(`${p.name} (${p.code})`);
-                        setIsProviderDropdownOpen(false);
-                      }}
-                    >
-                      {p.name} ({p.code})
-                    </button>
-                  ))
-                ) : (
-                  <div className="px-3 py-6 text-center text-sm text-cyan-100/50">
-                    No se encontraron proveedores
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Tipo de movimiento: busqueda con autocomplete */}
-          <div className="relative min-w-0">
-            <div className="relative">
-              {filterPaymentType !== "all" && (
-                <button
-                  type="button"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    setFilterPaymentType("all");
-                    setTypeFilter("");
-                    setTypeSearchInput("");
-                  }}
-                  className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-red-400 transition-colors hover:text-red-300"
-                  tabIndex={-1}
-                >
-                  <XCircle className="h-4 w-4" />
-                </button>
-              )}
-              <input
-                value={typeSearchInput}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setTypeSearchInput(value);
-                  setIsTypeDropdownOpen(true);
-                  if (value.trim() === "") {
-                    setFilterPaymentType("all");
-                    setTypeFilter("");
-                  }
-                }}
-                onFocus={() => setIsTypeDropdownOpen(true)}
-                onBlur={() => {
-                  setTimeout(() => setIsTypeDropdownOpen(false), 200);
-                }}
-                className={`h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)] ${
-                  filterPaymentType !== "all" ? "pl-10 pr-11" : "pr-11"
-                }`}
-                placeholder="  Buscar tipo de movimiento"
-              />
-              <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center text-cyan-100/80">
-                <Search className="h-4 w-4" />
-              </span>
-            </div>
-            {isTypeDropdownOpen && (
-              <div className="absolute z-[9999] mt-2 w-full max-h-64 overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] shadow-2xl shadow-black/70">
-                {typeSearchInput.trim() === "" && (
-                  <button
-                    type="button"
-                    className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
-                      filterPaymentType === "all"
-                        ? "bg-cyan-500/20 text-cyan-50"
-                        : "text-cyan-100/70"
-                    }`}
-                    onMouseDown={() => {
-                      setFilterPaymentType("all");
-                      setTypeFilter("");
-                      setTypeSearchInput("");
-                      setIsTypeDropdownOpen(false);
-                    }}
-                  >
-                    Todos los tipos
-                  </button>
-                )}
-                {(() => {
-                  const search = typeSearchInput.toLowerCase().trim();
-                  const hasFilter = search !== "";
-                  const groups = [
-                    { group: "Ingresos", types: FONDO_INGRESO_TYPES },
-                    { group: "Gastos", types: FONDO_GASTO_TYPES },
-                    { group: "Egresos", types: FONDO_EGRESO_TYPES },
-                  ];
-                  let hasAnyMatch = false;
-                  return groups.map(({ group, types }) => {
-                    const filtered = hasFilter
-                      ? types.filter(
-                          (t) =>
-                            formatMovementType(t)
-                              .toLowerCase()
-                              .includes(search) ||
-                            t.toLowerCase().includes(search),
-                        )
-                      : types;
-                    if (filtered.length === 0) return null;
-                    hasAnyMatch = true;
-                    return (
-                      <React.Fragment key={group}>
-                        <div className="px-3 py-1.5 text-xs font-semibold text-cyan-100/50 uppercase tracking-wider">
-                          {group}
-                        </div>
-                        {filtered.map((t) => (
-                          <button
-                            key={t}
-                            type="button"
-                            className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
-                              filterPaymentType === t
-                                ? "bg-cyan-500/20 text-cyan-50"
-                                : "text-[var(--foreground)]"
-                            }`}
-                            onMouseDown={() => {
-                              setFilterPaymentType(t);
-                              setTypeFilter(formatMovementType(t));
-                              setTypeSearchInput(formatMovementType(t));
-                              setIsTypeDropdownOpen(false);
-                            }}
-                          >
-                            {formatMovementType(t)}
-                          </button>
-                        ))}
-                      </React.Fragment>
-                    );
-                  });
-                })()}
-              </div>
-            )}
-          </div>
-
-          {/* Buscar factura: mantener input con icono tal como estaba */}
-          <div className="relative min-w-0">
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar factura, notas..."
-              className="h-11 w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] py-2 pl-3 pr-11 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] hover:border-[var(--accent)]/60 focus-visible:ring-2 focus-visible:ring-[var(--accent)]/60 focus-visible:ring-offset-1"
-              aria-label="Buscar movimientos"
-            />
-            <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded border border-[var(--input-border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)]">
-              <Search className="h-4 w-4" />
-            </span>
-          </div>
-
-          <div className="flex min-h-11 w-full items-center justify-center rounded-xl border border-cyan-700/35 bg-cyan-950/20 px-3 py-2 text-sm text-[var(--foreground)]">
-            <div className="flex w-full flex-col items-center justify-center gap-2 sm:flex-row sm:justify-center">
-              {/* Dropdown Vista */}
-              <div
-                className="relative w-full sm:w-auto"
-                ref={filtersDropdownRef}
-              >
-                <button
-                  type="button"
-                  onClick={() => setFiltersDropdownOpen((prev) => !prev)}
-                  className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--input-border)] bg-transparent px-3 text-xs font-semibold tracking-wide text-[var(--foreground)] transition-all duration-150 hover:border-[var(--accent)] hover:bg-[var(--muted)]/20 active:scale-[0.98] sm:w-auto"
-                  aria-haspopup="menu"
-                  aria-expanded={filtersDropdownOpen}
-                  title="Mostrar facturas en especifico estado o editados"
-                >
-                  <EyeIcon className="h-3.5 w-3.5" />
-                  <span>Vista</span>
-                </button>
-                {filtersDropdownOpen && (
-                  <div className="absolute left-1/2 top-full z-[9999] mt-2 w-[260px] -translate-x-1/2 rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] shadow-2xl">
-                    <div className="flex flex-col py-1">
-                      <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
-                        <input
-                          type="checkbox"
-                          checked={showPendingClosingCreditInvoices}
-                          onChange={(event) =>
-                            setShowPendingClosingCreditInvoices(
-                              event.target.checked,
-                            )
-                          }
-                          className="h-4 w-4 accent-amber-400"
-                        />
-                        <FileText className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
-                        <span className="leading-tight">
-                          Facturas de crédito pendientes
-                        </span>
-                      </label>
-                      <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
-                        <input
-                          type="checkbox"
-                          checked={filterEditedOnly}
-                          onChange={(e) =>
-                            setFilterEditedOnly(e.target.checked)
-                          }
-                          className="h-4 w-4 rounded border-[var(--input-border)] accent-[var(--accent)]"
-                        />
-                        <Pencil className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
-                        <span>Editados</span>
-                      </label>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Botón limpiar */}
-              <button
-                type="button"
-                onClick={() => {
-                  setFilterProviderCode("all");
-                  setFilterPaymentType("all");
-                  setFilterEditedOnly(false);
-                  setSearchQuery("");
-                  setFromFilter(null);
-                  setToFilter(null);
-                  setQuickRange(null);
-                  setCalendarFromOpen(false);
-                  setCalendarToOpen(false);
-                  const m = new Date();
-                  m.setDate(1);
-                  m.setHours(0, 0, 0, 0);
-                  setCalendarFromMonth(new Date(m));
-                  setCalendarToMonth(new Date(m));
-                  setPageSize("daily");
-                  setPageIndex(0);
-                }}
-                className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--input-border)] bg-transparent px-3 text-xs font-semibold tracking-wide text-[var(--foreground)] transition-all duration-150 hover:border-[var(--accent)] hover:bg-[var(--muted)]/20 active:scale-[0.98] sm:w-auto"
-                title="Limpiar filtros"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-                <span>Limpiar</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 border-t border-[var(--input-border)] pt-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
-          <div className="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-[minmax(150px,180px)_minmax(150px,180px)_minmax(150px,170px)_44px] xl:items-end">
-            <div className="relative min-w-0">
-              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-                Desde
-              </label>
-              <button
-                type="button"
-                ref={fromButtonRef}
-                onClick={() => setCalendarFromOpen((prev) => !prev)}
-                className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)] [&_[aria-disabled='true']]:opacity-25"
-                title="Seleccionar fecha desde"
-                aria-label="Seleccionar fecha desde"
-              >
-                <span className="truncate text-sm font-medium">
-                  {fromFilter ? formatKeyToDisplay(fromFilter) : "dd/mm/yyyy"}
-                </span>
-                <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded border border-[var(--input-border)] bg-[var(--muted)]/20 text-[var(--muted-foreground)]">
-                  <CalendarDays className="h-4 w-4" />
-                </span>
-              </button>
-
-              {calendarFromOpen && (
-                <div
-                  ref={fromCalendarRef}
-                  className="absolute left-0 top-full mt-1 sm:mt-2 z-50 w-full min-w-[280px] sm:w-72"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-2 sm:p-3 text-[var(--foreground)] shadow-lg">
-                    <div className="mb-2 flex items-center justify-between">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const m = new Date(calendarFromMonth);
-                          m.setMonth(m.getMonth() - 1);
-                          setCalendarFromMonth(new Date(m));
-                        }}
-                        className="p-1 rounded hover:bg-[var(--muted)]"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <div className="text-sm font-semibold capitalize">
-                        {calendarFromMonth.toLocaleString("es-CR", {
-                          month: "long",
-                          year: "numeric",
-                        })}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const m = new Date(calendarFromMonth);
-                          m.setMonth(m.getMonth() + 1);
-                          setCalendarFromMonth(new Date(m));
-                        }}
-                        className="p-1 rounded hover:bg-[var(--muted)]"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-7 gap-1 text-center text-xs text-[var(--muted-foreground)]">
-                      {["D", "L", "M", "M", "J", "V", "S"].map((d, i) => (
-                        <div key={`${d}-${i}`} className="py-1">
-                          {d}
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="mt-2 grid grid-cols-7 gap-1 text-sm">
-                      {(() => {
-                        const cells: React.ReactNode[] = [];
-                        const year = calendarFromMonth.getFullYear();
-                        const month = calendarFromMonth.getMonth();
-                        const first = new Date(year, month, 1);
-                        const start = first.getDay();
-                        const daysInMonth = new Date(
-                          year,
-                          month + 1,
-                          0,
-                        ).getDate();
-
-                        for (let i = 0; i < start; i++)
-                          cells.push(<div key={`pad-f-${i}`} />);
-
-                        for (let day = 1; day <= daysInMonth; day++) {
-                          const d = new Date(year, month, day);
-                          const key = dateKeyFromDate(d);
-                          const enabled = key <= todayKey;
-                          const isSelected = fromFilter === key;
-                          if (enabled) {
-                            cells.push(
-                              <button
-                                key={key}
-                                type="button"
-                                onClick={() => {
-                                  setQuickRange(null);
-                                  setFromFilter(key);
-                                  setCalendarFromOpen(false);
-                                  setPageSize("all");
-                                  setPageIndex(0);
-                                }}
-                                className={`py-1 rounded ${
-                                  isSelected
-                                    ? "bg-[var(--accent)] text-white"
-                                    : "hover:bg-[var(--muted)]"
-                                }`}
-                              >
-                                {day}
-                              </button>,
-                            );
-                          } else {
-                            cells.push(
-                              <div
-                                key={key}
-                                className="py-1 text-[var(--muted-foreground)] opacity-60"
-                              >
-                                {day}
-                              </div>,
-                            );
-                          }
-                        }
-                        return cells;
-                      })()}
-                    </div>
-
-                    <div className="mt-3 flex justify-between">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const todayKey = dateKeyFromDate(new Date());
-                          setQuickRange(null);
-                          setFromFilter(todayKey);
-                          setCalendarFromOpen(false);
-                        }}
-                        className="px-2 py-1 rounded border border-[var(--input-border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
-                      >
-                        Limpiar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCalendarFromOpen(false)}
-                        className="px-2 py-1 rounded border border-[var(--input-border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
-                      >
-                        Cerrar
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="relative min-w-0">
-              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-                Hasta
-              </label>
-              <button
-                type="button"
-                ref={toButtonRef}
-                onClick={() => setCalendarToOpen((prev) => !prev)}
-                className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
-                title="Seleccionar fecha hasta"
-                aria-label="Seleccionar fecha hasta"
-              >
-                <span className="truncate text-sm font-medium">
-                  {toFilter ? formatKeyToDisplay(toFilter) : "dd/mm/yyyy"}
-                </span>
-                <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded border border-[var(--input-border)] bg-[var(--muted)]/20 text-[var(--muted-foreground)]">
-                  <CalendarDays className="h-4 w-4" />
-                </span>
-              </button>
-
-              {calendarToOpen && (
-                <div
-                  ref={toCalendarRef}
-                  className="absolute left-0 top-full mt-2 z-50 w-full sm:w-64"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-3 text-[var(--foreground)] shadow-lg">
-                    <div className="mb-2 flex items-center justify-between">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const m = new Date(calendarToMonth);
-                          m.setMonth(m.getMonth() - 1);
-                          setCalendarToMonth(new Date(m));
-                        }}
-                        className="p-1 rounded hover:bg-[var(--muted)]"
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <div className="text-sm font-semibold capitalize">
-                        {calendarToMonth.toLocaleString("es-CR", {
-                          month: "long",
-                          year: "numeric",
-                        })}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const m = new Date(calendarToMonth);
-                          m.setMonth(m.getMonth() + 1);
-                          setCalendarToMonth(new Date(m));
-                        }}
-                        className="p-1 rounded hover:bg-[var(--muted)]"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-7 gap-1 text-center text-xs text-[var(--muted-foreground)]">
-                      {["D", "L", "M", "M", "J", "V", "S"].map((d, i) => (
-                        <div key={`${d}-${i}`} className="py-1">
-                          {d}
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="mt-2 grid grid-cols-7 gap-1 text-sm">
-                      {(() => {
-                        const cells: React.ReactNode[] = [];
-                        const year = calendarToMonth.getFullYear();
-                        const month = calendarToMonth.getMonth();
-                        const first = new Date(year, month, 1);
-                        const start = first.getDay();
-                        const daysInMonth = new Date(
-                          year,
-                          month + 1,
-                          0,
-                        ).getDate();
-
-                        for (let i = 0; i < start; i++)
-                          cells.push(<div key={`pad-t-${i}`} />);
-
-                        for (let day = 1; day <= daysInMonth; day++) {
-                          const d = new Date(year, month, day);
-                          const key = dateKeyFromDate(d);
-                          const enabled = key <= todayKey;
-                          const isSelected = toFilter === key;
-                          if (enabled) {
-                            cells.push(
-                              <button
-                                key={key}
-                                type="button"
-                                onClick={() => {
-                                  setQuickRange(null);
-                                  setToFilter(key);
-                                  setCalendarToOpen(false);
-                                  setPageSize("all");
-                                  setPageIndex(0);
-                                }}
-                                className={`py-1 rounded ${
-                                  isSelected
-                                    ? "bg-[var(--accent)] text-white"
-                                    : "hover:bg-[var(--muted)]"
-                                }`}
-                              >
-                                {day}
-                              </button>,
-                            );
-                          } else {
-                            cells.push(
-                              <div
-                                key={key}
-                                className="py-1 text-[var(--muted-foreground)] opacity-60"
-                              >
-                                {day}
-                              </div>,
-                            );
-                          }
-                        }
-                        return cells;
-                      })()}
-                    </div>
-
-                    <div className="mt-3 flex justify-between">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const todayKey = dateKeyFromDate(new Date());
-                          setQuickRange(null);
-                          setToFilter(todayKey);
-                          setCalendarToOpen(false);
-                        }}
-                        className="px-2 py-1 rounded border border-[var(--input-border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
-                      >
-                        Limpiar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCalendarToOpen(false)}
-                        className="px-2 py-1 rounded border border-[var(--input-border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
-                      >
-                        Cerrar
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="min-w-0">
-              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-                Filtro
-              </label>
-              <select
-                className="h-11 w-full min-w-0 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm font-medium text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/60 focus-visible:ring-2 focus-visible:ring-[var(--accent)]/60 focus-visible:ring-offset-1"
-                value={quickRange || ""}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setQuickRange(v || null);
-                  const now = new Date();
-                  let from: Date | null = null;
-                  let to: Date | null = null;
-                  if (v === "today") {
-                    const t = new Date(now);
-                    from = to = t;
-                  } else if (v === "yesterday") {
-                    const y = new Date(now);
-                    y.setDate(now.getDate() - 1);
-                    from = to = y;
-                  } else if (v === "thisweek") {
-                    const day = now.getDay();
-                    const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Lunes como inicio
-                    from = new Date(now.setDate(diff));
-                    to = new Date();
-                  } else if (v === "lastweek") {
-                    const day = now.getDay();
-                    const diff = now.getDate() - day + (day === 0 ? -6 : 1) - 7;
-                    from = new Date(now.getFullYear(), now.getMonth(), diff);
-                    to = new Date(now.getFullYear(), now.getMonth(), diff + 6);
-                  } else if (v === "lastmonth") {
-                    const first = new Date(
-                      now.getFullYear(),
-                      now.getMonth() - 1,
-                      1,
-                    );
-                    const last = new Date(now.getFullYear(), now.getMonth(), 0);
-                    from = first;
-                    to = last;
-                  } else if (v === "month") {
-                    const first = new Date(
-                      now.getFullYear(),
-                      now.getMonth(),
-                      1,
-                    );
-                    const last = new Date(
-                      now.getFullYear(),
-                      now.getMonth() + 1,
-                      0,
-                    );
-                    from = first;
-                    to = last;
-                  } else if (v === "last30") {
-                    const last = new Date();
-                    const first = new Date();
-                    first.setDate(last.getDate() - 29);
-                    from = first;
-                    to = last;
-                  }
-                  if (from && to) {
-                    setFromFilter(dateKeyFromDate(from));
-                    setToFilter(dateKeyFromDate(to));
-                    setPageSize("all");
-                    setPageIndex(0);
-                  }
-                }}
-              >
-                <option value="">Filtro de fecha</option>
-                <option value="today">Hoy</option>
-                <option value="yesterday">Ayer</option>
-                <option value="thisweek">Esta semana</option>
-                <option value="lastweek">Semana anterior</option>
-                <option value="lastmonth">Mes anterior</option>
-                <option value="last30">Últimos 30 días</option>
-                <option value="month">Mes actual</option>
-              </select>
-            </div>
-            {accountKey === "FondoGeneral" && (
-              <div className="relative group flex items-end">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDailyClosingHistoryRange("today");
-                    setDailyClosingHistoryOpen(true);
-                  }}
-                  disabled={closingsAreLoading}
-                  className="inline-flex h-11 w-full items-center justify-center rounded border border-cyan-700/35 bg-cyan-950/25 text-cyan-100/80 transition-colors hover:border-cyan-500/45 hover:bg-cyan-900/25 hover:text-[var(--foreground)] disabled:opacity-60 sm:w-11"
-                  title="Cierres anteriores"
-                  aria-label="Cierres anteriores"
-                >
-                  <Clock className="h-4 w-4" />
-                </button>
-                <div className="hidden sm:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[var(--card-bg)] border border-[var(--input-border)] text-[var(--foreground)] text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
-                  Cierres anteriores
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[var(--input-border)]"></div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:w-auto xl:min-w-[348px]">
-            {accountKey === "FondoGeneral" && (
-              <div className="relative group min-w-0 flex flex-col gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleOpenDailyClosing}
-                    disabled={!pendingCierreDeCaja}
-                    className={`flex h-11 flex-1 items-center justify-center gap-2 rounded border px-3 text-sm font-semibold shadow-sm transition-all duration-150 ${
-                      !pendingCierreDeCaja
-                        ? "cursor-not-allowed border-[var(--input-border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)] opacity-70"
-                        : "border-yellow-600/40 bg-yellow-500/10 text-yellow-400/80 hover:-translate-y-0.5 hover:border-yellow-500/60 hover:bg-yellow-500/20 hover:shadow-md hover:shadow-yellow-950/20 active:translate-y-0 active:scale-[0.99]"
-                    }`}
-                  >
-                    <Banknote className="h-4 w-4 flex-shrink-0" />
-                    <span className="truncate">Registrar cierre</span>
-                  </button>
-                </div>
-                {!pendingCierreDeCaja && (
-                  <div className="hidden sm:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-yellow-500 text-black text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
-                    ?? Debe agregar un movimiento de &quot;CIERRE FONDO
-                    VENTAS&quot; primero
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-yellow-500"></div>
-                  </div>
-                )}
-              </div>
-            )}
-            <div className="relative group min-w-0">
-              <button
-                type="button"
-                onClick={handleOpenCreateMovement}
-                disabled={
-                  (accountKey === "FondoGeneral" && pendingCierreDeCaja) ||
-                  !entriesHydrated
-                }
-                className={`flex h-11 w-full items-center justify-center gap-2 rounded border px-3 text-sm font-semibold shadow-sm transition-all duration-150 ${
-                  (accountKey === "FondoGeneral" && pendingCierreDeCaja) ||
-                  !entriesHydrated
-                    ? "cursor-not-allowed border-[var(--input-border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)] opacity-70"
-                    : "border-cyan-500/50 bg-transparent text-cyan-300 hover:-translate-y-0.5 hover:border-cyan-400/70 hover:bg-cyan-500/10 hover:shadow-md hover:shadow-cyan-950/25 active:translate-y-0 active:scale-[0.99]"
-                }`}
-              >
-                <Plus className="h-4 w-4 flex-shrink-0" />
-                <span className="truncate">Agregar movimiento</span>
-              </button>
-              {accountKey === "FondoGeneral" &&
-                pendingCierreDeCaja &&
-                entriesHydrated && (
-                  <div className="hidden sm:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-yellow-500 text-black text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
-                    Debe realizar el &quot;Registrar cierre&quot; para seguir
-                    agregando movimientos
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-yellow-500"></div>
-                  </div>
-                )}
-            </div>
-          </div>
-        </div>
-      </section>
+      <FondoFiltersToolbar
+        filterProviderCode={filterProviderCode}
+        setFilterProviderCode={setFilterProviderCode}
+        setProviderFilter={setProviderFilter}
+        providerSearchInput={providerSearchInput}
+        setProviderSearchInput={setProviderSearchInput}
+        isProviderDropdownOpen={isProviderDropdownOpen}
+        setIsProviderDropdownOpen={setIsProviderDropdownOpen}
+        movementProvidersLoading={movementProvidersLoading}
+        filteredProvidersForFilter={filteredProvidersForFilter}
+        filterPaymentType={filterPaymentType}
+        setFilterPaymentType={setFilterPaymentType}
+        setTypeFilter={setTypeFilter}
+        typeSearchInput={typeSearchInput}
+        setTypeSearchInput={setTypeSearchInput}
+        isTypeDropdownOpen={isTypeDropdownOpen}
+        setIsTypeDropdownOpen={setIsTypeDropdownOpen}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        filtersDropdownRef={filtersDropdownRef}
+        filtersDropdownOpen={filtersDropdownOpen}
+        setFiltersDropdownOpen={setFiltersDropdownOpen}
+        showPendingClosingCreditInvoices={showPendingClosingCreditInvoices}
+        setShowPendingClosingCreditInvoices={
+          setShowPendingClosingCreditInvoices
+        }
+        filterEditedOnly={filterEditedOnly}
+        setFilterEditedOnly={setFilterEditedOnly}
+        quickRange={quickRange}
+        todayKey={todayKey}
+        fromFilter={fromFilter}
+        setFromFilter={setFromFilter}
+        toFilter={toFilter}
+        setToFilter={setToFilter}
+        calendarFromOpen={calendarFromOpen}
+        setCalendarFromOpen={setCalendarFromOpen}
+        calendarToOpen={calendarToOpen}
+        setCalendarToOpen={setCalendarToOpen}
+        calendarFromMonth={calendarFromMonth}
+        setCalendarFromMonth={setCalendarFromMonth}
+        calendarToMonth={calendarToMonth}
+        setCalendarToMonth={setCalendarToMonth}
+        formatKeyToDisplay={formatKeyToDisplay}
+        setQuickRange={setQuickRange}
+        setPageSize={setPageSize}
+        setPageIndex={setPageIndex}
+        fromCalendarRef={fromCalendarRef}
+        toCalendarRef={toCalendarRef}
+        fromButtonRef={fromButtonRef}
+        toButtonRef={toButtonRef}
+        accountKey={accountKey}
+        setDailyClosingHistoryRange={setDailyClosingHistoryRange}
+        setDailyClosingHistoryOpen={setDailyClosingHistoryOpen}
+        closingsAreLoading={closingsAreLoading}
+        pendingCierreDeCaja={pendingCierreDeCaja}
+        handleOpenDailyClosing={handleOpenDailyClosing}
+        handleOpenCreateMovement={handleOpenCreateMovement}
+        entriesHydrated={entriesHydrated}
+      />
 
       {!authLoading && !company && (
         <p className="text-sm text-[var(--muted-foreground)] mb-4">
@@ -5145,391 +4165,132 @@ export function FondoSection({
         <div className="mb-4 text-sm text-red-500">{providersError}</div>
       )}
 
-      <Drawer
-        anchor="right"
+      <MovementDrawer
         open={movementModalOpen}
         onClose={closeMovementModal}
-        PaperProps={{
-          sx: {
-            width: { xs: "100vw", sm: 520 },
-            maxWidth: "100vw",
-            bgcolor: "#0d1117",
-            color: "#ffffff",
-          },
+        editingEntry={editingEntry}
+        movementAutoCloseLocked={movementAutoCloseLocked}
+        onToggleMovementAutoCloseLocked={() =>
+          setMovementAutoCloseLocked((prev) => !prev)
+        }
+        selectedProvider={selectedProvider}
+        onProviderChange={handleProviderChange}
+        providers={movementProviders}
+        providersLoading={movementProvidersLoading}
+        isProviderSelectDisabled={
+          isProviderSelectDisabled || isEditingCierreFondoVentas
+        }
+        providerDisabledTooltip={
+          isEditingCierreFondoVentas
+            ? 'No se puede cambiar el proveedor de un movimiento "CIERRE FONDO VENTAS"'
+            : undefined
+        }
+        selectedProviderExists={selectedProviderExists}
+        invoiceNumber={invoiceNumber}
+        onInvoiceNumberChange={handleInvoiceNumberChange}
+        invoiceDocType={invoiceDocType}
+        onInvoiceDocTypeChange={setInvoiceDocType}
+        allowCreditInvoiceOption={Boolean(
+          editingEntryId && invoiceDocType === "FCR",
+        )}
+        lockInvoiceDocTypeToContado={isInvoiceDocTypeLockedToContado}
+        invoiceValid={invoiceValid}
+        invoiceDisabled={invoiceDisabled}
+        paymentType={paymentType}
+        isEgreso={isEgreso}
+        egreso={egreso}
+        onEgresoChange={handleEgresoChange}
+        egresoBorderClass={egresoBorderClass}
+        ingreso={ingreso}
+        onIngresoChange={handleIngresoChange}
+        ingresoBorderClass={ingresoBorderClass}
+        notes={notes}
+        onNotesChange={handleNotesChange}
+        manager={manager}
+        onManagerChange={handleManagerChange}
+        manager2={manager2}
+        onManager2Change={handleManager2Change}
+        accountKey={accountKey}
+        showManager2={isEditingPaidFcrMovement}
+        managerSelectDisabled={managerSelectDisabled || isEditingPaidFcrMovement}
+        manager2SelectDisabled={
+          !company || managerOptionsLoading || employeeOptions.length === 0
+        }
+        employeeOptions={employeeOptions}
+        employeesLoading={managerOptionsLoading}
+        editingEntryId={editingEntryId}
+        onCancelEditing={cancelEditing}
+        onSubmit={handleSubmitFondo}
+        isSubmitDisabled={isSubmitDisabled}
+        isSaving={isSaving}
+        onFieldKeyDown={handleFondoKeyDown}
+        currency={movementCurrency}
+        onCurrencyChange={(c) => setMovementCurrency(c)}
+        currencyEnabled={currencyEnabled}
+        providerError={providerError}
+        invoiceError={invoiceError}
+        amountError={amountError}
+        managerError={managerError}
+        manager2Error={manager2Error}
+        pendingCreditNotesCount={selectedProviderPendingNcCount}
+        pendingCreditInvoicesCount={selectedProviderPendingPaymentAlert?.count ?? 0}
+        pendingCreditInvoicesBalanceLabel={
+          selectedProviderPendingPaymentAlert
+            ? [
+                selectedProviderPendingPaymentAlert.crc > 0
+                  ? formatByCurrency(
+                      "CRC",
+                      selectedProviderPendingPaymentAlert.crc,
+                    )
+                  : "",
+                selectedProviderPendingPaymentAlert.usd > 0
+                  ? formatByCurrency(
+                      "USD",
+                      selectedProviderPendingPaymentAlert.usd,
+                    )
+                  : "",
+              ]
+                .filter(Boolean)
+                .join(" / ")
+            : ""
+        }
+        pendingCreditInvoices={selectedProviderPendingCreditInvoices}
+        onSelectPendingCreditInvoice={handleMovementCreditInvoiceSelect}
+        pendingCreditNotes={movementPendingCreditNotes}
+        selectedCreditNoteIds={selectedAppliedCreditNoteIds}
+        onToggleCreditNote={(id) => {
+          setSelectedAppliedCreditNoteIds((prev) =>
+            prev.includes(id)
+              ? prev.filter((item) => item !== id)
+              : [...prev, id],
+          );
         }}
-      >
-        <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              px: 3,
-              py: 2,
-              position: "relative",
-            }}
-          >
-            <Typography
-              variant="h6"
-              component="h3"
-              sx={{ fontWeight: 600, textAlign: "center", width: "100%" }}
-            >
-              {editingEntry
-                ? `Editar movimiento #${editingEntry.invoiceNumber}`
-                : "Registrar movimiento"}
-            </Typography>
-            <Box
-              sx={{
-                position: "absolute",
-                right: 12,
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-              }}
-            >
-              <IconButton
-                aria-label={
-                  movementAutoCloseLocked
-                    ? "Desbloquear cierre automatico"
-                    : "Bloquear cierre automatico"
-                }
-                onClick={() => setMovementAutoCloseLocked((prev) => !prev)}
-                sx={{ color: "var(--foreground)" }}
-              >
-                {movementAutoCloseLocked ? (
-                  <Lock className="w-4 h-4" />
-                ) : (
-                  <LockOpen className="w-4 h-4" />
-                )}
-              </IconButton>
-              <IconButton
-                aria-label="Cerrar registro de movimiento"
-                onClick={closeMovementModal}
-                sx={{ color: "var(--foreground)" }}
-              >
-                <X className="w-4 h-4" />
-              </IconButton>
-            </Box>
-          </Box>
-          <Divider sx={{ borderColor: "var(--input-border)" }} />
-          <Box sx={{ flex: 1, overflowY: "auto", px: 3, py: 2 }}>
-            {editingEntry && (
-              <Typography
-                variant="caption"
-                component="p"
-                sx={{ color: "var(--muted-foreground)", mb: 2 }}
-              >
-                Editando movimiento #{editingEntry.invoiceNumber}. Actualiza los
-                datos y presiona &quot;Actualizar&quot; o cancela para volver al
-                modo de registro.
-              </Typography>
-            )}
-            {/* Incluir borrador de NC manual en la lista de NC pendientes */}
-            {(() => {
-              const movementPendingCreditNotes =
-                invoiceDocType === "FCO"
-                  ? manualCreditNoteDraft
-                    ? [
-                        {
-                          id: "manual-nc-draft",
-                          invoiceNumber: manualCreditNoteDraft.invoiceNumber,
-                          amount: manualCreditNoteDraft.amount,
-                          balanceDue: manualCreditNoteDraft.amount,
-                          currency: movementCurrency as "CRC" | "USD",
-                        },
-                        ...selectedProviderPendingCreditNotes,
-                      ]
-                    : selectedProviderPendingCreditNotes
-                  : [];
+        creditNotesAppliedTotal={creditNotesAppliedTotal}
+        amountPayment={computedAmountPayment}
+        onAddManualCreditNote={openManualCreditNoteModal}
+        balanceCRC={currentBalanceCRC}
+        balanceUSD={currentBalanceUSD}
+        isCompraInventarioProvider={isCompraInventarioProvider}
+      />
 
-              const selectedProviderType = selectedProvider ? (providerTypesMap.get(selectedProvider) ?? "") : "";
-              const isCompraInventarioProvider = selectedProviderType.trim().toUpperCase() === "COMPRA INVENTARIO";
-
-              return (
-                <AgregarMovimiento
-                  selectedProvider={selectedProvider}
-                  onProviderChange={handleProviderChange}
-                  providers={movementProviders}
-                  providersLoading={movementProvidersLoading}
-                  isProviderSelectDisabled={
-                    isProviderSelectDisabled || isEditingCierreFondoVentas
-                  }
-                  providerDisabledTooltip={
-                    isEditingCierreFondoVentas
-                      ? 'No se puede cambiar el proveedor de un movimiento "CIERRE FONDO VENTAS"'
-                      : undefined
-                  }
-                  selectedProviderExists={selectedProviderExists}
-                  invoiceNumber={invoiceNumber}
-                  onInvoiceNumberChange={handleInvoiceNumberChange}
-                  invoiceDocType={invoiceDocType}
-                  onInvoiceDocTypeChange={setInvoiceDocType}
-                  allowCreditInvoiceOption={Boolean(
-                    editingEntryId && invoiceDocType === "FCR",
-                  )}
-                  lockInvoiceDocTypeToContado={isInvoiceDocTypeLockedToContado}
-                  invoiceValid={invoiceValid}
-                  invoiceDisabled={invoiceDisabled}
-                  paymentType={paymentType}
-                  isEgreso={isEgreso}
-                  egreso={egreso}
-                  onEgresoChange={handleEgresoChange}
-                  egresoBorderClass={egresoBorderClass}
-                  ingreso={ingreso}
-                  onIngresoChange={handleIngresoChange}
-                  ingresoBorderClass={ingresoBorderClass}
-                  notes={notes}
-                  onNotesChange={handleNotesChange}
-                  manager={manager}
-                  onManagerChange={handleManagerChange}
-                  manager2={manager2}
-                  onManager2Change={handleManager2Change}
-                  accountKey={accountKey}
-                  showManager2={isEditingPaidFcrMovement}
-                  managerSelectDisabled={
-                    managerSelectDisabled || isEditingPaidFcrMovement
-                  }
-                  manager2SelectDisabled={
-                    !company ||
-                    managerOptionsLoading ||
-                    employeeOptions.length === 0
-                  }
-                  employeeOptions={employeeOptions}
-                  employeesLoading={managerOptionsLoading}
-                  editingEntryId={editingEntryId}
-                  onCancelEditing={cancelEditing}
-                  onSubmit={handleSubmitFondo}
-                  isSubmitDisabled={isSubmitDisabled}
-                  isSaving={isSaving}
-                  onFieldKeyDown={handleFondoKeyDown}
-                  currency={movementCurrency}
-                  onCurrencyChange={(c) => setMovementCurrency(c)}
-                  currencyEnabled={currencyEnabled}
-                  providerError={providerError}
-                  invoiceError={invoiceError}
-                  amountError={amountError}
-                  managerError={managerError}
-                  manager2Error={manager2Error}
-                  pendingCreditNotesCount={selectedProviderPendingNcCount}
-                  pendingCreditInvoicesCount={
-                    selectedProviderPendingPaymentAlert?.count ?? 0
-                  }
-                  pendingCreditInvoicesBalanceLabel={
-                    selectedProviderPendingPaymentAlert
-                      ? [
-                          selectedProviderPendingPaymentAlert.crc > 0
-                            ? formatByCurrency(
-                                "CRC",
-                                selectedProviderPendingPaymentAlert.crc,
-                              )
-                            : "",
-                          selectedProviderPendingPaymentAlert.usd > 0
-                            ? formatByCurrency(
-                                "USD",
-                                selectedProviderPendingPaymentAlert.usd,
-                              )
-                            : "",
-                        ]
-                          .filter(Boolean)
-                          .join(" / ")
-                      : ""
-                  }
-                  pendingCreditInvoices={selectedProviderPendingCreditInvoices}
-                  onSelectPendingCreditInvoice={handleMovementCreditInvoiceSelect}
-                  pendingCreditNotes={movementPendingCreditNotes}
-                  selectedCreditNoteIds={selectedAppliedCreditNoteIds}
-                  onToggleCreditNote={(id) => {
-                    setSelectedAppliedCreditNoteIds((prev) =>
-                      prev.includes(id)
-                        ? prev.filter((item) => item !== id)
-                        : [...prev, id],
-                    );
-                  }}
-                  creditNotesAppliedTotal={creditNotesAppliedTotal}
-                  amountPayment={computedAmountPayment}
-                  onAddManualCreditNote={openManualCreditNoteModal}
-                  balanceCRC={currentBalanceCRC}
-                  balanceUSD={currentBalanceUSD}
-                  isCompraInventarioProvider={isCompraInventarioProvider}
-                />
-              );
-            })()}
-          </Box>
-        </Box>
-      </Drawer>
-
-      <Drawer
-        anchor="right"
+      <ManualCreditNoteDrawer
         open={manualCreditNoteOpen}
+        error={manualCreditNoteError}
+        target={manualCreditNoteTarget}
+        invoiceNumber={manualCreditNoteInvoiceNumber}
+        amount={manualCreditNoteAmount}
+        observation={manualCreditNoteObservation}
+        saving={manualCreditNoteSaving}
+        providersMap={providersMap}
+        formatByCurrency={formatByCurrency}
         onClose={closeManualCreditNoteModal}
-        PaperProps={{
-          sx: {
-            width: { xs: "100vw", sm: 460 },
-            maxWidth: "100vw",
-            bgcolor: "#0d1117",
-            color: "#ffffff",
-          },
+        onInvoiceNumberChange={setManualCreditNoteInvoiceNumber}
+        onAmountChange={setManualCreditNoteAmount}
+        onObservationChange={setManualCreditNoteObservation}
+        onSubmit={() => {
+          void handleSaveManualCreditNote();
         }}
-      >
-        <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              px: 3,
-              py: 2,
-            }}
-          >
-            <Typography variant="h6" component="h3" sx={{ fontWeight: 600 }}>
-              Agregar nota de Crédito
-            </Typography>
-            <IconButton
-              aria-label="Cerrar"
-              onClick={closeManualCreditNoteModal}
-              sx={{ color: "var(--foreground)" }}
-              disabled={manualCreditNoteSaving}
-            >
-              <X className="w-4 h-4" />
-            </IconButton>
-          </Box>
-          <Divider sx={{ borderColor: "var(--input-border)" }} />
-
-          <Box sx={{ flex: 1, overflowY: "auto", px: 3, py: 3 }}>
-            {manualCreditNoteError && (
-              <div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-                {manualCreditNoteError}
-              </div>
-            )}
-
-            {manualCreditNoteTarget && (
-              <div className="mb-4 rounded-lg border border-sky-500/20 bg-sky-500/10 p-3 text-sm text-[var(--foreground)]">
-                <div className="grid gap-2 text-xs sm:grid-cols-2">
-                  <div>
-                    <span className="text-[var(--muted-foreground)]">
-                      Proveedor:
-                    </span>{" "}
-                    <span className="font-medium">
-                      {providersMap.get(manualCreditNoteTarget.providerCode) ||
-                        manualCreditNoteTarget.providerCode}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[var(--muted-foreground)]">
-                      Encargado:
-                    </span>{" "}
-                    <span className="font-medium">
-                      {manualCreditNoteTarget.manager || "-"}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[var(--muted-foreground)]">
-                      Factura origen:
-                    </span>{" "}
-                    <span className="font-medium">
-                      #{manualCreditNoteTarget.invoiceNumber}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[var(--muted-foreground)]">
-                      Moneda:
-                    </span>{" "}
-                    <span className="font-medium">
-                      {manualCreditNoteTarget.currency || "CRC"}
-                    </span>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <span className="text-[var(--muted-foreground)]">
-                      Saldo disponible:
-                    </span>{" "}
-                    <span className="font-semibold text-sky-100">
-                      {formatByCurrency(
-                        (manualCreditNoteTarget.currency as "CRC" | "USD") ||
-                          "CRC",
-                        Math.max(
-                          0,
-                          Math.trunc(
-                            Number(
-                              manualCreditNoteTarget.amountEgreso ||
-                                manualCreditNoteTarget.amountIngreso ||
-                                0,
-                            ) || 0,
-                          ),
-                        ),
-                      )}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <form
-              className="flex flex-col gap-3"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void handleSaveManualCreditNote();
-              }}
-            >
-              <input
-                value={manualCreditNoteInvoiceNumber}
-                onChange={(event) =>
-                  setManualCreditNoteInvoiceNumber(
-                    event.target.value.replace(/\D/g, "").slice(0, 4),
-                  )
-                }
-                placeholder="Numero de factura de la NC"
-                disabled={manualCreditNoteSaving}
-                maxLength={4}
-                inputMode="numeric"
-                className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
-              />
-
-              <input
-                type="text"
-                inputMode="numeric"
-                value={manualCreditNoteAmount}
-                onChange={(event) =>
-                  setManualCreditNoteAmount(
-                    event.target.value.replace(/\D/g, ""),
-                  )
-                }
-                placeholder="Monto"
-                disabled={manualCreditNoteSaving}
-                className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
-              />
-
-              <textarea
-                value={manualCreditNoteObservation}
-                onChange={(event) =>
-                  setManualCreditNoteObservation(event.target.value)
-                }
-                placeholder="Observacion"
-                disabled={manualCreditNoteSaving}
-                rows={4}
-                className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
-              />
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={closeManualCreditNoteModal}
-                  disabled={manualCreditNoteSaving}
-                  className="rounded border border-[var(--input-border)] bg-[var(--muted)]/10 px-3 py-2 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/25 disabled:opacity-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={manualCreditNoteSaving}
-                  className="rounded bg-sky-500 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-sky-400 disabled:opacity-50"
-                >
-                  {manualCreditNoteSaving ? "Guardando..." : "Guardar NC"}
-                </button>
-              </div>
-            </form>
-          </Box>
-        </Box>
-      </Drawer>
+      />
 
       {!isCajaNegra &&
         !movementProvidersLoading &&
@@ -5903,150 +4664,14 @@ export function FondoSection({
                         </th>
                       </tr>
                     </thead>
-                    {showPendingClosingCreditInvoices &&
-                      pendingClosingCreditInvoices.length > 0 && (
-                        <tbody>
-                          <tr className="bg-amber-500/10 [&>td]:border-b [&>td]:border-cyan-900/35">
-                            <td
-                              colSpan={7}
-                              className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-amber-100"
-                            >
-                               Facturas crédito pendientes
-                            </td>
-                          </tr>
-                          {pendingClosingCreditInvoices.map((invoice) => {
-                            const providerName =
-                              providersMap.get(invoice.providerCode) ??
-                              invoice.providerCode;
-                            const totalAmount = Math.max(
-                              0,
-                              Math.trunc(
-                                Number(
-                                  invoice.originalAmount ?? invoice.amount,
-                                ) || 0,
-                              ),
-                            );
-                            const paidAmount = Math.max(
-                              0,
-                              Math.trunc(Number(invoice.paidAmount) || 0),
-                            );
-                            const balanceAmount = Math.max(
-                              0,
-                              Math.trunc(
-                                Number(
-                                  invoice.balanceDue ??
-                                    totalAmount - paidAmount,
-                                ) || 0,
-                              ),
-                            );
-                            const recordedAt = new Date(invoice.createdAt);
-                            const formattedInvoiceDate = Number.isNaN(
-                              recordedAt.getTime(),
-                            )
-                              ? "Sin fecha"
-                              : dateTimeFormatter.format(recordedAt);
-
-                            return (
-                              <tr
-                                key={invoice.id}
-                                className="transition-colors hover:bg-amber-500/10 [&>td]:border-b [&>td]:border-cyan-900/35 bg-amber-500/5"
-                              >
-                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                                  {formattedInvoiceDate}
-                                </td>
-                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                                  <div className="font-semibold text-[var(--foreground)]">
-                                    {providerName}
-                                  </div>
-                                  <div className="text-xs text-amber-100/80">
-                                    {invoice.providerCode}
-                                  </div>
-                                  {invoice.notes && (
-                                    <div className="mt-1 flex w-full items-start gap-2 rounded border border-[var(--input-border)] bg-[var(--muted)]/20 px-2 py-1.5">
-                                      <MessageSquare className="h-3 w-3 shrink-0 mt-0.5 text-[var(--muted-foreground)]" />
-                                      <span className="text-xs text-[var(--muted-foreground)] break-words">{invoice.notes}</span>
-                                    </div>
-                                  )}
-                                </td>
-                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                                  <div className="flex flex-col gap-1">
-                                    <span className="inline-flex max-w-full items-center rounded border border-amber-400/30 bg-amber-500/10 px-2 py-1 text-xs font-semibold text-amber-100">
-                                      FCR
-                                    </span>
-                                    <span className="text-xs text-amber-100/80">
-                                      {String(
-                                        invoice.paymentStatus || "PENDIENTE",
-                                      )}
-                                    </span>
-                                  </div>
-                                </td>
-                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                                  <span className="font-medium text-[var(--foreground)]">
-                                    #{invoice.invoiceNumber}
-                                  </span>
-                                </td>
-                                <td className="px-3 py-2 align-top">
-                                  <div className="flex flex-col gap-1 text-right">
-                                    <div className="flex items-center justify-end gap-2">
-                                      <span className="rounded px-2 py-1 text-xs font-semibold bg-amber-500/10 text-yellow-300">
-                                        {formatByCurrency(
-                                          invoice.currency,
-                                          totalAmount,
-                                        )}
-                                      </span>
-                                    </div>
-                                    {balanceAmount > 0 ? (
-                                      <span className="inline-flex items-center justify-end gap-1 rounded border border-amber-400/30 bg-amber-500/10 px-2 py-1 text-xs font-semibold text-amber-100">
-                                        <Banknote className="h-3.5 w-3.5" />
-                                        Saldo:{" "}
-                                        {formatByCurrency(
-                                          invoice.currency,
-                                          balanceAmount,
-                                        )}
-                                      </span>
-                                    ) : (
-                                      <span className="inline-flex items-center justify-end gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-xs font-semibold text-emerald-300">
-                                        <CheckCircle className="h-3.5 w-3.5" />
-                                        Saldado
-                                      </span>
-                                    )}
-                                    <span className="text-xs text-[var(--muted-foreground)]">
-                                      Pagado:{" "}
-                                      {formatByCurrency(
-                                        invoice.currency,
-                                        paidAmount,
-                                      )}
-                                    </span>
-                                  </div>
-                                </td>
-                                <td className="px-3 py-2 align-top text-[var(--muted-foreground)]">
-                                  <div className="text-[var(--foreground)]">
-                                    {invoice.manager || "-"}
-                                  </div>
-                                  {invoice.manager2 && (
-                                    <div className="mt-1 text-xs text-[var(--muted-foreground)]">
-                                      Extra: {invoice.manager2}
-                                    </div>
-                                  )}
-                                </td>
-                                <td className="px-3 py-2 align-top">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      openClosingInvoicePaymentModal(invoice);
-                                    }}
-                                    title="Gestionar esta factura desde Facturas de crédito y notas de crédito"
-                                    className="inline-flex items-center gap-1.5 rounded border border-amber-400/35 bg-amber-500/10 px-2.5 py-1.5 text-xs font-medium text-amber-100 transition-all duration-150 hover:-translate-y-0.5 hover:border-amber-300 hover:bg-amber-500/20"
-                                  >
-                                    <FileText className="w-4 h-4" />
-                                    Gestionar
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      )}
+                    <PendingCreditInvoicesSection
+                      showPendingClosingCreditInvoices={showPendingClosingCreditInvoices}
+                      pendingClosingCreditInvoices={pendingClosingCreditInvoices}
+                      providersMap={providersMap}
+                      dateTimeFormatter={dateTimeFormatter}
+                      formatByCurrency={formatByCurrency}
+                      onOpenPaymentModal={openClosingInvoicePaymentModal}
+                    />
                     {Array.from(groupedByDay.entries()).map(
                       ([dayKey, entries]) => (
                         <tbody key={dayKey}>
@@ -7183,142 +5808,24 @@ export function FondoSection({
           {isSingleDayFilter &&
             filteredEntries.length > 0 &&
             (isAdminUser || isSuperAdminUser) && (
-              <div className="mt-4">
-                <div className="flex justify-center">
-                  <div className="w-full max-w-2xl">
-                    <div className="px-4 py-3 rounded min-w-[220px] fg-balance-card">
-                      {isSuperAdminUser ? (
-                        <button
-                          type="button"
-                          onClick={() => setSuperAdminTotalsOpen((p) => !p)}
-                          className="w-full flex items-center justify-between gap-3"
-                          aria-expanded={superAdminTotalsOpen}
-                        >
-                          <div className="text-center font-semibold text-sm text-[var(--muted-foreground)] flex-1">
-                            Total del día
-                          </div>
-                          {superAdminTotalsOpen ? (
-                            <ChevronUp className="w-4 h-4 text-[var(--muted-foreground)]" />
-                          ) : (
-                            <ChevronDown className="w-4 h-4 text-[var(--muted-foreground)]" />
-                          )}
-                        </button>
-                      ) : (
-                        <div className="mb-2 text-center font-semibold text-sm text-[var(--muted-foreground)]">
-                          Total del día
-                        </div>
-                      )}
-
-                      {(!isSuperAdminUser || superAdminTotalsOpen) && (
-                        <div className={isSuperAdminUser ? "mt-3" : ""}>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {(["CRC", "USD"] as ("CRC" | "USD")[]).map(
-                              (currency) => {
-                                const ingreso =
-                                  totalsByCurrency[currency].ingreso;
-                                const egreso =
-                                  totalsByCurrency[currency].egreso;
-                                const neto = ingreso - egreso;
-                                return (
-                                  <div
-                                    key={currency}
-                                    className="rounded border border-[var(--input-border)] bg-[var(--card-bg)] p-3"
-                                  >
-                                    <div className="text-xs uppercase tracking-wide">
-                                      {currency === "CRC"
-                                        ? "Colones"
-                                        : "Dólares"}
-                                    </div>
-                                    <div className="mt-2 text-[var(--foreground)]">
-                                      <div className="flex items-center gap-2">
-                                        <ArrowDownRight className="w-4 h-4 text-green-500" />
-                                        <div>
-                                          Entradas:{" "}
-                                          <span className="font-semibold text-green-500">
-                                            {formatByCurrency(
-                                              currency,
-                                              ingreso,
-                                            )}
-                                          </span>
-                                        </div>
-                                      </div>
-                                      <div className="flex items-center gap-2 mt-1">
-                                        <ArrowUpRight className="w-4 h-4 text-red-500" />
-                                        <div>
-                                          Salidas:{" "}
-                                          <span className="font-semibold text-red-500">
-                                            {formatByCurrency(currency, egreso)}
-                                          </span>
-                                        </div>
-                                      </div>
-                                      <div className="pt-2">
-                                        <div>
-                                          Neto:{" "}
-                                          <span
-                                            className={`font-semibold ${
-                                              neto > 0
-                                                ? "text-green-500"
-                                                : neto < 0
-                                                  ? "text-red-500"
-                                                  : ""
-                                            }`}
-                                          >
-                                            {formatByCurrency(currency, neto)}
-                                          </span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
-                              },
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <FondoTotalsSummary
+                isSuperAdminUser={isSuperAdminUser}
+                superAdminTotalsOpen={superAdminTotalsOpen}
+                onToggleSuperAdminTotalsOpen={() =>
+                  setSuperAdminTotalsOpen((p) => !p)
+                }
+                totalsByCurrency={totalsByCurrency}
+                formatByCurrency={formatByCurrency}
+              />
             )}
         </div>
 
-        {enabledBalanceCurrencies.length > 0 && (
-          <aside className="min-w-0 xl:w-[300px]">
-            <div className="xl:sticky xl:top-20">
-              <div className="rounded-2xl border border-white/10 bg-[#0d1117] p-5 text-center">
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-400/25 bg-gradient-to-br from-cyan-500/20 to-teal-500/15 shadow-[0_10px_35px_rgba(6,182,212,0.12)]">
-                  <Banknote className="h-7 w-7 text-cyan-400" />
-                </div>
-                <p className="mb-1.5 text-[10px] uppercase tracking-[0.18em] text-white/30">
-                  Saldo Actual
-                </p>
-                <div className="mt-4 space-y-4 border-t border-white/10 pt-4">
-                  {enabledBalanceCurrencies.map((currency) => {
-                    const label = currency === "CRC" ? "Colones" : "Dólares";
-                    const value =
-                      currency === "CRC"
-                        ? currentBalanceCRC
-                        : currentBalanceUSD;
-                    return (
-                      <div
-                        key={currency}
-                        className="rounded-xl border border-white/10 bg-[#050816] px-4 py-4 text-center"
-                      >
-                        <div className="text-xs uppercase tracking-wide text-white/45">
-                          {label}
-                        </div>
-                        <div className="mt-2 text-2xl font-semibold leading-none tracking-tight text-white">
-                          {formatByCurrency(currency, value)}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                {/* Registrar cierre moved next to 'Agregar movimiento' per UI changes */}
-              </div>
-            </div>
-          </aside>
-        )}
+        <FondoCurrentBalanceCard
+          enabledBalanceCurrencies={enabledBalanceCurrencies}
+          currentBalanceCRC={currentBalanceCRC}
+          currentBalanceUSD={currentBalanceUSD}
+          formatByCurrency={formatByCurrency}
+        />
       </div>
 
       <AuditHistoryModal
@@ -7416,38 +5923,6 @@ export function FondoSection({
       />
 
       <ConfirmModal
-        open={confirmPhysicalCountOpen}
-        title="Confirmar conteo físico"
-        message={
-          <div className="text-left space-y-3">
-            <div className="text-sm text-[var(--muted-foreground)]">
-              Antes de registrar el primer movimiento después del último cierre,
-              confirma que el fondo fue contado físicamente.
-            </div>
-
-            <label className="flex items-start gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                className="mt-0.5 cursor-pointer"
-                checked={physicalCountWasDone}
-                onChange={(e) => setPhysicalCountWasDone(e.target.checked)}
-                aria-label="Confirmar que el fondo fue contado físicamente"
-              />
-              <span className="text-sm">
-                Sí, el fondo fue contado físicamente
-              </span>
-            </label>
-          </div>
-        }
-        confirmText="Continuar"
-        cancelText="Cancelar"
-        actionType="change"
-        confirmDisabled={!physicalCountWasDone}
-        onConfirm={handleConfirmPhysicalCount}
-        onCancel={handleCancelPhysicalCount}
-      />
-
-      <ConfirmModal
         open={confirmOpenCreateMovement}
         title="Confirmar empresa y cuenta"
         message={`Vas a registrar un movimiento en la empresa "${
@@ -7475,16 +5950,17 @@ export function FondoSection({
         onCancel={() => setMissingShiftModalOpen(false)}
       />
 
-      <ConfirmModal
-        open={pendingCierreModalOpen}
-        title="Cierre pendiente"
-        message={
-          "Existe un cierre pendiente. No se pueden procesar pagos hasta que el cierre sea confirmado o eliminado desde el historial de cierres."
-        }
-        singleButton
-        singleButtonText="Entendido"
-        onCancel={closePendingCierreModal}
-        onConfirm={() => {}}
+      <FondoConfirmModals
+        confirmPhysicalCountOpen={confirmPhysicalCountOpen}
+        physicalCountWasDone={physicalCountWasDone}
+        setPhysicalCountWasDone={setPhysicalCountWasDone}
+        handleConfirmPhysicalCount={handleConfirmPhysicalCount}
+        handleCancelPhysicalCount={handleCancelPhysicalCount}
+        pendingCierreModalOpen={pendingCierreModalOpen}
+        closePendingCierreModal={closePendingCierreModal}
+        confirmDeleteEntry={confirmDeleteEntry}
+        confirmDeleteMovement={confirmDeleteMovement}
+        cancelDeleteMovement={cancelDeleteMovement}
       />
 
       <ConfirmModal
@@ -7574,16 +6050,6 @@ export function FondoSection({
             resultingNegativeAmount: 0,
           })
         }
-      />
-
-      <ConfirmModal
-        open={confirmDeleteEntry.open}
-        title="Eliminar movimiento"
-        message={`¿Está seguro que desea eliminar el movimiento #${confirmDeleteEntry.entry?.invoiceNumber || ""}? Esta acción no se puede deshacer.`}
-        confirmText="Eliminar"
-        onConfirm={confirmDeleteMovement}
-        onCancel={cancelDeleteMovement}
-        actionType="delete"
       />
 
       <DailyClosingHistoryModal

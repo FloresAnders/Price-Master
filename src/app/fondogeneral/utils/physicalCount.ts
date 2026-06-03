@@ -118,3 +118,33 @@ export function shouldPromptPhysicalCount(
     return false;
   }
 }
+
+export function handleCancelPhysicalCount(
+  setConfirmPhysicalCountOpen: (open: boolean) => void,
+): void {
+  setConfirmPhysicalCountOpen(false);
+}
+
+export function handleConfirmPhysicalCount({
+  accountKey,
+  company,
+  openCreateMovementDrawer,
+  setConfirmPhysicalCountOpen,
+}: {
+  accountKey: string;
+  company: string;
+  openCreateMovementDrawer: () => void;
+  setConfirmPhysicalCountOpen: (open: boolean) => void;
+}): void {
+  setConfirmPhysicalCountOpen(false);
+  if (typeof window !== "undefined" && accountKey === "FondoGeneral") {
+    try {
+      const key = buildPhysicalCountStorageKey(accountKey, company);
+      if (key) localStorage.setItem(key, "false");
+      cleanupPhysicalCountLegacyKeys(accountKey, company);
+    } catch {
+      // ignore
+    }
+  }
+  openCreateMovementDrawer();
+}

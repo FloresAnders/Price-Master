@@ -1,17 +1,59 @@
 {
   "version": 1,
   "skills": {
+    "accessibility": {
+      "source": "addyosmani/web-quality-skills",
+      "sourceType": "github",
+      "skillPath": "skills/accessibility/SKILL.md",
+      "computedHash": "ebfa09617a2ac4fd64afd73267726b787145a8d14294df3f8802b462c91594ab"
+    },
     "caveman": {
       "source": "juliusbrussee/caveman",
       "sourceType": "github",
       "skillPath": "skills/caveman/SKILL.md",
       "computedHash": "7935e83f9c6a8b7cbb5404d144b0d19e3ba93583f4388301c3dada37cd25adf8"
     },
+    "code-review-excellence": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/developer-essentials/skills/code-review-excellence/SKILL.md",
+      "computedHash": "89b2a6a234f6368b12f0232e1d77bd5ed894115114edf67eb1f2976e153664c0"
+    },
+    "documentation-writer": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "skillPath": "skills/documentation-writer/SKILL.md",
+      "computedHash": "ee53d65b163cd7eb953a930c95841cfe398cc2c0bd24c06508bbaa07c432be35"
+    },
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-design/SKILL.md",
+      "computedHash": "516bd2154eb843a8240e43d5b285229129853114ad7075a5e141e1c08e408c84"
+    },
+    "nextjs-app-router-patterns": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/frontend-mobile-development/skills/nextjs-app-router-patterns/SKILL.md",
+      "computedHash": "3a46e9093baecb3a85819529ce05006f817663f48d9e872868c32ae6049c0d5c"
+    },
+    "shadcn": {
+      "source": "vercel/vercel-plugin",
+      "sourceType": "github",
+      "skillPath": "skills/shadcn/SKILL.md",
+      "computedHash": "4d966b8dbf5b7396ade1c8aeb2f6500aebbee70819110545e9f278b80d2bfdf1"
+    },
     "tailwindcss": {
       "source": "mindrally/skills",
       "sourceType": "github",
       "skillPath": "tailwindcss/SKILL.md",
       "computedHash": "1715717d38abba1c4b11f2e95a94681cdb1dddbcb28379637b591a16b50bcd4d"
+    },
+    "typescript-advanced-types": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/javascript-typescript/skills/typescript-advanced-types/SKILL.md",
+      "computedHash": "bc33bc9653d649a461e49abe45634b6b11a7aeeae552b05ec4d54d4589d16739"
     },
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",
