@@ -359,7 +359,6 @@ export function FondoSection({
     pendingClosingCreditInvoices,
     setPendingClosingCreditInvoices,
     pendingZeroAmountCreditNotes,
-    setPendingZeroAmountCreditNotes,
   } = usePendingClosingCreditInvoices({ company });
   const [
     showPendingClosingCreditInvoices,
@@ -470,14 +469,9 @@ export function FondoSection({
     toCalendarRef,
     fromButtonRef,
     toButtonRef,
-    displayedEntries,
-    daysWithMovements,
     filteredEntries,
-    earliestEntryKey,
     totalPages,
-    paginatedEntries,
     isDailyMode,
-    shiftDateKey,
     disablePrevButton,
     disableNextButton,
     pageRange,
@@ -486,9 +480,7 @@ export function FondoSection({
     groupedByDay,
     formatGroupLabel,
     formatKeyToDisplay,
-    isFilterActive,
     isSingleDayFilter,
-    dateOnlyFormatter,
   } = fondoFilters;
 
   const {
@@ -510,7 +502,6 @@ export function FondoSection({
     setDailyClosingHistoryRange,
     beginDailyClosingsRequest,
     finishDailyClosingsRequest,
-    latestDailyClosing,
     latestDailyClosingLabel,
     dailyClosingDateFormatter,
     dailyClosingsRequestCountRef,
@@ -584,7 +575,6 @@ export function FondoSection({
     handleManagerChange,
     handleManager2Change,
     cancelOpenCreateMovement,
-    resetFormFields,
   } = useMovementForm({ mode, fondoEntries });
   const { superAdminUsers, superAdminUsersLoading } = useSuperAdminUsers(
     Boolean(isSuperAdminUser),
@@ -622,15 +612,6 @@ export function FondoSection({
         (currency) => currencyEnabled[currency],
       ),
     [currencyEnabled],
-  );
-
-  // Marca en localStorage para confirmar conteo físico antes del primer movimiento
-  // después del cierre de hoy. IMPORTANTE: debe leerse en tiempo real (no memoizada)
-  // porque localStorage puede cambiar sin alterar dependencias de React.
-  // Legacy keys (previous formats)
-  const buildLegacyPhysicalCountStorageKey = useCallback(
-    () => buildLegacyPhysicalCountStorageKeyFn(accountKey, company),
-    [company, accountKey],
   );
 
   const buildPhysicalCountStorageKey = useCallback(
