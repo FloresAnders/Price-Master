@@ -1,31 +1,39 @@
 "use client";
 
 import { useRef } from "react";
-import type { Empresa } from "./existeDb";
+import type { Empresa } from "./verificarInventarioDb";
 
-type ExisteHeaderProps = {
+type VerificarInventarioHeaderProps = {
   empresas: Empresa[];
   selectedEmpresaId: string | null;
+  inventoryMode: boolean;
   onOpenAddModal: () => void;
   onOpenScanner: () => void;
+  onToggleInventoryMode: () => void;
   onSelectEmpresa: (empresaId: string) => void;
   onOpenDeleteModal: () => void;
   onUploadXlsx: (file: File) => void;
+  onExportInventario: () => void;
   disableUpload: boolean;
   disableScanner: boolean;
+  disableExportInventario: boolean;
 };
 
-export default function ExisteHeader({
+export default function VerificarInventarioHeader({
   empresas,
   selectedEmpresaId,
+  inventoryMode,
   onOpenAddModal,
   onOpenScanner,
+  onToggleInventoryMode,
   onSelectEmpresa,
   onOpenDeleteModal,
   onUploadXlsx,
+  onExportInventario,
   disableUpload,
   disableScanner,
-}: ExisteHeaderProps) {
+  disableExportInventario,
+}: VerificarInventarioHeaderProps) {
   const hasSelectedEmpresa = Boolean(selectedEmpresaId);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -33,13 +41,15 @@ export default function ExisteHeader({
     <header className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-4 shadow-sm">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-lg font-bold text-[var(--foreground)]">Sección Existe</h1>
+          <h1 className="text-lg font-bold text-[var(--foreground)]">
+            Verificar Inventario
+          </h1>
           <p className="text-sm text-[var(--foreground)] opacity-80">
-            Gestiona empresas guardadas localmente.
+            Gestiona empresas, verifica codigos y guarda inventario.
           </p>
         </div>
 
-        <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto">
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:w-auto">
           <button
             type="button"
             onClick={onOpenAddModal}
@@ -55,6 +65,19 @@ export default function ExisteHeader({
             className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Abrir escaner
+          </button>
+
+          <button
+            type="button"
+            onClick={onToggleInventoryMode}
+            disabled={!hasSelectedEmpresa}
+            className={`rounded-md px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60 ${
+              inventoryMode
+                ? "bg-amber-600 hover:bg-amber-700"
+                : "bg-slate-600 hover:bg-slate-700"
+            }`}
+          >
+            Inventariar
           </button>
 
           <input
@@ -78,6 +101,15 @@ export default function ExisteHeader({
             className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Cargar .xlsx
+          </button>
+
+          <button
+            type="button"
+            onClick={onExportInventario}
+            disabled={disableExportInventario}
+            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Exportar inventario
           </button>
 
           <select

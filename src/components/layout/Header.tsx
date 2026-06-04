@@ -1052,9 +1052,9 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             )}
             {/* Mobile scanner button (only visible on mobile) */}
             <Link
-              href="/existe"
+              href="/verificarInventario"
               className="lg:hidden p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
-              title="Verificar existencia"
+              title="Verificar inventario"
             >
               <ScanBarcode className="w-5 h-5 text-[var(--foreground)]" />
             </Link>
