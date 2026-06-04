@@ -330,8 +330,6 @@ export function FondoSection({
   const { companyEmployees, employeesLoading, companyData } =
     useFondoCompanyMetadata({ company, namespace });
 
-  const [selectedProviderPendingNcCount] =
-    useState(0);
   const [
     selectedProviderPendingCreditNotes,
     setSelectedProviderPendingCreditNotes,
@@ -358,6 +356,7 @@ export function FondoSection({
   const {
     pendingClosingCreditInvoices,
     setPendingClosingCreditInvoices,
+    pendingCreditNotes,
     pendingZeroAmountCreditNotes,
   } = usePendingClosingCreditInvoices({ company });
   const [
@@ -2457,6 +2456,88 @@ export function FondoSection({
     [pendingSupplierPaymentAlerts, selectedProvider],
   );
 
+  const pendingCreditNotesByProvider = useMemo(() => {
+    const map = new Map<string, number>();
+    pendingCreditNotes.forEach((entry) => {
+      const balanceDue = Math.max(
+        0,
+        Math.abs(
+          Math.trunc(Number(entry.balanceDue ?? entry.amountDue ?? entry.amount) || 0),
+        ),
+      );
+      if (balanceDue <= 0) return;
+      const providerCode = String(entry.providerCode || "").trim();
+      if (!providerCode) return;
+      map.set(providerCode, (map.get(providerCode) ?? 0) + 1);
+    });
+    return map;
+  }, [pendingCreditNotes]);
+
+  const providerPendingCounts = useMemo(() => {
+    const map = new Map<
+      string,
+      { pendingCreditNotesCount: number; pendingCreditInvoicesCount: number }
+    >();
+
+    pendingSupplierPaymentAlerts.forEach((item) => {
+      map.set(item.providerCode, {
+        pendingCreditNotesCount: 0,
+        pendingCreditInvoicesCount: item.count,
+      });
+    });
+
+    pendingCreditNotesByProvider.forEach((count, providerCode) => {
+      const current =
+        map.get(providerCode) ?? {
+          pendingCreditNotesCount: 0,
+          pendingCreditInvoicesCount: 0,
+        };
+      current.pendingCreditNotesCount = count;
+      map.set(providerCode, current);
+    });
+
+    return map;
+  }, [pendingCreditNotesByProvider, pendingSupplierPaymentAlerts]);
+
+  const selectedProviderPendingNcCount = selectedProvider
+    ? providerPendingCounts.get(selectedProvider)?.pendingCreditNotesCount ?? 0
+    : 0;
+
+  useEffect(() => {
+    if (!selectedProvider || isCajaNegra) {
+      setSelectedProviderPendingCreditNotes([]);
+      return;
+    }
+
+    setSelectedProviderPendingCreditNotes(
+      pendingCreditNotes
+        .filter((note) => note.providerCode === selectedProvider)
+        .map((note) => {
+          const totalAmount = Math.max(
+            0,
+            Math.abs(Math.trunc(Number(note.originalAmount ?? note.amount) || 0)),
+          );
+          const paidAmount = Math.max(
+            0,
+            Math.trunc(Number(note.paidAmount) || 0),
+          );
+          const balanceDue = Math.max(
+            0,
+            Math.abs(Math.trunc(Number(note.balanceDue ?? totalAmount - paidAmount) || 0)),
+          );
+          return {
+            id: note.id,
+            invoiceNumber: note.invoiceNumber,
+            amount: totalAmount,
+            balanceDue,
+            paidAmount,
+            currency: (note.currency === "USD" ? "USD" : "CRC") as "CRC" | "USD",
+          };
+        })
+        .filter((note) => note.balanceDue > 0),
+    );
+  }, [isCajaNegra, pendingCreditNotes, selectedProvider]);
+
   const selectedProviderPendingCreditInvoices = useMemo(
     () =>
       selectedProvider && !isCajaNegra
@@ -2488,6 +2569,19 @@ export function FondoSection({
             .filter((invoice) => invoice.balanceDue > 0)
         : [],
         [isCajaNegra, pendingClosingCreditInvoices, selectedProvider],
+  );
+
+  const filteredProvidersForMovement = useMemo(
+    () =>
+      movementProviders.map((provider) => {
+        const pending = providerPendingCounts.get(provider.code);
+        return {
+          ...provider,
+          pendingCreditNotesCount: pending?.pendingCreditNotesCount ?? 0,
+          pendingCreditInvoicesCount: pending?.pendingCreditInvoicesCount ?? 0,
+        };
+      }),
+    [movementProviders, providerPendingCounts],
   );
 
   useEffect(() => {
@@ -3399,7 +3493,7 @@ export function FondoSection({
         }
         selectedProvider={selectedProvider}
         onProviderChange={handleProviderChange}
-        providers={movementProviders}
+        providers={filteredProvidersForMovement}
         providersLoading={movementProvidersLoading}
         isProviderSelectDisabled={
           isProviderSelectDisabled ||
@@ -4486,7 +4580,8 @@ export function FondoSection({
                                                   </button>
                                                 )}
                                                 {appliedCreditNotesAdjustment >
-                                                  0 && (
+                                                  0 &&
+                                                  !isPaidFcrEntry && (
                                                   <div className="flex w-full items-center gap-0 rounded border border-orange-500/15 bg-orange-500/10 px-2 py-1">
                                                     <span className="flex items-center justify-center gap-1 text-xs text-orange-200">
                                                       <RotateCcw className="h-3 w-3 shrink-0" />
@@ -4615,6 +4710,7 @@ export function FondoSection({
                                     hasAppliedCreditNotes={hasAppliedCreditNotes}
                                     appliedCreditNotes={fe.appliedCreditNotes ?? []}
                                     appliedCreditNotesTotal={appliedCreditNotesTotal}
+                                    appliedCreditNotesAdjustment={appliedCreditNotesAdjustment}
                                     formatByCurrency={formatByCurrency}
                                     colSpan={7}
                                   />

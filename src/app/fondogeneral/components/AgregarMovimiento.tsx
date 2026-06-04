@@ -27,6 +27,8 @@ type ProviderOption = {
   type?: FondoMovementType;
   category?: "Ingreso" | "Gasto" | "Egreso";
   movementCount?: number;
+  pendingCreditNotesCount?: number;
+  pendingCreditInvoicesCount?: number;
 };
 
 type PendingCreditNoteOption = {
@@ -505,11 +507,23 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                             );
                           })()}
 
-                          {p.type && (
-                            <span className="shrink-0 rounded border border-cyan-700/35 bg-cyan-950/30 px-2 py-0.5 text-[11px] text-cyan-100/70">
-                              {formatMovementType(p.type)}
-                            </span>
-                          )}
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            {p.pendingCreditInvoicesCount ? (
+                              <span className="rounded border border-amber-500/35 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
+                                FCR {p.pendingCreditInvoicesCount}
+                              </span>
+                            ) : null}
+                            {p.pendingCreditNotesCount ? (
+                              <span className="rounded border border-amber-500/35 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
+                                NC {p.pendingCreditNotesCount}
+                              </span>
+                            ) : null}
+                            {p.type && (
+                              <span className="rounded border border-cyan-700/35 bg-cyan-950/30 px-2 py-0.5 text-[11px] text-cyan-100/70">
+                                {formatMovementType(p.type)}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </button>
                     ))}

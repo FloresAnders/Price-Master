@@ -13,6 +13,7 @@ type PaidFcrInfoRowProps = {
   hasAppliedCreditNotes: boolean;
   appliedCreditNotes: AppliedCreditNote[];
   appliedCreditNotesTotal: number;
+  appliedCreditNotesAdjustment?: number;
   formatByCurrency: (currency: "CRC" | "USD", amount: number) => string;
   colSpan: number;
 };
@@ -28,6 +29,7 @@ export function PaidFcrInfoRow({
   hasAppliedCreditNotes,
   appliedCreditNotes,
   appliedCreditNotesTotal,
+  appliedCreditNotesAdjustment,
   formatByCurrency,
   colSpan,
 }: PaidFcrInfoRowProps) {
@@ -78,7 +80,9 @@ export function PaidFcrInfoRow({
             </div>
             <div>
               <span className="text-[var(--muted-foreground)]">
-                Monto adeudado:
+                {appliedCreditNotesAdjustment && appliedCreditNotesAdjustment > 0
+                  ? "Adeudado:"
+                  : "Monto adeudado:"}
               </span>{" "}
               <span className="font-medium">
                 {owedFcrAmount === null

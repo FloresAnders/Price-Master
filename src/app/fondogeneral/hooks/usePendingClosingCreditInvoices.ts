@@ -12,6 +12,8 @@ interface Props {
 export function usePendingClosingCreditInvoices({ company }: Props) {
   const [pendingClosingCreditInvoices, setPendingClosingCreditInvoices] =
     useState<FacturaMovement[]>([]);
+  const [pendingCreditNotes, setPendingCreditNotes] =
+    useState<FacturaMovement[]>([]);
   const [pendingZeroAmountCreditNotes, setPendingZeroAmountCreditNotes] =
     useState<FacturaMovement[]>([]);
 
@@ -20,6 +22,7 @@ export function usePendingClosingCreditInvoices({ company }: Props) {
 
     if (!company) {
       setPendingClosingCreditInvoices([]);
+      setPendingCreditNotes([]);
       setPendingZeroAmountCreditNotes([]);
       return () => {
         cancelled = true;
@@ -61,6 +64,30 @@ export function usePendingClosingCreditInvoices({ company }: Props) {
             return bDate - aDate;
           });
         setPendingClosingCreditInvoices(pending);
+        const pendingNotes = movements.filter((movement) => {
+          if (normalizeInvoiceDocType(movement.invoiceDocType) !== "NC") {
+            return false;
+          }
+          const totalAmount = Math.max(
+            0,
+            Math.abs(Math.trunc(Number(movement.originalAmount ?? movement.amount) || 0)),
+          );
+          const paidAmount = Math.max(
+            0,
+            Math.trunc(Number(movement.paidAmount) || 0),
+          );
+          const balanceDue = Math.max(
+            0,
+            Math.trunc(Number(movement.balanceDue ?? totalAmount - paidAmount) || 0),
+          );
+          return (
+            balanceDue > 0 &&
+            !["PAGADA", "REBAJADA"].includes(
+              String(movement.paymentStatus || "PENDIENTE").toUpperCase(),
+            )
+          );
+        });
+        setPendingCreditNotes(pendingNotes);
         const pendingZeroNotes = movements.filter((movement) => {
           if (normalizeInvoiceDocType(movement.invoiceDocType) !== "NC") {
             return false;
@@ -78,6 +105,7 @@ export function usePendingClosingCreditInvoices({ company }: Props) {
         console.error("[FONDO] Error loading pending credit invoices:", error);
         if (!cancelled) {
           setPendingClosingCreditInvoices([]);
+          setPendingCreditNotes([]);
           setPendingZeroAmountCreditNotes([]);
         }
       });
@@ -90,6 +118,8 @@ export function usePendingClosingCreditInvoices({ company }: Props) {
   return {
     pendingClosingCreditInvoices,
     setPendingClosingCreditInvoices,
+    pendingCreditNotes,
+    setPendingCreditNotes,
     pendingZeroAmountCreditNotes,
     setPendingZeroAmountCreditNotes,
   };
