@@ -91,6 +91,7 @@ type AgregarMovimientoProps = {
   ) => void;
   currency?: "CRC" | "USD";
   onCurrencyChange?: (c: "CRC" | "USD") => void;
+  currencySelectDisabled?: boolean;
   currencyEnabled?: Record<"CRC" | "USD", boolean>;
   providerError?: string;
   invoiceError?: string;
@@ -153,6 +154,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   onFieldKeyDown,
   currency = "CRC",
   onCurrencyChange,
+  currencySelectDisabled = false,
   currencyEnabled = { CRC: true, USD: true },
   providerError = "",
   invoiceError = "",
@@ -639,17 +641,18 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
           {(["CRC", "USD"] as const).map((option) => {
             const enabled = currencyEnabled[option];
             const active = currency === option;
+            const disabled = !enabled || currencySelectDisabled;
             return (
               <button
                 key={option}
                 type="button"
-                onClick={() => enabled && onCurrencyChange?.(option)}
-                disabled={!enabled}
+                onClick={() => !disabled && onCurrencyChange?.(option)}
+                disabled={disabled}
                 className={`h-10 rounded border px-3 text-sm font-semibold transition-all duration-150 ${
                   active
                     ? "border-cyan-300/45 bg-cyan-500/25 text-cyan-50 shadow-sm shadow-cyan-950/20"
                     : "border-cyan-700/35 bg-cyan-950/25 text-cyan-100/75 hover:border-cyan-500/45 hover:bg-cyan-900/25"
-                } ${!enabled ? "cursor-not-allowed opacity-45" : "active:scale-[0.99]"}`}
+                } ${disabled ? "cursor-not-allowed opacity-45" : "active:scale-[0.99]"}`}
               >
                 {option === "CRC" ? "Colones (₡)" : "Dólares ($)"}
               </button>

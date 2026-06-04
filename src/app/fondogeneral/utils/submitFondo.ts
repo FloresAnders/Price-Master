@@ -221,15 +221,9 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     }
   }
 
-  const trimmedManager2 = manager2.trim();
   if (isEditingPaidFcrMovement) {
     setManagerError("");
-    if (!trimmedManager2) {
-      setManager2Error("Selecciona quién pagó la factura");
-      hasErrors = true;
-    } else {
-      setManager2Error("");
-    }
+    setManager2Error("");
   } else if (!effectiveManager) {
     setManagerError("Selecciona un encargado");
     hasErrors = true;
@@ -563,52 +557,70 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
       const originalManager2 = String(original.manager2 || "").trim();
       const effectiveManager = isEditingPaidFcr ? original.manager : manager;
       const effectiveManager2 = isEditingPaidFcr
-        ? trimmedManager2
+        ? originalManager2
         : originalManager2;
+      const effectiveProvider = isEditingPaidFcr
+        ? original.providerCode
+        : selectedProvider;
+      const effectiveInvoiceNumber = isEditingPaidFcr
+        ? original.invoiceNumber
+        : paddedInvoice;
+      const effectiveInvoiceDocType = isEditingPaidFcr
+        ? normalizeInvoiceDocType((original as any).invoiceDocType)
+        : normalizeInvoiceDocType(invoiceDocType);
+      const effectivePaymentType = isEditingPaidFcr
+        ? original.paymentType
+        : paymentType;
+      const effectiveCurrency = isEditingPaidFcr
+        ? ((original.currency === "USD" ? "USD" : "CRC") as MovementCurrencyKey)
+        : movementCurrency;
+      const effectiveIsEgreso = isEditingPaidFcr
+        ? isEgresoType(original.paymentType) || original.amountEgreso > 0
+        : isEgreso;
 
       const changes: string[] = [];
-      if (selectedProvider !== original.providerCode)
+      if (!isEditingPaidFcr && selectedProvider !== original.providerCode)
         changes.push(
           `Proveedor: ${original.providerCode} -> ${selectedProvider}`,
         );
-      if (paddedInvoice !== original.invoiceNumber)
+      if (!isEditingPaidFcr && paddedInvoice !== original.invoiceNumber)
         changes.push(
           `Nro. factura: ${original.invoiceNumber} -> ${paddedInvoice}`,
         );
-      if (paymentType !== original.paymentType)
+      if (!isEditingPaidFcr && paymentType !== original.paymentType)
         changes.push(`Tipo: ${original.paymentType} -> ${paymentType}`);
-      const originalAmount = isEgresoType(original.paymentType)
+      const originalAmount = effectiveIsEgreso
         ? original.amountEgreso
         : original.amountIngreso;
-      const newAmount = isEgreso ? egresoValue : ingresoValue;
-      const originalMovementAmount = Math.max(
+      const newAmount = effectiveIsEgreso ? egresoValue : ingresoValue;
+      const maxEditablePaidFcrAmount = Math.max(
         0,
         Math.trunc(Number(originalAmount) || 0),
       );
-      const legacyInvoiceAmount = Math.max(
-        0,
-        Math.trunc(Number(original.amountDue ?? original.balanceDue) || 0) +
-          originalMovementAmount,
-      );
-      const originalInvoiceAmount = Math.max(
-        0,
-        Math.trunc(
-          Number(
-            original.originalAmount ??
-              (legacyInvoiceAmount > 0 ? legacyInvoiceAmount : original.amount),
-          ) || 0,
-        ),
-      );
-      if (
-        normalizeInvoiceDocType((original as any).invoiceDocType) === "FCR" &&
-        originalInvoiceAmount > 0 &&
-        newAmount > originalInvoiceAmount
-      ) {
-        const formattedOriginalAmount = originalInvoiceAmount.toLocaleString(
-          "es-CR",
-        );
+      if (isEditingPaidFcr && newAmount > maxEditablePaidFcrAmount) {
+        const formatted = maxEditablePaidFcrAmount.toLocaleString("es-CR");
         setAmountError(
-          `El monto no puede superar el monto original de la factura (${formattedOriginalAmount}).`,
+          `El monto no puede superar el monto original del movimiento (${formatted}).`,
+        );
+        showToast(
+          "El monto no puede superar el monto original del movimiento.",
+          "error",
+          5000,
+        );
+        setIsSaving(false);
+        editingInProgressRef.current = false;
+        return;
+      }
+      if (
+        !isEditingPaidFcr &&
+        normalizeInvoiceDocType((original as any).invoiceDocType) === "FCR" &&
+        typeof original.originalAmount === "number" &&
+        original.originalAmount > 0 &&
+        newAmount > original.originalAmount
+      ) {
+        const formatted = original.originalAmount.toLocaleString("es-CR");
+        setAmountError(
+          `El monto no puede superar el monto original de la factura (${formatted}).`,
         );
         showToast(
           "El monto no puede superar el monto original de la factura.",
@@ -666,7 +678,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         const previousAppliedNotes = Array.isArray(e.appliedCreditNotes)
           ? (e.appliedCreditNotes as AppliedCreditNote[])
           : [];
-        let remainingAppliedBase = isEgreso ? egresoValue : 0;
+        let remainingAppliedBase = effectiveIsEgreso ? egresoValue : 0;
         const nextAppliedCreditNotes: AppliedCreditNote[] = previousAppliedNotes.reduce(
           (acc: AppliedCreditNote[], note: AppliedCreditNote) => {
             if (remainingAppliedBase <= 0) return acc;
@@ -687,7 +699,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
           0,
         );
         const nextAmountPayment =
-          isEgreso && nextAppliedCreditNotes.length > 0
+          effectiveIsEgreso && nextAppliedCreditNotes.length > 0
             ? Math.max(0, egresoValue - nextAppliedTotal)
             : undefined;
 
@@ -710,18 +722,18 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
             currency: e.currency,
           },
           {
-            providerCode: selectedProvider,
-            invoiceNumber: paddedInvoice,
-            invoiceDocType: normalizeInvoiceDocType(invoiceDocType),
-            paymentType,
-            amountEgreso: isEgreso ? egresoValue : 0,
-            amountIngreso: isEgreso ? 0 : ingresoValue,
+            providerCode: effectiveProvider,
+            invoiceNumber: effectiveInvoiceNumber,
+            invoiceDocType: effectiveInvoiceDocType,
+            paymentType: effectivePaymentType,
+            amountEgreso: effectiveIsEgreso ? egresoValue : 0,
+            amountIngreso: effectiveIsEgreso ? 0 : ingresoValue,
             amountPayment: nextAmountPayment,
             appliedCreditNotes: nextAppliedCreditNotes,
             manager: effectiveManager,
             manager2: effectiveManager2,
             notes: trimmedNotes,
-            currency: movementCurrency,
+            currency: effectiveCurrency,
           },
         );
         const newRecord = { at: new Date().toISOString(), ...changedFields };
@@ -731,20 +743,20 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         // keep original createdAt so chronological order and balances are preserved
         const baseAmountDue = Math.max(0, Math.trunc(Number(e.amountDue ?? e.balanceDue) || 0));
         const basePaymentAmount = Math.max(0, Math.trunc(Number(e.amountEgreso) || 0));
-        const newPaymentAmount = isEgreso ? egresoValue : 0;
+        const newPaymentAmount = effectiveIsEgreso ? egresoValue : 0;
         const nextAmountDue = isEditingPaidFcr
           ? Math.max(0, baseAmountDue - (newPaymentAmount - basePaymentAmount))
           : baseAmountDue;
         updatedEntry = {
           ...e,
-          providerCode: selectedProvider,
-          invoiceNumber: paddedInvoice,
-          invoiceDocType: normalizeInvoiceDocType(invoiceDocType),
+          providerCode: effectiveProvider,
+          invoiceNumber: effectiveInvoiceNumber,
+          invoiceDocType: effectiveInvoiceDocType,
           accountId: accountKey,
           empresa: company,
-          paymentType,
-          amountEgreso: isEgreso ? egresoValue : 0,
-          amountIngreso: isEgreso ? 0 : ingresoValue,
+          paymentType: effectivePaymentType,
+          amountEgreso: effectiveIsEgreso ? egresoValue : 0,
+          amountIngreso: effectiveIsEgreso ? 0 : ingresoValue,
           amountPayment: nextAmountPayment,
           amountDue: nextAmountDue,
           balanceDue: nextAmountDue,
@@ -759,7 +771,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
           isAudit: true,
           originalEntryId: e.originalEntryId ?? e.id,
           auditDetails: JSON.stringify({ history: compressedHistory }),
-          currency: movementCurrency,
+          currency: effectiveCurrency,
         } as FondoEntry;
         return updatedEntry;
       });

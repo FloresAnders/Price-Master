@@ -2369,7 +2369,7 @@ export function FondoSection({
     !requiredAmountProvided ||
     !egresoValid ||
     !ingresoValid ||
-    !manager ||
+    (!isEditingPaidFcrMovement && !manager) ||
     employeesLoading ||
     isSaving;
 
@@ -3402,10 +3402,14 @@ export function FondoSection({
         providers={movementProviders}
         providersLoading={movementProvidersLoading}
         isProviderSelectDisabled={
-          isProviderSelectDisabled || isEditingCierreFondoVentas
+          isProviderSelectDisabled ||
+          isEditingCierreFondoVentas ||
+          isEditingPaidFcrMovement
         }
         providerDisabledTooltip={
-          isEditingCierreFondoVentas
+          isEditingPaidFcrMovement
+            ? "Solo se puede editar el monto y la observacion de un pago FCR"
+            : isEditingCierreFondoVentas
             ? 'No se puede cambiar el proveedor de un movimiento "CIERRE FONDO VENTAS"'
             : undefined
         }
@@ -3419,7 +3423,7 @@ export function FondoSection({
         )}
         lockInvoiceDocTypeToContado={isInvoiceDocTypeLockedToContado}
         invoiceValid={invoiceValid}
-        invoiceDisabled={invoiceDisabled}
+        invoiceDisabled={invoiceDisabled || isEditingPaidFcrMovement}
         paymentType={paymentType}
         isEgreso={isEgreso}
         egreso={egreso}
@@ -3435,7 +3439,7 @@ export function FondoSection({
         manager2={manager2}
         onManager2Change={handleManager2Change}
         accountKey={accountKey}
-        showManager2={isEditingPaidFcrMovement}
+        showManager2={false}
         managerSelectDisabled={managerSelectDisabled || isEditingPaidFcrMovement}
         manager2SelectDisabled={
           !company || managerOptionsLoading || employeeOptions.length === 0
@@ -3450,6 +3454,7 @@ export function FondoSection({
         onFieldKeyDown={handleFondoKeyDown}
         currency={movementCurrency}
         onCurrencyChange={(c) => setMovementCurrency(c)}
+        currencySelectDisabled={isEditingPaidFcrMovement}
         currencyEnabled={currencyEnabled}
         providerError={providerError}
         invoiceError={invoiceError}
@@ -3457,9 +3462,13 @@ export function FondoSection({
         managerError={managerError}
         manager2Error={manager2Error}
         pendingCreditNotesCount={selectedProviderPendingNcCount}
-        pendingCreditInvoicesCount={selectedProviderPendingPaymentAlert?.count ?? 0}
+        pendingCreditInvoicesCount={
+          isEditingPaidFcrMovement
+            ? 0
+            : selectedProviderPendingPaymentAlert?.count ?? 0
+        }
         pendingCreditInvoicesBalanceLabel={
-          selectedProviderPendingPaymentAlert
+          !isEditingPaidFcrMovement && selectedProviderPendingPaymentAlert
             ? [
                 selectedProviderPendingPaymentAlert.crc > 0
                   ? formatByCurrency(
@@ -3478,7 +3487,9 @@ export function FondoSection({
                 .join(" / ")
             : ""
         }
-        pendingCreditInvoices={selectedProviderPendingCreditInvoices}
+        pendingCreditInvoices={
+          isEditingPaidFcrMovement ? [] : selectedProviderPendingCreditInvoices
+        }
         onSelectPendingCreditInvoice={handleMovementCreditInvoiceSelect}
         pendingCreditNotes={movementPendingCreditNotes}
         selectedCreditNoteIds={selectedAppliedCreditNoteIds}
@@ -4719,7 +4730,7 @@ export function FondoSection({
         )}
         paymentSubmitting={closingPaymentSubmitting}
         canSubmitFullPayment={true}
-        allowPartialPayment={false}
+        allowPartialPayment={true}
         onClose={closeClosingInvoicePaymentModal}
         onPaymentAmountChange={setClosingPaymentAmount}
         onPaymentNotesChange={setClosingPaymentNotes}
