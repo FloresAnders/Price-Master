@@ -7,6 +7,7 @@ export type Empresa = {
 export type RelacionProducto = {
   descripcion: string;
   codigoBarras: string;
+  precioVenta?: string;
 };
 
 export type CodigoPendiente = {
@@ -119,12 +120,14 @@ function normalizeState(value: Partial<ExisteState> | null | undefined): ExisteS
           const itemRecord = item as Record<string, unknown>;
           const descripcion = String(itemRecord.descripcion ?? "").trim();
           const codigoBarras = String(itemRecord.codigoBarras ?? "").trim() || "NE";
+          const precioVenta = String(itemRecord.precioVenta ?? "").trim();
 
           if (!descripcion) return null;
 
           return {
             descripcion,
             codigoBarras,
+            ...(precioVenta ? { precioVenta } : {}),
           };
         })
         .filter((item): item is RelacionProducto => Boolean(item));

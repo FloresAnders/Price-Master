@@ -56,6 +56,14 @@ function parseXlsxRowsToRelaciones(rows: unknown[][]): RelacionProducto[] {
   const codigoBarrasIndex = normalizedHeaders.findIndex(
     (header) => header === "codigo de barras",
   );
+  const precioVentaIndex = normalizedHeaders.findIndex((header) =>
+    [
+      "precio de venta",
+      "precio venta",
+      "precio",
+      "venta",
+    ].includes(header),
+  );
 
   if (descripcionIndex === -1 || codigoBarrasIndex === -1) {
     throw new Error(
@@ -70,6 +78,10 @@ function parseXlsxRowsToRelaciones(rows: unknown[][]): RelacionProducto[] {
       const descripcion = normalizeCellText(row?.[descripcionIndex]);
       const codigoRaw = normalizeCellText(row?.[codigoBarrasIndex]);
       const codigoBarras = codigoRaw || "NE";
+      const precioVenta =
+        precioVentaIndex === -1
+          ? ""
+          : normalizeCellText(row?.[precioVentaIndex]);
 
       if (!descripcion && !codigoRaw) {
         return null;
@@ -82,6 +94,7 @@ function parseXlsxRowsToRelaciones(rows: unknown[][]): RelacionProducto[] {
       return {
         descripcion,
         codigoBarras,
+        ...(precioVenta ? { precioVenta } : {}),
       };
     })
     .filter((item): item is RelacionProducto => Boolean(item));
@@ -113,6 +126,7 @@ export default function ExistePage() {
   const [scanNotice, setScanNotice] = useState<{
     codigo: string;
     descripcion: string;
+    precioVenta?: string;
   } | null>(null);
   const [pendingCodigo, setPendingCodigo] = useState<string | null>(null);
   const [pendingNombre, setPendingNombre] = useState("");
@@ -181,7 +195,11 @@ export default function ExistePage() {
         setPendingCodigo(null);
         setPendingNombre("");
         setPendingError(null);
-        setScanNotice({ codigo, descripcion: relacion.descripcion });
+        setScanNotice({
+          codigo,
+          descripcion: relacion.descripcion,
+          precioVenta: relacion.precioVenta,
+        });
         scanNoticeTimerRef.current = window.setTimeout(() => {
           setScanNotice(null);
           scanNoticeTimerRef.current = null;
@@ -323,7 +341,11 @@ export default function ExistePage() {
       setPendingCodigo(null);
       setPendingNombre("");
       setPendingError(null);
-      setScanNotice({ codigo, descripcion: relacion.descripcion });
+      setScanNotice({
+        codigo,
+        descripcion: relacion.descripcion,
+        precioVenta: relacion.precioVenta,
+      });
       scanNoticeTimerRef.current = window.setTimeout(() => {
         setScanNotice(null);
         scanNoticeTimerRef.current = null;

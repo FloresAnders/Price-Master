@@ -18,6 +18,7 @@ type ScannerModalProps = {
   scanNotice: {
     codigo: string;
     descripcion: string;
+    precioVenta?: string;
   } | null;
   pendingCodigo: string | null;
   pendingNombre: string;
@@ -166,6 +167,11 @@ export default function ScannerModal({
               Código encontrado
             </p>
             <h3 className="mt-2 text-xl font-semibold">{scanNotice.descripcion}</h3>
+            {scanNotice.precioVenta ? (
+              <p className="mt-3 text-lg font-semibold text-emerald-200">
+                Precio de venta: {scanNotice.precioVenta}
+              </p>
+            ) : null}
             <p className="mt-3 text-sm text-slate-300">{scanNotice.codigo}</p>
           </div>
         </div>
