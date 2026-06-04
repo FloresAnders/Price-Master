@@ -295,16 +295,6 @@ export function FondoSection({
       }>);
   const movementProvidersLoading = isCajaNegra ? false : providersLoading;
 
-  const {
-    getFGMonthlySchedulesCached,
-    resolveShiftManagerForNow,
-    resolveShiftTimingForNow,
-  } = useShiftScheduleResolver({
-    company,
-    empresa: activeEmpresaForCompany,
-  });
-
-
   const [missingShiftModalOpen, setMissingShiftModalOpen] = useState(false);
   const [missingShiftExpectedShift, setMissingShiftExpectedShift] =
     useState<ShiftCode>("D");
@@ -329,11 +319,40 @@ export function FondoSection({
   const [fondoEntries, setFondoEntries] = useState<FondoEntry[]>([]);
   const { companyEmployees, employeesLoading, companyData } =
     useFondoCompanyMetadata({ company, namespace });
+  const empresaForShiftResolution = useMemo<Empresas | null>(() => {
+    if (!activeEmpresaForCompany && !companyData) return null;
+    if (!activeEmpresaForCompany) return companyData;
+    if (!companyData) return activeEmpresaForCompany;
+
+    const activeEmployees = Array.isArray(activeEmpresaForCompany.empleados)
+      ? activeEmpresaForCompany.empleados
+      : [];
+    const metadataEmployees = Array.isArray(companyData.empleados)
+      ? companyData.empleados
+      : [];
+
+    return {
+      ...activeEmpresaForCompany,
+      ...companyData,
+      empleados:
+        metadataEmployees.length >= activeEmployees.length
+          ? metadataEmployees
+          : activeEmployees,
+    };
+  }, [activeEmpresaForCompany, companyData]);
+  const {
+    getFGMonthlySchedulesCached,
+    resolveShiftManagerForNow,
+    resolveShiftTimingForNow,
+  } = useShiftScheduleResolver({
+    company,
+    empresa: empresaForShiftResolution,
+  });
   const cierreFondoVentasMinutesBeforeEnd =
-    companyData?.cierreFondoVentasMinutesBeforeEnd ??
+    empresaForShiftResolution?.cierreFondoVentasMinutesBeforeEnd ??
     CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END;
   const cierreFondoVentasMinutesAfterEnd =
-    companyData?.cierreFondoVentasMinutesAfterEnd ??
+    empresaForShiftResolution?.cierreFondoVentasMinutesAfterEnd ??
     CIERRE_FONDO_VENTAS_MINUTES_AFTER_END;
 
   const [
