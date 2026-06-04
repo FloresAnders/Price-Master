@@ -977,7 +977,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
           )}
           {adjustmentApplied > 0 && (
             <div className="flex items-center justify-between">
-              <span className="text-cyan-100/70">Ajuste Aplicado</span>
+              <span className="text-cyan-100/70">Redondeo Aplicado</span>
               <span className="font-semibold text-amber-200">
                 - {formatCurrencyAmount(adjustmentApplied)}
               </span>

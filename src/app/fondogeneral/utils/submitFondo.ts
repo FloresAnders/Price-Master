@@ -581,6 +581,44 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         ? original.amountEgreso
         : original.amountIngreso;
       const newAmount = isEgreso ? egresoValue : ingresoValue;
+      const originalMovementAmount = Math.max(
+        0,
+        Math.trunc(Number(originalAmount) || 0),
+      );
+      const legacyInvoiceAmount = Math.max(
+        0,
+        Math.trunc(Number(original.amountDue ?? original.balanceDue) || 0) +
+          originalMovementAmount,
+      );
+      const originalInvoiceAmount = Math.max(
+        0,
+        Math.trunc(
+          Number(
+            original.originalAmount ??
+              (legacyInvoiceAmount > 0 ? legacyInvoiceAmount : original.amount),
+          ) || 0,
+        ),
+      );
+      if (
+        normalizeInvoiceDocType((original as any).invoiceDocType) === "FCR" &&
+        originalInvoiceAmount > 0 &&
+        newAmount > originalInvoiceAmount
+      ) {
+        const formattedOriginalAmount = originalInvoiceAmount.toLocaleString(
+          "es-CR",
+        );
+        setAmountError(
+          `El monto no puede superar el monto original de la factura (${formattedOriginalAmount}).`,
+        );
+        showToast(
+          "El monto no puede superar el monto original de la factura.",
+          "error",
+          5000,
+        );
+        setIsSaving(false);
+        editingInProgressRef.current = false;
+        return;
+      }
       if (Number.isFinite(originalAmount) && originalAmount !== newAmount)
         changes.push(`Monto: ${originalAmount} -> ${newAmount}`);
       if (!isEditingPaidFcr && manager !== original.manager)
