@@ -347,6 +347,8 @@ export function FondoSection({
   } = useShiftScheduleResolver({
     company,
     empresa: empresaForShiftResolution,
+    closingMovements: fondoEntries,
+    providers,
   });
   const cierreFondoVentasMinutesBeforeEnd =
     empresaForShiftResolution?.cierreFondoVentasMinutesBeforeEnd ??
@@ -2742,6 +2744,17 @@ export function FondoSection({
           const nowMin = normalizeMin(nowTiming.currentMin);
           const shiftDEndMin = normalizeMin(nowTiming.shiftChangeMin);
           const shiftNEndMin = normalizeMin(nowTiming.closeMin);
+          const closingsToday = fondoEntries
+            .filter((e) => isCierreFondoVentasMovement(e))
+            .filter((e) => {
+              const info = getCostaRicaDateKeyAndMinute(String(e.createdAt || ""));
+              return Boolean(info && info.dateKey === nowTiming.dateKey);
+            })
+            .sort(
+              (a, b) =>
+                new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+            );
+          const closingShift: ShiftCode = closingsToday.length > 0 ? "N" : "D";
           const getClosingShiftForMinute = (minute: number): ShiftCode | null => {
             const normalizedMinute = normalizeMin(minute);
             const isInWindow = (endMin: number) => {
@@ -2760,7 +2773,7 @@ export function FondoSection({
             if (isInWindow(shiftNEndMin)) return "N";
             return null;
           };
-          const closingShift = getClosingShiftForMinute(nowMin);
+          const closingWindow = getClosingShiftForMinute(nowMin);
           const minutesUntilDWindow =
             (normalizeMin(
               shiftDEndMin - cierreFondoVentasMinutesBeforeEnd,
@@ -2780,7 +2793,7 @@ export function FondoSection({
             minutesUntilNWindow,
           );
 
-          if (!closingShift) {
+          if (!closingWindow) {
             showToast(
               `El \"CIERRE FONDO VENTAS\" solo se puede registrar desde ${cierreFondoVentasMinutesBeforeEnd} minutos antes y hasta ${cierreFondoVentasMinutesAfterEnd} minutos despues del fin del turno. Faltan ${minutesUntilAllowed} min.`,
               "warning",
@@ -2794,20 +2807,8 @@ export function FondoSection({
           try {
             const nowKey = getCostaRicaDateKeyAndMinute(nowISO)?.dateKey;
             if (nowKey) {
-              const cierresToday = fondoEntries.filter((e) =>
-                isCierreFondoVentasMovement(e),
-              );
-              let hasDCierre = false;
-              let hasNCierre = false;
-              cierresToday.forEach((e) => {
-                const info = getCostaRicaDateKeyAndMinute(String(e.createdAt || ""));
-                if (!info) return;
-                if (info.dateKey !== nowKey) return;
-                const minute = normalizeMin(info.minuteOfDay);
-                const existingShift = getClosingShiftForMinute(minute);
-                if (existingShift === "D") hasDCierre = true;
-                if (existingShift === "N") hasNCierre = true;
-              });
+              const hasDCierre = closingsToday.length > 0;
+              const hasNCierre = closingsToday.length > 1;
 
               if (closingShift === "D" && hasDCierre) {
                 showToast(

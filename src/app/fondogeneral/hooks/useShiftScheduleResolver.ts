@@ -43,8 +43,10 @@ const getCostaRicaYearMonthParts = (nowISO: string) => {
 export function useShiftScheduleResolver(args: {
   company: string;
   empresa: Empresas | null | undefined;
+  closingMovements?: Array<{ createdAt?: string; providerCode?: string }>;
+  providers?: Array<{ code: string; name?: string | null }>;
 }) {
-  const { company, empresa } = args;
+  const { company, empresa, closingMovements, providers } = args;
   const fgSchedulesMonthCacheRef = useRef<
     Map<
       string,
@@ -94,9 +96,15 @@ export function useShiftScheduleResolver(args: {
       );
       const monthSchedules = schedulesLists.flat();
 
-      return resolveManagerFromControlHorario({ nowISO, empresa, monthSchedules });
+      return resolveManagerFromControlHorario({
+        nowISO,
+        empresa,
+        monthSchedules,
+        closingMovements,
+        providers,
+      });
     },
-    [company, empresa, getFGMonthlySchedulesCached],
+    [company, empresa, closingMovements, getFGMonthlySchedulesCached, providers],
   );
 
   const resolveShiftTimingForNow = useCallback(
@@ -116,9 +124,15 @@ export function useShiftScheduleResolver(args: {
       );
       const monthSchedules = schedulesLists.flat();
 
-      return getControlHorarioShiftTiming({ nowISO, empresa, monthSchedules });
+      return getControlHorarioShiftTiming({
+        nowISO,
+        empresa,
+        monthSchedules,
+        closingMovements,
+        providers,
+      });
     },
-    [company, empresa, getFGMonthlySchedulesCached],
+    [company, empresa, closingMovements, getFGMonthlySchedulesCached, providers],
   );
 
   return {

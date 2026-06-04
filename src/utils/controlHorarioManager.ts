@@ -33,6 +33,16 @@ type CRParts = {
   minute: number;
 };
 
+type ClosingMovementLike = {
+  createdAt?: string;
+  providerCode?: string;
+};
+
+type ClosingProviderLike = {
+  code: string;
+  name?: string | null;
+};
+
 const getCRParts = (date: Date): CRParts | null => {
   if (Number.isNaN(date.getTime())) return null;
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -152,10 +162,54 @@ const findBestSchedule = (
   return best;
 };
 
+const isCierreFondoVentasMovementLike = (
+  entry: ClosingMovementLike,
+  providers?: ClosingProviderLike[],
+  cierreFondoVentasProviderCode?: string | null,
+): boolean => {
+  if (cierreFondoVentasProviderCode) {
+    return entry.providerCode === cierreFondoVentasProviderCode;
+  }
+  const providerName = providers
+    ?.find((p) => p.code === entry.providerCode)
+    ?.name?.toUpperCase();
+  return providerName === "CIERRE FONDO VENTAS";
+};
+
+export const getFondoVentasShiftFromClosings = (args: {
+  nowISO: string;
+  closingMovements?: ClosingMovementLike[];
+  providers?: ClosingProviderLike[];
+  cierreFondoVentasProviderCode?: string | null;
+}): ShiftCode | null => {
+  const now = new Date(args.nowISO);
+  const parts = getCRParts(now);
+  if (!parts) return null;
+
+  const dateKey = `${parts.year}-${String(parts.month1).padStart(2, "0")}-${String(
+    parts.day,
+  ).padStart(2, "0")}`;
+
+  const closingsToday = (args.closingMovements || []).filter((entry) => {
+    const info = getCostaRicaDateKeyAndMinute(String(entry.createdAt || ""));
+    if (!info || info.dateKey !== dateKey) return false;
+    return isCierreFondoVentasMovementLike(
+      entry,
+      args.providers,
+      args.cierreFondoVentasProviderCode,
+    );
+  });
+
+  return closingsToday.length > 0 ? "N" : "D";
+};
+
 export const resolveManagerFromControlHorario = (args: {
   nowISO: string;
   empresa: Empresas | null | undefined;
   monthSchedules: ScheduleEntry[];
+  closingMovements?: ClosingMovementLike[];
+  providers?: ClosingProviderLike[];
+  cierreFondoVentasProviderCode?: string | null;
 }): ControlHorarioManagerResolution => {
   const now = new Date(args.nowISO);
   const parts = getCRParts(now);
@@ -180,19 +234,13 @@ export const resolveManagerFromControlHorario = (args: {
     parts.day,
   ).padStart(2, "0")}`;
 
+  const expectedShift =
+    getFondoVentasShiftFromClosings(args) || "D";
+
   const entryD = findBestSchedule(args.monthSchedules, parts.day, "D");
   if (!entryD || !String(entryD.employeeName || "").trim()) {
-    return { mode: "missing", withinHorario: true, expectedShift: "D", dateKey };
+    return { mode: "missing", withinHorario: true, expectedShift, dateKey };
   }
-
-  const employeeHours = getEmployeeHoursPerShift(args.empresa, entryD.employeeName);
-  const dayHoursRaw = Number(entryD.horasPorDia);
-  const scheduleHours =
-    Number.isFinite(dayHoursRaw) && dayHoursRaw > 0 ? dayHoursRaw : null;
-  const dayHours = employeeHours ?? scheduleHours ?? 8;
-
-  const shiftChangeMin = openMin + Math.round(dayHours * 60);
-  const expectedShift: ShiftCode = nowMin >= shiftChangeMin ? "N" : "D";
 
   if (expectedShift === "N") {
     const entryN = findBestSchedule(args.monthSchedules, parts.day, "N");
@@ -219,6 +267,9 @@ export const getControlHorarioShiftTiming = (args: {
   nowISO: string;
   empresa: Empresas | null | undefined;
   monthSchedules: ScheduleEntry[];
+  closingMovements?: ClosingMovementLike[];
+  providers?: ClosingProviderLike[];
+  cierreFondoVentasProviderCode?: string | null;
 }):
   | {
       withinHorario: false;
@@ -267,7 +318,7 @@ export const getControlHorarioShiftTiming = (args: {
   const dayHours = employeeHours ?? scheduleHours ?? 8;
 
   const shiftChangeMin = openMin + Math.round(dayHours * 60);
-  const expectedShift: ShiftCode = currentMin >= shiftChangeMin ? "N" : "D";
+  const expectedShift = getFondoVentasShiftFromClosings(args) || "D";
 
   return {
     withinHorario: true,

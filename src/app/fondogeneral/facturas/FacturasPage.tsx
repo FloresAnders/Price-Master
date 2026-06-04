@@ -530,7 +530,7 @@ export default function FacturasCreditoPage() {
     const nowKey = dateKeyFromDate(new Date());
 
     if (fromFilter && toFilter) {
-      let from = fromFilter;
+      const from = fromFilter;
       let to = toFilter;
       if (from > to) to = from;
       const startDate = new Date(from + "T06:00:00.000Z");
@@ -768,7 +768,16 @@ export default function FacturasCreditoPage() {
         companyKeysToTry.map((key) => getMonthlySchedulesCached(key, year, month0)),
       );
       const monthSchedules = schedulesLists.flat();
-      return resolveManagerFromControlHorario({ nowISO, empresa, monthSchedules });
+      return resolveManagerFromControlHorario({
+        nowISO,
+        empresa,
+        monthSchedules,
+        closingMovements: movements as Array<{
+          createdAt?: string;
+          providerCode?: string;
+        }>,
+        providers,
+      });
     },
     [getMonthlySchedulesCached, selectedCompany, selectedEmpresaMeta],
   );

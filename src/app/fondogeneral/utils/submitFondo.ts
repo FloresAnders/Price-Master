@@ -200,6 +200,14 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
             nowISO,
             empresa,
             monthSchedules,
+            closingMovements: fondoEntries as Array<{
+              createdAt?: string;
+              providerCode?: string;
+            }>,
+            providers: movementProviders as Array<{
+              code: string;
+              name?: string | null;
+            }>,
           });
 
           if (resolution.mode === "missing") {
