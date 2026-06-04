@@ -5,6 +5,7 @@ import AddEmpresaModal from "./AddEmpresaModal";
 import DeleteEmpresaModal from "./DeleteEmpresaModal";
 import VerificarInventarioHeader from "./VerificarInventarioHeader";
 import ScannerModal from "./ScannerModal";
+import useToast from "@/hooks/useToast";
 import { useBarcodeScanner } from "./useBarcodeScanner";
 import type {
   CodigoPendiente,
@@ -199,6 +200,7 @@ function normalizeCode(value: string): string {
 }
 
 export default function VerificarInventarioPage() {
+  const { showToast } = useToast();
   const [state, setState] = useState<VerificarInventarioState>(EMPTY_STATE);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -827,6 +829,15 @@ export default function VerificarInventarioPage() {
     setPendingStatus("Inventario limpiado.");
   };
 
+  const handleToggleInventoryMode = () => {
+    const next = !inventoryMode;
+    setInventoryMode(next);
+    showToast(
+      next ? "Modo inventariar activado." : "Modo inventariar desactivado.",
+      next ? "success" : "info",
+    );
+  };
+
   const selectedEmpresaRelacionesCount =
     state.selectedEmpresaId
       ? state.relacionesPorEmpresa[state.selectedEmpresaId]?.length ?? 0
@@ -850,16 +861,12 @@ export default function VerificarInventarioPage() {
         inventoryMode={inventoryMode}
         onOpenAddModal={() => setIsAddOpen(true)}
         onOpenScanner={openScannerModal}
-        onToggleInventoryMode={() => setInventoryMode((current) => !current)}
+        onToggleInventoryMode={handleToggleInventoryMode}
         onSelectEmpresa={handleSelectEmpresa}
         onOpenDeleteModal={() => setIsDeleteOpen(true)}
         onUploadXlsx={handleUploadXlsx}
-        onExportInventario={() => {
-          void handleExportInventory();
-        }}
         disableUpload={saving || !state.selectedEmpresaId}
         disableScanner={saving || !state.selectedEmpresaId}
-        disableExportInventario={!selectedEmpresaInventarios.length}
       />
 
       <div className="rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--card-bg)] p-6 text-[var(--foreground)]">
@@ -871,6 +878,7 @@ export default function VerificarInventarioPage() {
         </p>
       </div>
 
+      {inventoryMode ? (
       <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-5 text-[var(--foreground)]">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
@@ -879,14 +887,24 @@ export default function VerificarInventarioPage() {
               {inventoryMode ? "Modo inventariar activo." : "Activa Inventariar para guardar conteos."}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => void handleClearInventory()}
-            disabled={!selectedEmpresaInventarios.length}
-            className="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Limpiar
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handleExportInventory()}
+              disabled={!selectedEmpresaInventarios.length}
+              className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Exportar inventario
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleClearInventory()}
+              disabled={!selectedEmpresaInventarios.length}
+              className="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Limpiar
+            </button>
+          </div>
         </div>
         {selectedEmpresaInventarios.length > 0 ? (
           <div className="grid gap-3 md:grid-cols-2">
@@ -915,6 +933,7 @@ export default function VerificarInventarioPage() {
           <p className="text-sm opacity-70">No hay inventario guardado.</p>
         )}
       </div>
+      ) : null}
 
       <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-5 text-[var(--foreground)]">
         <div className="mb-4 flex items-center justify-between gap-3">

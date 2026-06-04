@@ -13,10 +13,8 @@ type VerificarInventarioHeaderProps = {
   onSelectEmpresa: (empresaId: string) => void;
   onOpenDeleteModal: () => void;
   onUploadXlsx: (file: File) => void;
-  onExportInventario: () => void;
   disableUpload: boolean;
   disableScanner: boolean;
-  disableExportInventario: boolean;
 };
 
 export default function VerificarInventarioHeader({
@@ -29,10 +27,8 @@ export default function VerificarInventarioHeader({
   onSelectEmpresa,
   onOpenDeleteModal,
   onUploadXlsx,
-  onExportInventario,
   disableUpload,
   disableScanner,
-  disableExportInventario,
 }: VerificarInventarioHeaderProps) {
   const hasSelectedEmpresa = Boolean(selectedEmpresaId);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -101,15 +97,6 @@ export default function VerificarInventarioHeader({
             className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Cargar .xlsx
-          </button>
-
-          <button
-            type="button"
-            onClick={onExportInventario}
-            disabled={disableExportInventario}
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Exportar inventario
           </button>
 
           <select
