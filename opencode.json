@@ -14,15 +14,43 @@
       ".agents/skills/shadcn"
     ]
   },
-  "model": "big-pickle",
+  "model": "nvidia/moonshotai/kimi-k2.6",
 
   "provider": {
     "openai": {
       "options": {
         "apiKey": "{env:OPENAI_API_KEY}"
       }
+    },
+    "nvidia": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "NVIDIA",
+      "options": {
+        "baseURL": "https://integrate.api.nvidia.com/v1",
+        "apiKey": "{env:NVIDIA_API_KEY}",
+        "timeout": 600000,
+        "chunkTimeout": 60000
+      },
+      "models": {
+        "moonshotai/kimi-k2.6": {
+          "name": "Kimi K2.6",
+          "reasoning": true,
+          "tool_call": true,
+          "temperature": true,
+          "attachment": true,
+          "interleaved": { "field": "reasoning_content" },
+          "limit": { "context": 262144, "output": 65536 }
+        },
+        "deepseek-ai/deepseek-v4-flash": {
+          "name": "DeepSeek V4 Flash",
+          "tool_call": true,
+          "temperature": true,
+          "limit": { "context": 163840, "output": 16384 }
+        }
+      }
     }
   },
+
 
   "agent": {
     "general": {
@@ -40,31 +68,26 @@
       "mode": "subagent",
       "model": "openai/gpt-5.4-fast"
     },
-
     "architecture": {
       "description": "Architecture analysis and module extraction planning",
       "mode": "subagent",
-      "model": "openai/gpt-5.4-mini"
+      "model": "openai/gpt-5.4-fast"
     },
-
     "dependency": {
       "description": "Dependency graph and import analysis",
       "mode": "subagent",
       "model": "openai/gpt-5.4-fast"
     },
-
     "research": {
       "description": "Research libraries, frameworks, documentation and best practices",
       "mode": "subagent",
       "model": "openai/gpt-5.4-fast"
     },
-
     "debug": {
       "description": "Root cause analysis, runtime errors and bug investigation",
       "mode": "subagent",
       "model": "openai/gpt-5.4-fast"
     },
-
     "testing": {
       "description": "Type checking, validation and regression analysis",
       "mode": "subagent",
@@ -75,33 +98,30 @@
       "mode": "subagent",
       "model": "openai/gpt-5.4-fast"
     },
-
     "review": {
       "description": "Code review, technical debt and architecture quality analysis",
       "mode": "subagent",
-      "model": "openai/gpt-5.4"
+      "model": "openai/gpt-5.4-fast"
     },
-
     "docs": {
       "description": "Generate README files, ADRs and technical documentation",
       "mode": "subagent",
-      "model": "openai/gpt-5.4-mini"
+      "model": "openai/gpt-5.4-fast"
     },
-
     "refactor": {
       "description": "Code refactoring and implementation",
       "mode": "subagent",
-      "model": "openai/gpt-5.3-codex-spark"
+      "model": "openai/gpt-5.4-fast"
     },
     "coder": {
       "description": "Code implementation and focused edits",
       "mode": "subagent",
-      "model": "openai/gpt-5.3-codex-spark"
+      "model": "openai/gpt-5.4-fast"
     },
     "manager": {
       "description": "Main orchestration agent using the local manager model",
       "mode": "subagent",
-      "model": "big-pickle"
+      "model": "nvidia/moonshotai/kimi-k2.6"
     }
   },
 
