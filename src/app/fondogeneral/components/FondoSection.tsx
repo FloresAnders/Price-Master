@@ -4581,7 +4581,9 @@ export function FondoSection({
                                                 )}
                                                 {appliedCreditNotesAdjustment >
                                                   0 &&
-                                                  !isPaidFcrEntry && (
+                                                  (!isPaidFcrEntry ||
+                                                    (owedFcrAmount !== null &&
+                                                      owedFcrAmount <= 0)) && (
                                                   <div className="flex w-full items-center gap-0 rounded border border-orange-500/15 bg-orange-500/10 px-2 py-1">
                                                     <span className="flex items-center justify-center gap-1 text-xs text-orange-200">
                                                       <RotateCcw className="h-3 w-3 shrink-0" />
