@@ -329,6 +329,12 @@ export function FondoSection({
   const [fondoEntries, setFondoEntries] = useState<FondoEntry[]>([]);
   const { companyEmployees, employeesLoading, companyData } =
     useFondoCompanyMetadata({ company, namespace });
+  const cierreFondoVentasMinutesBeforeEnd =
+    companyData?.cierreFondoVentasMinutesBeforeEnd ??
+    CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END;
+  const cierreFondoVentasMinutesAfterEnd =
+    companyData?.cierreFondoVentasMinutesAfterEnd ??
+    CIERRE_FONDO_VENTAS_MINUTES_AFTER_END;
 
   const [
     selectedProviderPendingCreditNotes,
@@ -2726,8 +2732,8 @@ export function FondoSection({
               const minutesAfterEnd =
                 (normalizedMinute - normalizedEnd + 1440) % 1440;
               return (
-                minutesUntilEnd <= CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END ||
-                minutesAfterEnd <= CIERRE_FONDO_VENTAS_MINUTES_AFTER_END
+                minutesUntilEnd <= cierreFondoVentasMinutesBeforeEnd ||
+                minutesAfterEnd <= cierreFondoVentasMinutesAfterEnd
               );
             };
 
@@ -2738,14 +2744,14 @@ export function FondoSection({
           const closingShift = getClosingShiftForMinute(nowMin);
           const minutesUntilDWindow =
             (normalizeMin(
-              shiftDEndMin - CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
+              shiftDEndMin - cierreFondoVentasMinutesBeforeEnd,
             ) -
               nowMin +
               1440) %
             1440;
           const minutesUntilNWindow =
             (normalizeMin(
-              shiftNEndMin - CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
+              shiftNEndMin - cierreFondoVentasMinutesBeforeEnd,
             ) -
               nowMin +
               1440) %
@@ -2757,7 +2763,7 @@ export function FondoSection({
 
           if (!closingShift) {
             showToast(
-              `El \"CIERRE FONDO VENTAS\" solo se puede registrar desde ${CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END} minutos antes y hasta ${CIERRE_FONDO_VENTAS_MINUTES_AFTER_END} minutos despues del fin del turno. Faltan ${minutesUntilAllowed} min.`,
+              `El \"CIERRE FONDO VENTAS\" solo se puede registrar desde ${cierreFondoVentasMinutesBeforeEnd} minutos antes y hasta ${cierreFondoVentasMinutesAfterEnd} minutos despues del fin del turno. Faltan ${minutesUntilAllowed} min.`,
               "warning",
               6000,
             );

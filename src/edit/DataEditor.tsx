@@ -791,6 +791,10 @@ export default function DataEditor() {
             ubicacion: empresa.ubicacion || "",
             horarioApertura: empresa.horarioApertura || "",
             horarioCierre: empresa.horarioCierre || "",
+            cierreFondoVentasMinutesBeforeEnd:
+              empresa.cierreFondoVentasMinutesBeforeEnd,
+            cierreFondoVentasMinutesAfterEnd:
+              empresa.cierreFondoVentasMinutesAfterEnd,
             empleados: empresa.empleados || [],
           });
         }

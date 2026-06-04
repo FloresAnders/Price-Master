@@ -8,6 +8,13 @@ export class EmpresasService {
   private static empresasCache: { expiresAt: number; data: Empresas[] } | null =
     null;
 
+  private static normalizeClosingWindowMinutes(value: unknown): number | undefined {
+    if (value === undefined || value === null || value === "") return undefined;
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return undefined;
+    return Math.max(0, Math.round(parsed));
+  }
+
   private static cloneEmpresas(list: Empresas[]): Empresas[] {
     return (list || []).map((e) => ({
       ...e,
@@ -153,6 +160,14 @@ export class EmpresasService {
     )) as Empresas[];
     const normalized = all.map((e) => ({
       ...e,
+      cierreFondoVentasMinutesBeforeEnd:
+        EmpresasService.normalizeClosingWindowMinutes(
+          e.cierreFondoVentasMinutesBeforeEnd,
+        ),
+      cierreFondoVentasMinutesAfterEnd:
+        EmpresasService.normalizeClosingWindowMinutes(
+          e.cierreFondoVentasMinutesAfterEnd,
+        ),
       empleados: EmpresasService.normalizeEmpleados(e.empleados as unknown),
     }));
     this.empresasCache = {
@@ -169,6 +184,14 @@ export class EmpresasService {
     if (!doc) return null;
     return {
       ...(doc as Empresas),
+      cierreFondoVentasMinutesBeforeEnd:
+        EmpresasService.normalizeClosingWindowMinutes(
+          (doc as any).cierreFondoVentasMinutesBeforeEnd,
+        ),
+      cierreFondoVentasMinutesAfterEnd:
+        EmpresasService.normalizeClosingWindowMinutes(
+          (doc as any).cierreFondoVentasMinutesAfterEnd,
+        ),
       empleados: EmpresasService.normalizeEmpleados(
         (doc as any).empleados as unknown,
       ),
@@ -218,6 +241,14 @@ export class EmpresasService {
         ubicacion: empresa.ubicacion || "",
         horarioApertura: empresa.horarioApertura || "",
         horarioCierre: empresa.horarioCierre || "",
+        cierreFondoVentasMinutesBeforeEnd:
+          EmpresasService.normalizeClosingWindowMinutes(
+            empresa.cierreFondoVentasMinutesBeforeEnd,
+          ),
+        cierreFondoVentasMinutesAfterEnd:
+          EmpresasService.normalizeClosingWindowMinutes(
+            empresa.cierreFondoVentasMinutesAfterEnd,
+          ),
         empleados: empleadosToSave,
       });
       return empresa.id;
@@ -229,6 +260,14 @@ export class EmpresasService {
       ubicacion: empresa.ubicacion || "",
       horarioApertura: empresa.horarioApertura || "",
       horarioCierre: empresa.horarioCierre || "",
+      cierreFondoVentasMinutesBeforeEnd:
+        EmpresasService.normalizeClosingWindowMinutes(
+          empresa.cierreFondoVentasMinutesBeforeEnd,
+        ),
+      cierreFondoVentasMinutesAfterEnd:
+        EmpresasService.normalizeClosingWindowMinutes(
+          empresa.cierreFondoVentasMinutesAfterEnd,
+        ),
       empleados: empleadosToSave,
     });
   }
@@ -243,6 +282,18 @@ export class EmpresasService {
       patch.empleados = EmpresasService.normalizeEmpleados(
         patch.empleados as unknown,
       );
+    }
+    if ("cierreFondoVentasMinutesBeforeEnd" in patch) {
+      patch.cierreFondoVentasMinutesBeforeEnd =
+        EmpresasService.normalizeClosingWindowMinutes(
+          patch.cierreFondoVentasMinutesBeforeEnd,
+        );
+    }
+    if ("cierreFondoVentasMinutesAfterEnd" in patch) {
+      patch.cierreFondoVentasMinutesAfterEnd =
+        EmpresasService.normalizeClosingWindowMinutes(
+          patch.cierreFondoVentasMinutesAfterEnd,
+        );
     }
     return await FirestoreService.update(
       this.COLLECTION_NAME,
