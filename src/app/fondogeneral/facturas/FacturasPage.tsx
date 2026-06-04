@@ -88,10 +88,31 @@ const dateKeyFromDate = (date: Date): string => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
+const dateKeyInCostaRica = (iso: string): string => {
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Costa_Rica",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date(iso));
+    const yyyy = parts.find((p) => p.type === "year")?.value;
+    const mm = parts.find((p) => p.type === "month")?.value;
+    const dd = parts.find((p) => p.type === "day")?.value;
+    if (!yyyy || !mm || !dd) return "";
+    return `${yyyy}-${mm}-${dd}`;
+  } catch {
+    return "";
+  }
+};
+
 const dateKeyFromIso = (iso: string): string => {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  return dateKeyFromDate(d);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 };
 
 const formatKeyToDisplay = (key: string): string => {
@@ -391,6 +412,18 @@ export default function FacturasCreditoPage() {
   }, [columnWidths]);
 
   const todayKey = useMemo(() => dateKeyFromDate(new Date()), []);
+
+  // Recalcular todayKey cada minuto para sesiones largas
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      setComputedTodayKey(dateKeyFromDate(new Date()));
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const [computedTodayKey, setComputedTodayKey] = useState(() => dateKeyFromDate(new Date()));
+  const effectiveTodayKey = computedTodayKey || todayKey;
   const companySelectId = "facturas-company-select";
   const [availableCompanies, setAvailableCompanies] = useState<Empresas[]>([]);
   const [pendingCierreDeCaja, setPendingCierreDeCaja] = useState(false);
@@ -494,20 +527,47 @@ export default function FacturasCreditoPage() {
   );
 
   const getFetchDateRange = useCallback(() => {
+    const nowKey = dateKeyFromDate(new Date());
+
     if (fromFilter && toFilter) {
-      const endDate = new Date(toFilter + "T23:59:59.999Z");
+      let from = fromFilter;
+      let to = toFilter;
+      if (from > to) to = from;
+      const startDate = new Date(from + "T06:00:00.000Z");
+      const endDate = new Date(to + "T06:00:00.000Z");
       endDate.setDate(endDate.getDate() + 1);
       return {
-        startIso: fromFilter + "T00:00:00.000Z",
+        startIso: startDate.toISOString(),
         endIso: endDate.toISOString(),
       };
     }
+
+    if (fromFilter && !toFilter) {
+      const startDate = new Date(fromFilter + "T06:00:00.000Z");
+      const endDate = new Date(nowKey + "T06:00:00.000Z");
+      endDate.setDate(endDate.getDate() + 1);
+      return {
+        startIso: startDate.toISOString(),
+        endIso: endDate.toISOString(),
+      };
+    }
+
+    if (!fromFilter && toFilter) {
+      const endDate = new Date(toFilter + "T06:00:00.000Z");
+      endDate.setDate(endDate.getDate() + 1);
+      return {
+        startIso: "1970-01-01T06:00:00.000Z",
+        endIso: endDate.toISOString(),
+      };
+    }
+
     const day = currentDailyKey || dateKeyFromDate(new Date());
-    const nextDay = new Date(day + "T00:00:00.000Z");
-    nextDay.setDate(nextDay.getDate() + 1);
+    const startOfDay = new Date(day + "T06:00:00.000Z");
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setDate(endOfDay.getDate() + 1);
     return {
-      startIso: day + "T00:00:00.000Z",
-      endIso: nextDay.toISOString(),
+      startIso: startOfDay.toISOString(),
+      endIso: endOfDay.toISOString(),
     };
   }, [fromFilter, toFilter, currentDailyKey]);
 
@@ -1719,11 +1779,11 @@ export default function FacturasCreditoPage() {
 
       if (!hasActiveStatusFilter) {
         if (fromFilter || toFilter) {
-          const key = dateKeyFromIso(m.createdAt);
+          const key = dateKeyInCostaRica(m.createdAt);
           if (fromFilter && key && key < fromFilter) return false;
           if (toFilter && key && key > toFilter) return false;
         } else {
-          const key = dateKeyFromIso(m.createdAt);
+          const key = dateKeyInCostaRica(m.createdAt);
           if (key && key !== currentDailyKey) return false;
         }
       }
@@ -1881,7 +1941,7 @@ export default function FacturasCreditoPage() {
   const pagedMovements = useMemo(() => {
     if (isDailyView) {
       return filteredMovements.filter(
-        (m) => dateKeyFromIso(m.createdAt) === currentDailyKey,
+        (m) => dateKeyInCostaRica(m.createdAt) === currentDailyKey,
       );
     }
     const start = pageIndex * effectiveRowsPerPage;
@@ -2499,10 +2559,10 @@ export default function FacturasCreditoPage() {
                             for (let i = 0; i < start; i++)
                               cells.push(<div key={`pad-f-${i}`} />);
                             for (let day = 1; day <= daysInMonth; day++) {
-                              const d = new Date(year, month, day);
-                              const key = dateKeyFromDate(d);
-                              const enabled = key <= todayKey;
-                              const isSelected = fromFilter === key;
+                               const d = new Date(year, month, day);
+                               const key = dateKeyFromDate(d);
+                               const enabled = key <= effectiveTodayKey;
+                               const isSelected = fromFilter === key;
                               if (enabled) {
                                 cells.push(
                                   <button
@@ -2632,10 +2692,10 @@ export default function FacturasCreditoPage() {
                             for (let i = 0; i < start; i++)
                               cells.push(<div key={`pad-t-${i}`} />);
                             for (let day = 1; day <= daysInMonth; day++) {
-                              const d = new Date(year, month, day);
-                              const key = dateKeyFromDate(d);
-                              const enabled = key <= todayKey;
-                              const isSelected = toFilter === key;
+                               const d = new Date(year, month, day);
+                               const key = dateKeyFromDate(d);
+                               const enabled = key <= effectiveTodayKey;
+                               const isSelected = toFilter === key;
                               if (enabled) {
                                 cells.push(
                                   <button
@@ -2922,11 +2982,11 @@ export default function FacturasCreditoPage() {
                     onClick={() => {
                       if (isDailyView) {
                         setCurrentDailyKey((prev) => {
-                          if (prev >= todayKey) return todayKey;
+                           if (prev >= effectiveTodayKey) return effectiveTodayKey;
                           const d = new Date(prev + "T12:00:00");
                           d.setDate(d.getDate() + 1);
                           const next = dateKeyFromDate(d);
-                          return next > todayKey ? todayKey : next;
+                           return next > effectiveTodayKey ? effectiveTodayKey : next;
                         });
                       } else {
                         setPageIndex((prev) =>
@@ -2936,7 +2996,7 @@ export default function FacturasCreditoPage() {
                     }}
                     disabled={
                       isDailyView
-                        ? currentDailyKey >= todayKey
+                        ? currentDailyKey >= effectiveTodayKey
                         : pageIndex >= totalPages - 1
                     }
                     className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--input-border)] text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/45 disabled:cursor-not-allowed disabled:opacity-40 sm:h-8 sm:w-8"
