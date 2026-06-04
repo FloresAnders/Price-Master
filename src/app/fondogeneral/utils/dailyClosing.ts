@@ -13,6 +13,10 @@ import {
   getChangedFields,
   isAutoAdjustmentProvider,
 } from "./helpers";
+import {
+  AUTO_ADJUSTMENT_MANAGER,
+  AUTO_ADJUSTMENT_PROVIDER_CODE,
+} from "../constants";
 import { acquireClosingGuard, releaseClosingGuard, touchClosingGuard } from "./closingGuards";
 
 type LedgerSnapshot = {
@@ -467,12 +471,12 @@ export async function handleConfirmDailyClosing(
       const invoiceDDMM = getTodayInvoiceDDMM(createdAtDate);
       const entry: FondoEntry = {
         id: cierreBaseId,
-        providerCode: "AUTO_ADJUSTMENT",
+        providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
         invoiceNumber: invoiceDDMM,
         paymentType,
         amountEgreso: isPositive ? 0 : Math.abs(diff),
         amountIngreso: isPositive ? diff : 0,
-        manager: "AUTO_ADJUSTMENT",
+        manager: AUTO_ADJUSTMENT_MANAGER,
         notes: `AJUSTE APLICADO AL SALDO ACTUAL\n[ALERT_ICON]Diferencia CRC: ${
           diff >= 0 ? "+ " : "- "
         }${formatByCurrency("CRC", Math.abs(diff))}.${userNotes ? ` Notas: ${userNotes}` : ""}`,
@@ -493,12 +497,12 @@ export async function handleConfirmDailyClosing(
       const invoiceDDMM = getTodayInvoiceDDMM(createdAtDate);
       const entry: FondoEntry = {
         id: plannedCount > 1 ? `${cierreBaseId}_USD` : cierreBaseId,
-        providerCode: "AUTO_ADJUSTMENT",
+        providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
         invoiceNumber: invoiceDDMM,
         paymentType,
         amountEgreso: isPositive ? 0 : Math.abs(diff),
         amountIngreso: isPositive ? diff : 0,
-        manager: "AUTO_ADJUSTMENT",
+        manager: AUTO_ADJUSTMENT_MANAGER,
         notes: `AJUSTE APLICADO AL SALDO ACTUAL\n[ALERT_ICON]Diferencia USD: ${
           diff >= 0 ? "+ " : "- "
         }${formatByCurrency("USD", Math.abs(diff))}.${userNotes ? ` Notas: ${userNotes}` : ""}`,
@@ -516,12 +520,12 @@ export async function handleConfirmDailyClosing(
       const invoiceDDMM = getTodayInvoiceDDMM(createdAtDate);
       const entry: FondoEntry = {
         id: cierreBaseId,
-        providerCode: "AUTO_ADJUSTMENT",
+        providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
         invoiceNumber: invoiceDDMM,
         paymentType: "INFORMATIVO" as any,
         amountEgreso: 0,
         amountIngreso: 0,
-        manager: "AUTO_ADJUSTMENT",
+        manager: AUTO_ADJUSTMENT_MANAGER,
         notes: `[CHECK_ICON]Sin diferencias.${userNotes ? ` Notas: ${userNotes}` : ""}`,
         createdAt,
         accountId: accountKey,
@@ -671,8 +675,8 @@ export async function handleConfirmDailyClosing(
               notes: movement.notes,
               breakdown: movement.breakdown ?? existing.breakdown,
               createdAt: movement.createdAt,
-              manager: "AUTO_ADJUSTMENT",
-              providerCode: "AUTO_ADJUSTMENT",
+              manager: AUTO_ADJUSTMENT_MANAGER,
+              providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
               accountId: accountKey,
               currency: cur,
               originalEntryId: record.id,
@@ -744,7 +748,7 @@ export async function handleConfirmDailyClosing(
                   paymentType: match.paymentType,
                   amountEgreso: match.amountEgreso,
                   amountIngreso: match.amountIngreso,
-                  manager: "AUTO_ADJUSTMENT",
+                  manager: AUTO_ADJUSTMENT_MANAGER,
                   notes: match.notes,
                   currency: match.currency,
                 },
@@ -760,7 +764,7 @@ export async function handleConfirmDailyClosing(
                 breakdown: match.breakdown ?? e.breakdown,
                 notes: match.notes,
                 createdAt: match.createdAt,
-                manager: "AUTO_ADJUSTMENT",
+                manager: AUTO_ADJUSTMENT_MANAGER,
                 closingBalanceCRC: match.closingBalanceCRC,
                 closingBalanceUSD: match.closingBalanceUSD,
                 isAudit: true,
