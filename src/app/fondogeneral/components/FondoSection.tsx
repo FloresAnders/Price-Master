@@ -2740,62 +2740,75 @@ export function FondoSection({
             const m = Math.trunc(min) % 1440;
             return m < 0 ? m + 1440 : m;
           };
+          const formatMinuteOfDay = (minute: number) => {
+            const normalized = normalizeMin(minute);
+            const hours = Math.floor(normalized / 60);
+            const mins = normalized % 60;
+            return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+          };
+          const addMinutesToMinuteOfDay = (minute: number, delta: number) =>
+            normalizeMin(minute + delta);
 
           const nowMin = normalizeMin(nowTiming.currentMin);
+          const openMin = normalizeMin(nowTiming.openMin);
+          const closeMin = normalizeMin(nowTiming.closeMin);
           const shiftDEndMin = normalizeMin(nowTiming.shiftChangeMin);
-          const shiftNEndMin = normalizeMin(nowTiming.closeMin);
+          const shiftNEndMin = closeMin;
+          const isWithinCompanyHorario = (minute: number) => {
+            if (openMin <= closeMin) {
+              return minute >= openMin && minute <= closeMin;
+            }
+            return minute >= openMin || minute <= closeMin;
+          };
           const closingsToday = fondoEntries
             .filter((e) => isCierreFondoVentasMovement(e))
             .filter((e) => {
               const info = getCostaRicaDateKeyAndMinute(String(e.createdAt || ""));
               return Boolean(info && info.dateKey === nowTiming.dateKey);
             })
+            .filter((e) => {
+              const info = getCostaRicaDateKeyAndMinute(String(e.createdAt || ""));
+              return Boolean(info && isWithinCompanyHorario(normalizeMin(info.minuteOfDay)));
+            })
             .sort(
               (a, b) =>
                 new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
             );
           const closingShift: ShiftCode = closingsToday.length > 0 ? "N" : "D";
-          const getClosingShiftForMinute = (minute: number): ShiftCode | null => {
-            const normalizedMinute = normalizeMin(minute);
-            const isInWindow = (endMin: number) => {
-              const normalizedEnd = normalizeMin(endMin);
-              const minutesUntilEnd =
-                (normalizedEnd - normalizedMinute + 1440) % 1440;
-              const minutesAfterEnd =
-                (normalizedMinute - normalizedEnd + 1440) % 1440;
-              return (
-                minutesUntilEnd <= cierreFondoVentasMinutesBeforeEnd ||
-                minutesAfterEnd <= cierreFondoVentasMinutesAfterEnd
-              );
-            };
-
-            if (isInWindow(shiftDEndMin)) return "D";
-            if (isInWindow(shiftNEndMin)) return "N";
-            return null;
-          };
-          const closingWindow = getClosingShiftForMinute(nowMin);
-          const minutesUntilDWindow =
-            (normalizeMin(
-              shiftDEndMin - cierreFondoVentasMinutesBeforeEnd,
-            ) -
-              nowMin +
-              1440) %
-            1440;
-          const minutesUntilNWindow =
-            (normalizeMin(
-              shiftNEndMin - cierreFondoVentasMinutesBeforeEnd,
-            ) -
-              nowMin +
-              1440) %
-            1440;
-          const minutesUntilAllowed = Math.min(
-            minutesUntilDWindow,
-            minutesUntilNWindow,
+          const referenceShiftEndMin =
+            closingShift === "D" ? shiftDEndMin : shiftNEndMin;
+          const referenceShiftLabel = closingShift === "D" ? "D" : "N";
+          const referenceShiftEndLabel =
+            referenceShiftLabel === "D"
+              ? formatMinuteOfDay(shiftDEndMin)
+              : formatMinuteOfDay(shiftNEndMin);
+          const referenceWindowStartLabel = formatMinuteOfDay(
+            addMinutesToMinuteOfDay(
+              referenceShiftEndMin,
+              -cierreFondoVentasMinutesBeforeEnd,
+            ),
           );
+          const referenceWindowEndLabel = formatMinuteOfDay(
+            addMinutesToMinuteOfDay(
+              referenceShiftEndMin,
+              cierreFondoVentasMinutesAfterEnd + 1,
+            ),
+          );
+          const minutesUntilReferenceEnd =
+            (referenceShiftEndMin - nowMin + 1440) % 1440;
+          const minutesAfterReferenceEnd =
+            (nowMin - referenceShiftEndMin + 1440) % 1440;
+          const isInReferenceWindow =
+            minutesUntilReferenceEnd <= cierreFondoVentasMinutesBeforeEnd ||
+            minutesAfterReferenceEnd <= cierreFondoVentasMinutesAfterEnd;
 
-          if (!closingWindow) {
+          if (!isInReferenceWindow) {
+            const humanDelta =
+              nowMin < referenceShiftEndMin
+                ? `Faltan ${minutesUntilReferenceEnd} min`
+                : `Han pasado ${minutesAfterReferenceEnd} min`;
             showToast(
-              `El \"CIERRE FONDO VENTAS\" solo se puede registrar desde ${cierreFondoVentasMinutesBeforeEnd} minutos antes y hasta ${cierreFondoVentasMinutesAfterEnd} minutos despues del fin del turno. Faltan ${minutesUntilAllowed} min.`,
+              `El \"CIERRE FONDO VENTAS\" solo se puede registrar desde las ${referenceWindowStartLabel} hasta las ${referenceWindowEndLabel} alrededor del fin del turno ${referenceShiftLabel} (${referenceShiftEndLabel}). ${humanDelta}.`,
               "warning",
               6000,
             );
@@ -2812,7 +2825,9 @@ export function FondoSection({
 
               if (closingShift === "D" && hasDCierre) {
                 showToast(
-                  'Ya existe un "CIERRE FONDO VENTAS" para el turno D de hoy.',
+                  `Ya existe un "CIERRE FONDO VENTAS" para el turno D (${formatMinuteOfDay(
+                    shiftDEndMin,
+                  )}) de hoy.`,
                   "warning",
                   5500,
                 );
@@ -2820,7 +2835,9 @@ export function FondoSection({
               }
               if (closingShift === "N" && hasNCierre) {
                 showToast(
-                  'Ya existe un "CIERRE FONDO VENTAS" para el turno N de hoy.',
+                  `Ya existe un "CIERRE FONDO VENTAS" para el turno N (${formatMinuteOfDay(
+                    shiftNEndMin,
+                  )}) de hoy.`,
                   "warning",
                   5500,
                 );
