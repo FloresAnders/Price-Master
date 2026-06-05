@@ -154,6 +154,34 @@ export default function ReportesSinpePage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 text-white">
+      {busy && (
+        <div className="fixed inset-0 z-[9999] flex min-h-dvh items-center justify-center bg-[#020817]/90 px-4 py-6 backdrop-blur-md sm:px-6">
+          <div className="w-full max-w-[min(92vw,720px)] rounded-[36px] border border-white/10 bg-[#071120] p-6 shadow-[0_24px_90px_rgba(0,0,0,0.6)] sm:p-9">
+            <div className="mb-8 flex flex-col items-center text-center">
+              <div className="mb-5 h-20 w-20 animate-pulse rounded-3xl bg-cyan-400/20 sm:h-24 sm:w-24" />
+              <div className="flex-1">
+                <div className="mx-auto h-5 w-56 animate-pulse rounded-full bg-white/20 sm:h-6 sm:w-72" />
+                <div className="mx-auto mt-4 h-4 w-40 animate-pulse rounded-full bg-white/10 sm:w-52" />
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div className="h-20 animate-pulse rounded-3xl bg-white/10 sm:h-24" />
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="h-24 animate-pulse rounded-3xl bg-white/10 sm:h-32" />
+                <div className="h-24 animate-pulse rounded-3xl bg-white/10 sm:h-32" />
+                <div className="h-24 animate-pulse rounded-3xl bg-white/10 sm:h-32" />
+              </div>
+              <div className="mx-auto h-4 w-2/3 animate-pulse rounded-full bg-cyan-300/20" />
+            </div>
+            <p className="mt-8 text-center text-xl font-semibold text-white/85 sm:text-2xl">
+              Leyendo correos SINPE...
+            </p>
+            <p className="mt-2 text-center text-sm text-white/50 sm:text-base">
+              Esto puede tardar unos segundos.
+            </p>
+          </div>
+        </div>
+      )}
       <div className="overflow-hidden rounded-[32px] border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(83,193,255,0.18),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(165,61,255,0.24),_transparent_28%),linear-gradient(180deg,_#071120_0%,_#090f1d_100%)] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45)] sm:p-8">
         <div className="mb-8 text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-violet-500/30 bg-violet-500/10 shadow-[0_0_30px_rgba(168,85,247,0.2)]">
