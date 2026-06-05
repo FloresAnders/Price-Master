@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { createPortal } from "react-dom";
 import type { ComponentProps } from "react";
 import Box from "@mui/material/Box";
 import Drawer from "@mui/material/Drawer";
@@ -9,6 +11,7 @@ import Divider from "@mui/material/Divider";
 import { Lock, LockOpen, X } from "lucide-react";
 
 import AgregarMovimiento from "./AgregarMovimiento";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 import type { FondoEntry } from "../types";
 
 type MovementDrawerProps = ComponentProps<typeof AgregarMovimiento> & {
@@ -27,6 +30,13 @@ export function MovementDrawer({
   onToggleMovementAutoCloseLocked,
   ...agregarMovimientoProps
 }: MovementDrawerProps) {
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const { onSubmit, isSaving } = agregarMovimientoProps;
+  const handleSaveClick = () => setShowConfirmModal(true);
+  const handleConfirmSave = () => {
+    setShowConfirmModal(false);
+    onSubmit?.();
+  };
   return (
     <Drawer
       anchor="right"
@@ -107,9 +117,23 @@ export function MovementDrawer({
               modo de registro.
             </Typography>
           )}
-          <AgregarMovimiento {...agregarMovimientoProps} />
+          <AgregarMovimiento {...agregarMovimientoProps} onSubmit={handleSaveClick} />
         </Box>
       </Box>
+      {createPortal(
+        <ConfirmModal
+          open={showConfirmModal}
+          title="Confirmar guardado"
+          message="¿Estás seguro de que deseas guardar este movimiento?"
+          confirmText="Guardar"
+          cancelText="Cancelar"
+          actionType="assign"
+          loading={isSaving}
+          onConfirm={handleConfirmSave}
+          onCancel={() => setShowConfirmModal(false)}
+        />,
+        document.body,
+      )}
     </Drawer>
   );
 }

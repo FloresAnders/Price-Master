@@ -1,12 +1,14 @@
 "use client";
 
 import React from "react";
+import { createPortal } from "react-dom";
 import { CreditCard, X } from "lucide-react";
 import Drawer from "@mui/material/Drawer";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 import type { FacturaMovement } from "../../../services/facturas";
 
 type PendingCreditNoteOption = {
@@ -114,6 +116,8 @@ export default function FacturaPaymentModal({
     [inputFormatterCRC, inputFormatterUSD],
   );
 
+  const [pendingAction, setPendingAction] = React.useState<"partial" | "full" | null>(null);
+
   const enteredPaymentAmount = Math.max(0, Math.trunc(Number(paymentAmount) || 0));
   const selectedCreditNotesRequestedTotal = React.useMemo(() => {
     if (!target) return 0;
@@ -156,7 +160,7 @@ export default function FacturaPaymentModal({
   }, [paymentAmount, target, formatCurrencyAmount, allowPartialPayment, maxCashPayment]);
 
   return (
-    <Drawer
+    <><Drawer
       anchor="right"
       open={open}
       onClose={onClose}
@@ -505,7 +509,7 @@ export default function FacturaPaymentModal({
                 </button>
                 <button
                   type="button"
-                  onClick={onSubmitPartial}
+                  onClick={() => setPendingAction("partial")}
                   disabled={
                     paymentSubmitting ||
                     selectedPaymentBalance <= 0 ||
@@ -522,7 +526,7 @@ export default function FacturaPaymentModal({
                 </button>
                 <button
                   type="button"
-                  onClick={onSubmitFull}
+                  onClick={() => setPendingAction("full")}
                   disabled={
                     paymentSubmitting ||
                     selectedPaymentBalance <= 0 ||
@@ -541,5 +545,31 @@ export default function FacturaPaymentModal({
         )}
       </Box>
     </Drawer>
+      {createPortal(
+        <ConfirmModal
+          open={pendingAction !== null}
+          title="Confirmar pago"
+          message={
+            pendingAction === "partial"
+              ? "¿Estás seguro de que deseas registrar este abono?"
+              : "¿Estás seguro de que deseas pagar esta factura?"
+          }
+          confirmText={pendingAction === "partial" ? "Registrar Abono" : "Pagar"}
+          cancelText="Cancelar"
+          actionType="assign"
+          loading={paymentSubmitting}
+          onConfirm={() => {
+            setPendingAction(null);
+            if (pendingAction === "partial") {
+              onSubmitPartial();
+            } else {
+              onSubmitFull();
+            }
+          }}
+          onCancel={() => setPendingAction(null)}
+        />,
+        document.body,
+      )}
+    </>
   );
 }
