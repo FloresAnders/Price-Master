@@ -66,18 +66,22 @@ export default function ReportesSinpePage() {
       .then((list) => {
         if (!mounted) return;
         const allowed = new Set(ownerIds.map((id) => String(id)));
+        const assigned = String(user.ownercompanie || "").trim();
         const filtered =
           user.role === "superadmin"
             ? list
-            : list.filter((empresa) => {
-                const ownerMatch =
-                  empresa.ownerId && allowed.has(String(empresa.ownerId));
-                const assigned = String(user.ownercompanie || "").trim();
-                const companyMatch =
-                  assigned &&
-                  (empresa.name === assigned || empresa.ubicacion === assigned);
-                return Boolean(ownerMatch || companyMatch);
-              });
+            : user.role === "admin"
+              ? list.filter((empresa) => {
+                  const ownerMatch =
+                    empresa.ownerId && allowed.has(String(empresa.ownerId));
+                  return Boolean(ownerMatch);
+                })
+              : list.filter((empresa) => {
+                  const companyMatch =
+                    assigned &&
+                    (empresa.name === assigned || empresa.ubicacion === assigned);
+                  return Boolean(companyMatch);
+                });
         setEmpresas(filtered);
         setEmpresaId((current) => current || filtered[0]?.id || "");
       })
