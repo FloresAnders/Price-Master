@@ -139,8 +139,8 @@ export default function ReportesSinpePage() {
   const [empresaId, setEmpresaId] = useState("");
   const [startDate, setStartDate] = useState(todayValue);
   const [endDate, setEndDate] = useState(todayValue);
-  const [startTime, setStartTime] = useState("08:00");
-  const [endTime, setEndTime] = useState("18:00");
+  const [startTime, setStartTime] = useState("06:00");
+  const [endTime, setEndTime] = useState("23:59");
   const [report, setReport] = useState<{
     processedEmails: number;
     validTransactions: number;
