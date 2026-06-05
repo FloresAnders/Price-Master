@@ -766,12 +766,31 @@ export default function VerificarInventarioPage() {
     };
 
     const itemKey = `${item.codigo}-${item.codigoBarras}`;
-    const nextInventarios = [
-      item,
-      ...(state.inventariosPorEmpresa[empresaId] ?? []).filter(
-        (current) => `${current.codigo}-${current.codigoBarras}` !== itemKey,
-      ),
-    ];
+    const currentItems = state.inventariosPorEmpresa[empresaId] ?? [];
+    const existingIndex = currentItems.findIndex(
+      (current) => `${current.codigo}-${current.codigoBarras}` === itemKey,
+    );
+
+    let nextInventarios: InventarioItem[];
+    if (inventoryMode && existingIndex !== -1) {
+      const existing = currentItems[existingIndex];
+      const existingQty = Number(existing.inventario) || 0;
+      const newQty = Number(inventario) || 0;
+      const updated = {
+        ...existing,
+        inventario: String(existingQty + newQty),
+      };
+      nextInventarios = currentItems.map((current, i) =>
+        i === existingIndex ? updated : current,
+      );
+    } else {
+      nextInventarios = [
+        item,
+        ...currentItems.filter(
+          (current) => `${current.codigo}-${current.codigoBarras}` !== itemKey,
+        ),
+      ];
+    }
 
     const nextState: VerificarInventarioState = {
       ...state,
