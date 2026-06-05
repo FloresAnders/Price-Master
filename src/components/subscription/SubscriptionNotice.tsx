@@ -125,7 +125,7 @@ export default function SubscriptionNotice() {
       role="status"
       aria-live="polite"
     >
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+      <div className="relative mx-auto flex max-w-7xl items-center justify-center gap-3">
         <div className="flex min-w-0 items-center gap-2">
           {notice.tone === "danger" ? (
             <AlertTriangle className="h-4 w-4 flex-shrink-0" />
@@ -140,7 +140,7 @@ export default function SubscriptionNotice() {
         <button
           type="button"
           onClick={() => setDismissedKey(notice.key)}
-          className="rounded p-1 hover:bg-white/15"
+          className="absolute right-3 rounded p-1 hover:bg-white/15 lg:right-[calc(1rem+var(--admin-sidebar-width))]"
           aria-label="Cerrar aviso de suscripcion"
           title="Cerrar"
         >
