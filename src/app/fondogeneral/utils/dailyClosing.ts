@@ -1,4 +1,5 @@
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { getAuthoritativeNowISO } from "@/utils/serverTime";
 import { db } from "@/config/firebase";
 import { DailyClosingsService, type DailyClosingRecord } from "@/services/daily-closings";
 import { MovimientosFondosService } from "@/services/movimientos-fondos";
@@ -139,13 +140,16 @@ export async function handleConfirmDailyClosing(
     return;
   }
 
-  let closingDateValue = closing.closingDate ? new Date(closing.closingDate) : new Date();
+  const createdAtISO = await getAuthoritativeNowISO();
+  const createdAtDate = new Date(createdAtISO);
+  const serverNowMs = createdAtDate.getTime();
+
+  let closingDateValue = closing.closingDate ? new Date(closing.closingDate) : new Date(createdAtISO);
   if (Number.isNaN(closingDateValue.getTime())) {
-    closingDateValue = new Date();
+    closingDateValue = new Date(createdAtISO);
   }
 
-  const createdAtDate = new Date();
-  const createdAt = createdAtDate.toISOString();
+  const createdAt = createdAtISO;
   const diffCRC = Math.trunc(closing.totalCRC) - Math.trunc(currentBalanceCRC);
   const diffUSD = Math.trunc(closing.totalUSD) - Math.trunc(currentBalanceUSD);
   const userNotes = closing.notes.trim();
@@ -180,7 +184,7 @@ export async function handleConfirmDailyClosing(
   try {
     const isEditingClosing = Boolean(editingDailyClosingId);
     if (!isEditingClosing && isRegularUser) {
-      const acquired = await acquireClosingGuard(normalizedCompany, "FONDO_GENERAL", user);
+      const acquired = await acquireClosingGuard(normalizedCompany, "FONDO_GENERAL", user, serverNowMs);
       if (!acquired.ok) {
         const kindLabel =
           acquired.lockedKind === "FONDO_GENERAL"
@@ -211,7 +215,7 @@ export async function handleConfirmDailyClosing(
       return;
     }
 
-    const nowMs = Date.now();
+    const nowMs = serverNowMs;
     let lastSavedAtMs = lastDailyClosingSavedAtRef.current;
     if (typeof window !== "undefined") {
       try {
@@ -250,11 +254,11 @@ export async function handleConfirmDailyClosing(
     );
 
     if (!isEditingClosing && !isRegularUser) {
-      void touchClosingGuard(normalizedCompany, "FONDO_GENERAL", user);
+      void touchClosingGuard(normalizedCompany, "FONDO_GENERAL", user, serverNowMs);
     }
 
     if (!isEditingClosing) {
-      const savedAt = Date.now();
+      const savedAt = serverNowMs;
       lastDailyClosingSavedAtRef.current = savedAt;
       if (typeof window !== "undefined") {
         try {

@@ -38,7 +38,8 @@ import {
   roundCreditNotePaymentAmount,
   stripUndefinedDeep,
 } from "../utils/helpers";
-import { doc, getDoc, writeBatch } from "firebase/firestore";
+import { doc, getDoc, serverTimestamp, writeBatch } from "firebase/firestore";
+import { getAuthoritativeNowISO } from "@/utils/serverTime";
 
 export interface SubmitFondoDeps {
   [key: string]: any;
@@ -127,7 +128,16 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
   if (isSaving || movementSubmitInProgressRef.current) return; // Prevenir múltiples envíos
 
   let hasErrors = false;
-  const nowISO = new Date().toISOString();
+  let nowISO: string;
+  try {
+    nowISO = await getAuthoritativeNowISO();
+  } catch (err) {
+    console.error("[FG] No se pudo validar la hora del servidor:", err);
+    setProviderError("No se pudo validar la hora del servidor. Revisa conexión e intenta de nuevo.");
+    showToast?.("No se pudo validar la hora del servidor. Movimiento bloqueado.", "error");
+    return;
+  }
+  const serverNowMs = new Date(nowISO).getTime();
   let effectiveManager = manager;
 
   const effectiveInvoiceNumber =
@@ -985,6 +995,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
           normalizedCompany,
           "FONDO_VENTAS",
           user,
+          serverNowMs,
         );
         if (!acquired.ok) {
           const kindLabel =
@@ -1005,16 +1016,27 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         closingGuard = { token: acquired.token, docId: acquired.docId };
       }
 
-      const now = new Date();
-      const iso = now.toISOString();
-      // Use local time for the document id to avoid UTC surprises when searching by hour.
-      const yyyy = now.getFullYear();
-      const MM = String(now.getMonth() + 1).padStart(2, "0");
-      const DD = String(now.getDate()).padStart(2, "0");
-      const HH = String(now.getHours()).padStart(2, "0");
-      const mm = String(now.getMinutes()).padStart(2, "0");
-      const ss = String(now.getSeconds()).padStart(2, "0");
-      const mmm = String(now.getMilliseconds()).padStart(3, "0");
+      const nowDoc = new Date(nowISO);
+      const iso = nowISO;
+      // Use CR-timezone components for the document id to avoid UTC surprises when searching by hour.
+      const crParts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Costa_Rica",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      }).formatToParts(nowDoc);
+      const getPart = (t: string) => crParts.find((p) => p.type === t)?.value ?? "0";
+      const yyyy = getPart("year");
+      const MM = getPart("month");
+      const DD = getPart("day");
+      const HH = getPart("hour");
+      const mm = getPart("minute");
+      const ss = getPart("second");
+      const mmm = String(nowDoc.getMilliseconds()).padStart(3, "0");
       const dateKey = `${yyyy}_${MM}_${DD}`; // YYYY_MM_DD (local)
       const timeKey = `${HH}_${mm}_${ss}_${mmm}`; // HH_MM_SS_mmm (local, URL-safe)
       const movementId = `${dateKey}-${timeKey}_${accountKey}`;
@@ -1396,7 +1418,13 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                   paymentMovementId,
                   acctKey,
                 );
-                batch.set(movRef, stripUndefinedDeep(paymentMovement));
+                batch.set(
+                  movRef,
+                  stripUndefinedDeep({
+                    ...paymentMovement,
+                    serverCreatedAt: serverTimestamp(),
+                  }),
+                );
 
                 totalPaymentApplied += balance;
               });
@@ -1519,7 +1547,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         isCierreVentas &&
         !isRegularUser
       ) {
-        void touchClosingGuard(normalizedCompany, "FONDO_VENTAS", user);
+        void touchClosingGuard(normalizedCompany, "FONDO_VENTAS", user, serverNowMs);
       }
 
       // If save failed, release guard so user can retry immediately.

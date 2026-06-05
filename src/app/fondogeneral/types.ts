@@ -21,6 +21,7 @@ export type FondoEntry = {
   manager2?: string;
   notes: string;
   createdAt: string;
+  serverCreatedAt?: any;
   updateAt?: string;
   invoiceCreatedAt?: string;
   empresa?: string;

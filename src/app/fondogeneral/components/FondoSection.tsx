@@ -37,6 +37,7 @@ import {
   getCostaRicaDateKeyAndMinute,
   type ShiftCode,
 } from "@/utils/controlHorarioManager";
+import { getAuthoritativeNowISO } from "@/utils/serverTime";
 import { AuditHistoryModal } from "./audit-history-modal";
 import {
   MovimientosFondosService,
@@ -2731,7 +2732,7 @@ export function FondoSection({
 
     if (isCierreFondoVentasValue) {
       try {
-        const nowISO = new Date().toISOString();
+        const nowISO = await getAuthoritativeNowISO();
         const nowTiming = await resolveShiftTimingForNow(nowISO);
         if (nowTiming?.withinHorario) {
           const normalizeMin = (min: number) => {
@@ -2853,6 +2854,12 @@ export function FondoSection({
           "[FG] Error validating cierre fondo ventas on provider select:",
           err,
         );
+        showToast(
+          "No se pudo validar la hora del servidor. Cierre bloqueado.",
+          "error",
+          6000,
+        );
+        return;
       }
     }
 
@@ -3032,7 +3039,7 @@ export function FondoSection({
       !isDelifoodCompany
     ) {
       try {
-        const nowISO = new Date().toISOString();
+        const nowISO = await getAuthoritativeNowISO();
         const resolution = await resolveShiftManagerForNow(nowISO);
         if (resolution?.mode === "missing") {
           setMissingShiftExpectedShift(resolution.expectedShift);

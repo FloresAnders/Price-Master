@@ -14,6 +14,7 @@ export async function acquireClosingGuard(
   normalizedCompany: string,
   kind: ClosingGuardKind,
   user: { email?: string | null; id?: string | null } | null,
+  serverNowMs?: number,
 ): Promise<
   | { ok: true; token: string; docId: string }
   | {
@@ -25,12 +26,14 @@ export async function acquireClosingGuard(
 > {
   const docId = buildClosingGuardDocId(normalizedCompany, kind);
   const lockRef = doc(db, "closingGuards", docId);
-  const token = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const token = typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
   try {
     const result = await runTransaction(db, async (tx) => {
       const snap = await tx.get(lockRef);
-      const nowMs = Date.now();
+      const nowMs = serverNowMs ?? Date.now();
       const current = snap.exists() ? (snap.data() as any) : null;
       const lockedUntilMs = Number(current?.lockedUntilMs || 0);
       const lockedKind = (current?.kind as ClosingGuardKind | undefined) ?? undefined;
@@ -68,14 +71,17 @@ export async function touchClosingGuard(
   normalizedCompany: string,
   kind: ClosingGuardKind,
   user: { email?: string | null; id?: string | null } | null,
+  serverNowMs?: number,
 ): Promise<void> {
   const docId = buildClosingGuardDocId(normalizedCompany, kind);
   const lockRef = doc(db, "closingGuards", docId);
-  const token = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const token = typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
   try {
     await runTransaction(db, async (tx) => {
-      const nowMs = Date.now();
+      const nowMs = serverNowMs ?? Date.now();
       tx.set(
         lockRef,
         {

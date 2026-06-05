@@ -8,6 +8,7 @@ import {
   orderBy,
   query,
   setDoc,
+  serverTimestamp,
   startAfter,
   where,
   writeBatch,
@@ -886,6 +887,7 @@ export class MovimientosFondosService {
         ...(movement as Record<string, unknown>),
       });
       delete (record as any).id;
+      (record as any).serverCreatedAt = serverTimestamp();
       batch.set(movementRef, stripUndefinedDeep(record) as any);
     } else if (change.type === "delete") {
       const movementId = change.movementId;
