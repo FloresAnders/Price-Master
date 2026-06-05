@@ -108,6 +108,10 @@ const AgregarProveedorPage = dynamic(
 const ReportesPage = dynamic(() => import("@/app/fondogeneral/otra/page"), {
   ssr: false,
 });
+const ReportesSinpePage = dynamic(
+  () => import("@/app/fondogeneral/reportessinpe/page"),
+  { ssr: false },
+);
 const ConfiguracionFondoGeneralPage = dynamic(
   () => import("@/app/fondogeneral/configuracion/page"),
   { ssr: false },
@@ -160,6 +164,7 @@ type ActiveTab =
   | "agregarproveedor"
   | "facturas"
   | "reportes"
+  | "reportessinpe"
   | "configuracion"
   | "pruebas";
 
@@ -297,6 +302,7 @@ export default function HomePage() {
           "agregarproveedor",
           "facturas",
           "reportes",
+          "reportessinpe",
           "configuracion",
           ...(isSuperAdmin ? ["pruebas"] : []),
         ];
@@ -350,6 +356,7 @@ export default function HomePage() {
           "agregarproveedor",
           "facturas",
           "reportes",
+          "reportessinpe",
           "configuracion",
           ...(isSuperAdmin ? ["pruebas"] : []),
         ];
@@ -448,6 +455,9 @@ export default function HomePage() {
 
               {/* REPORTES */}
               {activeTab === "reportes" && <ReportesPage />}
+
+              {/* REPORTES SINPE */}
+              {activeTab === "reportessinpe" && <ReportesSinpePage />}
 
               {/* CONFIGURACION */}
               {activeTab === "configuracion" && (

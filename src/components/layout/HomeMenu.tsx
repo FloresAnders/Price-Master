@@ -165,6 +165,13 @@ const menuItems = [
     permission: "supplierorders" as keyof UserPermissions,
   },
   {
+    id: "reportessinpe",
+    name: "Reportes SINPE",
+    icon: Smartphone,
+    description: "Generar reportes de transacciones SINPE",
+    permission: "reportessinpe" as keyof UserPermissions,
+  },
+  {
     id: "scanhistory",
     name: "Historial de Escaneos",
     icon: History,

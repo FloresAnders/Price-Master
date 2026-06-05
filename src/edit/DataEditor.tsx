@@ -789,6 +789,8 @@ export default function DataEditor() {
             ownerId: ownerIdToUse,
             name: empresa.name || "",
             ubicacion: empresa.ubicacion || "",
+            correoConfigEmail: empresa.correoConfigEmail || "",
+            correoConfigPassword: empresa.correoConfigPassword || "",
             horarioApertura: empresa.horarioApertura || "",
             horarioCierre: empresa.horarioCierre || "",
             cierreFondoVentasMinutesBeforeEnd:
@@ -1265,6 +1267,7 @@ export default function DataEditor() {
           "controlhorario",
           "calculohorasprecios",
           "supplierorders",
+          "reportessinpe",
           "mantenimiento",
           "cajaNegra",
           "solicitud",
@@ -1332,11 +1335,13 @@ export default function DataEditor() {
       controlhorario: "Control Horario",
       calculohorasprecios: "Calculo Horas Precios",
       supplierorders: "Órdenes Proveedor",
+      reportessinpe: "Reportes SINPE",
       mantenimiento: "Mantenimiento",
       cajaNegra: "Caja Negra",
       solicitud: "Solicitud",
       scanhistory: "Historial de Escaneos",
-    };    return labels[permission] || permission;
+    };
+    return labels[permission] || permission;
   };
 
   // Función para obtener descripciones de permisos
@@ -1350,12 +1355,14 @@ export default function DataEditor() {
       controlhorario: "Registro de horarios de trabajo",
       calculohorasprecios: "Cálculo de horas y precios (planilla)",
       supplierorders: "Gestión de órdenes de proveedores",
+      reportessinpe: "Tarjeta y módulo de reportes SINPE",
       mantenimiento: "Acceso al panel de administración",
       cajaNegra: "Manejar dineros extra del Fondo General",
       solicitud:
         "Permite gestionar solicitudes dentro del módulo de mantenimiento",
       scanhistory: "Ver historial completo de escaneos realizados",
-    };    return descriptions[permission] || permission;
+    };
+    return descriptions[permission] || permission;
   };
 
   // Función para renderizar la lista de permisos editables
@@ -2291,3 +2298,4 @@ export default function DataEditor() {
     </div>
   );
 }
+

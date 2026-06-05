@@ -117,7 +117,8 @@ export type ActiveTab =
   | "fondogeneral"
   | "FC/NC"
   | "agregarproveedor"
-  | "reportes";
+  | "reportes"
+  | "reportessinpe";
 
 interface HeaderProps {
   activeTab?: ActiveTab | null;
@@ -563,6 +564,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     currentHash === "#agregarproveedor" ||
     currentHash === "#facturas" ||
     currentHash === "#reportes" ||
+    currentHash === "#reportessinpe" ||
     currentHash === "#configuracion";
 
   const isRecetasSection =
@@ -582,6 +584,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       activeTab !== "fondogeneral" &&
       activeTab !== "agregarproveedor" &&
       activeTab !== "reportes" &&
+      activeTab !== "reportessinpe" &&
       activeTab !== "recetas" &&
       activeTab !== "agregarproducto" &&
       visibleTabs.length > 0),
@@ -832,7 +835,28 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 </button>
               )}
 
-              {/* Configuración */}
+              {/* Reportes SINPE */}
+              {userPermissions.reportessinpe && (
+                <button
+                  onClick={() => {
+                    safeWindow.location.hash("#reportessinpe");
+                  }}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
+                    currentHash === "#reportessinpe"
+                      ? "text-[var(--tab-text-active)] font-semibold"
+                      : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
+                  }`}
+                  title="Reportes SINPE"
+                >
+                  <Smartphone className="w-4 h-4" />
+                  <span className="hidden xl:inline">Reportes SINPE</span>
+                  {currentHash === "#reportessinpe" && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
+                  )}
+                </button>
+              )}
+
+              {/* ConfiguraciÃ³n */}
               {isFondoPrivileged && (
                 <button
                   onClick={() => {
@@ -1211,7 +1235,26 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   </button>
                 )}
 
-                {/* Configuración */}
+                {/* Reportes SINPE */}
+                {userPermissions.reportessinpe && (
+                  <button
+                    onClick={() => {
+                      safeWindow.location.hash("#reportessinpe");
+                      setShowMobileMenu(false);
+                    }}
+                    className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${
+                      currentHash === "#reportessinpe"
+                        ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                        : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                    }`}
+                    title="Reportes SINPE"
+                  >
+                    <Smartphone className="w-4 h-4" />
+                    <span>Reportes SINPE</span>
+                  </button>
+                )}
+
+                {/* ConfiguraciÃ³n */}
                 {isFondoPrivileged && (
                   <button
                     onClick={() => {

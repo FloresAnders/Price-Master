@@ -15,6 +15,7 @@ const nextConfig: NextConfig & { turbopack?: { root?: string } } = {
   },
   /* config options here */
   ...(useStaticExport ? { output: 'export', trailingSlash: true, distDir: 'out' } : {}),
+  serverExternalPackages: ['imapflow', 'pino', 'thread-stream'],
   // Optimize CSS in production
   experimental: {
     optimizeCss: true,

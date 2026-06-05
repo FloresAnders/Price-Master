@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Eye, EyeOff, Mail, Plus, Trash2 } from "lucide-react";
 
 import { EmpresasService } from "../../services/empresas";
 import type { User } from "../../types/firestore";
@@ -35,6 +35,13 @@ export default function EmpresasEditorSection({
   loadData,
 }: Props) {
   const [editMode, setEditMode] = React.useState<Record<string, boolean>>({});
+  const [correoModalEmpresaIdx, setCorreoModalEmpresaIdx] = React.useState<
+    number | null
+  >(null);
+  const [correoEmail, setCorreoEmail] = React.useState("");
+  const [correoPassword, setCorreoPassword] = React.useState("");
+  const [showCorreoPassword, setShowCorreoPassword] = React.useState(false);
+  const [correoSaving, setCorreoSaving] = React.useState(false);
 
   const getEmpresaKey = (empresa: any, idx: number) => {
     return empresa?.id || `empresa-${idx}`;
@@ -100,6 +107,63 @@ export default function EmpresasEditorSection({
       });
       return next;
     });
+  };
+
+  const openCorreoModal = (empresa: any, idx: number) => {
+    setCorreoModalEmpresaIdx(idx);
+    setCorreoEmail(empresa?.correoConfigEmail || "");
+    setCorreoPassword(empresa?.correoConfigPassword || "");
+    setShowCorreoPassword(false);
+  };
+
+  const closeCorreoModal = () => {
+    if (correoSaving) return;
+    setCorreoModalEmpresaIdx(null);
+    setCorreoEmail("");
+    setCorreoPassword("");
+    setShowCorreoPassword(false);
+  };
+
+  const saveCorreoConfig = async () => {
+    if (correoModalEmpresaIdx === null) return;
+    const empresa = empresasData[correoModalEmpresaIdx];
+    const email = correoEmail.trim();
+    if (!email) {
+      showToast("Correo requerido", "error");
+      return;
+    }
+    if (!empresa?.id) {
+      showToast("Guarda la empresa antes de configurar correo", "warning");
+      return;
+    }
+    if (!correoPassword.trim()) {
+      showToast("Contraseña requerida", "error");
+      return;
+    }
+
+    setCorreoSaving(true);
+    try {
+      const patch = {
+        correoConfigEmail: email,
+        correoConfigPassword: correoPassword,
+      };
+
+      await EmpresasService.updateEmpresa(empresa.id, patch);
+
+      setEmpresasData((prev) =>
+        prev.map((item, idx) =>
+          idx === correoModalEmpresaIdx ? { ...item, ...patch } : item,
+        ),
+      );
+
+      showToast("Correo configurado", "success");
+      closeCorreoModal();
+    } catch (error) {
+      console.error("Error saving correo config:", error);
+      showToast("Error al guardar correo", "error");
+    } finally {
+      setCorreoSaving(false);
+    }
   };
   return (
     <div className="space-y-3 sm:space-y-4">
@@ -212,6 +276,14 @@ export default function EmpresasEditorSection({
                     </div>
 
                     <div className="flex flex-col sm:flex-row justify-end gap-2 mt-2">
+                      <button
+                        type="button"
+                        onClick={() => openCorreoModal(empresa, idx)}
+                        className="px-3 py-2 sm:px-4 rounded-md border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors text-sm sm:text-base flex items-center justify-center gap-2"
+                      >
+                        <Mail className="w-4 h-4" />
+                        Configurar correo
+                      </button>
                       <button
                         type="button"
                         onClick={() => {
@@ -716,6 +788,14 @@ export default function EmpresasEditorSection({
                     <div className="flex flex-col sm:flex-row justify-end gap-2 mt-2">
                       <button
                         type="button"
+                        onClick={() => openCorreoModal(empresa, idx)}
+                        className="px-3 py-2 sm:px-4 rounded-md border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors text-sm sm:text-base flex items-center justify-center gap-2"
+                      >
+                        <Mail className="w-4 h-4" />
+                        Configurar correo
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => {
                           if (!empresa.id)
                             return setEditMode((prev) => ({
@@ -846,6 +926,88 @@ export default function EmpresasEditorSection({
           })()}
         </div>
       ))}
+
+      {correoModalEmpresaIdx !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-5 shadow-2xl">
+            <div className="mb-4">
+              <h5 className="text-lg font-semibold text-[var(--foreground)]">
+                Configurar correo
+              </h5>
+              <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+                {empresasData[correoModalEmpresaIdx]?.name || "Empresa"}
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium">
+                  Correo
+                </label>
+                <input
+                  type="email"
+                  value={correoEmail}
+                  onChange={(e) => setCorreoEmail(e.target.value)}
+                  className="w-full rounded-md border border-[var(--input-border)] px-3 py-2 text-sm"
+                  style={{
+                    background: "var(--input-bg)",
+                    color: "var(--foreground)",
+                  }}
+                  placeholder="correo@empresa.com"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium">
+                  Contraseña
+                </label>
+                <div className="flex items-center rounded-md border border-[var(--input-border)] pr-2">
+                  <input
+                    type={showCorreoPassword ? "text" : "password"}
+                    value={correoPassword}
+                    onChange={(e) => setCorreoPassword(e.target.value)}
+                    className="w-full bg-transparent px-3 py-2 text-sm outline-none"
+                    style={{ color: "var(--foreground)" }}
+                    placeholder={
+                      "Ingresa la contraseña"
+                    }
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCorreoPassword((prev) => !prev)}
+                    className="text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                  >
+                    {showCorreoPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeCorreoModal}
+                disabled={correoSaving}
+                className="rounded-md border border-[var(--input-border)] px-4 py-2 text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={saveCorreoConfig}
+                disabled={correoSaving}
+                className="rounded-md bg-green-600 px-4 py-2 text-sm text-white hover:bg-green-700 disabled:opacity-50"
+              >
+                {correoSaving ? "Guardando..." : "Guardar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

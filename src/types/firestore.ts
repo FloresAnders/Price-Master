@@ -19,6 +19,8 @@ export interface Empresas {
   ownerId: string;
   name: string;
   ubicacion: string;
+  correoConfigEmail?: string;
+  correoConfigPassword?: string;
   horarioApertura?: string;
   horarioCierre?: string;
   cierreFondoVentasMinutesBeforeEnd?: number;
@@ -178,6 +180,7 @@ export interface UserPermissions {
   calculohorasprecios: boolean; // Calculo horas precios - Cálculo de horas y precios/planilla
   empleados: boolean; // Empleados - Información (próximamente)
   supplierorders: boolean; // Órdenes Proveedor - Gestión de órdenes de proveedores
+  reportessinpe?: boolean; // Reportes SINPE - Acceso a tarjeta y módulo
   mantenimiento: boolean; // Mantenimiento - Nueva sección de mantenimiento
   fondogeneral?: boolean; // Fondo General - Acceso a administración del fondo general
   fondogeneralBCR?: boolean; // Fondo General - Acceso a la cuenta BCR
@@ -268,3 +271,4 @@ export interface FondoMovementTypeConfig {
   createdAt?: Date;
   updatedAt?: Date;
 }
+

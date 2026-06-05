@@ -94,6 +94,13 @@ const menuItems = [
     permission: "supplierorders" as keyof UserPermissions,
   },
   {
+    id: "reportessinpe",
+    name: "Reportes SINPE",
+    icon: Smartphone,
+    description: "Generar reportes de transacciones SINPE",
+    permission: "reportessinpe" as keyof UserPermissions,
+  },
+  {
     id: "scanhistory",
     name: "Historial de Escaneos",
     icon: History,
@@ -178,9 +185,9 @@ export default function HomePage() {
 
   const handleCardClick = (id: string, name: string) => {
     // Si es la tarjeta Fondo General, navegar a su página
-    if (id === "fondogeneral") {
-      // Use hash navigation so header/tab system picks it up (/#fondogeneral)
-      safeWindow.location.hash("#fondogeneral");
+    if (id === "fondogeneral" || id === "reportessinpe") {
+      // Use hash navigation so header/tab system picks it up
+      safeWindow.location.hash(id === "reportessinpe" ? "#reportessinpe" : "#fondogeneral");
       return;
     }
 
