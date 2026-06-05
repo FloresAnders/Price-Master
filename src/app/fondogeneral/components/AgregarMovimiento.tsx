@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -14,6 +14,7 @@ import {
   XCircle,
 } from "lucide-react";
 import type { FondoMovementType } from "../types";
+import { CIERRE_FONDO_VENTAS_PROVIDER_NAME } from "../constants";
 import {
   formatMovementType,
   isEgresoType,
@@ -220,6 +221,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isManagerDropdownOpen, setIsManagerDropdownOpen] = useState(false);
   const [isManager2DropdownOpen, setIsManager2DropdownOpen] = useState(false);
+  const montoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (selectedProvider) {
@@ -239,6 +241,17 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     if (!lockInvoiceDocTypeToContado) return;
     if (invoiceDocType !== "FCO") onInvoiceDocTypeChange("FCO");
   }, [invoiceDocType, lockInvoiceDocTypeToContado, onInvoiceDocTypeChange]);
+
+  useEffect(() => {
+    if (!selectedProvider) return;
+    const prov = providers.find((p) => p.code === selectedProvider);
+    const isCierre =
+      selectedProvider.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME ||
+      prov?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME;
+    if (isCierre) {
+      montoRef.current?.focus();
+    }
+  }, [selectedProvider, providers]);
 
   const filteredProviders = providers
     .filter(
@@ -673,6 +686,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
           })}
         </div>
         <input
+          ref={montoRef}
           placeholder="0"
           value={formatInputDisplay(isEgreso ? egreso : ingreso)}
           onChange={(event) => {
