@@ -1829,10 +1829,11 @@ export function FondoSection({
 
   // Check if current user is the principal admin (owner) of the company
   const isPrincipalAdmin = useMemo(() => {
+    if (!isAdminUser) return false;
     const companyOwnerId = String(companyData?.ownerId || "").trim();
     if (!companyOwnerId) return false;
     return actorOwnerIds.some((ownerId) => String(ownerId) === companyOwnerId);
-  }, [actorOwnerIds, companyData?.ownerId]);
+  }, [actorOwnerIds, companyData?.ownerId, isAdminUser]);
 
   const cierreFondoVentasProviderCode = useMemo(() => {
     const found = providers.find(
