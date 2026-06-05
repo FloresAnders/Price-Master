@@ -1,19 +1,19 @@
 {
   "version": "1.6.20",
   "versionstorage": "1.1.21",
-  "notasDeSistemas": "1.1.24",
+  "notasDeSistemas": "1.1.25",
   "releaseNotes": [
     {
       "date": "2026-06-01",
-      "title": "Auto-validar Control Horario antes de abrir “Agregar Movimiento” y “Agregar FC/NC”" ,
-      "description": "Si dentro del horario laboral no existe el turno requerido (D/N), se muestra un modal informativo de “Turno no asignado” y se redirige a #controlhorario para que el usuario pueda asignar el turno correspondiente. Esto garantiza que los movimientos y facturas se registren con la información de turno correcta, mejorando la precisión en el control de horarios y evitando errores en la gestión de movimientos y facturas."
+      "title": "Ajustes”" ,
+      "description": "Ajustes en control de cierre de fondo, horarios, control tiempos, filtros en la seccion fc/nc para los totales."
     }
   ],
   "systemNotes": [
     {
       "date": "2026-06-01",
-      "title": "Auto-validar Control Horario antes de abrir “Agregar Movimiento” y “Agregar FC/NC”" ,
-      "description": "Si dentro del horario laboral no existe el turno requerido (D/N), se muestra un modal informativo de “Turno no asignado” y se redirige a #controlhorario para que el usuario pueda asignar el turno correspondiente. Esto garantiza que los movimientos y facturas se registren con la información de turno correcta, mejorando la precisión en el control de horarios y evitando errores en la gestión de movimientos y facturas."
+      "title": "Ajustes",
+      "description": "Ajustes en control de cierre de fondo, horarios, control tiempos, filtros en la seccion fc/nc para los totales."
     }
   ],
   "_comment": "hacer una pagina de 'en mantenimiento' para secciones en desarrollo y a exepcion de un usuario admin"
