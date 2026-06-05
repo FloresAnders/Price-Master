@@ -116,7 +116,8 @@ export default function ReportesSinpePage() {
         }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Error generando reporte.");
+      if (!response.ok)
+        throw new Error(data.error || "Error generando reporte.");
       setReport(data);
       setDetailsOpen(Boolean(data.transactions?.length));
     } catch (err) {
@@ -183,11 +184,16 @@ export default function ReportesSinpePage() {
         </div>
       )}
       <div className="overflow-hidden rounded-[32px] border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(83,193,255,0.18),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(165,61,255,0.24),_transparent_28%),linear-gradient(180deg,_#071120_0%,_#090f1d_100%)] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45)] sm:p-8">
-        <div className="mb-8 text-center">
+        <div className="mb-8 text-center flex items-center justify-center flex-col">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-violet-500/30 bg-violet-500/10 shadow-[0_0_30px_rgba(168,85,247,0.2)]">
             <Mail className="h-7 w-7 text-violet-300" />
           </div>
-          <h1 className="text-3xl font-semibold">Reportes SINPE</h1>
+          <h1 className="flex items-center gap-2 text-3xl font-semibold">
+            Reportes SINPE
+            <span className="rounded-full border border-amber-400/40 bg-amber-400/15 px-2 py-0.5 text-[11px] font-semibold leading-none text-amber-700 dark:border-amber-300/40 dark:bg-amber-400/20 dark:text-amber-300">
+              BETA
+            </span>
+          </h1>
           <p className="mt-2 text-sm text-white/60">
             Genera reportes a partir de transacciones SINPE en el rango
             seleccionado.
@@ -262,9 +268,7 @@ export default function ReportesSinpePage() {
             </label>
 
             <label className="block">
-              <span className="mb-2 block text-sm text-white/70">
-                Hora fin
-              </span>
+              <span className="mb-2 block text-sm text-white/70">Hora fin</span>
               <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#0b1730] px-4 py-3">
                 <input
                   type="time"
