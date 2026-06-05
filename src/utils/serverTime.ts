@@ -1,52 +1,32 @@
-import {
-  doc,
-  getDocFromServer,
-  serverTimestamp,
-  setDoc,
-  Timestamp,
-} from "firebase/firestore";
-import { db } from "@/config/firebase";
-
 let cachedServerTime: Date | null = null;
 let cachedAt = 0;
-const CACHE_TTL_MS = 15_000;
+const CACHE_TTL_MS = 60_000;
 
 function cacheClockMs() {
   return typeof performance !== "undefined" ? performance.now() : Date.now();
 }
 
-async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  let id: ReturnType<typeof setTimeout> | undefined;
+async function fetchJson<T>(url: string, timeoutMs: number): Promise<T | null> {
   try {
-    return await Promise.race([
-      promise,
-      new Promise<T>((_, reject) => {
-        id = setTimeout(
-          () => reject(new Error("No se pudo validar la hora del servidor")),
-          ms,
-        );
-      }),
-    ]);
-  } finally {
-    if (id) clearTimeout(id);
-  }
-}
-
-async function fromFirestore(): Promise<Date | null> {
-  try {
-    const ref = doc(db, "_serverTime", "now");
-    await withTimeout(
-      setDoc(ref, { now: serverTimestamp() }, { merge: true }),
-      5000,
-    );
-    const snap = await withTimeout(getDocFromServer(ref), 5000);
-    const ts = snap.data()?.now as Timestamp | undefined;
-    const serverDate = ts?.toDate?.();
-    if (!serverDate || Number.isNaN(serverDate.getTime())) return null;
-    return serverDate;
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(id);
+    if (!res.ok) return null;
+    return await res.json() as T;
   } catch {
     return null;
   }
+}
+
+async function fromTimeApi(): Promise<Date | null> {
+  const data = await fetchJson<{ dateTime: string }>(
+    "https://timeapi.io/api/Time/current/zone?timeZone=America/Costa_Rica",
+    5000,
+  );
+  if (!data?.dateTime) return null;
+  const d = new Date(data.dateTime);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 export async function getAuthoritativeNow(): Promise<Date> {
@@ -55,11 +35,11 @@ export async function getAuthoritativeNow(): Promise<Date> {
     return new Date(cachedServerTime.getTime() + Math.max(0, now - cachedAt));
   }
 
-  const serverDate = await fromFirestore();
-  if (serverDate) {
-    cachedServerTime = serverDate;
+  const apiDate = await fromTimeApi();
+  if (apiDate) {
+    cachedServerTime = apiDate;
     cachedAt = cacheClockMs();
-    return new Date(serverDate.getTime());
+    return new Date(apiDate.getTime());
   }
 
   throw new Error("No se pudo validar la hora del servidor");
