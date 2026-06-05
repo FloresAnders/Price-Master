@@ -30,6 +30,104 @@ const displayDate = (value: string) => {
   return `${day}/${month}/${year}`;
 };
 
+const formatTime12 = (value: string) => {
+  const [hourValue = "0", minute = "00"] = value.split(":");
+  const hour24 = Number(hourValue);
+  const period = hour24 >= 12 ? "pm" : "am";
+  const hour12 = hour24 % 12 || 12;
+  return `${hour12}:${minute.padStart(2, "0")} ${period}`;
+};
+
+const formatDateTime12 = (value: string) =>
+  new Date(value).toLocaleString("es-CR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+
+const toTime12Parts = (value: string) => {
+  const [hourValue = "0", minute = "00"] = value.split(":");
+  const hour24 = Number(hourValue);
+  return {
+    hour: String(hour24 % 12 || 12),
+    minute: minute.padStart(2, "0"),
+    period: hour24 >= 12 ? "pm" : "am",
+  };
+};
+
+const fromTime12Parts = (hour: string, minute: string, period: string) => {
+  const hourNumber = Number(hour);
+  const hour24 =
+    period === "pm"
+      ? hourNumber === 12
+        ? 12
+        : hourNumber + 12
+      : hourNumber === 12
+        ? 0
+        : hourNumber;
+  return `${String(hour24).padStart(2, "0")}:${minute}`;
+};
+
+const Time12Select = ({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) => {
+  const parts = toTime12Parts(value);
+  const hours = Array.from({ length: 12 }, (_, index) => String(index + 1));
+  const minutes = Array.from({ length: 60 }, (_, index) =>
+    String(index).padStart(2, "0"),
+  );
+
+  const update = (next: Partial<typeof parts>) => {
+    const merged = { ...parts, ...next };
+    onChange(fromTime12Parts(merged.hour, merged.minute, merged.period));
+  };
+
+  return (
+    <div className="grid w-full grid-cols-[1fr_1fr_auto] gap-2">
+      <select
+        aria-label="Hora"
+        value={parts.hour}
+        onChange={(event) => update({ hour: event.target.value })}
+        className="min-w-0 rounded-xl border border-white/10 bg-[#0f1d38] px-3 py-2 text-sm text-white outline-none"
+      >
+        {hours.map((hour) => (
+          <option key={hour} value={hour}>
+            {hour}
+          </option>
+        ))}
+      </select>
+      <select
+        aria-label="Minutos"
+        value={parts.minute}
+        onChange={(event) => update({ minute: event.target.value })}
+        className="min-w-0 rounded-xl border border-white/10 bg-[#0f1d38] px-3 py-2 text-sm text-white outline-none"
+      >
+        {minutes.map((minute) => (
+          <option key={minute} value={minute}>
+            {minute}
+          </option>
+        ))}
+      </select>
+      <select
+        aria-label="AM o PM"
+        value={parts.period}
+        onChange={(event) => update({ period: event.target.value })}
+        className="rounded-xl border border-white/10 bg-[#0f1d38] px-3 py-2 text-sm text-white outline-none"
+      >
+        <option value="am">am</option>
+        <option value="pm">pm</option>
+      </select>
+    </div>
+  );
+};
+
 export default function ReportesSinpePage() {
   const { user, loading } = useAuth();
   const { ownerIds } = useActorOwnership(user);
@@ -241,20 +339,18 @@ export default function ReportesSinpePage() {
               </div>
             </label>
 
-            <label className="block">
+            <div className="block">
               <span className="mb-2 block text-sm text-white/70">
                 Hora inicio
               </span>
               <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#0b1730] px-4 py-3">
-                <input
-                  type="time"
-                  value={startTime}
-                  onChange={(event) => setStartTime(event.target.value)}
-                  className="w-full bg-transparent text-sm text-white outline-none [color-scheme:dark]"
-                />
+                <Time12Select value={startTime} onChange={setStartTime} />
                 <Clock3 className="h-4 w-4 text-cyan-300" />
               </div>
-            </label>
+              <span className="mt-1 block text-xs text-white/45">
+                {formatTime12(startTime)}
+              </span>
+            </div>
 
             <label className="block">
               <span className="mb-2 block text-sm text-white/70">
@@ -271,18 +367,16 @@ export default function ReportesSinpePage() {
               </div>
             </label>
 
-            <label className="block">
+            <div className="block">
               <span className="mb-2 block text-sm text-white/70">Hora fin</span>
               <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#0b1730] px-4 py-3">
-                <input
-                  type="time"
-                  value={endTime}
-                  onChange={(event) => setEndTime(event.target.value)}
-                  className="w-full bg-transparent text-sm text-white outline-none [color-scheme:dark]"
-                />
+                <Time12Select value={endTime} onChange={setEndTime} />
                 <Clock3 className="h-4 w-4 text-cyan-300" />
               </div>
-            </label>
+              <span className="mt-1 block text-xs text-white/45">
+                {formatTime12(endTime)}
+              </span>
+            </div>
           </div>
 
           <button
@@ -384,13 +478,7 @@ export default function ReportesSinpePage() {
                         <div>
                           <div className="text-white/45">Hora recibido</div>
                           <div className="mt-1 text-white/85">
-                            {new Date(transaction.date).toLocaleString(
-                              "es-CR",
-                              {
-                                dateStyle: "short",
-                                timeStyle: "short",
-                              },
-                            )}
+                            {formatDateTime12(transaction.date)}
                           </div>
                         </div>
                       </div>
