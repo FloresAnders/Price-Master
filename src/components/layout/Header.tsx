@@ -1410,14 +1410,12 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         onClose={() => setShowEditProfileModal(false)}
       />
 
-      {canShowAdminSidebar && (
+      {canShowAdminSidebar && showAdminSidebar && (
         <button
           type="button"
           aria-label="Cerrar menú lateral"
           onClick={() => setShowAdminSidebar(false)}
-          className={`hidden lg:block fixed inset-0 z-30 bg-transparent ${
-            showAdminSidebar ? "pointer-events-auto" : "pointer-events-none"
-          }`}
+          className="hidden lg:block fixed inset-0 z-30 bg-transparent"
         />
       )}
 
