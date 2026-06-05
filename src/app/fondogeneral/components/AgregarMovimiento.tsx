@@ -271,7 +271,6 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
 
   const fieldBase =
     "h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)]";
-  const fieldWithIcon = `${fieldBase} pr-11`;
   const sectionClass =
     "rounded-xl border border-cyan-700/25 bg-cyan-950/10 p-3 sm:p-4";
   const labelClass =

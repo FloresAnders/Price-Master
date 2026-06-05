@@ -18,19 +18,14 @@ import {
   Pencil,
   Trash2,
   X,
-  Banknote,
-  Clock,
   Layers,
   Tag,
-  UserCircle,
   Lock,
   Search,
   ChevronLeft,
   ChevronRight,
   Mail,
   MessageSquare,
-  XCircle,
-  Loader2,
 } from "lucide-react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "@/config/firebase";

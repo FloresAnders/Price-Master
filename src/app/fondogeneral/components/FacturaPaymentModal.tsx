@@ -68,7 +68,6 @@ export default function FacturaPaymentModal({
   paymentManager2,
   selectedPaymentPaid,
   selectedPaymentBalance,
-  selectedPaymentStatus,
   paymentSubmitting,
   canSubmitFullPayment,
   onClose,

@@ -13,7 +13,6 @@ import ReminderNotificationsInitializer from "../components/funciones/ReminderNo
 import SystemNotesInitializer from "../components/funciones/SystemNotesInitializer";
 import { XmlEgresosProvider } from "../components/xml/XmlEgresosProvider";
 import BackToTop from "../components/ui/BackToTop";
-import ClickToComponentDevTools from "../components/dev/ClickToComponentDevTools";
 
 export const metadata = {
   title: "Time Master",
@@ -129,7 +128,6 @@ export default function RootLayout({
             <PermissionsManager>
               <ToastProvider>
                 <XmlEgresosProvider>
-                  <ClickToComponentDevTools />
                   <VersionCheckInitializer />
                   <ReminderNotificationsInitializer />
                   <SystemNotesInitializer />

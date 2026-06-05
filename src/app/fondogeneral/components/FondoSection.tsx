@@ -141,7 +141,6 @@ import {
 
 import {
   buildPhysicalCountStorageKey as buildPhysicalCountStorageKeyFn,
-  buildLegacyPhysicalCountStorageKey as buildLegacyPhysicalCountStorageKeyFn,
   cleanupPhysicalCountLegacyKeys as cleanupPhysicalCountLegacyKeysFn,
   handleCancelPhysicalCount as handleCancelPhysicalCountFn,
   handleConfirmPhysicalCount as handleConfirmPhysicalCountFn,
@@ -207,7 +206,6 @@ export function FondoSection({
   const { showToast } = useToast();
   const {
     ownerAdminEmail,
-    ownerCompanies,
     ownerCompaniesLoading,
     ownerCompaniesError,
     sortedOwnerCompanies,

@@ -15,7 +15,6 @@ import {
   Eye,
   FileText,
   Pencil,
-  ClipboardList,
   BadgeCheck,
   Save,
   X,
@@ -104,15 +103,6 @@ const dateKeyInCostaRica = (iso: string): string => {
   } catch {
     return "";
   }
-};
-
-const dateKeyFromIso = (iso: string): string => {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
 };
 
 const formatKeyToDisplay = (key: string): string => {
