@@ -763,6 +763,14 @@ export default function DataEditor() {
           maxCompanies: u.maxCompanies,
           email: u.email,
           fullName: u.fullName,
+          subscription:
+            currentUser?.role === "superadmin" &&
+            u.role === "admin" &&
+            u.eliminate !== true
+              ? u.subscription
+                ? { ...u.subscription, updatedAt: new Date() }
+                : undefined
+              : undefined,
           eliminate: u.eliminate ?? false,
           ownerId: u.ownerId,
         });
@@ -1719,6 +1727,19 @@ export default function DataEditor() {
           ownercompanie: user.ownercompanie,
         };
 
+        if (
+          currentUser?.role === "superadmin" &&
+          user.role === "admin" &&
+          user.eliminate !== true
+        ) {
+          updatePayload.subscription = user.subscription
+            ? {
+                ...user.subscription,
+                updatedAt: new Date(),
+              }
+            : undefined;
+        }
+
         if (shouldUpdatePassword) {
           updatePayload.password = storedPassword;
         }
@@ -1786,6 +1807,14 @@ export default function DataEditor() {
           maxCompanies: user.maxCompanies,
           email: user.email,
           fullName: user.fullName,
+          subscription:
+            currentUser?.role === "superadmin" &&
+            user.role === "admin" &&
+            user.eliminate !== true
+              ? user.subscription
+                ? { ...user.subscription, updatedAt: new Date() }
+                : undefined
+              : undefined,
           eliminate: user.eliminate ?? false,
           ownerId: user.ownerId || resolveOwnerIdForActor(),
           ownercompanie: user.ownercompanie,
@@ -2298,4 +2327,3 @@ export default function DataEditor() {
     </div>
   );
 }
-

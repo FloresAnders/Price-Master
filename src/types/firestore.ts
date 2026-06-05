@@ -166,6 +166,17 @@ export interface Sorteo {
   id?: string;
   name: string;
 }
+
+export type SubscriptionStatus = "pagado" | "pendiente" | "vencido";
+
+export interface UserSubscription {
+  paymentDate: string;
+  status: SubscriptionStatus;
+  monthlyAmount?: number;
+  lastPaidAt?: string;
+  updatedAt?: Date;
+}
+
 export interface UserPermissions {
   scanner: boolean; // Escáner - Escanear códigos de barras
   calculator: boolean; // Calculadora - Calcular precios con descuentos
@@ -213,6 +224,7 @@ export interface User {
   // Campo para marcar eliminación lógica; por defecto false
   eliminate?: boolean;
   permissions?: UserPermissions;
+  subscription?: UserSubscription;
   photoUrl?: string;
   createdAt?: Date;
   updatedAt?: Date;
@@ -271,4 +283,3 @@ export interface FondoMovementTypeConfig {
   createdAt?: Date;
   updatedAt?: Date;
 }
-

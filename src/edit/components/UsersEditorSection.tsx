@@ -14,6 +14,44 @@ import {
 import type { User } from "../../types/firestore";
 import ChangeEmailModal from "../../components/modals/ChangeEmailModal";
 
+const SUBSCRIPTION_PENDING_DAYS = 5;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function getTodayDateKey(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getDaysUntilDateKey(value?: string): number | null {
+  if (!value) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  const dueDate = new Date(year, month - 1, day);
+  if (Number.isNaN(dueDate.getTime())) return null;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.ceil((dueDate.getTime() - today.getTime()) / MS_PER_DAY);
+}
+
+function getSubscriptionStatusLabel(user: User): string {
+  const subscription = user.subscription;
+  if (!subscription?.paymentDate) return "Sin configurar";
+
+  const daysUntil = getDaysUntilDateKey(subscription.paymentDate);
+  if (daysUntil === null) return "Sin configurar";
+
+  if (subscription.status === "pagado" && daysUntil < 0) return "Pagado";
+  if (daysUntil < 0 || subscription.status === "vencido") return "Vencido";
+  if (daysUntil >= 0 && daysUntil <= SUBSCRIPTION_PENDING_DAYS) {
+    return "Pendiente";
+  }
+
+  return "Pagado";
+}
+
 type Props = {
   usersData: User[];
   empresasData: any[];
@@ -423,7 +461,7 @@ export default function UsersEditorSection({
                       </div>
 
                       {user.role === "admin" &&
-                        user.eliminate === false &&
+                        user.eliminate !== true &&
                         currentUser?.role === "superadmin" && (
                           <div>
                             <label className="block text-xs sm:text-sm font-medium mb-1">
@@ -449,6 +487,94 @@ export default function UsersEditorSection({
                           </div>
                         )}
                     </div>
+
+                    {currentUser?.role === "superadmin" &&
+                      user.role === "admin" &&
+                      user.eliminate !== true && (
+                        <div className="mb-3 sm:mb-4 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-3 sm:p-4">
+                          <div className="mb-3">
+                            <h5 className="text-sm font-semibold text-[var(--foreground)]">
+                              Suscripcion mensual
+                            </h5>
+                            <p className="text-xs text-[var(--muted-foreground)]">
+                              Visible solo para superadmin.
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-4">
+                            <div>
+                              <label className="block text-xs sm:text-sm font-medium mb-1">
+                                Proxima fecha de pago:
+                              </label>
+                              <input
+                                type="date"
+                                value={user.subscription?.paymentDate || ""}
+                                onChange={(e) =>
+                                  updateUser(index, "subscription", {
+                                    ...(user.subscription || {
+                                      status: "pendiente",
+                                    }),
+                                    paymentDate: e.target.value,
+                                  })
+                                }
+                                disabled={disableInputs}
+                                className={fieldClassName}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs sm:text-sm font-medium mb-1">
+                                Estado:
+                              </label>
+                              <div className={`${fieldClassName} flex items-center`}>
+                                {getSubscriptionStatusLabel(user)}
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-xs sm:text-sm font-medium mb-1">
+                                Monto mensual:
+                              </label>
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={user.subscription?.monthlyAmount ?? ""}
+                                onChange={(e) =>
+                                  updateUser(index, "subscription", {
+                                    ...(user.subscription || {
+                                      paymentDate: "",
+                                      status: "pendiente",
+                                    }),
+                                    monthlyAmount:
+                                      e.target.value === ""
+                                        ? undefined
+                                        : Number(e.target.value),
+                                  })
+                                }
+                                disabled={disableInputs}
+                                className={fieldClassName}
+                                placeholder="Monto"
+                              />
+                            </div>
+                            <div className="flex flex-col justify-end">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateUser(index, "subscription", {
+                                    ...(user.subscription || {
+                                      paymentDate: "",
+                                    }),
+                                    status: "pagado",
+                                    lastPaidAt: getTodayDateKey(),
+                                  })
+                                }
+                                disabled={disableInputs}
+                                className={`${primaryButtonClassName} h-11`}
+                              >
+                                Marcar pagada
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                     <div className="grid grid-cols-1 gap-3 sm:gap-4 mb-3 sm:mb-4">
                       <div>

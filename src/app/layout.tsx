@@ -13,6 +13,7 @@ import ReminderNotificationsInitializer from "../components/funciones/ReminderNo
 import SystemNotesInitializer from "../components/funciones/SystemNotesInitializer";
 import { XmlEgresosProvider } from "../components/xml/XmlEgresosProvider";
 import BackToTop from "../components/ui/BackToTop";
+import SubscriptionNotice from "../components/subscription/SubscriptionNotice";
 
 export const metadata = {
   title: "Time Master",
@@ -131,6 +132,7 @@ export default function RootLayout({
                   <VersionCheckInitializer />
                   <ReminderNotificationsInitializer />
                   <SystemNotesInitializer />
+                  <SubscriptionNotice />
                   <HeaderWrapper /> 
                   <main role="main" className="flex-1 flex flex-col w-full lg:pl-[var(--admin-sidebar-width)] transition-[padding] duration-300">
                     <div className="w-full" suppressHydrationWarning>
