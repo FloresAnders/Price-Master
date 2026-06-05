@@ -38,11 +38,16 @@ export function useBarcodeScanner(
   // Copiar código al portapapeles
   const copyCodeToClipboard = async (codeText: string) => {
     try {
-      // Check if modern clipboard API is available
+      let copied = false;
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(codeText);
-      } else {
-        // Fallback for older browsers or insecure contexts
+        try {
+          await navigator.clipboard.writeText(codeText);
+          copied = true;
+        } catch {
+          // fall through to textarea fallback
+        }
+      }
+      if (!copied) {
         const textArea = document.createElement("textarea");
         textArea.value = codeText;
         textArea.style.position = "fixed";

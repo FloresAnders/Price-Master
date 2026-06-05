@@ -791,6 +791,10 @@ export default function DataEditor() {
             ubicacion: empresa.ubicacion || "",
             horarioApertura: empresa.horarioApertura || "",
             horarioCierre: empresa.horarioCierre || "",
+            cierreFondoVentasMinutesBeforeEnd:
+              empresa.cierreFondoVentasMinutesBeforeEnd,
+            cierreFondoVentasMinutesAfterEnd:
+              empresa.cierreFondoVentasMinutesAfterEnd,
             empleados: empresa.empleados || [],
           });
         }
@@ -1140,9 +1144,11 @@ export default function DataEditor() {
     if (field === "password") {
       const key = getUserKey(usersData[index], index);
       const newValue = typeof value === "string" ? value : "";
-      const updated = [...usersData];
-      updated[index] = { ...updated[index], password: newValue };
-      setUsersData(updated);
+      setUsersData((prev) => {
+        const updated = [...prev];
+        updated[index] = { ...updated[index], password: newValue };
+        return updated;
+      });
 
       if (newValue.length > 0) {
         setPasswordStore((prev) => ({ ...prev, [key]: newValue }));
@@ -1155,12 +1161,12 @@ export default function DataEditor() {
       return;
     }
 
-    const updated = [...usersData];
-
-    // No cambiar permisos automáticamente al cambiar rol. Solo actualizar campo.
-    updated[index] = { ...updated[index], [field]: value };
-
-    setUsersData(updated);
+    setUsersData((prev) => {
+      const updated = [...prev];
+      // No cambiar permisos automáticamente al cambiar rol. Solo actualizar campo.
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
   };
 
   const removeUser = (index: number) => {

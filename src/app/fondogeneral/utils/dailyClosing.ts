@@ -1,0 +1,936 @@
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { db } from "@/config/firebase";
+import { DailyClosingsService, type DailyClosingRecord } from "@/services/daily-closings";
+import { MovimientosFondosService } from "@/services/movimientos-fondos";
+import type { Dispatch, SetStateAction } from "react";
+import type { DailyClosingFormValues } from "../components/DailyClosingModal";
+import type { FondoEntry } from "../types";
+import { buildDailyClosingEmailTemplate } from "@/services/email-templates/daily-closing";
+import {
+  compressAuditHistory,
+  dateKeyFromDate,
+  formatByCurrency,
+  getChangedFields,
+  isAutoAdjustmentProvider,
+} from "./helpers";
+import {
+  AUTO_ADJUSTMENT_MANAGER,
+  AUTO_ADJUSTMENT_PROVIDER_CODE,
+} from "../constants";
+import { acquireClosingGuard, releaseClosingGuard, touchClosingGuard } from "./closingGuards";
+
+type LedgerSnapshot = {
+  initialCRC: number;
+  currentCRC: number;
+  initialUSD: number;
+  currentUSD: number;
+};
+
+type GuardRef = { current: boolean };
+type NumberRef = { current: number };
+type StringSetRef = { current: Set<string> };
+
+export interface HandleConfirmDailyClosingDeps {
+  accountKey: string;
+  activeOwnerId: string | null;
+  beginDailyClosingsRequest: () => void;
+  buildPhysicalCountStorageKey: () => string | null;
+  cleanupPhysicalCountLegacyKeys: () => void;
+  company: string | null | undefined;
+  currentBalanceCRC: number;
+  currentBalanceUSD: number;
+  dailyClosingSubmitInProgressRef: GuardRef;
+  dailyClosings: DailyClosingRecord[];
+  dailyClosingsRequestCountRef: NumberRef;
+  editingDailyClosingId: string | null;
+  finishDailyClosingsRequest: () => void;
+  fondoEntries: FondoEntry[];
+  formatToastWaitTime: (remainingSec: number) => string;
+  isRegularUser: boolean;
+  lastDailyClosingSavedAtRef: NumberRef;
+  loadedDailyClosingKeysRef: StringSetRef;
+  loadingDailyClosingKeysRef: StringSetRef;
+  ownerAdminEmail: string | null;
+  persistMovementToFirestore: (
+    updatedEntries: FondoEntry[],
+    operationType: "create" | "edit" | "delete",
+    change:
+      | {
+          upsert?: FondoEntry;
+          deleteId?: string;
+          before?: FondoEntry | null;
+        }
+      | undefined,
+  ) => Promise<{ ok: boolean; confirmed: boolean; ledgerSnapshot?: LedgerSnapshot }>;
+  setDailyClosingInitialValues: (
+    value: DailyClosingFormValues | null,
+  ) => void;
+  setDailyClosingModalOpen: (open: boolean) => void;
+  setDailyClosings: Dispatch<SetStateAction<DailyClosingRecord[]>>;
+  setDailyClosingsHydrated: (value: boolean) => void;
+  setEditingDailyClosingId: (value: string | null) => void;
+  setFondoEntries: Dispatch<SetStateAction<FondoEntry[]>>;
+  setLedgerSnapshot: Dispatch<SetStateAction<LedgerSnapshot>>;
+  setPendingCierreDeCaja: (value: boolean) => void;
+  showToast: (message: string, kind?: "success" | "warning" | "error", durationMs?: number) => void;
+  storageSnapshotRef: { current: any };
+  user: { email?: string | null; id?: string | null } | null;
+}
+
+const formatDailyClosingDiff = (currency: "CRC" | "USD", diff: number) => {
+  if (diff === 0) return "Sin diferencias";
+  const sign = diff > 0 ? "+" : "-";
+  return `${sign} ${formatByCurrency(currency, Math.abs(diff))}`;
+};
+
+const getTodayInvoiceDDMM = (date: Date = new Date()) => {
+  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  return `${dd}${mm}`;
+};
+
+export async function handleConfirmDailyClosing(
+  closing: DailyClosingFormValues,
+  deps: HandleConfirmDailyClosingDeps,
+) {
+  const {
+    accountKey,
+    activeOwnerId,
+    beginDailyClosingsRequest,
+    buildPhysicalCountStorageKey,
+    cleanupPhysicalCountLegacyKeys,
+    company,
+    currentBalanceCRC,
+    currentBalanceUSD,
+    dailyClosingSubmitInProgressRef,
+    dailyClosings,
+    dailyClosingsRequestCountRef,
+    editingDailyClosingId,
+    finishDailyClosingsRequest,
+    fondoEntries,
+    formatToastWaitTime,
+    isRegularUser,
+    lastDailyClosingSavedAtRef,
+    loadedDailyClosingKeysRef,
+    loadingDailyClosingKeysRef,
+    ownerAdminEmail,
+    persistMovementToFirestore,
+    setDailyClosingInitialValues,
+    setDailyClosingModalOpen,
+    setDailyClosings,
+    setDailyClosingsHydrated,
+    setEditingDailyClosingId,
+    setFondoEntries,
+    setLedgerSnapshot,
+    setPendingCierreDeCaja,
+    showToast,
+    storageSnapshotRef,
+    user,
+  } = deps;
+
+  if (accountKey !== "FondoGeneral") {
+    setDailyClosingModalOpen(false);
+    return;
+  }
+
+  const managerName = closing.manager.trim();
+  if (!managerName) {
+    setDailyClosingModalOpen(false);
+    return;
+  }
+
+  let closingDateValue = closing.closingDate ? new Date(closing.closingDate) : new Date();
+  if (Number.isNaN(closingDateValue.getTime())) {
+    closingDateValue = new Date();
+  }
+
+  const createdAtDate = new Date();
+  const createdAt = createdAtDate.toISOString();
+  const diffCRC = Math.trunc(closing.totalCRC) - Math.trunc(currentBalanceCRC);
+  const diffUSD = Math.trunc(closing.totalUSD) - Math.trunc(currentBalanceUSD);
+  const userNotes = closing.notes.trim();
+  const closingDateKey = dateKeyFromDate(closingDateValue);
+
+  const record: DailyClosingRecord = {
+    id: editingDailyClosingId ?? `${Date.now()}`,
+    createdAt: editingDailyClosingId
+      ? (dailyClosings.find((d) => d.id === editingDailyClosingId)?.createdAt ?? createdAt)
+      : createdAt,
+    closingDate: closingDateValue.toISOString(),
+    manager: managerName,
+    totalCRC: Math.trunc(closing.totalCRC),
+    totalUSD: Math.trunc(closing.totalUSD),
+    recordedBalanceCRC: Math.trunc(currentBalanceCRC),
+    recordedBalanceUSD: Math.trunc(currentBalanceUSD),
+    diffCRC,
+    diffUSD,
+    notes: userNotes,
+    breakdownCRC: closing.breakdownCRC ?? {},
+    breakdownUSD: closing.breakdownUSD ?? {},
+  };
+
+  const normalizedCompany = (company || "").trim();
+  if (normalizedCompany.length === 0) {
+    setDailyClosingModalOpen(false);
+    showToast("Error: No se pudo identificar la empresa", "error");
+    return;
+  }
+
+  let closingGuard: { token: string; docId: string } | null = null;
+  try {
+    const isEditingClosing = Boolean(editingDailyClosingId);
+    if (!isEditingClosing && isRegularUser) {
+      const acquired = await acquireClosingGuard(normalizedCompany, "FONDO_GENERAL", user);
+      if (!acquired.ok) {
+        const kindLabel =
+          acquired.lockedKind === "FONDO_GENERAL"
+            ? "Fondo General"
+            : acquired.lockedKind === "FONDO_VENTAS"
+              ? "Fondo Ventas"
+              : "otro cierre";
+        showToast(
+          `Otro cierre (${kindLabel}) se está registrando. Intente en ${formatToastWaitTime(
+            acquired.remainingSec,
+          )}.`,
+          "warning",
+          6000,
+        );
+        return;
+      }
+      closingGuard = { token: acquired.token, docId: acquired.docId };
+    }
+  } catch {
+    // ignore; fall back to client-side cooldown
+  }
+
+  const isEditingClosing = Boolean(editingDailyClosingId);
+  const dailyClosingCooldownKey = `fondogeneral-lastDailyClosingSavedAt:${normalizedCompany}`;
+  if (!isEditingClosing) {
+    if (dailyClosingSubmitInProgressRef.current || dailyClosingsRequestCountRef.current > 0) {
+      showToast("Ya hay un cierre guardándose. Espere un momento.", "warning", 4000);
+      return;
+    }
+
+    const nowMs = Date.now();
+    let lastSavedAtMs = lastDailyClosingSavedAtRef.current;
+    if (typeof window !== "undefined") {
+      try {
+        const stored = Number(localStorage.getItem(dailyClosingCooldownKey));
+        if (Number.isFinite(stored) && stored > 0) {
+          lastSavedAtMs = Math.max(lastSavedAtMs, stored);
+        }
+      } catch {
+        // ignore storage errors
+      }
+    }
+
+    if (isRegularUser) {
+      if (lastSavedAtMs > 0 && nowMs - lastSavedAtMs < 60000) {
+        const remainingMs = 60000 - (nowMs - lastSavedAtMs);
+        const remainingSec = Math.ceil(remainingMs / 1000);
+        showToast(
+          `Ya se registró un cierre hace poco. Espere ${formatToastWaitTime(
+            remainingSec,
+          )} para crear otro.`,
+          "warning",
+          5000,
+        );
+        return;
+      }
+    }
+
+    dailyClosingSubmitInProgressRef.current = true;
+  }
+
+  beginDailyClosingsRequest();
+  try {
+    await DailyClosingsService.saveClosing(normalizedCompany, record);
+    console.log(
+      `[CIERRE] ? Cierre guardado exitosamente en Firestore. ID: ${record.id}, Fecha: ${record.closingDate}`,
+    );
+
+    if (!isEditingClosing && !isRegularUser) {
+      void touchClosingGuard(normalizedCompany, "FONDO_GENERAL", user);
+    }
+
+    if (!isEditingClosing) {
+      const savedAt = Date.now();
+      lastDailyClosingSavedAtRef.current = savedAt;
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(dailyClosingCooldownKey, String(savedAt));
+        } catch {
+          // ignore storage errors
+        }
+      }
+    }
+
+    setDailyClosings((prev) => {
+      const next = prev.filter((item) => item.id !== record.id);
+      return [...next, record];
+    });
+    loadedDailyClosingKeysRef.current.add(closingDateKey);
+    loadingDailyClosingKeysRef.current.delete(closingDateKey);
+    setDailyClosingsHydrated(true);
+
+    if (typeof window !== "undefined") {
+      try {
+        const key = buildPhysicalCountStorageKey();
+        if (key) localStorage.setItem(key, "true");
+        cleanupPhysicalCountLegacyKeys();
+      } catch {
+        // ignore storage errors
+      }
+    }
+
+    setPendingCierreDeCaja(false);
+    setDailyClosingModalOpen(false);
+  } catch (err) {
+    console.error("[CIERRE] ? Error guardando cierre en Firestore:", err);
+
+    try {
+      const whenISO = new Date().toISOString();
+      const where = "FondoSection.handleConfirmDailyClosing -> DailyClosingsService.saveClosing";
+      const errorMessage =
+        err instanceof Error
+          ? `${err.name}: ${err.message}${err.stack ? `\n\nStack:\n${err.stack}` : ""}`
+          : typeof err === "string"
+            ? err
+            : JSON.stringify(err);
+
+      const subject = `[ALERTA][CIERRE] Error al guardar cierre (${normalizedCompany})`;
+      const text = [
+        `Dónde: ${where}`,
+        `Cuándo: ${whenISO}`,
+        `Empresa: ${normalizedCompany}`,
+        `Usuario: ${(user?.email || "N/A").toString()}`,
+        `Cierre ID: ${record.id}`,
+        `Fecha cierre: ${record.closingDate}`,
+        "",
+        `Error: ${errorMessage}`,
+      ].join("\n");
+
+      const recipients = ["chavesa698@gmail.com", "price.master.srl@gmail.com"];
+      void Promise.all(
+        recipients.map((to) =>
+          addDoc(collection(db, "mail"), {
+            to,
+            subject,
+            text,
+            createdAt: serverTimestamp(),
+          }),
+        ),
+      ).catch((mailErr) => {
+        console.error("[CIERRE] ? Error encolando email de alerta:", mailErr);
+      });
+    } catch (mailErr) {
+      console.error("[CIERRE] ? Error preparando email de alerta:", mailErr);
+    }
+
+    showToast("Error al guardar el cierre. Por favor, intente de nuevo.", "error", 5000);
+
+    if (closingGuard) {
+      try {
+        void releaseClosingGuard(normalizedCompany, closingGuard);
+      } catch {
+        // ignore
+      }
+      closingGuard = null;
+    }
+    return;
+  } finally {
+    finishDailyClosingsRequest();
+    if (!isEditingClosing) {
+      dailyClosingSubmitInProgressRef.current = false;
+    }
+  }
+
+  const notificationRecipients = new Set<string>();
+  const adminRecipient = ownerAdminEmail?.trim();
+  if (adminRecipient) {
+    notificationRecipients.add(adminRecipient);
+  } else if (activeOwnerId) {
+    console.warn("Daily closing email: missing admin recipient for owner.", {
+      ownerId: activeOwnerId,
+      company: normalizedCompany,
+    });
+  }
+  const userEmail = user?.email?.trim();
+  if (userEmail) notificationRecipients.add(userEmail);
+
+  const emailTemplate = buildDailyClosingEmailTemplate({
+    company: normalizedCompany,
+    accountKey,
+    closingDateISO: record.closingDate,
+    manager: record.manager,
+    totalCRC: record.totalCRC,
+    totalUSD: record.totalUSD,
+    recordedBalanceCRC: record.recordedBalanceCRC,
+    recordedBalanceUSD: record.recordedBalanceUSD,
+    diffCRC: record.diffCRC,
+    diffUSD: record.diffUSD,
+    notes: record.notes,
+  });
+
+  if (notificationRecipients.size === 0 && activeOwnerId) {
+    console.warn(
+      "Daily closing email: skipped sending notification because no recipients were resolved.",
+      {
+        ownerId: activeOwnerId,
+        company: normalizedCompany,
+      },
+    );
+  }
+
+  for (const recipient of notificationRecipients) {
+    if (!recipient) continue;
+    try {
+      const docRef = await addDoc(collection(db, "mail"), {
+        to: recipient,
+        subject: emailTemplate.subject,
+        text: emailTemplate.text,
+        html: emailTemplate.html,
+        createdAt: serverTimestamp(),
+      });
+      console.log(`[MAIL-DOC] Documento creado en 'mail' para ${recipient}, ID: ${docRef.id}`);
+      showToast("Correo de cierre diario enviado correctamente", "success");
+    } catch (err) {
+      console.error(`[MAIL-DOC] Error creando documento en 'mail' para ${recipient}:`, err);
+      showToast("Error al enviar correo de cierre diario", "error");
+    }
+  }
+
+  try {
+    const newMovements: FondoEntry[] = [];
+    let latestLedgerSnapshot: LedgerSnapshot | null = null;
+
+    const closingBalanceCRC = Math.trunc(record.totalCRC ?? 0);
+    const closingBalanceUSD = Math.trunc(record.totalUSD ?? 0);
+
+    const buildCierreMovementBaseId = (when: Date) => {
+      const yyyy = when.getFullYear();
+      const MM = String(when.getMonth() + 1).padStart(2, "0");
+      const DD = String(when.getDate()).padStart(2, "0");
+      const HH = String(when.getHours()).padStart(2, "0");
+      const mm = String(when.getMinutes()).padStart(2, "0");
+      const ss = String(when.getSeconds()).padStart(2, "0");
+      const mmm = String(when.getMilliseconds()).padStart(3, "0");
+      const dateKey = `${yyyy}_${MM}_${DD}`;
+      const timeKey = `${HH}_${mm}_${ss}_${mmm}`;
+      return `${dateKey}-${timeKey}_CIERRE`;
+    };
+
+    const cierreBaseId = buildCierreMovementBaseId(createdAtDate);
+    let adjustedDiffCRC = record.diffCRC;
+    let adjustedDiffUSD = record.diffUSD;
+    if (editingDailyClosingId) {
+      let prevCRCContribution = 0;
+      let prevUSDContribution = 0;
+      fondoEntries.forEach((e) => {
+        if (e.originalEntryId === record.id && isAutoAdjustmentProvider(e.providerCode)) {
+          const contrib = (e.amountIngreso || 0) - (e.amountEgreso || 0);
+          if ((e.currency as any) === "USD") {
+            prevUSDContribution += contrib;
+          } else {
+            prevCRCContribution += contrib;
+          }
+        }
+      });
+
+      const baseBalanceCRC = currentBalanceCRC - prevCRCContribution;
+      const baseBalanceUSD = currentBalanceUSD - prevUSDContribution;
+      adjustedDiffCRC = Math.trunc(closing.totalCRC) - Math.trunc(baseBalanceCRC);
+      adjustedDiffUSD = Math.trunc(closing.totalUSD) - Math.trunc(baseBalanceUSD);
+      record.diffCRC = adjustedDiffCRC;
+      record.diffUSD = adjustedDiffUSD;
+      try {
+        record.recordedBalanceCRC = Math.trunc(baseBalanceCRC);
+        record.recordedBalanceUSD = Math.trunc(baseBalanceUSD);
+      } catch (rbErr) {
+        console.error("[FG-DEBUG] Error setting recordedBalance on edited closing:", rbErr);
+      }
+
+      console.info("[FG-DEBUG] Editing closing values", {
+        closingTotalCRC: closing.totalCRC,
+        currentBalanceCRC,
+        prevCRCContribution,
+        baseBalanceCRC,
+        adjustedDiffCRC,
+      });
+    }
+
+    const willCreateInfo = adjustedDiffCRC === 0 && adjustedDiffUSD === 0;
+    const willCreateCRC = !willCreateInfo && Boolean(adjustedDiffCRC);
+    const willCreateUSD = !willCreateInfo && Boolean(adjustedDiffUSD);
+    const plannedCount = Number(willCreateCRC) + Number(willCreateUSD) + Number(willCreateInfo);
+
+    if (adjustedDiffCRC && adjustedDiffCRC !== 0) {
+      const diff = Math.trunc(adjustedDiffCRC);
+      const isPositive = diff > 0;
+      const paymentType = "AJUSTE CIERRE" as any;
+      const invoiceDDMM = getTodayInvoiceDDMM(createdAtDate);
+      const entry: FondoEntry = {
+        id: cierreBaseId,
+        providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
+        invoiceNumber: invoiceDDMM,
+        paymentType,
+        amountEgreso: isPositive ? 0 : Math.abs(diff),
+        amountIngreso: isPositive ? diff : 0,
+        manager: AUTO_ADJUSTMENT_MANAGER,
+        notes: `AJUSTE APLICADO AL SALDO ACTUAL\n[ALERT_ICON]Diferencia CRC: ${
+          diff >= 0 ? "+ " : "- "
+        }${formatByCurrency("CRC", Math.abs(diff))}.${userNotes ? ` Notas: ${userNotes}` : ""}`,
+        createdAt,
+        accountId: accountKey,
+        currency: "CRC",
+        breakdown: closing.breakdownCRC ?? {},
+        closingBalanceCRC,
+        closingBalanceUSD,
+      } as FondoEntry;
+      newMovements.push(entry);
+    }
+
+    if (adjustedDiffUSD && adjustedDiffUSD !== 0) {
+      const diff = Math.trunc(adjustedDiffUSD);
+      const isPositive = diff > 0;
+      const paymentType = "AJUSTE CIERRE" as any;
+      const invoiceDDMM = getTodayInvoiceDDMM(createdAtDate);
+      const entry: FondoEntry = {
+        id: plannedCount > 1 ? `${cierreBaseId}_USD` : cierreBaseId,
+        providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
+        invoiceNumber: invoiceDDMM,
+        paymentType,
+        amountEgreso: isPositive ? 0 : Math.abs(diff),
+        amountIngreso: isPositive ? diff : 0,
+        manager: AUTO_ADJUSTMENT_MANAGER,
+        notes: `AJUSTE APLICADO AL SALDO ACTUAL\n[ALERT_ICON]Diferencia USD: ${
+          diff >= 0 ? "+ " : "- "
+        }${formatByCurrency("USD", Math.abs(diff))}.${userNotes ? ` Notas: ${userNotes}` : ""}`,
+        createdAt,
+        accountId: accountKey,
+        currency: "USD",
+        closingBalanceCRC,
+        closingBalanceUSD,
+      } as FondoEntry;
+      if ((entry as any).currency === "USD") (entry as any).breakdown = closing.breakdownUSD ?? {};
+      newMovements.push(entry);
+    }
+
+    if (adjustedDiffCRC === 0 && adjustedDiffUSD === 0) {
+      const invoiceDDMM = getTodayInvoiceDDMM(createdAtDate);
+      const entry: FondoEntry = {
+        id: cierreBaseId,
+        providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
+        invoiceNumber: invoiceDDMM,
+        paymentType: "INFORMATIVO" as any,
+        amountEgreso: 0,
+        amountIngreso: 0,
+        manager: AUTO_ADJUSTMENT_MANAGER,
+        notes: `[CHECK_ICON]Sin diferencias.${userNotes ? ` Notas: ${userNotes}` : ""}`,
+        createdAt,
+        accountId: accountKey,
+        currency: "CRC",
+        breakdown: closing.breakdownCRC ?? {},
+        closingBalanceCRC,
+        closingBalanceUSD,
+      } as FondoEntry;
+      newMovements.push(entry);
+    }
+
+    if (editingDailyClosingId && newMovements.length === 0) {
+      console.info("[FG-DEBUG] Removing previous adjustment movements for closing", record.id, {
+        beforeCount: fondoEntries.length,
+      });
+
+      try {
+        const toRemoveNow = fondoEntries.filter(
+          (e) => e.originalEntryId === record.id && isAutoAdjustmentProvider(e.providerCode),
+        );
+        for (const removed of toRemoveNow) {
+          const saved = await persistMovementToFirestore(fondoEntries, "delete", {
+            deleteId: removed.id,
+            before: removed,
+          });
+          if (saved.ok && saved.ledgerSnapshot) {
+            latestLedgerSnapshot = saved.ledgerSnapshot;
+          }
+        }
+      } catch (persistRemoveErr) {
+        console.error(
+          "[FG-DEBUG] Error persisting deletion of adjustment movements:",
+          persistRemoveErr,
+        );
+      }
+
+      setFondoEntries((prev) => {
+        const toRemove = prev.filter(
+          (e) => e.originalEntryId === record.id && isAutoAdjustmentProvider(e.providerCode),
+        );
+        const filtered = prev.filter(
+          (e) => !(e.originalEntryId === record.id && isAutoAdjustmentProvider(e.providerCode)),
+        );
+        console.info("[FG-DEBUG] After remove, count:", filtered.length);
+        if (toRemove.length > 0) {
+          try {
+            const resolution = {
+              removedAdjustments: toRemove.map((r) => ({
+                id: r.id,
+                currency: r.currency,
+                amount: (r.amountIngreso || 0) - (r.amountEgreso || 0),
+                amountIngreso: r.amountIngreso || 0,
+                amountEgreso: r.amountEgreso || 0,
+                manager: r.manager,
+                createdAt: r.createdAt,
+              })),
+              note: "Ajustes eliminados manualmente al editar el cierre",
+            } as any;
+
+            setDailyClosings((prevClosings) => {
+              const updated = prevClosings.map((d) => {
+                if (d.id !== record.id) return d;
+                return {
+                  ...d,
+                  adjustmentResolution: resolution,
+                } as DailyClosingRecord;
+              });
+              try {
+                const updatedRecord = updated.find((d) => d.id === record.id);
+                if (updatedRecord && normalizedCompany.length > 0) {
+                  void DailyClosingsService.saveClosing(normalizedCompany, updatedRecord)
+                    .then(() => {
+                      console.log(
+                        `[CIERRE] ? Ajuste de cierre guardado exitosamente. ID: ${updatedRecord.id}`,
+                      );
+                    })
+                    .catch((saveErr) => {
+                      console.error(
+                        "[CIERRE] ? Error saving updated daily closing with resolution:",
+                        saveErr,
+                      );
+                    });
+                }
+              } catch (saveErr) {
+                console.error("[CIERRE] ? Error persisting daily closing resolution:", saveErr);
+              }
+              return updated;
+            });
+          } catch (err) {
+            console.error("Error preparing adjustment resolution summary:", err);
+          }
+        }
+
+        return filtered;
+      });
+
+      if (latestLedgerSnapshot) {
+        setLedgerSnapshot(latestLedgerSnapshot);
+      }
+    }
+
+    if (newMovements.length > 0) {
+      newMovements.forEach((m) => (m.originalEntryId = record.id));
+
+      try {
+        const normalizeCurrency = (value: unknown) => (value === "USD" ? "USD" : "CRC");
+
+        const plannedCurrencies = new Set(newMovements.map((m) => normalizeCurrency(m.currency)));
+
+        const existingAdjustments = editingDailyClosingId
+          ? fondoEntries.filter(
+              (e) => e.originalEntryId === record.id && isAutoAdjustmentProvider(e.providerCode),
+            )
+          : [];
+
+        const existingByCurrency = new Map<string, FondoEntry>();
+        existingAdjustments.forEach((e) => {
+          existingByCurrency.set(normalizeCurrency(e.currency), e);
+        });
+
+        if (editingDailyClosingId) {
+          for (const prevAdj of existingAdjustments) {
+            const cur = normalizeCurrency(prevAdj.currency);
+            if (!plannedCurrencies.has(cur)) {
+              const saved = await persistMovementToFirestore(fondoEntries, "delete", {
+                deleteId: prevAdj.id,
+                before: prevAdj,
+              });
+              if (saved.ok && saved.ledgerSnapshot) {
+                latestLedgerSnapshot = saved.ledgerSnapshot;
+              }
+            }
+          }
+        }
+
+        for (const movement of newMovements) {
+          const cur = normalizeCurrency(movement.currency);
+          const existing = existingByCurrency.get(cur);
+
+          if (editingDailyClosingId && existing) {
+            const updatedForPersist: FondoEntry = {
+              ...existing,
+              paymentType: movement.paymentType,
+              invoiceNumber: movement.invoiceNumber,
+              amountEgreso: movement.amountEgreso,
+              amountIngreso: movement.amountIngreso,
+              notes: movement.notes,
+              breakdown: movement.breakdown ?? existing.breakdown,
+              createdAt: movement.createdAt,
+              manager: AUTO_ADJUSTMENT_MANAGER,
+              providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
+              accountId: accountKey,
+              currency: cur,
+              originalEntryId: record.id,
+              closingBalanceCRC: movement.closingBalanceCRC,
+              closingBalanceUSD: movement.closingBalanceUSD,
+            } as FondoEntry;
+
+            const saved = await persistMovementToFirestore(fondoEntries, "edit", {
+              upsert: updatedForPersist,
+              before: existing,
+            });
+            if (saved.ok && saved.ledgerSnapshot) {
+              latestLedgerSnapshot = saved.ledgerSnapshot;
+            }
+          } else {
+            const saved = await persistMovementToFirestore([movement, ...fondoEntries], "create", {
+              upsert: movement,
+            });
+            if (saved.ok && saved.ledgerSnapshot) {
+              latestLedgerSnapshot = saved.ledgerSnapshot;
+            }
+          }
+        }
+      } catch (persistAdjErr) {
+        console.error("[FG-DEBUG] Error persisting daily closing adjustments to main ledger:", persistAdjErr);
+      }
+
+      if (editingDailyClosingId) {
+        setFondoEntries((prev) => {
+          console.info(
+            "[FG-DEBUG] Updating existing related adjustment movements for closing",
+            record.id,
+            { prevCount: prev.length, newMovements },
+          );
+          const updated = prev.map((e) => {
+            if (e.originalEntryId === record.id && isAutoAdjustmentProvider(e.providerCode)) {
+              const match = newMovements.find((nm) => nm.currency === e.currency);
+              if (!match) return e;
+              let history: any[] = [];
+              try {
+                const existing = e.auditDetails ? (JSON.parse(e.auditDetails) as any) : null;
+                if (existing && Array.isArray(existing.history)) history = existing.history.slice();
+                else if (existing && existing.before && existing.after) {
+                  history = [
+                    {
+                      at: existing.at ?? e.createdAt,
+                      before: existing.before,
+                      after: existing.after,
+                    },
+                  ];
+                }
+              } catch {
+                history = [];
+              }
+              const changedFields = getChangedFields(
+                {
+                  providerCode: e.providerCode,
+                  invoiceNumber: e.invoiceNumber,
+                  paymentType: e.paymentType,
+                  amountEgreso: e.amountEgreso,
+                  amountIngreso: e.amountIngreso,
+                  manager: e.manager,
+                  notes: e.notes,
+                  currency: e.currency,
+                },
+                {
+                  providerCode: e.providerCode,
+                  invoiceNumber: match.invoiceNumber,
+                  paymentType: match.paymentType,
+                  amountEgreso: match.amountEgreso,
+                  amountIngreso: match.amountIngreso,
+                  manager: AUTO_ADJUSTMENT_MANAGER,
+                  notes: match.notes,
+                  currency: match.currency,
+                },
+              );
+              const newRecord = { at: new Date().toISOString(), ...changedFields };
+              history.push(newRecord);
+              const compressedHistory = compressAuditHistory(history);
+              return {
+                ...e,
+                paymentType: match.paymentType,
+                amountEgreso: match.amountEgreso,
+                amountIngreso: match.amountIngreso,
+                breakdown: match.breakdown ?? e.breakdown,
+                notes: match.notes,
+                createdAt: match.createdAt,
+                manager: AUTO_ADJUSTMENT_MANAGER,
+                closingBalanceCRC: match.closingBalanceCRC,
+                closingBalanceUSD: match.closingBalanceUSD,
+                isAudit: true,
+                originalEntryId: e.originalEntryId ?? e.id,
+                auditDetails: JSON.stringify({ history: compressedHistory }),
+              } as FondoEntry;
+            }
+            return e;
+          });
+          newMovements.forEach((nm) => {
+            const exists = updated.some(
+              (u) => u.originalEntryId === record.id && u.currency === nm.currency && isAutoAdjustmentProvider(u.providerCode),
+            );
+            if (!exists) {
+              updated.unshift(nm);
+            }
+          });
+          console.info("[FG-DEBUG] Updated fondoEntries count after merge:", updated.length);
+          return updated;
+        });
+      } else {
+        console.info("[FG-DEBUG] Prepending new adjustment movements", newMovements);
+        setFondoEntries((prev) => {
+          const next = [...newMovements, ...prev];
+          console.info("[FG-DEBUG] fondoEntries count after prepend:", next.length);
+          return next;
+        });
+      }
+
+      if (latestLedgerSnapshot) {
+        setLedgerSnapshot(latestLedgerSnapshot);
+      }
+
+      try {
+        const addedParts: string[] = newMovements.map((m) => {
+          const amt = (m.amountIngreso || 0) - (m.amountEgreso || 0);
+          const sign = amt >= 0 ? "+" : "-";
+          return `${m.currency} ${sign} ${formatByCurrency(m.currency as "CRC" | "USD", Math.abs(amt))}`;
+        });
+        const note = `Ajustes aplicados: ${addedParts.join(" / ")}`;
+
+        const totalNewCRC = newMovements.reduce(
+          (s, m) => s + (m.currency === "CRC" ? (m.amountIngreso || 0) - (m.amountEgreso || 0) : 0),
+          0,
+        );
+        const totalNewUSD = newMovements.reduce(
+          (s, m) => s + (m.currency === "USD" ? (m.amountIngreso || 0) - (m.amountEgreso || 0) : 0),
+          0,
+        );
+
+        const prevCRCContributionExisting = fondoEntries.reduce(
+          (s, e) =>
+            s +
+            (e.originalEntryId === record.id && isAutoAdjustmentProvider(e.providerCode) && e.currency === "CRC"
+              ? (e.amountIngreso || 0) - (e.amountEgreso || 0)
+              : 0),
+          0,
+        );
+        const prevUSDContributionExisting = fondoEntries.reduce(
+          (s, e) =>
+            s +
+            (e.originalEntryId === record.id && isAutoAdjustmentProvider(e.providerCode) && e.currency === "USD"
+              ? (e.amountIngreso || 0) - (e.amountEgreso || 0)
+              : 0),
+          0,
+        );
+
+        const postAdjustmentBalanceCRC = Math.trunc(
+          currentBalanceCRC - prevCRCContributionExisting + totalNewCRC,
+        );
+        const postAdjustmentBalanceUSD = Math.trunc(
+          currentBalanceUSD - prevUSDContributionExisting + totalNewUSD,
+        );
+        const hasCRCAdjustments = totalNewCRC !== 0 || prevCRCContributionExisting !== 0;
+        const hasUSDAdjustments = totalNewUSD !== 0 || prevUSDContributionExisting !== 0;
+
+        setDailyClosings((prevClosings) => {
+          const updated = prevClosings.map((d) => {
+            if (d.id !== record.id) return d;
+            const existingResolution = d.adjustmentResolution || {};
+            const updatedResolution: DailyClosingRecord["adjustmentResolution"] = {
+              ...(existingResolution.removedAdjustments
+                ? { removedAdjustments: existingResolution.removedAdjustments }
+                : {}),
+              note,
+              ...(hasCRCAdjustments ? { postAdjustmentBalanceCRC } : {}),
+              ...(hasUSDAdjustments ? { postAdjustmentBalanceUSD } : {}),
+            };
+            return {
+              ...d,
+              adjustmentResolution: updatedResolution,
+            } as DailyClosingRecord;
+          });
+
+          try {
+            const updatedRecord = updated.find((d) => d.id === record.id);
+            if (updatedRecord && normalizedCompany.length > 0) {
+              void DailyClosingsService.saveClosing(normalizedCompany, updatedRecord)
+                .then(() => {
+                  console.log(`[CIERRE] ? Nota de ajuste guardada exitosamente. ID: ${updatedRecord.id}`);
+                })
+                .catch((saveErr) => {
+                  console.error("[CIERRE] ? Error saving daily closing with adjustment note:", saveErr);
+                });
+            }
+          } catch (saveErr) {
+            console.error("[CIERRE] ? Error persisting daily closing adjustment note:", saveErr);
+          }
+
+          return updated;
+        });
+      } catch (noteErr) {
+        console.error("Error building/persisting adjustment note:", noteErr);
+      }
+    }
+  } catch (err) {
+    console.error("Error creating movement(s) for daily closing difference:", err);
+  }
+
+  try {
+    const crcDiff = record.diffCRC ?? 0;
+    const usdDiff = record.diffUSD ?? 0;
+    if (crcDiff === 0 && usdDiff === 0) {
+      try {
+        showToast("Cierre completo, sin diferencias", "success", 4000);
+      } catch {
+        // swallow toast errors to avoid breaking flow
+      }
+    } else {
+      try {
+        const parts: string[] = [];
+        if (crcDiff !== 0) parts.push(`CRC ${formatDailyClosingDiff("CRC", crcDiff)}`);
+        if (usdDiff !== 0) parts.push(`USD ${formatDailyClosingDiff("USD", usdDiff)}`);
+        const message = `Cierre con diferencias: ${parts.join(" / ")}`;
+        showToast(message, "warning", 6000);
+      } catch {
+        // swallow toast errors
+      }
+    }
+  } catch {
+    // defensive: ignore
+  }
+
+  if (!editingDailyClosingId && storageSnapshotRef.current) {
+    const normalizedCompanyForLock = (company || "").trim();
+    if (!storageSnapshotRef.current.state) {
+      storageSnapshotRef.current.state =
+        MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(normalizedCompanyForLock).state;
+    }
+    storageSnapshotRef.current.state.lockedUntil = createdAt;
+
+    if (normalizedCompanyForLock.length > 0) {
+      const companyKey = MovimientosFondosService.buildCompanyMovementsKey(normalizedCompanyForLock);
+      try {
+        localStorage.setItem(companyKey, JSON.stringify(storageSnapshotRef.current));
+        void MovimientosFondosService.saveDocument(companyKey, storageSnapshotRef.current)
+          .then(() => console.log("[LOCK-DEBUG] Force saved to Firestore after closing"))
+          .catch((err) => {
+            console.error("Error force saving lockedUntil to Firestore:", err);
+          });
+      } catch (err) {
+        console.error("Error force persisting lockedUntil:", err);
+      }
+    }
+  }
+
+  setEditingDailyClosingId(null);
+  setDailyClosingInitialValues(null);
+}

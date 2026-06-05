@@ -35,6 +35,11 @@ yarn-error.log*
 .env*
 *.md
 
+!AGENTS.md
+!skills/
+!skills/**
+
+
 # Firebase Admin SDK credentials
 serviceAccountKey.json
 

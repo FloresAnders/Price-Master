@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { createPortal } from "react-dom";
 import {
   FileText,
   Loader2,
@@ -17,6 +18,7 @@ import Divider from "@mui/material/Divider";
 import Drawer from "@mui/material/Drawer";
 import IconButton from "@mui/material/IconButton";
 import Typography from "@mui/material/Typography";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 import type { MovementCurrencyKey } from "@/services/movimientos-fondos";
 
 type ProviderOption = {
@@ -97,6 +99,7 @@ export default function CreateInvoiceDrawer({
 }: CreateInvoiceDrawerProps) {
   const [displayAmount, setDisplayAmount] = React.useState("");
   const [isManagerDropdownOpen, setIsManagerDropdownOpen] = React.useState(false);
+  const [showConfirmModal, setShowConfirmModal] = React.useState(false);
 
   const formatAmount = React.useCallback(
     (raw: string) => {
@@ -130,7 +133,7 @@ export default function CreateInvoiceDrawer({
     "h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)]";
 
   return (
-    <Drawer
+    <><Drawer
       anchor="right"
       open={open}
       onClose={onClose}
@@ -188,7 +191,7 @@ export default function CreateInvoiceDrawer({
             className="flex flex-col gap-4"
             onSubmit={(event) => {
               event.preventDefault();
-              void onSubmit();
+              setShowConfirmModal(true);
             }}
           >
             <div className="flex items-center gap-3 rounded-lg border border-cyan-700/20 bg-cyan-950/10 px-3 py-2">
@@ -569,9 +572,28 @@ export default function CreateInvoiceDrawer({
                 )}
               </button>
             </div>
+
           </form>
         </Box>
       </Box>
     </Drawer>
+      {createPortal(
+        <ConfirmModal
+          open={showConfirmModal}
+          title="Confirmar guardado"
+          message="¿Estás seguro de que deseas guardar esta FC/NC?"
+          confirmText="Guardar FC/NC"
+          cancelText="Cancelar"
+          actionType="assign"
+          loading={createSubmitting}
+          onConfirm={() => {
+            setShowConfirmModal(false);
+            void onSubmit();
+          }}
+          onCancel={() => setShowConfirmModal(false)}
+        />,
+        document.body,
+      )}
+    </>
   );
 }

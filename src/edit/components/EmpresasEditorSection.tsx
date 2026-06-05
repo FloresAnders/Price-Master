@@ -125,6 +125,8 @@ export default function EmpresasEditorSection({
                 ubicacion: "",
                 horarioApertura: "",
                 horarioCierre: "",
+                cierreFondoVentasMinutesBeforeEnd: 15,
+                cierreFondoVentasMinutesAfterEnd: 90,
                 empleados: [
                   {
                     Empleado: "",
@@ -158,7 +160,7 @@ export default function EmpresasEditorSection({
               <>
                 {!isEditing && (
                   <>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-3 sm:mb-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4 mb-3 sm:mb-4">
                       <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2.5 sm:px-4 sm:py-3">
                         <p className="text-[10px] sm:text-xs font-medium text-[var(--muted-foreground)]">
                           Nombre
@@ -189,6 +191,22 @@ export default function EmpresasEditorSection({
                         </p>
                         <p className="text-sm sm:text-base font-semibold text-[var(--foreground)] break-words">
                           {empresa.horarioCierre || "Sin horario"}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2.5 sm:px-4 sm:py-3">
+                        <p className="text-[10px] sm:text-xs font-medium text-[var(--muted-foreground)]">
+                          Cierre FV antes
+                        </p>
+                        <p className="text-sm sm:text-base font-semibold text-[var(--foreground)] break-words">
+                          {empresa.cierreFondoVentasMinutesBeforeEnd ?? 15} min
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2.5 sm:px-4 sm:py-3">
+                        <p className="text-[10px] sm:text-xs font-medium text-[var(--muted-foreground)]">
+                          Cierre FV despues
+                        </p>
+                        <p className="text-sm sm:text-base font-semibold text-[var(--foreground)] break-words">
+                          {empresa.cierreFondoVentasMinutesAfterEnd ?? 90} min
                         </p>
                       </div>
                     </div>
@@ -289,6 +307,64 @@ export default function EmpresasEditorSection({
                             copy[idx] = {
                               ...copy[idx],
                               horarioCierre: e.target.value,
+                            };
+                            setEmpresasData(copy);
+                          }}
+                          className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
+                          style={{
+                            background: "var(--input-bg)",
+                            color: "var(--foreground)",
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium mb-1">
+                          Cierre FV antes del fin:
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={
+                            empresa.cierreFondoVentasMinutesBeforeEnd ?? 15
+                          }
+                          onChange={(e) => {
+                            const copy = [...empresasData];
+                            copy[idx] = {
+                              ...copy[idx],
+                              cierreFondoVentasMinutesBeforeEnd: Math.max(
+                                0,
+                                parseInt(e.target.value, 10) || 0,
+                              ),
+                            };
+                            setEmpresasData(copy);
+                          }}
+                          className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
+                          style={{
+                            background: "var(--input-bg)",
+                            color: "var(--foreground)",
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium mb-1">
+                          Cierre FV despues del fin:
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={empresa.cierreFondoVentasMinutesAfterEnd ?? 90}
+                          onChange={(e) => {
+                            const copy = [...empresasData];
+                            copy[idx] = {
+                              ...copy[idx],
+                              cierreFondoVentasMinutesAfterEnd: Math.max(
+                                0,
+                                parseInt(e.target.value, 10) || 0,
+                              ),
                             };
                             setEmpresasData(copy);
                           }}
@@ -686,6 +762,10 @@ export default function EmpresasEditorSection({
                                     ubicacion: e.ubicacion || "",
                                     horarioApertura: e.horarioApertura || "",
                                     horarioCierre: e.horarioCierre || "",
+                                    cierreFondoVentasMinutesBeforeEnd:
+                                      e.cierreFondoVentasMinutesBeforeEnd,
+                                    cierreFondoVentasMinutesAfterEnd:
+                                      e.cierreFondoVentasMinutesAfterEnd,
                                     empleados: e.empleados || [],
                                   });
                                   await loadData();

@@ -8,6 +8,7 @@ import {
   ChevronRight,
   RotateCcw,
   Search,
+  ChevronDown,
   CreditCard,
   ShoppingCart,
   Clock,
@@ -15,7 +16,6 @@ import {
   Eye,
   FileText,
   Pencil,
-  ClipboardList,
   BadgeCheck,
   Save,
   X,
@@ -88,10 +88,22 @@ const dateKeyFromDate = (date: Date): string => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
-const dateKeyFromIso = (iso: string): string => {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return dateKeyFromDate(d);
+const dateKeyInCostaRica = (iso: string): string => {
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Costa_Rica",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date(iso));
+    const yyyy = parts.find((p) => p.type === "year")?.value;
+    const mm = parts.find((p) => p.type === "month")?.value;
+    const dd = parts.find((p) => p.type === "day")?.value;
+    if (!yyyy || !mm || !dd) return "";
+    return `${yyyy}-${mm}-${dd}`;
+  } catch {
+    return "";
+  }
 };
 
 const formatKeyToDisplay = (key: string): string => {
@@ -270,12 +282,44 @@ export default function FacturasCreditoPage() {
   const [filterPagada, setFilterPagada] = useState(false);
   const [filterPartial, setFilterPartial] = useState(false);
   const [filterRebajadas, setFilterRebajadas] = useState(false);
+  const [totalsExpanded, setTotalsExpanded] = useState(false);
+  const resetViewFilters = useCallback(() => {
+    setFilterEditedOnly(false);
+    setFilterPendingCredit(false);
+    setFilterNCPending(false);
+    setFilterPagada(false);
+    setFilterPartial(false);
+    setFilterRebajadas(false);
+  }, []);
+  const setExclusiveViewFilter = useCallback(
+    (
+      filter:
+        | "filterEditedOnly"
+        | "filterPendingCredit"
+        | "filterNCPending"
+        | "filterPagada"
+        | "filterPartial"
+        | "filterRebajadas",
+      checked: boolean,
+    ) => {
+      resetViewFilters();
+      if (!checked) return;
+      if (filter === "filterEditedOnly") setFilterEditedOnly(true);
+      if (filter === "filterPendingCredit") setFilterPendingCredit(true);
+      if (filter === "filterNCPending") setFilterNCPending(true);
+      if (filter === "filterPagada") setFilterPagada(true);
+      if (filter === "filterPartial") setFilterPartial(true);
+      if (filter === "filterRebajadas") setFilterRebajadas(true);
+    },
+    [resetViewFilters],
+  );
   const hasActiveStatusFilter =
     filterPendingCredit ||
     filterNCPending ||
     filterPagada ||
     filterPartial ||
     filterRebajadas;
+  const hasActiveViewFilter = hasActiveStatusFilter || filterEditedOnly;
   const [rememberFilters, setRememberFilters] = useState(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("fg_rememberFilters") === "true";
@@ -391,6 +435,18 @@ export default function FacturasCreditoPage() {
   }, [columnWidths]);
 
   const todayKey = useMemo(() => dateKeyFromDate(new Date()), []);
+
+  // Recalcular todayKey cada minuto para sesiones largas
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      setComputedTodayKey(dateKeyFromDate(new Date()));
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const [computedTodayKey, setComputedTodayKey] = useState(() => dateKeyFromDate(new Date()));
+  const effectiveTodayKey = computedTodayKey || todayKey;
   const companySelectId = "facturas-company-select";
   const [availableCompanies, setAvailableCompanies] = useState<Empresas[]>([]);
   const [pendingCierreDeCaja, setPendingCierreDeCaja] = useState(false);
@@ -494,20 +550,47 @@ export default function FacturasCreditoPage() {
   );
 
   const getFetchDateRange = useCallback(() => {
+    const nowKey = dateKeyFromDate(new Date());
+
     if (fromFilter && toFilter) {
-      const endDate = new Date(toFilter + "T23:59:59.999Z");
+      const from = fromFilter;
+      let to = toFilter;
+      if (from > to) to = from;
+      const startDate = new Date(from + "T06:00:00.000Z");
+      const endDate = new Date(to + "T06:00:00.000Z");
       endDate.setDate(endDate.getDate() + 1);
       return {
-        startIso: fromFilter + "T00:00:00.000Z",
+        startIso: startDate.toISOString(),
         endIso: endDate.toISOString(),
       };
     }
+
+    if (fromFilter && !toFilter) {
+      const startDate = new Date(fromFilter + "T06:00:00.000Z");
+      const endDate = new Date(nowKey + "T06:00:00.000Z");
+      endDate.setDate(endDate.getDate() + 1);
+      return {
+        startIso: startDate.toISOString(),
+        endIso: endDate.toISOString(),
+      };
+    }
+
+    if (!fromFilter && toFilter) {
+      const endDate = new Date(toFilter + "T06:00:00.000Z");
+      endDate.setDate(endDate.getDate() + 1);
+      return {
+        startIso: "1970-01-01T06:00:00.000Z",
+        endIso: endDate.toISOString(),
+      };
+    }
+
     const day = currentDailyKey || dateKeyFromDate(new Date());
-    const nextDay = new Date(day + "T00:00:00.000Z");
-    nextDay.setDate(nextDay.getDate() + 1);
+    const startOfDay = new Date(day + "T06:00:00.000Z");
+    const endOfDay = new Date(startOfDay);
+    endOfDay.setDate(endOfDay.getDate() + 1);
     return {
-      startIso: day + "T00:00:00.000Z",
-      endIso: nextDay.toISOString(),
+      startIso: startOfDay.toISOString(),
+      endIso: endOfDay.toISOString(),
     };
   }, [fromFilter, toFilter, currentDailyKey]);
 
@@ -520,7 +603,7 @@ export default function FacturasCreditoPage() {
 
       setMovementsLoading(true);
       try {
-        const data = hasActiveStatusFilter
+        const data = hasActiveViewFilter
           ? await FacturasService.listMovementsByEmpresa(companyName, {
               limit: 800,
             })
@@ -539,7 +622,7 @@ export default function FacturasCreditoPage() {
         setMovementsLoading(false);
       }
     },
-    [getFetchDateRange, hasActiveStatusFilter],
+    [getFetchDateRange, hasActiveViewFilter],
   );
 
   useEffect(() => {
@@ -708,7 +791,16 @@ export default function FacturasCreditoPage() {
         companyKeysToTry.map((key) => getMonthlySchedulesCached(key, year, month0)),
       );
       const monthSchedules = schedulesLists.flat();
-      return resolveManagerFromControlHorario({ nowISO, empresa, monthSchedules });
+      return resolveManagerFromControlHorario({
+        nowISO,
+        empresa,
+        monthSchedules,
+        closingMovements: movements as Array<{
+          createdAt?: string;
+          providerCode?: string;
+        }>,
+        providers,
+      });
     },
     [getMonthlySchedulesCached, selectedCompany, selectedEmpresaMeta],
   );
@@ -1390,7 +1482,7 @@ export default function FacturasCreditoPage() {
     }
 
     setMovementsLoading(true);
-    const loadPromise = hasActiveStatusFilter
+    const loadPromise = hasActiveViewFilter
       ? FacturasService.listMovementsByEmpresa(selectedCompany, { limit: 800 })
       : (() => {
           const range = getFetchDateRange();
@@ -1424,7 +1516,7 @@ export default function FacturasCreditoPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedCompany, getFetchDateRange, showToast, hasActiveStatusFilter]);
+  }, [selectedCompany, getFetchDateRange, showToast, hasActiveViewFilter]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1556,17 +1648,24 @@ export default function FacturasCreditoPage() {
     if (saved && rememberFilters) {
       try {
         const parsed = JSON.parse(saved);
-        setFilterPendingCredit(!!parsed.filterPendingCredit);
-        setFilterNCPending(!!parsed.filterNCPending);
-        setFilterPagada(!!parsed.filterPagada);
-        setFilterPartial(!!parsed.filterPartial);
-        setFilterRebajadas(!!parsed.filterRebajadas);
-        setFilterEditedOnly(!!parsed.filterEditedOnly);
+        const activeFilter =
+          (!!parsed.filterPendingCredit && "filterPendingCredit") ||
+          (!!parsed.filterNCPending && "filterNCPending") ||
+          (!!parsed.filterPagada && "filterPagada") ||
+          (!!parsed.filterPartial && "filterPartial") ||
+          (!!parsed.filterRebajadas && "filterRebajadas") ||
+          (!!parsed.filterEditedOnly && "filterEditedOnly") ||
+          null;
+        if (activeFilter) {
+          setExclusiveViewFilter(activeFilter, true);
+        } else {
+          resetViewFilters();
+        }
       } catch {
         /* ignore */
       }
     }
-  }, []);
+  }, [rememberFilters, resetViewFilters, setExclusiveViewFilter]);
 
   useEffect(() => {
     if (rememberFilters) {
@@ -1717,13 +1816,13 @@ export default function FacturasCreditoPage() {
         if (!docHaystack.includes(docTypeQuery)) return false;
       }
 
-      if (!hasActiveStatusFilter) {
+      if (!hasActiveViewFilter) {
         if (fromFilter || toFilter) {
-          const key = dateKeyFromIso(m.createdAt);
+          const key = dateKeyInCostaRica(m.createdAt);
           if (fromFilter && key && key < fromFilter) return false;
           if (toFilter && key && key > toFilter) return false;
         } else {
-          const key = dateKeyFromIso(m.createdAt);
+          const key = dateKeyInCostaRica(m.createdAt);
           if (key && key !== currentDailyKey) return false;
         }
       }
@@ -1803,7 +1902,7 @@ export default function FacturasCreditoPage() {
     filterPagada,
     filterPartial,
     filterRebajadas,
-    hasActiveStatusFilter,
+    hasActiveViewFilter,
     searchQuery,
     providerDropdownQuery,
     typeDropdownQuery,
@@ -1843,7 +1942,7 @@ export default function FacturasCreditoPage() {
   };
 
   const hasDateRangeFilter =
-    Boolean(fromFilter || toFilter) || hasActiveStatusFilter;
+    Boolean(fromFilter || toFilter) || hasActiveViewFilter;
   const effectiveRowsPerPage = hasDateRangeFilter
     ? typeof rowsPerPage === "number"
       ? rowsPerPage
@@ -1881,7 +1980,7 @@ export default function FacturasCreditoPage() {
   const pagedMovements = useMemo(() => {
     if (isDailyView) {
       return filteredMovements.filter(
-        (m) => dateKeyFromIso(m.createdAt) === currentDailyKey,
+        (m) => dateKeyInCostaRica(m.createdAt) === currentDailyKey,
       );
     }
     const start = pageIndex * effectiveRowsPerPage;
@@ -1908,6 +2007,96 @@ export default function FacturasCreditoPage() {
     );
     return { from, to };
   }, [filteredMovements.length, pageIndex, effectiveRowsPerPage, isDailyView]);
+
+  const visibleSummaryMetrics = useMemo(() => {
+    const metrics = new Set<"subtotal" | "rebajos" | "total" | "saldos">();
+
+    if (!hasActiveViewFilter) {
+      metrics.add("subtotal");
+      metrics.add("rebajos");
+      metrics.add("total");
+      return Array.from(metrics);
+    }
+
+    if (filterPendingCredit) metrics.add("subtotal");
+    if (filterNCPending || filterRebajadas) metrics.add("rebajos");
+    if (filterPagada || filterPartial || filterEditedOnly) metrics.add("total");
+    if (filterPartial) metrics.add("saldos");
+
+    if (metrics.size === 0) {
+      metrics.add("subtotal");
+      metrics.add("rebajos");
+      metrics.add("total");
+    }
+
+    return Array.from(metrics);
+  }, [
+    hasActiveViewFilter,
+    filterPendingCredit,
+    filterNCPending,
+    filterRebajadas,
+    filterPagada,
+    filterPartial,
+    filterEditedOnly,
+  ]);
+
+  const filteredMovementTotals = useMemo(() => {
+    const totalsByCurrency = new Map<
+      MovementCurrencyKey,
+      { subtotal: number; rebajos: number; total: number; saldos: number }
+    >();
+
+    filteredMovements.forEach((movement) => {
+      const currency: MovementCurrencyKey =
+        movement.currency === "USD" ? "USD" : "CRC";
+      const current = totalsByCurrency.get(currency) || {
+        subtotal: 0,
+        rebajos: 0,
+        total: 0,
+        saldos: 0,
+      };
+      const amount = Math.max(
+        0,
+        Math.trunc(
+          Number(movement.originalAmount ?? movement.amount) || 0,
+        ),
+      );
+      const docType = String(movement.invoiceDocType || "")
+        .trim()
+        .toUpperCase();
+
+      if (docType === "NC") {
+        current.rebajos += amount;
+        current.total -= amount;
+      } else {
+        current.subtotal += amount;
+        current.total += amount;
+      }
+
+      current.saldos += Math.max(
+        0,
+        Math.trunc(Number(resolveFacturaBalance(movement)) || 0),
+      );
+
+      totalsByCurrency.set(currency, current);
+    });
+
+    return Array.from(totalsByCurrency.entries()).map(([currency, totals]) => ({
+      currency,
+      ...totals,
+    }));
+  }, [filteredMovements]);
+
+  const formatSummaryCurrency = useCallback(
+    (value: number, currency: MovementCurrencyKey) =>
+      value.toLocaleString("es-CR", {
+        style: "currency",
+        currency,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }),
+    [],
+  );
   /*-------------------Cambio de empresa-----------------------------------*/
 
   const sortedOwnerCompanies = useMemo(() => {
@@ -2303,7 +2492,10 @@ export default function FacturasCreditoPage() {
                         type="checkbox"
                         checked={filterPendingCredit}
                         onChange={(event) =>
-                          setFilterPendingCredit(event.target.checked)
+                          setExclusiveViewFilter(
+                            "filterPendingCredit",
+                            event.target.checked,
+                          )
                         }
                         className="h-4 w-4 accent-amber-400"
                       />
@@ -2317,7 +2509,10 @@ export default function FacturasCreditoPage() {
                         type="checkbox"
                         checked={filterNCPending}
                         onChange={(event) =>
-                          setFilterNCPending(event.target.checked)
+                          setExclusiveViewFilter(
+                            "filterNCPending",
+                            event.target.checked,
+                          )
                         }
                         className="h-4 w-4 accent-cyan-400"
                       />
@@ -2331,7 +2526,10 @@ export default function FacturasCreditoPage() {
                         type="checkbox"
                         checked={filterPagada}
                         onChange={(event) =>
-                          setFilterPagada(event.target.checked)
+                          setExclusiveViewFilter(
+                            "filterPagada",
+                            event.target.checked,
+                          )
                         }
                         className="h-4 w-4 accent-emerald-400"
                       />
@@ -2343,7 +2541,10 @@ export default function FacturasCreditoPage() {
                         type="checkbox"
                         checked={filterPartial}
                         onChange={(event) =>
-                          setFilterPartial(event.target.checked)
+                          setExclusiveViewFilter(
+                            "filterPartial",
+                            event.target.checked,
+                          )
                         }
                         className="h-4 w-4 accent-amber-400"
                       />
@@ -2355,25 +2556,17 @@ export default function FacturasCreditoPage() {
                         type="checkbox"
                         checked={filterRebajadas}
                         onChange={(event) =>
-                          setFilterRebajadas(event.target.checked)
+                          setExclusiveViewFilter(
+                            "filterRebajadas",
+                            event.target.checked,
+                          )
                         }
                         className="h-4 w-4 accent-emerald-400"
                       />
                       <BadgeCheck className="h-4 w-4 shrink-0 text-emerald-300/90" />
                       <span className="leading-tight">Rebajadas</span>
                     </label>
-                    <label className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
-                      <input
-                        type="checkbox"
-                        checked={filterEditedOnly}
-                        onChange={(event) =>
-                          setFilterEditedOnly(event.target.checked)
-                        }
-                        className="h-4 w-4 rounded border-[var(--input-border)] accent-[var(--accent)]"
-                      />
-                      <Pencil className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
-                      <span>Editadas</span>
-                    </label>
+                    
                   </div>
                 )}
               </div>
@@ -2390,12 +2583,7 @@ export default function FacturasCreditoPage() {
                   setDocTypeFilter("all");
                   setDocTypeFilterLabel("");
                   setDocTypeDropdownQuery("");
-                  setFilterEditedOnly(false);
-                  setFilterPendingCredit(false);
-                  setFilterNCPending(false);
-                  setFilterPagada(false);
-                  setFilterPartial(false);
-                  setFilterRebajadas(false);
+                  resetViewFilters();
                   setSearchQuery("");
                   setFromFilter(null);
                   setToFilter(null);
@@ -2499,10 +2687,10 @@ export default function FacturasCreditoPage() {
                             for (let i = 0; i < start; i++)
                               cells.push(<div key={`pad-f-${i}`} />);
                             for (let day = 1; day <= daysInMonth; day++) {
-                              const d = new Date(year, month, day);
-                              const key = dateKeyFromDate(d);
-                              const enabled = key <= todayKey;
-                              const isSelected = fromFilter === key;
+                               const d = new Date(year, month, day);
+                               const key = dateKeyFromDate(d);
+                               const enabled = key <= effectiveTodayKey;
+                               const isSelected = fromFilter === key;
                               if (enabled) {
                                 cells.push(
                                   <button
@@ -2632,10 +2820,10 @@ export default function FacturasCreditoPage() {
                             for (let i = 0; i < start; i++)
                               cells.push(<div key={`pad-t-${i}`} />);
                             for (let day = 1; day <= daysInMonth; day++) {
-                              const d = new Date(year, month, day);
-                              const key = dateKeyFromDate(d);
-                              const enabled = key <= todayKey;
-                              const isSelected = toFilter === key;
+                               const d = new Date(year, month, day);
+                               const key = dateKeyFromDate(d);
+                               const enabled = key <= effectiveTodayKey;
+                               const isSelected = toFilter === key;
                               if (enabled) {
                                 cells.push(
                                   <button
@@ -2922,11 +3110,11 @@ export default function FacturasCreditoPage() {
                     onClick={() => {
                       if (isDailyView) {
                         setCurrentDailyKey((prev) => {
-                          if (prev >= todayKey) return todayKey;
+                           if (prev >= effectiveTodayKey) return effectiveTodayKey;
                           const d = new Date(prev + "T12:00:00");
                           d.setDate(d.getDate() + 1);
                           const next = dateKeyFromDate(d);
-                          return next > todayKey ? todayKey : next;
+                           return next > effectiveTodayKey ? effectiveTodayKey : next;
                         });
                       } else {
                         setPageIndex((prev) =>
@@ -2936,7 +3124,7 @@ export default function FacturasCreditoPage() {
                     }}
                     disabled={
                       isDailyView
-                        ? currentDailyKey >= todayKey
+                        ? currentDailyKey >= effectiveTodayKey
                         : pageIndex >= totalPages - 1
                     }
                     className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--input-border)] text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/45 disabled:cursor-not-allowed disabled:opacity-40 sm:h-8 sm:w-8"
@@ -2946,6 +3134,71 @@ export default function FacturasCreditoPage() {
                 </div>
               </div>
             </div>
+          </div>
+
+          <div className="border-b border-[var(--input-border)]">
+            <button
+              type="button"
+              onClick={() => setTotalsExpanded((prev) => !prev)}
+              className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-slate-600 sm:px-5 "
+            >
+              <span className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-foreground)]">
+                Totales
+              </span>
+              <ChevronDown
+                className={`h-4 w-4 text-[var(--muted-foreground)] transition-transform duration-200 ${
+                  totalsExpanded ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+            {totalsExpanded && (
+              <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-5 xl:grid-cols-3">
+                {filteredMovementTotals.length === 0
+                  ? visibleSummaryMetrics.map((metric) => (
+                      <div
+                        key={metric}
+                        className="rounded-2xl border border-[var(--input-border)] bg-[var(--muted)]/15 px-4 py-3"
+                      >
+                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-foreground)]">
+                          {metric === "subtotal"
+                            ? "Subtotal"
+                            : metric === "rebajos"
+                              ? "Rebajos"
+                              : metric === "saldos"
+                                ? "Total saldos"
+                              : "Total"}
+                        </p>
+                        <p className="mt-2 text-lg font-semibold text-[var(--foreground)]">
+                          ₡0
+                        </p>
+                      </div>
+                    ))
+                  : filteredMovementTotals.flatMap((summary) =>
+                      visibleSummaryMetrics.map((metric) => (
+                        <div
+                          key={`${summary.currency}-${metric}`}
+                          className="rounded-2xl border border-[var(--input-border)] bg-[var(--muted)]/15 px-4 py-3"
+                        >
+                          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--muted-foreground)]">
+                            {metric === "subtotal"
+                              ? "Subtotal"
+                              : metric === "rebajos"
+                                ? "Rebajos"
+                                : metric === "saldos"
+                                  ? "Total saldos"
+                                : "Total"}
+                          </p>
+                          <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.22em] text-cyan-200/75">
+                            {summary.currency}
+                          </p>
+                          <p className="mt-2 text-lg font-semibold text-[var(--foreground)]">
+                            {formatSummaryCurrency(metric === "rebajos" ? -summary[metric] : summary[metric], summary.currency)}
+                          </p>
+                        </div>
+                      )),
+                    )}
+              </div>
+            )}
           </div>
 
           <div className="overflow-x-auto">

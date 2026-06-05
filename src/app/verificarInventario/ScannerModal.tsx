@@ -17,8 +17,17 @@ type ScannerModalProps = {
   onRemoveLeadingZero?: () => void;
   scanNotice: {
     codigo: string;
+    codigoProducto?: string;
+    codigoBarras?: string;
     descripcion: string;
+    precioVenta?: string;
   } | null;
+  inventoryMode: boolean;
+  inventoryCount: string;
+  inventoryError: string | null;
+  onInventoryCountChange: (value: string) => void;
+  onInventorySave: () => void;
+  onInventoryCancel: () => void;
   pendingCodigo: string | null;
   pendingNombre: string;
   pendingError: string | null;
@@ -52,6 +61,12 @@ export default function ScannerModal({
   handleCopyCode,
   onRemoveLeadingZero,
   scanNotice,
+  inventoryMode,
+  inventoryCount,
+  inventoryError,
+  onInventoryCountChange,
+  onInventorySave,
+  onInventoryCancel,
   pendingCodigo,
   pendingNombre,
   pendingError,
@@ -166,7 +181,58 @@ export default function ScannerModal({
               Código encontrado
             </p>
             <h3 className="mt-2 text-xl font-semibold">{scanNotice.descripcion}</h3>
-            <p className="mt-3 text-sm text-slate-300">{scanNotice.codigo}</p>
+            {scanNotice.precioVenta ? (
+              <p className="mt-3 text-lg font-semibold text-emerald-200">
+                Precio de venta: {scanNotice.precioVenta}
+              </p>
+            ) : null}
+            <p className="mt-3 text-sm text-slate-300">
+              Codigo: {scanNotice.codigoProducto || scanNotice.codigo}
+            </p>
+            {scanNotice.codigoBarras ? (
+              <p className="mt-1 text-sm text-slate-300">
+                Codigo de barras: {scanNotice.codigoBarras}
+              </p>
+            ) : null}
+            {inventoryMode ? (
+              <div className="mt-5">
+                <label className="block text-sm font-medium text-slate-100">
+                  Inventario
+                </label>
+                <input
+                  value={inventoryCount}
+                  onChange={(event) => onInventoryCountChange(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      onInventorySave();
+                    }
+                  }}
+                  className="mt-2 w-full rounded-md border border-emerald-400/30 bg-slate-900 px-3 py-2 text-sm text-white outline-none"
+                  inputMode="decimal"
+                  autoFocus
+                />
+                {inventoryError ? (
+                  <p className="mt-2 text-sm text-red-300">{inventoryError}</p>
+                ) : null}
+                <div className="mt-4 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={onInventoryCancel}
+                    className="rounded-md border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-800"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onInventorySave}
+                    className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                  >
+                    Guardar
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

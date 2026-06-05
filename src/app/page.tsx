@@ -98,7 +98,7 @@ const FuncionesTab = dynamic(
   { ssr: false },
 );
 const FondoPage = dynamic(
-  () => import("@/app/fondogeneral/fondogeneral/page"),
+  () => import("@/app/fondogeneral/page"),
   { ssr: false },
 );
 const AgregarProveedorPage = dynamic(

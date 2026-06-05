@@ -174,7 +174,6 @@ export const onMovementWrite = onDocumentWritten(
       : null;
 
     const classificationAfter = catAfter ? categoryToClassification(catAfter) : null;
-    const classificationBefore = catBefore ? categoryToClassification(catBefore) : null;
 
     const inc = admin.firestore.FieldValue.increment;
     const serverTs = admin.firestore.FieldValue.serverTimestamp;

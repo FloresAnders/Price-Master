@@ -3,21 +3,52 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import AddEmpresaModal from "./AddEmpresaModal";
 import DeleteEmpresaModal from "./DeleteEmpresaModal";
-import ExisteHeader from "./ExisteHeader";
+import VerificarInventarioHeader from "./VerificarInventarioHeader";
 import ScannerModal from "./ScannerModal";
+import useToast from "@/hooks/useToast";
 import { useBarcodeScanner } from "./useBarcodeScanner";
 import type {
   CodigoPendiente,
-  ExisteState,
+  InventarioItem,
   RelacionProducto,
-} from "./existeDb";
-import { getExisteState, saveExisteState } from "./existeDb";
+  VerificarInventarioState,
+} from "./verificarInventarioDb";
+import {
+  getVerificarInventarioState,
+  saveVerificarInventarioState,
+} from "./verificarInventarioDb";
 
-const EMPTY_STATE: ExisteState = {
+const PLANTILLA_HEADERS = [
+  "Código",
+  "Descripción",
+  "Código de barras",
+  "Código CABYS",
+  "Actividad",
+  "% IVA",
+  "Unidad",
+  "Precio de costo",
+  "Precio de Venta",
+  "Inventario",
+  "Familia",
+  "Proveedor",
+  "Identificación proveedor",
+  "Código producto proveedor",
+  "Precio de Venta Crédito",
+  "Precio de Venta Mayoreo",
+  "Talla",
+  "Marca",
+  "Linea",
+  "Moneda",
+  "Código forma farmacéutica",
+  "Registro sanitario",
+];
+
+const EMPTY_STATE: VerificarInventarioState = {
   empresas: [],
   selectedEmpresaId: null,
   relacionesPorEmpresa: {},
   pendientesPorEmpresa: {},
+  inventariosPorEmpresa: {},
 };
 
 function normalizeHeader(value: unknown): string {
@@ -25,11 +56,40 @@ function normalizeHeader(value: unknown): string {
     .trim()
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w\s%]/g, " ")
+    .replace(/\s+/g, " ");
 }
 
 function normalizeCellText(value: unknown): string {
   return String(value ?? "").trim();
+}
+
+function normalizePriceValue(value: unknown): string {
+  const text = normalizeCellText(value);
+  if (!text) return "";
+
+  const cleaned = text.replace(/[^\d,.-]/g, "");
+  if (!cleaned) return "";
+
+  const normalized =
+    cleaned.includes(",") && cleaned.includes(".")
+      ? cleaned.replace(/,/g, "")
+      : cleaned.replace(",", ".");
+  const numberValue = Number(normalized);
+  if (!Number.isFinite(numberValue)) return text;
+
+  return Number.isInteger(numberValue)
+    ? String(numberValue)
+    : String(numberValue).replace(/\.?0+$/, "");
+}
+
+function findHeaderIndex(headers: string[], exactAliases: string[], includesAlias = ""): number {
+  const exactMatch = headers.findIndex((header) => exactAliases.includes(header));
+  if (exactMatch !== -1) return exactMatch;
+
+  if (!includesAlias) return -1;
+  return headers.findIndex((header) => header.includes(includesAlias));
 }
 
 function parseXlsxRowsToRelaciones(rows: unknown[][]): RelacionProducto[] {
@@ -37,10 +97,24 @@ function parseXlsxRowsToRelaciones(rows: unknown[][]): RelacionProducto[] {
     if (!Array.isArray(row)) return false;
 
     const headers = row.map((cell) => normalizeHeader(cell));
-    return (
-      headers.includes("descripcion") &&
-      headers.includes("codigo de barras")
+    const descripcionIndex = findHeaderIndex(
+      headers,
+      ["descripcion", "descripcion de producto"],
+      "descripcion",
     );
+    const codigoIndex = findHeaderIndex(headers, [
+      "codigo",
+      "codigo producto",
+      "codigo de producto",
+      "codigo de barras",
+    ]);
+    const codigoBarrasIndex = findHeaderIndex(headers, [
+      "codigo de barras",
+      "codigo barra",
+      "codigo barras",
+    ]);
+
+    return descripcionIndex !== -1 && (codigoIndex !== -1 || codigoBarrasIndex !== -1);
   });
 
   if (headerRowIndex === -1) {
@@ -50,14 +124,31 @@ function parseXlsxRowsToRelaciones(rows: unknown[][]): RelacionProducto[] {
   const headerRow = rows[headerRowIndex] ?? [];
   const normalizedHeaders = headerRow.map((cell) => normalizeHeader(cell));
 
-  const descripcionIndex = normalizedHeaders.findIndex(
-    (header) => header === "descripcion",
+  const descripcionIndex = findHeaderIndex(
+    normalizedHeaders,
+    ["descripcion", "descripcion de producto"],
+    "descripcion",
   );
-  const codigoBarrasIndex = normalizedHeaders.findIndex(
-    (header) => header === "codigo de barras",
-  );
+  const codigoIndex = findHeaderIndex(normalizedHeaders, [
+    "codigo",
+    "codigo producto",
+    "codigo de producto",
+  ]);
+  const codigoBarrasIndex = findHeaderIndex(normalizedHeaders, [
+    "codigo de barras",
+    "codigo barra",
+    "codigo barras",
+  ]);
+  const precioVentaIndex = findHeaderIndex(normalizedHeaders, [
+    "precio de venta",
+    "precio venta",
+    "total precio de venta",
+    "precio total",
+    "precio",
+    "venta",
+  ]);
 
-  if (descripcionIndex === -1 || codigoBarrasIndex === -1) {
+  if (descripcionIndex === -1 || (codigoIndex === -1 && codigoBarrasIndex === -1)) {
     throw new Error(
       "No se encontraron las columnas requeridas: Descripción y Código de barras.",
     );
@@ -68,10 +159,16 @@ function parseXlsxRowsToRelaciones(rows: unknown[][]): RelacionProducto[] {
   const relaciones: RelacionProducto[] = dataRows
     .map((row) => {
       const descripcion = normalizeCellText(row?.[descripcionIndex]);
-      const codigoRaw = normalizeCellText(row?.[codigoBarrasIndex]);
-      const codigoBarras = codigoRaw || "NE";
+      const codigo = codigoIndex === -1 ? "" : normalizeCellText(row?.[codigoIndex]);
+      const codigoBarrasRaw =
+        codigoBarrasIndex === -1 ? "" : normalizeCellText(row?.[codigoBarrasIndex]);
+      const codigoBarras = codigoBarrasRaw || codigo || "NE";
+      const precioVenta =
+        precioVentaIndex === -1
+          ? ""
+          : normalizePriceValue(row?.[precioVentaIndex]);
 
-      if (!descripcion && !codigoRaw) {
+      if (!descripcion && !codigo && !codigoBarrasRaw) {
         return null;
       }
 
@@ -80,8 +177,10 @@ function parseXlsxRowsToRelaciones(rows: unknown[][]): RelacionProducto[] {
       }
 
       return {
+        ...(codigo ? { codigo } : {}),
         descripcion,
         codigoBarras,
+        ...(precioVenta ? { precioVenta } : {}),
       };
     })
     .filter((item): item is RelacionProducto => Boolean(item));
@@ -100,8 +199,9 @@ function normalizeCode(value: string): string {
   return String(value ?? "").trim();
 }
 
-export default function ExistePage() {
-  const [state, setState] = useState<ExisteState>(EMPTY_STATE);
+export default function VerificarInventarioPage() {
+  const { showToast } = useToast();
+  const [state, setState] = useState<VerificarInventarioState>(EMPTY_STATE);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,8 +212,14 @@ export default function ExistePage() {
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scanNotice, setScanNotice] = useState<{
     codigo: string;
+    codigoProducto?: string;
+    codigoBarras?: string;
     descripcion: string;
+    precioVenta?: string;
   } | null>(null);
+  const [inventoryMode, setInventoryMode] = useState(false);
+  const [inventoryCount, setInventoryCount] = useState("");
+  const [inventoryError, setInventoryError] = useState<string | null>(null);
   const [pendingCodigo, setPendingCodigo] = useState<string | null>(null);
   const [pendingNombre, setPendingNombre] = useState("");
   const [pendingError, setPendingError] = useState<string | null>(null);
@@ -152,6 +258,39 @@ export default function ExistePage() {
     }
   };
 
+  const findRelacionByCode = (empresaId: string, codigo: string) => {
+    const normalized = normalizeCode(codigo);
+    return state.relacionesPorEmpresa[empresaId]?.find((item) => {
+      return (
+        normalizeCode(item.codigoBarras) === normalized ||
+        normalizeCode(item.codigo ?? "") === normalized
+      );
+    });
+  };
+
+  const showFoundCode = (codigo: string, relacion: RelacionProducto) => {
+    clearScanNoticeTimer();
+    setPendingCodigo(null);
+    setPendingNombre("");
+    setPendingError(null);
+    setInventoryCount("");
+    setInventoryError(null);
+    setScanNotice({
+      codigo,
+      codigoProducto: relacion.codigo,
+      codigoBarras: relacion.codigoBarras,
+      descripcion: relacion.descripcion,
+      precioVenta: relacion.precioVenta,
+    });
+
+    if (!inventoryMode) {
+      scanNoticeTimerRef.current = window.setTimeout(() => {
+        setScanNotice(null);
+        scanNoticeTimerRef.current = null;
+      }, 3000);
+    }
+  };
+
   const {
     code: detectedCode,
     error: scannerError,
@@ -172,20 +311,10 @@ export default function ExistePage() {
       }
 
       const codigo = normalizeCode(foundCode);
-      const relacion = state.relacionesPorEmpresa[empresaId]?.find(
-        (item) => normalizeCode(item.codigoBarras) === codigo,
-      );
+      const relacion = findRelacionByCode(empresaId, codigo);
 
       if (relacion) {
-        clearScanNoticeTimer();
-        setPendingCodigo(null);
-        setPendingNombre("");
-        setPendingError(null);
-        setScanNotice({ codigo, descripcion: relacion.descripcion });
-        scanNoticeTimerRef.current = window.setTimeout(() => {
-          setScanNotice(null);
-          scanNoticeTimerRef.current = null;
-        }, 3000);
+        showFoundCode(codigo, relacion);
         clearDetection();
         return;
       }
@@ -205,7 +334,7 @@ export default function ExistePage() {
 
     const load = async () => {
       try {
-        const savedState = await getExisteState();
+        const savedState = await getVerificarInventarioState();
         if (!cancelled) {
           setState(savedState);
         }
@@ -255,6 +384,11 @@ export default function ExistePage() {
     return state.pendientesPorEmpresa[state.selectedEmpresaId] ?? [];
   }, [state.pendientesPorEmpresa, state.selectedEmpresaId]);
 
+  const selectedEmpresaInventarios = useMemo(() => {
+    if (!state.selectedEmpresaId) return [];
+    return state.inventariosPorEmpresa[state.selectedEmpresaId] ?? [];
+  }, [state.inventariosPorEmpresa, state.selectedEmpresaId]);
+
   const pendingExportText = useMemo(() => {
     if (!selectedEmpresa || selectedEmpresaPendientes.length === 0) {
       return "";
@@ -294,6 +428,8 @@ export default function ExistePage() {
     setManualSearchError(null);
     setPendingStatus(null);
     setScanNotice(null);
+    setInventoryCount("");
+    setInventoryError(null);
     clearScanNoticeTimer();
     clearDetection();
     clearScanner();
@@ -314,20 +450,10 @@ export default function ExistePage() {
 
     setManualSearchError(null);
 
-    const relacion = state.relacionesPorEmpresa[empresaId]?.find(
-      (item) => normalizeCode(item.codigoBarras) === codigo,
-    );
+    const relacion = findRelacionByCode(empresaId, codigo);
 
     if (relacion) {
-      clearScanNoticeTimer();
-      setPendingCodigo(null);
-      setPendingNombre("");
-      setPendingError(null);
-      setScanNotice({ codigo, descripcion: relacion.descripcion });
-      scanNoticeTimerRef.current = window.setTimeout(() => {
-        setScanNotice(null);
-        scanNoticeTimerRef.current = null;
-      }, 3000);
+      showFoundCode(codigo, relacion);
       clearDetection();
       return;
     }
@@ -340,11 +466,11 @@ export default function ExistePage() {
     clearDetection();
   };
 
-  const persistState = async (nextState: ExisteState) => {
+  const persistState = async (nextState: VerificarInventarioState) => {
     setSaving(true);
     setError(null);
     try {
-      await saveExisteState(nextState);
+      await saveVerificarInventarioState(nextState);
       setState(nextState);
     } catch {
       setError("No se pudo guardar la información en local.");
@@ -367,7 +493,7 @@ export default function ExistePage() {
     }
 
     const empresaId = createEmpresaId();
-    const nextState: ExisteState = {
+    const nextState: VerificarInventarioState = {
       empresas: [
         ...state.empresas,
         {
@@ -385,6 +511,10 @@ export default function ExistePage() {
         ...state.pendientesPorEmpresa,
         [empresaId]: state.pendientesPorEmpresa[empresaId] ?? [],
       },
+      inventariosPorEmpresa: {
+        ...state.inventariosPorEmpresa,
+        [empresaId]: state.inventariosPorEmpresa[empresaId] ?? [],
+      },
     };
 
     await persistState(nextState);
@@ -392,7 +522,7 @@ export default function ExistePage() {
   };
 
   const handleSelectEmpresa = async (empresaId: string) => {
-    const nextState: ExisteState = {
+    const nextState: VerificarInventarioState = {
       ...state,
       selectedEmpresaId: empresaId || null,
     };
@@ -418,12 +548,18 @@ export default function ExistePage() {
         ([empresaId]) => empresaId !== deletedEmpresaId,
       ),
     );
+    const nextInventariosPorEmpresa = Object.fromEntries(
+      Object.entries(state.inventariosPorEmpresa).filter(
+        ([empresaId]) => empresaId !== deletedEmpresaId,
+      ),
+    );
 
-    const nextState: ExisteState = {
+    const nextState: VerificarInventarioState = {
       empresas: nextEmpresas,
       selectedEmpresaId: nextEmpresas[0]?.id ?? null,
       relacionesPorEmpresa: nextRelacionesPorEmpresa,
       pendientesPorEmpresa: nextPendientesPorEmpresa,
+      inventariosPorEmpresa: nextInventariosPorEmpresa,
     };
 
     await persistState(nextState);
@@ -460,7 +596,7 @@ export default function ExistePage() {
 
       const relaciones = parseXlsxRowsToRelaciones(rows);
 
-      const nextState: ExisteState = {
+      const nextState: VerificarInventarioState = {
         ...state,
         relacionesPorEmpresa: {
           ...state.relacionesPorEmpresa,
@@ -468,7 +604,7 @@ export default function ExistePage() {
         },
       };
 
-      await saveExisteState(nextState);
+      await saveVerificarInventarioState(nextState);
       setState(nextState);
       setLastImportCount(relaciones.length);
     } catch (uploadError) {
@@ -506,7 +642,7 @@ export default function ExistePage() {
       ),
     ];
 
-    const nextState: ExisteState = {
+    const nextState: VerificarInventarioState = {
       ...state,
       pendientesPorEmpresa: {
         ...state.pendientesPorEmpresa,
@@ -565,7 +701,7 @@ export default function ExistePage() {
       ),
     ];
 
-    const nextState: ExisteState = {
+    const nextState: VerificarInventarioState = {
       ...state,
       pendientesPorEmpresa: {
         ...state.pendientesPorEmpresa,
@@ -596,7 +732,7 @@ export default function ExistePage() {
     if (!state.selectedEmpresaId) return;
 
     const empresaId = state.selectedEmpresaId;
-    const nextState: ExisteState = {
+    const nextState: VerificarInventarioState = {
       ...state,
       pendientesPorEmpresa: {
         ...state.pendientesPorEmpresa,
@@ -607,6 +743,99 @@ export default function ExistePage() {
     await persistState(nextState);
     setPendingStatus("Pendientes eliminados.");
     setIsDeletePendingsOpen(false);
+  };
+
+  const handleSaveInventory = async () => {
+    if (!state.selectedEmpresaId || !scanNotice) return;
+
+    const inventario = inventoryCount.trim();
+    if (!inventario) {
+      setInventoryError("Ingresa inventario.");
+      return;
+    }
+
+    const empresaId = state.selectedEmpresaId;
+    const item: InventarioItem = {
+      codigo: scanNotice.codigoProducto || scanNotice.codigo,
+      descripcion: scanNotice.descripcion,
+      codigoBarras: scanNotice.codigoBarras || scanNotice.codigo,
+      precioVenta: scanNotice.precioVenta ?? "",
+      inventario,
+      createdAt: Date.now(),
+      empresaId,
+    };
+
+    const itemKey = `${item.codigo}-${item.codigoBarras}`;
+    const nextInventarios = [
+      item,
+      ...(state.inventariosPorEmpresa[empresaId] ?? []).filter(
+        (current) => `${current.codigo}-${current.codigoBarras}` !== itemKey,
+      ),
+    ];
+
+    const nextState: VerificarInventarioState = {
+      ...state,
+      inventariosPorEmpresa: {
+        ...state.inventariosPorEmpresa,
+        [empresaId]: nextInventarios,
+      },
+    };
+
+    await persistState(nextState);
+    setScanNotice(null);
+    setInventoryCount("");
+    setInventoryError(null);
+    setPendingStatus("Inventario guardado.");
+  };
+
+  const handleExportInventory = async () => {
+    if (!selectedEmpresa || selectedEmpresaInventarios.length === 0) return;
+
+    const XLSX = await import("xlsx");
+    const rows = selectedEmpresaInventarios.map((item) => {
+      const row = Object.fromEntries(PLANTILLA_HEADERS.map((header) => [header, ""]));
+      row["Código"] = item.codigo;
+      row["Descripción"] = item.descripcion;
+      row["Código de barras"] = item.codigoBarras;
+      row["Precio de Venta"] = normalizePriceValue(item.precioVenta);
+      row["Inventario"] = item.inventario;
+      return row;
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(rows, {
+      header: PLANTILLA_HEADERS,
+    });
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Productos");
+    XLSX.writeFile(
+      workbook,
+      `inventario-${selectedEmpresa.nombre}-${new Date().toISOString().slice(0, 10)}.xlsx`,
+    );
+  };
+
+  const handleClearInventory = async () => {
+    if (!state.selectedEmpresaId) return;
+
+    const empresaId = state.selectedEmpresaId;
+    const nextState: VerificarInventarioState = {
+      ...state,
+      inventariosPorEmpresa: {
+        ...state.inventariosPorEmpresa,
+        [empresaId]: [],
+      },
+    };
+
+    await persistState(nextState);
+    setPendingStatus("Inventario limpiado.");
+  };
+
+  const handleToggleInventoryMode = () => {
+    const next = !inventoryMode;
+    setInventoryMode(next);
+    showToast(
+      next ? "Modo inventariar activado." : "Modo inventariar desactivado.",
+      next ? "success" : "info",
+    );
   };
 
   const selectedEmpresaRelacionesCount =
@@ -626,11 +855,13 @@ export default function ExistePage() {
 
   return (
     <section className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-8">
-      <ExisteHeader
+      <VerificarInventarioHeader
         empresas={state.empresas}
         selectedEmpresaId={state.selectedEmpresaId}
+        inventoryMode={inventoryMode}
         onOpenAddModal={() => setIsAddOpen(true)}
         onOpenScanner={openScannerModal}
+        onToggleInventoryMode={handleToggleInventoryMode}
         onSelectEmpresa={handleSelectEmpresa}
         onOpenDeleteModal={() => setIsDeleteOpen(true)}
         onUploadXlsx={handleUploadXlsx}
@@ -639,10 +870,70 @@ export default function ExistePage() {
       />
 
       <div className="rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--card-bg)] p-6 text-[var(--foreground)]">
-        <p className="mt-2 text-center text-sm opacity-70">
+        <p className="text-center text-sm opacity-70">
           Codigos cargados: {selectedEmpresaRelacionesCount}
         </p>
+        <p className="mt-2 text-center text-sm opacity-70">
+          Inventario guardado: {selectedEmpresaInventarios.length}
+        </p>
       </div>
+
+      {inventoryMode ? (
+      <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-5 text-[var(--foreground)]">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold">Inventario</h2>
+            <p className="text-sm opacity-70">
+              {inventoryMode ? "Modo inventariar activo." : "Activa Inventariar para guardar conteos."}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handleExportInventory()}
+              disabled={!selectedEmpresaInventarios.length}
+              className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Exportar inventario
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleClearInventory()}
+              disabled={!selectedEmpresaInventarios.length}
+              className="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Limpiar
+            </button>
+          </div>
+        </div>
+        {selectedEmpresaInventarios.length > 0 ? (
+          <div className="grid gap-3 md:grid-cols-2">
+            {selectedEmpresaInventarios.map((item) => (
+              <div
+                key={`${item.codigo}-${item.codigoBarras}-${item.createdAt}`}
+                className="rounded-md border border-[var(--input-border)] bg-[var(--background)] p-3"
+              >
+                <div className="text-sm font-semibold">{item.descripcion}</div>
+                <div className="text-xs opacity-75">Codigo: {item.codigo}</div>
+                <div className="text-xs opacity-75">
+                  Codigo de barras: {item.codigoBarras}
+                </div>
+                <div className="mt-2 text-sm font-semibold">
+                  Inventario: {item.inventario}
+                </div>
+                {item.precioVenta ? (
+                  <div className="text-xs opacity-75">
+                    Precio de Venta: {item.precioVenta}
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm opacity-70">No hay inventario guardado.</p>
+        )}
+      </div>
+      ) : null}
 
       <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-5 text-[var(--foreground)]">
         <div className="mb-4 flex items-center justify-between gap-3">
@@ -727,6 +1018,21 @@ export default function ExistePage() {
         handleCopyCode={handleCopyCode}
         onRemoveLeadingZero={() => {}}
         scanNotice={scanNotice}
+        inventoryMode={inventoryMode}
+        inventoryCount={inventoryCount}
+        inventoryError={inventoryError}
+        onInventoryCountChange={(value) => {
+          setInventoryCount(value);
+          if (inventoryError) setInventoryError(null);
+        }}
+        onInventorySave={() => {
+          void handleSaveInventory();
+        }}
+        onInventoryCancel={() => {
+          setScanNotice(null);
+          setInventoryCount("");
+          setInventoryError(null);
+        }}
         pendingCodigo={pendingCodigo}
         pendingNombre={pendingNombre}
         pendingError={pendingError}

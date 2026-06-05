@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -13,13 +13,14 @@ import {
   WalletCards,
   XCircle,
 } from "lucide-react";
-import type { FondoMovementType } from "./fondo";
+import type { FondoMovementType } from "../types";
+import { CIERRE_FONDO_VENTAS_PROVIDER_NAME } from "../constants";
 import {
   formatMovementType,
   isEgresoType,
   isGastoType,
   isIngresoType,
-} from "./fondo";
+} from "../utils/movementTypes";
 
 type ProviderOption = {
   code: string;
@@ -27,6 +28,8 @@ type ProviderOption = {
   type?: FondoMovementType;
   category?: "Ingreso" | "Gasto" | "Egreso";
   movementCount?: number;
+  pendingCreditNotesCount?: number;
+  pendingCreditInvoicesCount?: number;
 };
 
 type PendingCreditNoteOption = {
@@ -91,6 +94,7 @@ type AgregarMovimientoProps = {
   ) => void;
   currency?: "CRC" | "USD";
   onCurrencyChange?: (c: "CRC" | "USD") => void;
+  currencySelectDisabled?: boolean;
   currencyEnabled?: Record<"CRC" | "USD", boolean>;
   providerError?: string;
   invoiceError?: string;
@@ -153,6 +157,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   onFieldKeyDown,
   currency = "CRC",
   onCurrencyChange,
+  currencySelectDisabled = false,
   currencyEnabled = { CRC: true, USD: true },
   providerError = "",
   invoiceError = "",
@@ -216,6 +221,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isManagerDropdownOpen, setIsManagerDropdownOpen] = useState(false);
   const [isManager2DropdownOpen, setIsManager2DropdownOpen] = useState(false);
+  const montoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (selectedProvider) {
@@ -235,6 +241,17 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     if (!lockInvoiceDocTypeToContado) return;
     if (invoiceDocType !== "FCO") onInvoiceDocTypeChange("FCO");
   }, [invoiceDocType, lockInvoiceDocTypeToContado, onInvoiceDocTypeChange]);
+
+  useEffect(() => {
+    if (!selectedProvider) return;
+    const prov = providers.find((p) => p.code === selectedProvider);
+    const isCierre =
+      selectedProvider.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME ||
+      prov?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME;
+    if (isCierre) {
+      montoRef.current?.focus();
+    }
+  }, [selectedProvider, providers]);
 
   const filteredProviders = providers
     .filter(
@@ -267,7 +284,6 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
 
   const fieldBase =
     "h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)]";
-  const fieldWithIcon = `${fieldBase} pr-11`;
   const sectionClass =
     "rounded-xl border border-cyan-700/25 bg-cyan-950/10 p-3 sm:p-4";
   const labelClass =
@@ -503,11 +519,23 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                             );
                           })()}
 
-                          {p.type && (
-                            <span className="shrink-0 rounded border border-cyan-700/35 bg-cyan-950/30 px-2 py-0.5 text-[11px] text-cyan-100/70">
-                              {formatMovementType(p.type)}
-                            </span>
-                          )}
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            {p.pendingCreditInvoicesCount ? (
+                              <span className="rounded border border-amber-500/35 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
+                                FCR {p.pendingCreditInvoicesCount}
+                              </span>
+                            ) : null}
+                            {p.pendingCreditNotesCount ? (
+                              <span className="rounded border border-amber-500/35 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
+                                NC {p.pendingCreditNotesCount}
+                              </span>
+                            ) : null}
+                            {p.type && (
+                              <span className="rounded border border-cyan-700/35 bg-cyan-950/30 px-2 py-0.5 text-[11px] text-cyan-100/70">
+                                {formatMovementType(p.type)}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </button>
                     ))}
@@ -639,17 +667,18 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
           {(["CRC", "USD"] as const).map((option) => {
             const enabled = currencyEnabled[option];
             const active = currency === option;
+            const disabled = !enabled || currencySelectDisabled;
             return (
               <button
                 key={option}
                 type="button"
-                onClick={() => enabled && onCurrencyChange?.(option)}
-                disabled={!enabled}
+                onClick={() => !disabled && onCurrencyChange?.(option)}
+                disabled={disabled}
                 className={`h-10 rounded border px-3 text-sm font-semibold transition-all duration-150 ${
                   active
                     ? "border-cyan-300/45 bg-cyan-500/25 text-cyan-50 shadow-sm shadow-cyan-950/20"
                     : "border-cyan-700/35 bg-cyan-950/25 text-cyan-100/75 hover:border-cyan-500/45 hover:bg-cyan-900/25"
-                } ${!enabled ? "cursor-not-allowed opacity-45" : "active:scale-[0.99]"}`}
+                } ${disabled ? "cursor-not-allowed opacity-45" : "active:scale-[0.99]"}`}
               >
                 {option === "CRC" ? "Colones (₡)" : "Dólares ($)"}
               </button>
@@ -657,6 +686,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
           })}
         </div>
         <input
+          ref={montoRef}
           placeholder="0"
           value={formatInputDisplay(isEgreso ? egreso : ingreso)}
           onChange={(event) => {
@@ -977,7 +1007,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
           )}
           {adjustmentApplied > 0 && (
             <div className="flex items-center justify-between">
-              <span className="text-cyan-100/70">Ajuste Aplicado</span>
+              <span className="text-cyan-100/70">Redondeo Aplicado</span>
               <span className="font-semibold text-amber-200">
                 - {formatCurrencyAmount(adjustmentApplied)}
               </span>
