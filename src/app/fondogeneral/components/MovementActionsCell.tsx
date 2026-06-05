@@ -46,7 +46,7 @@ export function MovementActionsCell({
   const canDelete =
     !isLockedMovement &&
     !isAutoAdjustment &&
-    (isPrincipalAdmin || (isSuperAdminUser && isCierreVentasRow)) &&
+    (isPrincipalAdmin || isSuperAdminUser) &&
     (!isCierreVentasRow || isLatestCierreVentas);
   const canEdit =
     !isLockedMovement &&

@@ -134,16 +134,12 @@ export async function handleDeleteMovement(
     }
   }
 
-  if (!deps.isPrincipalAdmin) {
-    const canSuperDeleteVentas =
-      Boolean(deps.isSuperAdminUser) && isCierreFondoVentasMovement(entry, deps);
-    if (!canSuperDeleteVentas) {
-      deps.showToast(
-        "Solo el administrador principal puede eliminar movimientos",
-        "error",
-      );
-      return;
-    }
+  if (!deps.isPrincipalAdmin && !deps.isSuperAdminUser) {
+    deps.showToast(
+      "Solo un admin duenio o un superadmin puede eliminar movimientos",
+      "error",
+    );
+    return;
   }
 
   if (isMovementLocked(entry, deps)) {
@@ -187,14 +183,10 @@ export async function confirmDeleteMovement(
       }
     }
 
-    if (!deps.isPrincipalAdmin) {
-      const canSuperDeleteVentas =
-        Boolean(deps.isSuperAdminUser) && isCierreFondoVentasMovement(entry, deps);
-      if (!canSuperDeleteVentas) {
-        deps.showToast("No autorizado para eliminar este movimiento", "error", 5000);
-        deps.setConfirmDeleteEntry({ open: false, entry: null });
-        return;
-      }
+    if (!deps.isPrincipalAdmin && !deps.isSuperAdminUser) {
+      deps.showToast("No autorizado para eliminar este movimiento", "error", 5000);
+      deps.setConfirmDeleteEntry({ open: false, entry: null });
+      return;
     }
 
     const normalizedCompany = String(deps.company || "").trim();
