@@ -292,6 +292,15 @@ export const HOME_MENU_FAVORITE_OPTIONS: HomeMenuFavoriteOption[] = [
     hash: "reportes",
   },
   {
+    id: "reportessinpe",
+    label: "Reportes SINPE",
+    description: "Generar reportes de transacciones SINPE",
+    group: "Fondo General",
+    icon: Smartphone,
+    permission: "reportessinpe",
+    hash: "reportessinpe",
+  },
+  {
     id: "configuracion",
     label: "Configuración",
     description: "Configurar el fondo general",

@@ -51,6 +51,7 @@ export default function HeaderWrapper() {
         "fondogeneral",
         "agregarproveedor",
         "reportes",
+        "reportessinpe",
       ];
       if (validTabs.includes(hash)) {
         // Map scanhistory hash to histoscans tab for header highlighting

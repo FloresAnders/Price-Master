@@ -239,6 +239,8 @@ export class EmpresasService {
         ownerId: empresa.ownerId || "",
         name: empresa.name || "",
         ubicacion: empresa.ubicacion || "",
+        correoConfigEmail: empresa.correoConfigEmail || "",
+        correoConfigPassword: empresa.correoConfigPassword || "",
         horarioApertura: empresa.horarioApertura || "",
         horarioCierre: empresa.horarioCierre || "",
         cierreFondoVentasMinutesBeforeEnd:
@@ -258,6 +260,8 @@ export class EmpresasService {
       ownerId: empresa.ownerId || "",
       name: empresa.name || "",
       ubicacion: empresa.ubicacion || "",
+      correoConfigEmail: empresa.correoConfigEmail || "",
+      correoConfigPassword: empresa.correoConfigPassword || "",
       horarioApertura: empresa.horarioApertura || "",
       horarioCierre: empresa.horarioCierre || "",
       cierreFondoVentasMinutesBeforeEnd:

@@ -31,6 +31,7 @@ const PERMISSION_LABELS = {
   empleados: "Empleados",
   calculohorasprecios: "Calculo horas precios",
   supplierorders: "Órdenes Proveedor",
+  reportessinpe: "Reportes SINPE",
   mantenimiento: "Mantenimiento",
   fondogeneral: "Fondo General",
   fondogeneralBCR: "Fondo General - BCR",
@@ -55,6 +56,7 @@ const PERMISSION_DESCRIPTIONS = {
   empleados: "Acceso a la sección de Empleados",
   calculohorasprecios: "Cálculo de horas y precios (planilla)",
   supplierorders: "Gestión de órdenes de proveedores",
+  reportessinpe: "Tarjeta y módulo de reportes SINPE",
   mantenimiento: "Acceso al panel de administración",
   fondogeneral:
     "Permiso para ver y administrar el fondo general de la compañía",
@@ -637,3 +639,4 @@ export default function UserPermissionsManager({
     </div>
   );
 }
+
