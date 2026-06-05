@@ -34,6 +34,18 @@ const getImapHost = (email: string) => {
 const stripAccents = (value: string) =>
   value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
+const normalizeMessageText = (value: string) =>
+  stripAccents(
+    value
+      .replace(/&uacute;|&#250;/gi, "u")
+      .replace(/&#x0*fa;/gi, "u")
+      .replace(/Ãº/g, "u")
+      .replace(/&#58;/g, ":")
+      .replace(/&nbsp;|&#160;/gi, " ")
+      .replace(/<[^>]*>/g, " ")
+      .replace(/\s+/g, " "),
+  );
+
 const normalizeSubject = (value: string) =>
   stripAccents(value).replace(/\s+/g, " ").trim().toLowerCase();
 
@@ -65,7 +77,8 @@ const parseAmount = (body: string): number | null => {
 };
 
 const parseReference = (body: string): string | null => {
-  const match = body.match(/N[uú]mero de referencia:\s*([0-9]+)/i);
+  const normalized = normalizeMessageText(body);
+  const match = normalized.match(/referencia\s*:\s*([0-9]+)/i);
   return match?.[1] || null;
 };
 
