@@ -13,6 +13,7 @@ import {
   type DocumentData,
 } from "firebase/firestore";
 import { db } from "@/config/firebase";
+import { stripUndefinedDeep } from "@/utils/firestore-utils";
 import type { MovementAccountKey, MovementCurrencyKey } from "./movimientos-fondos";
 
 export type FacturaMovement = {
@@ -67,27 +68,6 @@ const normalizeInvoiceDocType = (value: unknown): "FCO" | "FCR" | "NC" => {
   if (value === "FCR") return "FCR";
   if (value === "NC") return "NC";
   return "FCO";
-};
-
-const stripUndefinedDeep = <T>(value: T): T => {
-  if (value === undefined) return value;
-
-  if (Array.isArray(value)) {
-    return value
-      .map((item) => stripUndefinedDeep(item))
-      .filter((item) => item !== undefined) as T;
-  }
-
-  if (value && typeof value === "object") {
-    const output: Record<string, unknown> = {};
-    Object.entries(value as Record<string, unknown>).forEach(([key, val]) => {
-      const cleaned = stripUndefinedDeep(val);
-      if (cleaned !== undefined) output[key] = cleaned;
-    });
-    return output as T;
-  }
-
-  return value;
 };
 
 const sanitizeFacturaMovement = (raw: unknown): FacturaMovement | null => {

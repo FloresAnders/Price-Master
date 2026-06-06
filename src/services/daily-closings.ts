@@ -1,5 +1,6 @@
 import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "@/config/firebase";
+import { stripUndefinedDeep } from "@/utils/firestore-utils";
 import { FirestoreService } from "./firestore";
 
 export type DailyClosingRecord = {
@@ -110,38 +111,6 @@ const sanitizeBreakdown = (input: unknown): Record<number, number> => {
     return acc;
   }, {});
 };
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (!value || typeof value !== "object") return false;
-  const proto = Object.getPrototypeOf(value);
-  return proto === Object.prototype || proto === null;
-}
-
-/**
- * Firestore does not allow `undefined` anywhere in the payload.
- * This removes undefined keys deeply while preserving non-plain objects
- * (Timestamp, Date, GeoPoint, DocumentReference, FieldValue, etc.).
- */
-function stripUndefinedDeep<T>(value: T): T {
-  if (value === undefined) return value;
-
-  if (Array.isArray(value)) {
-    return value
-      .map((v) => stripUndefinedDeep(v))
-      .filter((v) => v !== undefined) as any;
-  }
-
-  if (isPlainObject(value)) {
-    const out: Record<string, unknown> = {};
-    Object.entries(value as Record<string, unknown>).forEach(([k, v]) => {
-      const cleaned = stripUndefinedDeep(v as any);
-      if (cleaned !== undefined) out[k] = cleaned;
-    });
-    return out as any;
-  }
-
-  return value;
-}
 
 type AdjustmentResolutionRemoval = NonNullable<
   NonNullable<DailyClosingRecord["adjustmentResolution"]>["removedAdjustments"]

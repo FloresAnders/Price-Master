@@ -66,14 +66,14 @@ export class SolicitudesService {
   /**
    * Get all solicitudes ordered by newest first
    */
-  static async getAllSolicitudes(): Promise<any[]> {
-    // Use query helper to order by createdAt desc
+  static async getAllSolicitudes(limitCount?: number): Promise<any[]> {
     try {
       const rows = await FirestoreService.query(
         this.COLLECTION_NAME,
         [],
         "createdAt",
         "desc",
+        limitCount ?? 200,
       );
       return rows;
     } catch (err) {

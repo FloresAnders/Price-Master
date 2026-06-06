@@ -1,14 +1,9 @@
 import { Timestamp } from "firebase/firestore";
+import { isPlainObject } from "@/utils/firestore-utils";
 
 export type FirestoreEncodedValue =
   | { __pm_type: "timestamp"; iso: string }
   | { __pm_type: "date"; iso: string };
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (!value || typeof value !== "object") return false;
-  const proto = Object.getPrototypeOf(value);
-  return proto === Object.prototype || proto === null;
-}
 
 export function encodeFirestoreValue(value: unknown): unknown {
   if (value === null) return null;

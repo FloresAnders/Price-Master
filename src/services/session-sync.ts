@@ -8,6 +8,7 @@ import {
   query,
   orderBy,
   where,
+  limit,
   onSnapshot,
   serverTimestamp,
   Timestamp,
@@ -107,6 +108,7 @@ export class SessionSyncService {
         where("sessionId", "==", sessionId),
         where("lastSeen", ">", Timestamp.fromDate(fifteenSecondsAgo)),
         orderBy("lastSeen", "desc"),
+        limit(10),
       );
 
       const querySnapshot = await getDocs(q);

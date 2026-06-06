@@ -1,6 +1,9 @@
 import { DailyClosingsService } from "@/services/daily-closings";
 import type { DailyClosingRecord, DailyClosingsDocument } from "@/services/daily-closings";
+import { stripUndefinedDeep as _stripUndefinedDeep } from "@/utils/firestore-utils";
 import type { MovementAccountKey, MovementCurrencyKey } from "@/services/movimientos-fondos";
+
+export const stripUndefinedDeep = _stripUndefinedDeep;
 import type { AppliedCreditNote } from "@/services/facturas";
 import type { FondoEntry, FondoMovementType } from "../types";
 import {
@@ -17,27 +20,6 @@ import {
   INGRESO_DESDE_FONDO_VENTAS_NAME,
   MOVEMENT_ACCOUNT_KEYS,
 } from "../constants";
-
-export const stripUndefinedDeep = <T,>(value: T): T => {
-  if (value === undefined) return value;
-
-  if (Array.isArray(value)) {
-    return value
-      .map((item) => stripUndefinedDeep(item))
-      .filter((item) => item !== undefined) as T;
-  }
-
-  if (value && typeof value === "object") {
-    const output: Record<string, unknown> = {};
-    Object.entries(value as Record<string, unknown>).forEach(([key, val]) => {
-      const cleaned = stripUndefinedDeep(val);
-      if (cleaned !== undefined) output[key] = cleaned;
-    });
-    return output as T;
-  }
-
-  return value;
-};
 
 export const normalizeMovementLabel = (value: unknown): string =>
   String(value ?? "")

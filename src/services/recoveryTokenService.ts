@@ -5,8 +5,8 @@ import {
   query,
   where,
   getDocs,
-  updateDoc,
   deleteDoc,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "@/config/firebase";
 import { RecoveryToken } from "../types/recovery";
@@ -141,11 +141,11 @@ export class RecoveryTokenService {
     );
 
     const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) return;
 
-    // Elimina todos los tokens anteriores
-    const deletePromises = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
-
-    await Promise.all(deletePromises);
+    const batch = writeBatch(db);
+    querySnapshot.docs.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
   }
 
   /**
@@ -175,9 +175,13 @@ export class RecoveryTokenService {
     const q = query(tokensRef, where("expiresAt", "<", now));
     const querySnapshot = await getDocs(q);
 
-    const deletePromises = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
-    await Promise.all(deletePromises);
+    const docs = querySnapshot.docs;
+    for (let i = 0; i < docs.length; i += 450) {
+      const batch = writeBatch(db);
+      docs.slice(i, i + 450).forEach((doc) => batch.delete(doc.ref));
+      await batch.commit();
+    }
 
-    return querySnapshot.size;
+    return docs.length;
   }
 }
