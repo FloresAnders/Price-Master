@@ -2487,13 +2487,6 @@ export function FondoSection({
   const pendingCreditNotesByProvider = useMemo(() => {
     const map = new Map<string, number>();
     pendingCreditNotes.forEach((entry) => {
-      const balanceDue = Math.max(
-        0,
-        Math.abs(
-          Math.trunc(Number(entry.balanceDue ?? entry.amountDue ?? entry.amount) || 0),
-        ),
-      );
-      if (balanceDue <= 0) return;
       const providerCode = String(entry.providerCode || "").trim();
       if (!providerCode) return;
       map.set(providerCode, (map.get(providerCode) ?? 0) + 1);
@@ -2561,8 +2554,7 @@ export function FondoSection({
             paidAmount,
             currency: (note.currency === "USD" ? "USD" : "CRC") as "CRC" | "USD",
           };
-        })
-        .filter((note) => note.balanceDue > 0),
+        }),
     );
   }, [isCajaNegra, pendingCreditNotes, selectedProvider]);
 
@@ -3638,6 +3630,14 @@ export function FondoSection({
         pendingCreditNotes={movementPendingCreditNotes}
         selectedCreditNoteIds={selectedAppliedCreditNoteIds}
         onToggleCreditNote={(id) => {
+          const note = movementPendingCreditNotes.find((item) => item.id === id);
+          if (
+            note &&
+            Math.max(0, Math.trunc(Number(note.balanceDue || note.amount) || 0)) === 0
+          ) {
+            setPendingZeroAmountCreditNoteModalOpen(true);
+            return;
+          }
           setSelectedAppliedCreditNoteIds((prev) =>
             prev.includes(id)
               ? prev.filter((item) => item !== id)
