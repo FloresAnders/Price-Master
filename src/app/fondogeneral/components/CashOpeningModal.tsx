@@ -1,7 +1,18 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { X } from "lucide-react";
+import {
+  Banknote,
+  CalendarDays,
+  ChevronDown,
+  ChevronUp,
+  Coins,
+  Eraser,
+  Save,
+  StickyNote,
+  UserRound,
+  X,
+} from "lucide-react";
 
 const CRC_DENOMINATIONS: readonly number[] = [
   20000, 10000, 5000, 2000, 1000, 500, 100, 50, 25,
@@ -95,9 +106,9 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
   );
 
   const secondaryButtonClass =
-    "inline-flex h-11 items-center justify-center rounded-lg border border-[var(--input-border)] px-4 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20 disabled:cursor-not-allowed disabled:opacity-60";
+    "inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-[var(--input-border)] px-4 text-sm font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/50 hover:bg-[var(--muted)]/20 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto";
   const primaryButtonClass =
-    "inline-flex h-11 items-center justify-center rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60";
+    "inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-5 text-sm font-semibold text-white shadow-sm shadow-black/20 transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto";
 
   const crcFormatter = useMemo(
     () =>

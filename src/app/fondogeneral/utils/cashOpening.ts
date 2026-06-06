@@ -2,7 +2,12 @@ import type { Dispatch, SetStateAction } from "react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "@/config/firebase";
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
-import { dateKeyFromDate, formatByCurrency } from "./helpers";
+import {
+  compressAuditHistory,
+  dateKeyFromDate,
+  formatByCurrency,
+  getChangedFields,
+} from "./helpers";
 import { APERTURA_FONDO_PROVIDER_CODE, AUTO_ADJUSTMENT_OPENING_TYPE } from "../constants";
 import type { FondoEntry } from "../types";
 import type { CashOpeningFormValues } from "../components/CashOpeningModal";
@@ -30,6 +35,7 @@ export interface HandleConfirmCashOpeningDeps {
   setCashOpeningModalOpen: (value: boolean) => void;
   setCashOpeningInitialValues: (value: CashOpeningFormValues | null) => void;
   openingSubmitInProgressRef: { current: boolean };
+  existingEntry?: FondoEntry | null;
 }
 
 export async function handleConfirmCashOpening(
@@ -53,6 +59,7 @@ export async function handleConfirmCashOpening(
     setCashOpeningModalOpen,
     setCashOpeningInitialValues,
     openingSubmitInProgressRef,
+    existingEntry,
   } = deps;
 
   if (accountKey !== "FondoGeneral") {
@@ -87,17 +94,22 @@ export async function handleConfirmCashOpening(
       return;
     }
 
-    const baseNotes = opening.notes.trim().toUpperCase();
+    const baseNotes = opening.notes.trim();
+    const movementCreatedAt = existingEntry?.createdAt ?? createdAtISO;
+    const movementInvoiceNumber =
+      existingEntry?.invoiceNumber ?? dateKeyFromDate(createdAtDate);
     const commonFields = {
       providerCode: APERTURA_FONDO_PROVIDER_CODE,
-      invoiceNumber: dateKeyFromDate(createdAtDate),
+      invoiceNumber: movementInvoiceNumber,
       manager: managerName,
-      createdAt: createdAtISO,
+      createdAt: movementCreatedAt,
       accountId: accountKey,
       openingBalanceCRC: totalCRC,
       openingBalanceUSD: totalUSD,
-      openingPreviousBalanceCRC: Math.trunc(currentBalanceCRC),
-      openingPreviousBalanceUSD: Math.trunc(currentBalanceUSD),
+      openingPreviousBalanceCRC:
+        existingEntry?.openingPreviousBalanceCRC ?? Math.trunc(currentBalanceCRC),
+      openingPreviousBalanceUSD:
+        existingEntry?.openingPreviousBalanceUSD ?? Math.trunc(currentBalanceUSD),
       openingBreakdownCRC: opening.breakdownCRC ?? {},
       openingBreakdownUSD: opening.breakdownUSD ?? {},
     } as const;
@@ -107,7 +119,7 @@ export async function handleConfirmCashOpening(
         "APERTURA DE FONDO",
         hasDifferences
           ? `MOTIVO: AJUSTE APLICADO AL SALDO DE APERTURA\n[ALERT_ICON]Diferencia CRC: ${diffCRC >= 0 ? "+" : "-"} ${formatByCurrency("CRC", Math.abs(diffCRC))}\n[ALERT_ICON]Diferencia USD: ${diffUSD >= 0 ? "+" : "-"} ${formatByCurrency("USD", Math.abs(diffUSD))}`
-          : "SIN DIFERENCIAS",
+          : `[CHECK_ICON]Sin diferencias.${baseNotes ? ` Notas: ${baseNotes}` : ""}`,
         `SALDO APERTURA CRC: ${formatByCurrency("CRC", totalCRC)}`,
         `SALDO APERTURA USD: ${formatByCurrency("USD", totalUSD)}`,
         `BILLETES CRC: ${Object.entries(opening.breakdownCRC ?? {})
@@ -119,29 +131,114 @@ export async function handleConfirmCashOpening(
           .map(([denom, count]) => `${denom}x${count}`)
           .join(" · ") || "-"}`,
       ];
-      if (baseNotes) lines.push(`NOTAS: ${baseNotes}`);
+      if (baseNotes && hasDifferences) lines.push(`NOTAS: ${baseNotes}`);
       return lines.filter(Boolean).join("\n");
     };
 
+    const entryId = existingEntry?.id ?? `apertura-${Date.now()}`;
+    let auditFields: Partial<FondoEntry> = {};
+    if (existingEntry) {
+      let history: any[] = [];
+      try {
+        const existing = existingEntry.auditDetails
+          ? (JSON.parse(existingEntry.auditDetails) as any)
+          : null;
+        if (existing && Array.isArray(existing.history)) {
+          history = existing.history.slice();
+        } else if (existing && existing.before && existing.after) {
+          history = [
+            {
+              at: existing.at ?? existingEntry.createdAt,
+              before: existing.before,
+              after: existing.after,
+            },
+          ];
+        }
+      } catch {
+        history = [];
+      }
+
+      const nextPaymentType = hasDifferences
+        ? (AUTO_ADJUSTMENT_OPENING_TYPE as any)
+        : ("INFORMATIVO" as any);
+      const changedFields = getChangedFields(
+        {
+          manager: existingEntry.manager,
+          notes: existingEntry.notes,
+          paymentType: existingEntry.paymentType,
+          currency: existingEntry.currency,
+        },
+        {
+          manager: managerName,
+          notes: movementNotes(),
+          paymentType: nextPaymentType,
+          currency: "CRC",
+        },
+      );
+      const addAuditField = (field: string, before: unknown, after: unknown) => {
+        if (JSON.stringify(before) === JSON.stringify(after)) return;
+        changedFields.before[field] = before;
+        changedFields.after[field] = after;
+      };
+      addAuditField("openingBalanceCRC", existingEntry.openingBalanceCRC, totalCRC);
+      addAuditField("openingBalanceUSD", existingEntry.openingBalanceUSD, totalUSD);
+      addAuditField(
+        "openingBreakdownCRC",
+        existingEntry.openingBreakdownCRC,
+        opening.breakdownCRC ?? {},
+      );
+      addAuditField(
+        "openingBreakdownUSD",
+        existingEntry.openingBreakdownUSD,
+        opening.breakdownUSD ?? {},
+      );
+
+      history.push({ at: createdAtISO, ...changedFields });
+
+      auditFields = {
+        isAudit: true,
+        originalEntryId: existingEntry.originalEntryId ?? existingEntry.id,
+        auditDetails: JSON.stringify({ history: compressAuditHistory(history) }),
+      };
+    }
+
     const entry: FondoEntry = {
+      ...(existingEntry ?? {}),
       ...commonFields,
-      id: `apertura-${Date.now()}`,
-      paymentType: hasDifferences ? (AUTO_ADJUSTMENT_OPENING_TYPE as any) : ("INFORMATIVO" as any),
+      ...auditFields,
+      id: entryId,
+      paymentType: hasDifferences
+        ? (AUTO_ADJUSTMENT_OPENING_TYPE as any)
+        : ("INFORMATIVO" as any),
       amountEgreso: 0,
       amountIngreso: 0,
       notes: movementNotes(),
       currency: "CRC",
       breakdown: opening.breakdownCRC ?? {},
+      updateAt: existingEntry ? createdAtISO : undefined,
     };
 
-    const saved = await persistMovementToFirestore([entry, ...fondoEntries], "create", {
-      upsert: entry,
-    });
+    const updatedEntries = existingEntry
+      ? fondoEntries.map((item) => (item.id === existingEntry.id ? entry : item))
+      : [entry, ...fondoEntries];
+
+    const saved = await persistMovementToFirestore(
+      updatedEntries,
+      existingEntry ? "edit" : "create",
+      {
+        upsert: entry,
+        before: existingEntry ?? undefined,
+      },
+    );
     if (!saved.ok) {
       showToast("Error al guardar la apertura. Por favor, intente de nuevo.", "error", 5000);
       return;
     }
-    setFondoEntries((prev) => [entry, ...prev]);
+    setFondoEntries((prev) =>
+      existingEntry
+        ? prev.map((item) => (item.id === existingEntry.id ? entry : item))
+        : [entry, ...prev],
+    );
     if (saved.ledgerSnapshot) {
       setLedgerSnapshot(saved.ledgerSnapshot as any);
     }
@@ -196,9 +293,13 @@ export async function handleConfirmCashOpening(
     setCashOpeningModalOpen(false);
     setCashOpeningInitialValues(null);
     showToast(
-      hasDifferences
-        ? "Apertura de fondo registrada con ajuste"
-        : "Apertura de fondo registrada correctamente",
+      existingEntry
+        ? hasDifferences
+          ? "Apertura de fondo actualizada con ajuste"
+          : "Apertura de fondo actualizada correctamente"
+        : hasDifferences
+          ? "Apertura de fondo registrada con ajuste"
+          : "Apertura de fondo registrada correctamente",
       "success",
       3000,
     );

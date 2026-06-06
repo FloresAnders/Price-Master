@@ -51,12 +51,24 @@ export function MovementNotesBlock({ notes }: MovementNotesBlockProps) {
               </div>
             );
           }
-          if (notes.startsWith("[CHECK_ICON]")) {
-            const noteText = notes.replace("[CHECK_ICON]", "");
+          if (notes.includes("[CHECK_ICON]")) {
+            const parts = notes.split("\n");
+            const headerText =
+              parts.find((p) => !p.includes("[CHECK_ICON]")) || "";
+            const checkLine =
+              parts.find((p) => p.includes("[CHECK_ICON]")) || "";
+            const noteText = checkLine.replace("[CHECK_ICON]", "");
             return (
-              <div className="flex items-center gap-1.5">
-                <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
-                <span>{noteText}</span>
+              <div className="flex flex-col gap-1">
+                {headerText && (
+                  <div className="text-[10px] font-semibold text-[var(--foreground)] uppercase tracking-wide">
+                    {headerText}
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                  <span>{noteText}</span>
+                </div>
               </div>
             );
           }

@@ -3,6 +3,7 @@ import type { FondoEntry } from "../types";
 
 type MovementActionsCellProps = {
   entry: FondoEntry;
+  isCashOpeningMovement: boolean;
   isLockedMovement: boolean;
   isPaidFcrEntry: boolean;
   hasAppliedCreditNotes: boolean;
@@ -22,6 +23,7 @@ type MovementActionsCellProps = {
 
 export function MovementActionsCell({
   entry,
+  isCashOpeningMovement,
   isLockedMovement,
   isPaidFcrEntry,
   hasAppliedCreditNotes,
@@ -43,14 +45,18 @@ export function MovementActionsCell({
     isCierreVentasRow &&
     Boolean(latestCierreFondoVentasMovementId) &&
     entry.id === latestCierreFondoVentasMovementId;
+  const canManageCashOpeningMovement =
+    !isCashOpeningMovement || isPrincipalAdmin || isSuperAdminUser;
   const canDelete =
     !isLockedMovement &&
     !isAutoAdjustment &&
+    canManageCashOpeningMovement &&
     (isPrincipalAdmin || isSuperAdminUser) &&
     (!isCierreVentasRow || isLatestCierreVentas);
   const canEdit =
     !isLockedMovement &&
     !isAutoAdjustment &&
+    canManageCashOpeningMovement &&
     (!isSuperAdminUser || !isCierreVentasRow);
 
   return (

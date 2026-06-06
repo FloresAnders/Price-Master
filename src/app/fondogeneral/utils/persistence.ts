@@ -218,10 +218,35 @@ export async function persistMovementToFirestore(
         if (d) deltas[d.currency] -= d.delta;
       }
     } else if (operationType === "edit") {
-      const before = movementDelta(beforeEntry);
-      if (before) deltas[before.currency] -= before.delta;
-      const after = movementDelta(afterEntry);
-      if (after) deltas[after.currency] += after.delta;
+      const isCashOpeningBefore =
+        beforeEntry?.providerCode === APERTURA_FONDO_PROVIDER_CODE;
+      const isCashOpeningAfter =
+        afterEntry?.providerCode === APERTURA_FONDO_PROVIDER_CODE;
+      if (isCashOpeningBefore || isCashOpeningAfter) {
+        const beforeCRC = Math.max(
+          0,
+          Math.trunc(Number((beforeEntry as any)?.openingBalanceCRC ?? 0) || 0),
+        );
+        const beforeUSD = Math.max(
+          0,
+          Math.trunc(Number((beforeEntry as any)?.openingBalanceUSD ?? 0) || 0),
+        );
+        const afterCRC = Math.max(
+          0,
+          Math.trunc(Number((afterEntry as any)?.openingBalanceCRC ?? 0) || 0),
+        );
+        const afterUSD = Math.max(
+          0,
+          Math.trunc(Number((afterEntry as any)?.openingBalanceUSD ?? 0) || 0),
+        );
+        deltas.CRC += afterCRC - beforeCRC;
+        deltas.USD += afterUSD - beforeUSD;
+      } else {
+        const before = movementDelta(beforeEntry);
+        if (before) deltas[before.currency] -= before.delta;
+        const after = movementDelta(afterEntry);
+        if (after) deltas[after.currency] += after.delta;
+      }
     }
 
     const nextCurrentCRC =

@@ -192,6 +192,8 @@ export function FondoSection({
   const [cashOpeningModalOpen, setCashOpeningModalOpen] = useState(false);
   const [cashOpeningInitialValues, setCashOpeningInitialValues] =
     useState<CashOpeningFormValues | null>(null);
+  const [cashOpeningEditingEntry, setCashOpeningEditingEntry] =
+    useState<FondoEntry | null>(null);
   const openingSubmitInProgressRef = useRef(false);
   const canSelectCompany = isAdminUser || isSuperAdminUser;
   const [resolvedCompany, setResolvedCompany] = useState(() => assignedCompany);
@@ -1784,6 +1786,11 @@ export function FondoSection({
       return;
     }
 
+    if (isCashOpeningMovement(entry) && (isPrincipalAdmin || isSuperAdminUser)) {
+      handleEditCashOpening(entry);
+      return;
+    }
+
     // If this movement was generated from a daily closing, open the daily-closing modal
     // prefilled with that closing's values so the user edits the closing (not the generic movement).
     if (entry.originalEntryId) {
@@ -1892,6 +1899,14 @@ export function FondoSection({
     );
     return found?.code || null;
   }, [providers]);
+
+  const isCashOpeningMovement = useCallback(
+    (entry: FondoEntry): boolean =>
+      entry.providerCode === APERTURA_FONDO_PROVIDER_CODE ||
+      String(entry.providerCode || "").trim().toUpperCase() ===
+        APERTURA_FONDO_PROVIDER_CODE,
+    [],
+  );
 
   const latestCierreFondoVentasMovementId = useMemo(() => {
     if (!fondoEntries || fondoEntries.length === 0) return null;
@@ -3164,6 +3179,7 @@ export function FondoSection({
 
   const handleOpenCashOpening = useCallback(() => {
     setConfirmPhysicalCountOpen(false);
+    setCashOpeningEditingEntry(null);
     const openingManager = (user?.name || user?.email || "").trim();
     setCashOpeningInitialValues({
       openingDate: new Date().toISOString(),
@@ -3185,9 +3201,41 @@ export function FondoSection({
     user?.name,
   ]);
 
+  const buildCashOpeningInitialValuesFromEntry = useCallback(
+    (entry: FondoEntry): CashOpeningFormValues => {
+      const extractUserNotes = (value: string) => {
+        const trimmed = String(value || "").trim();
+        if (!trimmed) return "";
+        const match = trimmed.match(/(?:^|\n)NOTAS:\s*([\s\S]*)$/i);
+        return match?.[1]?.trim() ?? "";
+      };
+
+      return {
+        openingDate: entry.createdAt || new Date().toISOString(),
+        manager: entry.manager || "",
+        notes: extractUserNotes(entry.notes),
+        totalCRC: Math.trunc(Number(entry.openingBalanceCRC ?? 0) || 0),
+        totalUSD: Math.trunc(Number(entry.openingBalanceUSD ?? 0) || 0),
+        breakdownCRC: entry.openingBreakdownCRC ?? entry.breakdown ?? {},
+        breakdownUSD: entry.openingBreakdownUSD ?? {},
+      };
+    },
+    [],
+  );
+
+  const handleEditCashOpening = useCallback(
+    (entry: FondoEntry) => {
+      setCashOpeningEditingEntry(entry);
+      setCashOpeningInitialValues(buildCashOpeningInitialValuesFromEntry(entry));
+      setCashOpeningModalOpen(true);
+    },
+    [buildCashOpeningInitialValuesFromEntry, setCashOpeningModalOpen],
+  );
+
   const handleCloseCashOpening = useCallback(() => {
     setCashOpeningModalOpen(false);
     setCashOpeningInitialValues(null);
+    setCashOpeningEditingEntry(null);
   }, []);
 
   const handleConfirmCashOpening = useCallback(
@@ -3209,6 +3257,7 @@ export function FondoSection({
         setCashOpeningModalOpen,
         setCashOpeningInitialValues,
         openingSubmitInProgressRef,
+        existingEntry: cashOpeningEditingEntry,
       });
     },
     [
@@ -3226,6 +3275,7 @@ export function FondoSection({
       setCashOpeningModalOpen,
       setCashOpeningInitialValues,
       openingSubmitInProgressRef,
+      cashOpeningEditingEntry,
       buildPhysicalCountStorageKeyFn,
       cleanupPhysicalCountLegacyKeysFn,
     ],
@@ -4893,6 +4943,7 @@ export function FondoSection({
                                   </td>
                                   <MovementActionsCell
                                     entry={fe}
+                                    isCashOpeningMovement={isCashOpeningMovement(fe)}
                                     isLockedMovement={isLockedMovement}
                                     isPaidFcrEntry={isPaidFcrEntry}
                                     hasAppliedCreditNotes={hasAppliedCreditNotes}
@@ -5131,7 +5182,7 @@ export function FondoSection({
       />
 
       <CashOpeningModal
-        key={`cash-opening-${cashOpeningModalOpen ? "open" : "closed"}-${cashOpeningInitialValues?.openingDate ?? "new"}`}
+        key={`cash-opening-${cashOpeningModalOpen ? "open" : "closed"}-${cashOpeningEditingEntry?.id ?? cashOpeningInitialValues?.openingDate ?? "new"}`}
         open={cashOpeningModalOpen}
         onClose={handleCloseCashOpening}
         onConfirm={handleConfirmCashOpening}
