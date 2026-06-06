@@ -80,8 +80,10 @@ export function usePendingClosingCreditInvoices({ company }: Props) {
             0,
             Math.trunc(Number(movement.balanceDue ?? totalAmount - paidAmount) || 0),
           );
+          const isZeroAmountNote =
+            Math.max(0, Math.trunc(Number(movement.amount) || 0)) === 0;
           return (
-            balanceDue > 0 &&
+            (balanceDue > 0 || isZeroAmountNote) &&
             !["PAGADA", "REBAJADA"].includes(
               String(movement.paymentStatus || "PENDIENTE").toUpperCase(),
             )
