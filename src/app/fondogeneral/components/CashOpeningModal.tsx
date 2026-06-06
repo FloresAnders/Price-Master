@@ -346,7 +346,7 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
           </button>
           <div className="space-y-1 pr-12 text-center">
             <h3 id="cash-opening-title" className="text-lg font-semibold sm:text-xl">
-              Apertura de caja
+              Apertura de fondo
             </h3>
             <p className="text-xs text-[var(--muted-foreground)] sm:text-sm">
               Si hay diferencia, se ajusta y se notifica automáticamente.

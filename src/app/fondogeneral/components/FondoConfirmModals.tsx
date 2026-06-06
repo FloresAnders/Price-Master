@@ -79,7 +79,7 @@ export function FondoConfirmModals({
                   onClick={handleOpenCashOpening}
                   className="inline-flex h-11 items-center justify-center rounded-xl border border-[var(--accent)] bg-[var(--accent)] px-5 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)]"
                 >
-                  Apertura de caja
+                  Apertura de fondo
                 </button>
               </div>
             </div>

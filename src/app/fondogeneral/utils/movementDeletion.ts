@@ -1,7 +1,7 @@
 import { getDoc, type WriteBatch } from "firebase/firestore";
 import { FacturasService, type FacturaMovement } from "../../../services/facturas";
 import {
-  APERTURA_CAJA_PROVIDER_CODE,
+  APERTURA_FONDO_PROVIDER_CODE,
   CIERRE_FONDO_VENTAS_PROVIDER_NAME,
 } from "../constants";
 import type { FondoEntry } from "../types";
@@ -322,8 +322,8 @@ export async function confirmDeleteMovement(
         ?.name?.toUpperCase();
       const isCierreVentas = providerName === CIERRE_FONDO_VENTAS_PROVIDER_NAME;
       const isCashOpening =
-        entry.providerCode === APERTURA_CAJA_PROVIDER_CODE ||
-        providerName === APERTURA_CAJA_PROVIDER_CODE;
+        entry.providerCode === APERTURA_FONDO_PROVIDER_CODE ||
+        providerName === APERTURA_FONDO_PROVIDER_CODE;
       if (normalizedCompany.length > 0 && isCierreVentas) {
         await forceClearClosingGuards(
           normalizedCompany,

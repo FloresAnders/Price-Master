@@ -3,7 +3,7 @@ import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "@/config/firebase";
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
 import { dateKeyFromDate, formatByCurrency } from "./helpers";
-import { APERTURA_CAJA_PROVIDER_CODE } from "../constants";
+import { APERTURA_FONDO_PROVIDER_CODE, AUTO_ADJUSTMENT_OPENING_TYPE } from "../constants";
 import type { FondoEntry } from "../types";
 import type { CashOpeningFormValues } from "../components/CashOpeningModal";
 
@@ -89,20 +89,22 @@ export async function handleConfirmCashOpening(
 
     const baseNotes = opening.notes.trim().toUpperCase();
     const commonFields = {
-      providerCode: APERTURA_CAJA_PROVIDER_CODE,
+      providerCode: APERTURA_FONDO_PROVIDER_CODE,
       invoiceNumber: dateKeyFromDate(createdAtDate),
       manager: managerName,
       createdAt: createdAtISO,
       accountId: accountKey,
       openingBalanceCRC: totalCRC,
       openingBalanceUSD: totalUSD,
+      openingPreviousBalanceCRC: Math.trunc(currentBalanceCRC),
+      openingPreviousBalanceUSD: Math.trunc(currentBalanceUSD),
       openingBreakdownCRC: opening.breakdownCRC ?? {},
       openingBreakdownUSD: opening.breakdownUSD ?? {},
     } as const;
 
     const movementNotes = () => {
       const lines = [
-        "APERTURA DE CAJA",
+        "APERTURA DE FONDO",
         hasDifferences
           ? `MOTIVO: AJUSTE APLICADO AL SALDO DE APERTURA\n[ALERT_ICON]Diferencia CRC: ${diffCRC >= 0 ? "+" : "-"} ${formatByCurrency("CRC", Math.abs(diffCRC))}\n[ALERT_ICON]Diferencia USD: ${diffUSD >= 0 ? "+" : "-"} ${formatByCurrency("USD", Math.abs(diffUSD))}`
           : "SIN DIFERENCIAS",
@@ -124,7 +126,7 @@ export async function handleConfirmCashOpening(
     const entry: FondoEntry = {
       ...commonFields,
       id: `apertura-${Date.now()}`,
-      paymentType: "INFORMATIVO" as any,
+      paymentType: hasDifferences ? (AUTO_ADJUSTMENT_OPENING_TYPE as any) : ("INFORMATIVO" as any),
       amountEgreso: 0,
       amountIngreso: 0,
       notes: movementNotes(),
@@ -195,8 +197,8 @@ export async function handleConfirmCashOpening(
     setCashOpeningInitialValues(null);
     showToast(
       hasDifferences
-        ? "Apertura de caja registrada con ajuste"
-        : "Apertura de caja registrada correctamente",
+        ? "Apertura de fondo registrada con ajuste"
+        : "Apertura de fondo registrada correctamente",
       "success",
       3000,
     );

@@ -30,6 +30,8 @@ export type FondoEntry = {
   breakdown?: Record<number, number>;
   openingBalanceCRC?: number;
   openingBalanceUSD?: number;
+  openingPreviousBalanceCRC?: number;
+  openingPreviousBalanceUSD?: number;
   openingBreakdownCRC?: Record<number, number>;
   openingBreakdownUSD?: Record<number, number>;
   closingBalanceCRC?: number;

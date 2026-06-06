@@ -5,6 +5,7 @@ import type { AppliedCreditNote } from "@/services/facturas";
 import type { FondoEntry, FondoMovementType } from "../types";
 import {
   AUTO_ADJUSTMENT_CLOSING_TYPE,
+  AUTO_ADJUSTMENT_OPENING_TYPE,
   AUTO_ADJUSTMENT_PROVIDER_CODE,
   AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY,
   ACCOUNT_KEY_BY_NAMESPACE,
@@ -221,6 +222,7 @@ export const normalizeStoredType = (value: unknown): FondoMovementType => {
     if (upper === "REPARACION EQUIPO") return "MANTENIMIENTO INSTALACIONES";
     if (upper === "SALARIO" || upper === "SALARIOS") return "SALARIOS";
     if (upper === "GASTO") return "GASTOS VARIOS";
+    if (upper === AUTO_ADJUSTMENT_OPENING_TYPE) return AUTO_ADJUSTMENT_OPENING_TYPE;
   }
   return "COMPRA INVENTARIO";
 };
@@ -821,6 +823,12 @@ export const sanitizeFondoEntries = (
       invoiceCreatedAt,
       closingBalanceCRC,
       closingBalanceUSD,
+      openingBalanceCRC: coerceTruncNumber((entry as any).openingBalanceCRC),
+      openingBalanceUSD: coerceTruncNumber((entry as any).openingBalanceUSD),
+      openingPreviousBalanceCRC: coerceTruncNumber((entry as any).openingPreviousBalanceCRC),
+      openingPreviousBalanceUSD: coerceTruncNumber((entry as any).openingPreviousBalanceUSD),
+      openingBreakdownCRC: (entry as any).openingBreakdownCRC ?? undefined,
+      openingBreakdownUSD: (entry as any).openingBreakdownUSD ?? undefined,
       isAudit: !!entry.isAudit,
       originalEntryId:
         typeof entry.originalEntryId === "string"

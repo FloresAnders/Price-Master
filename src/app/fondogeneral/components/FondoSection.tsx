@@ -81,7 +81,8 @@ import {
   CIERRE_FONDO_VENTAS_PROVIDER_NAME,
   CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
   CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
-  APERTURA_CAJA_PROVIDER_CODE,
+  AUTO_ADJUSTMENT_OPENING_TYPE,
+  APERTURA_FONDO_PROVIDER_CODE,
   FONDO_KEY_SUFFIX,
   SHARED_COMPANY_STORAGE_KEY,
   NAMESPACE_PERMISSIONS,
@@ -399,6 +400,9 @@ export function FondoSection({
   const [expandedClosings, setExpandedClosings] = useState<Set<string>>(
     new Set(),
   );
+  const [expandedOpeningBalances, setExpandedOpeningBalances] = useState<Set<string>>(
+    new Set(),
+  );
   const [expandedFcrInfoRows, setExpandedFcrInfoRows] = useState<Set<string>>(
     new Set(),
   );
@@ -654,40 +658,6 @@ export function FondoSection({
     [accountKey, company],
   );
 
-  const shouldPromptPhysicalCount = useCallback(
-    (): boolean => {
-      if (accountKey !== "FondoGeneral") return false;
-      const normalizedCompany = (company || "").trim();
-      if (normalizedCompany.length === 0) return false;
-
-      const latestOpening = [...fondoEntries]
-        .filter(
-          (entry) =>
-            entry.providerCode === APERTURA_CAJA_PROVIDER_CODE ||
-            String(entry.providerCode || "").trim().toUpperCase() ===
-              APERTURA_CAJA_PROVIDER_CODE,
-        )
-        .sort((a, b) => getPrimaryMovementTime(b) - getPrimaryMovementTime(a))[0];
-
-      const latestClosing = [...fondoEntries]
-        .filter((entry) => {
-          const provider = providers.find((p) => p.code === entry.providerCode);
-          return (
-            provider?.name?.toUpperCase() === "CIERRE DE FONDO GENERAL" ||
-            String(entry.providerCode || "").trim().toUpperCase() ===
-              "CIERRE DE FONDO GENERAL"
-          );
-        })
-        .sort((a, b) => getPrimaryMovementTime(b) - getPrimaryMovementTime(a))[0];
-
-      const latestOpeningTime = latestOpening ? getPrimaryMovementTime(latestOpening) : 0;
-      const latestClosingTime = latestClosing ? getPrimaryMovementTime(latestClosing) : 0;
-      if (latestClosingTime > latestOpeningTime) return true;
-
-      return shouldPromptPhysicalCountFn(accountKey, company);
-    },
-    [accountKey, company, fondoEntries, providers],
-  );
   // Audit modal state: show full before/after history when an edited entry is clicked
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditModalData, setAuditModalData] = useState<{
@@ -727,6 +697,50 @@ export function FondoSection({
     setLedgerSnapshot,
     setMovementCurrency,
   });
+
+  const shouldPromptPhysicalCount = useCallback(
+    (): boolean => {
+      if (accountKey !== "FondoGeneral") return false;
+      const normalizedCompany = (company || "").trim();
+      if (normalizedCompany.length === 0) return false;
+
+      const latestOpening = [...fondoEntries]
+        .filter(
+          (entry) =>
+            entry.providerCode === APERTURA_FONDO_PROVIDER_CODE ||
+            String(entry.providerCode || "").trim().toUpperCase() ===
+              APERTURA_FONDO_PROVIDER_CODE,
+        )
+        .sort((a, b) => getPrimaryMovementTime(b) - getPrimaryMovementTime(a))[0];
+
+      const latestClosing = [...fondoEntries]
+        .filter((entry) => {
+          const provider = providers.find((p) => p.code === entry.providerCode);
+          return (
+            provider?.name?.toUpperCase() === "CIERRE DE FONDO GENERAL" ||
+            String(entry.providerCode || "").trim().toUpperCase() ===
+              "CIERRE DE FONDO GENERAL"
+          );
+        })
+        .sort((a, b) => getPrimaryMovementTime(b) - getPrimaryMovementTime(a))[0];
+
+      const latestOpeningTime = latestOpening ? getPrimaryMovementTime(latestOpening) : 0;
+      const latestClosingTime = latestClosing ? getPrimaryMovementTime(latestClosing) : 0;
+      if (latestClosingTime > latestOpeningTime) return true;
+
+      return shouldPromptPhysicalCountFn(accountKey, company);
+    },
+    [accountKey, company, fondoEntries, providers],
+  );
+
+  const toggleExpandedOpeningBalance = useCallback((key: string) => {
+    setExpandedOpeningBalances((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
@@ -4287,10 +4301,17 @@ export function FondoSection({
                                 AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY ||
                               hasGeneralClosingAdjustmentNotes(fe.notes);
                             const isCashOpeningRow =
-                              fe.providerCode === APERTURA_CAJA_PROVIDER_CODE ||
-                              providerNameUpper === APERTURA_CAJA_PROVIDER_CODE;
+                              fe.providerCode === APERTURA_FONDO_PROVIDER_CODE ||
+                              providerNameUpper === APERTURA_FONDO_PROVIDER_CODE;
+                            const isCashOpeningAdjustment =
+                              isCashOpeningRow &&
+                              String(fe.notes || "")
+                                .toUpperCase()
+                                .includes("AJUSTE APLICADO AL SALDO DE APERTURA");
                             const displayPaymentType =
-                              (isAutoAdjustment || isGeneralClosingRow) &&
+                              isCashOpeningAdjustment
+                                ? AUTO_ADJUSTMENT_OPENING_TYPE
+                                : (isAutoAdjustment || isGeneralClosingRow) &&
                               !hasGeneralClosingNoDiffNotes(fe.notes) &&
                               fe.paymentType !== "INFORMATIVO"
                                 ? "AJUSTE CIERRE"
@@ -4526,62 +4547,58 @@ export function FondoSection({
                                           fe.openingBreakdownCRC ?? fe.breakdown ?? {};
                                         const breakdownUSD =
                                           fe.openingBreakdownUSD ?? {};
+                                        const keyCRC = `${fe.id}:CRC`;
+                                        const keyUSD = `${fe.id}:USD`;
+                                        const isCRCExpanded = expandedOpeningBalances.has(keyCRC);
+                                        const isUSDExpanded = expandedOpeningBalances.has(keyUSD);
+
+                                        const renderBills = (
+                                          breakdown: Record<number, number>,
+                                          expanded: boolean,
+                                        ) => {
+                                          if (!expanded) return null;
+                                          const items = Object.entries(breakdown)
+                                            .filter(([, count]) => Number(count) > 0)
+                                            .map(([denom, count]) => `${denom}x${count}`)
+                                            .join(" · ");
+                                          return (
+                                            <div className="mt-1 rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-2 py-1 text-left text-xs text-[var(--foreground)]">
+                                              {items || "-"}
+                                            </div>
+                                          );
+                                        };
 
                                         return (
-                                          <div className="flex flex-col gap-2 text-right">
+                                          <div className="flex flex-col gap-1 text-right">
                                             <div className="text-xs text-[var(--muted-foreground)]">
-                                              Saldo apertura
+                                              Saldo de apertura
                                             </div>
-                                            <div className="grid gap-2 text-sm font-semibold text-[var(--foreground)] sm:grid-cols-2">
-                                              {currencyEnabled.CRC && (
-                                                <div className="rounded border border-[var(--input-border)] bg-[var(--muted)]/15 px-2 py-1">
-                                                  <div className="text-[10px] uppercase tracking-wide text-[var(--muted-foreground)]">
-                                                    CRC
-                                                  </div>
-                                                  <div>{formatByCurrency("CRC", openingCRC)}</div>
-                                                </div>
-                                              )}
-                                              {currencyEnabled.USD && (
-                                                <div className="rounded border border-[var(--input-border)] bg-[var(--muted)]/15 px-2 py-1">
-                                                  <div className="text-[10px] uppercase tracking-wide text-[var(--muted-foreground)]">
-                                                    USD
-                                                  </div>
-                                                  <div>{formatByCurrency("USD", openingUSD)}</div>
-                                                </div>
-                                              )}
-                                            </div>
-                                            <div className="mt-1 grid gap-2 sm:grid-cols-2">
-                                              {currencyEnabled.CRC && (
-                                                <div className="rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-2 py-1 text-left">
-                                                  <div className="text-[10px] uppercase tracking-wide text-[var(--muted-foreground)]">
-                                                    Billetes CRC
-                                                  </div>
-                                                  <div className="mt-1 text-xs font-normal text-[var(--foreground)]">
-                                                    {Object.entries(breakdownCRC).length > 0
-                                                      ? Object.entries(breakdownCRC)
-                                                          .filter(([, count]) => Number(count) > 0)
-                                                          .map(([denom, count]) => `${denom}x${count}`)
-                                                          .join(" · ")
-                                                      : "-"}
-                                                  </div>
-                                                </div>
-                                              )}
-                                              {currencyEnabled.USD && (
-                                                <div className="rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-2 py-1 text-left">
-                                                  <div className="text-[10px] uppercase tracking-wide text-[var(--muted-foreground)]">
-                                                    Billetes USD
-                                                  </div>
-                                                  <div className="mt-1 text-xs font-normal text-[var(--foreground)]">
-                                                    {Object.entries(breakdownUSD).length > 0
-                                                      ? Object.entries(breakdownUSD)
-                                                          .filter(([, count]) => Number(count) > 0)
-                                                          .map(([denom, count]) => `${denom}x${count}`)
-                                                          .join(" · ")
-                                                      : "-"}
-                                                  </div>
-                                                </div>
-                                              )}
-                                            </div>
+                                            {currencyEnabled.CRC && (
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  toggleExpandedOpeningBalance(keyCRC)
+                                                }
+                                                aria-expanded={isCRCExpanded}
+                                                className="flex w-full flex-col items-end rounded border border-[var(--input-border)] bg-[var(--muted)]/15 px-3 py-1 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/25"
+                                              >
+                                                <span>{formatByCurrency("CRC", openingCRC)}</span>
+                                                {renderBills(breakdownCRC, isCRCExpanded)}
+                                              </button>
+                                            )}
+                                            {currencyEnabled.USD && (
+                                              <button
+                                                type="button"
+                                                onClick={() =>
+                                                  toggleExpandedOpeningBalance(keyUSD)
+                                                }
+                                                aria-expanded={isUSDExpanded}
+                                                className="flex w-full flex-col items-end rounded border border-[var(--input-border)] bg-[var(--muted)]/15 px-3 py-1 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/25"
+                                              >
+                                                <span>{formatByCurrency("USD", openingUSD)}</span>
+                                                {renderBills(breakdownUSD, isUSDExpanded)}
+                                              </button>
+                                            )}
                                           </div>
                                         );
                                       })()

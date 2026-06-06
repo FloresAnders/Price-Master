@@ -13,7 +13,7 @@ import {
   resolveEffectiveEgresoAmount,
   shouldDeleteFacturasMirror,
 } from "../utils/helpers";
-import { APERTURA_CAJA_PROVIDER_CODE } from "../constants";
+import { APERTURA_FONDO_PROVIDER_CODE } from "../constants";
 import { buildV2MovementsCacheKey } from "../utils/v2movements";
 
 type PersistMovementLedgerSnapshot = {
@@ -175,7 +175,7 @@ export async function persistMovementToFirestore(
 
     if (operationType === "create") {
       const isCashOpening =
-        afterEntry?.providerCode === APERTURA_CAJA_PROVIDER_CODE;
+        afterEntry?.providerCode === APERTURA_FONDO_PROVIDER_CODE;
       if (isCashOpening) {
         const openingCRC = Math.max(
           0,
@@ -192,8 +192,31 @@ export async function persistMovementToFirestore(
         if (d) deltas[d.currency] += d.delta;
       }
     } else if (operationType === "delete") {
-      const d = movementDelta(beforeEntry);
-      if (d) deltas[d.currency] -= d.delta;
+      const isCashOpening =
+        beforeEntry?.providerCode === APERTURA_FONDO_PROVIDER_CODE;
+      if (isCashOpening) {
+        const openingCRC = Math.max(
+          0,
+          Math.trunc(Number((beforeEntry as any)?.openingBalanceCRC ?? 0) || 0),
+        );
+        const openingUSD = Math.max(
+          0,
+          Math.trunc(Number((beforeEntry as any)?.openingBalanceUSD ?? 0) || 0),
+        );
+        const previousCRC = Math.max(
+          0,
+          Math.trunc(Number((beforeEntry as any)?.openingPreviousBalanceCRC ?? 0) || 0),
+        );
+        const previousUSD = Math.max(
+          0,
+          Math.trunc(Number((beforeEntry as any)?.openingPreviousBalanceUSD ?? 0) || 0),
+        );
+        deltas.CRC -= openingCRC - previousCRC;
+        deltas.USD -= openingUSD - previousUSD;
+      } else {
+        const d = movementDelta(beforeEntry);
+        if (d) deltas[d.currency] -= d.delta;
+      }
     } else if (operationType === "edit") {
       const before = movementDelta(beforeEntry);
       if (before) deltas[before.currency] -= before.delta;
