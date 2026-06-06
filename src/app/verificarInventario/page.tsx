@@ -196,7 +196,8 @@ function createEmpresaId(): string {
 }
 
 function normalizeCode(value: string): string {
-  return String(value ?? "").trim();
+  const code = String(value ?? "").trim();
+  return /^0\d{12}$/.test(code) ? code.slice(1) : code;
 }
 
 export default function VerificarInventarioPage() {
