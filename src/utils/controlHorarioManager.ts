@@ -102,6 +102,14 @@ const parseHHMMToMinutes = (value: unknown): number | null => {
   return hour * 60 + minute;
 };
 
+const getPreviousDateKey = (parts: CRParts): string => {
+  const previous = new Date(Date.UTC(parts.year, parts.month0, parts.day - 1));
+  return `${previous.getUTCFullYear()}-${String(previous.getUTCMonth() + 1).padStart(
+    2,
+    "0",
+  )}-${String(previous.getUTCDate()).padStart(2, "0")}`;
+};
+
 const isWithinHorario = (
   nowMin: number,
   openMin: number,
@@ -178,6 +186,8 @@ const isCierreFondoVentasMovementLike = (
 
 export const getFondoVentasShiftFromClosings = (args: {
   nowISO: string;
+  horarioApertura?: string | null;
+  horarioCierre?: string | null;
   closingMovements?: ClosingMovementLike[];
   providers?: ClosingProviderLike[];
   cierreFondoVentasProviderCode?: string | null;
@@ -189,10 +199,27 @@ export const getFondoVentasShiftFromClosings = (args: {
   const dateKey = `${parts.year}-${String(parts.month1).padStart(2, "0")}-${String(
     parts.day,
   ).padStart(2, "0")}`;
+  const openMin = parseHHMMToMinutes(args.horarioApertura);
+  const closeMin = parseHHMMToMinutes(args.horarioCierre);
+  const nowMin = parts.hour * 60 + parts.minute;
+  const overnight = openMin !== null && closeMin !== null && openMin > closeMin;
+  const previousDateKey = overnight ? getPreviousDateKey(parts) : null;
 
   const closingsToday = (args.closingMovements || []).filter((entry) => {
     const info = getCostaRicaDateKeyAndMinute(String(entry.createdAt || ""));
-    if (!info || info.dateKey !== dateKey) return false;
+    if (!info) return false;
+    if (overnight && openMin !== null) {
+      const belongsToCurrentOperationalDay =
+        nowMin >= openMin
+          ? info.dateKey === dateKey && info.minuteOfDay >= openMin
+          : (info.dateKey === previousDateKey && info.minuteOfDay >= openMin) ||
+            (info.dateKey === dateKey && info.minuteOfDay <= nowMin);
+      if (!belongsToCurrentOperationalDay) return false;
+    } else {
+      if (info.dateKey !== dateKey) return false;
+      // Late closings before today's opening belong to the previous day.
+      if (openMin !== null && info.minuteOfDay < openMin) return false;
+    }
     return isCierreFondoVentasMovementLike(
       entry,
       args.providers,
@@ -235,7 +262,11 @@ export const resolveManagerFromControlHorario = (args: {
   ).padStart(2, "0")}`;
 
   const expectedShift =
-    getFondoVentasShiftFromClosings(args) || "D";
+    getFondoVentasShiftFromClosings({
+      ...args,
+      horarioApertura: args.empresa?.horarioApertura,
+      horarioCierre: args.empresa?.horarioCierre,
+    }) || "D";
 
   const entryD = findBestSchedule(args.monthSchedules, parts.day, "D");
   if (!entryD || !String(entryD.employeeName || "").trim()) {
@@ -318,7 +349,12 @@ export const getControlHorarioShiftTiming = (args: {
   const dayHours = employeeHours ?? scheduleHours ?? 8;
 
   const shiftChangeMin = openMin + Math.round(dayHours * 60);
-  const expectedShift = getFondoVentasShiftFromClosings(args) || "D";
+  const expectedShift =
+    getFondoVentasShiftFromClosings({
+      ...args,
+      horarioApertura: args.empresa?.horarioApertura,
+      horarioCierre: args.empresa?.horarioCierre,
+    }) || "D";
 
   return {
     withinHorario: true,
