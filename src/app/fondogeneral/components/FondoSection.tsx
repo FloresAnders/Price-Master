@@ -655,8 +655,38 @@ export function FondoSection({
   );
 
   const shouldPromptPhysicalCount = useCallback(
-    (): boolean => shouldPromptPhysicalCountFn(accountKey, company),
-    [accountKey, company],
+    (): boolean => {
+      if (accountKey !== "FondoGeneral") return false;
+      const normalizedCompany = (company || "").trim();
+      if (normalizedCompany.length === 0) return false;
+
+      const latestOpening = [...fondoEntries]
+        .filter(
+          (entry) =>
+            entry.providerCode === APERTURA_CAJA_PROVIDER_CODE ||
+            String(entry.providerCode || "").trim().toUpperCase() ===
+              APERTURA_CAJA_PROVIDER_CODE,
+        )
+        .sort((a, b) => getPrimaryMovementTime(b) - getPrimaryMovementTime(a))[0];
+
+      const latestClosing = [...fondoEntries]
+        .filter((entry) => {
+          const provider = providers.find((p) => p.code === entry.providerCode);
+          return (
+            provider?.name?.toUpperCase() === "CIERRE DE FONDO GENERAL" ||
+            String(entry.providerCode || "").trim().toUpperCase() ===
+              "CIERRE DE FONDO GENERAL"
+          );
+        })
+        .sort((a, b) => getPrimaryMovementTime(b) - getPrimaryMovementTime(a))[0];
+
+      const latestOpeningTime = latestOpening ? getPrimaryMovementTime(latestOpening) : 0;
+      const latestClosingTime = latestClosing ? getPrimaryMovementTime(latestClosing) : 0;
+      if (latestClosingTime > latestOpeningTime) return true;
+
+      return shouldPromptPhysicalCountFn(accountKey, company);
+    },
+    [accountKey, company, fondoEntries, providers],
   );
   // Audit modal state: show full before/after history when an edited entry is clicked
   const [auditModalOpen, setAuditModalOpen] = useState(false);
@@ -1238,32 +1268,6 @@ export function FondoSection({
     accountKey,
     entriesHydrated,
     applyLedgerStateFromStorage,
-  ]);
-
-  useEffect(() => {
-    if (!entriesHydrated || hydratedAccountKey !== accountKey) return;
-    const normalizedCompany = (company || "").trim();
-    if (normalizedCompany.length === 0) return;
-
-    const hasCashOpening = fondoEntries.some(
-      (entry) =>
-        entry.providerCode === APERTURA_CAJA_PROVIDER_CODE ||
-        String(entry.providerCode || "").trim().toUpperCase() ===
-          APERTURA_CAJA_PROVIDER_CODE,
-    );
-
-    try {
-      const key = buildPhysicalCountStorageKeyFn(accountKey, normalizedCompany);
-      if (key) localStorage.setItem(key, hasCashOpening ? "false" : "true");
-    } catch {
-      // ignore
-    }
-  }, [
-    accountKey,
-    company,
-    entriesHydrated,
-    fondoEntries,
-    hydratedAccountKey,
   ]);
 
   // On-demand v2 loading: keep Firestore reads constrained to the active day/range.
