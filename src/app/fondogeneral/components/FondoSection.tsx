@@ -49,6 +49,7 @@ import {
 
 
 import DailyClosingModal, { DailyClosingFormValues } from "./DailyClosingModal";
+import CashOpeningModal, { CashOpeningFormValues } from "./CashOpeningModal";
 import FacturaPaymentModal from "./FacturaPaymentModal";
 import { FondoTotalsSummary } from "./FondoTotalsSummary";
 import { FondoCurrentBalanceCard } from "./FondoCurrentBalanceCard";
@@ -67,6 +68,7 @@ import { useActorOwnership } from "../../../hooks/useActorOwnership";
 import type { FondoEntry, FondoMovementType } from "../types";
 import { persistMovementToFirestore as persistMovementToFirestoreFn } from "../utils/persistence";
 import { handleConfirmDailyClosing as handleConfirmDailyClosingFn } from "../utils/dailyClosing";
+import { handleConfirmCashOpening as handleConfirmCashOpeningFn } from "../utils/cashOpening";
 import { resetStateForCompanyChange } from "../utils/companyReset";
 import { useMovementsLoadingState } from "../hooks/useMovementsLoadingState";
 import { useShiftScheduleResolver } from "../hooks/useShiftScheduleResolver";
@@ -79,6 +81,7 @@ import {
   CIERRE_FONDO_VENTAS_PROVIDER_NAME,
   CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
   CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
+  APERTURA_CAJA_PROVIDER_CODE,
   FONDO_KEY_SUFFIX,
   SHARED_COMPANY_STORAGE_KEY,
   NAMESPACE_PERMISSIONS,
@@ -185,6 +188,10 @@ export function FondoSection({
   const isSuperAdminUser = user?.role === "superadmin";
   const isRegularUser = user?.role === "user";
   const [superAdminTotalsOpen, setSuperAdminTotalsOpen] = useState(false);
+  const [cashOpeningModalOpen, setCashOpeningModalOpen] = useState(false);
+  const [cashOpeningInitialValues, setCashOpeningInitialValues] =
+    useState<CashOpeningFormValues | null>(null);
+  const openingSubmitInProgressRef = useRef(false);
   const canSelectCompany = isAdminUser || isSuperAdminUser;
   const [resolvedCompany, setResolvedCompany] = useState(() => assignedCompany);
   const [adminCompany, setAdminCompany] = useState(() => {
@@ -582,8 +589,6 @@ export function FondoSection({
     setConfirmOpenCreateMovement,
     confirmPhysicalCountOpen,
     setConfirmPhysicalCountOpen,
-    physicalCountWasDone,
-    setPhysicalCountWasDone,
     confirmDeleteEntry,
     setConfirmDeleteEntry,
     lastEditSaveTimestampRef,
@@ -1233,6 +1238,32 @@ export function FondoSection({
     accountKey,
     entriesHydrated,
     applyLedgerStateFromStorage,
+  ]);
+
+  useEffect(() => {
+    if (!entriesHydrated || hydratedAccountKey !== accountKey) return;
+    const normalizedCompany = (company || "").trim();
+    if (normalizedCompany.length === 0) return;
+
+    const hasCashOpening = fondoEntries.some(
+      (entry) =>
+        entry.providerCode === APERTURA_CAJA_PROVIDER_CODE ||
+        String(entry.providerCode || "").trim().toUpperCase() ===
+          APERTURA_CAJA_PROVIDER_CODE,
+    );
+
+    try {
+      const key = buildPhysicalCountStorageKeyFn(accountKey, normalizedCompany);
+      if (key) localStorage.setItem(key, hasCashOpening ? "false" : "true");
+    } catch {
+      // ignore
+    }
+  }, [
+    accountKey,
+    company,
+    entriesHydrated,
+    fondoEntries,
+    hydratedAccountKey,
   ]);
 
   // On-demand v2 loading: keep Firestore reads constrained to the active day/range.
@@ -3058,7 +3089,6 @@ export function FondoSection({
 
     // Si hubo un cierre pendiente (guardado en localStorage), solicitar confirmación de conteo físico.
     if (shouldPromptPhysicalCount()) {
-      setPhysicalCountWasDone(false);
       setConfirmPhysicalCountOpen(true);
       return;
     }
@@ -3121,6 +3151,75 @@ export function FondoSection({
       setConfirmPhysicalCountOpen,
     });
   }, [accountKey, company, openCreateMovementDrawer]);
+
+  const handleOpenCashOpening = useCallback(() => {
+    setConfirmPhysicalCountOpen(false);
+    const openingManager = (user?.name || user?.email || "").trim();
+    setCashOpeningInitialValues({
+      openingDate: new Date().toISOString(),
+      manager: openingManager,
+      notes: "",
+      totalCRC: currentBalanceCRC,
+      totalUSD: currentBalanceUSD,
+      breakdownCRC: {},
+      breakdownUSD: {},
+    });
+    setCashOpeningModalOpen(true);
+  }, [
+    currentBalanceCRC,
+    currentBalanceUSD,
+    setConfirmPhysicalCountOpen,
+    setCashOpeningInitialValues,
+    setCashOpeningModalOpen,
+    user?.email,
+    user?.name,
+  ]);
+
+  const handleCloseCashOpening = useCallback(() => {
+    setCashOpeningModalOpen(false);
+    setCashOpeningInitialValues(null);
+  }, []);
+
+  const handleConfirmCashOpening = useCallback(
+    async (opening: CashOpeningFormValues) => {
+      await handleConfirmCashOpeningFn(opening, {
+        accountKey,
+        company,
+        currentBalanceCRC,
+        currentBalanceUSD,
+        buildPhysicalCountStorageKey: () => buildPhysicalCountStorageKeyFn(accountKey, company),
+        cleanupPhysicalCountLegacyKeys: () => cleanupPhysicalCountLegacyKeysFn(accountKey, company),
+        persistMovementToFirestore,
+        fondoEntries,
+        setFondoEntries,
+        setLedgerSnapshot,
+        showToast,
+        ownerAdminEmail,
+        user,
+        setCashOpeningModalOpen,
+        setCashOpeningInitialValues,
+        openingSubmitInProgressRef,
+      });
+    },
+    [
+      accountKey,
+      company,
+      currentBalanceCRC,
+      currentBalanceUSD,
+      persistMovementToFirestore,
+      fondoEntries,
+      setFondoEntries,
+      setLedgerSnapshot,
+      showToast,
+      ownerAdminEmail,
+      user,
+      setCashOpeningModalOpen,
+      setCashOpeningInitialValues,
+      openingSubmitInProgressRef,
+      buildPhysicalCountStorageKeyFn,
+      cleanupPhysicalCountLegacyKeysFn,
+    ],
+  );
 
   const handleConfirmDailyClosing = async (closing: DailyClosingFormValues) => {
     return await handleConfirmDailyClosingFn(closing, {
@@ -4183,6 +4282,9 @@ export function FondoSection({
                               providerNameUpper ===
                                 AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY ||
                               hasGeneralClosingAdjustmentNotes(fe.notes);
+                            const isCashOpeningRow =
+                              fe.providerCode === APERTURA_CAJA_PROVIDER_CODE ||
+                              providerNameUpper === APERTURA_CAJA_PROVIDER_CODE;
                             const displayPaymentType =
                               (isAutoAdjustment || isGeneralClosingRow) &&
                               !hasGeneralClosingNoDiffNotes(fe.notes) &&
@@ -4408,7 +4510,78 @@ export function FondoSection({
                                     </span>
                                   </td>
                                   <td className="px-3 py-2 align-top">
-                                    {isAutoAdjustment ? (
+                                    {isCashOpeningRow ? (
+                                      (() => {
+                                        const openingCRC = Math.trunc(
+                                          fe.openingBalanceCRC ?? 0,
+                                        );
+                                        const openingUSD = Math.trunc(
+                                          fe.openingBalanceUSD ?? 0,
+                                        );
+                                        const breakdownCRC =
+                                          fe.openingBreakdownCRC ?? fe.breakdown ?? {};
+                                        const breakdownUSD =
+                                          fe.openingBreakdownUSD ?? {};
+
+                                        return (
+                                          <div className="flex flex-col gap-2 text-right">
+                                            <div className="text-xs text-[var(--muted-foreground)]">
+                                              Saldo apertura
+                                            </div>
+                                            <div className="grid gap-2 text-sm font-semibold text-[var(--foreground)] sm:grid-cols-2">
+                                              {currencyEnabled.CRC && (
+                                                <div className="rounded border border-[var(--input-border)] bg-[var(--muted)]/15 px-2 py-1">
+                                                  <div className="text-[10px] uppercase tracking-wide text-[var(--muted-foreground)]">
+                                                    CRC
+                                                  </div>
+                                                  <div>{formatByCurrency("CRC", openingCRC)}</div>
+                                                </div>
+                                              )}
+                                              {currencyEnabled.USD && (
+                                                <div className="rounded border border-[var(--input-border)] bg-[var(--muted)]/15 px-2 py-1">
+                                                  <div className="text-[10px] uppercase tracking-wide text-[var(--muted-foreground)]">
+                                                    USD
+                                                  </div>
+                                                  <div>{formatByCurrency("USD", openingUSD)}</div>
+                                                </div>
+                                              )}
+                                            </div>
+                                            <div className="mt-1 grid gap-2 sm:grid-cols-2">
+                                              {currencyEnabled.CRC && (
+                                                <div className="rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-2 py-1 text-left">
+                                                  <div className="text-[10px] uppercase tracking-wide text-[var(--muted-foreground)]">
+                                                    Billetes CRC
+                                                  </div>
+                                                  <div className="mt-1 text-xs font-normal text-[var(--foreground)]">
+                                                    {Object.entries(breakdownCRC).length > 0
+                                                      ? Object.entries(breakdownCRC)
+                                                          .filter(([, count]) => Number(count) > 0)
+                                                          .map(([denom, count]) => `${denom}x${count}`)
+                                                          .join(" · ")
+                                                      : "-"}
+                                                  </div>
+                                                </div>
+                                              )}
+                                              {currencyEnabled.USD && (
+                                                <div className="rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-2 py-1 text-left">
+                                                  <div className="text-[10px] uppercase tracking-wide text-[var(--muted-foreground)]">
+                                                    Billetes USD
+                                                  </div>
+                                                  <div className="mt-1 text-xs font-normal text-[var(--foreground)]">
+                                                    {Object.entries(breakdownUSD).length > 0
+                                                      ? Object.entries(breakdownUSD)
+                                                          .filter(([, count]) => Number(count) > 0)
+                                                          .map(([denom, count]) => `${denom}x${count}`)
+                                                          .join(" · ")
+                                                      : "-"}
+                                                  </div>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        );
+                                      })()
+                                    ) : isAutoAdjustment ? (
                                       (() => {
                                         const closingRecord = fe.originalEntryId
                                           ? dailyClosings.find(
@@ -4813,7 +4986,7 @@ export function FondoSection({
       />
       {/* daily closings block removed from inline view */}
       <DailyClosingModal
-        key={`${dailyClosingModalOpen ? "open" : "closed"}-${editingDailyClosingId ?? dailyClosingInitialValues?.closingDate ?? "new"}`}
+        key={`daily-${dailyClosingModalOpen ? "open" : "closed"}-${editingDailyClosingId ?? dailyClosingInitialValues?.closingDate ?? "new"}`}
         open={dailyClosingModalOpen}
         onClose={handleCloseDailyClosing}
         onConfirm={handleConfirmDailyClosing}
@@ -4927,15 +5100,26 @@ export function FondoSection({
 
       <FondoConfirmModals
         confirmPhysicalCountOpen={confirmPhysicalCountOpen}
-        physicalCountWasDone={physicalCountWasDone}
-        setPhysicalCountWasDone={setPhysicalCountWasDone}
-        handleConfirmPhysicalCount={handleConfirmPhysicalCount}
         handleCancelPhysicalCount={handleCancelPhysicalCount}
+        handleOpenCashOpening={handleOpenCashOpening}
         pendingCierreModalOpen={pendingCierreModalOpen}
         closePendingCierreModal={closePendingCierreModal}
         confirmDeleteEntry={confirmDeleteEntry}
         confirmDeleteMovement={confirmDeleteMovement}
         cancelDeleteMovement={cancelDeleteMovement}
+      />
+
+      <CashOpeningModal
+        key={`cash-opening-${cashOpeningModalOpen ? "open" : "closed"}-${cashOpeningInitialValues?.openingDate ?? "new"}`}
+        open={cashOpeningModalOpen}
+        onClose={handleCloseCashOpening}
+        onConfirm={handleConfirmCashOpening}
+        initialValues={cashOpeningInitialValues}
+        employees={employeeOptions}
+        loadingEmployees={employeesLoading}
+        currentBalanceCRC={currentBalanceCRC}
+        currentBalanceUSD={currentBalanceUSD}
+        managerReadonly={false}
       />
 
       <ConfirmModal

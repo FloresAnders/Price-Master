@@ -1,6 +1,9 @@
 import { getDoc, type WriteBatch } from "firebase/firestore";
 import { FacturasService, type FacturaMovement } from "../../../services/facturas";
-import { CIERRE_FONDO_VENTAS_PROVIDER_NAME } from "../constants";
+import {
+  APERTURA_CAJA_PROVIDER_CODE,
+  CIERRE_FONDO_VENTAS_PROVIDER_NAME,
+} from "../constants";
 import type { FondoEntry } from "../types";
 import {
   forceClearClosingGuards,
@@ -318,6 +321,9 @@ export async function confirmDeleteMovement(
         .find((p) => p.code === entry.providerCode)
         ?.name?.toUpperCase();
       const isCierreVentas = providerName === CIERRE_FONDO_VENTAS_PROVIDER_NAME;
+      const isCashOpening =
+        entry.providerCode === APERTURA_CAJA_PROVIDER_CODE ||
+        providerName === APERTURA_CAJA_PROVIDER_CODE;
       if (normalizedCompany.length > 0 && isCierreVentas) {
         await forceClearClosingGuards(
           normalizedCompany,
@@ -335,6 +341,15 @@ export async function confirmDeleteMovement(
           localStorage.removeItem(dailyKey);
           localStorage.removeItem(createdKey);
           localStorage.removeItem(dedupeKey);
+        }
+      } else if (normalizedCompany.length > 0 && isCashOpening) {
+        try {
+          const key = `fondogeneral-lastClosing:${normalizedCompany}`;
+          localStorage.setItem(key, "true");
+          const legacyKey = `fondogeneral-lastClosing:${normalizedCompany}:${deps.accountKey}`;
+          localStorage.setItem(legacyKey, "true");
+        } catch {
+          // ignore
         }
       }
     } catch {

@@ -1,7 +1,7 @@
 "use client";
 
-import type { Dispatch, SetStateAction } from "react";
 import ConfirmModal from "../../../components/ui/ConfirmModal";
+import { X } from "lucide-react";
 
 type ConfirmDeleteEntry = {
   open: boolean;
@@ -12,10 +12,8 @@ type ConfirmDeleteEntry = {
 
 type FondoConfirmModalsProps = {
   confirmPhysicalCountOpen: boolean;
-  physicalCountWasDone: boolean;
-  setPhysicalCountWasDone: Dispatch<SetStateAction<boolean>>;
-  handleConfirmPhysicalCount: () => void;
   handleCancelPhysicalCount: () => void;
+  handleOpenCashOpening: () => void;
   pendingCierreModalOpen: boolean;
   closePendingCierreModal: () => void;
   confirmDeleteEntry: ConfirmDeleteEntry;
@@ -25,10 +23,8 @@ type FondoConfirmModalsProps = {
 
 export function FondoConfirmModals({
   confirmPhysicalCountOpen,
-  physicalCountWasDone,
-  setPhysicalCountWasDone,
-  handleConfirmPhysicalCount,
   handleCancelPhysicalCount,
+  handleOpenCashOpening,
   pendingCierreModalOpen,
   closePendingCierreModal,
   confirmDeleteEntry,
@@ -37,37 +33,59 @@ export function FondoConfirmModals({
 }: FondoConfirmModalsProps) {
   return (
     <>
-      <ConfirmModal
-        open={confirmPhysicalCountOpen}
-        title="Confirmar conteo físico"
-        message={
-          <div className="text-left space-y-3">
-            <div className="text-sm text-[var(--muted-foreground)]">
-              Antes de registrar el primer movimiento después del último cierre,
-              confirma que el fondo fue contado físicamente.
-            </div>
+      {confirmPhysicalCountOpen ? (
+        <div
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 px-3"
+          onClick={handleCancelPhysicalCount}
+          role="presentation"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-physical-title"
+            className="relative w-full max-w-xl rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)] p-5 text-[var(--foreground)] shadow-2xl shadow-black/40 sm:p-6"
+            onClick={(event) => event.stopPropagation()}
+            onKeyDownCapture={(event) => {
+              if (event.key !== "Escape") return;
+              event.preventDefault();
+              event.stopPropagation();
+              handleCancelPhysicalCount();
+            }}
+            tabIndex={-1}
+          >
+            <button
+              type="button"
+              onClick={handleCancelPhysicalCount}
+              aria-label="Cerrar"
+              className="absolute right-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--muted-foreground)] transition-colors hover:border-[var(--accent)]/50 hover:text-[var(--foreground)]"
+            >
+              <X className="h-4 w-4" />
+            </button>
 
-            <label className="flex items-start gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                className="mt-0.5 cursor-pointer"
-                checked={physicalCountWasDone}
-                onChange={(e) => setPhysicalCountWasDone(e.target.checked)}
-                aria-label="Confirmar que el fondo fue contado físicamente"
-              />
-              <span className="text-sm">
-                Sí, el fondo fue contado físicamente
-              </span>
-            </label>
+            <div className="space-y-4 pr-10">
+              <div className="space-y-2 text-center sm:text-left">
+                <h3 id="confirm-physical-title" className="text-xl font-semibold">
+                  Confirmar conteo físico
+                </h3>
+                <p className="text-sm text-[var(--muted-foreground)]">
+                  Antes de registrar el primer movimiento después del último cierre,
+                  confirma que el fondo fue contado físicamente.
+                </p>
+              </div>
+
+              <div className="flex justify-center sm:justify-start">
+                <button
+                  type="button"
+                  onClick={handleOpenCashOpening}
+                  className="inline-flex h-11 items-center justify-center rounded-xl border border-[var(--accent)] bg-[var(--accent)] px-5 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)]"
+                >
+                  Apertura de caja
+                </button>
+              </div>
+            </div>
           </div>
-        }
-        confirmText="Continuar"
-        cancelText="Cancelar"
-        actionType="change"
-        confirmDisabled={!physicalCountWasDone}
-        onConfirm={handleConfirmPhysicalCount}
-        onCancel={handleCancelPhysicalCount}
-      />
+        </div>
+      ) : null}
 
       <ConfirmModal
         open={pendingCierreModalOpen}

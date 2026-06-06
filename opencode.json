@@ -1,7 +1,9 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "lsp": true,
-  "instructions": ["AGENTS.md"],
+  "instructions": [
+    "AGENTS.md"
+  ],
   "skills": {
     "paths": [
       ".opencode/skills",
@@ -15,7 +17,6 @@
     ]
   },
   "model": "nvidia/moonshotai/kimi-k2.6",
-
   "provider": {
     "openai": {
       "options": {
@@ -38,85 +39,109 @@
           "tool_call": true,
           "temperature": true,
           "attachment": true,
-          "interleaved": { "field": "reasoning_content" },
-          "limit": { "context": 262144, "output": 65536 }
+          "interleaved": {
+            "field": "reasoning_content"
+          },
+          "limit": {
+            "context": 262144,
+            "output": 65536
+          }
         },
         "deepseek-ai/deepseek-v4-flash": {
           "name": "DeepSeek V4 Flash",
           "tool_call": true,
           "temperature": true,
-          "limit": { "context": 163840, "output": 16384 }
+          "limit": {
+            "context": 163840,
+            "output": 16384
+          }
+        }
+      }
+    },
+    "ollama": {
+      "name": "Ollama",
+      "options": {
+        "baseURL": "http://localhost:11434",
+        "timeout": 600000
+      },
+      "models": {
+        "rafw007/gemma4-e4b-claude-coder-admin:latest": {
+          "name": "Gemma4 Claude Coder Admin",
+          "tool_call": true,
+          "temperature": true,
+          "limit": {
+            "context": 65536,
+            "output": 8192
+          }
         }
       }
     }
   },
-
-
   "agent": {
     "general": {
       "description": "General-purpose fallback agent. Handle tasks that do not clearly belong to another specialist.",
       "mode": "subagent",
-      "model": "openai/gpt-5.4-fast"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
     },
     "explore": {
       "description": "Fast codebase exploration and file discovery",
       "mode": "subagent",
-      "model": "openai/gpt-5.4-fast"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
     },
     "explorer": {
       "description": "Fast codebase exploration and file discovery",
       "mode": "subagent",
-      "model": "openai/gpt-5.4-fast"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
     },
     "architecture": {
       "description": "Architecture analysis and module extraction planning",
       "mode": "subagent",
-      "model": "openai/gpt-5.4-fast"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
     },
     "dependency": {
       "description": "Dependency graph and import analysis",
       "mode": "subagent",
-      "model": "openai/gpt-5.4-fast"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
     },
     "research": {
       "description": "Research libraries, frameworks, documentation and best practices",
       "mode": "subagent",
-      "model": "openai/gpt-5.4-fast"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
     },
     "debug": {
       "description": "Root cause analysis, runtime errors and bug investigation",
       "mode": "subagent",
-      "model": "openai/gpt-5.4-fast"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
     },
     "testing": {
       "description": "Type checking, validation and regression analysis",
       "mode": "subagent",
-      "model": "openai/gpt-5.4-fast"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
     },
     "tester": {
       "description": "Type checking, validation and regression analysis",
       "mode": "subagent",
-      "model": "openai/gpt-5.4-fast"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
     },
     "review": {
       "description": "Code review, technical debt and architecture quality analysis",
       "mode": "subagent",
-      "model": "openai/gpt-5.4-fast"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
     },
     "docs": {
       "description": "Generate README files, ADRs and technical documentation",
       "mode": "subagent",
-      "model": "openai/gpt-5.4-fast"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
     },
     "refactor": {
       "description": "Code refactoring and implementation",
       "mode": "subagent",
-      "model": "openai/gpt-5.4-fast"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
     },
     "coder": {
       "description": "Code implementation and focused edits",
       "mode": "subagent",
-      "model": "openai/gpt-5.4-fast"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
     },
     "manager": {
       "description": "Main orchestration agent using the local manager model",
@@ -124,11 +149,16 @@
       "model": "nvidia/moonshotai/kimi-k2.6"
     }
   },
-
   "mcp": {
     "playwright": {
       "type": "local",
-      "command": ["npx", "-y", "@playwright/mcp", "--browser", "msedge"],
+      "command": [
+        "npx",
+        "-y",
+        "@playwright/mcp",
+        "--browser",
+        "msedge"
+      ],
       "enabled": true
     }
   }

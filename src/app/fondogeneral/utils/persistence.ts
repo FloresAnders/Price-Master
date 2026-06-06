@@ -13,6 +13,7 @@ import {
   resolveEffectiveEgresoAmount,
   shouldDeleteFacturasMirror,
 } from "../utils/helpers";
+import { APERTURA_CAJA_PROVIDER_CODE } from "../constants";
 import { buildV2MovementsCacheKey } from "../utils/v2movements";
 
 type PersistMovementLedgerSnapshot = {
@@ -173,8 +174,23 @@ export async function persistMovementToFirestore(
     const afterEntry = change?.upsert;
 
     if (operationType === "create") {
-      const d = movementDelta(afterEntry);
-      if (d) deltas[d.currency] += d.delta;
+      const isCashOpening =
+        afterEntry?.providerCode === APERTURA_CAJA_PROVIDER_CODE;
+      if (isCashOpening) {
+        const openingCRC = Math.max(
+          0,
+          Math.trunc(Number((afterEntry as any)?.openingBalanceCRC ?? 0) || 0),
+        );
+        const openingUSD = Math.max(
+          0,
+          Math.trunc(Number((afterEntry as any)?.openingBalanceUSD ?? 0) || 0),
+        );
+        deltas.CRC += openingCRC - prevCurrentCRC;
+        deltas.USD += openingUSD - prevCurrentUSD;
+      } else {
+        const d = movementDelta(afterEntry);
+        if (d) deltas[d.currency] += d.delta;
+      }
     } else if (operationType === "delete") {
       const d = movementDelta(beforeEntry);
       if (d) deltas[d.currency] -= d.delta;

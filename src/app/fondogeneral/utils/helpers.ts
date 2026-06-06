@@ -213,6 +213,7 @@ export const normalizeStoredType = (value: unknown): FondoMovementType => {
     const upper = value.toUpperCase().trim();
     const canonicalType = getCanonicalFondoMovementType(value);
     if (canonicalType) return canonicalType;
+    if (upper === "INFORMATIVO") return "INFORMATIVO";
     if (upper === "INGRESO") return "VENTAS";
     if (upper === "EGRESO") return "COMPRA INVENTARIO";
     if (upper === "COMPRA") return "COMPRA INVENTARIO";

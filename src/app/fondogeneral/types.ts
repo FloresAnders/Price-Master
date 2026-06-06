@@ -28,6 +28,10 @@ export type FondoEntry = {
   accountId?: MovementAccountKey;
   currency?: "CRC" | "USD";
   breakdown?: Record<number, number>;
+  openingBalanceCRC?: number;
+  openingBalanceUSD?: number;
+  openingBreakdownCRC?: Record<number, number>;
+  openingBreakdownUSD?: Record<number, number>;
   closingBalanceCRC?: number;
   closingBalanceUSD?: number;
   isAudit?: boolean;
