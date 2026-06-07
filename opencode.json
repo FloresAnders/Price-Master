@@ -16,7 +16,7 @@
       ".agents/skills/shadcn"
     ]
   },
-  "model": "nvidia/moonshotai/kimi-k2.6",
+  "model": "openai/gpt-5.4-mini",
   "provider": {
     "openai": {
       "options": {
@@ -81,72 +81,72 @@
     "general": {
       "description": "General-purpose fallback agent. Handle tasks that do not clearly belong to another specialist.",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
+      "model": "openai/gpt-5.4-mini"
     },
     "explore": {
       "description": "Fast codebase exploration and file discovery",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
+      "model": "openai/gpt-5.4-mini"
     },
     "explorer": {
       "description": "Fast codebase exploration and file discovery",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
+      "model": "openai/gpt-5.4-mini"
     },
     "architecture": {
       "description": "Architecture analysis and module extraction planning",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
+      "model": "openai/gpt-5.4-mini"
     },
     "dependency": {
       "description": "Dependency graph and import analysis",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
+      "model": "openai/gpt-5.4-mini"
     },
     "research": {
       "description": "Research libraries, frameworks, documentation and best practices",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
+      "model": "openai/gpt-5.4-mini"
     },
     "debug": {
       "description": "Root cause analysis, runtime errors and bug investigation",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
+      "model": "openai/gpt-5.4-mini"
     },
     "testing": {
       "description": "Type checking, validation and regression analysis",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
+      "model": "openai/gpt-5.4-mini"
     },
     "tester": {
       "description": "Type checking, validation and regression analysis",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
+      "model": "openai/gpt-5.4-mini"
     },
     "review": {
       "description": "Code review, technical debt and architecture quality analysis",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
+      "model": "openai/gpt-5.4-mini"
     },
     "docs": {
       "description": "Generate README files, ADRs and technical documentation",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
+      "model": "openai/gpt-5.4-mini"
     },
     "refactor": {
       "description": "Code refactoring and implementation",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
+      "model": "openai/gpt-5.4-mini"
     },
     "coder": {
       "description": "Code implementation and focused edits",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
+      "model": "openai/gpt-5.4-mini"
     },
     "manager": {
       "description": "Main orchestration agent using the local manager model",
       "mode": "subagent",
-      "model": "nvidia/moonshotai/kimi-k2.6"
+      "model": "openai/gpt-5.4-mini"
     }
   },
   "mcp": {

@@ -18,9 +18,8 @@ export function MovementNotesBlock({ notes }: MovementNotesBlockProps) {
             const parts = notes.split("\n");
             const headerText =
               parts.find((p) => !p.includes("[ALERT_ICON]")) || "";
-            const alertLine =
-              parts.find((p) => p.includes("[ALERT_ICON]")) || "";
-            const noteText = alertLine.replace("[ALERT_ICON]", "");
+            const alertLines =
+              parts.filter((p) => p.includes("[ALERT_ICON]")) || [];
             return (
               <div className="flex flex-col gap-1">
                 {headerText && (
@@ -28,9 +27,10 @@ export function MovementNotesBlock({ notes }: MovementNotesBlockProps) {
                     {headerText}
                   </div>
                 )}
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <AlertTriangle className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
-                  {(() => {
+                  {alertLines.map((line, i) => {
+                    const noteText = line.replace("[ALERT_ICON]", "");
                     const isPositive = /:\s*\+/.test(noteText);
                     const isNegative = /:\s*\-/.test(noteText);
                     if (isPositive || isNegative) {
@@ -39,14 +39,15 @@ export function MovementNotesBlock({ notes }: MovementNotesBlockProps) {
                         : "border-red-500/30 bg-red-500/10 text-red-300";
                       return (
                         <span
+                          key={i}
                           className={`rounded border ${bgClass} px-1.5 py-0.5 text-[11px] font-semibold`}
                         >
                           {noteText}
                         </span>
                       );
                     }
-                    return <span>{noteText}</span>;
-                  })()}
+                    return <span key={i}>{noteText}</span>;
+                  })}
                 </div>
               </div>
             );
