@@ -81,67 +81,67 @@
     "general": {
       "description": "General-purpose fallback agent. Handle tasks that do not clearly belong to another specialist.",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
     },
     "explore": {
       "description": "Fast codebase exploration and file discovery",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
     },
     "explorer": {
       "description": "Fast codebase exploration and file discovery",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
     },
     "architecture": {
       "description": "Architecture analysis and module extraction planning",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
     },
     "dependency": {
       "description": "Dependency graph and import analysis",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
     },
     "research": {
       "description": "Research libraries, frameworks, documentation and best practices",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
     },
     "debug": {
       "description": "Root cause analysis, runtime errors and bug investigation",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
     },
     "testing": {
       "description": "Type checking, validation and regression analysis",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
     },
     "tester": {
       "description": "Type checking, validation and regression analysis",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
     },
     "review": {
       "description": "Code review, technical debt and architecture quality analysis",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
     },
     "docs": {
       "description": "Generate README files, ADRs and technical documentation",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
     },
     "refactor": {
       "description": "Code refactoring and implementation",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
     },
     "coder": {
       "description": "Code implementation and focused edits",
       "mode": "subagent",
-      "model": "ollama/rafw007/gemma4-e4b-claude-coder-admin:latest"
+      "model": "ollama/rafw007/gemma4-e4b-claude-coder:latest"
     },
     "manager": {
       "description": "Main orchestration agent using the local manager model",
