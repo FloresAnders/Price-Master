@@ -105,7 +105,7 @@ const AgregarProveedorPage = dynamic(
   () => import("@/app/fondogeneral/agregarproveedor/page"),
   { ssr: false },
 );
-const ReportesPage = dynamic(() => import("@/app/fondogeneral/otra/page"), {
+const ReportesPage = dynamic(() => import("@/app/fondogeneral/reportes/PageReporteMovimientosOlap"), {
   ssr: false,
 });
 const ReportesSinpePage = dynamic(
