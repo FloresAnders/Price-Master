@@ -1,18 +1,7 @@
 "use client";
 
+import { X } from "lucide-react";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Banknote,
-  CalendarDays,
-  ChevronDown,
-  ChevronUp,
-  Coins,
-  Eraser,
-  Save,
-  StickyNote,
-  UserRound,
-  X,
-} from "lucide-react";
 
 const CRC_DENOMINATIONS: readonly number[] = [
   20000, 10000, 5000, 2000, 1000, 500, 100, 50, 25,

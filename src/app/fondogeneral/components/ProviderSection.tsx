@@ -556,7 +556,7 @@ export function ProviderSection({ id }: { id?: string }) {
       schedulesMonthCacheRef.current.set(key, { at: now, promise });
       return promise;
     },
-    [],
+    [SCHEDULES_CACHE_TTL_MS],
   );
 
   const getOwnerPrimaryAdminEmailCached = useCallback(
@@ -575,7 +575,7 @@ export function ProviderSection({ id }: { id?: string }) {
       ownerAdminEmailCacheRef.current.set(normalized, { at: now, promise });
       return promise;
     },
-    [],
+    [OWNER_ADMIN_CACHE_TTL_MS],
   );
   const [similarConfirmOpen, setSimilarConfirmOpen] = useState(false);
   const [similarConfirmMessage, setSimilarConfirmMessage] =
@@ -658,7 +658,7 @@ export function ProviderSection({ id }: { id?: string }) {
 
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, [canSelectCompany, adminCompany]);
+  }, [canSelectCompany, adminCompany, resetProviderFormState]);
 
   const notificationOwnerId = useMemo(() => {
     const normalizeCompanyKey = (value: unknown) =>
@@ -1005,7 +1005,7 @@ export function ProviderSection({ id }: { id?: string }) {
       setSearchTerm("");
       setItemsPerPage(10);
     },
-    [canSelectCompany, adminCompany],
+    [canSelectCompany, resetProviderFormState, adminCompany],
   );
 
   // provider creation is handled from the drawer UI below
