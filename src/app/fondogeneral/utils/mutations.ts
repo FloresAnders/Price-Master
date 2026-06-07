@@ -181,12 +181,12 @@ export async function handleDeleteLatestDailyClosing(
 
     const baseLedger = deps.storageSnapshotRef.current
       ? MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(
-          deps.storageSnapshotRef.current,
-          normalizedCompany,
-        )
+        deps.storageSnapshotRef.current,
+        normalizedCompany,
+      )
       : ((await MovimientosFondosService.getDocument<FondoEntry>(
-          companyKey,
-        )) ??
+        companyKey,
+      )) ??
         MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
           normalizedCompany,
         ));

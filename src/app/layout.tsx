@@ -6,7 +6,7 @@ import {
   Footer,
   PermissionsManager,
 } from "../components/layout";
-import { ToastProvider } from "../components/ui/ToastProvider";
+import { Toaster } from "sonner"
 import { AuthWrapper } from "../components/auth";
 import VersionCheckInitializer from "../components/VersionCheckInitializer";
 import ReminderNotificationsInitializer from "../components/funciones/ReminderNotificationsInitializer";
@@ -127,8 +127,7 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <AuthWrapper>
             <PermissionsManager>
-              <ToastProvider>
-                <XmlEgresosProvider>
+              <XmlEgresosProvider>
                   <VersionCheckInitializer />
                   <ReminderNotificationsInitializer />
                   <SystemNotesInitializer />
@@ -142,7 +141,12 @@ export default function RootLayout({
                   <BackToTop />
                   <Footer />
                 </XmlEgresosProvider>
-              </ToastProvider>
+              <Toaster
+                position="top-right"
+                richColors
+                closeButton
+                duration={3000}
+              />
             </PermissionsManager>
           </AuthWrapper>
         </ThemeProvider>

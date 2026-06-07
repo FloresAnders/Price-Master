@@ -12,7 +12,7 @@ import type { Sorteo } from "../../types/firestore";
 import TicketCarousel from "../ui/TicketCarousel";
 import HelpTooltip from "../ui/HelpTooltip";
 import ConfirmModal from "../ui/ConfirmModal";
-import { ToastProvider, useToast } from "../layout/ToastContext";
+import useToast from "../../hooks/useToast";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "@/config/firebase";
 import QRCode from "qrcode";
@@ -750,8 +750,7 @@ export default function TimingControl() {
   }
 
   return (
-    <ToastProvider>
-      <React.Fragment>
+    <React.Fragment>
         {/* Modal de resumen */}
         {showSummary && (
           <div className="fixed inset-0 bg-black bg-opacity-60 z-[9999] flex items-center justify-center p-4">
@@ -1483,6 +1482,5 @@ export default function TimingControl() {
           </div>
         </div>
       </React.Fragment>
-    </ToastProvider>
   );
 }

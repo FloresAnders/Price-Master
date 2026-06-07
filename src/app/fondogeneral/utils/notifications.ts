@@ -2,7 +2,7 @@ import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "@/config/firebase";
 import { generateMovementNotificationEmail } from "../../../services/email-templates/notificacion-movimiento";
 import type { FondoEntry } from "../types";
-import type { ToastType } from "@/components/layout/ToastContext";
+import type { ToastType } from "@/hooks/useToast";
 
 export async function sendMovementNotification(
   entry: FondoEntry,
