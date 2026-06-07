@@ -87,6 +87,7 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
   const [manager, setManager] = useState(() => buildFormState(initialValues).manager);
   const displayedManager = useMemo(() => manager, [manager]);
   const [notes, setNotes] = useState(() => buildFormState(initialValues).notes);
+  const [submitting, setSubmitting] = useState(false);
   const [crcCounts, setCrcCounts] = useState<CountState>(() =>
     buildFormState(initialValues).crcCounts,
   );
@@ -279,19 +280,26 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
       return acc;
     }, {});
 
-  const handleSubmit = () => {
-    const trimmedManager = displayedManager.trim();
-    if (!trimmedManager || !hasAnyCash) return;
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 100)); // Simular delay para mostrar loading
 
-    onConfirm({
-      openingDate: openingDateISO,
-      manager: trimmedManager,
-      notes,
-      totalCRC,
-      totalUSD,
-      breakdownCRC: buildBreakdown(crcCounts, CRC_DENOMINATIONS),
-      breakdownUSD: buildBreakdown(usdCounts, USD_DENOMINATIONS),
-    });
+      const trimmedManager = displayedManager.trim();
+      if (!trimmedManager || !hasAnyCash) return;
+
+      onConfirm({
+        openingDate: openingDateISO,
+        manager: trimmedManager,
+        notes,
+        totalCRC,
+        totalUSD,
+        breakdownCRC: buildBreakdown(crcCounts, CRC_DENOMINATIONS),
+        breakdownUSD: buildBreakdown(usdCounts, USD_DENOMINATIONS),
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleClearCounts = () => {
@@ -597,10 +605,10 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={submitDisabled}
+                disabled={submitDisabled || submitting}
                 className={primaryButtonClass}
               >
-                Registrar apertura
+                {submitting ? "Registrando..." : "Registrar apertura"}
               </button>
               {submitDisabled && submitDisabledReason ? (
                 <div
