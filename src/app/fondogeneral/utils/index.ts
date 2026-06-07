@@ -1,2 +1,2 @@
-export * from "./movementTypes";
-export * from "./sanitizeFondoEntries";
+export * from "./movementTypes/movementTypes";
+export * from "./fondo/sanitizeFondoEntries";

@@ -18,8 +18,8 @@ import {
   acquireClosingGuard,
   releaseClosingGuard,
   touchClosingGuard,
-} from "../utils/closingGuards";
-import { sendMovementNotification } from "../utils/notifications";
+} from "./closing/closingGuards";
+import { sendMovementNotification } from "./fondo/notifications";
 import { buildV2MovementsCacheKey } from "../utils/v2movements";
 import type { FondoEntry } from "../types";
 import {

@@ -7,7 +7,7 @@ import {
 import type { FondoEntry } from "../types";
 import {
   forceClearClosingGuards,
-} from "../utils/closingGuards";
+} from "./closing/closingGuards";
 import {
   getFcrPaymentAmount,
   getFcrPaymentInvoiceId,

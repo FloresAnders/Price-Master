@@ -34,7 +34,7 @@ import {
 import { DailyClosingsService } from "@/services/daily-closings";
 import { EmpresasService } from "@/services/empresas";
 import { SchedulesService } from "@/services/schedules";
-import CreateInvoiceDrawer from "./CreateInvoiceDrawer";
+import CreateInvoiceDrawer from "../components/drawers/CreateInvoiceDrawer";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import {
   resolveManagerFromControlHorario,

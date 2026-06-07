@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Lock } from "lucide-react";
-import { ProviderSection } from "..";
+import { ProviderSection } from "../components";
 import { useAuth } from "@/hooks/useAuth";
 import { getDefaultPermissions } from "@/utils/permissions";
 

@@ -20,7 +20,7 @@ import {
   isEgresoType,
   isGastoType,
   isIngresoType,
-} from "../utils/movementTypes";
+} from "../utils/movementTypes/movementTypes";
 
 type ProviderOption = {
   code: string;

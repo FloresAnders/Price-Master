@@ -39,12 +39,11 @@ import { dateKeyToISODate, dateToKey, isoDateToDateKey } from "@/utils/dateKey";
 import { findBestStringMatch } from "@/utils/stringSimilarity";
 import { EmpresasService } from "@/services/empresas";
 import { UsersService } from "@/services/users";
-import { ProvidersService } from "@/services/providers";
 import { FondoMovementTypesService } from "@/services/fondo-movement-types";
 import { SchedulesService } from "@/services/schedules";
 import { generateEgresoProviderCreatedEmail } from "@/services/email-templates/proveedor-egreso-creado";
 import type { FondoMovementType } from "../types";
-import { formatMovementType, isEgresoType } from "../utils/movementTypes";
+import { formatMovementType, isEgresoType } from "../utils/movementTypes/movementTypes";
 
 const SHARED_COMPANY_STORAGE_KEY = "fg_selected_company_shared";
 
