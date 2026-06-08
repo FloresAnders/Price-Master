@@ -934,6 +934,9 @@ export class MovimientosFondosService {
     const cursor = options?.cursor ?? null;
 
     const constraints: QueryConstraint[] = [
+      ...(options?.accountId && options.accountId !== "CajaNegra"
+        ? [where("accountId", "==", options.accountId)]
+        : []),
       orderBy("createdAt", "desc"),
       limit(pageSize),
     ];
@@ -988,6 +991,9 @@ export class MovimientosFondosService {
     const cursor = options.cursor ?? null;
 
     const constraints: QueryConstraint[] = [
+      ...(options.accountId && options.accountId !== "CajaNegra"
+        ? [where("accountId", "==", options.accountId)]
+        : []),
       where("createdAt", ">=", startIso),
       where("createdAt", "<", endIsoExclusive),
       orderBy("createdAt", "desc"),
@@ -1036,6 +1042,9 @@ export class MovimientosFondosService {
 
     for (let page = 0; page < maxPages; page += 1) {
       const constraints: QueryConstraint[] = [
+        ...(options?.accountId && options.accountId !== "CajaNegra"
+          ? [where("accountId", "==", options.accountId)]
+          : []),
         orderBy("createdAt", "desc"),
         limit(pageSize),
       ];
