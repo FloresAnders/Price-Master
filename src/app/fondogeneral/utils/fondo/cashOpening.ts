@@ -10,6 +10,7 @@ import {
 import { APERTURA_FONDO_PROVIDER_CODE, AUTO_ADJUSTMENT_OPENING_TYPE } from "../../constants";
 import type { FondoEntry } from "../../types";
 import type { CashOpeningFormValues } from "../../components/modals/CashOpeningModal";
+import { buildCashOpeningEmailTemplate } from "@/services/email-templates/cash-opening";
 
 type ShowToast = (
   message: string,
@@ -242,42 +243,40 @@ export async function handleConfirmCashOpening(
       setLedgerSnapshot(saved.ledgerSnapshot as any);
     }
 
-    if (hasDifferences) {
-      const recipients = new Set<string>();
-      const admin = ownerAdminEmail?.trim();
-      if (admin) recipients.add(admin);
+    {
+      const notificationRecipients = new Set<string>();
+      const adminRecipient = ownerAdminEmail?.trim();
+      if (adminRecipient) notificationRecipients.add(adminRecipient);
       const userEmail = user?.email?.trim();
-      if (userEmail) recipients.add(userEmail);
+      if (userEmail) notificationRecipients.add(userEmail);
 
-      if (recipients.size > 0) {
-        const subject = `[ALERTA][APERTURA] Ajuste de apertura (${normalizedCompany})`;
-        const text = [
-          `Empresa: ${normalizedCompany}`,
-          `Caja: ${accountKey}`,
-          `Fecha: ${createdAtISO}`,
-          `Usuario: ${userEmail || "N/A"}`,
-          `Saldo apertura CRC: ${formatByCurrency("CRC", totalCRC)}`,
-          `Saldo apertura USD: ${formatByCurrency("USD", totalUSD)}`,
-          `Diferencia CRC: ${diffCRC >= 0 ? "+" : "-"} ${formatByCurrency("CRC", Math.abs(diffCRC))}`,
-          `Diferencia USD: ${diffUSD >= 0 ? "+" : "-"} ${formatByCurrency("USD", Math.abs(diffUSD))}`,
-          `Motivo: AJUSTE APLICADO AL SALDO DE APERTURA`,
-          baseNotes ? `Notas: ${baseNotes}` : "",
-        ]
-          .filter(Boolean)
-          .join("\n");
+      const emailTemplate = buildCashOpeningEmailTemplate({
+        company: normalizedCompany,
+        accountKey,
+        openingDateISO: createdAtISO,
+        manager: managerName,
+        totalCRC,
+        totalUSD,
+        diffCRC,
+        diffUSD,
+        notes: baseNotes || undefined,
+        breakdownCRC: opening.breakdownCRC,
+        breakdownUSD: opening.breakdownUSD,
+      });
 
-        await Promise.all(
-          Array.from(recipients).map((to) =>
-            addDoc(collection(db, "mail"), {
-              to,
-              subject,
-              text,
-              createdAt: serverTimestamp(),
-            }),
-          ),
-        ).catch((mailErr) => {
-          console.error("[APERTURA] Error enviando correo de ajuste:", mailErr);
-        });
+      for (const recipient of notificationRecipients) {
+        if (!recipient) continue;
+        try {
+          await addDoc(collection(db, "mail"), {
+            to: recipient,
+            subject: emailTemplate.subject,
+            text: emailTemplate.text,
+            html: emailTemplate.html,
+            createdAt: serverTimestamp(),
+          });
+        } catch (mailErr) {
+          console.error("[APERTURA] Error enviando correo:", mailErr);
+        }
       }
     }
 
