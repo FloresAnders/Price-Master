@@ -663,7 +663,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
           {requireSingleClosingReason && (
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-                Motivo cierre Ãºnico
+                Motivo cierre único
               </label>
               <textarea
                 value={singleClosingReason}

@@ -240,7 +240,7 @@ export default function DailyClosingHistorySection({
                         <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-300" strokeWidth={1.5} />
                         <div>
                           <div className="font-semibold uppercase tracking-wide text-[11px] text-amber-300">
-                            Motivo cierre Ãºnico
+                            Motivo cierre único
                           </div>
                           <div className="mt-0.5 text-[var(--foreground)]">
                             {record.singleClosingReason}
