@@ -214,6 +214,7 @@ export async function handleConfirmCashOpening(
       currency: "CRC",
       breakdown: opening.breakdownCRC ?? {},
       updateAt: existingEntry ? createdAtISO : undefined,
+      requiresOpening: false,
     };
 
     const updatedEntries = existingEntry

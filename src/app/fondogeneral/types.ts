@@ -39,4 +39,5 @@ export type FondoEntry = {
   isAudit?: boolean;
   originalEntryId?: string;
   auditDetails?: string;
+  requiresOpening?: boolean;
 };

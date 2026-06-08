@@ -693,36 +693,10 @@ export function FondoSection({
   const shouldPromptPhysicalCount = useCallback(
     (): boolean => {
       if (accountKey !== "FondoGeneral") return false;
-      const normalizedCompany = (company || "").trim();
-      if (normalizedCompany.length === 0) return false;
-
-      const lsKey = `fondogeneral-lastClosing:${normalizedCompany}`;
-      try {
-        const lsVal = localStorage.getItem(lsKey);
-        if (lsVal === "true") return true;
-        if (lsVal === "false") return false;
-      } catch {
-        // ignore
-      }
-
-      if (fondoEntries.length > 0) return false;
-
       if (!latestMovementOverallLoaded) return true;
-
-      if (!latestMovementOverall) return true;
-
-      const isCierre = (entry: FondoEntry): boolean => {
-        const provider = providers.find((p) => p.code === entry.providerCode);
-        return (
-          provider?.name?.toUpperCase() === "CIERRE DE FONDO GENERAL" ||
-          String(entry.providerCode || "").trim().toUpperCase() ===
-            "CIERRE DE FONDO GENERAL"
-        );
-      };
-
-      return isCierre(latestMovementOverall);
+      return latestMovementOverall?.requiresOpening === true;
     },
-    [accountKey, company, providers, latestMovementOverall, latestMovementOverallLoaded],
+    [accountKey, latestMovementOverall, latestMovementOverallLoaded],
   );
 
   const toggleExpandedOpeningBalance = useCallback((key: string) => {

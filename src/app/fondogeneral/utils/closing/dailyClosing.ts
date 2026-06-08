@@ -497,6 +497,7 @@ export async function handleConfirmDailyClosing(
         breakdown: closing.breakdownCRC ?? {},
         closingBalanceCRC,
         closingBalanceUSD,
+        requiresOpening: true,
       } as FondoEntry;
       newMovements.push(entry);
     }
@@ -525,6 +526,7 @@ export async function handleConfirmDailyClosing(
         currency: "USD",
         closingBalanceCRC,
         closingBalanceUSD,
+        requiresOpening: true,
       } as FondoEntry;
       if ((entry as any).currency === "USD") (entry as any).breakdown = closing.breakdownUSD ?? {};
       newMovements.push(entry);
@@ -550,6 +552,7 @@ export async function handleConfirmDailyClosing(
         breakdown: closing.breakdownCRC ?? {},
         closingBalanceCRC,
         closingBalanceUSD,
+        requiresOpening: true,
       } as FondoEntry;
       newMovements.push(entry);
     }
@@ -699,6 +702,7 @@ export async function handleConfirmDailyClosing(
               originalEntryId: record.id,
               closingBalanceCRC: movement.closingBalanceCRC,
               closingBalanceUSD: movement.closingBalanceUSD,
+              requiresOpening: true,
             } as FondoEntry;
 
             const saved = await persistMovementToFirestore(fondoEntries, "edit", {
