@@ -14,7 +14,10 @@ import {
   XCircle,
 } from "lucide-react";
 import type { FondoMovementType } from "../types";
-import { CIERRE_FONDO_VENTAS_PROVIDER_NAME } from "../constants";
+import {
+  CIERRE_FONDO_VENTAS_PROVIDER_NAME,
+  SINGLE_CLOSING_REASON_PREFIX,
+} from "../constants";
 import {
   formatMovementType,
   isEgresoType,
@@ -329,9 +332,15 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     invoiceDocType === "FCO" &&
     baseAmount > 0 &&
     selectedCreditNotesRequestedTotal > baseAmount;
-  const totalAfterCreditNotes = Math.max(0, baseAmount - appliedCreditNotesTotal);
+  const totalAfterCreditNotes = Math.max(
+    0,
+    baseAmount - appliedCreditNotesTotal,
+  );
   const totalToSave =
-    isEgreso && invoiceDocType === "FCO" && currency === "CRC" && (!accountKey || accountKey === "FondoGeneral")
+    isEgreso &&
+    invoiceDocType === "FCO" &&
+    currency === "CRC" &&
+    (!accountKey || accountKey === "FondoGeneral")
       ? Math.floor(totalAfterCreditNotes / 1000) * 1000
       : totalAfterCreditNotes;
   const adjustmentApplied = Math.max(0, totalAfterCreditNotes - totalToSave);
@@ -567,7 +576,9 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                           key={invoice.id}
                           type="button"
                           disabled={disabled}
-                          onClick={() => onSelectPendingCreditInvoice?.(invoice.id)}
+                          onClick={() =>
+                            onSelectPendingCreditInvoice?.(invoice.id)
+                          }
                           className={`flex w-full items-center justify-between gap-3 rounded border px-2.5 py-2 text-sm text-left ${
                             disabled
                               ? "cursor-not-allowed border-amber-500/25 bg-black/10 text-cyan-50 opacity-45"
@@ -637,8 +648,9 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
               allowCreditInvoiceOption ? "grid-cols-2" : "grid-cols-1"
             }`}
           >
-            {(
-              allowCreditInvoiceOption ? (["FCO", "FCR"] as const) : (["FCO"] as const)
+            {(allowCreditInvoiceOption
+              ? (["FCO", "FCR"] as const)
+              : (["FCO"] as const)
             ).map((option) => {
               const active = invoiceDocType === option;
               const disabled =
@@ -748,12 +760,10 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                   !checked &&
                   baseAmount > 0 &&
                   selectedCreditNotesRequestedTotal +
-                      Math.max(0, Math.trunc(note.balanceDue)) >
+                    Math.max(0, Math.trunc(note.balanceDue)) >
                     baseAmount;
                 const disabled =
-                  note.currency !== currency ||
-                  baseAmount <= 0 ||
-                  wouldExceed;
+                  note.currency !== currency || baseAmount <= 0 || wouldExceed;
                 return (
                   <label
                     key={note.id}
@@ -830,21 +840,71 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
 
       <section className={sectionClass}>
         <div className="grid gap-4">
-          <div>
+          {/* Observacion */}
+          <div className="">
             <label className={labelClass}>
               <MessageSquare className="h-3.5 w-3.5" />
               Observacion
             </label>
-            <input
-              placeholder="Observacion"
-              value={notes}
-              onChange={(event) => onNotesChange(event.target.value)}
-              onKeyDown={onFieldKeyDown}
-              className={fieldBase}
-              maxLength={200}
-            />
+            {notes.startsWith(SINGLE_CLOSING_REASON_PREFIX) ? (
+              <div
+                className={`
+    ${fieldBase}
+    h-auto min-h-[72px] p-0 overflow-hidden
+    flex flex-col
+    sm:min-h-[44px] sm:flex-row sm:items-stretch
+  `}
+              >
+                <div
+                  className="
+      flex min-h-[36px] w-full items-center justify-center
+      bg-cyan-800/30 px-3 py-2
+      text-center text-[10px] font-semibold uppercase leading-tight
+      tracking-wide text-cyan-100/80 select-none
+      sm:min-h-0 sm:w-[45%] sm:border-r sm:border-cyan-800/40
+    "
+                >
+                  {SINGLE_CLOSING_REASON_PREFIX}
+                </div>
+
+                <div
+                  className="
+      flex w-full min-w-0 items-center
+      border-t border-cyan-800/40
+      sm:border-t-0 sm:w-[55%]
+    "
+                >
+                  <input
+                    placeholder="especifique el motivo"
+                    value={notes.slice(SINGLE_CLOSING_REASON_PREFIX.length)}
+                    onChange={(event) =>
+                      onNotesChange(
+                        SINGLE_CLOSING_REASON_PREFIX + event.target.value,
+                      )
+                    }
+                    onKeyDown={onFieldKeyDown}
+                    className="
+        w-full min-w-0 bg-transparent px-3 py-2.5
+        text-sm text-[var(--foreground)] outline-none
+        placeholder:text-cyan-100/50
+      "
+                    maxLength={200 - SINGLE_CLOSING_REASON_PREFIX.length}
+                  />
+                </div>
+              </div>
+            ) : (
+              <input
+                placeholder="Observacion"
+                value={notes}
+                onChange={(event) => onNotesChange(event.target.value)}
+                onKeyDown={onFieldKeyDown}
+                className={fieldBase}
+                maxLength={200}
+              />
+            )}
           </div>
 
+          {/* Encargado */}
           <div>
             <label className={labelClass}>
               <UserCircle className="h-3.5 w-3.5" />
@@ -852,13 +912,13 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
             </label>
             <div
               className="relative"
-              onBlur={() => {
-                setTimeout(() => setIsManagerDropdownOpen(false), 150);
-              }}
+              onBlur={() =>
+                setTimeout(() => setIsManagerDropdownOpen(false), 150)
+              }
             >
               <button
                 type="button"
-                className={`${fieldBase} flex items-center justify-between text-left ${
+                className={`${fieldBase} flex w-full items-center justify-between text-left ${
                   managerError ? "border-red-500" : ""
                 } ${
                   managerSelectDisabled
@@ -868,16 +928,19 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                 disabled={managerSelectDisabled}
                 onClick={() => setIsManagerDropdownOpen((prev) => !prev)}
               >
-                <span className={manager ? "" : "text-cyan-100/70"}>
+                <span
+                  className={`truncate ${manager ? "" : "text-cyan-100/70"}`}
+                >
                   {manager ||
                     (employeesLoading
                       ? "Cargando encargados..."
                       : "Seleccionar encargado")}
                 </span>
-                <span className="text-cyan-100/80">⌄</span>
+                <span className="ml-2 shrink-0 text-cyan-100/80">⌄</span>
               </button>
+
               {isManagerDropdownOpen && !managerSelectDisabled && (
-                <div className="absolute z-[9999] mt-2 max-h-56 w-full overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] p-1 shadow-2xl shadow-black/70">
+                <div className="absolute left-0 right-0 z-[9999] mt-2 max-h-56 overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] p-1 shadow-2xl shadow-black/70">
                   <button
                     type="button"
                     className="w-full rounded px-3 py-2 text-left text-sm text-cyan-100/70 transition-colors hover:bg-cyan-950/80"
@@ -913,6 +976,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
             )}
           </div>
 
+          {/* Encargado pago */}
           {showManager2 && onManager2Change && (
             <div>
               <label className={labelClass}>
@@ -921,13 +985,13 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
               </label>
               <div
                 className="relative"
-                onBlur={() => {
-                  setTimeout(() => setIsManager2DropdownOpen(false), 150);
-                }}
+                onBlur={() =>
+                  setTimeout(() => setIsManager2DropdownOpen(false), 150)
+                }
               >
                 <button
                   type="button"
-                  className={`${fieldBase} flex items-center justify-between text-left ${
+                  className={`${fieldBase} flex w-full items-center justify-between text-left ${
                     manager2SelectDisabled
                       ? "cursor-not-allowed opacity-60"
                       : "cursor-pointer"
@@ -935,16 +999,19 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                   disabled={manager2SelectDisabled}
                   onClick={() => setIsManager2DropdownOpen((prev) => !prev)}
                 >
-                  <span className={manager2 ? "" : "text-cyan-100/70"}>
+                  <span
+                    className={`truncate ${manager2 ? "" : "text-cyan-100/70"}`}
+                  >
                     {manager2 ||
                       (employeesLoading
                         ? "Cargando encargados..."
                         : "Seleccionar encargado pago")}
                   </span>
-                  <span className="text-cyan-100/80">⌄</span>
+                  <span className="ml-2 shrink-0 text-cyan-100/80">⌄</span>
                 </button>
+
                 {isManager2DropdownOpen && !manager2SelectDisabled && (
-                  <div className="absolute z-[9999] mt-2 max-h-56 w-full overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] p-1 shadow-2xl shadow-black/70">
+                  <div className="absolute left-0 right-0 z-[9999] mt-2 max-h-56 overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] p-1 shadow-2xl shadow-black/70">
                     <button
                       type="button"
                       className="w-full rounded px-3 py-2 text-left text-sm text-cyan-100/70 transition-colors hover:bg-cyan-950/80"

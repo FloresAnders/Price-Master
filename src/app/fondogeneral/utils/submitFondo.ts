@@ -19,6 +19,7 @@ import {
   CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
   MAX_AUDIT_EDITS,
   MOVEMENT_COOLDOWN_MS,
+  SINGLE_CLOSING_REASON_PREFIX,
 } from "../constants";
 import {
   acquireClosingGuard,
@@ -258,8 +259,6 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
   const egresoValue = isEgreso ? Number.parseInt(egreso, 10) : 0;
   const ingresoValue = isIngreso ? Number.parseInt(ingreso, 10) : 0;
   const trimmedNotes = notes.trim();
-  const SINGLE_CLOSING_REASON_PREFIX =
-    "MOTIVO DE UN SOLO CIERRE EN EL DIA: ";
   const movementSelectedProviderData = movementProviders.find(
       (p: any) => p.code === selectedProvider,
   );
@@ -357,7 +356,8 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
 
           if (isWithinWindow && closingsTodayCount === 0) {
             shouldPrefixSingleClosingReason = true;
-            if (trimmedNotes.length === 0) {
+            const notesWithoutPrefix = trimmedNotes.replace(SINGLE_CLOSING_REASON_PREFIX, "").trim();
+            if (notesWithoutPrefix.length === 0) {
               showToast(
                 "Debe indicar en observaciones el motivo de por qu?? solo se realizo un cierre en el d??a.",
                 "warning",

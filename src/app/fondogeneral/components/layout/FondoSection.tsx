@@ -82,6 +82,7 @@ import {
   CIERRE_FONDO_VENTAS_PROVIDER_NAME,
   CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
   CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
+  SINGLE_CLOSING_REASON_PREFIX,
   AUTO_ADJUSTMENT_OPENING_TYPE,
   APERTURA_FONDO_PROVIDER_CODE,
   FONDO_KEY_SUFFIX,
@@ -2955,6 +2956,9 @@ export function FondoSection({
             console.error("[FG] Error checking duplicate cierres:", dupErr);
           }
 
+          if (closingShift === "N" && closingsToday.length === 0 && !notes.startsWith(SINGLE_CLOSING_REASON_PREFIX)) {
+            setNotes(SINGLE_CLOSING_REASON_PREFIX);
+          }
         }
       } catch (err) {
         console.error(
@@ -3508,13 +3512,16 @@ export function FondoSection({
         );
       }).length;
 
-      if (isWithinWindow && closingsTodayCount === 0 && notes.trim().length === 0) {
-        showToast(
-          "Debe indicar en observaciones el motivo de por qué solo se realizó un cierre en el día.",
-          "warning",
-          6000,
-        );
-        return false;
+      if (isWithinWindow && closingsTodayCount === 0) {
+        const notesWithoutPrefix = notes.replace(SINGLE_CLOSING_REASON_PREFIX, "").trim();
+        if (notesWithoutPrefix.length === 0) {
+          showToast(
+            "Debe indicar en observaciones el motivo de por qué solo se realizó un cierre en el día.",
+            "warning",
+            6000,
+          );
+          return false;
+        }
       }
     } catch (err) {
       console.error("[FG] Error validating single-closing reason before confirm:", err);
