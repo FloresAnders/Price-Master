@@ -2972,6 +2972,8 @@ export function FondoSection({
         );
         return;
       }
+    } else if (notes.startsWith(SINGLE_CLOSING_REASON_PREFIX)) {
+      setNotes(notes.replace(SINGLE_CLOSING_REASON_PREFIX, ""));
     }
 
     setSelectedProvider(value);
