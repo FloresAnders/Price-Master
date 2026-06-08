@@ -3576,6 +3576,8 @@ export function FondoSection({
       } catch (error) {
         console.error("Error saving selected company to localStorage:", error);
       }
+      setLatestMovementOverall(null);
+      setLatestMovementOverallLoaded(false);
       resetStateForCompanyChange({
         mode,
         keepFiltersAcrossCompanies,
