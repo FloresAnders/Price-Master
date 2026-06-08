@@ -3390,7 +3390,7 @@ export function FondoSection({
       storageSnapshotRef,
       user,
     });
-    setLatestMovementOverall({ requiresOpening: true } as FondoEntry);
+    setLatestMovementOverall({ requiresOpening: true, accountId: "FondoGeneral" } as FondoEntry);
   };
 
   const validateBeforeMovementSubmitConfirm = useCallback(async () => {
