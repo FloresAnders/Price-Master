@@ -1,19 +1,19 @@
 {
-  "version": "1.6.29",
-  "versionstorage": "1.1.21",
-  "notasDeSistemas": "1.1.25",
+  "version": "1.6.30",
+  "versionstorage": "1.1.22",
+  "notasDeSistemas": "1.1.26",
   "releaseNotes": [
     {
       "date": "2026-06-05",
-      "title": "Ajustes de filtro de hora en reporte de sinpes" ,
-      "description": "Ajustes en el filtro de hora para el reporte de sinpes, ahora se muestra el reporte completo sin importar la hora, pero se mantiene el filtro para mostrar solo los registros del dia actual."
+      "title": "Implementacion de Apertura de Fondo" ,
+      "description": "Se implentó la apertura de fondo"
     }
   ],
   "systemNotes": [
     {
       "date": "2026-06-01",
-      "title": "Ajustes de filtro de hora en reporte de sinpes",
-      "description": "Ajustes en el filtro de hora para el reporte de sinpes, ahora se muestra el reporte completo sin importar la hora, pero se mantiene el filtro para mostrar solo los registros del dia actual."
+      "title": "Implementacion de Apertura de Fondo",
+      "description": "Se implentó la apertura de fondo"
     }
   ],
   "_comment": "hacer una pagina de 'en mantenimiento' para secciones en desarrollo y a exepcion de un usuario admin"
