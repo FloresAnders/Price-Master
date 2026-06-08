@@ -20,6 +20,7 @@ type MovementDrawerProps = ComponentProps<typeof AgregarMovimiento> & {
   editingEntry: FondoEntry | null;
   movementAutoCloseLocked: boolean;
   onToggleMovementAutoCloseLocked: () => void;
+  beforeConfirmSubmit?: () => boolean | Promise<boolean>;
 };
 
 export function MovementDrawer({
@@ -28,6 +29,7 @@ export function MovementDrawer({
   editingEntry,
   movementAutoCloseLocked,
   onToggleMovementAutoCloseLocked,
+  beforeConfirmSubmit,
   ...agregarMovimientoProps
 }: MovementDrawerProps) {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -52,10 +54,27 @@ export function MovementDrawer({
     currency === "USD"
       ? `$${Number(amountStr).toLocaleString("en-US")}`
       : `₡${Number(amountStr).toLocaleString("es-CR")}`;
-  const handleSaveClick = () => setShowConfirmModal(true);
+  const openConfirmIfAllowed = async () => {
+    const allowed = await beforeConfirmSubmit?.();
+    if (allowed === false) return;
+    setShowConfirmModal(true);
+  };
+  const handleSaveClick = () => {
+    void openConfirmIfAllowed();
+  };
   const handleConfirmSave = () => {
     setShowConfirmModal(false);
     onSubmit?.();
+  };
+  const handleFieldKeyDown = (
+    event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      void openConfirmIfAllowed();
+      return;
+    }
+    agregarMovimientoProps.onFieldKeyDown?.(event);
   };
   return (
     <Drawer
@@ -137,7 +156,11 @@ export function MovementDrawer({
               modo de registro.
             </Typography>
           )}
-          <AgregarMovimiento {...agregarMovimientoProps} onSubmit={handleSaveClick} />
+          <AgregarMovimiento
+            {...agregarMovimientoProps}
+            onSubmit={handleSaveClick}
+            onFieldKeyDown={handleFieldKeyDown}
+          />
         </Box>
       </Box>
       {createPortal(

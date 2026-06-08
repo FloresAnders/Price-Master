@@ -34,6 +34,7 @@ import DailyClosingHistoryModal from "../../../../components/modals/DailyClosing
 import { ManualCreditNoteDrawer } from "../drawers/ManualCreditNoteDrawer";
 import { FondoConfirmModals } from "../FondoConfirmModals";
 import {
+  getControlHorarioShiftTiming,
   getCostaRicaDateKeyAndMinute,
   type ShiftCode,
 } from "@/utils/controlHorarioManager";
@@ -308,6 +309,8 @@ export function FondoSection({
   const [missingShiftExpectedShift, setMissingShiftExpectedShift] =
     useState<ShiftCode>("D");
   const [missingShiftDateKey, setMissingShiftDateKey] = useState("");
+  const [dailyClosingSingleReasonRequired, setDailyClosingSingleReasonRequired] =
+    useState(false);
 
   const isDelifoodCompany = useMemo(() => {
     const normalize = (value: unknown) =>
@@ -1807,12 +1810,14 @@ export function FondoSection({
         closingDate: record.closingDate,
         manager: record.manager,
         notes: record.notes ?? "",
+        singleClosingReason: record.singleClosingReason ?? "",
         totalCRC: record.totalCRC ?? 0,
         totalUSD: record.totalUSD ?? 0,
         breakdownCRC: record.breakdownCRC ?? {},
         breakdownUSD: record.breakdownUSD ?? {},
       };
       setEditingDailyClosingId(record.id);
+      setDailyClosingSingleReasonRequired(false);
       setDailyClosingInitialValues(initial);
       setDailyClosingModalOpen(true);
       return;
@@ -2844,7 +2849,39 @@ export function FondoSection({
               (a, b) =>
                 new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
             );
-          const closingShift: ShiftCode = closingsToday.length > 0 ? "N" : "D";
+          const nightWindowStartMin = addMinutesToMinuteOfDay(
+            shiftNEndMin,
+            -cierreFondoVentasMinutesBeforeEnd,
+          );
+          const nightWindowEndMin = addMinutesToMinuteOfDay(
+            shiftNEndMin,
+            cierreFondoVentasMinutesAfterEnd + 1,
+          );
+          const isWithinWindow = (
+            minute: number,
+            startMin: number,
+            endMin: number,
+          ) => {
+            if (startMin <= endMin) {
+              return minute >= startMin && minute < endMin;
+            }
+            return minute >= startMin || minute < endMin;
+          };
+          const isInNightWindow = isWithinWindow(
+            nowMin,
+            nightWindowStartMin,
+            nightWindowEndMin,
+          );
+          const minutesUntilNightWindowStart =
+            (nightWindowStartMin - nowMin + 1440) % 1440;
+          const shouldSkipDayShift =
+            closingsToday.length === 0 && minutesUntilNightWindowStart <= 30;
+          const closingShift: ShiftCode =
+            closingsToday.length > 0
+              ? "N"
+              : shouldSkipDayShift || isInNightWindow
+                ? "N"
+                : "D";
           const referenceShiftEndMin =
             closingShift === "D" ? shiftDEndMin : shiftNEndMin;
           const referenceShiftLabel = closingShift === "D" ? "D" : "N";
@@ -3137,7 +3174,7 @@ export function FondoSection({
     openCreateMovementDrawer();
   };
 
-  const handleOpenDailyClosing = () => {
+  const handleOpenDailyClosing = async () => {
     if (accountKey !== "FondoGeneral") return;
     setEditingDailyClosingId(null);
 
@@ -3154,16 +3191,35 @@ export function FondoSection({
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       )[0];
 
+    let requireSingleReason = false;
+    try {
+      const nowISO = await getAuthoritativeNowISO();
+      const currentDateKey = getCostaRicaDateKeyAndMinute(nowISO)?.dateKey;
+      const closingsToday = fondoEntries.filter((entry) => {
+        const info = getCostaRicaDateKeyAndMinute(String(entry.createdAt || ""));
+        return Boolean(
+          info &&
+            info.dateKey === currentDateKey &&
+            isCierreFondoVentasMovement(entry),
+        );
+      });
+      requireSingleReason = closingsToday.length === 1;
+    } catch (err) {
+      console.error("[FG] Error resolving single-closing reason requirement:", err);
+    }
+
     const initialValues: DailyClosingFormValues = {
       closingDate: new Date().toISOString(),
       manager: lastCierreVentas?.manager || "",
       notes: "",
+      singleClosingReason: "",
       totalCRC: currentBalanceCRC,
       totalUSD: currentBalanceUSD,
       breakdownCRC: {},
       breakdownUSD: {},
     };
 
+    setDailyClosingSingleReasonRequired(requireSingleReason);
     setDailyClosingInitialValues(initialValues);
     setDailyClosingModalOpen(true);
   };
@@ -3172,6 +3228,7 @@ export function FondoSection({
     setDailyClosingModalOpen(false);
     setEditingDailyClosingId(null);
     setDailyClosingInitialValues(null);
+    setDailyClosingSingleReasonRequired(false);
     setClosingPaymentModalOpen(false);
     setClosingPaymentTarget(null);
   };
@@ -3330,6 +3387,7 @@ export function FondoSection({
       finishDailyClosingsRequest,
       fondoEntries,
       formatToastWaitTime,
+      isCierreFondoVentasMovement,
       isRegularUser,
       lastDailyClosingSavedAtRef,
       loadedDailyClosingKeysRef,
@@ -3351,6 +3409,130 @@ export function FondoSection({
 
 
   };
+
+  const validateBeforeMovementSubmitConfirm = useCallback(async () => {
+    const selectedProviderData = movementProviders.find(
+      (provider) => provider.code === selectedProvider,
+    );
+    const isCierreFondoVentasSelection =
+      selectedProviderData?.name?.toUpperCase() ===
+        CIERRE_FONDO_VENTAS_PROVIDER_NAME ||
+      String(selectedProvider || "").trim().toUpperCase() ===
+        CIERRE_FONDO_VENTAS_PROVIDER_NAME;
+
+    if (
+      !isCierreFondoVentasSelection ||
+      editingEntryId ||
+      !activeEmpresaForCompany
+    ) {
+      return true;
+    }
+
+    try {
+      const nowISO = await getAuthoritativeNowISO();
+      const normalizedCompany = (company || "").trim();
+      const companyKeysToTry = (() => {
+        const set = new Set<string>();
+        if (normalizedCompany) set.add(normalizedCompany);
+        [activeEmpresaForCompany?.name, activeEmpresaForCompany?.ubicacion, activeEmpresaForCompany?.id]
+          .map((v) =>
+            typeof v === "string" ? v.trim() : String(v || "").trim(),
+          )
+          .filter(Boolean)
+          .forEach((v) => set.add(v));
+        return Array.from(set);
+      })();
+
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Costa_Rica",
+        year: "numeric",
+        month: "2-digit",
+      }).formatToParts(new Date(nowISO));
+      const year = Number(parts.find((p) => p.type === "year")?.value);
+      const month1 = Number(parts.find((p) => p.type === "month")?.value);
+      const month0 = Math.max(0, Math.min(11, month1 - 1));
+
+      if (
+        companyKeysToTry.length === 0 ||
+        !Number.isFinite(year) ||
+        !Number.isFinite(month1)
+      ) {
+        return true;
+      }
+
+      const schedulesLists = await Promise.all(
+        companyKeysToTry.map((key) =>
+          getFGMonthlySchedulesCached(key, year, month0),
+        ),
+      );
+      const monthSchedules = schedulesLists.flat();
+      const timing = getControlHorarioShiftTiming({
+        nowISO,
+        empresa: activeEmpresaForCompany,
+        monthSchedules,
+        closingMovements: fondoEntries,
+        providers: movementProviders,
+      });
+
+      if (!timing.withinHorario) return true;
+
+      const normalizeMin = (value: number) => ((value % 1440) + 1440) % 1440;
+      const addMinutes = (value: number, delta: number) =>
+        normalizeMin(value + delta);
+      const nowMin = normalizeMin(timing.currentMin);
+      const nightEndMin = normalizeMin(timing.closeMin);
+      const nightWindowStartMin = addMinutes(
+        nightEndMin,
+        -(
+          activeEmpresaForCompany.cierreFondoVentasMinutesBeforeEnd ??
+          CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END
+        ),
+      );
+      const nightWindowEndMin = addMinutes(
+        nightEndMin,
+        (
+          activeEmpresaForCompany.cierreFondoVentasMinutesAfterEnd ??
+          CIERRE_FONDO_VENTAS_MINUTES_AFTER_END
+        ) + 1,
+      );
+      const isWithinWindow =
+        nightWindowStartMin <= nightWindowEndMin
+          ? nowMin >= nightWindowStartMin && nowMin < nightWindowEndMin
+          : nowMin >= nightWindowStartMin || nowMin < nightWindowEndMin;
+      const closingsTodayCount = fondoEntries.filter((entry) => {
+        const info = getCostaRicaDateKeyAndMinute(String(entry.createdAt || ""));
+        return Boolean(
+          info &&
+            info.dateKey === timing.dateKey &&
+            isCierreFondoVentasMovement(entry),
+        );
+      }).length;
+
+      if (isWithinWindow && closingsTodayCount === 0 && notes.trim().length === 0) {
+        showToast(
+          "Debe indicar en observaciones el motivo de por qué solo se realizó un cierre en el día.",
+          "warning",
+          6000,
+        );
+        return false;
+      }
+    } catch (err) {
+      console.error("[FG] Error validating single-closing reason before confirm:", err);
+    }
+
+    return true;
+  }, [
+    movementProviders,
+    selectedProvider,
+    editingEntryId,
+    activeEmpresaForCompany,
+    company,
+    getFGMonthlySchedulesCached,
+    fondoEntries,
+    notes,
+    showToast,
+    isCierreFondoVentasMovement,
+  ]);
 
   const handleAdminCompanyChange = useCallback(
     (value: string) => {
@@ -3732,6 +3914,7 @@ export function FondoSection({
         onToggleMovementAutoCloseLocked={() =>
           setMovementAutoCloseLocked((prev) => !prev)
         }
+        beforeConfirmSubmit={validateBeforeMovementSubmitConfirm}
         selectedProvider={selectedProvider}
         onProviderChange={handleProviderChange}
         providers={filteredProvidersForMovement}
@@ -5104,6 +5287,9 @@ export function FondoSection({
         loadingEmployees={employeesLoading}
         currentBalanceCRC={currentBalanceCRC}
         currentBalanceUSD={currentBalanceUSD}
+        requireSingleClosingReason={
+          dailyClosingSingleReasonRequired && !editingDailyClosingId
+        }
         managerReadonly={!editingDailyClosingId}
       />
 

@@ -1,5 +1,9 @@
 import { db } from "@/config/firebase";
-import { resolveManagerFromControlHorario } from "@/utils/controlHorarioManager";
+import {
+  getControlHorarioShiftTiming,
+  getCostaRicaDateKeyAndMinute,
+  resolveManagerFromControlHorario,
+} from "@/utils/controlHorarioManager";
 import {
   FacturasService,
   type AppliedCreditNote,
@@ -11,6 +15,8 @@ import { ProvidersService } from "../../../services/providers";
 import {
   CIERRE_FONDO_VENTAS_PROVIDER_NAME,
   CACHE_TTL_MS,
+  CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
+  CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
   MAX_AUDIT_EDITS,
   MOVEMENT_COOLDOWN_MS,
 } from "../constants";
@@ -252,9 +258,126 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
   const egresoValue = isEgreso ? Number.parseInt(egreso, 10) : 0;
   const ingresoValue = isIngreso ? Number.parseInt(ingreso, 10) : 0;
   const trimmedNotes = notes.trim();
+  const SINGLE_CLOSING_REASON_PREFIX =
+    "MOTIVO DE UN SOLO CIERRE EN EL DIA: ";
   const movementSelectedProviderData = movementProviders.find(
       (p: any) => p.code === selectedProvider,
   );
+  const isCierreFondoVentasSelection =
+    movementSelectedProviderData?.name?.toUpperCase() ===
+      CIERRE_FONDO_VENTAS_PROVIDER_NAME ||
+    String(selectedProvider || "").trim().toUpperCase() ===
+      CIERRE_FONDO_VENTAS_PROVIDER_NAME;
+  let shouldPrefixSingleClosingReason = false;
+
+  if (
+    isCierreFondoVentasSelection &&
+    !editingEntryId &&
+    activeEmpresaForCompany
+  ) {
+    try {
+      const normalizedCompany = (company || "").trim();
+      const companyKeysToTry = (() => {
+        const set = new Set<string>();
+        if (normalizedCompany) set.add(normalizedCompany);
+        [activeEmpresaForCompany?.name, activeEmpresaForCompany?.ubicacion, activeEmpresaForCompany?.id]
+          .map((v) =>
+            typeof v === "string" ? v.trim() : String(v || "").trim(),
+          )
+          .filter(Boolean)
+          .forEach((v) => set.add(v));
+        return Array.from(set);
+      })();
+
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Costa_Rica",
+        year: "numeric",
+        month: "2-digit",
+      }).formatToParts(new Date(nowISO));
+      const year = Number(parts.find((p) => p.type === "year")?.value);
+      const month1 = Number(parts.find((p) => p.type === "month")?.value);
+      const month0 = Math.max(0, Math.min(11, month1 - 1));
+
+      if (companyKeysToTry.length > 0 && Number.isFinite(year) && Number.isFinite(month1)) {
+        const schedulesLists = await Promise.all(
+          companyKeysToTry.map((key: string) =>
+            getFGMonthlySchedulesCached(key, year, month0),
+          ),
+        );
+        const monthSchedules = schedulesLists.flat();
+        const timing = getControlHorarioShiftTiming({
+          nowISO,
+          empresa: activeEmpresaForCompany,
+          monthSchedules,
+          closingMovements: fondoEntries as Array<{
+            createdAt?: string;
+            providerCode?: string;
+          }>,
+          providers: movementProviders as Array<{
+            code: string;
+            name?: string | null;
+          }>,
+        });
+
+        if (timing.withinHorario) {
+          const normalizeMin = (value: number) => ((value % 1440) + 1440) % 1440;
+          const addMinutes = (value: number, delta: number) =>
+            normalizeMin(value + delta);
+          const nowMin = normalizeMin(timing.currentMin);
+          const nightEndMin = normalizeMin(timing.closeMin);
+          const nightWindowStartMin = addMinutes(
+            nightEndMin,
+            -(
+              activeEmpresaForCompany.cierreFondoVentasMinutesBeforeEnd ??
+              CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END
+            ),
+          );
+          const nightWindowEndMin = addMinutes(
+            nightEndMin,
+            (
+              activeEmpresaForCompany.cierreFondoVentasMinutesAfterEnd ??
+              CIERRE_FONDO_VENTAS_MINUTES_AFTER_END
+            ) + 1,
+          );
+          const isWithinWindow =
+            nightWindowStartMin <= nightWindowEndMin
+              ? nowMin >= nightWindowStartMin && nowMin < nightWindowEndMin
+              : nowMin >= nightWindowStartMin || nowMin < nightWindowEndMin;
+          const closingsTodayCount = fondoEntries.filter((entry: FondoEntry) => {
+            const info = getCostaRicaDateKeyAndMinute(String(entry.createdAt || ""));
+            const provider = movementProviders.find(
+              (p: any) => p.code === entry.providerCode,
+            );
+            return Boolean(
+              info &&
+                info.dateKey === timing.dateKey &&
+                provider?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME,
+            );
+          }).length;
+
+          if (isWithinWindow && closingsTodayCount === 0) {
+            shouldPrefixSingleClosingReason = true;
+            if (trimmedNotes.length === 0) {
+              showToast(
+                "Debe indicar en observaciones el motivo de por qu?? solo se realizo un cierre en el d??a.",
+                "warning",
+                6000,
+              );
+              return;
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("[FG] Error validating single-closing reason for cierre fondo ventas:", err);
+    }
+  }
+  const normalizedPersistedNotes =
+    shouldPrefixSingleClosingReason &&
+    trimmedNotes.length > 0 &&
+    !trimmedNotes.startsWith(SINGLE_CLOSING_REASON_PREFIX)
+      ? `${SINGLE_CLOSING_REASON_PREFIX}${trimmedNotes}`
+      : trimmedNotes;
   const shouldMirrorMovementToFacturas = !isCajaNegra && isInventoryPurchaseProviderType(
     movementSelectedProviderData?.type,
   );
@@ -470,7 +593,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
           {
             providerCode: selectedProvider,
             paymentType,
-            notes: trimmedNotes,
+            notes: normalizedPersistedNotes,
           },
           providerDisplayForSelected,
         );
@@ -509,7 +632,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
           `ingreso=${Math.trunc(isIngreso ? ingresoValue : 0)}`,
           `manager=${(manager || "").trim()}`,
           `currency=${movementCurrency || "CRC"}`,
-          `notes=${trimmedNotes}`,
+          `notes=${normalizedPersistedNotes}`,
         ];
         const fingerprint = fingerprintParts.join("|");
         const key = `fondogeneral-lastMovementDedupe:${normalizedCompany}:${accountKey}`;
@@ -657,8 +780,8 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         changes.push(
           `Encargado pago: ${originalManager2 || "(vacío)"} -> ${effectiveManager2 || "(vacío)"}`,
         );
-      if (trimmedNotes !== (original.notes ?? ""))
-        changes.push(`Notas: "${original.notes}" -> "${trimmedNotes}"`);
+      if (normalizedPersistedNotes !== (original.notes ?? ""))
+        changes.push(`Notas: "${original.notes}" -> "${normalizedPersistedNotes}"`);
 
       // Preparar el movimiento editado ANTES de persistir
       let updatedEntry: FondoEntry | null = null;
@@ -750,7 +873,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
             appliedCreditNotes: nextAppliedCreditNotes,
             manager: effectiveManager,
             manager2: effectiveManager2,
-            notes: trimmedNotes,
+            notes: normalizedPersistedNotes,
             currency: effectiveCurrency,
           },
         );
@@ -784,7 +907,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
               : undefined,
           manager: effectiveManager,
           manager2: effectiveManager2 || undefined,
-          notes: trimmedNotes,
+          notes: normalizedPersistedNotes,
           // mark as edited/audited and preserve originalEntryId (point to initial id)
           isAudit: true,
           originalEntryId: e.originalEntryId ?? e.id,
@@ -1087,7 +1210,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         appliedCreditNotes:
            appliedCreditNotes.length > 0 ? appliedCreditNotes : undefined,
         manager: effectiveManager,
-        notes: trimmedNotes,
+                notes: normalizedPersistedNotes,
         createdAt: iso,
         currency: movementCurrency,
       };

@@ -14,6 +14,7 @@ export type DailyClosingRecord = {
   diffCRC: number;
   diffUSD: number;
   notes: string;
+  singleClosingReason?: string;
   breakdownCRC: Record<number, number>;
   breakdownUSD: Record<number, number>;
   adjustmentResolution?: {
@@ -181,6 +182,10 @@ const sanitizeRecord = (raw: unknown): DailyClosingRecord | null => {
     typeof candidate.manager === "string" ? candidate.manager.trim() : "";
   const notes =
     typeof candidate.notes === "string" ? candidate.notes.trim() : "";
+  const singleClosingReason =
+    typeof candidate.singleClosingReason === "string"
+      ? candidate.singleClosingReason.trim()
+      : "";
 
   const record: DailyClosingRecord = {
     id,
@@ -194,6 +199,7 @@ const sanitizeRecord = (raw: unknown): DailyClosingRecord | null => {
     diffCRC: sanitizeMoney(candidate.diffCRC),
     diffUSD: sanitizeMoney(candidate.diffUSD),
     notes,
+    ...(singleClosingReason ? { singleClosingReason } : {}),
     breakdownCRC: sanitizeBreakdown(candidate.breakdownCRC),
     breakdownUSD: sanitizeBreakdown(candidate.breakdownUSD),
   } as DailyClosingRecord;

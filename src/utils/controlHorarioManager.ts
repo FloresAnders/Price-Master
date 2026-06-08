@@ -318,7 +318,17 @@ export const getControlHorarioShiftTiming = (args: {
   const dayHours = employeeHours ?? scheduleHours ?? 8;
 
   const shiftChangeMin = openMin + Math.round(dayHours * 60);
-  const expectedShift = getFondoVentasShiftFromClosings(args) || "D";
+  const closingsShift = getFondoVentasShiftFromClosings(args);
+  const nightWindowStartMin = closeMin - 30;
+  const normalizedNightWindowStartMin =
+    ((nightWindowStartMin % 1440) + 1440) % 1440;
+  const shouldSkipDayShift =
+    closingsShift !== "N" &&
+    (normalizedNightWindowStartMin <= closeMin
+      ? currentMin >= normalizedNightWindowStartMin && currentMin <= closeMin
+      : currentMin >= normalizedNightWindowStartMin || currentMin <= closeMin);
+  const expectedShift =
+    closingsShift === "N" || shouldSkipDayShift ? "N" : "D";
 
   return {
     withinHorario: true,

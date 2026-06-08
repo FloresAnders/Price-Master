@@ -14,6 +14,7 @@ import {
   getChangedFields,
   isAutoAdjustmentProvider,
 } from "../helpers";
+import { getCostaRicaDateKeyAndMinute } from "@/utils/controlHorarioManager";
 import {
   AUTO_ADJUSTMENT_MANAGER,
   AUTO_ADJUSTMENT_PROVIDER_CODE,
@@ -47,6 +48,7 @@ export interface HandleConfirmDailyClosingDeps {
   finishDailyClosingsRequest: () => void;
   fondoEntries: FondoEntry[];
   formatToastWaitTime: (remainingSec: number) => string;
+  isCierreFondoVentasMovement: (entry: FondoEntry) => boolean;
   isRegularUser: boolean;
   lastDailyClosingSavedAtRef: NumberRef;
   loadedDailyClosingKeysRef: StringSetRef;
@@ -104,6 +106,7 @@ export async function handleConfirmDailyClosing(
     finishDailyClosingsRequest,
     fondoEntries,
     formatToastWaitTime,
+    isCierreFondoVentasMovement,
     isRegularUser,
     lastDailyClosingSavedAtRef,
     loadedDailyClosingKeysRef,
@@ -147,7 +150,27 @@ export async function handleConfirmDailyClosing(
   const diffCRC = Math.trunc(closing.totalCRC) - Math.trunc(currentBalanceCRC);
   const diffUSD = Math.trunc(closing.totalUSD) - Math.trunc(currentBalanceUSD);
   const userNotes = closing.notes.trim();
+  const singleClosingReason = String(closing.singleClosingReason || "").trim();
   const closingDateKey = dateKeyFromDate(closingDateValue);
+  const createdAtDateKey =
+    getCostaRicaDateKeyAndMinute(createdAtISO)?.dateKey ?? closingDateKey;
+  const cierreVentasCountForDay = fondoEntries.filter((entry) => {
+    const info = getCostaRicaDateKeyAndMinute(String(entry.createdAt || ""));
+    return Boolean(
+      info &&
+        info.dateKey === createdAtDateKey &&
+        isCierreFondoVentasMovement(entry),
+    );
+  }).length;
+
+  if (cierreVentasCountForDay === 1 && !singleClosingReason) {
+    showToast(
+      "Debe indicar el motivo de por quÃ© solo hubo un cierre en el dÃ­a.",
+      "warning",
+      5000,
+    );
+    return;
+  }
 
   const record: DailyClosingRecord = {
     id: editingDailyClosingId ?? `${Date.now()}`,
@@ -163,6 +186,7 @@ export async function handleConfirmDailyClosing(
     diffCRC,
     diffUSD,
     notes: userNotes,
+    ...(singleClosingReason ? { singleClosingReason } : {}),
     breakdownCRC: closing.breakdownCRC ?? {},
     breakdownUSD: closing.breakdownUSD ?? {},
   };

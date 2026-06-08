@@ -62,6 +62,7 @@ export type DailyClosingFormValues = {
   closingDate: string;
   manager: string;
   notes: string;
+  singleClosingReason?: string;
   totalCRC: number;
   totalUSD: number;
   breakdownCRC: Record<number, number>;
@@ -82,6 +83,7 @@ type DailyClosingModalProps = {
   loadingEmployees: boolean;
   currentBalanceCRC: number;
   currentBalanceUSD: number;
+  requireSingleClosingReason?: boolean;
   // Whether the manager field should be readonly (for new closings with default manager)
   managerReadonly?: boolean;
 };
@@ -97,6 +99,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   loadingEmployees,
   currentBalanceCRC,
   currentBalanceUSD,
+  requireSingleClosingReason = false,
   managerReadonly = false,
 }) => {
   const modalRef = useRef<HTMLDivElement | null>(null);
@@ -114,6 +117,9 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const displayedManager = useMemo(() => manager, [manager]);
 
   const [notes, setNotes] = useState(() => buildFormState(initialValues).notes);
+  const [singleClosingReason, setSingleClosingReason] = useState(
+    () => initialValues?.singleClosingReason || "",
+  );
   const [crcCounts, setCrcCounts] = useState<CountState>(() =>
     buildFormState(initialValues).crcCounts,
   );
@@ -189,7 +195,10 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const diffCRC = totalCRC - Math.trunc(currentBalanceCRC);
   const diffUSD = totalUSD - Math.trunc(currentBalanceUSD);
   const hasAnyCash = totalCRC > 0 || totalUSD > 0;
-  const submitDisabled = displayedManager.trim().length === 0 || !hasAnyCash;
+  const submitDisabled =
+    displayedManager.trim().length === 0 ||
+    !hasAnyCash ||
+    (requireSingleClosingReason && singleClosingReason.trim().length === 0);
   const hasDifferences = diffCRC !== 0 || diffUSD !== 0;
 
   const submitDisabledReason = useMemo(() => {
@@ -199,8 +208,11 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     if (!hasAnyCash) {
       return "No se puede guardar: el efectivo está en 0. Ingresa el conteo en colones o dólares para realizar el cierre.";
     }
+    if (requireSingleClosingReason && singleClosingReason.trim().length === 0) {
+      return "Debes indicar el motivo de por quÃ© solo hubo un cierre en el dÃ­a.";
+    }
     return "";
-  }, [displayedManager, hasAnyCash]);
+  }, [displayedManager, hasAnyCash, requireSingleClosingReason, singleClosingReason]);
 
   const differenceLabel = useCallback(
     (currency: "CRC" | "USD", diff: number) => {
@@ -367,6 +379,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
       closingDate: closingDateISO,
       manager: trimmedManager,
       notes,
+      singleClosingReason: singleClosingReason.trim(),
       totalCRC,
       totalUSD,
       breakdownCRC: buildBreakdown(crcCounts, CRC_DENOMINATIONS),
@@ -646,6 +659,25 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
               placeholder="Notas adicionales del cierre"
             />
           </div>
+
+          {requireSingleClosingReason && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                Motivo cierre Ãºnico
+              </label>
+              <textarea
+                value={singleClosingReason}
+                onChange={(event) => setSingleClosingReason(event.target.value)}
+                className="min-h-[96px] rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm text-[var(--foreground)] transition-colors hover:border-amber-400/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/30 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                style={{
+                  backgroundColor: "var(--card-bg)",
+                  color: "var(--foreground)",
+                }}
+                maxLength={400}
+                placeholder="Explica por quÃ© solo existe un cierre en el dÃ­a"
+              />
+            </div>
+          )}
         </div>
 
         <div className="px-5 pb-5 pt-3 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--input-border)]">

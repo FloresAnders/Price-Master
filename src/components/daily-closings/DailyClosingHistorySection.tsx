@@ -234,6 +234,22 @@ export default function DailyClosingHistorySection({
                     </div>
                   )}
 
+                  {record.singleClosingReason && (
+                    <div className="mt-3 rounded border border-amber-500/25 bg-amber-500/8 p-2.5">
+                      <div className="flex items-start gap-2 text-xs text-amber-100">
+                        <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-300" strokeWidth={1.5} />
+                        <div>
+                          <div className="font-semibold uppercase tracking-wide text-[11px] text-amber-300">
+                            Motivo cierre Ãºnico
+                          </div>
+                          <div className="mt-0.5 text-[var(--foreground)]">
+                            {record.singleClosingReason}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {(() => {
                     const relatedAdjustments = fondoEntries.filter(
                       (e) =>
