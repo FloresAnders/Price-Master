@@ -692,10 +692,11 @@ export function FondoSection({
 
   const shouldPromptPhysicalCount = useCallback(
     (): boolean => {
+      if (accountKey !== "FondoGeneral") return false;
       if (!latestMovementOverallLoaded) return true;
-      return latestMovementOverall?.accountId === "FondoGeneral" && latestMovementOverall?.requiresOpening === true;
+      return latestMovementOverall?.requiresOpening === true && latestMovementOverall?.accountId === "FondoGeneral";
     },
-    [latestMovementOverall, latestMovementOverallLoaded],
+    [accountKey, latestMovementOverall, latestMovementOverallLoaded],
   );
 
   const toggleExpandedOpeningBalance = useCallback((key: string) => {
