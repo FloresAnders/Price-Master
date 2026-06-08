@@ -84,12 +84,6 @@ const formatDailyClosingDiff = (currency: "CRC" | "USD", diff: number) => {
   return `${sign} ${formatByCurrency(currency, Math.abs(diff))}`;
 };
 
-const getTodayInvoiceDDMM = (date: Date = new Date()) => {
-  const dd = String(date.getDate()).padStart(2, "0");
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  return `${dd}${mm}`;
-};
-
 export async function handleConfirmDailyClosing(
   closing: DailyClosingFormValues,
   deps: HandleConfirmDailyClosingDeps,
@@ -472,11 +466,14 @@ export async function handleConfirmDailyClosing(
       const diff = Math.trunc(adjustedDiffCRC);
       const isPositive = diff > 0;
       const paymentType = "AJUSTE CIERRE" as any;
-      const invoiceDDMM = getTodayInvoiceDDMM(createdAtDate);
+      const dd = String(createdAtDate.getDate()).padStart(2, "0");
+      const mm = String(createdAtDate.getMonth() + 1).padStart(2, "0");
+      const yyyy = createdAtDate.getFullYear();
+      const invoiceDate = `${dd}-${mm}-${yyyy}`;
       const entry: FondoEntry = {
         id: cierreBaseId,
         providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
-        invoiceNumber: invoiceDDMM,
+        invoiceNumber: invoiceDate,
         paymentType,
         amountEgreso: isPositive ? 0 : Math.abs(diff),
         amountIngreso: isPositive ? diff : 0,
@@ -498,11 +495,14 @@ export async function handleConfirmDailyClosing(
       const diff = Math.trunc(adjustedDiffUSD);
       const isPositive = diff > 0;
       const paymentType = "AJUSTE CIERRE" as any;
-      const invoiceDDMM = getTodayInvoiceDDMM(createdAtDate);
+      const dd = String(createdAtDate.getDate()).padStart(2, "0");
+      const mm = String(createdAtDate.getMonth() + 1).padStart(2, "0");
+      const yyyy = createdAtDate.getFullYear();
+      const invoiceDate = `${dd}-${mm}-${yyyy}`;
       const entry: FondoEntry = {
         id: plannedCount > 1 ? `${cierreBaseId}_USD` : cierreBaseId,
         providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
-        invoiceNumber: invoiceDDMM,
+        invoiceNumber: invoiceDate,
         paymentType,
         amountEgreso: isPositive ? 0 : Math.abs(diff),
         amountIngreso: isPositive ? diff : 0,
@@ -521,11 +521,14 @@ export async function handleConfirmDailyClosing(
     }
 
     if (adjustedDiffCRC === 0 && adjustedDiffUSD === 0) {
-      const invoiceDDMM = getTodayInvoiceDDMM(createdAtDate);
+      const dd = String(createdAtDate.getDate()).padStart(2, "0");
+      const mm = String(createdAtDate.getMonth() + 1).padStart(2, "0");
+      const yyyy = createdAtDate.getFullYear();
+      const invoiceDate = `${dd}-${mm}-${yyyy}`;
       const entry: FondoEntry = {
         id: cierreBaseId,
         providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
-        invoiceNumber: invoiceDDMM,
+        invoiceNumber: invoiceDate,
         paymentType: "INFORMATIVO" as any,
         amountEgreso: 0,
         amountIngreso: 0,

@@ -532,7 +532,17 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
               <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
                 Encargado
               </label>
-              {employees.length > 0 ? (
+              {managerReadonly ? (
+                <div
+                  className="flex h-11 items-center rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)]"
+                  style={{
+                    backgroundColor: "var(--card-bg)",
+                    color: "var(--foreground)",
+                  }}
+                >
+                  {displayedManager || "—"}
+                </div>
+              ) : employees.length > 0 ? (
                 <select
                   value={displayedManager}
                   onChange={(event) => setManager(event.target.value)}
@@ -541,7 +551,7 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
                     backgroundColor: "var(--card-bg)",
                     color: "var(--foreground)",
                   }}
-                  disabled={loadingEmployees || managerReadonly}
+                  disabled={loadingEmployees}
                   ref={(el) => {
                     managerFieldRef.current = el;
                   }}
@@ -563,7 +573,6 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
                     color: "var(--foreground)",
                   }}
                   placeholder="Nombre del encargado"
-                  readOnly={managerReadonly}
                   ref={(el) => {
                     managerFieldRef.current = el;
                   }}

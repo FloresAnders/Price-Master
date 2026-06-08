@@ -2728,6 +2728,13 @@ export function FondoSection({
     return `${dd}${mm}`;
   };
 
+  const getTodayInvoiceDate = (date: Date = new Date()) => {
+    const dd = String(date.getDate()).padStart(2, "0");
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const yyyy = date.getFullYear();
+    return `${dd}-${mm}-${yyyy}`;
+  };
+
   const getTodayInvoiceMMDD = (date: Date = new Date()) => {
     const dd = String(date.getDate()).padStart(2, "0");
     const mm = String(date.getMonth() + 1).padStart(2, "0");
@@ -2767,17 +2774,22 @@ export function FondoSection({
     );
   }, [isCajaNegra, selectedProvider, selectedProviderData]);
 
-   // Si el proveedor es un cierre/ajuste automático, usar DDMM como Nro. factura y bloquear edición.
+   // Si el proveedor es un cierre/ajuste automático, usar YYYY-MM-DD como Nro. factura y bloquear edición.
   useEffect(() => {
     if (!isInvoiceAutoDateLocked) return;
     // Al editar un movimiento existente, no sobrescribir el Nro. factura guardado.
     if (editingEntryId) return;
-    const today = isCajaNegra ? getTodayInvoiceMMDD() : getTodayInvoiceDDMM();
+    const today =
+      isCajaNegra
+        ? getTodayInvoiceMMDD()
+        : isAutoAdjustmentProvider(selectedProvider)
+          ? getTodayInvoiceDate()
+          : getTodayInvoiceDDMM();
     if (invoiceNumber !== today) {
       setInvoiceNumber(today);
       setInvoiceError("");
     }
-  }, [isInvoiceAutoDateLocked, editingEntryId, invoiceNumber, isCajaNegra]);
+  }, [isInvoiceAutoDateLocked, editingEntryId, invoiceNumber, isCajaNegra, selectedProvider]);
 
   const handleProviderChange = async (value: string) => {
     const prov = movementProviders.find((p) => p.code === value);
@@ -2966,7 +2978,11 @@ export function FondoSection({
 
     if (shouldAutoDateInvoice) {
       setInvoiceNumber(
-        isCajaNegra ? getTodayInvoiceMMDD() : getTodayInvoiceDDMM(),
+        isCajaNegra
+          ? getTodayInvoiceMMDD()
+          : isAutoAdjustmentProvider(value)
+            ? getTodayInvoiceDate()
+            : getTodayInvoiceDDMM(),
       );
       setInvoiceError("");
     }
@@ -3177,10 +3193,24 @@ export function FondoSection({
     });
   }, [accountKey, company, openCreateMovementDrawer]);
 
-  const handleOpenCashOpening = useCallback(() => {
+  const handleOpenCashOpening = useCallback(async () => {
     setConfirmPhysicalCountOpen(false);
     setCashOpeningEditingEntry(null);
-    const openingManager = (user?.name || user?.email || "").trim();
+
+    let openingManager = (user?.name || user?.email || "").trim();
+
+    if (isRegularUser) {
+      try {
+        const nowISO = new Date().toISOString();
+        const resolution = await resolveShiftManagerForNow(nowISO);
+        if (resolution?.mode === "auto") {
+          openingManager = resolution.manager;
+        }
+      } catch (err) {
+        console.error("[CASH_OPENING] Error resolving shift manager:", err);
+      }
+    }
+
     setCashOpeningInitialValues({
       openingDate: new Date().toISOString(),
       manager: openingManager,
@@ -3199,6 +3229,8 @@ export function FondoSection({
     setCashOpeningModalOpen,
     user?.email,
     user?.name,
+    isRegularUser,
+    resolveShiftManagerForNow,
   ]);
 
   const buildCashOpeningInitialValuesFromEntry = useCallback(
@@ -5191,7 +5223,7 @@ export function FondoSection({
         loadingEmployees={employeesLoading}
         currentBalanceCRC={currentBalanceCRC}
         currentBalanceUSD={currentBalanceUSD}
-        managerReadonly={false}
+        managerReadonly={isRegularUser}
       />
 
       <ConfirmModal

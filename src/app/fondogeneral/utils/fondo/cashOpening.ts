@@ -4,7 +4,6 @@ import { db } from "@/config/firebase";
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
 import {
   compressAuditHistory,
-  dateKeyFromDate,
   formatByCurrency,
   getChangedFields,
 } from "../helpers";
@@ -96,8 +95,11 @@ export async function handleConfirmCashOpening(
 
     const baseNotes = opening.notes.trim();
     const movementCreatedAt = existingEntry?.createdAt ?? createdAtISO;
+    const dd = String(createdAtDate.getDate()).padStart(2, "0");
+    const mm = String(createdAtDate.getMonth() + 1).padStart(2, "0");
+    const yyyy = createdAtDate.getFullYear();
     const movementInvoiceNumber =
-      existingEntry?.invoiceNumber ?? dateKeyFromDate(createdAtDate);
+      existingEntry?.invoiceNumber ?? `${dd}-${mm}-${yyyy}`;
     const commonFields = {
       providerCode: APERTURA_FONDO_PROVIDER_CODE,
       invoiceNumber: movementInvoiceNumber,
