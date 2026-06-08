@@ -39,7 +39,7 @@ export interface HandleConfirmCashOpeningDeps {
 export async function handleConfirmCashOpening(
   opening: CashOpeningFormValues,
   deps: HandleConfirmCashOpeningDeps,
-) {
+): Promise<FondoEntry | void> {
   const {
     accountKey,
     company,
@@ -293,6 +293,7 @@ export async function handleConfirmCashOpening(
       "success",
       3000,
     );
+    return entry;
   } catch (err) {
     console.error("[APERTURA] Error guardando apertura:", err);
     showToast("Error al guardar la apertura. Por favor, intente de nuevo.", "error", 5000);

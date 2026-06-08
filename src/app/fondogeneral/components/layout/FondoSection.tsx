@@ -3317,7 +3317,7 @@ export function FondoSection({
 
   const handleConfirmCashOpening = useCallback(
     async (opening: CashOpeningFormValues) => {
-      await handleConfirmCashOpeningFn(opening, {
+      const apEntry = await handleConfirmCashOpeningFn(opening, {
         accountKey,
         company,
         currentBalanceCRC,
@@ -3334,6 +3334,7 @@ export function FondoSection({
         openingSubmitInProgressRef,
         existingEntry: cashOpeningEditingEntry,
       });
+      if (apEntry) setLatestMovementOverall(apEntry);
     },
     [
       accountKey,
@@ -3351,11 +3352,12 @@ export function FondoSection({
       setCashOpeningInitialValues,
       openingSubmitInProgressRef,
       cashOpeningEditingEntry,
+      setLatestMovementOverall,
     ],
   );
 
   const handleConfirmDailyClosing = async (closing: DailyClosingFormValues) => {
-    return await handleConfirmDailyClosingFn(closing, {
+    await handleConfirmDailyClosingFn(closing, {
       accountKey,
       activeOwnerId,
       beginDailyClosingsRequest,
@@ -3388,8 +3390,7 @@ export function FondoSection({
       storageSnapshotRef,
       user,
     });
-
-
+    setLatestMovementOverall({ requiresOpening: true } as FondoEntry);
   };
 
   const validateBeforeMovementSubmitConfirm = useCallback(async () => {
