@@ -705,7 +705,9 @@ export function FondoSection({
         // ignore
       }
 
-      if (!latestMovementOverallLoaded) return false;
+      if (fondoEntries.length > 0) return false;
+
+      if (!latestMovementOverallLoaded) return true;
 
       if (!latestMovementOverall) return true;
 
