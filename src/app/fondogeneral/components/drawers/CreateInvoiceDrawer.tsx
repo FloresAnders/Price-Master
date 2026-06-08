@@ -101,6 +101,11 @@ export default function CreateInvoiceDrawer({
   const [isManagerDropdownOpen, setIsManagerDropdownOpen] = React.useState(false);
   const [showConfirmModal, setShowConfirmModal] = React.useState(false);
 
+  const providerName = React.useMemo(() => {
+    if (!createProviderCode) return "—";
+    const p = filteredCreateProviders?.find((p) => p.code === createProviderCode);
+    return p?.name || createProviderCode;
+  }, [createProviderCode, filteredCreateProviders]);
   const formatAmount = React.useCallback(
     (raw: string) => {
       if (!raw || raw.trim().length === 0) return createCurrency === "CRC" ? "₡ 0" : "$ 0";
@@ -581,7 +586,25 @@ export default function CreateInvoiceDrawer({
         <ConfirmModal
           open={showConfirmModal}
           title="Confirmar guardado"
-          message="¿Estás seguro de que deseas guardar esta FC/NC?"
+          message={
+            <>
+              ¿Estás seguro de que deseas guardar esta FC/NC?
+              <div className="mt-3 space-y-1 rounded-md border border-[var(--input-border)] bg-[var(--card-bg)] p-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-[var(--muted-foreground)]">Proveedor:</span>
+                  <span className="font-medium text-[var(--foreground)]">{providerName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--muted-foreground)]">N° Factura:</span>
+                  <span className="font-medium text-[var(--foreground)]">{createInvoiceNumber || "—"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--muted-foreground)]">Monto:</span>
+                  <span className="font-medium text-[var(--foreground)]">{formatAmount(createAmount)}</span>
+                </div>
+              </div>
+            </>
+          }
           confirmText="Guardar FC/NC"
           cancelText="Cancelar"
           actionType="assign"

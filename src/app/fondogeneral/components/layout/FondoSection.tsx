@@ -1580,7 +1580,7 @@ export function FondoSection({
         }
 
         setManagerLockedByShift(true);
-        if (resolution.mode === "auto") {
+        if (resolution.mode === "auto" && !editingEntryId) {
           setManager(resolution.manager);
           setManagerError("");
         }
@@ -1597,6 +1597,7 @@ export function FondoSection({
     };
   }, [
     accountKey,
+    editingEntryId,
     isRegularUser,
     movementModalOpen,
     namespace,
@@ -3016,7 +3017,6 @@ export function FondoSection({
     (isRegularUser &&
       accountKey === "FondoGeneral" &&
       namespace === "fg" &&
-      !editingEntryId &&
       managerLockedByShift) ||
     // Superadmin: manager is auto-assigned when creating.
     (Boolean(isSuperAdminUser) && !editingEntryId);

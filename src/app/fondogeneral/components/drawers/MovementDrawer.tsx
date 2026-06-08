@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ComponentProps } from "react";
 import Box from "@mui/material/Box";
@@ -31,7 +31,27 @@ export function MovementDrawer({
   ...agregarMovimientoProps
 }: MovementDrawerProps) {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const { onSubmit, isSaving } = agregarMovimientoProps;
+  const {
+    onSubmit,
+    isSaving,
+    selectedProvider,
+    providers,
+    invoiceNumber,
+    isEgreso,
+    egreso,
+    ingreso,
+    currency,
+  } = agregarMovimientoProps;
+  const providerName = useMemo(() => {
+    if (!selectedProvider) return "—";
+    const p = providers?.find((p) => p.code === selectedProvider);
+    return p?.name || selectedProvider;
+  }, [selectedProvider, providers]);
+  const amountStr = (isEgreso ? egreso : ingreso) || "0";
+  const formattedAmount =
+    currency === "USD"
+      ? `$${Number(amountStr).toLocaleString("en-US")}`
+      : `₡${Number(amountStr).toLocaleString("es-CR")}`;
   const handleSaveClick = () => setShowConfirmModal(true);
   const handleConfirmSave = () => {
     setShowConfirmModal(false);
@@ -124,7 +144,25 @@ export function MovementDrawer({
         <ConfirmModal
           open={showConfirmModal}
           title="Confirmar guardado"
-          message="¿Estás seguro de que deseas guardar este movimiento?"
+          message={
+            <>
+              ¿Estás seguro de que deseas guardar este movimiento?
+              <div className="mt-3 space-y-1 rounded-md border border-[var(--input-border)] bg-[var(--card-bg)] p-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-[var(--muted-foreground)]">Proveedor:</span>
+                  <span className="font-medium text-[var(--foreground)]">{providerName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--muted-foreground)]">N° Factura:</span>
+                  <span className="font-medium text-[var(--foreground)]">{invoiceNumber || "—"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--muted-foreground)]">Monto:</span>
+                  <span className="font-medium text-[var(--foreground)]">{formattedAmount}</span>
+                </div>
+              </div>
+            </>
+          }
           confirmText="Guardar"
           cancelText="Cancelar"
           actionType="assign"
