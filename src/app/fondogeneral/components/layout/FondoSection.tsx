@@ -146,13 +146,7 @@ import {
   cancelDeleteMovement as cancelDeleteMovementFn,
 } from "../../utils/movementDeletion";
 
-import {
-  buildPhysicalCountStorageKey as buildPhysicalCountStorageKeyFn,
-  cleanupPhysicalCountLegacyKeys as cleanupPhysicalCountLegacyKeysFn,
-  handleCancelPhysicalCount as handleCancelPhysicalCountFn,
-  handleConfirmPhysicalCount as handleConfirmPhysicalCountFn,
-  shouldPromptPhysicalCount as shouldPromptPhysicalCountFn,
-} from "../../utils/physicalCount";
+import { handleCancelPhysicalCount as handleCancelPhysicalCountFn } from "../../utils/physicalCount";
 import { handleDeleteLatestDailyClosing as deleteLatestDailyClosingFn, persistCreatedMovement as persistCreatedMovementFn } from "../../utils/fondo/mutations";
 
 const AccessRestrictedMessage = ({ description }: { description: string }) => (
@@ -330,6 +324,8 @@ export function FondoSection({
     useFondoMovementTypes(activeOwnerId);
 
   const [fondoEntries, setFondoEntries] = useState<FondoEntry[]>([]);
+  const [latestMovementOverall, setLatestMovementOverall] = useState<FondoEntry | null>(null);
+  const [latestMovementOverallLoaded, setLatestMovementOverallLoaded] = useState(false);
   const { companyEmployees, employeesLoading, companyData } =
     useFondoCompanyMetadata({ company, namespace });
   const empresaForShiftResolution = useMemo<Empresas | null>(() => {
@@ -654,16 +650,6 @@ export function FondoSection({
     [currencyEnabled],
   );
 
-  const buildPhysicalCountStorageKey = useCallback(
-    () => buildPhysicalCountStorageKeyFn(accountKey, company),
-    [company, accountKey],
-  );
-
-  const cleanupPhysicalCountLegacyKeys = useCallback(
-    () => cleanupPhysicalCountLegacyKeysFn(accountKey, company),
-    [accountKey, company],
-  );
-
   // Audit modal state: show full before/after history when an edited entry is clicked
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditModalData, setAuditModalData] = useState<{
@@ -709,34 +695,22 @@ export function FondoSection({
       if (accountKey !== "FondoGeneral") return false;
       const normalizedCompany = (company || "").trim();
       if (normalizedCompany.length === 0) return false;
+      if (!latestMovementOverallLoaded) return false;
 
-      const latestOpening = [...fondoEntries]
-        .filter(
-          (entry) =>
-            entry.providerCode === APERTURA_FONDO_PROVIDER_CODE ||
-            String(entry.providerCode || "").trim().toUpperCase() ===
-              APERTURA_FONDO_PROVIDER_CODE,
-        )
-        .sort((a, b) => getPrimaryMovementTime(b) - getPrimaryMovementTime(a))[0];
+      if (!latestMovementOverall) return true;
 
-      const latestClosing = [...fondoEntries]
-        .filter((entry) => {
-          const provider = providers.find((p) => p.code === entry.providerCode);
-          return (
-            provider?.name?.toUpperCase() === "CIERRE DE FONDO GENERAL" ||
-            String(entry.providerCode || "").trim().toUpperCase() ===
-              "CIERRE DE FONDO GENERAL"
-          );
-        })
-        .sort((a, b) => getPrimaryMovementTime(b) - getPrimaryMovementTime(a))[0];
+      const isCierre = (entry: FondoEntry): boolean => {
+        const provider = providers.find((p) => p.code === entry.providerCode);
+        return (
+          provider?.name?.toUpperCase() === "CIERRE DE FONDO GENERAL" ||
+          String(entry.providerCode || "").trim().toUpperCase() ===
+            "CIERRE DE FONDO GENERAL"
+        );
+      };
 
-      const latestOpeningTime = latestOpening ? getPrimaryMovementTime(latestOpening) : 0;
-      const latestClosingTime = latestClosing ? getPrimaryMovementTime(latestClosing) : 0;
-      if (latestClosingTime > latestOpeningTime) return true;
-
-      return shouldPromptPhysicalCountFn(accountKey, company);
+      return isCierre(latestMovementOverall);
     },
-    [accountKey, company, fondoEntries, providers],
+    [accountKey, company, providers, latestMovementOverall, latestMovementOverallLoaded],
   );
 
   const toggleExpandedOpeningBalance = useCallback((key: string) => {
@@ -1310,6 +1284,33 @@ export function FondoSection({
   ]);
 
   useEffect(() => {
+    const normalizedCompany = (company || "").trim();
+    if (!normalizedCompany || !accountKey) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const docKey = resolveV2DocKey({ company: normalizedCompany, resolvedOwnerId, v2MovementsCache: v2MovementsCacheRef.current, accountKey, MovimientosFondosService });
+        if (!docKey) {
+          if (!cancelled) { setLatestMovementOverall(null); setLatestMovementOverallLoaded(true); }
+          return;
+        }
+        const result = await MovimientosFondosService.listMovementsPage<FondoEntry>(docKey, { pageSize: 1, accountId: accountKey as MovementAccountKey });
+        if (!cancelled) {
+          setLatestMovementOverall(result.items[0] ?? null);
+          setLatestMovementOverallLoaded(true);
+        }
+      } catch {
+        if (!cancelled) {
+          setLatestMovementOverall(null);
+          setLatestMovementOverallLoaded(true);
+        }
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [company, accountKey, resolvedOwnerId]);
+
+  useEffect(() => {
     if (!selectedProvider) return;
     const exists = movementProviders.some((p) => p.code === selectedProvider);
     const isEditingSameProvider =
@@ -1478,8 +1479,6 @@ export function FondoSection({
         setExpandedClosings,
         setPendingCierreDeCaja,
         persistMovementToFirestore,
-        buildPhysicalCountStorageKey,
-        cleanupPhysicalCountLegacyKeys,
         showToast,
         deleteLatestClosingInProgressRef,
         lastDailyClosingSavedAtRef,
@@ -1499,8 +1498,6 @@ export function FondoSection({
       setExpandedClosings,
       setPendingCierreDeCaja,
       persistMovementToFirestore,
-      buildPhysicalCountStorageKey,
-      cleanupPhysicalCountLegacyKeys,
       showToast,
       deleteLatestClosingInProgressRef,
       lastDailyClosingSavedAtRef,
@@ -1519,8 +1516,6 @@ export function FondoSection({
         accountKey,
         company,
         user,
-        buildPhysicalCountStorageKey,
-        cleanupPhysicalCountLegacyKeys,
         resetFondoForm,
         movementAutoCloseLocked,
         isCajaNegra,
@@ -1539,8 +1534,6 @@ export function FondoSection({
       accountKey,
       company,
       user,
-      buildPhysicalCountStorageKey,
-      cleanupPhysicalCountLegacyKeys,
       resetFondoForm,
       movementAutoCloseLocked,
       isCajaNegra,
@@ -3259,15 +3252,6 @@ export function FondoSection({
     setPendingCierreModalOpen(false);
   }, []);
 
-  const handleConfirmPhysicalCount = useCallback(() => {
-    handleConfirmPhysicalCountFn({
-      accountKey,
-      company,
-      openCreateMovementDrawer,
-      setConfirmPhysicalCountOpen,
-    });
-  }, [accountKey, company, openCreateMovementDrawer]);
-
   const handleOpenCashOpening = useCallback(async () => {
     setConfirmPhysicalCountOpen(false);
     setCashOpeningEditingEntry(null);
@@ -3352,8 +3336,6 @@ export function FondoSection({
         company,
         currentBalanceCRC,
         currentBalanceUSD,
-        buildPhysicalCountStorageKey: () => buildPhysicalCountStorageKeyFn(accountKey, company),
-        cleanupPhysicalCountLegacyKeys: () => cleanupPhysicalCountLegacyKeysFn(accountKey, company),
         persistMovementToFirestore,
         fondoEntries,
         setFondoEntries,
@@ -3383,8 +3365,6 @@ export function FondoSection({
       setCashOpeningInitialValues,
       openingSubmitInProgressRef,
       cashOpeningEditingEntry,
-      buildPhysicalCountStorageKeyFn,
-      cleanupPhysicalCountLegacyKeysFn,
     ],
   );
 
@@ -3393,8 +3373,6 @@ export function FondoSection({
       accountKey,
       activeOwnerId,
       beginDailyClosingsRequest,
-      buildPhysicalCountStorageKey: () => buildPhysicalCountStorageKeyFn(accountKey, company),
-      cleanupPhysicalCountLegacyKeys: () => cleanupPhysicalCountLegacyKeysFn(accountKey, company),
       company,
       currentBalanceCRC,
       currentBalanceUSD,

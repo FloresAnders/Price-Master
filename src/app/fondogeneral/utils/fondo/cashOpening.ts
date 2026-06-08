@@ -22,8 +22,6 @@ export interface HandleConfirmCashOpeningDeps {
   company: string | null | undefined;
   currentBalanceCRC: number;
   currentBalanceUSD: number;
-  buildPhysicalCountStorageKey: () => string | null;
-  cleanupPhysicalCountLegacyKeys: () => void;
   persistMovementToFirestore: any;
   fondoEntries: FondoEntry[];
   setFondoEntries: Dispatch<SetStateAction<FondoEntry[]>>;
@@ -46,8 +44,6 @@ export async function handleConfirmCashOpening(
     company,
     currentBalanceCRC,
     currentBalanceUSD,
-    buildPhysicalCountStorageKey,
-    cleanupPhysicalCountLegacyKeys,
     persistMovementToFirestore,
     fondoEntries,
     setFondoEntries,
@@ -243,14 +239,6 @@ export async function handleConfirmCashOpening(
     );
     if (saved.ledgerSnapshot) {
       setLedgerSnapshot(saved.ledgerSnapshot as any);
-    }
-
-    try {
-      const key = buildPhysicalCountStorageKey();
-      if (key) localStorage.setItem(key, "false");
-      cleanupPhysicalCountLegacyKeys();
-    } catch {
-      // ignore
     }
 
     if (hasDifferences) {

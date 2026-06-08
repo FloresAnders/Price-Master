@@ -342,15 +342,6 @@ export async function confirmDeleteMovement(
           localStorage.removeItem(createdKey);
           localStorage.removeItem(dedupeKey);
         }
-      } else if (normalizedCompany.length > 0 && isCashOpening) {
-        try {
-          const key = `fondogeneral-lastClosing:${normalizedCompany}`;
-          localStorage.setItem(key, "true");
-          const legacyKey = `fondogeneral-lastClosing:${normalizedCompany}:${deps.accountKey}`;
-          localStorage.setItem(legacyKey, "true");
-        } catch {
-          // ignore
-        }
       }
     } catch {
       // ignore

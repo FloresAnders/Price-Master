@@ -60,8 +60,6 @@ export async function handleDeleteLatestDailyClosing(
     setExpandedClosings: (closings: Set<string> | ((prev: Set<string>) => Set<string>)) => void;
     setPendingCierreDeCaja: (v: boolean | ((prev: boolean) => boolean)) => void;
     persistMovementToFirestore: PersistMovementToFirestoreFn;
-    buildPhysicalCountStorageKey: () => string | null;
-    cleanupPhysicalCountLegacyKeys: () => void;
     showToast: ShowToastFn;
     deleteLatestClosingInProgressRef: { current: boolean };
     lastDailyClosingSavedAtRef: { current: number };
@@ -214,13 +212,6 @@ export async function handleDeleteLatestDailyClosing(
       // ignore storage errors
     }
 
-    try {
-      const key = deps.buildPhysicalCountStorageKey();
-      if (key) localStorage.setItem(key, "false");
-      deps.cleanupPhysicalCountLegacyKeys();
-    } catch {
-      // ignore
-    }
     deps.setPendingCierreDeCaja(false);
 
     await forceClearClosingGuards(
@@ -260,8 +251,6 @@ export async function persistCreatedMovement(
     accountKey: string;
     company: string | null;
     user: { id?: string; email?: string } | null;
-    buildPhysicalCountStorageKey: () => string | null;
-    cleanupPhysicalCountLegacyKeys: () => void;
     resetFondoForm: () => void;
     movementAutoCloseLocked: boolean;
     isCajaNegra: boolean;
@@ -369,19 +358,6 @@ export async function persistCreatedMovement(
       err,
     );
   });
-
-  if (
-    deps.accountKey === "FondoGeneral" &&
-    !isAutoAdjustmentProvider(entry.providerCode)
-  ) {
-    try {
-      const key = deps.buildPhysicalCountStorageKey();
-      if (key) localStorage.setItem(key, "false");
-      deps.cleanupPhysicalCountLegacyKeys();
-    } catch {
-      // ignore storage errors
-    }
-  }
 
   const selectedProviderData = deps.providers.find(
     (p) => p.code === entry.providerCode,

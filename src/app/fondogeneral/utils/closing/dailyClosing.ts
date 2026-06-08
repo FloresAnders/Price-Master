@@ -36,8 +36,6 @@ export interface HandleConfirmDailyClosingDeps {
   accountKey: string;
   activeOwnerId: string | null;
   beginDailyClosingsRequest: () => void;
-  buildPhysicalCountStorageKey: () => string | null;
-  cleanupPhysicalCountLegacyKeys: () => void;
   company: string | null | undefined;
   currentBalanceCRC: number;
   currentBalanceUSD: number;
@@ -94,8 +92,6 @@ export async function handleConfirmDailyClosing(
     accountKey,
     activeOwnerId,
     beginDailyClosingsRequest,
-    buildPhysicalCountStorageKey,
-    cleanupPhysicalCountLegacyKeys,
     company,
     currentBalanceCRC,
     currentBalanceUSD,
@@ -294,16 +290,6 @@ export async function handleConfirmDailyClosing(
     loadedDailyClosingKeysRef.current.add(closingDateKey);
     loadingDailyClosingKeysRef.current.delete(closingDateKey);
     setDailyClosingsHydrated(true);
-
-    if (typeof window !== "undefined") {
-      try {
-        const key = buildPhysicalCountStorageKey();
-        if (key) localStorage.setItem(key, "true");
-        cleanupPhysicalCountLegacyKeys();
-      } catch {
-        // ignore storage errors
-      }
-    }
 
     setPendingCierreDeCaja(false);
     setDailyClosingModalOpen(false);
