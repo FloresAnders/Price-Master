@@ -695,6 +695,16 @@ export function FondoSection({
       if (accountKey !== "FondoGeneral") return false;
       const normalizedCompany = (company || "").trim();
       if (normalizedCompany.length === 0) return false;
+
+      const lsKey = `fondogeneral-lastClosing:${normalizedCompany}`;
+      try {
+        const lsVal = localStorage.getItem(lsKey);
+        if (lsVal === "true") return true;
+        if (lsVal === "false") return false;
+      } catch {
+        // ignore
+      }
+
       if (!latestMovementOverallLoaded) return false;
 
       if (!latestMovementOverall) return true;
