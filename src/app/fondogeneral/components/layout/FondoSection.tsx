@@ -2956,8 +2956,20 @@ export function FondoSection({
             console.error("[FG] Error checking duplicate cierres:", dupErr);
           }
 
-          if (closingShift === "N" && closingsToday.length === 0 && !notes.startsWith(SINGLE_CLOSING_REASON_PREFIX)) {
+          if (isInNightWindow && closingsToday.length === 0 && !notes.startsWith(SINGLE_CLOSING_REASON_PREFIX)) {
             setNotes(SINGLE_CLOSING_REASON_PREFIX);
+          }
+        } else if (nowTiming && !nowTiming.withinHorario) {
+          const nowDateKey = getCostaRicaDateKeyAndMinute(nowISO)?.dateKey;
+          if (nowDateKey) {
+            const todayClosings = fondoEntries.filter(
+              (e) =>
+                isCierreFondoVentasMovement(e) &&
+                getCostaRicaDateKeyAndMinute(String(e.createdAt || ""))?.dateKey === nowDateKey,
+            );
+            if (todayClosings.length === 0 && !notes.startsWith(SINGLE_CLOSING_REASON_PREFIX)) {
+              setNotes(SINGLE_CLOSING_REASON_PREFIX);
+            }
           }
         }
       } catch (err) {
@@ -3480,41 +3492,55 @@ export function FondoSection({
         providers: movementProviders,
       });
 
-      if (!timing.withinHorario) return true;
+      const nowDateKey = getCostaRicaDateKeyAndMinute(nowISO)?.dateKey;
+      const closingsTodayCount = nowDateKey
+        ? fondoEntries.filter((entry) => {
+            const info = getCostaRicaDateKeyAndMinute(String(entry.createdAt || ""));
+            return Boolean(
+              info &&
+                info.dateKey === nowDateKey &&
+                isCierreFondoVentasMovement(entry),
+            );
+          }).length
+        : 0;
 
-      const normalizeMin = (value: number) => ((value % 1440) + 1440) % 1440;
-      const addMinutes = (value: number, delta: number) =>
-        normalizeMin(value + delta);
-      const nowMin = normalizeMin(timing.currentMin);
-      const nightEndMin = normalizeMin(timing.closeMin);
-      const nightWindowStartMin = addMinutes(
-        nightEndMin,
-        -(
-          activeEmpresaForCompany.cierreFondoVentasMinutesBeforeEnd ??
-          CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END
-        ),
-      );
-      const nightWindowEndMin = addMinutes(
-        nightEndMin,
-        (
-          activeEmpresaForCompany.cierreFondoVentasMinutesAfterEnd ??
-          CIERRE_FONDO_VENTAS_MINUTES_AFTER_END
-        ) + 1,
-      );
-      const isWithinWindow =
-        nightWindowStartMin <= nightWindowEndMin
-          ? nowMin >= nightWindowStartMin && nowMin < nightWindowEndMin
-          : nowMin >= nightWindowStartMin || nowMin < nightWindowEndMin;
-      const closingsTodayCount = fondoEntries.filter((entry) => {
-        const info = getCostaRicaDateKeyAndMinute(String(entry.createdAt || ""));
-        return Boolean(
-          info &&
-            info.dateKey === timing.dateKey &&
-            isCierreFondoVentasMovement(entry),
+      if (timing.withinHorario) {
+        const normalizeMin = (value: number) => ((value % 1440) + 1440) % 1440;
+        const addMinutes = (value: number, delta: number) =>
+          normalizeMin(value + delta);
+        const nowMin = normalizeMin(timing.currentMin);
+        const nightEndMin = normalizeMin(timing.closeMin);
+        const nightWindowStartMin = addMinutes(
+          nightEndMin,
+          -(
+            activeEmpresaForCompany.cierreFondoVentasMinutesBeforeEnd ??
+            CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END
+          ),
         );
-      }).length;
+        const nightWindowEndMin = addMinutes(
+          nightEndMin,
+          (
+            activeEmpresaForCompany.cierreFondoVentasMinutesAfterEnd ??
+            CIERRE_FONDO_VENTAS_MINUTES_AFTER_END
+          ) + 1,
+        );
+        const isWithinWindow =
+          nightWindowStartMin <= nightWindowEndMin
+            ? nowMin >= nightWindowStartMin && nowMin < nightWindowEndMin
+            : nowMin >= nightWindowStartMin || nowMin < nightWindowEndMin;
 
-      if (isWithinWindow && closingsTodayCount === 0) {
+        if (isWithinWindow && closingsTodayCount === 0) {
+          const notesWithoutPrefix = notes.replace(SINGLE_CLOSING_REASON_PREFIX, "").trim();
+          if (notesWithoutPrefix.length === 0) {
+            showToast(
+              "Debe indicar en observaciones el motivo de por qué solo se realizó un cierre en el día.",
+              "warning",
+              6000,
+            );
+            return false;
+          }
+        }
+      } else if (closingsTodayCount === 0) {
         const notesWithoutPrefix = notes.replace(SINGLE_CLOSING_REASON_PREFIX, "").trim();
         if (notesWithoutPrefix.length === 0) {
           showToast(
