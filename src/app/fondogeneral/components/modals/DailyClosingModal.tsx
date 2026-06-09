@@ -7,6 +7,7 @@ import React, {
 } from "react";
 
 import ConfirmModal from "../../../../components/ui/ConfirmModal";
+import { isWithinCierreRange } from "../../utils/turnoRango";
 // Usar botones nativos con clases Tailwind en vez de un componente Button central
 
 const CRC_DENOMINATIONS: readonly number[] = [
@@ -67,25 +68,33 @@ export type DailyClosingFormValues = {
   totalUSD: number;
   breakdownCRC: Record<number, number>;
   breakdownUSD: Record<number, number>;
+  turno: "D" | "N";
+  sistemas?: {
+    conticaCRC: number;
+    tucanCRC: number;
+    diffCRC: number;
+    conticaAjustadaCRC: number;
+  };
 };
 
 type DailyClosingModalProps = {
   open: boolean;
   onClose: () => void;
   onConfirm: (values: DailyClosingFormValues) => void;
-  // When provided, the modal will prefill values for editing an existing closing.
   initialValues?: DailyClosingFormValues | null;
-  // When present, the modal is in edit mode (label and behaviour adjusted).
   editId?: string | null;
-  // Request parent to show the closings history
   onShowHistory?: () => void;
   employees: string[];
   loadingEmployees: boolean;
   currentBalanceCRC: number;
   currentBalanceUSD: number;
   requireSingleClosingReason?: boolean;
-  // Whether the manager field should be readonly (for new closings with default manager)
   managerReadonly?: boolean;
+
+  turno: "D" | "N";
+  cierreFondoVentasMinutesBeforeEnd: number;
+  cierreFondoVentasMinutesAfterEnd: number;
+  cierreDBase?: { conticaCRC: number; tucanCRC: number } | null;
 };
 
 const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
@@ -101,6 +110,10 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   currentBalanceUSD,
   requireSingleClosingReason = false,
   managerReadonly = false,
+  turno,
+  cierreFondoVentasMinutesBeforeEnd,
+  cierreFondoVentasMinutesAfterEnd,
+  cierreDBase,
 }) => {
   const modalRef = useRef<HTMLDivElement | null>(null);
   const managerFieldRef = useRef<HTMLSelectElement | HTMLInputElement | null>(
@@ -130,6 +143,29 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const [confirmDiffOpen, setConfirmDiffOpen] = useState(false);
   const [pendingSubmitValues, setPendingSubmitValues] =
     useState<DailyClosingFormValues | null>(null);
+
+  const [totalConticaCRC, setTotalConticaCRC] = useState<string>("");
+  const [totalTucanCRC, setTotalTucanCRC] = useState<string>("");
+
+  const showSistemas = useMemo(
+    () =>
+      isWithinCierreRange(
+        turno,
+        cierreFondoVentasMinutesBeforeEnd,
+        cierreFondoVentasMinutesAfterEnd,
+      ),
+    [turno, cierreFondoVentasMinutesBeforeEnd, cierreFondoVentasMinutesAfterEnd],
+  );
+
+  const conticaNum = Number(totalConticaCRC.replace(/\D/g, "")) || 0;
+  const tucanNum = Number(totalTucanCRC.replace(/\D/g, "")) || 0;
+
+  const conticaAjustada = useMemo(() => {
+    if (turno === "D" || !cierreDBase) return conticaNum;
+    return conticaNum - cierreDBase.conticaCRC;
+  }, [turno, conticaNum, cierreDBase]);
+
+  const diffSistemasCRC = conticaAjustada - tucanNum;
 
   const secondaryButtonClass =
     "inline-flex h-11 items-center justify-center rounded-lg border border-[var(--input-border)] px-4 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20 disabled:cursor-not-allowed disabled:opacity-60";
@@ -389,6 +425,17 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
       totalUSD,
       breakdownCRC: buildBreakdown(crcCounts, CRC_DENOMINATIONS),
       breakdownUSD: buildBreakdown(usdCounts, USD_DENOMINATIONS),
+      turno,
+      ...(showSistemas && conticaNum > 0 && tucanNum > 0
+        ? {
+            sistemas: {
+              conticaCRC: conticaNum,
+              tucanCRC: tucanNum,
+              diffCRC: diffSistemasCRC,
+              conticaAjustadaCRC: conticaAjustada,
+            },
+          }
+        : {}),
     };
 
     if (hasDifferences) {
@@ -673,7 +720,79 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
               </section>
             </div>
           </div>
-          <div>{/* Seccion de Conteo de Billetes */}</div>
+          {showSistemas && (
+            <section className="rounded-lg border border-[var(--input-border)] p-4 space-y-4">
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-semibold text-[var(--foreground)]">
+                  Verificación de sistemas
+                </h4>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                  turno === "D"
+                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                    : "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+                }`}>
+                  Turno {turno}
+                </span>
+              </div>
+
+              {turno === "N" && !cierreDBase && (
+                <div className="rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                  ⚠️ No se encontró cierre D del día. El monto de Contica no será ajustado.
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                    Contica (₡)
+                  </label>
+                  <input
+                    value={totalConticaCRC}
+                    onChange={(e) => setTotalConticaCRC(e.target.value.replace(/\D/g, ""))}
+                    inputMode="numeric"
+                    placeholder="0"
+                    className="h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] text-right transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                  />
+                  {turno === "N" && cierreDBase && conticaNum > 0 && (
+                    <p className="text-xs text-[var(--muted-foreground)]">
+                      Ajustado: ₡ {conticaAjustada.toLocaleString("es-CR")}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                    Tucan (₡)
+                  </label>
+                  <input
+                    value={totalTucanCRC}
+                    onChange={(e) => setTotalTucanCRC(e.target.value.replace(/\D/g, ""))}
+                    inputMode="numeric"
+                    placeholder="0"
+                    className="h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] text-right transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                  />
+                </div>
+              </div>
+
+              {conticaNum > 0 && tucanNum > 0 && (
+                <div className={`text-sm font-semibold rounded border px-2.5 py-1 ${
+                  diffSistemasCRC < 0
+                    ? "border-red-500/30 bg-red-500/10 text-red-300"
+                    : diffSistemasCRC > 0
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                    : "border-slate-600 bg-slate-800/60 text-slate-300"
+                }`}>
+                  Contica{turno === "N" && cierreDBase ? " (ajustada)" : ""}:
+                  ₡ {conticaAjustada.toLocaleString("es-CR")} ·
+                  Tucan: ₡ {tucanNum.toLocaleString("es-CR")} ·
+                  Diferencia: {diffSistemasCRC === 0
+                    ? "sin diferencias"
+                    : `${diffSistemasCRC > 0 ? "+" : "-"}₡ ${Math.abs(diffSistemasCRC).toLocaleString("es-CR")}`
+                  }
+                </div>
+              )}
+            </section>
+          )}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
               Observaciones

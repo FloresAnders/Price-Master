@@ -119,6 +119,7 @@ import {
 
   isMovementAccountKey,
   getAccountKeyFromNamespace,
+  dateKeyFromDate,
 
   sanitizeFondoEntries,
   formatToastWaitTime,
@@ -546,6 +547,41 @@ export function FondoSection({
     loadedDailyClosingKeysRef,
     loadingDailyClosingKeysRef,
   } = useDailyClosingState({ company, accountKey });
+
+  const currentTurno = useMemo<"D" | "N">(() => {
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const dEnd = 20 * 60;
+    const nEnd = 24 * 60;
+    const before = cierreFondoVentasMinutesBeforeEnd;
+    const after = cierreFondoVentasMinutesAfterEnd;
+
+    const nWindowStart = nEnd - before;
+    const nWindowEnd = nEnd + after;
+    const nowNorm = nowMin < 120 ? nowMin + 1440 : nowMin;
+    const inNWindow = nowNorm >= nWindowStart && nowNorm <= nWindowEnd;
+
+    if (inNWindow) return "N";
+
+    const dWindowStart = dEnd - before;
+    const dWindowEnd = dEnd + after;
+    const inDWindow = nowMin >= dWindowStart && nowMin <= dWindowEnd;
+
+    if (inDWindow) return "D";
+
+    return nowMin < dEnd ? "D" : "N";
+  }, [cierreFondoVentasMinutesBeforeEnd, cierreFondoVentasMinutesAfterEnd]);
+
+  const cierreDBase = useMemo(() => {
+    const todayKey = dateKeyFromDate(new Date());
+    const todayClosings = dailyClosings.filter((c) => {
+      const key = dateKeyFromDate(new Date(c.closingDate));
+      return key === todayKey;
+    });
+    const dClosing = todayClosings.length > 0 ? todayClosings[0] : null;
+    if (!dClosing?.sistemas) return null;
+    return { conticaCRC: dClosing.sistemas.conticaCRC, tucanCRC: dClosing.sistemas.tucanCRC };
+  }, [dailyClosings]);
   const {
     selectedProvider,
     setSelectedProvider,
@@ -1795,6 +1831,7 @@ export function FondoSection({
         totalUSD: record.totalUSD ?? 0,
         breakdownCRC: record.breakdownCRC ?? {},
         breakdownUSD: record.breakdownUSD ?? {},
+        turno: currentTurno,
       };
       setEditingDailyClosingId(record.id);
       setDailyClosingSingleReasonRequired(false);
@@ -3252,6 +3289,7 @@ export function FondoSection({
       totalUSD: currentBalanceUSD,
       breakdownCRC: {},
       breakdownUSD: {},
+      turno: currentTurno,
     };
 
     setDailyClosingSingleReasonRequired(requireSingleReason);
@@ -5350,6 +5388,10 @@ export function FondoSection({
           dailyClosingSingleReasonRequired && !editingDailyClosingId
         }
         managerReadonly={!editingDailyClosingId}
+        turno={currentTurno}
+        cierreFondoVentasMinutesBeforeEnd={cierreFondoVentasMinutesBeforeEnd}
+        cierreFondoVentasMinutesAfterEnd={cierreFondoVentasMinutesAfterEnd}
+        cierreDBase={cierreDBase}
       />
 
       <FacturaPaymentModal

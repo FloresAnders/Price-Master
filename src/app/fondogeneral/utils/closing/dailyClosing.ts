@@ -172,6 +172,8 @@ export async function handleConfirmDailyClosing(
     diffCRC,
     diffUSD,
     notes: userNotes,
+    turno: closing.turno,
+    ...(closing.sistemas ? { sistemas: closing.sistemas } : {}),
     ...(singleClosingReason ? { singleClosingReason } : {}),
     breakdownCRC: closing.breakdownCRC ?? {},
     breakdownUSD: closing.breakdownUSD ?? {},

@@ -14,6 +14,13 @@ export type DailyClosingRecord = {
   diffCRC: number;
   diffUSD: number;
   notes: string;
+  turno?: "D" | "N";
+  sistemas?: {
+    conticaCRC: number;
+    tucanCRC: number;
+    diffCRC: number;
+    conticaAjustadaCRC: number;
+  };
   singleClosingReason?: string;
   breakdownCRC: Record<number, number>;
   breakdownUSD: Record<number, number>;
