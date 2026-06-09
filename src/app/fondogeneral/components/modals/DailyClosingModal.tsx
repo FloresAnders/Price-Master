@@ -107,12 +107,12 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     null,
   );
 
-  const [closingDateISO] = useState(() =>
-    buildFormState(initialValues).closingDateISO,
+  const [closingDateISO] = useState(
+    () => buildFormState(initialValues).closingDateISO,
   );
 
-  const [manager, setManager] = useState(() =>
-    buildFormState(initialValues).manager,
+  const [manager, setManager] = useState(
+    () => buildFormState(initialValues).manager,
   );
   const displayedManager = useMemo(() => manager, [manager]);
 
@@ -120,11 +120,11 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const [singleClosingReason, setSingleClosingReason] = useState(
     () => initialValues?.singleClosingReason || "",
   );
-  const [crcCounts, setCrcCounts] = useState<CountState>(() =>
-    buildFormState(initialValues).crcCounts,
+  const [crcCounts, setCrcCounts] = useState<CountState>(
+    () => buildFormState(initialValues).crcCounts,
   );
-  const [usdCounts, setUsdCounts] = useState<CountState>(() =>
-    buildFormState(initialValues).usdCounts,
+  const [usdCounts, setUsdCounts] = useState<CountState>(
+    () => buildFormState(initialValues).usdCounts,
   );
 
   const [confirmDiffOpen, setConfirmDiffOpen] = useState(false);
@@ -212,7 +212,12 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
       return "Debes indicar el motivo de por quÃ© solo hubo un cierre en el dÃ­a.";
     }
     return "";
-  }, [displayedManager, hasAnyCash, requireSingleClosingReason, singleClosingReason]);
+  }, [
+    displayedManager,
+    hasAnyCash,
+    requireSingleClosingReason,
+    singleClosingReason,
+  ]);
 
   const differenceLabel = useCallback(
     (currency: "CRC" | "USD", diff: number) => {
@@ -443,206 +448,232 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-          <div className="text-xs text-center text-[var(--muted-foreground)]">
-            Usa <kbd className="mx-0.5 rounded border border-[var(--input-border)] bg-[var(--muted)]/30 px-1.5 py-0.5 font-mono text-[10px]">↑</kbd> <kbd className="mx-0.5 rounded border border-[var(--input-border)] bg-[var(--muted)]/30 px-1.5 py-0.5 font-mono text-[10px]">↓</kbd> para navegar entre casillas y <kbd className="mx-0.5 rounded border border-[var(--input-border)] bg-[var(--muted)]/30 px-1.5 py-0.5 font-mono text-[10px]">←</kbd> <kbd className="mx-0.5 rounded border border-[var(--input-border)] bg-[var(--muted)]/30 px-1.5 py-0.5 font-mono text-[10px]">→</kbd> para sumar/restar
-          </div>
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-            <section>
-              <h4 className="text-sm font-semibold text-[var(--foreground)] mb-3">
-                Efectivo (colones)
-              </h4>
-              <div className="space-y-2">
-                {CRC_DENOMINATIONS.map((denom) => {
-                  const quantity = normalizeCount(crcCounts[denom]);
-                  const lineTotal = denom * quantity;
-                  return (
-                    <div key={denom} className="flex items-center gap-3">
-                      <label className="w-20 text-xs text-[var(--muted-foreground)]">
-                        {denom.toLocaleString("es-CR")}
-                      </label>
-                      <div className="relative">
-                        <input
-                          value={crcCounts[denom] ?? ""}
-                          onChange={(event) =>
-                            handleCountChange("CRC", denom, event.target.value)
-                          }
-                          onKeyDown={(e) => handleCountKeyDown(e, "CRC", denom)}
-                          className="w-24 h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-2 pr-8 text-sm text-center text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
-                          style={{
-                            backgroundColor: "var(--card-bg)",
-                            color: "var(--foreground)",
-                          }}
-                          inputMode="numeric"
-                          aria-label={`Cantidad ${denom} colones`}
-                          data-cash-count-input="true"
-                        />
-                        <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col items-center select-none">
-                          <button
-                            type="button"
-                            tabIndex={-1}
-                            onClick={() => incrementCount("CRC", denom)}
-                            className="w-5 h-4 leading-[10px] rounded-t bg-transparent text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
-                            aria-label={`Aumentar ${denom}`}
-                          >
-                            ▲
-                          </button>
-                          <button
-                            type="button"
-                            tabIndex={-1}
-                            onClick={() => decrementCount("CRC", denom)}
-                            className="w-5 h-4 leading-[10px] rounded-b bg-transparent text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
-                            aria-label={`Disminuir ${denom}`}
-                          >
-                            ▼
-                          </button>
-                        </div>
-                      </div>
-                      <div className="flex-1 text-right text-xs text-[var(--muted-foreground)]">
-                        {formatCurrency("CRC", lineTotal)}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="mt-3 text-sm font-semibold text-[var(--foreground)]">
-                Total: {formatCurrency("CRC", totalCRC)}
-              </div>
-              <div
-                className={`mt-2 text-sm font-semibold ${diffCRC < 0 ? "border-red-500/30 bg-red-500/10 text-red-300" : diffCRC > 0 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-slate-600 bg-slate-800/60 text-slate-300"} rounded border px-2.5 py-1`}
-              >
-                Saldo registrado: {formatCurrency("CRC", currentBalanceCRC)} ·
-                Diferencia: {differenceLabel("CRC", diffCRC)}
-              </div>
-            </section>
-
-            <section className="md:border-l md:border-[var(--input-border)] md:pl-6">
-              <h4 className="text-sm font-semibold text-[var(--foreground)] mb-3">
-                Efectivo (dólares)
-              </h4>
-              <div className="space-y-2">
-                {USD_DENOMINATIONS.map((denom) => {
-                  const quantity = normalizeCount(usdCounts[denom]);
-                  const lineTotal = denom * quantity;
-                  return (
-                    <div key={denom} className="flex items-center gap-3">
-                      <label className="w-20 text-xs text-[var(--muted-foreground)]">
-                        {denom}
-                      </label>
-                      <div className="relative">
-                        <input
-                          value={usdCounts[denom] ?? ""}
-                          onChange={(event) =>
-                            handleCountChange("USD", denom, event.target.value)
-                          }
-                          onKeyDown={(e) => handleCountKeyDown(e, "USD", denom)}
-                          className="w-24 h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-2 pr-8 text-sm text-center text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
-                          style={{
-                            backgroundColor: "var(--card-bg)",
-                            color: "var(--foreground)",
-                          }}
-                          inputMode="numeric"
-                          aria-label={`Cantidad ${denom} dólares`}
-                          data-cash-count-input="true"
-                        />
-                        <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col items-center select-none">
-                          <button
-                            type="button"
-                            tabIndex={-1}
-                            onClick={() => incrementCount("USD", denom)}
-                            className="w-5 h-4 leading-[10px] rounded-t bg-transparent text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
-                            aria-label={`Aumentar ${denom}`}
-                          >
-                            ▲
-                          </button>
-                          <button
-                            type="button"
-                            tabIndex={-1}
-                            onClick={() => decrementCount("USD", denom)}
-                            className="w-5 h-4 leading-[10px] rounded-b bg-transparent text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
-                            aria-label={`Disminuir ${denom}`}
-                          >
-                            ▼
-                          </button>
-                        </div>
-                      </div>
-                      <div className="flex-1 text-right text-xs text-[var(--muted-foreground)]">
-                        {formatCurrency("USD", lineTotal)}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="mt-3 text-sm font-semibold text-[var(--foreground)]">
-                Total: {formatCurrency("USD", totalUSD)}
-              </div>
-              <div
-                className={`mt-2 text-sm font-semibold ${diffUSD < 0 ? "border-red-500/30 bg-red-500/10 text-red-300" : diffUSD > 0 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-slate-600 bg-slate-800/60 text-slate-300"} rounded border px-2.5 py-1`}
-              >
-                Saldo registrado: {formatCurrency("USD", currentBalanceUSD)} ·
-                Diferencia: {differenceLabel("USD", diffUSD)}
-              </div>
-            </section>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-                Fecha de cierre
-              </label>
-              <div
-                className="h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 flex items-center text-sm text-[var(--foreground)]"
-                style={{
-                  backgroundColor: "var(--card-bg)",
-                  color: "var(--foreground)",
-                }}
-              >
-                {closingDateFormatter.format(new Date(closingDateISO))}
-              </div>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-                Encargado
-              </label>
-              {employees.length > 0 ? (
-                <select
-                  value={displayedManager}
-                  onChange={(event) => setManager(event.target.value)}
-                  className="h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+          <div className="flex flex-col gap-6">
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                  Fecha de cierre
+                </label>
+                <div
+                  className="h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 flex items-center text-sm text-[var(--foreground)]"
                   style={{
                     backgroundColor: "var(--card-bg)",
                     color: "var(--foreground)",
-                  }}
-                  disabled={loadingEmployees || managerReadonly}
-                  ref={(el) => {
-                    managerFieldRef.current = el;
                   }}
                 >
-                  <option value="">Seleccionar encargado</option>
-                  {employees.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  value={displayedManager}
-                  onChange={(event) => setManager(event.target.value)}
-                  className="h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
-                  style={{
-                    backgroundColor: "var(--card-bg)",
-                    color: "var(--foreground)",
-                  }}
-                  placeholder="Nombre del encargado"
-                  readOnly={managerReadonly}
-                  ref={(el) => {
-                    managerFieldRef.current = el;
-                  }}
-                />
-              )}
+                  {closingDateFormatter.format(new Date(closingDateISO))}
+                </div>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                  Encargado
+                </label>
+                {employees.length > 0 ? (
+                  <select
+                    value={displayedManager}
+                    onChange={(event) => setManager(event.target.value)}
+                    className="h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                    style={{
+                      backgroundColor: "var(--card-bg)",
+                      color: "var(--foreground)",
+                    }}
+                    disabled={loadingEmployees || managerReadonly}
+                    ref={(el) => {
+                      managerFieldRef.current = el;
+                    }}
+                  >
+                    <option value="">Seleccionar encargado</option>
+                    {employees.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    value={displayedManager}
+                    onChange={(event) => setManager(event.target.value)}
+                    className="h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                    style={{
+                      backgroundColor: "var(--card-bg)",
+                      color: "var(--foreground)",
+                    }}
+                    placeholder="Nombre del encargado"
+                    readOnly={managerReadonly}
+                    ref={(el) => {
+                      managerFieldRef.current = el;
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+            <div className="text-xs text-center text-[var(--muted-foreground)]">
+              Usa{" "}
+              <kbd className="mx-0.5 rounded border border-[var(--input-border)] bg-[var(--muted)]/30 px-1.5 py-0.5 font-mono text-[10px]">
+                ↑
+              </kbd>{" "}
+              <kbd className="mx-0.5 rounded border border-[var(--input-border)] bg-[var(--muted)]/30 px-1.5 py-0.5 font-mono text-[10px]">
+                ↓
+              </kbd>{" "}
+              para navegar entre casillas y{" "}
+              <kbd className="mx-0.5 rounded border border-[var(--input-border)] bg-[var(--muted)]/30 px-1.5 py-0.5 font-mono text-[10px]">
+                ←
+              </kbd>{" "}
+              <kbd className="mx-0.5 rounded border border-[var(--input-border)] bg-[var(--muted)]/30 px-1.5 py-0.5 font-mono text-[10px]">
+                →
+              </kbd>{" "}
+              para sumar/restar
+            </div>
+            <div className="grid gap-4 grid-cols-2 md:grid-cols-2">
+              <section>
+                <h4 className="text-sm font-semibold text-[var(--foreground)] mb-3">
+                  Efectivo (colones)
+                </h4>
+                <div className="space-y-2">
+                  {CRC_DENOMINATIONS.map((denom) => {
+                    const quantity = normalizeCount(crcCounts[denom]);
+                    const lineTotal = denom * quantity;
+                    return (
+                      <div key={denom} className="flex items-center gap-3">
+                        <label className="w-20 text-xs text-[var(--muted-foreground)]">
+                          {denom.toLocaleString("es-CR")}
+                        </label>
+                        <div className="relative">
+                          <input
+                            value={crcCounts[denom] ?? ""}
+                            onChange={(event) =>
+                              handleCountChange(
+                                "CRC",
+                                denom,
+                                event.target.value,
+                              )
+                            }
+                            onKeyDown={(e) =>
+                              handleCountKeyDown(e, "CRC", denom)
+                            }
+                            className="w-24 h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-2 pr-8 text-sm text-center text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                            style={{
+                              backgroundColor: "var(--card-bg)",
+                              color: "var(--foreground)",
+                            }}
+                            inputMode="numeric"
+                            aria-label={`Cantidad ${denom} colones`}
+                            data-cash-count-input="true"
+                          />
+                          <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col items-center select-none">
+                            <button
+                              type="button"
+                              tabIndex={-1}
+                              onClick={() => incrementCount("CRC", denom)}
+                              className="w-5 h-4 leading-[10px] rounded-t bg-transparent text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+                              aria-label={`Aumentar ${denom}`}
+                            >
+                              ▲
+                            </button>
+                            <button
+                              type="button"
+                              tabIndex={-1}
+                              onClick={() => decrementCount("CRC", denom)}
+                              className="w-5 h-4 leading-[10px] rounded-b bg-transparent text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+                              aria-label={`Disminuir ${denom}`}
+                            >
+                              ▼
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex-1 text-right text-xs text-[var(--muted-foreground)]">
+                          {formatCurrency("CRC", lineTotal)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-3 text-sm font-semibold text-[var(--foreground)]">
+                  Total: {formatCurrency("CRC", totalCRC)}
+                </div>
+                <div
+                  className={`mt-2 text-sm font-semibold ${diffCRC < 0 ? "border-red-500/30 bg-red-500/10 text-red-300" : diffCRC > 0 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-slate-600 bg-slate-800/60 text-slate-300"} rounded border px-2.5 py-1`}
+                >
+                  Saldo registrado: {formatCurrency("CRC", currentBalanceCRC)} ·
+                  Diferencia: {differenceLabel("CRC", diffCRC)}
+                </div>
+              </section>
+              <section className="md:border-l md:border-[var(--input-border)] md:pl-6">
+                <h4 className="text-sm font-semibold text-[var(--foreground)] mb-3">
+                  Efectivo (dólares)
+                </h4>
+                <div className="space-y-2">
+                  {USD_DENOMINATIONS.map((denom) => {
+                    const quantity = normalizeCount(usdCounts[denom]);
+                    const lineTotal = denom * quantity;
+                    return (
+                      <div key={denom} className="flex items-center gap-3">
+                        <label className="w-20 text-xs text-[var(--muted-foreground)]">
+                          {denom}
+                        </label>
+                        <div className="relative">
+                          <input
+                            value={usdCounts[denom] ?? ""}
+                            onChange={(event) =>
+                              handleCountChange(
+                                "USD",
+                                denom,
+                                event.target.value,
+                              )
+                            }
+                            onKeyDown={(e) =>
+                              handleCountKeyDown(e, "USD", denom)
+                            }
+                            className="w-24 h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-2 pr-8 text-sm text-center text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                            style={{
+                              backgroundColor: "var(--card-bg)",
+                              color: "var(--foreground)",
+                            }}
+                            inputMode="numeric"
+                            aria-label={`Cantidad ${denom} dólares`}
+                            data-cash-count-input="true"
+                          />
+                          <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col items-center select-none">
+                            <button
+                              type="button"
+                              tabIndex={-1}
+                              onClick={() => incrementCount("USD", denom)}
+                              className="w-5 h-4 leading-[10px] rounded-t bg-transparent text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+                              aria-label={`Aumentar ${denom}`}
+                            >
+                              ▲
+                            </button>
+                            <button
+                              type="button"
+                              tabIndex={-1}
+                              onClick={() => decrementCount("USD", denom)}
+                              className="w-5 h-4 leading-[10px] rounded-b bg-transparent text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+                              aria-label={`Disminuir ${denom}`}
+                            >
+                              ▼
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex-1 text-right text-xs text-[var(--muted-foreground)]">
+                          {formatCurrency("USD", lineTotal)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-3 text-sm font-semibold text-[var(--foreground)]">
+                  Total: {formatCurrency("USD", totalUSD)}
+                </div>
+                <div
+                  className={`mt-2 text-sm font-semibold ${diffUSD < 0 ? "border-red-500/30 bg-red-500/10 text-red-300" : diffUSD > 0 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-slate-600 bg-slate-800/60 text-slate-300"} rounded border px-2.5 py-1`}
+                >
+                  Saldo registrado: {formatCurrency("USD", currentBalanceUSD)} ·
+                  Diferencia: {differenceLabel("USD", diffUSD)}
+                </div>
+              </section>
             </div>
           </div>
-
+          <div>{/* Seccion de Conteo de Billetes */}</div>
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
               Observaciones
