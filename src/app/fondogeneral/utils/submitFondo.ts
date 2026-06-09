@@ -877,7 +877,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
             currency: effectiveCurrency,
           },
         );
-        const newRecord = { at: new Date().toISOString(), ...changedFields };
+        const newRecord = { at: nowISO, ...changedFields };
         history.push(newRecord);
         // Comprimir historial para evitar QuotaExceededError
         const compressedHistory = compressAuditHistory(history);
@@ -1575,7 +1575,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                     currentBalance: -totalPaymentApplied,
                   });
                 }
-                state.updatedAt = new Date().toISOString();
+                state.updatedAt = nowISO;
                 ledger.state = state;
 
                 const mainRef = doc(

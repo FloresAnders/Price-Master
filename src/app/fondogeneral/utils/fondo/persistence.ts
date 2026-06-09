@@ -15,6 +15,7 @@ import {
 } from "../helpers";
 import { APERTURA_FONDO_PROVIDER_CODE } from "../../constants";
 import { buildV2MovementsCacheKey } from "../v2movements";
+import { getAuthoritativeNowISO } from "@/utils/serverTime";
 
 type PersistMovementLedgerSnapshot = {
   initialCRC: number;
@@ -273,7 +274,7 @@ export async function persistMovementToFirestore(
       },
     );
     stateSnapshot.balancesByAccount = nextAccountBalances;
-    stateSnapshot.updatedAt = new Date().toISOString();
+    stateSnapshot.updatedAt = await getAuthoritativeNowISO().catch(() => new Date().toISOString());
 
     // Preservar lockedUntil del snapshot actual si existe
     if (storageSnapshotRef.current?.state?.lockedUntil) {

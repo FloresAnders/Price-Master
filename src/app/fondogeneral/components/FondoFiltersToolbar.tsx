@@ -84,6 +84,7 @@ interface Props {
   fromButtonRef: MutableRefObject<HTMLButtonElement | null>;
   toButtonRef: MutableRefObject<HTMLButtonElement | null>;
   accountKey: MovementAccountKey;
+  isCajaNegra: boolean;
   setDailyClosingHistoryRange: Dispatch<SetStateAction<string>>;
   setDailyClosingHistoryOpen: Dispatch<SetStateAction<boolean>>;
   closingsAreLoading: boolean;
@@ -142,6 +143,7 @@ export function FondoFiltersToolbar({
   fromButtonRef,
   toButtonRef,
   accountKey,
+  isCajaNegra,
   setDailyClosingHistoryRange,
   setDailyClosingHistoryOpen,
   closingsAreLoading,
@@ -392,22 +394,24 @@ export function FondoFiltersToolbar({
               {filtersDropdownOpen && (
                 <div className="absolute left-1/2 top-full z-[9999] mt-2 w-[260px] -translate-x-1/2 rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] shadow-2xl">
                   <div className="flex flex-col py-1">
-                    <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
-                      <input
-                        type="checkbox"
-                        checked={showPendingClosingCreditInvoices}
-                        onChange={(event) =>
-                          setShowPendingClosingCreditInvoices(
-                            event.target.checked,
-                          )
-                        }
-                        className="h-4 w-4 accent-amber-400"
-                      />
-                      <FileText className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
-                      <span className="leading-tight">
-                        Facturas de crédito pendientes
-                      </span>
-                    </label>
+                    {!isCajaNegra && (
+                      <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
+                        <input
+                          type="checkbox"
+                          checked={showPendingClosingCreditInvoices}
+                          onChange={(event) =>
+                            setShowPendingClosingCreditInvoices(
+                              event.target.checked,
+                            )
+                          }
+                          className="h-4 w-4 accent-amber-400"
+                        />
+                        <FileText className="h-4 w-4 shrink-0 text-[var(--muted-foreground)]" />
+                        <span className="leading-tight">
+                          Facturas de crédito pendientes
+                        </span>
+                      </label>
+                    )}
                     <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
                       <input
                         type="checkbox"

@@ -19,6 +19,7 @@ import {
   type PendingCreditNoteOption,
 } from "../helpers";
 import { buildV2MovementsCacheKey } from "../v2movements";
+import { getAuthoritativeNowISO } from "@/utils/serverTime";
 
 type V2MovementsCacheEntry = {
   loaded: boolean;
@@ -180,7 +181,7 @@ export async function submitClosingInvoicePayment(
     return;
   }
 
-  const nowISO = new Date().toISOString();
+  const nowISO = await getAuthoritativeNowISO().catch(() => new Date().toISOString());
   const nextPaidAmount = Math.min(totalAmount, paidAmount + totalAppliedToInvoice);
   const nextBalanceDue = Math.max(0, totalAmount - nextPaidAmount);
   const nextStatus =

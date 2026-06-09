@@ -1548,7 +1548,7 @@ export function FondoSection({
     let cancelled = false;
     const tick = async () => {
       try {
-        const nowISO = new Date().toISOString();
+        const nowISO = await getAuthoritativeNowISO();
         const resolution = await resolveShiftManagerForNow(nowISO);
         if (cancelled || !resolution) return;
 
@@ -1811,7 +1811,8 @@ export function FondoSection({
     closeMovementModal();
   };
 
-  const openManualCreditNoteModal = () => {
+  const openManualCreditNoteModal = async () => {
+    const nowISO = await getAuthoritativeNowISO().catch(() => new Date().toISOString());
     const currentMovementAmount = Math.max(
       0,
       Math.trunc(Number(isEgreso ? egreso : ingreso) || 0),
@@ -1826,7 +1827,7 @@ export function FondoSection({
       manager,
       manager2: manager2 || undefined,
       notes,
-      createdAt: new Date().toISOString(),
+      createdAt: nowISO,
       currency: movementCurrency,
       accountId: accountKey,
       empresa: company,
@@ -2367,7 +2368,7 @@ export function FondoSection({
         );
         nextAccountBalances.push(nextCRC, nextUSD);
         stateSnapshot.balancesByAccount = nextAccountBalances;
-        stateSnapshot.updatedAt = new Date().toISOString();
+        stateSnapshot.updatedAt = await getAuthoritativeNowISO().catch(() => new Date().toISOString());
         // Preservar lockedUntil del snapshot actual si existe
         if (storageSnapshotRef.current?.state?.lockedUntil) {
           stateSnapshot.lockedUntil =
@@ -3177,8 +3178,9 @@ export function FondoSection({
 
     let defaultManager = (user?.name || user?.email || "").trim();
 
+    const nowISO = await getAuthoritativeNowISO().catch(() => new Date().toISOString());
+
     try {
-      const nowISO = await getAuthoritativeNowISO();
       const resolution = await resolveShiftManagerForNow(nowISO);
       if (resolution?.mode === "auto") {
         defaultManager = resolution.manager;
@@ -3189,7 +3191,6 @@ export function FondoSection({
 
     let requireSingleReason = false;
     try {
-      const nowISO = await getAuthoritativeNowISO();
       const currentDateKey = getCostaRicaDateKeyAndMinute(nowISO)?.dateKey;
       const normalizedCompany = (company || "").trim();
       const companyKeysToTry = (() => {
@@ -3243,7 +3244,7 @@ export function FondoSection({
     }
 
     const initialValues: DailyClosingFormValues = {
-      closingDate: new Date().toISOString(),
+      closingDate: nowISO,
       manager: defaultManager,
       notes: "",
       singleClosingReason: "",
@@ -3283,25 +3284,43 @@ export function FondoSection({
 
     if (isRegularUser) {
       try {
-        const nowISO = new Date().toISOString();
+        const nowISO = await getAuthoritativeNowISO().catch(() => new Date().toISOString());
         const resolution = await resolveShiftManagerForNow(nowISO);
         if (resolution?.mode === "auto") {
           openingManager = resolution.manager;
         }
+        setCashOpeningInitialValues({
+          openingDate: nowISO,
+          manager: openingManager,
+          notes: "",
+          totalCRC: currentBalanceCRC,
+          totalUSD: currentBalanceUSD,
+          breakdownCRC: {},
+          breakdownUSD: {},
+        });
       } catch (err) {
         console.error("[CASH_OPENING] Error resolving shift manager:", err);
+        setCashOpeningInitialValues({
+          openingDate: new Date().toISOString(),
+          manager: openingManager,
+          notes: "",
+          totalCRC: currentBalanceCRC,
+          totalUSD: currentBalanceUSD,
+          breakdownCRC: {},
+          breakdownUSD: {},
+        });
       }
+    } else {
+      setCashOpeningInitialValues({
+        openingDate: new Date().toISOString(),
+        manager: openingManager,
+        notes: "",
+        totalCRC: currentBalanceCRC,
+        totalUSD: currentBalanceUSD,
+        breakdownCRC: {},
+        breakdownUSD: {},
+      });
     }
-
-    setCashOpeningInitialValues({
-      openingDate: new Date().toISOString(),
-      manager: openingManager,
-      notes: "",
-      totalCRC: currentBalanceCRC,
-      totalUSD: currentBalanceUSD,
-      breakdownCRC: {},
-      breakdownUSD: {},
-    });
     setCashOpeningModalOpen(true);
   }, [
     currentBalanceCRC,
@@ -3924,6 +3943,7 @@ export function FondoSection({
         fromButtonRef={fromButtonRef}
         toButtonRef={toButtonRef}
         accountKey={accountKey}
+        isCajaNegra={isCajaNegra}
         setDailyClosingHistoryRange={setDailyClosingHistoryRange}
         setDailyClosingHistoryOpen={setDailyClosingHistoryOpen}
         closingsAreLoading={closingsAreLoading}

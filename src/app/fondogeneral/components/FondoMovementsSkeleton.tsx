@@ -29,7 +29,7 @@ export function FondoMovementsSkeleton({
                 "Hora",
                 "Motivo",
                 "Tipo",
-                "NÂ° factura",
+                "N° factura",
                 "Monto",
                 "Encargado",
                 "",

@@ -15,6 +15,7 @@ import {
   isPaidFcrMovement,
   stripUndefinedDeep,
 } from "../utils/helpers";
+import { getAuthoritativeNowISO } from "@/utils/serverTime";
 
 type LedgerSnapshot = {
   initialCRC: number;
@@ -210,7 +211,7 @@ export async function confirmDeleteMovement(
         }
 
         const invoiceData = invoiceSnap.data() as FacturaMovement;
-        const rollbackAt = new Date().toISOString();
+        const rollbackAt = await getAuthoritativeNowISO().catch(() => new Date().toISOString());
         const paymentAmount = getFcrPaymentAmount(entry);
         const totalAmount = Math.max(
           0,

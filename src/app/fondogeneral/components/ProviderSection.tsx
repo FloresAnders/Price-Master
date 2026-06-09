@@ -42,6 +42,7 @@ import { UsersService } from "@/services/users";
 import { FondoMovementTypesService } from "@/services/fondo-movement-types";
 import { SchedulesService } from "@/services/schedules";
 import { generateEgresoProviderCreatedEmail } from "@/services/email-templates/proveedor-egreso-creado";
+import { getAuthoritativeNowISO } from "@/utils/serverTime";
 import type { FondoMovementType } from "../types";
 import { formatMovementType, isEgresoType } from "../utils/movementTypes/movementTypes";
 
@@ -820,7 +821,7 @@ export function ProviderSection({ id }: { id?: string }) {
         const toEmail = await getOwnerPrimaryAdminEmailCached(ownerId);
         if (!toEmail) return;
 
-        const createdAt = new Date().toISOString();
+        const createdAt = await getAuthoritativeNowISO().catch(() => new Date().toISOString());
         const createdBy = await resolveCreatedByFromControlHorario(createdAt);
 
         const emailContent = generateEgresoProviderCreatedEmail({

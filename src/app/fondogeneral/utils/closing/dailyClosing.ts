@@ -287,7 +287,7 @@ export async function handleConfirmDailyClosing(
     console.error("[CIERRE] ? Error guardando cierre en Firestore:", err);
 
     try {
-      const whenISO = new Date().toISOString();
+    const whenISO = await getAuthoritativeNowISO().catch(() => new Date().toISOString());
       const where = "FondoSection.handleConfirmDailyClosing -> DailyClosingsService.saveClosing";
       const errorMessage =
         err instanceof Error
@@ -764,7 +764,7 @@ export async function handleConfirmDailyClosing(
                   currency: match.currency,
                 },
               );
-              const newRecord = { at: new Date().toISOString(), ...changedFields };
+              const newRecord = { at: createdAt, ...changedFields };
               history.push(newRecord);
               const compressedHistory = compressAuditHistory(history);
               return {
