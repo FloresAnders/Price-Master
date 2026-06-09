@@ -29,9 +29,11 @@ import {
   Plus,
   Camera,
   ScanBarcode,
+  QrCode,
 } from "lucide-react";
 import { CustomIcon } from "@/icons/icons";
 import { useState, useEffect, useRef } from "react";
+import QRCode from "qrcode";
 import {
   collection,
   query as fbQuery,
@@ -55,6 +57,7 @@ import {
   ConfigurationModal,
   CalculatorModal,
   NotificationModal,
+  MobileScanQrModal,
 } from "../modals";
 import type { UserPermissions } from "../../types/firestore";
 
@@ -142,6 +145,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   );
   const [isResizingAdminSidebar, setIsResizingAdminSidebar] = useState(false);
   const [showNotifModal, setShowNotifModal] = useState(false);
+  const [showMobileQrModal, setShowMobileQrModal] = useState(false);
   const [hasNewSolicitudes, setHasNewSolicitudes] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const [showSessionTimer, setShowSessionTimer] = useState(() => {
@@ -958,7 +962,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                           </span>
                           <div className="flex items-center gap-2 mt-0.5 text-xs text-[var(--muted-foreground)]">
                             {user?.role === "superadmin" ? (
-<Star className="w-3 h-3 rainbow-star-icon" />
+                              <Star className="w-3 h-3 rainbow-star-icon" />
                             ) : user?.role === "admin" ? (
                               <Shield className="w-3 h-3 text-[var(--muted-foreground)]" />
                             ) : (
@@ -1105,6 +1109,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               {hasNewSolicitudes && (
                 <span className="absolute top-0 right-0 inline-flex w-2 h-2 bg-red-500 rounded-full transform translate-x-1 -translate-y-1" />
               )}
+            </button>
+            <button
+              onClick={() => setShowMobileQrModal(true)}
+              className="hidden lg:inline-flex p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
+              title="Escanear móvil"
+            >
+              <QrCode className="w-5 h-5 text-[var(--foreground)]" />
             </button>
 
             {/* Mobile scanner button (only visible on mobile) */}
@@ -1705,6 +1716,11 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       <CalculatorModal
         isOpen={showCalculatorModal}
         onClose={() => setShowCalculatorModal(false)}
+      />
+
+      <MobileScanQrModal
+        isOpen={showMobileQrModal}
+        onClose={() => setShowMobileQrModal(false)}
       />
     </>
   );
