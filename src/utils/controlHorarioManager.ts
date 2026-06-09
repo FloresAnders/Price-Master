@@ -120,6 +120,20 @@ const isWithinHorario = (
   return nowMin >= openMin || nowMin <= closeMin;
 };
 
+const isExpectedDayShiftNow = (
+  nowMin: number,
+  openMin: number,
+  closeMin: number,
+  shiftChangeMin: number,
+): boolean => {
+  if (openMin <= closeMin) {
+    return nowMin < shiftChangeMin;
+  }
+
+  // Overnight: D covers open->midnight and midnight->shift change.
+  return nowMin >= openMin || nowMin < shiftChangeMin;
+};
+
 const normalizeName = (value: unknown) =>
   String(value || "")
     .trim()
@@ -262,14 +276,21 @@ export const resolveManagerFromControlHorario = (args: {
     parts.day,
   ).padStart(2, "0")}`;
 
-  const expectedShift =
-    getFondoVentasShiftFromClosings({
-      ...args,
-      horarioApertura: args.empresa?.horarioApertura,
-      horarioCierre: args.empresa?.horarioCierre,
-    }) || "D";
-
   const entryD = findBestSchedule(args.monthSchedules, parts.day, "D");
+  const dayHours = (() => {
+    const employeeHours = entryD?.employeeName
+      ? getEmployeeHoursPerShift(args.empresa, entryD.employeeName)
+      : null;
+    const dayHoursRaw = Number(entryD?.horasPorDia);
+    const scheduleHours =
+      Number.isFinite(dayHoursRaw) && dayHoursRaw > 0 ? dayHoursRaw : null;
+    return employeeHours ?? scheduleHours ?? 8;
+  })();
+  const shiftChangeMin = openMin + Math.round(dayHours * 60);
+  const expectedShift = isExpectedDayShiftNow(nowMin, openMin, closeMin, shiftChangeMin)
+    ? "D"
+    : "N";
+
   if (!entryD || !String(entryD.employeeName || "").trim()) {
     return { mode: "missing", withinHorario: true, expectedShift, dateKey };
   }
@@ -345,7 +366,6 @@ export const getControlHorarioShiftTiming = (args: {
 
   const entryD = findBestSchedule(args.monthSchedules, parts.day, "D");
   const entryN = findBestSchedule(args.monthSchedules, parts.day, "N");
-
   const employeeHours = entryD?.employeeName
     ? getEmployeeHoursPerShift(args.empresa, entryD.employeeName)
     : null;
@@ -355,22 +375,9 @@ export const getControlHorarioShiftTiming = (args: {
   const dayHours = employeeHours ?? scheduleHours ?? 8;
 
   const shiftChangeMin = openMin + Math.round(dayHours * 60);
-  const closingsShift = getFondoVentasShiftFromClosings(args);
-  const nightWindowStartMin = closeMin - 30;
-  const normalizedNightWindowStartMin =
-    ((nightWindowStartMin % 1440) + 1440) % 1440;
-  const shouldSkipDayShift =
-    closingsShift !== "N" &&
-    (normalizedNightWindowStartMin <= closeMin
-      ? currentMin >= normalizedNightWindowStartMin && currentMin <= closeMin
-      : currentMin >= normalizedNightWindowStartMin || currentMin <= closeMin);
-  //const expectedShift = closingsShift === "N" || shouldSkipDayShift ? "N" : "D";
-  const expectedShift =
-    getFondoVentasShiftFromClosings({
-      ...args,
-      horarioApertura: args.empresa?.horarioApertura,
-      horarioCierre: args.empresa?.horarioCierre,
-    }) || "D";
+  const expectedShift = isExpectedDayShiftNow(currentMin, openMin, closeMin, shiftChangeMin)
+    ? "D"
+    : "N";
 
   return {
     withinHorario: true,

@@ -3175,39 +3175,76 @@ export function FondoSection({
     if (accountKey !== "FondoGeneral") return;
     setEditingDailyClosingId(null);
 
-    // Find the last "CIERRE FONDO VENTAS" movement to get the default manager
-    const lastCierreVentas = [...fondoEntries]
-      .filter((entry) => {
-        const provider = providers.find((p) => p.code === entry.providerCode);
-        return (
-          provider?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME
-        );
-      })
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      )[0];
+    let defaultManager = (user?.name || user?.email || "").trim();
+
+    try {
+      const nowISO = await getAuthoritativeNowISO();
+      const resolution = await resolveShiftManagerForNow(nowISO);
+      if (resolution?.mode === "auto") {
+        defaultManager = resolution.manager;
+      }
+    } catch (err) {
+      console.error("[FG] Error resolving shift manager for daily closing:", err);
+    }
 
     let requireSingleReason = false;
     try {
       const nowISO = await getAuthoritativeNowISO();
       const currentDateKey = getCostaRicaDateKeyAndMinute(nowISO)?.dateKey;
-      const closingsToday = fondoEntries.filter((entry) => {
-        const info = getCostaRicaDateKeyAndMinute(String(entry.createdAt || ""));
-        return Boolean(
-          info &&
-            info.dateKey === currentDateKey &&
-            isCierreFondoVentasMovement(entry),
+      const normalizedCompany = (company || "").trim();
+      const companyKeysToTry = (() => {
+        const set = new Set<string>();
+        if (normalizedCompany) set.add(normalizedCompany);
+        [activeEmpresaForCompany?.name, activeEmpresaForCompany?.ubicacion, activeEmpresaForCompany?.id]
+          .map((value) =>
+            typeof value === "string" ? value.trim() : String(value || "").trim(),
+          )
+          .filter(Boolean)
+          .forEach((value) => set.add(value));
+        return Array.from(set);
+      })();
+
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Costa_Rica",
+        year: "numeric",
+        month: "2-digit",
+      }).formatToParts(new Date(nowISO));
+      const year = Number(parts.find((part) => part.type === "year")?.value);
+      const month1 = Number(parts.find((part) => part.type === "month")?.value);
+      const month0 = Math.max(0, Math.min(11, month1 - 1));
+
+      if (companyKeysToTry.length > 0 && Number.isFinite(year) && Number.isFinite(month1)) {
+        const schedulesLists = await Promise.all(
+          companyKeysToTry.map((key) => getFGMonthlySchedulesCached(key, year, month0)),
         );
-      });
-      requireSingleReason = closingsToday.length === 1;
+        const monthSchedules = schedulesLists.flat();
+        const timing = getControlHorarioShiftTiming({
+          nowISO,
+          empresa: activeEmpresaForCompany,
+          monthSchedules,
+        });
+
+        const closingsToday = fondoEntries.filter((entry) => {
+          const info = getCostaRicaDateKeyAndMinute(String(entry.createdAt || ""));
+          return Boolean(
+            info &&
+              info.dateKey === currentDateKey &&
+              isCierreFondoVentasMovement(entry),
+          );
+        });
+
+        requireSingleReason =
+          closingsToday.length === 1 &&
+          timing.withinHorario &&
+          timing.currentMin >= timing.shiftChangeMin;
+      }
     } catch (err) {
       console.error("[FG] Error resolving single-closing reason requirement:", err);
     }
 
     const initialValues: DailyClosingFormValues = {
       closingDate: new Date().toISOString(),
-      manager: lastCierreVentas?.manager || "",
+      manager: defaultManager,
       notes: "",
       singleClosingReason: "",
       totalCRC: currentBalanceCRC,
@@ -3371,9 +3408,9 @@ export function FondoSection({
       finishDailyClosingsRequest,
       fondoEntries,
       formatToastWaitTime,
-      isCierreFondoVentasMovement,
       isRegularUser,
       lastDailyClosingSavedAtRef,
+      requireSingleClosingReason: dailyClosingSingleReasonRequired && !editingDailyClosingId,
       loadedDailyClosingKeysRef,
       loadingDailyClosingKeysRef,
       ownerAdminEmail,

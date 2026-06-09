@@ -46,9 +46,9 @@ export interface HandleConfirmDailyClosingDeps {
   finishDailyClosingsRequest: () => void;
   fondoEntries: FondoEntry[];
   formatToastWaitTime: (remainingSec: number) => string;
-  isCierreFondoVentasMovement: (entry: FondoEntry) => boolean;
   isRegularUser: boolean;
   lastDailyClosingSavedAtRef: NumberRef;
+  requireSingleClosingReason: boolean;
   loadedDailyClosingKeysRef: StringSetRef;
   loadingDailyClosingKeysRef: StringSetRef;
   ownerAdminEmail: string | null;
@@ -102,9 +102,9 @@ export async function handleConfirmDailyClosing(
     finishDailyClosingsRequest,
     fondoEntries,
     formatToastWaitTime,
-    isCierreFondoVentasMovement,
     isRegularUser,
     lastDailyClosingSavedAtRef,
+    requireSingleClosingReason,
     loadedDailyClosingKeysRef,
     loadingDailyClosingKeysRef,
     ownerAdminEmail,
@@ -148,18 +148,8 @@ export async function handleConfirmDailyClosing(
   const userNotes = closing.notes.trim();
   const singleClosingReason = String(closing.singleClosingReason || "").trim();
   const closingDateKey = dateKeyFromDate(closingDateValue);
-  const createdAtDateKey =
-    getCostaRicaDateKeyAndMinute(createdAtISO)?.dateKey ?? closingDateKey;
-  const cierreVentasCountForDay = fondoEntries.filter((entry) => {
-    const info = getCostaRicaDateKeyAndMinute(String(entry.createdAt || ""));
-    return Boolean(
-      info &&
-        info.dateKey === createdAtDateKey &&
-        isCierreFondoVentasMovement(entry),
-    );
-  }).length;
 
-  if (cierreVentasCountForDay === 1 && !singleClosingReason) {
+  if (requireSingleClosingReason && !singleClosingReason) {
     showToast(
       "Debe indicar el motivo de por quÃ© solo hubo un cierre en el dÃ­a.",
       "warning",

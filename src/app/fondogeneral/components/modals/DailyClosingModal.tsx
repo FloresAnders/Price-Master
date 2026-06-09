@@ -674,7 +674,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                   color: "var(--foreground)",
                 }}
                 maxLength={400}
-                placeholder="Explica por quÃ© solo existe un cierre en el dÃ­a"
+                placeholder="Explica por qué solo existe un cierre en el día"
               />
             </div>
           )}
