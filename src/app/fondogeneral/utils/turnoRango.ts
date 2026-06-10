@@ -23,3 +23,28 @@ export function isWithinCierreRange(
 
   return totalMinutesNow >= windowStart && totalMinutesNow <= windowEnd;
 }
+
+export function getCierreWindowTurno(
+  minutesBeforeEnd: number,
+  minutesAfterEnd: number,
+  now: Date = new Date(),
+): "D" | "N" {
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const dEnd = TURNO_END_MINUTES.D;
+  const nEnd = TURNO_END_MINUTES.N;
+
+  const nWindowStart = nEnd - minutesBeforeEnd;
+  const nWindowEnd = nEnd + minutesAfterEnd;
+  const nowNorm = nowMin < 120 ? nowMin + 1440 : nowMin;
+  const inNWindow = nowNorm >= nWindowStart && nowNorm <= nWindowEnd;
+
+  if (inNWindow) return "N";
+
+  const dWindowStart = dEnd - minutesBeforeEnd;
+  const dWindowEnd = dEnd + minutesAfterEnd;
+  const inDWindow = nowMin >= dWindowStart && nowMin <= dWindowEnd;
+
+  if (inDWindow) return "D";
+
+  return nowMin < dEnd ? "D" : "N";
+}

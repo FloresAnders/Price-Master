@@ -4,6 +4,7 @@ import {
   getCostaRicaDateKeyAndMinute,
   resolveManagerFromControlHorario,
 } from "@/utils/controlHorarioManager";
+import { getCierreWindowTurno } from "./turnoRango";
 import {
   FacturasService,
   type AppliedCreditNote,
@@ -238,6 +239,32 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
             effectiveManager = resolution.manager;
             setManager(resolution.manager);
             setManagerError("");
+
+            const cierreTurno = getCierreWindowTurno(
+              empresa.cierreFondoVentasMinutesBeforeEnd ?? CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
+              empresa.cierreFondoVentasMinutesAfterEnd ?? CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
+              new Date(nowISO),
+            );
+            const timing = getControlHorarioShiftTiming({
+              nowISO,
+              empresa,
+              monthSchedules,
+              closingMovements: fondoEntries as Array<{
+                createdAt?: string;
+                providerCode?: string;
+              }>,
+              providers: movementProviders as Array<{
+                code: string;
+                name?: string | null;
+              }>,
+            });
+            if (timing.withinHorario && timing.expectedShift !== cierreTurno) {
+              const entryForTurno = cierreTurno === "D" ? timing.entryD : timing.entryN;
+              if (entryForTurno?.employeeName) {
+                effectiveManager = String(entryForTurno.employeeName).trim();
+                setManager(effectiveManager);
+              }
+            }
           }
         }
       }

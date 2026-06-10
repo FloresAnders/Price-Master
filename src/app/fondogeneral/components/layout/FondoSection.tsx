@@ -38,6 +38,7 @@ import {
   getCostaRicaDateKeyAndMinute,
   type ShiftCode,
 } from "@/utils/controlHorarioManager";
+import { getCierreWindowTurno } from "../../utils/turnoRango";
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
 import { AuditHistoryModal } from "../audit-history-modal";
 import {
@@ -548,29 +549,10 @@ export function FondoSection({
     loadingDailyClosingKeysRef,
   } = useDailyClosingState({ company, accountKey });
 
-  const currentTurno = useMemo<"D" | "N">(() => {
-    const now = new Date();
-    const nowMin = now.getHours() * 60 + now.getMinutes();
-    const dEnd = 20 * 60;
-    const nEnd = 24 * 60;
-    const before = cierreFondoVentasMinutesBeforeEnd;
-    const after = cierreFondoVentasMinutesAfterEnd;
-
-    const nWindowStart = nEnd - before;
-    const nWindowEnd = nEnd + after;
-    const nowNorm = nowMin < 120 ? nowMin + 1440 : nowMin;
-    const inNWindow = nowNorm >= nWindowStart && nowNorm <= nWindowEnd;
-
-    if (inNWindow) return "N";
-
-    const dWindowStart = dEnd - before;
-    const dWindowEnd = dEnd + after;
-    const inDWindow = nowMin >= dWindowStart && nowMin <= dWindowEnd;
-
-    if (inDWindow) return "D";
-
-    return nowMin < dEnd ? "D" : "N";
-  }, [cierreFondoVentasMinutesBeforeEnd, cierreFondoVentasMinutesAfterEnd]);
+  const currentTurno = useMemo<"D" | "N">(
+    () => getCierreWindowTurno(cierreFondoVentasMinutesBeforeEnd, cierreFondoVentasMinutesAfterEnd),
+    [cierreFondoVentasMinutesBeforeEnd, cierreFondoVentasMinutesAfterEnd],
+  );
 
   const cierreDBase = useMemo(() => {
     const todayKey = dateKeyFromDate(new Date());
@@ -3261,6 +3243,13 @@ export function FondoSection({
           empresa: activeEmpresaForCompany,
           monthSchedules,
         });
+
+        if (timing.withinHorario && timing.expectedShift !== currentTurno) {
+          const entryForTurno = currentTurno === "D" ? timing.entryD : timing.entryN;
+          if (entryForTurno?.employeeName) {
+            defaultManager = String(entryForTurno.employeeName).trim();
+          }
+        }
 
         const closingsToday = fondoEntries.filter((entry) => {
           const info = getCostaRicaDateKeyAndMinute(String(entry.createdAt || ""));
