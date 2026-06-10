@@ -45,8 +45,15 @@ export function useShiftScheduleResolver(args: {
   empresa: Empresas | null | undefined;
   closingMovements?: Array<{ createdAt?: string; providerCode?: string }>;
   providers?: Array<{ code: string; name?: string | null }>;
+  cierreFondoVentasMinutesAfterEnd?: number;
 }) {
-  const { company, empresa, closingMovements, providers } = args;
+  const {
+    company,
+    empresa,
+    closingMovements,
+    providers,
+    cierreFondoVentasMinutesAfterEnd,
+  } = args;
   const fgSchedulesMonthCacheRef = useRef<
     Map<
       string,
@@ -102,9 +109,17 @@ export function useShiftScheduleResolver(args: {
         monthSchedules,
         closingMovements,
         providers,
+        cierreFondoVentasMinutesAfterEnd,
       });
     },
-    [company, empresa, closingMovements, getFGMonthlySchedulesCached, providers],
+    [
+      company,
+      empresa,
+      closingMovements,
+      cierreFondoVentasMinutesAfterEnd,
+      getFGMonthlySchedulesCached,
+      providers,
+    ],
   );
 
   const resolveShiftTimingForNow = useCallback(

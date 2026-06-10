@@ -800,6 +800,8 @@ export default function FacturasCreditoPage() {
           providerCode?: string;
         }>,
         providers,
+        cierreFondoVentasMinutesAfterEnd:
+          selectedEmpresaMeta?.cierreFondoVentasMinutesAfterEnd,
       });
     },
     [getMonthlySchedulesCached, selectedCompany, selectedEmpresaMeta],

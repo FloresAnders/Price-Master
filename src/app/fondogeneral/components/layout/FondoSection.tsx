@@ -34,6 +34,7 @@ import DailyClosingHistoryModal from "../../../../components/modals/DailyClosing
 import { ManualCreditNoteDrawer } from "../drawers/ManualCreditNoteDrawer";
 import { FondoConfirmModals } from "../FondoConfirmModals";
 import {
+  findBestSchedule,
   getControlHorarioShiftTiming,
   getCostaRicaDateKeyAndMinute,
   type ShiftCode,
@@ -351,6 +352,13 @@ export function FondoSection({
           : activeEmployees,
     };
   }, [activeEmpresaForCompany, companyData]);
+  const cierreFondoVentasMinutesBeforeEnd =
+    empresaForShiftResolution?.cierreFondoVentasMinutesBeforeEnd ??
+    CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END;
+  const cierreFondoVentasMinutesAfterEnd =
+    empresaForShiftResolution?.cierreFondoVentasMinutesAfterEnd ??
+    CIERRE_FONDO_VENTAS_MINUTES_AFTER_END;
+
   const {
     getFGMonthlySchedulesCached,
     resolveShiftManagerForNow,
@@ -360,13 +368,8 @@ export function FondoSection({
     empresa: empresaForShiftResolution,
     closingMovements: fondoEntries,
     providers,
+    cierreFondoVentasMinutesAfterEnd,
   });
-  const cierreFondoVentasMinutesBeforeEnd =
-    empresaForShiftResolution?.cierreFondoVentasMinutesBeforeEnd ??
-    CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END;
-  const cierreFondoVentasMinutesAfterEnd =
-    empresaForShiftResolution?.cierreFondoVentasMinutesAfterEnd ??
-    CIERRE_FONDO_VENTAS_MINUTES_AFTER_END;
 
   const [
     selectedProviderPendingCreditNotes,
@@ -3243,13 +3246,6 @@ export function FondoSection({
           empresa: activeEmpresaForCompany,
           monthSchedules,
         });
-
-        if (timing.withinHorario && timing.expectedShift !== currentTurno) {
-          const entryForTurno = currentTurno === "D" ? timing.entryD : timing.entryN;
-          if (entryForTurno?.employeeName) {
-            defaultManager = String(entryForTurno.employeeName).trim();
-          }
-        }
 
         const closingsToday = fondoEntries.filter((entry) => {
           const info = getCostaRicaDateKeyAndMinute(String(entry.createdAt || ""));

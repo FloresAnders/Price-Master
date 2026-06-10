@@ -153,7 +153,7 @@ const getEmployeeHoursPerShift = (
   return hours;
 };
 
-const findBestSchedule = (
+export const findBestSchedule = (
   schedules: ScheduleEntry[],
   day: number,
   shift: ShiftCode,
@@ -251,6 +251,7 @@ export const resolveManagerFromControlHorario = (args: {
   closingMovements?: ClosingMovementLike[];
   providers?: ClosingProviderLike[];
   cierreFondoVentasProviderCode?: string | null;
+  cierreFondoVentasMinutesAfterEnd?: number;
 }): ControlHorarioManagerResolution => {
   const now = new Date(args.nowISO);
   const parts = getCRParts(now);
@@ -293,6 +294,37 @@ export const resolveManagerFromControlHorario = (args: {
 
   if (!entryD || !String(entryD.employeeName || "").trim()) {
     return { mode: "missing", withinHorario: true, expectedShift, dateKey };
+  }
+
+  const closingExistsToday = (args.closingMovements || []).some((entry) => {
+    const info = getCostaRicaDateKeyAndMinute(String(entry.createdAt || ""));
+    if (!info || info.dateKey !== dateKey) return false;
+    return isCierreFondoVentasMovementLike(
+      entry,
+      args.providers,
+      args.cierreFondoVentasProviderCode,
+    );
+  });
+
+  const closingGraceAfterEnd = Math.max(
+    0,
+    Number(args.cierreFondoVentasMinutesAfterEnd ?? 0) || 0,
+  );
+  const shiftGraceStartMin = shiftChangeMin;
+  const shiftGraceEndMin = shiftChangeMin + closingGraceAfterEnd;
+  const isWithinShiftGrace = (() => {
+    if (closingGraceAfterEnd <= 0) return false;
+    const normalizedNow = nowMin < shiftGraceStartMin ? nowMin + 1440 : nowMin;
+    return normalizedNow >= shiftGraceStartMin && normalizedNow < shiftGraceEndMin;
+  })();
+
+  if (expectedShift === "N" && isWithinShiftGrace && !closingExistsToday) {
+    return {
+      mode: "auto",
+      withinHorario: true,
+      expectedShift: "N",
+      manager: String(entryD.employeeName).trim(),
+    };
   }
 
   if (expectedShift === "N") {

@@ -1,5 +1,6 @@
 import { db } from "@/config/firebase";
 import {
+  findBestSchedule,
   getControlHorarioShiftTiming,
   getCostaRicaDateKeyAndMinute,
   resolveManagerFromControlHorario,
@@ -226,6 +227,9 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
               code: string;
               name?: string | null;
             }>,
+            cierreFondoVentasMinutesAfterEnd:
+              activeEmpresaForCompany.cierreFondoVentasMinutesAfterEnd ??
+              CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
           });
 
           if (resolution.mode === "missing") {
@@ -239,31 +243,55 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
             effectiveManager = resolution.manager;
             setManager(resolution.manager);
             setManagerError("");
-
-            const cierreTurno = getCierreWindowTurno(
-              empresa.cierreFondoVentasMinutesBeforeEnd ?? CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
-              empresa.cierreFondoVentasMinutesAfterEnd ?? CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
-              new Date(nowISO),
+          }
+          const cierreTurno = getCierreWindowTurno(
+            empresa.cierreFondoVentasMinutesBeforeEnd ?? CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
+            empresa.cierreFondoVentasMinutesAfterEnd ?? CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
+            new Date(nowISO),
+          );
+          const crInfo = getCostaRicaDateKeyAndMinute(nowISO);
+          if (crInfo) {
+            const day = new Date(crInfo.dateKey).getUTCDate();
+            const closingsTodayCount = fondoEntries.filter((entry: FondoEntry) => {
+              const info = getCostaRicaDateKeyAndMinute(String(entry.createdAt || ""));
+              const provider = movementProviders.find(
+                (p: any) => p.code === entry.providerCode,
+              );
+              return Boolean(
+                info &&
+                  info.dateKey === crInfo.dateKey &&
+                  provider?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME,
+              );
+            }).length;
+            const normalizeMin = (value: number) => ((value % 1440) + 1440) % 1440;
+            const addMinutes = (value: number, delta: number) =>
+              normalizeMin(value + delta);
+            const nowMin = normalizeMin(crInfo.minuteOfDay);
+            const nightEndMin = normalizeMin(24 * 60);
+            const nightWindowStartMin = addMinutes(
+              nightEndMin,
+              -(
+                empresa.cierreFondoVentasMinutesBeforeEnd ??
+                CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END
+              ),
             );
-            const timing = getControlHorarioShiftTiming({
-              nowISO,
-              empresa,
-              monthSchedules,
-              closingMovements: fondoEntries as Array<{
-                createdAt?: string;
-                providerCode?: string;
-              }>,
-              providers: movementProviders as Array<{
-                code: string;
-                name?: string | null;
-              }>,
-            });
-            if (timing.withinHorario && timing.expectedShift !== cierreTurno) {
-              const entryForTurno = cierreTurno === "D" ? timing.entryD : timing.entryN;
-              if (entryForTurno?.employeeName) {
-                effectiveManager = String(entryForTurno.employeeName).trim();
-                setManager(effectiveManager);
-              }
+            const nightWindowEndMin = addMinutes(
+              nightEndMin,
+              (empresa.cierreFondoVentasMinutesAfterEnd ??
+                CIERRE_FONDO_VENTAS_MINUTES_AFTER_END) + 1,
+            );
+            const isWithinNightGrace =
+              nightWindowStartMin <= nightWindowEndMin
+                ? nowMin >= nightWindowStartMin && nowMin < nightWindowEndMin
+                : nowMin >= nightWindowStartMin || nowMin < nightWindowEndMin;
+            const managerShift =
+              cierreTurno === "N" && isWithinNightGrace && closingsTodayCount === 0
+                ? "N"
+                : "D";
+            const entry = findBestSchedule(monthSchedules, day, managerShift);
+            if (entry?.employeeName) {
+              effectiveManager = String(entry.employeeName).trim();
+              setManager(effectiveManager);
             }
           }
         }
