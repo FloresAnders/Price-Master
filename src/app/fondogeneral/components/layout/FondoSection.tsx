@@ -570,11 +570,16 @@ export function FondoSection({
     });
     const dClosing = todayClosings.length > 0 ? todayClosings[0] : null;
     if (!dClosing?.sistemas) return null;
-    return { conticaCRC: dClosing.sistemas.conticaCRC, tucanCRC: dClosing.sistemas.tucanCRC };
+    return {
+      conticaCRC: dClosing.sistemas.conticaCRC,
+      tucanCRC: dClosing.sistemas.tucanCRC,
+      tiemposCRC: (dClosing.sistemas as any).tiemposCRC ?? 0,
+    };
   }, [dailyClosings]);
   const [cierreDBaseFromCache, setCierreDBaseFromCache] = useState<{
     conticaCRC: number;
     tucanCRC: number;
+    tiemposCRC?: number;
   } | null>(null);
 
   useEffect(() => {
@@ -595,11 +600,15 @@ export function FondoSection({
       const base = {
         conticaCRC: todayClosing.sistemas.conticaCRC,
         tucanCRC: todayClosing.sistemas.tucanCRC,
+        tiemposCRC: (todayClosing.sistemas as any).tiemposCRC ?? 0,
+        conticaTiemposCRC: (todayClosing.sistemas as any).conticaTiemposCRC ?? 0,
       };
       setCierreDBaseFromCache(base);
       void setCierreFondoVentasCache(normalizedCompany, todayKey, {
         conticaCRC: todayClosing.sistemas.conticaCRC,
         tucanCRC: todayClosing.sistemas.tucanCRC,
+        tiemposCRC: (todayClosing.sistemas as any).tiemposCRC ?? 0,
+        conticaTiemposCRC: (todayClosing.sistemas as any).conticaTiemposCRC ?? 0,
         diffCRC: todayClosing.sistemas.diffCRC,
         conticaAjustadaCRC: todayClosing.sistemas.conticaAjustadaCRC,
         closingDateISO: todayClosing.closingDate,
@@ -630,6 +639,8 @@ export function FondoSection({
             ? {
                 conticaCRC: cached.conticaCRC,
                 tucanCRC: cached.tucanCRC,
+                tiemposCRC: (cached as any).tiemposCRC ?? 0,
+                conticaTiemposCRC: (cached as any).conticaTiemposCRC ?? 0,
               }
             : null,
         );

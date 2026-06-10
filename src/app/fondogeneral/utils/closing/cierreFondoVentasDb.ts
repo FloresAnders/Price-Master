@@ -5,6 +5,8 @@ type CierreFondoVentasCacheRecord = {
   turno: "D";
   conticaCRC: number;
   tucanCRC: number;
+  tiemposCRC?: number;
+  conticaTiemposCRC?: number;
   diffCRC: number;
   conticaAjustadaCRC: number;
   closingDateISO?: string;
@@ -82,6 +84,8 @@ function txDone(tx: IDBTransaction): Promise<void> {
 export type CierreFondoVentasCacheValue = {
   conticaCRC: number;
   tucanCRC: number;
+  tiemposCRC?: number;
+  conticaTiemposCRC?: number;
   diffCRC: number;
   conticaAjustadaCRC: number;
   closingDateISO?: string;
@@ -110,6 +114,8 @@ export async function getCierreFondoVentasCache(
   return {
     conticaCRC: Number(record.conticaCRC) || 0,
     tucanCRC: Number(record.tucanCRC) || 0,
+    tiemposCRC: Number(record.tiemposCRC) || 0,
+    conticaTiemposCRC: Number(record.conticaTiemposCRC) || 0,
     diffCRC: Number(record.diffCRC) || 0,
     conticaAjustadaCRC: Number(record.conticaAjustadaCRC) || 0,
     closingDateISO:
@@ -137,6 +143,8 @@ export async function setCierreFondoVentasCache(
     turno: "D",
     conticaCRC: Number(value.conticaCRC) || 0,
     tucanCRC: Number(value.tucanCRC) || 0,
+    tiemposCRC: Number(value.tiemposCRC) || 0,
+    conticaTiemposCRC: Number(value.conticaTiemposCRC) || 0,
     diffCRC: Number(value.diffCRC) || 0,
     conticaAjustadaCRC: Number(value.conticaAjustadaCRC) || 0,
     closingDateISO: value.closingDateISO,

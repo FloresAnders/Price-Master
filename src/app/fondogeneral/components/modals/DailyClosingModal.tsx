@@ -71,9 +71,13 @@ export type DailyClosingFormValues = {
   turno: "D" | "N";
   sistemas?: {
     conticaCRC: number;
-    tucanCRC: number;
-    diffCRC: number;
-    conticaAjustadaCRC: number;
+    tucanCRC?: number;
+    tiemposCRC?: number;
+    diffCRC?: number;
+    diffTiemposCRC?: number;
+    conticaAjustadaCRC?: number;
+    tucanAjustadaCRC?: number;
+    tiemposAjustadaCRC?: number;
   };
 };
 
@@ -94,7 +98,7 @@ type DailyClosingModalProps = {
   turno: "D" | "N";
   cierreFondoVentasMinutesBeforeEnd: number;
   cierreFondoVentasMinutesAfterEnd: number;
-  cierreDBase?: { conticaCRC: number; tucanCRC: number } | null;
+  cierreDBase?: { conticaCRC: number; tucanCRC: number; tiemposCRC?: number; conticaTiemposCRC?: number } | null;
 };
 
 const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
@@ -146,15 +150,20 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
 
   const [totalConticaCRC, setTotalConticaCRC] = useState<string>("");
   const [totalTucanCRC, setTotalTucanCRC] = useState<string>("");
+  const [totalConticaTiemposCRC, setTotalConticaTiemposCRC] = useState<string>("");
+  const [totalTiemposCRC, setTotalTiemposCRC] = useState<string>("");
 
   const showSistemas = true;
 
   const conticaNum = Number(totalConticaCRC.replace(/\D/g, "")) || 0;
   const tucanNum = Number(totalTucanCRC.replace(/\D/g, "")) || 0;
+  const conticaTiemposNum = Number(totalConticaTiemposCRC.replace(/\D/g, "")) || 0;
+  const tiemposNum = Number(totalTiemposCRC.replace(/\D/g, "")) || 0;
 
   const cierreDContica = cierreDBase?.conticaCRC ?? 0;
   const cierreDTucan = cierreDBase?.tucanCRC ?? 0;
-  const cierreDDiff = cierreDContica - cierreDTucan;
+  const cierreDTiempos = (cierreDBase as any)?.tiemposCRC ?? 0;
+  const cierreDConticaTiempos = (cierreDBase as any)?.conticaTiemposCRC ?? 0;
 
   const conticaAjustada = useMemo(() => {
     if (turno === "D" || !cierreDBase) return conticaNum;
@@ -166,12 +175,32 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     return tucanNum - cierreDTucan;
   }, [turno, tucanNum, cierreDBase, cierreDTucan]);
 
-  const diffSistemasCRC = useMemo(() => {
+  const conticaTiemposAjustado = useMemo(() => {
+    if (turno === "D" || !cierreDBase) return conticaTiemposNum;
+    return conticaTiemposNum - cierreDConticaTiempos;
+  }, [turno, conticaTiemposNum, cierreDBase, cierreDConticaTiempos]);
+
+  const tiemposAjustado = useMemo(() => {
+    if (turno === "D" || !cierreDBase) return tiemposNum;
+    return tiemposNum - cierreDTiempos;
+  }, [turno, tiemposNum, cierreDBase, cierreDTiempos]);
+
+  const cierreDDiff = cierreDContica - cierreDTucan;
+  const cierreDDiffTiempos = cierreDConticaTiempos - cierreDTiempos;
+
+  const diffConticaTucanCRC = useMemo(() => {
     if (turno === "N" && cierreDBase) {
       return (conticaAjustada - tucanAjustado) + cierreDDiff;
     }
     return conticaNum - tucanNum;
   }, [turno, cierreDBase, cierreDDiff, conticaAjustada, tucanAjustado, conticaNum, tucanNum]);
+
+  const diffConticaTiemposCRC = useMemo(() => {
+    if (turno === "N" && cierreDBase) {
+      return (conticaTiemposAjustado - tiemposAjustado) + cierreDDiffTiempos;
+    }
+    return conticaTiemposNum - tiemposNum;
+  }, [turno, cierreDBase, cierreDDiffTiempos, conticaTiemposAjustado, tiemposAjustado, conticaTiemposNum, tiemposNum]);
 
   const secondaryButtonClass =
     "inline-flex h-11 items-center justify-center rounded-lg border border-[var(--input-border)] px-4 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20 disabled:cursor-not-allowed disabled:opacity-60";
@@ -432,13 +461,19 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
       breakdownCRC: buildBreakdown(crcCounts, CRC_DENOMINATIONS),
       breakdownUSD: buildBreakdown(usdCounts, USD_DENOMINATIONS),
       turno,
-      ...(showSistemas && conticaNum > 0 && tucanNum > 0
+      ...(showSistemas && conticaNum > 0 && (tucanNum > 0 || tiemposNum > 0)
         ? {
             sistemas: {
               conticaCRC: conticaNum,
-              tucanCRC: tucanNum,
-              diffCRC: diffSistemasCRC,
+              tucanCRC: tucanNum || 0,
+              tiemposCRC: tiemposNum || 0,
+              conticaTiemposCRC: conticaTiemposNum || 0,
+              diffCRC: diffConticaTucanCRC,
+              diffTiemposCRC: diffConticaTiemposCRC,
               conticaAjustadaCRC: conticaAjustada,
+              tucanAjustadaCRC: tucanAjustado,
+              tiemposAjustadaCRC: tiemposAjustado,
+              conticaTiemposAjustadaCRC: conticaTiemposAjustado,
             },
           }
         : {}),
@@ -747,7 +782,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
                     Contica (₡)
@@ -783,24 +818,71 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                       </p>
                     )}
                 </div>
-              </div>
 
-              {conticaNum > 0 && tucanNum > 0 && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                    Contica (Tiempos) (₡)
+                  </label>
+                  <input
+                    value={totalConticaTiemposCRC}
+                    onChange={(e) => setTotalConticaTiemposCRC(e.target.value.replace(/\D/g, ""))}
+                    inputMode="numeric"
+                    placeholder="0"
+                    className="h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] text-right transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                  />
+                  {turno === "N" && cierreDBase && conticaTiemposNum > 0 && (
+                    <p className="text-xs text-[var(--muted-foreground)]">
+                      Contica (Tiempos) ajustada N: ₡ {conticaTiemposAjustado.toLocaleString("es-CR")}
+                    </p>
+                  )}
+
+                  <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)] mt-2">
+                    Tiempos (₡)
+                  </label>
+                  <input
+                    value={totalTiemposCRC}
+                    onChange={(e) => setTotalTiemposCRC(e.target.value.replace(/\D/g, ""))}
+                    inputMode="numeric"
+                    placeholder="0"
+                    className="h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] text-right transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                  />
+                  {turno === "N" && cierreDBase && tiemposNum > 0 && (
+                    <p className="text-xs text-[var(--muted-foreground)]">
+                      Ajustado N: ₡ {tiemposAjustado.toLocaleString("es-CR")}
+                    </p>
+                  )}
+                </div>
+              </div>
+              {conticaNum > 0 && (tucanNum > 0 || tiemposNum > 0) && (
                 <div className={`text-sm font-semibold rounded border px-2.5 py-1 ${
-                  diffSistemasCRC < 0
+                  (diffConticaTucanCRC < 0 && tucanNum > 0) || (diffConticaTiemposCRC < 0 && tiemposNum > 0)
                     ? "border-red-500/30 bg-red-500/10 text-red-300"
-                    : diffSistemasCRC > 0
+                    : (diffConticaTucanCRC > 0 && tucanNum > 0) || (diffConticaTiemposCRC > 0 && tiemposNum > 0)
                     ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
                     : "border-slate-600 bg-slate-800/60 text-slate-300"
                 }`}>
                   Contica{turno === "N" && cierreDBase ? " (ajustada)" : ""}:
                   ₡ {conticaAjustada.toLocaleString("es-CR")} ·
-                  Tucan{turno === "N" && cierreDBase ? " (ajustada)" : ""}:
-                  ₡ {tucanAjustado.toLocaleString("es-CR")} ·
-                  Diferencia: {diffSistemasCRC === 0
-                    ? "sin diferencias"
-                    : `${diffSistemasCRC > 0 ? "+" : "-"}₡ ${Math.abs(diffSistemasCRC).toLocaleString("es-CR")}`
-                  }
+                  {tucanNum > 0 && (
+                    <>
+                      Tucan{turno === "N" && cierreDBase ? " (ajustada)" : ""}:
+                      ₡ {tucanAjustado.toLocaleString("es-CR")} ·
+                      Diferencia (Contica-Tucan): {diffConticaTucanCRC === 0
+                        ? "sin diferencias"
+                        : `${diffConticaTucanCRC > 0 ? "+" : "-"}₡ ${Math.abs(diffConticaTucanCRC).toLocaleString("es-CR")}`
+                      }
+                    </>
+                  )}
+                  {tiemposNum > 0 && (
+                    <>
+                      Tiempos{turno === "N" && cierreDBase ? " (ajustada)" : ""}:
+                      ₡ {tiemposAjustado.toLocaleString("es-CR")} ·
+                      Diferencia (Contica-Tiempos): {diffConticaTiemposCRC === 0
+                        ? "sin diferencias"
+                        : `${diffConticaTiemposCRC > 0 ? "+" : "-"}₡ ${Math.abs(diffConticaTiemposCRC).toLocaleString("es-CR")}`
+                      }
+                    </>
+                  )}
                 </div>
               )}
             </section>

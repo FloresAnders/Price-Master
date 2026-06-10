@@ -268,9 +268,12 @@ export async function handleConfirmDailyClosing(
         if (record.sistemas) {
           await setCierreFondoVentasCache(normalizedCompany, closingDateKey, {
             conticaCRC: record.sistemas.conticaCRC,
-            tucanCRC: record.sistemas.tucanCRC,
-            diffCRC: record.sistemas.diffCRC,
-            conticaAjustadaCRC: record.sistemas.conticaAjustadaCRC,
+            tucanCRC: (record.sistemas as any).tucanCRC ?? 0,
+            tiemposCRC: (record.sistemas as any).tiemposCRC ?? 0,
+            conticaTiemposCRC: (record.sistemas as any).conticaTiemposCRC ?? 0,
+            diffCRC: (record.sistemas as any).diffCRC ?? 0,
+            // store tiempos diff if present as well? keep primary conticaAjustada
+            conticaAjustadaCRC: (record.sistemas as any).conticaAjustadaCRC ?? 0,
             closingDateISO: record.closingDate,
           });
         } else {

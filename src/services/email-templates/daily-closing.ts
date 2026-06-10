@@ -14,9 +14,15 @@ export type DailyClosingEmailContext = {
   notes?: string;
   sistemas?: {
     conticaCRC: number;
-    tucanCRC: number;
-    diffCRC: number;
-    conticaAjustadaCRC: number;
+    tucanCRC?: number;
+    tiemposCRC?: number;
+    conticaTiemposCRC?: number;
+    diffCRC?: number; // contica - tucan
+    diffTiemposCRC?: number; // contica - tiempos
+    conticaAjustadaCRC?: number;
+    conticaTiemposAjustadaCRC?: number;
+    tucanAjustadaCRC?: number;
+    tiemposAjustadaCRC?: number;
   } | null;
 };
 
@@ -75,8 +81,23 @@ ${context.notes.trim()}
 Verificación de sistemas:
  - Contica: ${formatCurrency("CRC", context.sistemas.conticaCRC)}
  - Tucan: ${formatCurrency("CRC", context.sistemas.tucanCRC)}
+  - Contica (Tiempos): ${formatCurrency("CRC", (context.sistemas as any).conticaTiemposCRC ?? 0)}
  - Contica ajustada: ${formatCurrency("CRC", context.sistemas.conticaAjustadaCRC)}
  - Diferencia: ${formatCurrency("CRC", context.sistemas.diffCRC)}
+`
+    : "";
+  const sistemasSectionTextExtended = context.sistemas
+    ? `
+Verificación de sistemas:
+ - Contica: ${formatCurrency("CRC", context.sistemas.conticaCRC)}
+ ${typeof context.sistemas.tucanCRC === "number" ? ` - Tucan: ${formatCurrency("CRC", context.sistemas.tucanCRC)}\n` : ""}
+ ${typeof context.sistemas.tiemposCRC === "number" ? ` - Tiempos: ${formatCurrency("CRC", context.sistemas.tiemposCRC)}\n` : ""}
+ ${typeof context.sistemas.conticaAjustadaCRC === "number" ? ` - Contica ajustada: ${formatCurrency("CRC", context.sistemas.conticaAjustadaCRC)}\n` : ""}
+ ${typeof context.sistemas.tucanAjustadaCRC === "number" ? ` - Tucan ajustada: ${formatCurrency("CRC", context.sistemas.tucanAjustadaCRC)}\n` : ""}
+ ${typeof context.sistemas.tiemposAjustadaCRC === "number" ? ` - Tiempos ajustado: ${formatCurrency("CRC", context.sistemas.tiemposAjustadaCRC)}\n` : ""}
+ ${typeof (context.sistemas as any).conticaTiemposCRC === "number" ? ` - Contica (Tiempos): ${formatCurrency("CRC", (context.sistemas as any).conticaTiemposCRC)}\n` : ""}
+ ${typeof context.sistemas.diffCRC === "number" ? ` - Diferencia (Contica-Tucan): ${formatCurrency("CRC", context.sistemas.diffCRC)}\n` : ""}
+ ${typeof context.sistemas.diffTiemposCRC === "number" ? ` - Diferencia (Contica-Tiempos): ${formatCurrency("CRC", context.sistemas.diffTiemposCRC)}\n` : ""}
 `
     : "";
 
@@ -100,7 +121,7 @@ Diferencias:
  - Dólares: ${formatDiff("USD", context.diffUSD)}
 ${notesSection}`.trim();
 
-  const textWithSistemas = sistemasSectionText ? `${text}\n${sistemasSectionText}` : text;
+  const textWithSistemas = sistemasSectionTextExtended ? `${text}\n${sistemasSectionTextExtended}` : text;
 
   const html = `
         <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #1b1f23;">
@@ -137,9 +158,15 @@ ${notesSection}`.trim();
             <h3 style="margin: 16px 0 8px 0;">Verificación de sistemas</h3>
             <ul style="margin: 0 0 16px 16px; padding: 0;">
               <li>Contica: <strong>${formatCurrency("CRC", context.sistemas.conticaCRC)}</strong></li>
-              <li>Tucan: <strong>${formatCurrency("CRC", context.sistemas.tucanCRC)}</strong></li>
-              <li>Contica ajustada: <strong>${formatCurrency("CRC", context.sistemas.conticaAjustadaCRC)}</strong></li>
-              <li>Diferencia: <strong>${formatCurrency("CRC", context.sistemas.diffCRC)}</strong></li>
+              ${typeof (context.sistemas as any).conticaTiemposCRC === "number" ? `<li>Contica (Tiempos): <strong>${formatCurrency("CRC", (context.sistemas as any).conticaTiemposCRC)}</strong></li>` : ""}
+              ${typeof context.sistemas.tucanCRC === "number" ? `<li>Tucan: <strong>${formatCurrency("CRC", context.sistemas.tucanCRC)}</strong></li>` : ""}
+              ${typeof context.sistemas.tiemposCRC === "number" ? `<li>Tiempos: <strong>${formatCurrency("CRC", context.sistemas.tiemposCRC)}</strong></li>` : ""}
+              ${typeof context.sistemas.conticaAjustadaCRC === "number" ? `<li>Contica ajustada: <strong>${formatCurrency("CRC", context.sistemas.conticaAjustadaCRC)}</strong></li>` : ""}
+              ${typeof (context.sistemas as any).conticaTiemposAjustadaCRC === "number" ? `<li>Contica (Tiempos) ajustada: <strong>${formatCurrency("CRC", (context.sistemas as any).conticaTiemposAjustadaCRC)}</strong></li>` : ""}
+              ${typeof context.sistemas.tucanAjustadaCRC === "number" ? `<li>Tucan ajustada: <strong>${formatCurrency("CRC", context.sistemas.tucanAjustadaCRC)}</strong></li>` : ""}
+              ${typeof context.sistemas.tiemposAjustadaCRC === "number" ? `<li>Tiempos ajustado: <strong>${formatCurrency("CRC", context.sistemas.tiemposAjustadaCRC)}</strong></li>` : ""}
+              ${typeof context.sistemas.diffCRC === "number" ? `<li>Diferencia (Contica-Tucan): <strong>${formatCurrency("CRC", context.sistemas.diffCRC)}</strong></li>` : ""}
+              ${typeof context.sistemas.diffTiemposCRC === "number" ? `<li>Diferencia (Contica-Tiempos): <strong>${formatCurrency("CRC", context.sistemas.diffTiemposCRC)}</strong></li>` : ""}
             </ul>
             ` : ""}
             ${
