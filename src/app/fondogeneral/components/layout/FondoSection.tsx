@@ -49,6 +49,11 @@ import {
   MovementStorage,
   MovementStorageState,
 } from "../../../../services/movimientos-fondos";
+import {
+  deleteCierreFondoVentasCache,
+  getCierreFondoVentasCache,
+  setCierreFondoVentasCache,
+} from "../../utils/closing/cierreFondoVentasDb";
 
 
 import DailyClosingModal, { DailyClosingFormValues } from "../modals/DailyClosingModal";
@@ -557,7 +562,7 @@ export function FondoSection({
     [cierreFondoVentasMinutesBeforeEnd, cierreFondoVentasMinutesAfterEnd],
   );
 
-  const cierreDBase = useMemo(() => {
+  const cierreDBaseFromDailyClosings = useMemo(() => {
     const todayKey = dateKeyFromDate(new Date());
     const todayClosings = dailyClosings.filter((c) => {
       const key = dateKeyFromDate(new Date(c.closingDate));
@@ -567,6 +572,84 @@ export function FondoSection({
     if (!dClosing?.sistemas) return null;
     return { conticaCRC: dClosing.sistemas.conticaCRC, tucanCRC: dClosing.sistemas.tucanCRC };
   }, [dailyClosings]);
+  const [cierreDBaseFromCache, setCierreDBaseFromCache] = useState<{
+    conticaCRC: number;
+    tucanCRC: number;
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const normalizedCompany = (company || "").trim();
+    if (!normalizedCompany) {
+      setCierreDBaseFromCache(null);
+      return;
+    }
+
+    const todayKey = dateKeyFromDate(new Date());
+    const todayClosing = dailyClosings.find((c) => {
+      const key = dateKeyFromDate(new Date(c.closingDate));
+      return key === todayKey;
+    });
+
+    if (todayClosing?.sistemas) {
+      const base = {
+        conticaCRC: todayClosing.sistemas.conticaCRC,
+        tucanCRC: todayClosing.sistemas.tucanCRC,
+      };
+      setCierreDBaseFromCache(base);
+      void setCierreFondoVentasCache(normalizedCompany, todayKey, {
+        conticaCRC: todayClosing.sistemas.conticaCRC,
+        tucanCRC: todayClosing.sistemas.tucanCRC,
+        diffCRC: todayClosing.sistemas.diffCRC,
+        conticaAjustadaCRC: todayClosing.sistemas.conticaAjustadaCRC,
+        closingDateISO: todayClosing.closingDate,
+      }).catch((cacheErr) => {
+        console.error("Error storing daily closing systems cache:", cacheErr);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (todayClosing) {
+      setCierreDBaseFromCache(null);
+      void deleteCierreFondoVentasCache(normalizedCompany, todayKey).catch((cacheErr) => {
+        console.error("Error clearing daily closing systems cache:", cacheErr);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void (async () => {
+      try {
+        const cached = await getCierreFondoVentasCache(normalizedCompany, todayKey);
+        if (cancelled) return;
+        setCierreDBaseFromCache(
+          cached
+            ? {
+                conticaCRC: cached.conticaCRC,
+                tucanCRC: cached.tucanCRC,
+              }
+            : null,
+        );
+      } catch (cacheErr) {
+        console.error("Error reading daily closing systems cache:", cacheErr);
+        if (!cancelled) {
+          setCierreDBaseFromCache(null);
+          void deleteCierreFondoVentasCache(normalizedCompany, todayKey).catch(() => {
+            // ignore cleanup errors
+          });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [company, dailyClosings]);
+
+  const cierreDBase = cierreDBaseFromDailyClosings ?? cierreDBaseFromCache;
   const {
     selectedProvider,
     setSelectedProvider,

@@ -147,25 +147,31 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const [totalConticaCRC, setTotalConticaCRC] = useState<string>("");
   const [totalTucanCRC, setTotalTucanCRC] = useState<string>("");
 
-  const showSistemas = useMemo(
-    () =>
-      isWithinCierreRange(
-        turno,
-        cierreFondoVentasMinutesBeforeEnd,
-        cierreFondoVentasMinutesAfterEnd,
-      ),
-    [turno, cierreFondoVentasMinutesBeforeEnd, cierreFondoVentasMinutesAfterEnd],
-  );
+  const showSistemas = true;
 
   const conticaNum = Number(totalConticaCRC.replace(/\D/g, "")) || 0;
   const tucanNum = Number(totalTucanCRC.replace(/\D/g, "")) || 0;
 
+  const cierreDContica = cierreDBase?.conticaCRC ?? 0;
+  const cierreDTucan = cierreDBase?.tucanCRC ?? 0;
+  const cierreDDiff = cierreDContica - cierreDTucan;
+
   const conticaAjustada = useMemo(() => {
     if (turno === "D" || !cierreDBase) return conticaNum;
-    return conticaNum - cierreDBase.conticaCRC;
-  }, [turno, conticaNum, cierreDBase]);
+    return conticaNum - cierreDContica;
+  }, [turno, conticaNum, cierreDBase, cierreDContica]);
 
-  const diffSistemasCRC = conticaAjustada - tucanNum;
+  const tucanAjustado = useMemo(() => {
+    if (turno === "D" || !cierreDBase) return tucanNum;
+    return tucanNum - cierreDTucan;
+  }, [turno, tucanNum, cierreDBase, cierreDTucan]);
+
+  const diffSistemasCRC = useMemo(() => {
+    if (turno === "N" && cierreDBase) {
+      return (conticaAjustada - tucanAjustado) + cierreDDiff;
+    }
+    return conticaNum - tucanNum;
+  }, [turno, cierreDBase, cierreDDiff, conticaAjustada, tucanAjustado, conticaNum, tucanNum]);
 
   const secondaryButtonClass =
     "inline-flex h-11 items-center justify-center rounded-lg border border-[var(--input-border)] px-4 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20 disabled:cursor-not-allowed disabled:opacity-60";
@@ -737,7 +743,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
 
               {turno === "N" && !cierreDBase && (
                 <div className="rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-                  ⚠️ No se encontró cierre D del día. El monto de Contica no será ajustado.
+                  ⚠️ No se encontró cierre D del día. La fórmula de N no podrá descontar el acumulado del turno D.
                 </div>
               )}
 
@@ -755,7 +761,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                   />
                   {turno === "N" && cierreDBase && conticaNum > 0 && (
                     <p className="text-xs text-[var(--muted-foreground)]">
-                      Ajustado: ₡ {conticaAjustada.toLocaleString("es-CR")}
+                      Ajustado N: ₡ {conticaAjustada.toLocaleString("es-CR")}
                     </p>
                   )}
                 </div>
@@ -771,6 +777,11 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                     placeholder="0"
                     className="h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] text-right transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
                   />
+                    {turno === "N" && cierreDBase && tucanNum > 0 && (
+                      <p className="text-xs text-[var(--muted-foreground)]">
+                        Ajustado N: ₡ {tucanAjustado.toLocaleString("es-CR")}
+                      </p>
+                    )}
                 </div>
               </div>
 
@@ -784,7 +795,8 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                 }`}>
                   Contica{turno === "N" && cierreDBase ? " (ajustada)" : ""}:
                   ₡ {conticaAjustada.toLocaleString("es-CR")} ·
-                  Tucan: ₡ {tucanNum.toLocaleString("es-CR")} ·
+                  Tucan{turno === "N" && cierreDBase ? " (ajustada)" : ""}:
+                  ₡ {tucanAjustado.toLocaleString("es-CR")} ·
                   Diferencia: {diffSistemasCRC === 0
                     ? "sin diferencias"
                     : `${diffSistemasCRC > 0 ? "+" : "-"}₡ ${Math.abs(diffSistemasCRC).toLocaleString("es-CR")}`

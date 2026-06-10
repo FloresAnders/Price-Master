@@ -19,6 +19,10 @@ import {
   AUTO_ADJUSTMENT_MANAGER,
   AUTO_ADJUSTMENT_PROVIDER_CODE,
 } from "../../constants";
+import {
+  deleteCierreFondoVentasCache,
+  setCierreFondoVentasCache,
+} from "./cierreFondoVentasDb";
 import { acquireClosingGuard, releaseClosingGuard, touchClosingGuard } from "./closingGuards";
 
 type LedgerSnapshot = {
@@ -258,6 +262,24 @@ export async function handleConfirmDailyClosing(
     console.log(
       `[CIERRE] ? Cierre guardado exitosamente en Firestore. ID: ${record.id}, Fecha: ${record.closingDate}`,
     );
+
+    if (record.turno === "D") {
+      try {
+        if (record.sistemas) {
+          await setCierreFondoVentasCache(normalizedCompany, closingDateKey, {
+            conticaCRC: record.sistemas.conticaCRC,
+            tucanCRC: record.sistemas.tucanCRC,
+            diffCRC: record.sistemas.diffCRC,
+            conticaAjustadaCRC: record.sistemas.conticaAjustadaCRC,
+            closingDateISO: record.closingDate,
+          });
+        } else {
+          await deleteCierreFondoVentasCache(normalizedCompany, closingDateKey);
+        }
+      } catch (cacheErr) {
+        console.error("[CIERRE] ? Error guardando cache de sistemas del turno D:", cacheErr);
+      }
+    }
 
     if (!isEditingClosing && !isRegularUser) {
       void touchClosingGuard(normalizedCompany, "FONDO_GENERAL", user, serverNowMs);
