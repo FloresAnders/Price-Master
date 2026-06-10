@@ -12,6 +12,12 @@ export type DailyClosingEmailContext = {
   diffCRC: number;
   diffUSD: number;
   notes?: string;
+  sistemas?: {
+    conticaCRC: number;
+    tucanCRC: number;
+    diffCRC: number;
+    conticaAjustadaCRC: number;
+  } | null;
 };
 
 type EmailTemplate = {
@@ -64,6 +70,16 @@ ${context.notes.trim()}
 `
       : "";
 
+  const sistemasSectionText = context.sistemas
+    ? `
+Verificación de sistemas:
+ - Contica: ${formatCurrency("CRC", context.sistemas.conticaCRC)}
+ - Tucan: ${formatCurrency("CRC", context.sistemas.tucanCRC)}
+ - Contica ajustada: ${formatCurrency("CRC", context.sistemas.conticaAjustadaCRC)}
+ - Diferencia: ${formatCurrency("CRC", context.sistemas.diffCRC)}
+`
+    : "";
+
   const text = `Se registró un nuevo cierre diario en Time Master.
 
 Empresa: ${context.company}
@@ -83,6 +99,8 @@ Diferencias:
  - Colones: ${formatDiff("CRC", context.diffCRC)}
  - Dólares: ${formatDiff("USD", context.diffUSD)}
 ${notesSection}`.trim();
+
+  const textWithSistemas = sistemasSectionText ? `${text}\n${sistemasSectionText}` : text;
 
   const html = `
         <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #1b1f23;">
@@ -115,6 +133,15 @@ ${notesSection}`.trim();
                 <li>Colones: ${formatDiff("CRC", context.diffCRC)}</li>
                 <li>Dólares: ${formatDiff("USD", context.diffUSD)}</li>
             </ul>
+            ${context.sistemas ? `
+            <h3 style="margin: 16px 0 8px 0;">Verificación de sistemas</h3>
+            <ul style="margin: 0 0 16px 16px; padding: 0;">
+              <li>Contica: <strong>${formatCurrency("CRC", context.sistemas.conticaCRC)}</strong></li>
+              <li>Tucan: <strong>${formatCurrency("CRC", context.sistemas.tucanCRC)}</strong></li>
+              <li>Contica ajustada: <strong>${formatCurrency("CRC", context.sistemas.conticaAjustadaCRC)}</strong></li>
+              <li>Diferencia: <strong>${formatCurrency("CRC", context.sistemas.diffCRC)}</strong></li>
+            </ul>
+            ` : ""}
             ${
               context.notes && context.notes.trim().length > 0
                 ? `<div style="border-left: 4px solid #0366d6; background: #f1f8ff; padding: 12px 16px; border-radius: 6px;">

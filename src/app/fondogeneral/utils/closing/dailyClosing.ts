@@ -392,6 +392,7 @@ export async function handleConfirmDailyClosing(
     diffCRC: record.diffCRC,
     diffUSD: record.diffUSD,
     notes: record.notes,
+    ...(record.sistemas ? { sistemas: record.sistemas } : {}),
   });
 
   if (notificationRecipients.size === 0 && activeOwnerId) {
