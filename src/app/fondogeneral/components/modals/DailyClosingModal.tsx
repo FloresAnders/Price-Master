@@ -8,6 +8,7 @@ import React, {
 
 import ConfirmModal from "../../../../components/ui/ConfirmModal";
 import { isWithinCierreRange } from "../../utils/turnoRango";
+import SistemasVerificationSection from "./SistemasVerificationSection";
 // Usar botones nativos con clases Tailwind en vez de un componente Button central
 
 const CRC_DENOMINATIONS: readonly number[] = [
@@ -161,48 +162,6 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const tucanNum = Number(totalTucanCRC.replace(/\D/g, "")) || 0;
   const conticaTiemposNum = Number(totalConticaTiemposCRC.replace(/\D/g, "")) || 0;
   const tiemposNum = Number(totalTiemposCRC.replace(/\D/g, "")) || 0;
-
-  const cierreDContica = cierreDBase?.conticaCRC ?? 0;
-  const cierreDTucan = cierreDBase?.tucanCRC ?? 0;
-  const cierreDTiempos = (cierreDBase as any)?.tiemposCRC ?? 0;
-  const cierreDConticaTiempos = (cierreDBase as any)?.conticaTiemposCRC ?? 0;
-
-  const conticaAjustada = useMemo(() => {
-    if (turno === "D" || !cierreDBase) return conticaNum;
-    return conticaNum - cierreDContica;
-  }, [turno, conticaNum, cierreDBase, cierreDContica]);
-
-  const tucanAjustado = useMemo(() => {
-    if (turno === "D" || !cierreDBase) return tucanNum;
-    return tucanNum - cierreDTucan;
-  }, [turno, tucanNum, cierreDBase, cierreDTucan]);
-
-  const conticaTiemposAjustado = useMemo(() => {
-    if (turno === "D" || !cierreDBase) return conticaTiemposNum;
-    return conticaTiemposNum - cierreDConticaTiempos;
-  }, [turno, conticaTiemposNum, cierreDBase, cierreDConticaTiempos]);
-
-  const tiemposAjustado = useMemo(() => {
-    if (turno === "D" || !cierreDBase) return tiemposNum;
-    return tiemposNum - cierreDTiempos;
-  }, [turno, tiemposNum, cierreDBase, cierreDTiempos]);
-
-  const cierreDDiff = cierreDContica - cierreDTucan;
-  const cierreDDiffTiempos = cierreDConticaTiempos - cierreDTiempos;
-
-  const diffConticaTucanCRC = useMemo(() => {
-    if (turno === "N" && cierreDBase) {
-      return (conticaAjustada - tucanAjustado) + cierreDDiff;
-    }
-    return conticaNum - tucanNum;
-  }, [turno, cierreDBase, cierreDDiff, conticaAjustada, tucanAjustado, conticaNum, tucanNum]);
-
-  const diffConticaTiemposCRC = useMemo(() => {
-    if (turno === "N" && cierreDBase) {
-      return (conticaTiemposAjustado - tiemposAjustado) + cierreDDiffTiempos;
-    }
-    return conticaTiemposNum - tiemposNum;
-  }, [turno, cierreDBase, cierreDDiffTiempos, conticaTiemposAjustado, tiemposAjustado, conticaTiemposNum, tiemposNum]);
 
   const secondaryButtonClass =
     "inline-flex h-11 items-center justify-center rounded-lg border border-[var(--input-border)] px-4 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20 disabled:cursor-not-allowed disabled:opacity-60";
@@ -764,130 +723,18 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
             </div>
           </div>
           {showSistemas && (
-            <section className="rounded-lg border border-[var(--input-border)] p-4 space-y-4">
-              <div className="flex items-center gap-2">
-                <h4 className="text-sm font-semibold text-[var(--foreground)]">
-                  Verificación de sistemas
-                </h4>
-                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                  turno === "D"
-                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                    : "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
-                }`}>
-                  Turno {turno}
-                </span>
-              </div>
-
-              {turno === "N" && !cierreDBase && (
-                <div className="rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-                  ⚠️ No se encontró cierre D del día. La fórmula de N no podrá descontar el acumulado del turno D.
-                </div>
-              )}
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-                    Contica (₡)
-                  </label>
-                  <input
-                    value={totalConticaCRC}
-                    onChange={(e) => setTotalConticaCRC(e.target.value.replace(/\D/g, ""))}
-                    inputMode="numeric"
-                    placeholder="0"
-                    className="h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] text-right transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
-                  />
-                  {turno === "N" && cierreDBase && conticaNum > 0 && (
-                    <p className="text-xs text-[var(--muted-foreground)]">
-                      Ajustado N: ₡ {conticaAjustada.toLocaleString("es-CR")}
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-                    Tucan (₡)
-                  </label>
-                  <input
-                    value={totalTucanCRC}
-                    onChange={(e) => setTotalTucanCRC(e.target.value.replace(/\D/g, ""))}
-                    inputMode="numeric"
-                    placeholder="0"
-                    className="h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] text-right transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
-                  />
-                    {turno === "N" && cierreDBase && tucanNum > 0 && (
-                      <p className="text-xs text-[var(--muted-foreground)]">
-                        Ajustado N: ₡ {tucanAjustado.toLocaleString("es-CR")}
-                      </p>
-                    )}
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-                    Contica (Tiempos) (₡)
-                  </label>
-                  <input
-                    value={totalConticaTiemposCRC}
-                    onChange={(e) => setTotalConticaTiemposCRC(e.target.value.replace(/\D/g, ""))}
-                    inputMode="numeric"
-                    placeholder="0"
-                    className="h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] text-right transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
-                  />
-                  {turno === "N" && cierreDBase && conticaTiemposNum > 0 && (
-                    <p className="text-xs text-[var(--muted-foreground)]">
-                      Contica (Tiempos) ajustada N: ₡ {conticaTiemposAjustado.toLocaleString("es-CR")}
-                    </p>
-                  )}
-
-                  <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)] mt-2">
-                    Tiempos (₡)
-                  </label>
-                  <input
-                    value={totalTiemposCRC}
-                    onChange={(e) => setTotalTiemposCRC(e.target.value.replace(/\D/g, ""))}
-                    inputMode="numeric"
-                    placeholder="0"
-                    className="h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] text-right transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
-                  />
-                  {turno === "N" && cierreDBase && tiemposNum > 0 && (
-                    <p className="text-xs text-[var(--muted-foreground)]">
-                      Ajustado N: ₡ {tiemposAjustado.toLocaleString("es-CR")}
-                    </p>
-                  )}
-                </div>
-              </div>
-              {conticaNum > 0 && (tucanNum > 0 || tiemposNum > 0) && (
-                <div className={`text-sm font-semibold rounded border px-2.5 py-1 ${
-                  (diffConticaTucanCRC < 0 && tucanNum > 0) || (diffConticaTiemposCRC < 0 && tiemposNum > 0)
-                    ? "border-red-500/30 bg-red-500/10 text-red-300"
-                    : (diffConticaTucanCRC > 0 && tucanNum > 0) || (diffConticaTiemposCRC > 0 && tiemposNum > 0)
-                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                    : "border-slate-600 bg-slate-800/60 text-slate-300"
-                }`}>
-                  Contica{turno === "N" && cierreDBase ? " (ajustada)" : ""}:
-                  ₡ {conticaAjustada.toLocaleString("es-CR")} ·
-                  {tucanNum > 0 && (
-                    <>
-                      Tucan{turno === "N" && cierreDBase ? " (ajustada)" : ""}:
-                      ₡ {tucanAjustado.toLocaleString("es-CR")} ·
-                      Diferencia (Contica-Tucan): {diffConticaTucanCRC === 0
-                        ? "sin diferencias"
-                        : `${diffConticaTucanCRC > 0 ? "+" : "-"}₡ ${Math.abs(diffConticaTucanCRC).toLocaleString("es-CR")}`
-                      }
-                    </>
-                  )}
-                  {tiemposNum > 0 && (
-                    <>
-                      Tiempos{turno === "N" && cierreDBase ? " (ajustada)" : ""}:
-                      ₡ {tiemposAjustado.toLocaleString("es-CR")} ·
-                      Diferencia (Contica-Tiempos): {diffConticaTiemposCRC === 0
-                        ? "sin diferencias"
-                        : `${diffConticaTiemposCRC > 0 ? "+" : "-"}₡ ${Math.abs(diffConticaTiemposCRC).toLocaleString("es-CR")}`
-                      }
-                    </>
-                  )}
-                </div>
-              )}
-            </section>
+            <SistemasVerificationSection
+              turno={turno}
+              cierreDBase={cierreDBase}
+              totalConticaCRC={totalConticaCRC}
+              totalTucanCRC={totalTucanCRC}
+              totalConticaTiemposCRC={totalConticaTiemposCRC}
+              totalTiemposCRC={totalTiemposCRC}
+              onConticaChange={setTotalConticaCRC}
+              onTucanChange={setTotalTucanCRC}
+              onConticaTiemposChange={setTotalConticaTiemposCRC}
+              onTiemposChange={setTotalTiemposCRC}
+            />
           )}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
