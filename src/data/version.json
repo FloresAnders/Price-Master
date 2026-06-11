@@ -1,19 +1,19 @@
 {
-  "version": "1.7.5",
-  "versionstorage": "1.2.2",
-  "notasDeSistemas": "1.2.1",
+  "version": "1.7.6",
+  "versionstorage": "1.2.3",
+  "notasDeSistemas": "1.2.2",
   "releaseNotes": [
     {
-      "date": "2026-06-05",
-      "title": "Implementacion de Apertura de Fondo" ,
-      "description": "Se implentó la apertura de fondo"
+      "date": "2026-06-11",
+      "title": "Validacion y apertura de fondo" ,
+      "description": "Se implementó validacion de turnos, ventana de cierre nocturno, apertura de fondo, sistema Tucan y sistema Tiempos"
     }
   ],
   "systemNotes": [
     {
-      "date": "2026-06-01",
-      "title": "Implementacion de Apertura de Fondo",
-      "description": "Se implentó la apertura de fondo"
+      "date": "2026-06-11",
+      "title": "Validacion y apertura de fondo",
+      "description": "Se implementó validacion de turnos, ventana de cierre nocturno, apertura de fondo, sistema Tucan y sistema Tiempos"
     }
   ],
   "_comment": "hacer una pagina de 'en mantenimiento' para secciones en desarrollo y a exepcion de un usuario admin"
