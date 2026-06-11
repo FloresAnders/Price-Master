@@ -312,6 +312,7 @@ export function FondoSection({
   const [missingShiftExpectedShift, setMissingShiftExpectedShift] =
     useState<ShiftCode>("D");
   const [missingShiftDateKey, setMissingShiftDateKey] = useState("");
+  const createMovementValidationIdRef = useRef(0);
   const [dailyClosingSingleReasonRequired, setDailyClosingSingleReasonRequired] =
     useState(false);
 
@@ -327,6 +328,10 @@ export function FondoSection({
 
     return normalizedCompany === "delifood" || normalizedEmpresaName === "delifood";
   }, [activeEmpresaForCompany?.name, company]);
+
+  useEffect(() => {
+    createMovementValidationIdRef.current += 1;
+  }, [accountKey, company, namespace, user?.email]);
 
   const { fondoTypesLoaded, ingresoTypes, gastoTypes, egresoTypes } =
     useFondoMovementTypes(activeOwnerId);
@@ -1705,6 +1710,7 @@ export function FondoSection({
   ]);
 
   const handleSubmitFondo = async () => {
+    createMovementValidationIdRef.current += 1;
     await handleSubmitFondoFn({
       company,
       isSaving,
@@ -3204,6 +3210,7 @@ export function FondoSection({
   );
 
   const closeMovementModal = () => {
+    createMovementValidationIdRef.current += 1;
     setMovementModalOpen(false);
     resetFondoForm();
     setMovementAutoCloseLocked(false);
@@ -3275,37 +3282,60 @@ export function FondoSection({
       return;
     }
 
-    if (
+    const shouldValidateShift =
       isRegularUser &&
       accountKey === "FondoGeneral" &&
       namespace === "fg" &&
       !isCajaNegra &&
-      !isDelifoodCompany
-    ) {
+      !isDelifoodCompany;
+    const validationId = ++createMovementValidationIdRef.current;
+    const resolveMissingShift = async () => {
       try {
         const nowISO = await getAuthoritativeNowISO();
         const resolution = await resolveShiftManagerForNow(nowISO);
-        if (resolution?.mode === "missing") {
-          setMissingShiftExpectedShift(resolution.expectedShift);
-          setMissingShiftDateKey(resolution.dateKey);
-          setMissingShiftModalOpen(true);
-          return;
-        }
+        return resolution?.mode === "missing" ? resolution : null;
       } catch (err) {
         console.error(
           "[FG] Error checking control horario before opening movement:",
           err,
         );
+        return null;
       }
-    }
+    };
 
-    // Si hubo un cierre pendiente (guardado en localStorage), solicitar confirmación de conteo físico.
+    // El conteo físico no puede continuar hasta confirmar que existe turno.
     if (shouldPromptPhysicalCount()) {
+      const missingShift = shouldValidateShift
+        ? await resolveMissingShift()
+        : null;
+      if (validationId !== createMovementValidationIdRef.current) return;
+      if (missingShift) {
+        setMissingShiftExpectedShift(missingShift.expectedShift);
+        setMissingShiftDateKey(missingShift.dateKey);
+        setMissingShiftModalOpen(true);
+        return;
+      }
       setConfirmPhysicalCountOpen(true);
       return;
     }
 
+    // Abrir primero; la validación de red no debe bloquear respuesta visual.
     openCreateMovementDrawer();
+    if (shouldValidateShift) {
+      void resolveMissingShift().then((missingShift) => {
+        if (
+          !missingShift ||
+          validationId !== createMovementValidationIdRef.current
+        ) {
+          return;
+        }
+        setMovementModalOpen(false);
+        resetFondoForm();
+        setMissingShiftExpectedShift(missingShift.expectedShift);
+        setMissingShiftDateKey(missingShift.dateKey);
+        setMissingShiftModalOpen(true);
+      });
+    }
   };
 
   const handleOpenDailyClosing = async () => {
