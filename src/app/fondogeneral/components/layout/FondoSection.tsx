@@ -3000,6 +3000,14 @@ export function FondoSection({
               cierreFondoVentasMinutesAfterEnd + 1,
             ),
           );
+          const referenceWindowStartMin = addMinutesToMinuteOfDay(
+            referenceShiftEndMin,
+            -cierreFondoVentasMinutesBeforeEnd,
+          );
+          const referenceWindowEndMin = addMinutesToMinuteOfDay(
+            referenceShiftEndMin,
+            cierreFondoVentasMinutesAfterEnd,
+          );
           const minutesUntilReferenceEnd =
             (referenceShiftEndMin - nowMin + 1440) % 1440;
           const minutesAfterReferenceEnd =
@@ -3010,9 +3018,13 @@ export function FondoSection({
 
           if (!isInReferenceWindow) {
             const humanDelta =
-              nowMin < referenceShiftEndMin
-                ? `Faltan ${minutesUntilReferenceEnd} min`
-                : `Han pasado ${minutesAfterReferenceEnd} min`;
+              isWithinWindow(
+                nowMin,
+                addMinutesToMinuteOfDay(referenceWindowEndMin, 1),
+                referenceWindowStartMin,
+              )
+                ? `Faltan ${(referenceWindowStartMin - nowMin + 1440) % 1440} minutos para poder ingresar el cierre.`
+                : `Han pasado ${(nowMin - referenceWindowEndMin + 1440) % 1440} minutos desde el cierre.`;
             showToast(
               `El \"CIERRE FONDO VENTAS\" solo se puede registrar desde las ${referenceWindowStartLabel} hasta las ${referenceWindowEndLabel} alrededor del fin del turno ${referenceShiftLabel} (${referenceShiftEndLabel}). ${humanDelta}.`,
               "warning",
