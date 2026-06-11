@@ -79,11 +79,11 @@ ${context.notes.trim()}
   const sistemasSectionText = context.sistemas
     ? `
 Verificación de sistemas:
- - Contica: ${formatCurrency("CRC", context.sistemas.conticaCRC)}
- - Tucan: ${formatCurrency("CRC", context.sistemas.tucanCRC)}
+  - Contica: ${formatCurrency("CRC", context.sistemas.conticaCRC)}
+ - Tucan: ${formatCurrency("CRC", context.sistemas.tucanCRC ?? 0)}
   - Contica (Tiempos): ${formatCurrency("CRC", (context.sistemas as any).conticaTiemposCRC ?? 0)}
- - Contica ajustada: ${formatCurrency("CRC", context.sistemas.conticaAjustadaCRC)}
- - Diferencia: ${formatCurrency("CRC", context.sistemas.diffCRC)}
+ - Contica ajustada: ${formatCurrency("CRC", context.sistemas.conticaAjustadaCRC ?? 0)}
+ - Diferencia: ${formatCurrency("CRC", context.sistemas.diffCRC ?? 0)}
 `
     : "";
   const sistemasSectionTextExtended = context.sistemas

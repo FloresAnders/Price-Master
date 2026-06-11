@@ -17,9 +17,15 @@ export type DailyClosingRecord = {
   turno?: "D" | "N";
   sistemas?: {
     conticaCRC: number;
-    tucanCRC: number;
-    diffCRC: number;
-    conticaAjustadaCRC: number;
+    tucanCRC?: number;
+    tiemposCRC?: number;
+    conticaTiemposCRC?: number;
+    diffCRC?: number;
+    diffTiemposCRC?: number;
+    conticaAjustadaCRC?: number;
+    tucanAjustadaCRC?: number;
+    tiemposAjustadaCRC?: number;
+    conticaTiemposAjustadaCRC?: number;
   };
   singleClosingReason?: string;
   breakdownCRC: Record<number, number>;
