@@ -12,6 +12,7 @@ export type DailyClosingEmailContext = {
   diffCRC: number;
   diffUSD: number;
   notes?: string;
+  singleClosingReason?: string;
   sistemas?: {
     conticaCRC: number;
     tucanCRC?: number;
@@ -76,6 +77,14 @@ ${context.notes.trim()}
 `
       : "";
 
+  const singleClosingReasonSection =
+    context.singleClosingReason && context.singleClosingReason.trim().length > 0
+      ? `
+Motivo cierre unico:
+${context.singleClosingReason.trim()}
+`
+      : "";
+
   const sistemasSectionText = context.sistemas
     ? `
 Verificación de sistemas:
@@ -119,7 +128,7 @@ Saldos registrados en sistema:
 Diferencias:
  - Colones: ${formatDiff("CRC", context.diffCRC)}
  - Dólares: ${formatDiff("USD", context.diffUSD)}
-${notesSection}`.trim();
+${singleClosingReasonSection}${notesSection}`.trim();
 
   const textWithSistemas = sistemasSectionTextExtended ? `${text}\n${sistemasSectionTextExtended}` : text;
 
@@ -154,6 +163,14 @@ ${notesSection}`.trim();
                 <li>Colones: ${formatDiff("CRC", context.diffCRC)}</li>
                 <li>Dólares: ${formatDiff("USD", context.diffUSD)}</li>
             </ul>
+            ${
+              context.singleClosingReason && context.singleClosingReason.trim().length > 0
+                ? `<div style="border-left: 4px solid #f59e0b; background: #fffbeb; padding: 12px 16px; border-radius: 6px; margin-bottom: 16px;">
+                        <strong>Motivo cierre unico:</strong>
+                        <p style="margin: 8px 0 0 0; white-space: pre-line;">${context.singleClosingReason.trim()}</p>
+                    </div>`
+                : ""
+            }
             ${context.sistemas ? `
             <h3 style="margin: 16px 0 8px 0;">Verificación de sistemas</h3>
             <ul style="margin: 0 0 16px 16px; padding: 0;">

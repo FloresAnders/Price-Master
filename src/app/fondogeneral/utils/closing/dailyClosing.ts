@@ -395,6 +395,7 @@ export async function handleConfirmDailyClosing(
     diffCRC: record.diffCRC,
     diffUSD: record.diffUSD,
     notes: record.notes,
+    singleClosingReason: record.singleClosingReason,
     ...(record.sistemas ? { sistemas: record.sistemas } : {}),
   });
 
