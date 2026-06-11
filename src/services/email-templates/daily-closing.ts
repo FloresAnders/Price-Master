@@ -18,8 +18,8 @@ export type DailyClosingEmailContext = {
     tucanCRC?: number;
     tiemposCRC?: number;
     conticaTiemposCRC?: number;
-    diffCRC?: number; // contica - tucan
-    diffTiemposCRC?: number; // contica - tiempos
+    diffCRC?: number;
+    diffTiemposCRC?: number;
     conticaAjustadaCRC?: number;
     conticaTiemposAjustadaCRC?: number;
     tucanAjustadaCRC?: number;
@@ -58,6 +58,21 @@ const formatDiff = (currency: "CRC" | "USD", diff: number) => {
   return diff > 0 ? `Sobrante de ${formatted}` : `Faltante de ${formatted}`;
 };
 
+const renderVerificationMatrixRow = (
+  label: string,
+  conticaAmount?: number,
+  serviceAmount?: number,
+  diffAmount?: number,
+  striped = false,
+) => `
+    <tr${striped ? ` style="background: #f6f8fa;"` : ""}>
+      <td style="padding: 4px 8px; border: 1px solid #000;">${label}</td>
+      <td style="padding: 4px 8px; border: 1px solid #000; text-align: right;">${typeof conticaAmount === "number" ? formatCurrency("CRC", conticaAmount) : ""}</td>
+      <td style="padding: 4px 8px; border: 1px solid #000; text-align: right;">${typeof serviceAmount === "number" ? formatCurrency("CRC", serviceAmount) : ""}</td>
+      <td style="padding: 4px 8px; border: 1px solid #000; text-align: right;">${typeof diffAmount === "number" ? formatCurrency("CRC", diffAmount) : ""}</td>
+    </tr>
+  `;
+
 export const buildDailyClosingEmailTemplate = (
   context: DailyClosingEmailContext,
 ): EmailTemplate => {
@@ -67,7 +82,7 @@ export const buildDailyClosingEmailTemplate = (
     timeStyle: "short",
   }).format(closingDate);
 
-  const subject = `Nuevo cierre diario — ${context.company}`;
+  const subject = `Nuevo cierre diario - ${context.company}`;
 
   const notesSection =
     context.notes && context.notes.trim().length > 0
@@ -85,19 +100,9 @@ ${context.singleClosingReason.trim()}
 `
       : "";
 
-  const sistemasSectionText = context.sistemas
-    ? `
-Verificación de sistemas:
-  - Contica: ${formatCurrency("CRC", context.sistemas.conticaCRC)}
- - Tucan: ${formatCurrency("CRC", context.sistemas.tucanCRC ?? 0)}
-  - Contica (Tiempos): ${formatCurrency("CRC", (context.sistemas as any).conticaTiemposCRC ?? 0)}
- - Contica ajustada: ${formatCurrency("CRC", context.sistemas.conticaAjustadaCRC ?? 0)}
- - Diferencia: ${formatCurrency("CRC", context.sistemas.diffCRC ?? 0)}
-`
-    : "";
   const sistemasSectionTextExtended = context.sistemas
     ? `
-Verificación de sistemas:
+Verificacion de sistemas:
  - Contica: ${formatCurrency("CRC", context.sistemas.conticaCRC)}
  ${typeof context.sistemas.tucanCRC === "number" ? ` - Tucan: ${formatCurrency("CRC", context.sistemas.tucanCRC)}\n` : ""}
  ${typeof context.sistemas.tiemposCRC === "number" ? ` - Tiempos: ${formatCurrency("CRC", context.sistemas.tiemposCRC)}\n` : ""}
@@ -110,7 +115,7 @@ Verificación de sistemas:
 `
     : "";
 
-  const text = `Se registró un nuevo cierre diario en Time Master.
+  const text = `Se registro un nuevo cierre diario en Time Master.
 
 Empresa: ${context.company}
 Cuenta: ${context.accountKey}
@@ -119,23 +124,59 @@ Encargado: ${context.manager}
 
 Totales declarados:
  - Colones: ${formatCurrency("CRC", context.totalCRC)}
- - Dólares: ${formatCurrency("USD", context.totalUSD)}
+ - Dolares: ${formatCurrency("USD", context.totalUSD)}
 
 Saldos registrados en sistema:
  - Colones: ${formatCurrency("CRC", context.recordedBalanceCRC)}
- - Dólares: ${formatCurrency("USD", context.recordedBalanceUSD)}
+ - Dolares: ${formatCurrency("USD", context.recordedBalanceUSD)}
 
 Diferencias:
  - Colones: ${formatDiff("CRC", context.diffCRC)}
- - Dólares: ${formatDiff("USD", context.diffUSD)}
+ - Dolares: ${formatDiff("USD", context.diffUSD)}
 ${singleClosingReasonSection}${notesSection}`.trim();
 
-  const textWithSistemas = sistemasSectionTextExtended ? `${text}\n${sistemasSectionTextExtended}` : text;
+  const textWithSistemas = sistemasSectionTextExtended
+    ? `${text}\n${sistemasSectionTextExtended}`
+    : text;
+
+  const sistemasHtmlSection = context.sistemas
+    ? `
+            <h3 style="margin: 16px 0 8px 0;">Verificacion de sistemas</h3>
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 14px;">
+              <thead>
+                <tr style="background: #d9d9d9;">
+                  <th style="padding: 4px 8px; border: 1px solid #000; text-align: left;">Sistema</th>
+                  <th style="padding: 4px 8px; border: 1px solid #000; text-align: right;">CONTICA</th>
+                  <th style="padding: 4px 8px; border: 1px solid #000; text-align: right;">SERVICIO</th>
+                  <th style="padding: 4px 8px; border: 1px solid #000; text-align: right;">DIFERENCIA</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${renderVerificationMatrixRow(
+                  "TUCAN",
+                  context.sistemas.conticaAjustadaCRC ?? context.sistemas.conticaCRC,
+                  context.sistemas.tucanAjustadaCRC ?? context.sistemas.tucanCRC,
+                  context.sistemas.diffCRC,
+                )}
+                ${renderVerificationMatrixRow(
+                  "TIEMPOS",
+                  (context.sistemas as any).conticaTiemposAjustadaCRC ??
+                    (context.sistemas as any).conticaTiemposCRC ??
+                    context.sistemas.conticaAjustadaCRC ??
+                    context.sistemas.conticaCRC,
+                  context.sistemas.tiemposAjustadaCRC ?? context.sistemas.tiemposCRC,
+                  context.sistemas.diffTiemposCRC,
+                  true,
+                )}
+              </tbody>
+            </table>
+          `
+    : "";
 
   const html = `
         <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #1b1f23;">
             <h2 style="margin-bottom: 12px;">Nuevo cierre diario registrado</h2>
-            <p style="margin: 0 0 12px 0;">Se registró un cierre para <strong>${context.company}</strong> en la cuenta <strong>Fondo General</strong>.</p>
+            <p style="margin: 0 0 12px 0;">Se registro un cierre para <strong>${context.company}</strong> en la cuenta <strong>Fondo General</strong>.</p>
             <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
                 <tbody>
                     <tr>
@@ -151,17 +192,17 @@ ${singleClosingReasonSection}${notesSection}`.trim();
             <h3 style="margin: 16px 0 8px 0;">Totales declarados</h3>
             <ul style="margin: 0 0 16px 16px; padding: 0;">
                 <li>Colones: <strong>${formatCurrency("CRC", context.totalCRC)}</strong></li>
-                <li>Dólares: <strong>${formatCurrency("USD", context.totalUSD)}</strong></li>
+                <li>Dolares: <strong>${formatCurrency("USD", context.totalUSD)}</strong></li>
             </ul>
             <h3 style="margin: 16px 0 8px 0;">Saldos registrados</h3>
             <ul style="margin: 0 0 16px 16px; padding: 0;">
                 <li>Colones: ${formatCurrency("CRC", context.recordedBalanceCRC)}</li>
-                <li>Dólares: ${formatCurrency("USD", context.recordedBalanceUSD)}</li>
+                <li>Dolares: ${formatCurrency("USD", context.recordedBalanceUSD)}</li>
             </ul>
             <h3 style="margin: 16px 0 8px 0;">Diferencias</h3>
             <ul style="margin: 0 0 16px 16px; padding: 0;">
                 <li>Colones: ${formatDiff("CRC", context.diffCRC)}</li>
-                <li>Dólares: ${formatDiff("USD", context.diffUSD)}</li>
+                <li>Dolares: ${formatDiff("USD", context.diffUSD)}</li>
             </ul>
             ${
               context.singleClosingReason && context.singleClosingReason.trim().length > 0
@@ -171,21 +212,7 @@ ${singleClosingReasonSection}${notesSection}`.trim();
                     </div>`
                 : ""
             }
-            ${context.sistemas ? `
-            <h3 style="margin: 16px 0 8px 0;">Verificación de sistemas</h3>
-            <ul style="margin: 0 0 16px 16px; padding: 0;">
-              <li>Contica: <strong>${formatCurrency("CRC", context.sistemas.conticaCRC)}</strong></li>
-              ${typeof (context.sistemas as any).conticaTiemposCRC === "number" ? `<li>Contica (Tiempos): <strong>${formatCurrency("CRC", (context.sistemas as any).conticaTiemposCRC)}</strong></li>` : ""}
-              ${typeof context.sistemas.tucanCRC === "number" ? `<li>Tucan: <strong>${formatCurrency("CRC", context.sistemas.tucanCRC)}</strong></li>` : ""}
-              ${typeof context.sistemas.tiemposCRC === "number" ? `<li>Tiempos: <strong>${formatCurrency("CRC", context.sistemas.tiemposCRC)}</strong></li>` : ""}
-              ${typeof context.sistemas.conticaAjustadaCRC === "number" ? `<li>Contica ajustada: <strong>${formatCurrency("CRC", context.sistemas.conticaAjustadaCRC)}</strong></li>` : ""}
-              ${typeof (context.sistemas as any).conticaTiemposAjustadaCRC === "number" ? `<li>Contica (Tiempos) ajustada: <strong>${formatCurrency("CRC", (context.sistemas as any).conticaTiemposAjustadaCRC)}</strong></li>` : ""}
-              ${typeof context.sistemas.tucanAjustadaCRC === "number" ? `<li>Tucan ajustada: <strong>${formatCurrency("CRC", context.sistemas.tucanAjustadaCRC)}</strong></li>` : ""}
-              ${typeof context.sistemas.tiemposAjustadaCRC === "number" ? `<li>Tiempos ajustado: <strong>${formatCurrency("CRC", context.sistemas.tiemposAjustadaCRC)}</strong></li>` : ""}
-              ${typeof context.sistemas.diffCRC === "number" ? `<li>Diferencia (Contica-Tucan): <strong>${formatCurrency("CRC", context.sistemas.diffCRC)}</strong></li>` : ""}
-              ${typeof context.sistemas.diffTiemposCRC === "number" ? `<li>Diferencia (Contica-Tiempos): <strong>${formatCurrency("CRC", context.sistemas.diffTiemposCRC)}</strong></li>` : ""}
-            </ul>
-            ` : ""}
+            ${sistemasHtmlSection}
             ${
               context.notes && context.notes.trim().length > 0
                 ? `<div style="border-left: 4px solid #0366d6; background: #f1f8ff; padding: 12px 16px; border-radius: 6px;">
@@ -199,7 +226,7 @@ ${singleClosingReasonSection}${notesSection}`.trim();
 
   return {
     subject,
-    text,
+    text: textWithSistemas,
     html,
   };
 };
