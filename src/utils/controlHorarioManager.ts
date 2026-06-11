@@ -102,6 +102,26 @@ const parseHHMMToMinutes = (value: unknown): number | null => {
   return hour * 60 + minute;
 };
 
+export const isWithinFondoVentasNightClosingWindow = (args: {
+  nowISO: string;
+  horarioCierre?: string | null;
+  minutesBeforeEnd: number;
+  minutesAfterEnd: number;
+}): boolean => {
+  const parts = getCRParts(new Date(args.nowISO));
+  const closeMin = parseHHMMToMinutes(args.horarioCierre);
+  if (!parts || closeMin === null) return false;
+
+  const normalizeMin = (value: number) => ((value % 1440) + 1440) % 1440;
+  const nowMin = parts.hour * 60 + parts.minute;
+  const startMin = normalizeMin(closeMin - Math.max(0, args.minutesBeforeEnd));
+  const endMin = normalizeMin(closeMin + Math.max(0, args.minutesAfterEnd) + 1);
+
+  return startMin <= endMin
+    ? nowMin >= startMin && nowMin < endMin
+    : nowMin >= startMin || nowMin < endMin;
+};
+
 const getPreviousDateKey = (parts: CRParts): string => {
   const previous = new Date(Date.UTC(parts.year, parts.month0, parts.day - 1));
   return `${previous.getUTCFullYear()}-${String(

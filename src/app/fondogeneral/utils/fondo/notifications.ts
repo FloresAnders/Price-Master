@@ -3,6 +3,10 @@ import { db } from "@/config/firebase";
 import { generateMovementNotificationEmail } from "../../../../services/email-templates/notificacion-movimiento";
 import type { FondoEntry } from "../../types";
 import type { ToastType } from "@/hooks/useToast";
+import {
+  CIERRE_FONDO_VENTAS_PROVIDER_NAME,
+  SINGLE_CLOSING_REASON_PREFIX,
+} from "../../constants";
 
 export async function sendMovementNotification(
   entry: FondoEntry,
@@ -23,6 +27,16 @@ export async function sendMovementNotification(
     const amountType: "Egreso" | "Ingreso" =
       entry.amountEgreso > 0 ? "Egreso" : "Ingreso";
     const currency = (entry.currency as "CRC" | "USD") || "CRC";
+    const isCierreFondoVentas =
+      providerName.trim().toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME ||
+      entry.providerCode.trim().toUpperCase() ===
+        CIERRE_FONDO_VENTAS_PROVIDER_NAME;
+    const hasSingleClosingReason =
+      isCierreFondoVentas &&
+      entry.notes?.startsWith(SINGLE_CLOSING_REASON_PREFIX);
+    const singleClosingReason = hasSingleClosingReason
+      ? entry.notes?.slice(SINGLE_CLOSING_REASON_PREFIX.length).trim()
+      : undefined;
 
     const emailContent = generateMovementNotificationEmail({
       company: company || "",
@@ -34,7 +48,8 @@ export async function sendMovementNotification(
       amountType,
       currency,
       manager: entry.manager,
-      notes: entry.notes,
+      notes: hasSingleClosingReason ? undefined : entry.notes,
+      singleClosingReason,
       createdAt: entry.createdAt,
       operationType,
     });

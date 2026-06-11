@@ -1,8 +1,8 @@
 import { db } from "@/config/firebase";
 import {
   findBestSchedule,
-  getControlHorarioShiftTiming,
   getCostaRicaDateKeyAndMinute,
+  isWithinFondoVentasNightClosingWindow,
   resolveManagerFromControlHorario,
 } from "@/utils/controlHorarioManager";
 import { getCierreWindowTurno } from "./turnoRango";
@@ -343,83 +343,53 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         return Array.from(set);
       })();
 
-      const parts = new Intl.DateTimeFormat("en-US", {
-        timeZone: "America/Costa_Rica",
-        year: "numeric",
-        month: "2-digit",
-      }).formatToParts(new Date(nowISO));
-      const year = Number(parts.find((p) => p.type === "year")?.value);
-      const month1 = Number(parts.find((p) => p.type === "month")?.value);
-      const month0 = Math.max(0, Math.min(11, month1 - 1));
-
-      if (companyKeysToTry.length > 0 && Number.isFinite(year) && Number.isFinite(month1)) {
-        const schedulesLists = await Promise.all(
-          companyKeysToTry.map((key: string) =>
-            getFGMonthlySchedulesCached(key, year, month0),
-          ),
-        );
-        const monthSchedules = schedulesLists.flat();
-        const timing = getControlHorarioShiftTiming({
+      if (companyKeysToTry.length > 0) {
+        const isInNightClosingWindow = isWithinFondoVentasNightClosingWindow({
           nowISO,
-          empresa: activeEmpresaForCompany,
-          monthSchedules,
-          closingMovements: fondoEntries as Array<{
-            createdAt?: string;
-            providerCode?: string;
-          }>,
-          providers: movementProviders as Array<{
-            code: string;
-            name?: string | null;
-          }>,
+          horarioCierre: activeEmpresaForCompany.horarioCierre,
+          minutesBeforeEnd:
+            activeEmpresaForCompany.cierreFondoVentasMinutesBeforeEnd ??
+            CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
+          minutesAfterEnd:
+            activeEmpresaForCompany.cierreFondoVentasMinutesAfterEnd ??
+            CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
+        });
+        const nowMs = new Date(nowISO).getTime();
+        const hasRecentDayClosing = fondoEntries.some((entry: FondoEntry) => {
+          const createdAt = String(entry.createdAt || "");
+          const createdAtMs = new Date(createdAt).getTime();
+          const ageMs = nowMs - createdAtMs;
+          const provider = movementProviders.find(
+            (p: any) => p.code === entry.providerCode,
+          );
+          return (
+            provider?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME &&
+            Number.isFinite(createdAtMs) &&
+            ageMs >= 0 &&
+            ageMs <= 24 * 60 * 60 * 1000 &&
+            !isWithinFondoVentasNightClosingWindow({
+              nowISO: createdAt,
+              horarioCierre: activeEmpresaForCompany.horarioCierre,
+              minutesBeforeEnd:
+                activeEmpresaForCompany.cierreFondoVentasMinutesBeforeEnd ??
+                CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
+              minutesAfterEnd:
+                activeEmpresaForCompany.cierreFondoVentasMinutesAfterEnd ??
+                CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
+            })
+          );
         });
 
-        if (timing.withinHorario) {
-          const normalizeMin = (value: number) => ((value % 1440) + 1440) % 1440;
-          const addMinutes = (value: number, delta: number) =>
-            normalizeMin(value + delta);
-          const nowMin = normalizeMin(timing.currentMin);
-          const nightEndMin = normalizeMin(timing.closeMin);
-          const nightWindowStartMin = addMinutes(
-            nightEndMin,
-            -(
-              activeEmpresaForCompany.cierreFondoVentasMinutesBeforeEnd ??
-              CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END
-            ),
-          );
-          const nightWindowEndMin = addMinutes(
-            nightEndMin,
-            (
-              activeEmpresaForCompany.cierreFondoVentasMinutesAfterEnd ??
-              CIERRE_FONDO_VENTAS_MINUTES_AFTER_END
-            ) + 1,
-          );
-          const isWithinWindow =
-            nightWindowStartMin <= nightWindowEndMin
-              ? nowMin >= nightWindowStartMin && nowMin < nightWindowEndMin
-              : nowMin >= nightWindowStartMin || nowMin < nightWindowEndMin;
-          const closingsTodayCount = fondoEntries.filter((entry: FondoEntry) => {
-            const info = getCostaRicaDateKeyAndMinute(String(entry.createdAt || ""));
-            const provider = movementProviders.find(
-              (p: any) => p.code === entry.providerCode,
+        if (isInNightClosingWindow && !hasRecentDayClosing) {
+          shouldPrefixSingleClosingReason = true;
+          const notesWithoutPrefix = trimmedNotes.replace(SINGLE_CLOSING_REASON_PREFIX, "").trim();
+          if (notesWithoutPrefix.length === 0) {
+            showToast(
+              "Debe indicar en observaciones el motivo de por que solo se realizo un cierre en el dia.",
+              "warning",
+              6000,
             );
-            return Boolean(
-              info &&
-                info.dateKey === timing.dateKey &&
-                provider?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME,
-            );
-          }).length;
-
-          if (isWithinWindow && closingsTodayCount === 0) {
-            shouldPrefixSingleClosingReason = true;
-            const notesWithoutPrefix = trimmedNotes.replace(SINGLE_CLOSING_REASON_PREFIX, "").trim();
-            if (notesWithoutPrefix.length === 0) {
-              showToast(
-                "Debe indicar en observaciones el motivo de por qu?? solo se realizo un cierre en el d??a.",
-                "warning",
-                6000,
-              );
-              return;
-            }
+            return;
           }
         }
       }

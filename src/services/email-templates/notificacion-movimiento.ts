@@ -13,6 +13,7 @@ interface MovementData {
   currency: "CRC" | "USD";
   manager: string;
   notes?: string;
+  singleClosingReason?: string;
   createdAt: string;
   operationType: "create" | "edit";
 }
@@ -33,6 +34,7 @@ export function generateMovementNotificationEmail(data: MovementData): {
     currency,
     manager,
     notes,
+    singleClosingReason,
     createdAt,
     operationType,
   } = data;
@@ -109,6 +111,14 @@ export function generateMovementNotificationEmail(data: MovementData): {
                     <td style="padding: 10px; border: 1px solid #ddd;">${formattedDate}</td>
                 </tr>
             </table>
+            ${
+              singleClosingReason
+                ? `<div style="border-left: 4px solid #f59e0b; background: #fffbeb; padding: 12px 16px; border-radius: 6px; margin-bottom: 16px;">
+                        <strong>Motivo cierre unico:</strong>
+                        <p style="margin: 8px 0 0 0; white-space: pre-line;">${singleClosingReason}</p>
+                    </div>`
+                : ""
+            }
             
             <p style="color: #666; font-size: 12px; margin-top: 20px;">
                 Este es un correo automático generado por el sistema Time Master.
@@ -127,6 +137,7 @@ Tipo: ${paymentType}
 N° Factura: ${invoiceNumber}
 ${amountType}: ${formattedAmount}
 Encargado: ${manager}
+${singleClosingReason ? `\nMotivo cierre unico:\n${singleClosingReason}\n` : ""}
 ${notes ? `Notas: ${notes}` : ""}
 Fecha: ${formattedDate}
 
