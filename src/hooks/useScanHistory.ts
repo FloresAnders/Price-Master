@@ -133,6 +133,22 @@ export function useScanHistory() {
     }
   }, []);
 
+  const deleteScans = useCallback(async (scanIds: string[]): Promise<void> => {
+    try {
+      const uniqueScanIds = [...new Set(scanIds.filter(Boolean))];
+      if (uniqueScanIds.length === 0) return;
+
+      await ScanningService.deleteScans(uniqueScanIds);
+      const idsToDelete = new Set(uniqueScanIds);
+      setScanHistory((prev) =>
+        prev.filter((scan) => !scan.id || !idsToDelete.has(scan.id)),
+      );
+    } catch (error) {
+      console.error("Error deleting scans:", error);
+      throw error;
+    }
+  }, []);
+
   // Clear all history
   const clearHistory = useCallback(async (): Promise<void> => {
     try {
@@ -159,6 +175,7 @@ export function useScanHistory() {
     error,
     refreshHistory,
     deleteScan,
+    deleteScans,
     clearHistory,
     loadScanHistory,
   };

@@ -22,10 +22,12 @@ import {
   Lock as LockIcon,
   Smartphone,
   QrCode,
+  Trash2,
 } from "lucide-react";
 import { useScanHistory, useScanImages } from "@/hooks/useScanHistory";
 import { useAuth } from "@/hooks/useAuth";
 import useToast from "@/hooks/useToast";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 import { EmpresasService } from "../../services/empresas";
 import { hasPermission } from "../../utils/permissions";
 import { generateShortMobileUrl } from "../../utils/shortEncoder";
@@ -41,6 +43,7 @@ export default function ScanHistoryTable() {
     loading,
     refreshHistory,
     deleteScan: deleteScanService,
+    deleteScans: deleteScansService,
     clearHistory: clearHistoryService,
   } = useScanHistory();
 
@@ -81,6 +84,10 @@ export default function ScanHistoryTable() {
     [showToast],
   );
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [selectedScanIds, setSelectedScanIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [showProcessModal, setShowProcessModal] = useState<{
     code: string;
     open: boolean;
@@ -89,6 +96,7 @@ export default function ScanHistoryTable() {
     id: string;
     code: string;
   } | null>(null);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
 
   // Auto-close the "Código procesado" modal 2 seconds after it opens
   useEffect(() => {
@@ -103,6 +111,7 @@ export default function ScanHistoryTable() {
   const confirmProcessButtonRef = useRef<HTMLButtonElement | null>(null);
   // Ref for the "Código procesado" modal close button so Enter can close it
   const showProcessCloseRef = useRef<HTMLButtonElement | null>(null);
+  const selectAllCheckboxRef = useRef<HTMLInputElement | null>(null);
   // Ref to hold the current deleteScan function so effects can call it before it's declared
   const deleteScanRef = useRef<
     ((scanId: string, code: string) => Promise<void>) | null
@@ -341,6 +350,7 @@ export default function ScanHistoryTable() {
     ) {
       try {
         await clearHistoryService();
+        setSelectedScanIds(new Set());
         notify("Historial eliminado", "red");
       } catch (error) {
         console.error("Error clearing history:", error);
@@ -635,6 +645,99 @@ export default function ScanHistoryTable() {
       matchesUserLocations
     );
   });
+
+  const selectableFilteredEntries = filteredHistory.filter((entry) =>
+    Boolean(entry.id),
+  );
+  const filteredSelectableIds = selectableFilteredEntries.map(
+    (entry) => entry.id!,
+  );
+  const selectedVisibleCount = filteredSelectableIds.filter((scanId) =>
+    selectedScanIds.has(scanId),
+  ).length;
+  const allFilteredSelected =
+    filteredSelectableIds.length > 0 &&
+    selectedVisibleCount === filteredSelectableIds.length;
+  const hasVisibleSelection = selectedVisibleCount > 0;
+  const showRowSelectionCheckboxes =
+    allFilteredSelected || hasVisibleSelection;
+
+  useEffect(() => {
+    setSelectedScanIds((prev) => {
+      if (prev.size === 0) return prev;
+
+      const visibleIds = new Set(filteredSelectableIds);
+      const next = new Set(
+        [...prev].filter((scanId) => visibleIds.has(scanId)),
+      );
+
+      const unchanged =
+        next.size === prev.size &&
+        [...prev].every((scanId) => next.has(scanId));
+
+      return unchanged ? prev : next;
+    });
+  }, [filteredSelectableIds]);
+
+  useEffect(() => {
+    if (!selectAllCheckboxRef.current) return;
+    selectAllCheckboxRef.current.indeterminate =
+      hasVisibleSelection && !allFilteredSelected;
+  }, [allFilteredSelected, hasVisibleSelection]);
+
+  const toggleScanSelection = useCallback((scanId: string) => {
+    setSelectedScanIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(scanId)) {
+        next.delete(scanId);
+      } else {
+        next.add(scanId);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAllFiltered = useCallback(() => {
+    setSelectedScanIds((prev) => {
+      const next = new Set(prev);
+
+      if (allFilteredSelected) {
+        filteredSelectableIds.forEach((scanId) => next.delete(scanId));
+      } else {
+        filteredSelectableIds.forEach((scanId) => next.add(scanId));
+      }
+
+      return next;
+    });
+  }, [allFilteredSelected, filteredSelectableIds]);
+
+  const deleteSelectedScans = useCallback(async () => {
+    if (selectedVisibleCount === 0) return;
+
+    try {
+      setBulkDeleting(true);
+      await deleteScansService(
+        filteredSelectableIds.filter((scanId) => selectedScanIds.has(scanId)),
+      );
+      setSelectedScanIds(new Set());
+      setShowBulkDeleteModal(false);
+      notify(
+        `${selectedVisibleCount} escaneo${selectedVisibleCount > 1 ? "s" : ""} eliminado${selectedVisibleCount > 1 ? "s" : ""}`,
+        "red",
+      );
+    } catch (error) {
+      console.error("Error deleting selected scans:", error);
+      notify("Error al eliminar escaneos seleccionados", "red");
+    } finally {
+      setBulkDeleting(false);
+    }
+  }, [
+    deleteScansService,
+    filteredSelectableIds,
+    notify,
+    selectedScanIds,
+    selectedVisibleCount,
+  ]);
 
   // Filtrar las ubicaciones disponibles en el selector basado en los permisos del usuario
   // Map companies to availableLocations-like array for selector; filter by user's empresa permissions
@@ -1199,6 +1302,31 @@ export default function ScanHistoryTable() {
                       </button>
                     </div>
                   )}
+
+                  {filteredSelectableIds.length > 0 && (
+                    <div className="flex flex-col gap-3 rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] p-3 sm:flex-row sm:items-center sm:justify-between">
+                      <label className="flex cursor-pointer select-none items-center gap-3 text-sm text-[var(--foreground)]">
+                        <input
+                          ref={selectAllCheckboxRef}
+                          type="checkbox"
+                          checked={allFilteredSelected}
+                          onChange={toggleSelectAllFiltered}
+                          disabled={bulkDeleting}
+                          className="h-5 w-5 rounded border-2 border-[var(--input-border)] bg-[var(--card-bg)]"
+                        />
+                        <span>Marcar todos ({filteredSelectableIds.length})</span>
+                      </label>
+
+                      <button
+                        onClick={() => setShowBulkDeleteModal(true)}
+                        disabled={!hasVisibleSelection || bulkDeleting}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--error)] px-4 py-2 text-sm font-medium text-white transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Eliminar seleccionados ({selectedVisibleCount})
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1295,6 +1423,22 @@ export default function ScanHistoryTable() {
                       <div className="flex-1 min-w-0 w-full">
                         <div className="flex flex-col gap-2 mb-2 w-full">
                           <div className="flex items-center gap-2 flex-wrap">
+                            {entry.id && showRowSelectionCheckboxes && (
+                              <label className="flex cursor-pointer select-none items-center gap-2 rounded-md border border-[var(--input-border)] bg-[var(--muted)]/10 px-2 py-1">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedScanIds.has(entry.id)}
+                                  onChange={() => toggleScanSelection(entry.id!)}
+                                  disabled={
+                                    bulkDeleting || processingId === entry.id
+                                  }
+                                  className="h-4 w-4 rounded border-2 border-[var(--input-border)] bg-[var(--card-bg)]"
+                                />
+                                <span className="text-xs text-[var(--muted-foreground)]">
+                                  Seleccionar
+                                </span>
+                              </label>
+                            )}
                             <span className="font-mono text-base sm:text-lg font-semibold text-[var(--foreground)] break-all px-2 py-1 rounded-md border border-[var(--input-border)] bg-[var(--muted)]/20">
                               {entry.code}
                             </span>
@@ -1346,7 +1490,9 @@ export default function ScanHistoryTable() {
                                   <input
                                     type="checkbox"
                                     checked={processingId === entry.id}
-                                    disabled={processingId === entry.id}
+                                    disabled={
+                                      bulkDeleting || processingId === entry.id
+                                    }
                                     onChange={() => {
                                       // Mostrar confirmación antes de procesar
                                       setConfirmProcess({
@@ -1453,6 +1599,22 @@ export default function ScanHistoryTable() {
               </div>
             </>
           )}
+
+          <ConfirmModal
+            open={showBulkDeleteModal}
+            title="Confirmar eliminación"
+            message={`¿Eliminar ${selectedVisibleCount} escaneo${selectedVisibleCount > 1 ? "s" : ""} seleccionado${selectedVisibleCount > 1 ? "s" : ""}?\nEsta acción no se puede deshacer.`}
+            confirmText="Eliminar"
+            cancelText="Cancelar"
+            loading={bulkDeleting}
+            confirmDisabled={!hasVisibleSelection}
+            actionType="delete"
+            onConfirm={() => void deleteSelectedScans()}
+            onCancel={() => {
+              if (bulkDeleting) return;
+              setShowBulkDeleteModal(false);
+            }}
+          />
 
           {/* Images Modal */}
           {showImagesModal && (

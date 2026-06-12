@@ -376,8 +376,7 @@ export class ScanningService {
 
       // Delete associated images from Firebase Storage
       try {
-        const deletedImagesCount =
-          await this.deleteAssociatedImages(barcodeCode);
+        await this.deleteAssociatedImages(barcodeCode);
       } catch (imageError) {
         console.warn(
           `Scan deleted but failed to delete images for code ${barcodeCode}:`,
@@ -387,6 +386,56 @@ export class ScanningService {
       }
     } catch (error) {
       console.error("Error deleting scan:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete multiple scans and dedupe image cleanup by barcode code
+   */
+  static async deleteScans(scanIds: string[]): Promise<void> {
+    try {
+      const uniqueScanIds = [...new Set(scanIds.filter(Boolean))];
+      if (uniqueScanIds.length === 0) return;
+
+      const scansToDelete = await Promise.all(
+        uniqueScanIds.map(async (scanId) => {
+          const scanDoc = await getDoc(doc(db, this.COLLECTION_NAME, scanId));
+
+          if (!scanDoc.exists()) {
+            throw new Error(`Scan not found: ${scanId}`);
+          }
+
+          return {
+            id: scanId,
+            code: (scanDoc.data() as ScanResult).code,
+          };
+        }),
+      );
+
+      await Promise.all(
+        scansToDelete.map((scan) =>
+          deleteDoc(doc(db, this.COLLECTION_NAME, scan.id)),
+        ),
+      );
+
+      ScanningCache.invalidateScansCache();
+
+      const uniqueCodes = [...new Set(scansToDelete.map((scan) => scan.code))];
+      await Promise.all(
+        uniqueCodes.map(async (code) => {
+          try {
+            await this.deleteAssociatedImages(code);
+          } catch (imageError) {
+            console.warn(
+              `Scans deleted but failed to delete images for code ${code}:`,
+              imageError,
+            );
+          }
+        }),
+      );
+    } catch (error) {
+      console.error("Error deleting scans:", error);
       throw error;
     }
   }
