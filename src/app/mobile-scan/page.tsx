@@ -146,10 +146,12 @@ function MobileScanContent() {
       if (!Array.isArray(parsed)) return;
 
       setLastScanned(
-        parsed.filter(
-          (item): item is (typeof lastScanned)[number] =>
-            Boolean(item) && typeof item.code === "string" && item.code.trim().length > 0,
-        ),
+        parsed
+          .filter(
+            (item): item is (typeof lastScanned)[number] =>
+              Boolean(item) && typeof item.code === "string" && item.code.trim().length > 0,
+          )
+          .slice(-5),
       );
     } catch {
       window.localStorage.removeItem(MOBILE_SCAN_HISTORY_STORAGE_KEY);
@@ -479,7 +481,7 @@ function MobileScanContent() {
         // Check if code has images and update lastScanned
         const hasImages = await checkCodeHasImages(scannedCode);
         setLastScanned((prev) => [
-          ...prev,
+          ...prev.slice(-4),
           {
             code: scannedCode,
             ...(nameForProduct?.trim() && {
@@ -488,7 +490,7 @@ function MobileScanContent() {
             ...(ownercompanieToSend && { ownercompanie: ownercompanieToSend }),
             hasImages,
           },
-        ]);
+        ]); // Keep last 5
         setCode("");
         setUploadedImagesCount(0); // Reset images count after successful submission
         setPendingCodeBU(null); // Reset pending codeBU after submit

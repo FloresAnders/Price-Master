@@ -76,11 +76,11 @@
 
 ## soccer-program
 
-* [ ]
+* [ ] 
 
 ## academics
 
-    - [ x ] Agregar traductor
+    - [ ] Agregar traductor
     - [ ] Preguntas frecuentes no funciona
 
 ## service/translation
