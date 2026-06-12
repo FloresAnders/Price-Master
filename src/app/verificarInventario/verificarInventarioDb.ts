@@ -28,12 +28,19 @@ export type InventarioItem = {
   empresaId: string;
 };
 
+export type ListadoProductoItem = {
+  codigo: string;
+  createdAt: number;
+  empresaId: string;
+};
+
 export type VerificarInventarioState = {
   empresas: Empresa[];
   selectedEmpresaId: string | null;
   relacionesPorEmpresa: Record<string, RelacionProducto[]>;
   pendientesPorEmpresa: Record<string, CodigoPendiente[]>;
   inventariosPorEmpresa: Record<string, InventarioItem[]>;
+  listadosPorEmpresa: Record<string, ListadoProductoItem[]>;
 };
 
 const DB_NAME = "verificar-inventario-db";
@@ -133,6 +140,8 @@ function normalizeState(
   const pendientesPorEmpresa: Record<string, CodigoPendiente[]> = {};
   const rawInventarios = value?.inventariosPorEmpresa;
   const inventariosPorEmpresa: Record<string, InventarioItem[]> = {};
+  const rawListados = value?.listadosPorEmpresa;
+  const listadosPorEmpresa: Record<string, ListadoProductoItem[]> = {};
 
   if (rawRelaciones && typeof rawRelaciones === "object") {
     for (const empresa of empresas) {
@@ -220,12 +229,36 @@ function normalizeState(
     }
   }
 
+  if (rawListados && typeof rawListados === "object") {
+    for (const empresa of empresas) {
+      const listados = (rawListados as Record<string, unknown>)[empresa.id];
+      if (!Array.isArray(listados)) continue;
+
+      listadosPorEmpresa[empresa.id] = listados
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+
+          const itemRecord = item as Record<string, unknown>;
+          const codigo = String(itemRecord.codigo ?? "").trim();
+          if (!codigo) return null;
+
+          return {
+            codigo,
+            createdAt: Number(itemRecord.createdAt) || Date.now(),
+            empresaId: empresa.id,
+          };
+        })
+        .filter((item): item is ListadoProductoItem => Boolean(item));
+    }
+  }
+
   return {
     empresas,
     selectedEmpresaId,
     relacionesPorEmpresa,
     pendientesPorEmpresa,
     inventariosPorEmpresa,
+    listadosPorEmpresa,
   };
 }
 

@@ -7,28 +7,34 @@ type VerificarInventarioHeaderProps = {
   empresas: Empresa[];
   selectedEmpresaId: string | null;
   inventoryMode: boolean;
+  listProductsMode: boolean;
   onOpenAddModal: () => void;
   onOpenScanner: () => void;
   onToggleInventoryMode: () => void;
+  onToggleListProductsMode: () => void;
   onSelectEmpresa: (empresaId: string) => void;
   onOpenDeleteModal: () => void;
   onUploadXlsx: (file: File) => void;
   disableUpload: boolean;
   disableScanner: boolean;
+  hideManagementControls: boolean;
 };
 
 export default function VerificarInventarioHeader({
   empresas,
   selectedEmpresaId,
   inventoryMode,
+  listProductsMode,
   onOpenAddModal,
   onOpenScanner,
   onToggleInventoryMode,
+  onToggleListProductsMode,
   onSelectEmpresa,
   onOpenDeleteModal,
   onUploadXlsx,
   disableUpload,
   disableScanner,
+  hideManagementControls,
 }: VerificarInventarioHeaderProps) {
   const hasSelectedEmpresa = Boolean(selectedEmpresaId);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -46,13 +52,15 @@ export default function VerificarInventarioHeader({
         </div>
 
         <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:w-auto">
-          <button
-            type="button"
-            onClick={onOpenAddModal}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-          >
-            Agregar empresa
-          </button>
+          {!hideManagementControls ? (
+            <button
+              type="button"
+              onClick={onOpenAddModal}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+            >
+              Agregar empresa
+            </button>
+          ) : null}
 
           <button
             type="button"
@@ -63,41 +71,54 @@ export default function VerificarInventarioHeader({
             Abrir escaner
           </button>
 
-          <button
-            type="button"
-            onClick={onToggleInventoryMode}
-            disabled={!hasSelectedEmpresa}
-            className={`rounded-md px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60 ${
-              inventoryMode
-                ? "bg-amber-600 hover:bg-amber-700"
-                : "bg-slate-600 hover:bg-slate-700"
-            }`}
-          >
+          <label className="flex items-center gap-2 rounded-md border border-[var(--input-border)] px-3 py-2 text-sm font-semibold text-[var(--foreground)]">
+            <input
+              type="checkbox"
+              checked={inventoryMode}
+              onChange={onToggleInventoryMode}
+              disabled={!hasSelectedEmpresa}
+              className="h-4 w-4"
+            />
             Inventariar
-          </button>
+          </label>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls"
-            className="hidden"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) {
-                onUploadXlsx(file);
-              }
-              event.target.value = "";
-            }}
-          />
+          <label className="flex items-center gap-2 rounded-md border border-[var(--input-border)] px-3 py-2 text-sm font-semibold text-[var(--foreground)]">
+            <input
+              type="checkbox"
+              checked={listProductsMode}
+              onChange={onToggleListProductsMode}
+              disabled={!hasSelectedEmpresa}
+              className="h-4 w-4"
+            />
+            Listar productos
+          </label>
 
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={disableUpload}
-            className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Cargar .xlsx
-          </button>
+          {!hideManagementControls ? (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) {
+                    onUploadXlsx(file);
+                  }
+                  event.target.value = "";
+                }}
+              />
+
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={disableUpload}
+                className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cargar .xlsx
+              </button>
+            </>
+          ) : null}
 
           <select
             value={selectedEmpresaId ?? ""}
@@ -112,7 +133,7 @@ export default function VerificarInventarioHeader({
             ))}
           </select>
 
-          {hasSelectedEmpresa ? (
+          {hasSelectedEmpresa && !hideManagementControls ? (
             <button
               type="button"
               onClick={onOpenDeleteModal}

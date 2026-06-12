@@ -1006,11 +1006,6 @@ function MobileScanContent() {
           </div>
         </div>
       )}
-      {/* Footer info */}
-      <div className="mt-6 text-center text-gray-500 dark:text-gray-400 text-sm">
-        <p>Asegúrate de que tu PC esté conectado a la misma red</p>
-        <p>Los códigos aparecerán automáticamente en tu computadora</p>
-      </div>
     </div>
   );
 }

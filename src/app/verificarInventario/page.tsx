@@ -10,6 +10,7 @@ import { useBarcodeScanner } from "./useBarcodeScanner";
 import type {
   CodigoPendiente,
   InventarioItem,
+  ListadoProductoItem,
   RelacionProducto,
   VerificarInventarioState,
 } from "./verificarInventarioDb";
@@ -49,6 +50,18 @@ const EMPTY_STATE: VerificarInventarioState = {
   relacionesPorEmpresa: {},
   pendientesPorEmpresa: {},
   inventariosPorEmpresa: {},
+  listadosPorEmpresa: {},
+};
+
+const LISTAR_PRODUCTOS_STORAGE_KEY = "listar productos";
+
+type ScanNoticeState = {
+  variant: "found" | "added" | "duplicate";
+  codigo: string;
+  codigoProducto?: string;
+  codigoBarras?: string;
+  descripcion: string;
+  precioVenta?: string;
 };
 
 function normalizeHeader(value: unknown): string {
@@ -211,14 +224,9 @@ export default function VerificarInventarioPage() {
   const [isDeletePendingsOpen, setIsDeletePendingsOpen] = useState(false);
   const [lastImportCount, setLastImportCount] = useState<number | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [scanNotice, setScanNotice] = useState<{
-    codigo: string;
-    codigoProducto?: string;
-    codigoBarras?: string;
-    descripcion: string;
-    precioVenta?: string;
-  } | null>(null);
+  const [scanNotice, setScanNotice] = useState<ScanNoticeState | null>(null);
   const [inventoryMode, setInventoryMode] = useState(false);
+  const [listProductsMode, setListProductsMode] = useState(false);
   const [inventoryCount, setInventoryCount] = useState("");
   const [inventoryError, setInventoryError] = useState<string | null>(null);
   const [pendingCodigo, setPendingCodigo] = useState<string | null>(null);
@@ -231,7 +239,12 @@ export default function VerificarInventarioPage() {
   const [manualPendingError, setManualPendingError] = useState<string | null>(null);
   const [manualSearchCodigo, setManualSearchCodigo] = useState("");
   const [manualSearchError, setManualSearchError] = useState<string | null>(null);
+  const [listStatus, setListStatus] = useState<string | null>(null);
   const scanNoticeTimerRef = useRef<number | null>(null);
+  const stateRef = useRef<VerificarInventarioState>(EMPTY_STATE);
+  const lastListedCodeRef = useRef<string | null>(null);
+  const lastListedAtRef = useRef<number>(0);
+  const processingListedCodesRef = useRef<Set<string>>(new Set());
 
   const copyTextToClipboard = async (text: string) => {
     if (navigator.clipboard?.writeText) {
@@ -277,6 +290,7 @@ export default function VerificarInventarioPage() {
     setInventoryCount("");
     setInventoryError(null);
     setScanNotice({
+      variant: "found",
       codigo,
       codigoProducto: relacion.codigo,
       codigoBarras: relacion.codigoBarras,
@@ -289,6 +303,87 @@ export default function VerificarInventarioPage() {
         setScanNotice(null);
         scanNoticeTimerRef.current = null;
       }, 3000);
+    }
+  };
+
+  const showAddedCode = (codigo: string) => {
+    clearScanNoticeTimer();
+    setPendingCodigo(null);
+    setPendingNombre("");
+    setPendingError(null);
+    setInventoryCount("");
+    setInventoryError(null);
+    setScanNotice({
+      variant: "added",
+      codigo,
+      codigoBarras: codigo,
+      descripcion: "Agregado",
+    });
+    scanNoticeTimerRef.current = window.setTimeout(() => {
+      setScanNotice(null);
+      scanNoticeTimerRef.current = null;
+    }, 1000);
+  };
+
+  const showDuplicateListedCode = (codigo: string) => {
+    clearScanNoticeTimer();
+    setScanNotice({
+      variant: "duplicate",
+      codigo,
+      codigoBarras: codigo,
+      descripcion: "Ya escaneado",
+    });
+    scanNoticeTimerRef.current = window.setTimeout(() => {
+      setScanNotice(null);
+      scanNoticeTimerRef.current = null;
+    }, 1000);
+  };
+
+  const persistListedCode = async (
+    empresaId: string,
+    codigo: string,
+  ) => {
+    const baseState = stateRef.current;
+    if (processingListedCodesRef.current.has(codigo)) {
+      return;
+    }
+
+    processingListedCodesRef.current.add(codigo);
+    const currentList = baseState.listadosPorEmpresa[empresaId] ?? [];
+    const recentlyDetectedSameCode =
+      lastListedCodeRef.current === codigo && Date.now() - lastListedAtRef.current < 1500;
+
+    try {
+      if (recentlyDetectedSameCode || currentList.some((item) => item.codigo === codigo)) {
+        lastListedCodeRef.current = codigo;
+        lastListedAtRef.current = Date.now();
+        showDuplicateListedCode(codigo);
+        setListStatus("Codigo ya escaneado.");
+        return;
+      }
+
+      const nextItem: ListadoProductoItem = {
+        codigo,
+        createdAt: Date.now(),
+        empresaId,
+      };
+      const nextState: VerificarInventarioState = {
+        ...baseState,
+        listadosPorEmpresa: {
+          ...baseState.listadosPorEmpresa,
+          [empresaId]: [...(baseState.listadosPorEmpresa[empresaId] ?? []), nextItem],
+        },
+      };
+
+      await persistState(nextState);
+      lastListedCodeRef.current = codigo;
+      lastListedAtRef.current = Date.now();
+      showAddedCode(codigo);
+      setListStatus("Codigo agregado.");
+    } finally {
+      window.setTimeout(() => {
+        processingListedCodesRef.current.delete(codigo);
+      }, 1200);
     }
   };
 
@@ -312,6 +407,12 @@ export default function VerificarInventarioPage() {
       }
 
       const codigo = normalizeCode(foundCode);
+      if (listProductsMode) {
+        void persistListedCode(empresaId, codigo);
+        clearDetection();
+        return;
+      }
+
       const relacion = findRelacionByCode(empresaId, codigo);
 
       if (relacion) {
@@ -329,6 +430,29 @@ export default function VerificarInventarioPage() {
     },
     { autoStopOnDetect: false },
   );
+
+  useEffect(() => {
+    try {
+      setListProductsMode(
+        window.localStorage.getItem(LISTAR_PRODUCTOS_STORAGE_KEY) === "true",
+      );
+    } catch {
+      setListProductsMode(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        LISTAR_PRODUCTOS_STORAGE_KEY,
+        listProductsMode ? "true" : "false",
+      );
+    } catch {}
+  }, [listProductsMode]);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   useEffect(() => {
     let cancelled = false;
@@ -390,6 +514,11 @@ export default function VerificarInventarioPage() {
     return state.inventariosPorEmpresa[state.selectedEmpresaId] ?? [];
   }, [state.inventariosPorEmpresa, state.selectedEmpresaId]);
 
+  const selectedEmpresaListados = useMemo(() => {
+    if (!state.selectedEmpresaId) return [];
+    return state.listadosPorEmpresa[state.selectedEmpresaId] ?? [];
+  }, [state.listadosPorEmpresa, state.selectedEmpresaId]);
+
   const pendingExportText = useMemo(() => {
     if (!selectedEmpresa || selectedEmpresaPendientes.length === 0) {
       return "";
@@ -408,9 +537,17 @@ export default function VerificarInventarioPage() {
     return lines.join("\n");
   }, [selectedEmpresa, selectedEmpresaPendientes]);
 
+  const listedProductsExportText = useMemo(() => {
+    return selectedEmpresaListados.map((item) => item.codigo).join(", ");
+  }, [selectedEmpresaListados]);
+
   const openScannerModal = () => {
     if (!state.selectedEmpresaId) {
       setError("Selecciona una empresa antes de abrir el escaner.");
+      return;
+    }
+    if (!inventoryMode && !listProductsMode) {
+      setError("Activa Inventariar o Listar productos.");
       return;
     }
 
@@ -428,9 +565,13 @@ export default function VerificarInventarioPage() {
     setManualSearchCodigo("");
     setManualSearchError(null);
     setPendingStatus(null);
+    setListStatus(null);
     setScanNotice(null);
     setInventoryCount("");
     setInventoryError(null);
+    lastListedCodeRef.current = null;
+    lastListedAtRef.current = 0;
+    processingListedCodesRef.current.clear();
     clearScanNoticeTimer();
     clearDetection();
     clearScanner();
@@ -451,6 +592,12 @@ export default function VerificarInventarioPage() {
 
     setManualSearchError(null);
 
+    if (listProductsMode) {
+      void persistListedCode(empresaId, codigo);
+      clearDetection();
+      return;
+    }
+
     const relacion = findRelacionByCode(empresaId, codigo);
 
     if (relacion) {
@@ -470,9 +617,10 @@ export default function VerificarInventarioPage() {
   const persistState = async (nextState: VerificarInventarioState) => {
     setSaving(true);
     setError(null);
+    stateRef.current = nextState;
+    setState(nextState);
     try {
       await saveVerificarInventarioState(nextState);
-      setState(nextState);
     } catch {
       setError("No se pudo guardar la información en local.");
     } finally {
@@ -515,6 +663,10 @@ export default function VerificarInventarioPage() {
       inventariosPorEmpresa: {
         ...state.inventariosPorEmpresa,
         [empresaId]: state.inventariosPorEmpresa[empresaId] ?? [],
+      },
+      listadosPorEmpresa: {
+        ...state.listadosPorEmpresa,
+        [empresaId]: state.listadosPorEmpresa[empresaId] ?? [],
       },
     };
 
@@ -561,6 +713,11 @@ export default function VerificarInventarioPage() {
       relacionesPorEmpresa: nextRelacionesPorEmpresa,
       pendientesPorEmpresa: nextPendientesPorEmpresa,
       inventariosPorEmpresa: nextInventariosPorEmpresa,
+      listadosPorEmpresa: Object.fromEntries(
+        Object.entries(state.listadosPorEmpresa).filter(
+          ([empresaId]) => empresaId !== deletedEmpresaId,
+        ),
+      ),
     };
 
     await persistState(nextState);
@@ -746,6 +903,33 @@ export default function VerificarInventarioPage() {
     setIsDeletePendingsOpen(false);
   };
 
+  const handleCopyListedProducts = async () => {
+    if (!listedProductsExportText) return;
+
+    try {
+      await copyTextToClipboard(listedProductsExportText);
+      setListStatus("Lista copiada.");
+    } catch {
+      setListStatus("No se pudo copiar lista.");
+    }
+  };
+
+  const handleClearListedProducts = async () => {
+    if (!state.selectedEmpresaId) return;
+
+    const empresaId = state.selectedEmpresaId;
+    const nextState: VerificarInventarioState = {
+      ...state,
+      listadosPorEmpresa: {
+        ...state.listadosPorEmpresa,
+        [empresaId]: [],
+      },
+    };
+
+    await persistState(nextState);
+    setListStatus("Lista limpiada.");
+  };
+
   const handleSaveInventory = async () => {
     if (!state.selectedEmpresaId || !scanNotice) return;
 
@@ -852,8 +1036,23 @@ export default function VerificarInventarioPage() {
   const handleToggleInventoryMode = () => {
     const next = !inventoryMode;
     setInventoryMode(next);
+    if (next) {
+      setListProductsMode(false);
+    }
     showToast(
       next ? "Modo inventariar activado." : "Modo inventariar desactivado.",
+      next ? "success" : "info",
+    );
+  };
+
+  const handleToggleListProductsMode = () => {
+    const next = !listProductsMode;
+    setListProductsMode(next);
+    if (next) {
+      setInventoryMode(false);
+    }
+    showToast(
+      next ? "Modo listar productos activado." : "Modo listar productos desactivado.",
       next ? "success" : "info",
     );
   };
@@ -879,26 +1078,36 @@ export default function VerificarInventarioPage() {
         empresas={state.empresas}
         selectedEmpresaId={state.selectedEmpresaId}
         inventoryMode={inventoryMode}
+        listProductsMode={listProductsMode}
         onOpenAddModal={() => setIsAddOpen(true)}
         onOpenScanner={openScannerModal}
         onToggleInventoryMode={handleToggleInventoryMode}
+        onToggleListProductsMode={handleToggleListProductsMode}
         onSelectEmpresa={handleSelectEmpresa}
         onOpenDeleteModal={() => setIsDeleteOpen(true)}
         onUploadXlsx={handleUploadXlsx}
         disableUpload={saving || !state.selectedEmpresaId}
-        disableScanner={saving || !state.selectedEmpresaId}
+        disableScanner={
+          saving || !state.selectedEmpresaId || (!inventoryMode && !listProductsMode)
+        }
+        hideManagementControls={listProductsMode}
       />
 
-      <div className="rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--card-bg)] p-6 text-[var(--foreground)]">
-        <p className="text-center text-sm opacity-70">
-          Codigos cargados: {selectedEmpresaRelacionesCount}
-        </p>
-        <p className="mt-2 text-center text-sm opacity-70">
-          Inventario guardado: {selectedEmpresaInventarios.length}
-        </p>
-      </div>
+      {!listProductsMode ? (
+        <div className="rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--card-bg)] p-6 text-[var(--foreground)]">
+          <p className="text-center text-sm opacity-70">
+            Codigos cargados: {selectedEmpresaRelacionesCount}
+          </p>
+          <p className="mt-2 text-center text-sm opacity-70">
+            Inventario guardado: {selectedEmpresaInventarios.length}
+          </p>
+          <p className="mt-2 text-center text-sm opacity-70">
+            Lista productos: {selectedEmpresaListados.length}
+          </p>
+        </div>
+      ) : null}
 
-      {inventoryMode ? (
+      {inventoryMode && !listProductsMode ? (
       <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-5 text-[var(--foreground)]">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
@@ -953,6 +1162,47 @@ export default function VerificarInventarioPage() {
           <p className="text-sm opacity-70">No hay inventario guardado.</p>
         )}
       </div>
+      ) : null}
+
+      {listProductsMode ? (
+        <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-5 text-[var(--foreground)]">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold">Listar productos</h2>
+              <p className="text-sm opacity-70">
+                Escanea y exporta: codigo, codigo, codigo.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void handleCopyListedProducts()}
+                disabled={!selectedEmpresaListados.length}
+                className="rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Exportar
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleClearListedProducts()}
+                disabled={!selectedEmpresaListados.length}
+                className="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Limpiar
+              </button>
+            </div>
+          </div>
+          {selectedEmpresaListados.length > 0 ? (
+            <div className="rounded-md border border-[var(--input-border)] bg-[var(--background)] p-3 text-sm">
+              {listedProductsExportText}
+            </div>
+          ) : (
+            <p className="text-sm opacity-70">No hay codigos listados.</p>
+          )}
+          {listStatus ? (
+            <p className="mt-4 text-xs text-emerald-600">{listStatus}</p>
+          ) : null}
+        </div>
       ) : null}
 
       <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-5 text-[var(--foreground)]">
@@ -1039,6 +1289,7 @@ export default function VerificarInventarioPage() {
         onRemoveLeadingZero={() => {}}
         scanNotice={scanNotice}
         inventoryMode={inventoryMode}
+        listProductsMode={listProductsMode}
         inventoryCount={inventoryCount}
         inventoryError={inventoryError}
         onInventoryCountChange={(value) => {

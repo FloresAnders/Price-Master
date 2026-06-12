@@ -16,6 +16,7 @@ type ScannerModalProps = {
   handleCopyCode: () => void;
   onRemoveLeadingZero?: () => void;
   scanNotice: {
+    variant: "found" | "added" | "duplicate";
     codigo: string;
     codigoProducto?: string;
     codigoBarras?: string;
@@ -23,6 +24,7 @@ type ScannerModalProps = {
     precioVenta?: string;
   } | null;
   inventoryMode: boolean;
+  listProductsMode: boolean;
   inventoryCount: string;
   inventoryError: string | null;
   onInventoryCountChange: (value: string) => void;
@@ -62,6 +64,7 @@ export default function ScannerModal({
   onRemoveLeadingZero,
   scanNotice,
   inventoryMode,
+  listProductsMode,
   inventoryCount,
   inventoryError,
   onInventoryCountChange,
@@ -144,7 +147,7 @@ export default function ScannerModal({
 
           <div className="mt-4 rounded-2xl border border-[var(--input-border)] bg-[var(--background)] p-4">
             <label className="block text-sm font-medium text-[var(--foreground)]">
-              Buscar código manualmente
+              {listProductsMode ? "Agregar código manualmente" : "Buscar código manualmente"}
             </label>
             <div className="mt-2 flex flex-col gap-2 sm:flex-row">
               <input
@@ -164,7 +167,7 @@ export default function ScannerModal({
                 onClick={onManualSearch}
                 className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
               >
-                Buscar
+                {listProductsMode ? "Agregar" : "Buscar"}
               </button>
             </div>
             {manualSearchError ? (
@@ -178,10 +181,20 @@ export default function ScannerModal({
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-md rounded-2xl border border-emerald-400/30 bg-slate-950 p-6 text-white shadow-2xl">
             <p className="text-sm uppercase tracking-[0.25em] text-emerald-300">
-              Código encontrado
+              {scanNotice.variant === "found"
+                ? "Código encontrado"
+                : scanNotice.variant === "duplicate"
+                  ? "Ya escaneado"
+                  : "Agregado"}
             </p>
-            <h3 className="mt-2 text-xl font-semibold">{scanNotice.descripcion}</h3>
-            {scanNotice.precioVenta ? (
+            <h3 className="mt-2 text-xl font-semibold">
+              {scanNotice.variant === "found"
+                ? scanNotice.descripcion
+                : scanNotice.variant === "duplicate"
+                  ? "Ya escaneado"
+                  : "Agregado"}
+            </h3>
+            {scanNotice.precioVenta && scanNotice.variant === "found" ? (
               <p className="mt-3 text-lg font-semibold text-emerald-200">
                 Precio de venta: {scanNotice.precioVenta}
               </p>
@@ -189,12 +202,18 @@ export default function ScannerModal({
             <p className="mt-3 text-sm text-slate-300">
               Codigo: {scanNotice.codigoProducto || scanNotice.codigo}
             </p>
+            {scanNotice.variant === "added" ? (
+              <p className="mt-2 text-sm text-emerald-200">Codigo agregado a lista.</p>
+            ) : null}
+            {scanNotice.variant === "duplicate" ? (
+              <p className="mt-2 text-sm text-amber-200">Codigo ya fue escaneado.</p>
+            ) : null}
             {scanNotice.codigoBarras ? (
               <p className="mt-1 text-sm text-slate-300">
                 Codigo de barras: {scanNotice.codigoBarras}
               </p>
             ) : null}
-            {inventoryMode ? (
+            {inventoryMode && scanNotice.variant === "found" ? (
               <div className="mt-5">
                 <label className="block text-sm font-medium text-slate-100">
                   Inventario
