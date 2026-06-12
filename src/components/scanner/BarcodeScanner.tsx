@@ -129,7 +129,6 @@ export default function BarcodeScanner({
     return [];
   });
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [showReadyNotice, setShowReadyNotice] = useState(false);
 
   // Persistir resultados en localStorage cada vez que cambien
   useEffect(() => {
@@ -153,21 +152,10 @@ export default function BarcodeScanner({
         open: true,
       };
       setResults((prev) => [newResult, ...prev.map((r) => ({ ...r, open: false }))]);
-      setShowReadyNotice(true);
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
   }, [code, error, imagePreview, detectionMethod]);
-
-  useEffect(() => {
-    if (!showReadyNotice) return;
-
-    const timeoutId = window.setTimeout(() => {
-      setShowReadyNotice(false);
-    }, 1000);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [showReadyNotice]);
 
   const openResult = (id: string) => setResults((prev) => prev.map((r) => ({ ...r, open: r.id === id })));
   const minimizeResult = (id: string) => setResults((prev) => prev.map((r) => (r.id === id ? { ...r, open: false } : r)));
@@ -289,7 +277,7 @@ export default function BarcodeScanner({
                     className="fixed inset-0 z-40"
                   >
                     <div
-                      className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                      className="absolute inset-0 bg-black/30 backdrop-blur-sm"
                       onClick={() => minimizeResult(active.id)}
                     />
 
@@ -300,49 +288,45 @@ export default function BarcodeScanner({
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.12 }}
-                        className="pointer-events-auto w-full max-w-md overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-950 text-white shadow-2xl"
+                        className="w-full max-w-[640px] rounded-xl bg-neutral-900 text-white border border-neutral-800 shadow-xl overflow-hidden pointer-events-auto"
                       >
-                        <div className="flex items-center justify-between px-6 py-5">
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-800">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center">
                               <ScanBarcode className="w-4 h-4 text-white" />
                             </div>
                             <div>
-                              <div className="text-sm font-semibold uppercase tracking-[0.25em] text-emerald-300">
-                                Código encontrado
-                              </div>
-                              {showReadyNotice ? (
-                                <div className="mt-3 inline-flex rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-200">
-                                  Listo
-                                </div>
-                              ) : null}
+                              <div className="text-sm font-semibold">Código Detectado</div>
+                              <div className="text-xs text-neutral-400">Resultado del escaneo</div>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
                             <button
                               title="Minimizar"
                               onClick={() => minimizeResult(active.id)}
-                              className="rounded-md border border-slate-700 p-1 hover:bg-slate-800"
+                              className="p-1 rounded hover:bg-neutral-800"
                             >
-                              <MinimizeIcon className="w-4 h-4 text-slate-300" />
+                              <MinimizeIcon className="w-4 h-4 text-neutral-300" />
                             </button>
                             <button
                               title="Cerrar"
                               onClick={() => closeResult(active.id)}
-                              className="rounded-md border border-slate-700 p-1 hover:bg-slate-800"
+                              className="p-1 rounded hover:bg-neutral-800"
                             >
-                              <CloseIcon className="w-4 h-4 text-slate-300" />
+                              <CloseIcon className="w-4 h-4 text-neutral-300" />
                             </button>
                           </div>
                         </div>
 
-                        <div className="space-y-4 px-6 pb-6">
-                          <div>
-                            <div className="text-xl font-semibold break-all">{active.code}</div>
+                        <div className="p-6 space-y-4">
+                          <div className="text-center">
+                            <div className="font-mono text-2xl font-bold break-all">{active.code}</div>
                             {active.detectionMethod && (
-                              <p className="mt-3 text-sm text-slate-300">
-                                Método: {active.detectionMethod}
-                              </p>
+                              <div className="mt-2">
+                                <span className="inline-block px-2 py-1 bg-indigo-600 text-white text-xs font-medium rounded">
+                                  Método: {active.detectionMethod}
+                                </span>
+                              </div>
                             )}
                           </div>
 
@@ -353,7 +337,7 @@ export default function BarcodeScanner({
                                 alt="Imagen escaneada"
                                 width={600}
                                 height={400}
-                                className="w-full rounded-md object-contain border border-slate-800"
+                                className="w-full rounded-md object-contain border border-neutral-800"
                                 unoptimized
                               />
                             </div>
@@ -371,7 +355,7 @@ export default function BarcodeScanner({
                                     console.error("copy failed", e);
                                   }
                                 }}
-                                className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 ${copiedId === active.id ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                                className={`px-4 py-2 ${copiedId === active.id ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-indigo-600 hover:bg-indigo-700'} text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2`}
                               >
                                 <CopyIcon className="w-4 h-4" />
                                 {copiedId === active.id ? "Copiado" : "Copiar"}
@@ -385,7 +369,7 @@ export default function BarcodeScanner({
                                   setResults((prev) => prev.map((r) => (r.id === active.id ? { ...r, code: newCode } : r)));
                                   onRemoveLeadingZero?.(newCode);
                                 }}
-                                className="flex items-center gap-2 rounded-md bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-orange-700"
+                                className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
                               >
                                 <ArrowLeftIcon className="w-4 h-4" /> Quitar &quot;0&quot;
                               </button>
