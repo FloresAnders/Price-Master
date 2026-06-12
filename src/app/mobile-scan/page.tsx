@@ -112,10 +112,13 @@ function MobileScanContent() {
     handleClear: clearScanner,
     handleCopyCode,
     detectionMethod,
-  } = useBarcodeScanner((foundCode) => {
-    // Only submit codes detected by the main camera scanner
-    submitCode(foundCode);
-  });
+  } = useBarcodeScanner(
+    (foundCode) => {
+      // Only submit codes detected by the main camera scanner
+      submitCode(foundCode);
+    },
+    { autoStopOnDetect: rpnParam === "t" },
+  );
   // Check if we're on the client side
   useEffect(() => {
     setIsClient(true);

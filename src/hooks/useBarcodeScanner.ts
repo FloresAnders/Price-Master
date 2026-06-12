@@ -12,7 +12,11 @@ import ZBAR_PRIORITY_CONFIG, { logZbarPriority } from "../config/zbar-priority";
 
 export function useBarcodeScanner(
   onDetect?: (code: string, productName?: string) => void,
+  options?: {
+    autoStopOnDetect?: boolean;
+  },
 ) {
+  const autoStopOnDetect = options?.autoStopOnDetect ?? true;
   const [code, setCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -417,9 +421,11 @@ export function useBarcodeScanner(
                     );
                     copyCodeToClipboard(zbarCode);
                     if (onDetect) onDetect(zbarCode);
-                    Quagga.stop();
-                    setCameraActive(false);
-                    if (zbarInterval) window.clearInterval(zbarInterval);
+                    if (autoStopOnDetect) {
+                      Quagga.stop();
+                      setCameraActive(false);
+                      if (zbarInterval) window.clearInterval(zbarInterval);
+                    }
                     return;
                   }
                 } // SOLO SI ZBAR NO DETECTA, USAR QUAGGA
@@ -462,8 +468,10 @@ export function useBarcodeScanner(
             );
             copyCodeToClipboard(code);
             if (onDetect) onDetect(code);
-            Quagga.stop();
-            setCameraActive(false);
+            if (autoStopOnDetect) {
+              Quagga.stop();
+              setCameraActive(false);
+            }
           }
         });
       } catch {
@@ -498,7 +506,7 @@ export function useBarcodeScanner(
       })();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cameraActive]);
+  }, [autoStopOnDetect, cameraActive]);
 
   return {
     code,
