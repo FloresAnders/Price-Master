@@ -24,6 +24,14 @@ import { ref, uploadBytes, getDownloadURL, listAll } from "firebase/storage";
 // Force dynamic rendering for this page
 export const dynamic = "force-dynamic";
 
+const MOBILE_SCAN_HISTORY_STORAGE_KEY = "mobile-scan-last-scanned";
+const MOBILE_SCAN_PERSIST_STORAGE_KEY = "mobile-scan-persist-history";
+
+function normalizeScannedCode(value: string): string {
+  const code = String(value ?? "").trim();
+  return /^0\d{12}$/.test(code) ? code.slice(1) : code;
+}
+
 function MobileScanContent() {
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -52,6 +60,7 @@ function MobileScanContent() {
   // Eliminado: const [isOnline, setIsOnline] = useState(true);
   const [isClient, setIsClient] = useState(false);
   const [requestProductName, setRequestProductName] = useState(false);
+  const [persistHistory, setPersistHistory] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
   const [pendingCode, setPendingCode] = useState<string>("");
   const [productName, setProductName] = useState("");
@@ -111,6 +120,59 @@ function MobileScanContent() {
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    if (!isClient || rpnParam === "t") return;
+
+    try {
+      const shouldPersist =
+        window.localStorage.getItem(MOBILE_SCAN_PERSIST_STORAGE_KEY) === "true";
+      setPersistHistory(shouldPersist);
+
+      if (!shouldPersist) {
+        window.localStorage.removeItem(MOBILE_SCAN_HISTORY_STORAGE_KEY);
+        return;
+      }
+
+      const storedHistory = window.localStorage.getItem(
+        MOBILE_SCAN_HISTORY_STORAGE_KEY,
+      );
+      if (!storedHistory) return;
+
+      const parsed = JSON.parse(storedHistory);
+      if (!Array.isArray(parsed)) return;
+
+      setLastScanned(
+        parsed
+          .filter(
+            (item): item is (typeof lastScanned)[number] =>
+              Boolean(item) && typeof item.code === "string" && item.code.trim().length > 0,
+          )
+          .slice(-5),
+      );
+    } catch {
+      window.localStorage.removeItem(MOBILE_SCAN_HISTORY_STORAGE_KEY);
+    }
+  }, [isClient, rpnParam]);
+
+  useEffect(() => {
+    if (!isClient || rpnParam === "t") return;
+
+    window.localStorage.setItem(
+      MOBILE_SCAN_PERSIST_STORAGE_KEY,
+      persistHistory ? "true" : "false",
+    );
+
+    if (!persistHistory) {
+      window.localStorage.removeItem(MOBILE_SCAN_HISTORY_STORAGE_KEY);
+      return;
+    }
+
+    window.localStorage.setItem(
+      MOBILE_SCAN_HISTORY_STORAGE_KEY,
+      JSON.stringify(lastScanned),
+    );
+  }, [isClient, lastScanned, persistHistory, rpnParam]);
 
   // Set requestProductName from URL parameter or rpn=t
   useEffect(() => {
@@ -357,8 +419,9 @@ function MobileScanContent() {
 
   // Submit scanned code
   const submitCode = useCallback(
-    async (scannedCode: string, nameForProduct?: string) => {
-      if (!scannedCode.trim()) {
+    async (rawScannedCode: string, nameForProduct?: string) => {
+      const scannedCode = normalizeScannedCode(rawScannedCode);
+      if (!scannedCode) {
         setError("Código vacío");
         return;
       }
@@ -440,7 +503,7 @@ function MobileScanContent() {
   // Handler para eliminar primer dígito
   const handleRemoveLeadingZero = useCallback(() => {
     if (detectedCode && detectedCode.length > 1 && detectedCode[0] === "0") {
-      const newCode = detectedCode.slice(1);
+      const newCode = normalizeScannedCode(detectedCode);
       submitCode(newCode);
     }
   }, [detectedCode, submitCode]); // Handle name modal submission
@@ -528,6 +591,20 @@ function MobileScanContent() {
     e.preventDefault();
     submitCode(code);
   };
+
+  const handleExportCodes = useCallback(async () => {
+    if (lastScanned.length === 0) return;
+
+    const exportText = lastScanned.map((scan) => scan.code).join(", ");
+
+    try {
+      await navigator.clipboard.writeText(exportText);
+      setSuccess("Lista copiada");
+      setTimeout(() => setSuccess(null), 2000);
+    } catch {
+      setError("No se pudo exportar la lista.");
+    }
+  }, [lastScanned]);
 
   // Reset uploaded images count when code changes
   useEffect(() => {
@@ -620,12 +697,32 @@ function MobileScanContent() {
             Enviar Código
           </button>
         </form>
+        {rpnParam !== "t" && (
+          <label className="mt-4 flex items-center gap-3 text-sm text-slate-300">
+            <input
+              type="checkbox"
+              checked={persistHistory}
+              onChange={(e) => setPersistHistory(e.target.checked)}
+              className="h-4 w-4 rounded border-white/10 bg-slate-900/80"
+            />
+            Mantener lista al recargar
+          </label>
+        )}
       </div>
       {lastScanned.length > 0 && (
         <div className="rounded-2xl border border-white/10 bg-slate-950 p-4">
-          <h2 className="text-lg font-semibold mb-3 text-slate-100">
-            Códigos Enviados Recientemente
-          </h2>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-slate-100">
+              Códigos Enviados Recientemente
+            </h2>
+            <button
+              type="button"
+              onClick={handleExportCodes}
+              className="rounded-lg border border-white/10 bg-slate-900/50 px-3 py-2 text-xs font-medium text-slate-200 transition hover:bg-slate-900/80 hover:border-white/20"
+            >
+              Exportar
+            </button>
+          </div>
           <div className="space-y-2">
             {lastScanned
               .slice()
