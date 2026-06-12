@@ -151,11 +151,36 @@ export async function handleConfirmDailyClosing(
   const diffUSD = Math.trunc(closing.totalUSD) - Math.trunc(currentBalanceUSD);
   const userNotes = closing.notes.trim();
   const singleClosingReason = String(closing.singleClosingReason || "").trim();
+  const noMovements = Boolean(closing.noMovements);
+  const noMovementsReason = String(closing.noMovementsReason || "").trim();
+  const hasCompleteSistemasVerification =
+    Boolean(closing.sistemas) &&
+    Number(closing.sistemas?.conticaCRC ?? 0) > 0 &&
+    Number(closing.sistemas?.tucanCRC ?? 0) > 0 &&
+    Number(closing.sistemas?.conticaTiemposCRC ?? 0) > 0 &&
+    Number(closing.sistemas?.tiemposCRC ?? 0) > 0;
   const closingDateKey = dateKeyFromDate(closingDateValue);
 
   if (requireSingleClosingReason && !singleClosingReason) {
     showToast(
-      "Debe indicar el motivo de por quÃ© solo hubo un cierre en el dÃ­a.",
+      "Debe indicar el motivo de por qué solo hubo un cierre en el día.",
+      "warning",
+      5000,
+    );
+    return;
+  }
+  if (noMovements && !noMovementsReason) {
+    showToast(
+      "Debe indicar el motivo de por qué no hubo movimientos.",
+      "warning",
+      5000,
+    );
+    return;
+  }
+
+  if (!noMovements && !hasCompleteSistemasVerification) {
+    showToast(
+      "Debe completar la verificación de sistemas antes de guardar.",
       "warning",
       5000,
     );
@@ -179,6 +204,7 @@ export async function handleConfirmDailyClosing(
     turno: closing.turno,
     ...(closing.sistemas ? { sistemas: closing.sistemas } : {}),
     ...(singleClosingReason ? { singleClosingReason } : {}),
+    ...(noMovements ? { noMovements: true, noMovementsReason } : {}),
     breakdownCRC: closing.breakdownCRC ?? {},
     breakdownUSD: closing.breakdownUSD ?? {},
   };
@@ -396,6 +422,8 @@ export async function handleConfirmDailyClosing(
     diffUSD: record.diffUSD,
     notes: record.notes,
     singleClosingReason: record.singleClosingReason,
+    noMovements: record.noMovements,
+    noMovementsReason: record.noMovementsReason,
     ...(record.sistemas ? { sistemas: record.sistemas } : {}),
   });
 

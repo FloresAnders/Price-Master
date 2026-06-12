@@ -65,6 +65,8 @@ export type DailyClosingFormValues = {
   manager: string;
   notes: string;
   singleClosingReason?: string;
+  noMovements?: boolean;
+  noMovementsReason?: string;
   totalCRC: number;
   totalUSD: number;
   breakdownCRC: Record<number, number>;
@@ -139,6 +141,12 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const [notes, setNotes] = useState(() => buildFormState(initialValues).notes);
   const [singleClosingReason, setSingleClosingReason] = useState(
     () => initialValues?.singleClosingReason || "",
+  );
+  const [noMovements, setNoMovements] = useState(
+    () => Boolean(initialValues?.noMovements),
+  );
+  const [noMovementsReason, setNoMovementsReason] = useState(
+    () => initialValues?.noMovementsReason || "",
   );
   const [crcCounts, setCrcCounts] = useState<CountState>(
     () => buildFormState(initialValues).crcCounts,
@@ -283,10 +291,17 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const diffCRC = totalCRC - Math.trunc(currentBalanceCRC);
   const diffUSD = totalUSD - Math.trunc(currentBalanceUSD);
   const hasAnyCash = totalCRC > 0 || totalUSD > 0;
+  const hasCompleteSistemasVerification =
+    conticaNum > 0 &&
+    tucanNum > 0 &&
+    conticaTiemposNum > 0 &&
+    tiemposNum > 0;
   const submitDisabled =
     displayedManager.trim().length === 0 ||
     !hasAnyCash ||
-    (requireSingleClosingReason && singleClosingReason.trim().length === 0);
+    (requireSingleClosingReason && singleClosingReason.trim().length === 0) ||
+    (noMovements && noMovementsReason.trim().length === 0) ||
+    (!noMovements && !hasCompleteSistemasVerification);
   const hasDifferences = diffCRC !== 0 || diffUSD !== 0;
 
   const submitDisabledReason = useMemo(() => {
@@ -297,12 +312,21 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
       return "No se puede guardar: el efectivo está en 0. Ingresa el conteo en colones o dólares para realizar el cierre.";
     }
     if (requireSingleClosingReason && singleClosingReason.trim().length === 0) {
-      return "Debes indicar el motivo de por quÃ© solo hubo un cierre en el dÃ­a.";
+      return "Debes indicar el motivo de por qué solo hubo un cierre en el día.";
+    }
+    if (noMovements && noMovementsReason.trim().length === 0) {
+      return "Debes indicar el motivo de por quÃ© no hubo movimientos.";
+    }
+    if (!noMovements && !hasCompleteSistemasVerification) {
+      return "Debes completar la verificación de sistemas antes de guardar.";
     }
     return "";
   }, [
     displayedManager,
     hasAnyCash,
+    hasCompleteSistemasVerification,
+    noMovements,
+    noMovementsReason,
     requireSingleClosingReason,
     singleClosingReason,
   ]);
@@ -473,12 +497,16 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
       manager: trimmedManager,
       notes,
       singleClosingReason: singleClosingReason.trim(),
+      noMovements,
+      noMovementsReason: noMovements ? noMovementsReason.trim() : "",
       totalCRC,
       totalUSD,
       breakdownCRC: buildBreakdown(crcCounts, CRC_DENOMINATIONS),
       breakdownUSD: buildBreakdown(usdCounts, USD_DENOMINATIONS),
       turno,
-      ...(showSistemas && conticaNum > 0 && (tucanNum > 0 || tiemposNum > 0)
+      ...(showSistemas &&
+      !noMovements &&
+      hasCompleteSistemasVerification
         ? {
             sistemas: {
               conticaCRC: conticaNum,
@@ -778,7 +806,29 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
               </section>
             </div>
           </div>
-          {showSistemas && (
+          <div className="rounded-lg border border-[var(--input-border)] bg-[var(--muted)]/5 p-3">
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                checked={noMovements}
+                onChange={(event) => {
+                  const checked = event.target.checked;
+                  setNoMovements(checked);
+                  if (!checked) setNoMovementsReason("");
+                }}
+                className="mt-0.5 h-4 w-4 rounded border-[var(--input-border)] text-[var(--accent)] focus:ring-[var(--accent)]"
+              />
+              <div className="space-y-1">
+                <div className="text-sm font-semibold text-[var(--foreground)]">
+                  Sin movimientos
+                </div>
+                <div className="text-xs text-[var(--muted-foreground)]">
+                  Omite verificacion de sistemas. Debes indicar el motivo.
+                </div>
+              </div>
+            </label>
+          </div>
+          {showSistemas && !noMovements && (
             <SistemasVerificationSection
               turno={turno}
               cierreDBase={cierreDBase}
@@ -791,6 +841,24 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
               onConticaTiemposChange={setTotalConticaTiemposCRC}
               onTiemposChange={setTotalTiemposCRC}
             />
+          )}
+          {noMovements && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                Motivo sin movimientos
+              </label>
+              <textarea
+                value={noMovementsReason}
+                onChange={(event) => setNoMovementsReason(event.target.value)}
+                className="min-h-[96px] rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm text-[var(--foreground)] transition-colors hover:border-amber-400/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/30 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                style={{
+                  backgroundColor: "var(--card-bg)",
+                  color: "var(--foreground)",
+                }}
+                maxLength={400}
+                placeholder="Explica por qué no hubo movimientos"
+              />
+            </div>
           )}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">

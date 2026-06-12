@@ -539,6 +539,13 @@ export const sanitizeDailyClosings = (raw: unknown): DailyClosingRecord[] => {
       diffCRC: sanitizeMoneyNumber(record.diffCRC),
       diffUSD: sanitizeMoneyNumber(record.diffUSD),
       notes: typeof record.notes === "string" ? record.notes : "",
+      ...(record.singleClosingReason
+        ? { singleClosingReason: String(record.singleClosingReason) }
+        : {}),
+      ...(record.noMovements ? { noMovements: true } : {}),
+      ...(record.noMovementsReason
+        ? { noMovementsReason: String(record.noMovementsReason) }
+        : {}),
       breakdownCRC: sanitizeBreakdown(record.breakdownCRC),
       breakdownUSD: sanitizeBreakdown(record.breakdownUSD),
       ...(adjustmentResolution ? { adjustmentResolution } : {}),

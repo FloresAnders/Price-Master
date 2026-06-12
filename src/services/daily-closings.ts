@@ -28,6 +28,8 @@ export type DailyClosingRecord = {
     conticaTiemposAjustadaCRC?: number;
   };
   singleClosingReason?: string;
+  noMovements?: boolean;
+  noMovementsReason?: string;
   breakdownCRC: Record<number, number>;
   breakdownUSD: Record<number, number>;
   adjustmentResolution?: {
@@ -199,6 +201,10 @@ const sanitizeRecord = (raw: unknown): DailyClosingRecord | null => {
     typeof candidate.singleClosingReason === "string"
       ? candidate.singleClosingReason.trim()
       : "";
+  const noMovementsReason =
+    typeof candidate.noMovementsReason === "string"
+      ? candidate.noMovementsReason.trim()
+      : "";
 
   const record: DailyClosingRecord = {
     id,
@@ -213,6 +219,8 @@ const sanitizeRecord = (raw: unknown): DailyClosingRecord | null => {
     diffUSD: sanitizeMoney(candidate.diffUSD),
     notes,
     ...(singleClosingReason ? { singleClosingReason } : {}),
+    ...(candidate.noMovements ? { noMovements: true } : {}),
+    ...(noMovementsReason ? { noMovementsReason } : {}),
     breakdownCRC: sanitizeBreakdown(candidate.breakdownCRC),
     breakdownUSD: sanitizeBreakdown(candidate.breakdownUSD),
   } as DailyClosingRecord;

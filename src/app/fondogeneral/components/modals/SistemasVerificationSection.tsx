@@ -163,7 +163,7 @@ const SistemasVerificationSection: React.FC<SistemasVerificationSectionProps> = 
       <div className="grid gap-4">
         <div className="grid gap-3 md:grid-cols-3">
           <CurrencyField
-            label="Contica"
+            label="R08"
             value={totalConticaCRC}
             onChange={onConticaChange}
             helper={turno === "N" && cierreDBase && conticaNum > 0 ? `Ajustado N: ₡ ${conticaAjustada.toLocaleString("es-CR")}` : undefined}
@@ -179,7 +179,7 @@ const SistemasVerificationSection: React.FC<SistemasVerificationSectionProps> = 
 
         <div className="grid gap-3 md:grid-cols-3">
           <CurrencyField
-            label="Contica Tiempos"
+            label="T11"
             value={totalConticaTiemposCRC}
             onChange={onConticaTiemposChange}
             helper={turno === "N" && cierreDBase && conticaTiemposNum > 0 ? `Ajustado N: ₡ ${conticaTiemposAjustado.toLocaleString("es-CR")}` : undefined}

@@ -13,6 +13,8 @@ export type DailyClosingEmailContext = {
   diffUSD: number;
   notes?: string;
   singleClosingReason?: string;
+  noMovements?: boolean;
+  noMovementsReason?: string;
   sistemas?: {
     conticaCRC: number;
     tucanCRC?: number;
@@ -100,6 +102,14 @@ ${context.singleClosingReason.trim()}
 `
       : "";
 
+  const noMovementsSection =
+    context.noMovements && context.noMovementsReason?.trim().length
+      ? `
+Sin movimientos:
+${context.noMovementsReason.trim()}
+`
+      : "";
+
   const sistemasSectionTextExtended = context.sistemas
     ? `
 Verificacion de sistemas:
@@ -133,7 +143,7 @@ Saldos registrados en sistema:
 Diferencias:
  - Colones: ${formatDiff("CRC", context.diffCRC)}
  - Dolares: ${formatDiff("USD", context.diffUSD)}
-${singleClosingReasonSection}${notesSection}`.trim();
+${singleClosingReasonSection}${noMovementsSection}${notesSection}`.trim();
 
   const textWithSistemas = sistemasSectionTextExtended
     ? `${text}\n${sistemasSectionTextExtended}`
@@ -209,6 +219,14 @@ ${singleClosingReasonSection}${notesSection}`.trim();
                 ? `<div style="border-left: 4px solid #f59e0b; background: #fffbeb; padding: 12px 16px; border-radius: 6px; margin-bottom: 16px;">
                         <strong>Motivo cierre unico:</strong>
                         <p style="margin: 8px 0 0 0; white-space: pre-line;">${context.singleClosingReason.trim()}</p>
+                    </div>`
+                : ""
+            }
+            ${
+              context.noMovements && context.noMovementsReason?.trim().length
+                ? `<div style="border-left: 4px solid #f97316; background: #fff7ed; padding: 12px 16px; border-radius: 6px; margin-bottom: 16px;">
+                        <strong>Sin movimientos:</strong>
+                        <p style="margin: 8px 0 0 0; white-space: pre-line;">${context.noMovementsReason.trim()}</p>
                     </div>`
                 : ""
             }
