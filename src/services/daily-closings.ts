@@ -6,22 +6,27 @@ import {
   setDoc,
 } from "firebase/firestore";
 import { db } from "@/config/firebase";
-import { getAuthoritativeNowISO } from "@/utils/serverTime";
+import {
+  getAuthoritativeNowISO,
+  getAuthoritativeNowMs,
+} from "@/utils/serverTime";
 import { FirestoreService } from "./firestore";
 
 const COSTA_RICA_TZ = "America/Costa_Rica";
-const DEFAULT_OPEN_TIME = "08:00";
-const DEFAULT_CLOSE_TIME = "00:00";
 const DEFAULT_MINUTES_AFTER_CLOSE = 45;
+const NEUTRAL_ISO = "1970-01-01T00:00:00.000Z";
+const NEUTRAL_DATE_KEY = "1970-01-01";
 
 export type DailyClosingSchedule = {
-  horarioApertura?: string | null;
-  horarioCierre?: string | null;
+  horarioApertura: string;
+  horarioCierre: string;
   minutesAfterClose?: number | null;
 };
 
 export const DAILY_CLOSING_DUPLICATE_ERROR =
   "Ya existe un cierre de Fondo General para el día operativo";
+export const DAILY_CLOSING_SCHEDULE_REQUIRED_ERROR =
+  "No se puede crear el cierre: configure horarios de apertura y cierre válidos.";
 
 export type DailyClosingRecord = {
   id: string;
@@ -82,14 +87,30 @@ const MAX_CLOSING_RECORDS = 50;
 
 const pad = (value: number): string => value.toString().padStart(2, "0");
 
-const parseHHMM = (value: unknown, fallback: string): number => {
-  const match = String(value || fallback).match(/^(\d{2}):(\d{2})$/);
-  if (!match) return parseHHMM(fallback, "00:00");
+const parseHHMM = (value: unknown): number | null => {
+  const match =
+    typeof value === "string"
+      ? value.trim().match(/^(\d{2}):(\d{2})$/)
+      : null;
+  if (!match) return null;
   const hour = Number(match[1]);
   const minute = Number(match[2]);
-  if (hour > 23 || minute > 59) return parseHHMM(fallback, "00:00");
+  if (hour > 23 || minute > 59) return null;
   return hour * 60 + minute;
 };
+
+export const isValidDailyClosingSchedule = (
+  schedule:
+    | {
+        horarioApertura?: string | null;
+        horarioCierre?: string | null;
+        minutesAfterClose?: number | null;
+      }
+    | null
+    | undefined,
+): schedule is DailyClosingSchedule =>
+  parseHHMM(schedule?.horarioApertura) !== null &&
+  parseHHMM(schedule?.horarioCierre) !== null;
 
 const getCRDateParts = (iso: string) => {
   const date = new Date(iso);
@@ -117,14 +138,15 @@ const shiftDateKey = (year: number, month: number, day: number, delta: number) =
   return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
 };
 
-const getOperationalDateKey = (
+export const getOperationalDateKey = (
   iso: string,
-  schedule: DailyClosingSchedule = {},
+  schedule: DailyClosingSchedule,
 ): string | null => {
   const parts = getCRDateParts(iso);
   if (!parts) return null;
-  const openMin = parseHHMM(schedule.horarioApertura, DEFAULT_OPEN_TIME);
-  const closeMin = parseHHMM(schedule.horarioCierre, DEFAULT_CLOSE_TIME);
+  const openMin = parseHHMM(schedule?.horarioApertura);
+  const closeMin = parseHHMM(schedule?.horarioCierre);
+  if (openMin === null || closeMin === null) return null;
   const afterClose = Math.max(
     0,
     Number(schedule.minutesAfterClose ?? DEFAULT_MINUTES_AFTER_CLOSE) || 0,
@@ -139,9 +161,6 @@ const getOperationalDateKey = (
     parts.minuteOfDay < openMin ? -1 : 0,
   );
 };
-
-const buildDateKeyFromDate = (date: Date): string =>
-  `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 
 const resolveISOString = (value: unknown, fallback?: string): string => {
   if (typeof value === "string") {
@@ -177,7 +196,7 @@ const resolveISOString = (value: unknown, fallback?: string): string => {
     }
   }
   if (fallback) return fallback;
-  return new Date().toISOString();
+  return NEUTRAL_ISO;
 };
 
 const sanitizeMoney = (value: unknown): number => {
@@ -243,9 +262,13 @@ type AdjustmentResolutionRemoval = NonNullable<
 >[number];
 
 const buildDateKeyFromISO = (isoString: string): string => {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(isoString)) return isoString;
   const parsed = Date.parse(isoString);
   if (!Number.isNaN(parsed)) {
-    return buildDateKeyFromDate(new Date(parsed));
+    const parts = getCRDateParts(new Date(parsed).toISOString());
+    if (parts) {
+      return `${parts.year}-${pad(parts.month)}-${pad(parts.day)}`;
+    }
   }
   if (isoString.length >= 10) {
     const candidate = isoString.slice(0, 10);
@@ -253,11 +276,17 @@ const buildDateKeyFromISO = (isoString: string): string => {
       return candidate;
     }
   }
-  return buildDateKeyFromDate(new Date());
+  return NEUTRAL_DATE_KEY;
 };
 
-const generateRecordId = (): string =>
-  `dc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+const buildLegacyRecordId = (candidate: Record<string, unknown>): string => {
+  const source = JSON.stringify(candidate);
+  let hash = 0;
+  for (let index = 0; index < source.length; index += 1) {
+    hash = (Math.imul(31, hash) + source.charCodeAt(index)) | 0;
+  }
+  return `dc_legacy_${Math.abs(hash)}`;
+};
 
 const sanitizeRecord = (raw: unknown): DailyClosingRecord | null => {
   if (!raw || typeof raw !== "object") return null;
@@ -266,7 +295,7 @@ const sanitizeRecord = (raw: unknown): DailyClosingRecord | null => {
   const id =
     typeof candidate.id === "string" && candidate.id.trim().length > 0
       ? candidate.id.trim()
-      : generateRecordId();
+      : buildLegacyRecordId(candidate);
   const closingDate = resolveISOString(
     candidate.closingDate,
     "1970-01-01T00:00:00.000Z",
@@ -450,7 +479,7 @@ const sanitizeDocument = (
 ): DailyClosingsDocument => {
   const base: DailyClosingsDocument = {
     company: fallbackCompany,
-    updatedAt: new Date().toISOString(),
+    updatedAt: NEUTRAL_ISO,
     closingsByDate: {},
   };
   if (!raw || typeof raw !== "object") {
@@ -540,7 +569,7 @@ export class DailyClosingsService {
   static async saveClosing(
     company: string,
     record: DailyClosingRecord,
-    schedule: DailyClosingSchedule = {},
+    schedule: DailyClosingSchedule,
   ): Promise<void> {
     const docId = this.buildDocumentId(company);
     if (!docId) {
@@ -549,6 +578,9 @@ export class DailyClosingsService {
     const sanitizedRecord = sanitizeRecord(record);
     if (!sanitizedRecord) {
       throw new Error("Invalid closing record data");
+    }
+    if (!isValidDailyClosingSchedule(schedule)) {
+      throw new Error(DAILY_CLOSING_SCHEDULE_REQUIRED_ERROR);
     }
     const updatedAt = await getAuthoritativeNowISO();
     let dateKey = buildDateKeyFromISO(sanitizedRecord.closingDate);
@@ -692,14 +724,18 @@ export class DailyClosingsService {
     }
 
     const deletedAtISO = await getAuthoritativeNowISO();
-    const deletedAt = new Date(deletedAtISO);
-    const dd = pad(deletedAt.getDate());
-    const mm = pad(deletedAt.getMonth() + 1);
-    const yyyy = String(deletedAt.getFullYear());
+    const deletedAtMs = await getAuthoritativeNowMs();
+    const deletedParts = getCRDateParts(deletedAtISO);
+    if (!deletedParts) {
+      throw new Error("No se pudo resolver la fecha autoritativa del cierre eliminado");
+    }
+    const dd = pad(deletedParts.day);
+    const mm = pad(deletedParts.month);
+    const yyyy = String(deletedParts.year);
     const deletedAtDisplay = `${dd}/${mm}/${yyyy}`;
     // Firestore doc IDs cannot contain '/', so use '-' in the ID.
     // Keep a millisecond suffix for uniqueness when deleting multiple times the same day.
-    const deletedBackupId = `del_${dd}-${mm}-${yyyy}_${deletedAt.getTime()}_${latest.id}`;
+    const deletedBackupId = `del_${dd}-${mm}-${yyyy}_${deletedAtMs}_${latest.id}`;
 
     // Build updated closings map (remove latest)
     const updatedMap: Record<string, DailyClosingRecord[]> = {};

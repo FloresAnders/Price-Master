@@ -1,9 +1,15 @@
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { getAuthoritativeNowISO } from "@/utils/serverTime";
+import {
+  getAuthoritativeNowISO,
+  getAuthoritativeNowMs,
+} from "@/utils/serverTime";
+import { toCostaRicaISO } from "@/utils/costaRicaTime";
 import { db } from "@/config/firebase";
 import {
   DAILY_CLOSING_DUPLICATE_ERROR,
+  DAILY_CLOSING_SCHEDULE_REQUIRED_ERROR,
   DailyClosingsService,
+  isValidDailyClosingSchedule,
   type DailyClosingRecord,
 } from "@/services/daily-closings";
 import { MovimientosFondosService } from "@/services/movimientos-fondos";
@@ -146,9 +152,30 @@ export async function handleConfirmDailyClosing(
     return;
   }
 
+  const dailyClosingSchedule = {
+    horarioApertura,
+    horarioCierre,
+    minutesAfterClose,
+  };
+  if (!isValidDailyClosingSchedule(dailyClosingSchedule)) {
+    showToast(DAILY_CLOSING_SCHEDULE_REQUIRED_ERROR, "warning", 6000);
+    return;
+  }
+
   const createdAtISO = await getAuthoritativeNowISO();
-  const createdAtDate = new Date(createdAtISO);
-  const serverNowMs = createdAtDate.getTime();
+  const createdAtCostaRicaISO = toCostaRicaISO(new Date(createdAtISO));
+  const createdAtYear = createdAtCostaRicaISO.slice(0, 4);
+  const createdAtMonth = createdAtCostaRicaISO.slice(5, 7);
+  const createdAtDay = createdAtCostaRicaISO.slice(8, 10);
+  const createdAtHour = createdAtCostaRicaISO.slice(11, 13);
+  const createdAtMinute = createdAtCostaRicaISO.slice(14, 16);
+  const createdAtSecond = createdAtCostaRicaISO.slice(17, 19);
+  const createdAtMillisecond = createdAtCostaRicaISO.slice(20, 23);
+  const invoiceDate = `${createdAtDay}-${createdAtMonth}-${createdAtYear}`;
+  const cierreBaseId =
+    `${createdAtYear}_${createdAtMonth}_${createdAtDay}-` +
+    `${createdAtHour}_${createdAtMinute}_${createdAtSecond}_${createdAtMillisecond}_CIERRE`;
+  const serverNowMs = await getAuthoritativeNowMs();
 
   let closingDateValue = closing.closingDate ? new Date(closing.closingDate) : new Date(createdAtISO);
   if (Number.isNaN(closingDateValue.getTime())) {
@@ -201,7 +228,7 @@ export async function handleConfirmDailyClosing(
   }
 
   const record: DailyClosingRecord = {
-    id: editingDailyClosingId ?? `${Date.now()}`,
+    id: editingDailyClosingId ?? `${serverNowMs}`,
     createdAt: editingDailyClosingId
       ? (dailyClosings.find((d) => d.id === editingDailyClosingId)?.createdAt ?? createdAt)
       : createdAt,
@@ -226,11 +253,6 @@ export async function handleConfirmDailyClosing(
   };
 
   const normalizedCompany = (company || "").trim();
-  const dailyClosingSchedule = {
-    horarioApertura,
-    horarioCierre,
-    minutesAfterClose,
-  };
   if (normalizedCompany.length === 0) {
     setDailyClosingModalOpen(false);
     showToast("Error: No se pudo identificar la empresa", "error");
@@ -371,6 +393,10 @@ export async function handleConfirmDailyClosing(
       }
       return;
     }
+    if (err instanceof Error && err.message === DAILY_CLOSING_SCHEDULE_REQUIRED_ERROR) {
+      showToast(err.message, "warning", 6000);
+      return;
+    }
 
     try {
     const whenISO = await getAuthoritativeNowISO().catch(
@@ -497,20 +523,6 @@ export async function handleConfirmDailyClosing(
     const closingBalanceCRC = Math.trunc(record.totalCRC ?? 0);
     const closingBalanceUSD = Math.trunc(record.totalUSD ?? 0);
 
-    const buildCierreMovementBaseId = (when: Date) => {
-      const yyyy = when.getFullYear();
-      const MM = String(when.getMonth() + 1).padStart(2, "0");
-      const DD = String(when.getDate()).padStart(2, "0");
-      const HH = String(when.getHours()).padStart(2, "0");
-      const mm = String(when.getMinutes()).padStart(2, "0");
-      const ss = String(when.getSeconds()).padStart(2, "0");
-      const mmm = String(when.getMilliseconds()).padStart(3, "0");
-      const dateKey = `${yyyy}_${MM}_${DD}`;
-      const timeKey = `${HH}_${mm}_${ss}_${mmm}`;
-      return `${dateKey}-${timeKey}_CIERRE`;
-    };
-
-    const cierreBaseId = buildCierreMovementBaseId(createdAtDate);
     let adjustedDiffCRC = record.diffCRC;
     let adjustedDiffUSD = record.diffUSD;
     if (editingDailyClosingId) {
@@ -558,10 +570,6 @@ export async function handleConfirmDailyClosing(
       const diff = Math.trunc(adjustedDiffCRC);
       const isPositive = diff > 0;
       const paymentType = "AJUSTE CIERRE" as any;
-      const dd = String(createdAtDate.getDate()).padStart(2, "0");
-      const mm = String(createdAtDate.getMonth() + 1).padStart(2, "0");
-      const yyyy = createdAtDate.getFullYear();
-      const invoiceDate = `${dd}-${mm}-${yyyy}`;
       const entry: FondoEntry = {
         id: cierreBaseId,
         providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
@@ -588,10 +596,6 @@ export async function handleConfirmDailyClosing(
       const diff = Math.trunc(adjustedDiffUSD);
       const isPositive = diff > 0;
       const paymentType = "AJUSTE CIERRE" as any;
-      const dd = String(createdAtDate.getDate()).padStart(2, "0");
-      const mm = String(createdAtDate.getMonth() + 1).padStart(2, "0");
-      const yyyy = createdAtDate.getFullYear();
-      const invoiceDate = `${dd}-${mm}-${yyyy}`;
       const entry: FondoEntry = {
         id: plannedCount > 1 ? `${cierreBaseId}_USD` : cierreBaseId,
         providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
@@ -615,10 +619,6 @@ export async function handleConfirmDailyClosing(
     }
 
     if (adjustedDiffCRC === 0 && adjustedDiffUSD === 0) {
-      const dd = String(createdAtDate.getDate()).padStart(2, "0");
-      const mm = String(createdAtDate.getMonth() + 1).padStart(2, "0");
-      const yyyy = createdAtDate.getFullYear();
-      const invoiceDate = `${dd}-${mm}-${yyyy}`;
       const entry: FondoEntry = {
         id: cierreBaseId,
         providerCode: AUTO_ADJUSTMENT_PROVIDER_CODE,
