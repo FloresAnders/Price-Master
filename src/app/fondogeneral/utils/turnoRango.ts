@@ -3,13 +3,25 @@ export const TURNO_END_MINUTES: Record<"D" | "N", number> = {
   N: 24 * 60,
 };
 
+const getCostaRicaMinuteOfDay = (date: Date): number => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Costa_Rica",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const value = (type: string) =>
+    Number(parts.find((part) => part.type === type)?.value);
+  return value("hour") * 60 + value("minute");
+};
+
 export function isWithinCierreRange(
   turno: "D" | "N",
   minutesBeforeEnd: number,
   minutesAfterEnd: number,
   now: Date = new Date(),
 ): boolean {
-  const totalMinutesNow = now.getHours() * 60 + now.getMinutes();
+  const totalMinutesNow = getCostaRicaMinuteOfDay(now);
   const endMinutes = TURNO_END_MINUTES[turno];
 
   const windowStart = endMinutes - minutesBeforeEnd;
@@ -29,7 +41,7 @@ export function getCierreWindowTurno(
   minutesAfterEnd: number,
   now: Date = new Date(),
 ): "D" | "N" {
-  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const nowMin = getCostaRicaMinuteOfDay(now);
   const dEnd = TURNO_END_MINUTES.D;
   const nEnd = TURNO_END_MINUTES.N;
 

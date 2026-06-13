@@ -36,6 +36,86 @@ type CRParts = {
 type ClosingMovementLike = {
   createdAt?: string;
   providerCode?: string;
+  turno?: ShiftCode;
+};
+
+export const getOccupiedClosingShifts = (
+  closings: ClosingMovementLike[],
+): Set<ShiftCode> => {
+  const occupied = new Set<ShiftCode>();
+  closings.forEach((entry) => {
+    if (entry.turno === "D" || entry.turno === "N") occupied.add(entry.turno);
+  });
+  closings
+    .filter((entry) => entry.turno !== "D" && entry.turno !== "N")
+    .slice()
+    .sort(
+      (a, b) =>
+        Date.parse(String(a.createdAt || "")) -
+        Date.parse(String(b.createdAt || "")),
+    )
+    .forEach(() => {
+      if (!occupied.has("D")) occupied.add("D");
+      else if (!occupied.has("N")) occupied.add("N");
+    });
+  return occupied;
+};
+
+const normalizeMinuteOfDay = (value: number) =>
+  ((Math.trunc(value) % 1440) + 1440) % 1440;
+
+const getMinutesRelativeTo = (minute: number, reference: number) => {
+  const forward = normalizeMinuteOfDay(minute - reference);
+  return forward > 720 ? forward - 1440 : forward;
+};
+
+export const resolveFondoVentasClosingShift = (args: {
+  currentMin: number;
+  shiftDEndMin: number;
+  shiftNEndMin: number;
+  expectedShift: ShiftCode;
+  minutesBeforeEnd: number;
+  minutesAfterEnd: number;
+  occupiedShifts: ReadonlySet<ShiftCode>;
+}): ShiftCode => {
+  const minutesBeforeEnd = Math.max(0, args.minutesBeforeEnd);
+  const minutesAfterEnd = Math.max(0, args.minutesAfterEnd);
+  const relativeToDEnd = getMinutesRelativeTo(
+    args.currentMin,
+    args.shiftDEndMin,
+  );
+  const isInDWindow =
+    relativeToDEnd >= -minutesBeforeEnd &&
+    relativeToDEnd <= minutesAfterEnd;
+
+  if (!args.occupiedShifts.has("D") && isInDWindow) return "D";
+
+  const nightWindowStart = normalizeMinuteOfDay(
+    args.shiftNEndMin - minutesBeforeEnd,
+  );
+  const minutesUntilNightWindowStart = normalizeMinuteOfDay(
+    nightWindowStart - args.currentMin,
+  );
+  const relativeToNEnd = getMinutesRelativeTo(
+    args.currentMin,
+    args.shiftNEndMin,
+  );
+  const isInNWindow =
+    relativeToNEnd >= -minutesBeforeEnd &&
+    relativeToNEnd <= minutesAfterEnd;
+  const isApproachingNWindow =
+    minutesUntilNightWindowStart <= minutesBeforeEnd;
+
+  if (
+    args.occupiedShifts.has("D") ||
+    args.expectedShift === "N" ||
+    isApproachingNWindow ||
+    isInNWindow
+  ) {
+    return "N";
+  }
+
+  return "D";
 };
 
 type ClosingProviderLike = {
@@ -89,6 +169,22 @@ export const getCostaRicaDateKeyAndMinute = (
   return { dateKey, minuteOfDay: parts.hour * 60 + parts.minute };
 };
 
+export const getCostaRicaOperationalDateKey = (
+  iso: string,
+  horarioApertura?: string | null,
+): string | null => {
+  const parts = getCRParts(new Date(iso));
+  if (!parts) return null;
+  const openMin = parseHHMMToMinutes(horarioApertura);
+  const minuteOfDay = parts.hour * 60 + parts.minute;
+  if (openMin !== null && minuteOfDay < openMin) {
+    return getPreviousDateKey(parts);
+  }
+  return `${parts.year}-${String(parts.month1).padStart(2, "0")}-${String(
+    parts.day,
+  ).padStart(2, "0")}`;
+};
+
 const parseHHMMToMinutes = (value: unknown): number | null => {
   const raw = String(value || "").trim();
   if (!raw) return null;
@@ -135,23 +231,19 @@ const isWithinHorario = (
   closeMin: number,
 ): boolean => {
   // Normal (same-day): open <= close
-  if (openMin <= closeMin) return nowMin >= openMin && nowMin <= closeMin;
+  if (openMin <= closeMin) return nowMin >= openMin && nowMin < closeMin;
   // Overnight (e.g. 22:00 -> 06:00): within if >= open OR <= close
-  return nowMin >= openMin || nowMin <= closeMin;
+  return nowMin >= openMin || nowMin < closeMin;
 };
 
 const isExpectedDayShiftNow = (
   nowMin: number,
   openMin: number,
-  closeMin: number,
   shiftChangeMin: number,
 ): boolean => {
-  if (openMin <= closeMin) {
-    return nowMin < shiftChangeMin;
-  }
-
-  // Overnight: D covers open->midnight and midnight->shift change.
-  return nowMin >= openMin || nowMin < shiftChangeMin;
+  const elapsedSinceOpen = (nowMin - openMin + 1440) % 1440;
+  const dayShiftDuration = (shiftChangeMin - openMin + 1440) % 1440;
+  return elapsedSinceOpen < dayShiftDuration;
 };
 
 const normalizeName = (value: unknown) =>
@@ -261,7 +353,7 @@ export const getFondoVentasShiftFromClosings = (args: {
     );
   });
 
-  return closingsToday.length > 0 ? "N" : "D";
+  return getOccupiedClosingShifts(closingsToday).has("D") ? "N" : "D";
 };
 
 export const resolveManagerFromControlHorario = (args: {
@@ -308,7 +400,7 @@ export const resolveManagerFromControlHorario = (args: {
     return employeeHours ?? scheduleHours ?? 8;
   })();
   const shiftChangeMin = openMin + Math.round(dayHours * 60);
-  const expectedShift = isExpectedDayShiftNow(nowMin, openMin, closeMin, shiftChangeMin)
+  const expectedShift = isExpectedDayShiftNow(nowMin, openMin, shiftChangeMin)
     ? "D"
     : "N";
 
@@ -316,15 +408,15 @@ export const resolveManagerFromControlHorario = (args: {
     return { mode: "missing", withinHorario: true, expectedShift, dateKey };
   }
 
-  const closingExistsToday = (args.closingMovements || []).some((entry) => {
-    const info = getCostaRicaDateKeyAndMinute(String(entry.createdAt || ""));
-    if (!info || info.dateKey !== dateKey) return false;
-    return isCierreFondoVentasMovementLike(
-      entry,
-      args.providers,
-      args.cierreFondoVentasProviderCode,
-    );
-  });
+  const closingExistsToday =
+    getFondoVentasShiftFromClosings({
+      nowISO: args.nowISO,
+      horarioApertura: args.empresa?.horarioApertura,
+      horarioCierre: args.empresa?.horarioCierre,
+      closingMovements: args.closingMovements,
+      providers: args.providers,
+      cierreFondoVentasProviderCode: args.cierreFondoVentasProviderCode,
+    }) === "N";
 
   const closingGraceAfterEnd = Math.max(
     0,
@@ -335,7 +427,7 @@ export const resolveManagerFromControlHorario = (args: {
   const isWithinShiftGrace = (() => {
     if (closingGraceAfterEnd <= 0) return false;
     const normalizedNow = nowMin < shiftGraceStartMin ? nowMin + 1440 : nowMin;
-    return normalizedNow >= shiftGraceStartMin && normalizedNow < shiftGraceEndMin;
+    return normalizedNow >= shiftGraceStartMin && normalizedNow <= shiftGraceEndMin;
   })();
 
   if (expectedShift === "N" && isWithinShiftGrace && !closingExistsToday) {
@@ -427,7 +519,7 @@ export const getControlHorarioShiftTiming = (args: {
   const dayHours = employeeHours ?? scheduleHours ?? 8;
 
   const shiftChangeMin = openMin + Math.round(dayHours * 60);
-  const expectedShift = isExpectedDayShiftNow(currentMin, openMin, closeMin, shiftChangeMin)
+  const expectedShift = isExpectedDayShiftNow(currentMin, openMin, shiftChangeMin)
     ? "D"
     : "N";
 

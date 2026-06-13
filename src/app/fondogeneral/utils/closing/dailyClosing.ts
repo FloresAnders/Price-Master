@@ -1,7 +1,11 @@
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
 import { db } from "@/config/firebase";
-import { DailyClosingsService, type DailyClosingRecord } from "@/services/daily-closings";
+import {
+  DAILY_CLOSING_DUPLICATE_ERROR,
+  DailyClosingsService,
+  type DailyClosingRecord,
+} from "@/services/daily-closings";
 import { MovimientosFondosService } from "@/services/movimientos-fondos";
 import type { Dispatch, SetStateAction } from "react";
 import type { DailyClosingFormValues } from "../../components/modals/DailyClosingModal";
@@ -9,12 +13,11 @@ import type { FondoEntry } from "../../types";
 import { buildDailyClosingEmailTemplate } from "@/services/email-templates/daily-closing";
 import {
   compressAuditHistory,
-  dateKeyFromDate,
   formatByCurrency,
   getChangedFields,
   isAutoAdjustmentProvider,
 } from "../helpers";
-import { getCostaRicaDateKeyAndMinute } from "@/utils/controlHorarioManager";
+import { getCostaRicaOperationalDateKey } from "@/utils/controlHorarioManager";
 import {
   AUTO_ADJUSTMENT_MANAGER,
   AUTO_ADJUSTMENT_PROVIDER_CODE,
@@ -50,8 +53,11 @@ export interface HandleConfirmDailyClosingDeps {
   finishDailyClosingsRequest: () => void;
   fondoEntries: FondoEntry[];
   formatToastWaitTime: (remainingSec: number) => string;
+  horarioApertura?: string | null;
+  horarioCierre?: string | null;
   isRegularUser: boolean;
   lastDailyClosingSavedAtRef: NumberRef;
+  minutesAfterClose?: number | null;
   requireSingleClosingReason: boolean;
   loadedDailyClosingKeysRef: StringSetRef;
   loadingDailyClosingKeysRef: StringSetRef;
@@ -106,8 +112,11 @@ export async function handleConfirmDailyClosing(
     finishDailyClosingsRequest,
     fondoEntries,
     formatToastWaitTime,
+    horarioApertura,
+    horarioCierre,
     isRegularUser,
     lastDailyClosingSavedAtRef,
+    minutesAfterClose,
     requireSingleClosingReason,
     loadedDailyClosingKeysRef,
     loadingDailyClosingKeysRef,
@@ -159,7 +168,11 @@ export async function handleConfirmDailyClosing(
     Number(closing.sistemas?.tucanCRC ?? 0) > 0 &&
     Number(closing.sistemas?.conticaTiemposCRC ?? 0) > 0 &&
     Number(closing.sistemas?.tiemposCRC ?? 0) > 0;
-  const closingDateKey = dateKeyFromDate(closingDateValue);
+  const closingDateKey =
+    getCostaRicaOperationalDateKey(
+      closingDateValue.toISOString(),
+      horarioApertura,
+    ) ?? closingDateValue.toISOString().slice(0, 10);
 
   if (requireSingleClosingReason && !singleClosingReason) {
     showToast(
@@ -201,7 +214,10 @@ export async function handleConfirmDailyClosing(
     diffCRC,
     diffUSD,
     notes: userNotes,
-    turno: closing.turno,
+    ...(!editingDailyClosingId ||
+    dailyClosings.find((d) => d.id === editingDailyClosingId)?.turno
+      ? { turno: closing.turno }
+      : {}),
     ...(closing.sistemas ? { sistemas: closing.sistemas } : {}),
     ...(singleClosingReason ? { singleClosingReason } : {}),
     ...(noMovements ? { noMovements: true, noMovementsReason } : {}),
@@ -210,6 +226,11 @@ export async function handleConfirmDailyClosing(
   };
 
   const normalizedCompany = (company || "").trim();
+  const dailyClosingSchedule = {
+    horarioApertura,
+    horarioCierre,
+    minutesAfterClose,
+  };
   if (normalizedCompany.length === 0) {
     setDailyClosingModalOpen(false);
     showToast("Error: No se pudo identificar la empresa", "error");
@@ -284,7 +305,11 @@ export async function handleConfirmDailyClosing(
 
   beginDailyClosingsRequest();
   try {
-    await DailyClosingsService.saveClosing(normalizedCompany, record);
+    await DailyClosingsService.saveClosing(
+      normalizedCompany,
+      record,
+      dailyClosingSchedule,
+    );
     console.log(
       `[CIERRE] ? Cierre guardado exitosamente en Firestore. ID: ${record.id}, Fecha: ${record.closingDate}`,
     );
@@ -338,9 +363,19 @@ export async function handleConfirmDailyClosing(
     setDailyClosingModalOpen(false);
   } catch (err) {
     console.error("[CIERRE] ? Error guardando cierre en Firestore:", err);
+    if (err instanceof Error && err.message.startsWith(DAILY_CLOSING_DUPLICATE_ERROR)) {
+      showToast(err.message, "warning", 6000);
+      if (closingGuard) {
+        void releaseClosingGuard(normalizedCompany, closingGuard);
+        closingGuard = null;
+      }
+      return;
+    }
 
     try {
-    const whenISO = await getAuthoritativeNowISO().catch(() => new Date().toISOString());
+    const whenISO = await getAuthoritativeNowISO().catch(
+      () => "Hora del servidor no disponible",
+    );
       const where = "FondoSection.handleConfirmDailyClosing -> DailyClosingsService.saveClosing";
       const errorMessage =
         err instanceof Error
@@ -663,7 +698,11 @@ export async function handleConfirmDailyClosing(
               try {
                 const updatedRecord = updated.find((d) => d.id === record.id);
                 if (updatedRecord && normalizedCompany.length > 0) {
-                  void DailyClosingsService.saveClosing(normalizedCompany, updatedRecord)
+                  void DailyClosingsService.saveClosing(
+                    normalizedCompany,
+                    updatedRecord,
+                    dailyClosingSchedule,
+                  )
                     .then(() => {
                       console.log(
                         `[CIERRE] ? Ajuste de cierre guardado exitosamente. ID: ${updatedRecord.id}`,
@@ -930,7 +969,11 @@ export async function handleConfirmDailyClosing(
           try {
             const updatedRecord = updated.find((d) => d.id === record.id);
             if (updatedRecord && normalizedCompany.length > 0) {
-              void DailyClosingsService.saveClosing(normalizedCompany, updatedRecord)
+              void DailyClosingsService.saveClosing(
+                normalizedCompany,
+                updatedRecord,
+                dailyClosingSchedule,
+              )
                 .then(() => {
                   console.log(`[CIERRE] ? Nota de ajuste guardada exitosamente. ID: ${updatedRecord.id}`);
                 })

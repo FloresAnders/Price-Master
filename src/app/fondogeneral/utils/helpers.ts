@@ -546,6 +546,9 @@ export const sanitizeDailyClosings = (raw: unknown): DailyClosingRecord[] => {
       ...(record.noMovementsReason
         ? { noMovementsReason: String(record.noMovementsReason) }
         : {}),
+      ...(record.turno === "D" || record.turno === "N"
+        ? { turno: record.turno }
+        : {}),
       breakdownCRC: sanitizeBreakdown(record.breakdownCRC),
       breakdownUSD: sanitizeBreakdown(record.breakdownUSD),
       ...(adjustmentResolution ? { adjustmentResolution } : {}),
@@ -836,6 +839,7 @@ export const sanitizeFondoEntries = (
       openingPreviousBalanceUSD: coerceTruncNumber((entry as any).openingPreviousBalanceUSD),
       openingBreakdownCRC: (entry as any).openingBreakdownCRC ?? undefined,
       openingBreakdownUSD: (entry as any).openingBreakdownUSD ?? undefined,
+      turno: entry.turno === "D" || entry.turno === "N" ? entry.turno : undefined,
       isAudit: !!entry.isAudit,
       originalEntryId:
         typeof entry.originalEntryId === "string"

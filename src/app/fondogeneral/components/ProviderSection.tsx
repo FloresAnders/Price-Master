@@ -821,7 +821,7 @@ export function ProviderSection({ id }: { id?: string }) {
         const toEmail = await getOwnerPrimaryAdminEmailCached(ownerId);
         if (!toEmail) return;
 
-        const createdAt = await getAuthoritativeNowISO().catch(() => new Date().toISOString());
+        const createdAt = await getAuthoritativeNowISO();
         const createdBy = await resolveCreatedByFromControlHorario(createdAt);
 
         const emailContent = generateEgresoProviderCreatedEmail({

@@ -1,6 +1,27 @@
-import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  runTransaction,
+  serverTimestamp,
+  setDoc,
+} from "firebase/firestore";
 import { db } from "@/config/firebase";
+import { getAuthoritativeNowISO } from "@/utils/serverTime";
 import { FirestoreService } from "./firestore";
+
+const COSTA_RICA_TZ = "America/Costa_Rica";
+const DEFAULT_OPEN_TIME = "08:00";
+const DEFAULT_CLOSE_TIME = "00:00";
+const DEFAULT_MINUTES_AFTER_CLOSE = 45;
+
+export type DailyClosingSchedule = {
+  horarioApertura?: string | null;
+  horarioCierre?: string | null;
+  minutesAfterClose?: number | null;
+};
+
+export const DAILY_CLOSING_DUPLICATE_ERROR =
+  "Ya existe un cierre de Fondo General para el día operativo";
 
 export type DailyClosingRecord = {
   id: string;
@@ -60,6 +81,64 @@ const DELETED_SUBCOLLECTION_NAME = "records";
 const MAX_CLOSING_RECORDS = 50;
 
 const pad = (value: number): string => value.toString().padStart(2, "0");
+
+const parseHHMM = (value: unknown, fallback: string): number => {
+  const match = String(value || fallback).match(/^(\d{2}):(\d{2})$/);
+  if (!match) return parseHHMM(fallback, "00:00");
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return parseHHMM(fallback, "00:00");
+  return hour * 60 + minute;
+};
+
+const getCRDateParts = (iso: string) => {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: COSTA_RICA_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value);
+  return {
+    year: value("year"),
+    month: value("month"),
+    day: value("day"),
+    minuteOfDay: value("hour") * 60 + value("minute"),
+  };
+};
+
+const shiftDateKey = (year: number, month: number, day: number, delta: number) => {
+  const date = new Date(Date.UTC(year, month - 1, day + delta));
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+};
+
+const getOperationalDateKey = (
+  iso: string,
+  schedule: DailyClosingSchedule = {},
+): string | null => {
+  const parts = getCRDateParts(iso);
+  if (!parts) return null;
+  const openMin = parseHHMM(schedule.horarioApertura, DEFAULT_OPEN_TIME);
+  const closeMin = parseHHMM(schedule.horarioCierre, DEFAULT_CLOSE_TIME);
+  const afterClose = Math.max(
+    0,
+    Number(schedule.minutesAfterClose ?? DEFAULT_MINUTES_AFTER_CLOSE) || 0,
+  );
+  const duration = ((closeMin - openMin + 1440) % 1440) || 1440;
+  const elapsed = (parts.minuteOfDay - openMin + 1440) % 1440;
+  if (elapsed > duration + afterClose) return null;
+  return shiftDateKey(
+    parts.year,
+    parts.month,
+    parts.day,
+    parts.minuteOfDay < openMin ? -1 : 0,
+  );
+};
 
 const buildDateKeyFromDate = (date: Date): string =>
   `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
@@ -190,7 +269,7 @@ const sanitizeRecord = (raw: unknown): DailyClosingRecord | null => {
       : generateRecordId();
   const closingDate = resolveISOString(
     candidate.closingDate,
-    new Date().toISOString(),
+    "1970-01-01T00:00:00.000Z",
   );
   const createdAt = resolveISOString(candidate.createdAt, closingDate);
   const manager =
@@ -218,6 +297,9 @@ const sanitizeRecord = (raw: unknown): DailyClosingRecord | null => {
     diffCRC: sanitizeMoney(candidate.diffCRC),
     diffUSD: sanitizeMoney(candidate.diffUSD),
     notes,
+    ...(candidate.turno === "D" || candidate.turno === "N"
+      ? { turno: candidate.turno }
+      : {}),
     ...(singleClosingReason ? { singleClosingReason } : {}),
     ...(candidate.noMovements ? { noMovements: true } : {}),
     ...(noMovementsReason ? { noMovementsReason } : {}),
@@ -315,6 +397,24 @@ const sortRecordsDescending = (
   a: DailyClosingRecord,
   b: DailyClosingRecord,
 ): number => sortValueForRecord(b) - sortValueForRecord(a);
+
+const getOccupiedClosingShifts = (
+  records: DailyClosingRecord[],
+): Set<"D" | "N"> => {
+  const occupied = new Set<"D" | "N">();
+  records.forEach((record) => {
+    if (record.turno === "D" || record.turno === "N") occupied.add(record.turno);
+  });
+  records
+    .filter((record) => record.turno !== "D" && record.turno !== "N")
+    .slice()
+    .sort((a, b) => sortValueForRecord(a) - sortValueForRecord(b))
+    .forEach(() => {
+      if (!occupied.has("D")) occupied.add("D");
+      else if (!occupied.has("N")) occupied.add("N");
+    });
+  return occupied;
+};
 
 const trimClosingsMap = (
   map: Record<string, DailyClosingRecord[]>,
@@ -440,6 +540,7 @@ export class DailyClosingsService {
   static async saveClosing(
     company: string,
     record: DailyClosingRecord,
+    schedule: DailyClosingSchedule = {},
   ): Promise<void> {
     const docId = this.buildDocumentId(company);
     if (!docId) {
@@ -449,19 +550,72 @@ export class DailyClosingsService {
     if (!sanitizedRecord) {
       throw new Error("Invalid closing record data");
     }
-    const existingDocument = await this.getDocument(company);
-    const currentMap = existingDocument?.closingsByDate ?? {};
-    const dateKey = buildDateKeyFromISO(sanitizedRecord.closingDate);
-    const list = currentMap[dateKey] ?? [];
-    const filtered = list.filter((item) => item.id !== sanitizedRecord.id);
-    currentMap[dateKey] = [sanitizedRecord, ...filtered];
-    const trimmed = trimClosingsMap(currentMap);
-    const payload: DailyClosingsDocument = {
-      company: existingDocument?.company ?? docId,
-      updatedAt: new Date().toISOString(),
-      closingsByDate: trimmed,
-    };
-    await FirestoreService.addWithId(COLLECTION_NAME, docId, payload);
+    const updatedAt = await getAuthoritativeNowISO();
+    let dateKey = buildDateKeyFromISO(sanitizedRecord.closingDate);
+    const documentRef = doc(db, COLLECTION_NAME, docId);
+    await runTransaction(db, async (transaction) => {
+      const snapshot = await transaction.get(documentRef);
+      const existingDocument = snapshot.exists()
+        ? sanitizeDocument(snapshot.data(), docId)
+        : null;
+      const currentMap = existingDocument?.closingsByDate ?? {};
+      const allExisting = Object.values(currentMap).flat();
+      const originalRecord = allExisting.find(
+        (item) => item.id === sanitizedRecord.id,
+      );
+      const isEditing = Boolean(originalRecord);
+      if (originalRecord) {
+        sanitizedRecord.closingDate = originalRecord.closingDate;
+        dateKey = buildDateKeyFromISO(originalRecord.closingDate);
+        if (originalRecord.turno) sanitizedRecord.turno = originalRecord.turno;
+        else delete sanitizedRecord.turno;
+      }
+      if (
+        !isEditing &&
+        sanitizedRecord.turno !== "D" &&
+        sanitizedRecord.turno !== "N"
+      ) {
+        throw new Error("Turno D/N requerido para cierre de Fondo General.");
+      }
+      const operationalDateKey = !isEditing ? getOperationalDateKey(
+        sanitizedRecord.closingDate,
+        schedule,
+      ) : null;
+      if (!isEditing && !operationalDateKey) {
+        throw new Error("No se pudo resolver el día operativo del cierre.");
+      }
+      if (!isEditing && operationalDateKey && sanitizedRecord.turno) {
+        const sameOperationalDay = allExisting.filter(
+          (item) =>
+            item.id !== sanitizedRecord.id &&
+            getOperationalDateKey(item.closingDate, schedule) ===
+            operationalDateKey,
+        );
+        if (
+          getOccupiedClosingShifts(sameOperationalDay).has(
+            sanitizedRecord.turno,
+          )
+        ) {
+          throw new Error(
+            `${DAILY_CLOSING_DUPLICATE_ERROR} ${operationalDateKey}, turno ${sanitizedRecord.turno}.`,
+          );
+        }
+      }
+
+      Object.keys(currentMap).forEach((key) => {
+        currentMap[key] = currentMap[key].filter(
+          (item) => item.id !== sanitizedRecord.id,
+        );
+        if (currentMap[key].length === 0) delete currentMap[key];
+      });
+      currentMap[dateKey] = [sanitizedRecord, ...(currentMap[dateKey] ?? [])];
+      const payload: DailyClosingsDocument = {
+        company: existingDocument?.company ?? docId,
+        updatedAt,
+        closingsByDate: trimClosingsMap(currentMap),
+      };
+      transaction.set(documentRef, stripUndefinedDeep(payload));
+    });
 
     // Verify the save was successful by reading back the data
     // Note: This works reliably because Firestore SDK serves reads from local cache
@@ -537,7 +691,7 @@ export class DailyClosingsService {
       );
     }
 
-    const deletedAtISO = new Date().toISOString();
+    const deletedAtISO = await getAuthoritativeNowISO();
     const deletedAt = new Date(deletedAtISO);
     const dd = pad(deletedAt.getDate());
     const mm = pad(deletedAt.getMonth() + 1);
@@ -545,7 +699,7 @@ export class DailyClosingsService {
     const deletedAtDisplay = `${dd}/${mm}/${yyyy}`;
     // Firestore doc IDs cannot contain '/', so use '-' in the ID.
     // Keep a millisecond suffix for uniqueness when deleting multiple times the same day.
-    const deletedBackupId = `del_${dd}-${mm}-${yyyy}_${Date.now()}_${latest.id}`;
+    const deletedBackupId = `del_${dd}-${mm}-${yyyy}_${deletedAt.getTime()}_${latest.id}`;
 
     // Build updated closings map (remove latest)
     const updatedMap: Record<string, DailyClosingRecord[]> = {};

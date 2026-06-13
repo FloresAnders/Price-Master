@@ -1,11 +1,11 @@
 import { db } from "@/config/firebase";
 import {
-  findBestSchedule,
-  getCostaRicaDateKeyAndMinute,
+  getCostaRicaOperationalDateKey,
+  getOccupiedClosingShifts,
   isWithinFondoVentasNightClosingWindow,
+  resolveFondoVentasClosingShift,
   resolveManagerFromControlHorario,
 } from "@/utils/controlHorarioManager";
-import { getCierreWindowTurno } from "./turnoRango";
 import {
   FacturasService,
   type AppliedCreditNote,
@@ -76,6 +76,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     isDelifoodCompany,
     activeEmpresaForCompany,
     getFGMonthlySchedulesCached,
+    resolveShiftTimingForNow,
     setMissingShiftExpectedShift,
     setMissingShiftDateKey,
     setMissingShiftModalOpen,
@@ -243,56 +244,6 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
             effectiveManager = resolution.manager;
             setManager(resolution.manager);
             setManagerError("");
-          }
-          const cierreTurno = getCierreWindowTurno(
-            empresa.cierreFondoVentasMinutesBeforeEnd ?? CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
-            empresa.cierreFondoVentasMinutesAfterEnd ?? CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
-            new Date(nowISO),
-          );
-          const crInfo = getCostaRicaDateKeyAndMinute(nowISO);
-          if (crInfo) {
-            const day = new Date(crInfo.dateKey).getUTCDate();
-            const closingsTodayCount = fondoEntries.filter((entry: FondoEntry) => {
-              const info = getCostaRicaDateKeyAndMinute(String(entry.createdAt || ""));
-              const provider = movementProviders.find(
-                (p: any) => p.code === entry.providerCode,
-              );
-              return Boolean(
-                info &&
-                  info.dateKey === crInfo.dateKey &&
-                  provider?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME,
-              );
-            }).length;
-            const normalizeMin = (value: number) => ((value % 1440) + 1440) % 1440;
-            const addMinutes = (value: number, delta: number) =>
-              normalizeMin(value + delta);
-            const nowMin = normalizeMin(crInfo.minuteOfDay);
-            const nightEndMin = normalizeMin(24 * 60);
-            const nightWindowStartMin = addMinutes(
-              nightEndMin,
-              -(
-                empresa.cierreFondoVentasMinutesBeforeEnd ??
-                CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END
-              ),
-            );
-            const nightWindowEndMin = addMinutes(
-              nightEndMin,
-              (empresa.cierreFondoVentasMinutesAfterEnd ??
-                CIERRE_FONDO_VENTAS_MINUTES_AFTER_END) + 1,
-            );
-            const isWithinNightGrace =
-              nightWindowStartMin <= nightWindowEndMin
-                ? nowMin >= nightWindowStartMin && nowMin < nightWindowEndMin
-                : nowMin >= nightWindowStartMin || nowMin < nightWindowEndMin;
-            const managerShift =
-              cierreTurno === "N" && isWithinNightGrace && closingsTodayCount === 0
-                ? "N"
-                : "D";
-            const entry = findBestSchedule(monthSchedules, day, managerShift);
-            if (entry?.employeeName) {
-              effectiveManager = String(entry.employeeName).trim();
-              setManager(effectiveManager);
-            }
           }
         }
       }
@@ -1136,6 +1087,49 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
       const isCierreVentas =
         selectedProviderData?.name?.toUpperCase() ===
         CIERRE_FONDO_VENTAS_PROVIDER_NAME;
+      const cierreTiming = isCierreVentas
+        ? await resolveShiftTimingForNow(nowISO)
+        : null;
+      const cierreOperationalDateKey = isCierreVentas
+        ? getCostaRicaOperationalDateKey(
+            nowISO,
+            activeEmpresaForCompany?.horarioApertura,
+          )
+        : null;
+      const occupiedClosingShifts = getOccupiedClosingShifts(
+        isCierreVentas
+          ? fondoEntries.filter((entry: FondoEntry) => {
+              const provider = movementProviders.find(
+                (item: any) => item.code === entry.providerCode,
+              );
+              return (
+                provider?.name?.toUpperCase() ===
+                  CIERRE_FONDO_VENTAS_PROVIDER_NAME &&
+                getCostaRicaOperationalDateKey(
+                  String(entry.createdAt || ""),
+                  activeEmpresaForCompany?.horarioApertura,
+                ) === cierreOperationalDateKey
+              );
+            })
+          : [],
+      );
+      const cierreVentasTurno = isCierreVentas
+        ? cierreTiming?.withinHorario
+          ? resolveFondoVentasClosingShift({
+              currentMin: cierreTiming.currentMin,
+              shiftDEndMin: cierreTiming.shiftChangeMin,
+              shiftNEndMin: cierreTiming.closeMin,
+              expectedShift: cierreTiming.expectedShift,
+              minutesBeforeEnd:
+                activeEmpresaForCompany?.cierreFondoVentasMinutesBeforeEnd ??
+                CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
+              minutesAfterEnd:
+                activeEmpresaForCompany?.cierreFondoVentasMinutesAfterEnd ??
+                CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
+              occupiedShifts: occupiedClosingShifts,
+            })
+          : "N"
+        : undefined;
       // Enforce cross-device guard ONLY for regular users.
       // Admin/superadmin are allowed to create a closing even during the lock window.
       if (normalizedCompany.length > 0 && isCierreVentas && isRegularUser) {
@@ -1222,6 +1216,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         invoiceNumber: paddedInvoice,
         invoiceDocType: effectiveInvoiceDocType,
         paymentType,
+        turno: cierreVentasTurno,
         amountEgreso: isEgreso ? egresoValue : 0,
         amountIngreso: isIngreso ? ingresoValue : 0,
         amountPayment:

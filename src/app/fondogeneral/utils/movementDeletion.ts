@@ -211,7 +211,7 @@ export async function confirmDeleteMovement(
         }
 
         const invoiceData = invoiceSnap.data() as FacturaMovement;
-        const rollbackAt = await getAuthoritativeNowISO().catch(() => new Date().toISOString());
+        const rollbackAt = await getAuthoritativeNowISO();
         const paymentAmount = getFcrPaymentAmount(entry);
         const totalAmount = Math.max(
           0,

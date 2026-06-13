@@ -40,6 +40,8 @@ import {
   resolveManagerFromControlHorario,
   type ShiftCode,
 } from "@/utils/controlHorarioManager";
+import { getAuthoritativeNowISO } from "@/utils/serverTime";
+import { CIERRE_FONDO_VENTAS_MINUTES_AFTER_END } from "../constants";
 
 import type { Empresas } from "../../../types/firestore";
 
@@ -801,7 +803,8 @@ export default function FacturasCreditoPage() {
         }>,
         providers,
         cierreFondoVentasMinutesAfterEnd:
-          selectedEmpresaMeta?.cierreFondoVentasMinutesAfterEnd,
+          selectedEmpresaMeta?.cierreFondoVentasMinutesAfterEnd ??
+          CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
       });
     },
     [getMonthlySchedulesCached, selectedCompany, selectedEmpresaMeta],
@@ -818,7 +821,7 @@ export default function FacturasCreditoPage() {
     let cancelled = false;
     const tick = async () => {
       try {
-        const nowISO = new Date().toISOString();
+        const nowISO = await getAuthoritativeNowISO();
         const resolution = await resolveShiftManagerForNow(nowISO);
         if (cancelled || !resolution) return;
 
@@ -882,7 +885,16 @@ export default function FacturasCreditoPage() {
       return;
     }
 
-    const nowISO = new Date().toISOString();
+    let nowISO: string;
+    try {
+      nowISO = await getAuthoritativeNowISO();
+    } catch (err) {
+      console.error("[FACTURAS] Error validating server time before save:", err);
+      setCreateFormError(
+        "No se pudo validar la hora del servidor. Guardado bloqueado.",
+      );
+      return;
+    }
     let effectiveManager = String(createManager || "").trim();
 
     if (user?.role === "user") {
@@ -902,6 +914,10 @@ export default function FacturasCreditoPage() {
         }
       } catch (err) {
         console.error("[FACTURAS] Error resolving manager from control horario:", err);
+        setCreateFormError(
+          "No se pudo validar la hora del servidor. Guardado bloqueado.",
+        );
+        return;
       }
     }
 
@@ -1001,7 +1017,16 @@ export default function FacturasCreditoPage() {
       return;
     }
 
-    const nowISO = new Date().toISOString();
+    let nowISO: string;
+    try {
+      nowISO = await getAuthoritativeNowISO();
+    } catch (err) {
+      console.error("[FACTURAS] Error validating server time before edit:", err);
+      setEditZeroNCError(
+        "No se pudo validar la hora del servidor. Edición bloqueada.",
+      );
+      return;
+    }
     const updatedMovement: FacturaMovement = {
       ...editZeroNCTarget,
       amount,
@@ -1223,7 +1248,18 @@ export default function FacturasCreditoPage() {
         return;
       }
 
-      const nowISO = new Date().toISOString();
+      let nowISO: string;
+      try {
+        nowISO = await getAuthoritativeNowISO();
+      } catch (err) {
+        console.error("[FACTURAS] Error validating server time before payment:", err);
+        showToast(
+          "No se pudo validar la hora del servidor. Pago bloqueado.",
+          "error",
+          5000,
+        );
+        return;
+      }
       const nextPaidAmount = Math.min(
         totalAmount,
         selectedPaymentPaid + paymentAmountToApply,
@@ -1924,7 +1960,7 @@ export default function FacturasCreditoPage() {
 
     if (user?.role === "user") {
       try {
-        const nowISO = new Date().toISOString();
+        const nowISO = await getAuthoritativeNowISO();
         const resolution = await resolveShiftManagerForNow(nowISO);
         if (resolution?.mode === "missing") {
           setMissingShiftExpectedShift(resolution.expectedShift);
@@ -1937,6 +1973,12 @@ export default function FacturasCreditoPage() {
           "[FACTURAS] Error checking control horario before opening drawer:",
           err,
         );
+        showToast(
+          "No se pudo validar la hora del servidor. Apertura bloqueada.",
+          "error",
+          6000,
+        );
+        return;
       }
     }
     resetCreateForm();

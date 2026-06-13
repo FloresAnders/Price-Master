@@ -181,7 +181,7 @@ export async function submitClosingInvoicePayment(
     return;
   }
 
-  const nowISO = await getAuthoritativeNowISO().catch(() => new Date().toISOString());
+  const nowISO = await getAuthoritativeNowISO();
   const nextPaidAmount = Math.min(totalAmount, paidAmount + totalAppliedToInvoice);
   const nextBalanceDue = Math.max(0, totalAmount - nextPaidAmount);
   const nextStatus =
@@ -260,7 +260,7 @@ export async function submitClosingInvoicePayment(
         currentBalance: -amountToApply,
       });
     }
-    state.updatedAt = new Date().toISOString();
+    state.updatedAt = nowISO;
     ledger.state = state;
 
     const batch: WriteBatch = writeBatch(db);

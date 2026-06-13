@@ -40,4 +40,5 @@ export type FondoEntry = {
   originalEntryId?: string;
   auditDetails?: string;
   requiresOpening?: boolean;
+  turno?: "D" | "N";
 };

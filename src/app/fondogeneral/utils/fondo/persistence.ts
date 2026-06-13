@@ -274,7 +274,7 @@ export async function persistMovementToFirestore(
       },
     );
     stateSnapshot.balancesByAccount = nextAccountBalances;
-    stateSnapshot.updatedAt = await getAuthoritativeNowISO().catch(() => new Date().toISOString());
+    stateSnapshot.updatedAt = await getAuthoritativeNowISO();
 
     // Preservar lockedUntil del snapshot actual si existe
     if (storageSnapshotRef.current?.state?.lockedUntil) {

@@ -36,11 +36,15 @@ import { FondoConfirmModals } from "../FondoConfirmModals";
 import {
   getControlHorarioShiftTiming,
   getCostaRicaDateKeyAndMinute,
+  getCostaRicaOperationalDateKey,
+  getOccupiedClosingShifts,
   isWithinFondoVentasNightClosingWindow,
+  resolveFondoVentasClosingShift,
   type ShiftCode,
 } from "@/utils/controlHorarioManager";
 import { getCierreWindowTurno } from "../../utils/turnoRango";
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
+import type { DailyClosingRecord } from "@/services/daily-closings";
 import { AuditHistoryModal } from "../audit-history-modal";
 import {
   MovimientosFondosService,
@@ -126,8 +130,6 @@ import {
 
   isMovementAccountKey,
   getAccountKeyFromNamespace,
-  dateKeyFromDate,
-
   sanitizeFondoEntries,
   formatToastWaitTime,
   type PendingCreditNoteOption,
@@ -169,6 +171,42 @@ const AccessRestrictedMessage = ({ description }: { description: string }) => (
     </p>
   </div>
 );
+
+const inferDailyClosingTurno = (
+  target: DailyClosingRecord,
+  closings: DailyClosingRecord[],
+  horarioApertura?: string | null,
+): "D" | "N" => {
+  if (target.turno === "D" || target.turno === "N") return target.turno;
+  const operationalDateKey = getCostaRicaOperationalDateKey(
+    target.closingDate,
+    horarioApertura,
+  );
+  const sameDay = closings.filter(
+    (closing) =>
+      getCostaRicaOperationalDateKey(closing.closingDate, horarioApertura) ===
+      operationalDateKey,
+  );
+  const occupied = new Set<"D" | "N">();
+  sameDay.forEach((closing) => {
+    if (closing.turno === "D" || closing.turno === "N") {
+      occupied.add(closing.turno);
+    }
+  });
+  const legacy = sameDay
+    .filter((closing) => !closing.turno)
+    .slice()
+    .sort(
+      (a, b) =>
+        Date.parse(a.closingDate) - Date.parse(b.closingDate),
+    );
+  for (const closing of legacy) {
+    const inferred = !occupied.has("D") ? "D" : "N";
+    if (closing.id === target.id) return inferred;
+    occupied.add(inferred);
+  }
+  return "D";
+};
 
 // SHARED_COMPANY_STORAGE_KEY moved to constants.ts
 
@@ -562,18 +600,60 @@ export function FondoSection({
     loadingDailyClosingKeysRef,
   } = useDailyClosingState({ company, accountKey });
 
-  const currentTurno = useMemo<"D" | "N">(
-    () => getCierreWindowTurno(cierreFondoVentasMinutesBeforeEnd, cierreFondoVentasMinutesAfterEnd),
-    [cierreFondoVentasMinutesBeforeEnd, cierreFondoVentasMinutesAfterEnd],
-  );
+  const currentTurno: "D" | "N" = "D";
+  const [dailyClosingTurno, setDailyClosingTurno] =
+    useState<"D" | "N">(currentTurno);
+  const [authoritativeCRDateKey, setAuthoritativeCRDateKey] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const nowISO = await getAuthoritativeNowISO();
+        if (cancelled) return;
+        setAuthoritativeCRDateKey(
+          getCostaRicaOperationalDateKey(
+            nowISO,
+            empresaForShiftResolution?.horarioApertura,
+          ) ?? "",
+        );
+      } catch {
+        if (!cancelled) setAuthoritativeCRDateKey("");
+      }
+    };
+    void refresh();
+    const intervalId = window.setInterval(() => void refresh(), 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [company, empresaForShiftResolution?.horarioApertura]);
 
   const cierreDBaseFromDailyClosings = useMemo(() => {
-    const todayKey = dateKeyFromDate(new Date());
-    const todayClosings = dailyClosings.filter((c) => {
-      const key = dateKeyFromDate(new Date(c.closingDate));
-      return key === todayKey;
-    });
-    const dClosing = todayClosings.length > 0 ? todayClosings[0] : null;
+    if (!authoritativeCRDateKey) return null;
+    const todayClosings = dailyClosings
+      .filter(
+        (closing) =>
+          getCostaRicaOperationalDateKey(
+            closing.closingDate,
+            empresaForShiftResolution?.horarioApertura,
+          ) ===
+          authoritativeCRDateKey,
+      )
+      .slice()
+      .sort(
+        (a, b) =>
+          Date.parse(a.closingDate) - Date.parse(b.closingDate),
+      );
+    const dClosing =
+      todayClosings.find(
+        (closing) =>
+          inferDailyClosingTurno(
+            closing,
+            todayClosings,
+            empresaForShiftResolution?.horarioApertura,
+          ) === "D",
+      ) ?? null;
     if (!dClosing?.sistemas) return null;
     return {
       conticaCRC: dClosing.sistemas.conticaCRC,
@@ -581,7 +661,11 @@ export function FondoSection({
       tiemposCRC: (dClosing.sistemas as any).tiemposCRC ?? 0,
       conticaTiemposCRC: (dClosing.sistemas as any).conticaTiemposCRC ?? 0,
     };
-  }, [dailyClosings]);
+  }, [
+    authoritativeCRDateKey,
+    dailyClosings,
+    empresaForShiftResolution?.horarioApertura,
+  ]);
   const [cierreDBaseFromCache, setCierreDBaseFromCache] = useState<{
     conticaCRC: number;
     tucanCRC: number;
@@ -597,11 +681,33 @@ export function FondoSection({
       return;
     }
 
-    const todayKey = dateKeyFromDate(new Date());
-    const todayClosing = dailyClosings.find((c) => {
-      const key = dateKeyFromDate(new Date(c.closingDate));
-      return key === todayKey;
-    });
+    const todayKey = authoritativeCRDateKey;
+    if (!todayKey) {
+      setCierreDBaseFromCache(null);
+      return;
+    }
+    const todayClosings = dailyClosings
+      .filter(
+        (closing) =>
+          getCostaRicaOperationalDateKey(
+            closing.closingDate,
+            empresaForShiftResolution?.horarioApertura,
+          ) ===
+          todayKey,
+      )
+      .slice()
+      .sort(
+        (a, b) =>
+          Date.parse(a.closingDate) - Date.parse(b.closingDate),
+      );
+    const todayClosing = todayClosings.find(
+      (closing) =>
+        inferDailyClosingTurno(
+          closing,
+          todayClosings,
+          empresaForShiftResolution?.horarioApertura,
+        ) === "D",
+    );
 
     if (todayClosing?.sistemas) {
       const base = {
@@ -665,7 +771,12 @@ export function FondoSection({
     return () => {
       cancelled = true;
     };
-  }, [company, dailyClosings]);
+  }, [
+    authoritativeCRDateKey,
+    company,
+    dailyClosings,
+    empresaForShiftResolution?.horarioApertura,
+  ]);
 
   const cierreDBase = cierreDBaseFromDailyClosings ?? cierreDBaseFromCache;
   const {
@@ -1732,6 +1843,7 @@ export function FondoSection({
       isDelifoodCompany,
       activeEmpresaForCompany,
       getFGMonthlySchedulesCached,
+      resolveShiftTimingForNow,
       setMissingShiftExpectedShift,
       setMissingShiftDateKey,
       setMissingShiftModalOpen,
@@ -1909,6 +2021,11 @@ export function FondoSection({
         return;
       }
 
+      const editingTurno = inferDailyClosingTurno(
+        record,
+        dailyClosings,
+        empresaForShiftResolution?.horarioApertura,
+      );
       const initial: DailyClosingFormValues = {
         closingDate: record.closingDate,
         manager: record.manager,
@@ -1920,8 +2037,9 @@ export function FondoSection({
         totalUSD: record.totalUSD ?? 0,
         breakdownCRC: record.breakdownCRC ?? {},
         breakdownUSD: record.breakdownUSD ?? {},
-        turno: currentTurno,
+        turno: editingTurno,
       };
+      setDailyClosingTurno(editingTurno);
       setEditingDailyClosingId(record.id);
       setDailyClosingSingleReasonRequired(false);
       setDailyClosingInitialValues(initial);
@@ -1938,7 +2056,18 @@ export function FondoSection({
   };
 
   const openManualCreditNoteModal = async () => {
-    const nowISO = await getAuthoritativeNowISO().catch(() => new Date().toISOString());
+    let nowISO: string;
+    try {
+      nowISO = await getAuthoritativeNowISO();
+    } catch (err) {
+      console.error("[FG] Error validating server time for credit note:", err);
+      showToast(
+        "No se pudo validar la hora del servidor. Operación bloqueada.",
+        "error",
+        6000,
+      );
+      return;
+    }
     const currentMovementAmount = Math.max(
       0,
       Math.trunc(Number(isEgreso ? egreso : ingreso) || 0),
@@ -2494,7 +2623,7 @@ export function FondoSection({
         );
         nextAccountBalances.push(nextCRC, nextUSD);
         stateSnapshot.balancesByAccount = nextAccountBalances;
-        stateSnapshot.updatedAt = await getAuthoritativeNowISO().catch(() => new Date().toISOString());
+        stateSnapshot.updatedAt = await getAuthoritativeNowISO();
         // Preservar lockedUntil del snapshot actual si existe
         if (storageSnapshotRef.current?.state?.lockedUntil) {
           stateSnapshot.lockedUntil =
@@ -2930,65 +3059,43 @@ export function FondoSection({
           };
           const addMinutesToMinuteOfDay = (minute: number, delta: number) =>
             normalizeMin(minute + delta);
+          const getMinutesRelativeTo = (minute: number, reference: number) => {
+            const forward = normalizeMin(minute - reference);
+            return forward > 720 ? forward - 1440 : forward;
+          };
 
           const nowMin = normalizeMin(nowTiming.currentMin);
-          const openMin = normalizeMin(nowTiming.openMin);
           const closeMin = normalizeMin(nowTiming.closeMin);
           const shiftDEndMin = normalizeMin(nowTiming.shiftChangeMin);
           const shiftNEndMin = closeMin;
-          const isWithinCompanyHorario = (minute: number) => {
-            if (openMin <= closeMin) {
-              return minute >= openMin && minute <= closeMin;
-            }
-            return minute >= openMin || minute <= closeMin;
-          };
+          const operationalDateKey = getCostaRicaOperationalDateKey(
+            nowISO,
+            empresaForShiftResolution?.horarioApertura,
+          );
           const closingsToday = fondoEntries
             .filter((e) => isCierreFondoVentasMovement(e))
             .filter((e) => {
-              const info = getCostaRicaDateKeyAndMinute(String(e.createdAt || ""));
-              return Boolean(info && info.dateKey === nowTiming.dateKey);
-            })
-            .filter((e) => {
-              const info = getCostaRicaDateKeyAndMinute(String(e.createdAt || ""));
-              return Boolean(info && isWithinCompanyHorario(normalizeMin(info.minuteOfDay)));
+              return (
+                getCostaRicaOperationalDateKey(
+                  String(e.createdAt || ""),
+                  empresaForShiftResolution?.horarioApertura,
+                ) === operationalDateKey
+              );
             })
             .sort(
               (a, b) =>
                 new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
             );
-          const nightWindowStartMin = addMinutesToMinuteOfDay(
+          const occupiedClosingShifts = getOccupiedClosingShifts(closingsToday);
+          const closingShift: ShiftCode = resolveFondoVentasClosingShift({
+            currentMin: nowMin,
+            shiftDEndMin,
             shiftNEndMin,
-            -cierreFondoVentasMinutesBeforeEnd,
-          );
-          const nightWindowEndMin = addMinutesToMinuteOfDay(
-            shiftNEndMin,
-            cierreFondoVentasMinutesAfterEnd + 1,
-          );
-          const isWithinWindow = (
-            minute: number,
-            startMin: number,
-            endMin: number,
-          ) => {
-            if (startMin <= endMin) {
-              return minute >= startMin && minute < endMin;
-            }
-            return minute >= startMin || minute < endMin;
-          };
-          const isInNightWindow = isWithinWindow(
-            nowMin,
-            nightWindowStartMin,
-            nightWindowEndMin,
-          );
-          const minutesUntilNightWindowStart =
-            (nightWindowStartMin - nowMin + 1440) % 1440;
-          const shouldSkipDayShift =
-            closingsToday.length === 0 && minutesUntilNightWindowStart <= 30;
-          const closingShift: ShiftCode =
-            closingsToday.length > 0
-              ? "N"
-              : shouldSkipDayShift || isInNightWindow
-                ? "N"
-                : "D";
+            expectedShift: nowTiming.expectedShift,
+            minutesBeforeEnd: cierreFondoVentasMinutesBeforeEnd,
+            minutesAfterEnd: cierreFondoVentasMinutesAfterEnd,
+            occupiedShifts: occupiedClosingShifts,
+          });
           const referenceShiftEndMin =
             closingShift === "D" ? shiftDEndMin : shiftNEndMin;
           const referenceShiftLabel = closingShift === "D" ? "D" : "N";
@@ -3005,34 +3112,25 @@ export function FondoSection({
           const referenceWindowEndLabel = formatMinuteOfDay(
             addMinutesToMinuteOfDay(
               referenceShiftEndMin,
-              cierreFondoVentasMinutesAfterEnd + 1,
+              cierreFondoVentasMinutesAfterEnd,
             ),
           );
-          const referenceWindowStartMin = addMinutesToMinuteOfDay(
+          const minutesRelativeToReferenceEnd = getMinutesRelativeTo(
+            nowMin,
             referenceShiftEndMin,
-            -cierreFondoVentasMinutesBeforeEnd,
           );
-          const referenceWindowEndMin = addMinutesToMinuteOfDay(
-            referenceShiftEndMin,
-            cierreFondoVentasMinutesAfterEnd,
-          );
-          const minutesUntilReferenceEnd =
-            (referenceShiftEndMin - nowMin + 1440) % 1440;
-          const minutesAfterReferenceEnd =
-            (nowMin - referenceShiftEndMin + 1440) % 1440;
           const isInReferenceWindow =
-            minutesUntilReferenceEnd <= cierreFondoVentasMinutesBeforeEnd ||
-            minutesAfterReferenceEnd <= cierreFondoVentasMinutesAfterEnd;
+            minutesRelativeToReferenceEnd >=
+              -cierreFondoVentasMinutesBeforeEnd &&
+            minutesRelativeToReferenceEnd <=
+              cierreFondoVentasMinutesAfterEnd;
 
           if (!isInReferenceWindow) {
             const humanDelta =
-              isWithinWindow(
-                nowMin,
-                addMinutesToMinuteOfDay(referenceWindowEndMin, 1),
-                referenceWindowStartMin,
-              )
-                ? `Faltan ${(referenceWindowStartMin - nowMin + 1440) % 1440} minutos para poder ingresar el cierre.`
-                : `Han pasado ${(nowMin - referenceWindowEndMin + 1440) % 1440} minutos desde el cierre.`;
+              minutesRelativeToReferenceEnd <
+              -cierreFondoVentasMinutesBeforeEnd
+                ? `Faltan ${-cierreFondoVentasMinutesBeforeEnd - minutesRelativeToReferenceEnd} minutos para poder ingresar el cierre.`
+                : `Han pasado ${minutesRelativeToReferenceEnd - cierreFondoVentasMinutesAfterEnd} minutos desde el cierre.`;
             showToast(
               `El \"CIERRE FONDO VENTAS\" solo se puede registrar desde las ${referenceWindowStartLabel} hasta las ${referenceWindowEndLabel} alrededor del fin del turno ${referenceShiftLabel} (${referenceShiftEndLabel}). ${humanDelta}.`,
               "warning",
@@ -3046,8 +3144,8 @@ export function FondoSection({
           try {
             const nowKey = getCostaRicaDateKeyAndMinute(nowISO)?.dateKey;
             if (nowKey) {
-              const hasDCierre = closingsToday.length > 0;
-              const hasNCierre = closingsToday.length > 1;
+              const hasDCierre = occupiedClosingShifts.has("D");
+              const hasNCierre = occupiedClosingShifts.has("N");
 
               if (closingShift === "D" && hasDCierre) {
                 showToast(
@@ -3074,23 +3172,37 @@ export function FondoSection({
             console.error("[FG] Error checking duplicate cierres:", dupErr);
           }
 
-          if (isInNightWindow && closingsToday.length === 0 && !notes.startsWith(SINGLE_CLOSING_REASON_PREFIX)) {
+          if (closingShift === "N" && closingsToday.length === 0 && !notes.startsWith(SINGLE_CLOSING_REASON_PREFIX)) {
             setNotes(SINGLE_CLOSING_REASON_PREFIX);
           }
         } else if (nowTiming && !nowTiming.withinHorario) {
-          const nowDateKey = getCostaRicaDateKeyAndMinute(nowISO)?.dateKey;
           const isInNightClosingWindow = isWithinFondoVentasNightClosingWindow({
             nowISO,
             horarioCierre: activeEmpresaForCompany?.horarioCierre,
             minutesBeforeEnd: cierreFondoVentasMinutesBeforeEnd,
             minutesAfterEnd: cierreFondoVentasMinutesAfterEnd,
           });
-          if (nowDateKey && isInNightClosingWindow) {
+          if (isInNightClosingWindow) {
+            const operationalDateKey = getCostaRicaOperationalDateKey(
+              nowISO,
+              empresaForShiftResolution?.horarioApertura,
+            );
             const todayClosings = fondoEntries.filter(
               (e) =>
                 isCierreFondoVentasMovement(e) &&
-                getCostaRicaDateKeyAndMinute(String(e.createdAt || ""))?.dateKey === nowDateKey,
+                getCostaRicaOperationalDateKey(
+                  String(e.createdAt || ""),
+                  empresaForShiftResolution?.horarioApertura,
+                ) === operationalDateKey,
             );
+            if (getOccupiedClosingShifts(todayClosings).has("N")) {
+              showToast(
+                `Ya existe un "CIERRE FONDO VENTAS" para el turno N de hoy.`,
+                "warning",
+                5500,
+              );
+              return;
+            }
             if (todayClosings.length === 0 && !notes.startsWith(SINGLE_CLOSING_REASON_PREFIX)) {
               setNotes(SINGLE_CLOSING_REASON_PREFIX);
             }
@@ -3346,7 +3458,24 @@ export function FondoSection({
 
     let defaultManager = (user?.name || user?.email || "").trim();
 
-    const nowISO = await getAuthoritativeNowISO().catch(() => new Date().toISOString());
+    let nowISO: string;
+    try {
+      nowISO = await getAuthoritativeNowISO();
+    } catch (err) {
+      console.error("[FG] Error validating server time for daily closing:", err);
+      showToast(
+        "No se pudo validar la hora del servidor. Cierre bloqueado.",
+        "error",
+        6000,
+      );
+      return;
+    }
+    setAuthoritativeCRDateKey(
+      getCostaRicaOperationalDateKey(
+        nowISO,
+        empresaForShiftResolution?.horarioApertura,
+      ) ?? "",
+    );
 
     try {
       const resolution = await resolveShiftManagerForNow(nowISO);
@@ -3414,9 +3543,14 @@ export function FondoSection({
       totalUSD: currentBalanceUSD,
       breakdownCRC: {},
       breakdownUSD: {},
-      turno: currentTurno,
+      turno: getCierreWindowTurno(
+        cierreFondoVentasMinutesBeforeEnd,
+        cierreFondoVentasMinutesAfterEnd,
+        new Date(nowISO),
+      ),
     };
 
+    setDailyClosingTurno(initialValues.turno);
     setDailyClosingSingleReasonRequired(requireSingleReason);
     setDailyClosingInitialValues(initialValues);
     setDailyClosingModalOpen(true);
@@ -3444,10 +3578,21 @@ export function FondoSection({
     setCashOpeningEditingEntry(null);
 
     let openingManager = (user?.name || user?.email || "").trim();
+    let nowISO: string;
+    try {
+      nowISO = await getAuthoritativeNowISO();
+    } catch (err) {
+      console.error("[CASH_OPENING] Error validating server time:", err);
+      showToast(
+        "No se pudo validar la hora del servidor. Apertura bloqueada.",
+        "error",
+        6000,
+      );
+      return;
+    }
 
     if (isRegularUser) {
       try {
-        const nowISO = await getAuthoritativeNowISO().catch(() => new Date().toISOString());
         const resolution = await resolveShiftManagerForNow(nowISO);
         if (resolution?.mode === "auto") {
           openingManager = resolution.manager;
@@ -3463,19 +3608,16 @@ export function FondoSection({
         });
       } catch (err) {
         console.error("[CASH_OPENING] Error resolving shift manager:", err);
-        setCashOpeningInitialValues({
-          openingDate: new Date().toISOString(),
-          manager: openingManager,
-          notes: "",
-          totalCRC: currentBalanceCRC,
-          totalUSD: currentBalanceUSD,
-          breakdownCRC: {},
-          breakdownUSD: {},
-        });
+        showToast(
+          "No se pudo validar la hora del servidor. Apertura bloqueada.",
+          "error",
+          6000,
+        );
+        return;
       }
     } else {
       setCashOpeningInitialValues({
-        openingDate: new Date().toISOString(),
+        openingDate: nowISO,
         manager: openingManager,
         notes: "",
         totalCRC: currentBalanceCRC,
@@ -3495,6 +3637,7 @@ export function FondoSection({
     user?.name,
     isRegularUser,
     resolveShiftManagerForNow,
+    showToast,
   ]);
 
   const buildCashOpeningInitialValuesFromEntry = useCallback(
@@ -3590,8 +3733,11 @@ export function FondoSection({
       finishDailyClosingsRequest,
       fondoEntries,
       formatToastWaitTime,
+      horarioApertura: empresaForShiftResolution?.horarioApertura,
+      horarioCierre: empresaForShiftResolution?.horarioCierre,
       isRegularUser,
       lastDailyClosingSavedAtRef,
+      minutesAfterClose: cierreFondoVentasMinutesAfterEnd,
       requireSingleClosingReason: dailyClosingSingleReasonRequired && !editingDailyClosingId,
       loadedDailyClosingKeysRef,
       loadingDailyClosingKeysRef,
@@ -5534,7 +5680,7 @@ export function FondoSection({
           dailyClosingSingleReasonRequired && !editingDailyClosingId
         }
         managerReadonly={!editingDailyClosingId}
-        turno={currentTurno}
+        turno={dailyClosingTurno}
         cierreFondoVentasMinutesBeforeEnd={cierreFondoVentasMinutesBeforeEnd}
         cierreFondoVentasMinutesAfterEnd={cierreFondoVentasMinutesAfterEnd}
         cierreDBase={cierreDBase}
