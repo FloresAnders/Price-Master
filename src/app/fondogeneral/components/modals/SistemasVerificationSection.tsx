@@ -10,6 +10,7 @@ type CierreDBase = {
 type SistemasVerificationSectionProps = {
   turno: "D" | "N";
   cierreDBase?: CierreDBase;
+  hasCierreDReal?: boolean;
   totalConticaCRC: string;
   totalTucanCRC: string;
   totalConticaTiemposCRC: string;
@@ -84,6 +85,7 @@ const DifferenceField: React.FC<{ diff: number }> = ({ diff }) => (
 const SistemasVerificationSection: React.FC<SistemasVerificationSectionProps> = ({
   turno,
   cierreDBase,
+  hasCierreDReal,
   totalConticaCRC,
   totalTucanCRC,
   totalConticaTiemposCRC,
@@ -154,7 +156,7 @@ const SistemasVerificationSection: React.FC<SistemasVerificationSectionProps> = 
         </span>
       </div>
 
-      {turno === "N" && !cierreDBase ? (
+      {turno === "N" && hasCierreDReal === false ? (
         <div className="rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
           No se encontro cierre D. N no descontara acumulado.
         </div>

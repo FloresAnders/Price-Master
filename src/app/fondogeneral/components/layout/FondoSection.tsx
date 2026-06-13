@@ -42,9 +42,11 @@ import {
   resolveFondoVentasClosingShift,
   type ShiftCode,
 } from "@/utils/controlHorarioManager";
-import { getCierreWindowTurno } from "../../utils/turnoRango";
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
-import type { DailyClosingRecord } from "@/services/daily-closings";
+import {
+  DailyClosingsService,
+  type DailyClosingRecord,
+} from "@/services/daily-closings";
 import { AuditHistoryModal } from "../audit-history-modal";
 import {
   MovimientosFondosService,
@@ -604,6 +606,12 @@ export function FondoSection({
   const [dailyClosingTurno, setDailyClosingTurno] =
     useState<"D" | "N">(currentTurno);
   const [authoritativeCRDateKey, setAuthoritativeCRDateKey] = useState("");
+  const [dailyClosingOperationalDateKey, setDailyClosingOperationalDateKey] =
+    useState("");
+  const [cierreDRealStatus, setCierreDRealStatus] = useState<{
+    operationalDateKey: string;
+    hasCierreD: boolean;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -630,7 +638,7 @@ export function FondoSection({
   }, [company, empresaForShiftResolution?.horarioApertura]);
 
   const cierreDBaseFromDailyClosings = useMemo(() => {
-    if (!authoritativeCRDateKey) return null;
+    if (!dailyClosingOperationalDateKey) return null;
     const todayClosings = dailyClosings
       .filter(
         (closing) =>
@@ -638,7 +646,7 @@ export function FondoSection({
             closing.closingDate,
             empresaForShiftResolution?.horarioApertura,
           ) ===
-          authoritativeCRDateKey,
+          dailyClosingOperationalDateKey,
       )
       .slice()
       .sort(
@@ -662,7 +670,7 @@ export function FondoSection({
       conticaTiemposCRC: (dClosing.sistemas as any).conticaTiemposCRC ?? 0,
     };
   }, [
-    authoritativeCRDateKey,
+    dailyClosingOperationalDateKey,
     dailyClosings,
     empresaForShiftResolution?.horarioApertura,
   ]);
@@ -681,7 +689,7 @@ export function FondoSection({
       return;
     }
 
-    const todayKey = authoritativeCRDateKey;
+    const todayKey = dailyClosingOperationalDateKey;
     if (!todayKey) {
       setCierreDBaseFromCache(null);
       return;
@@ -772,13 +780,20 @@ export function FondoSection({
       cancelled = true;
     };
   }, [
-    authoritativeCRDateKey,
+    dailyClosingOperationalDateKey,
     company,
     dailyClosings,
     empresaForShiftResolution?.horarioApertura,
   ]);
 
   const cierreDBase = cierreDBaseFromDailyClosings ?? cierreDBaseFromCache;
+  const hasCierreDReal =
+    dailyClosingOperationalDateKey &&
+    dailyClosingsHydrated &&
+    !dailyClosingsRefreshing &&
+    cierreDRealStatus?.operationalDateKey === dailyClosingOperationalDateKey
+      ? cierreDRealStatus.hasCierreD
+      : undefined;
   const {
     selectedProvider,
     setSelectedProvider,
@@ -1968,7 +1983,49 @@ export function FondoSection({
     [accountKey],
   );
 
-  const handleEditMovement = (entry: FondoEntry) => {
+  const refreshRealDailyClosingsForOperationalDay = async (
+    operationalDateKey: string,
+  ) => {
+    setDailyClosingOperationalDateKey(operationalDateKey);
+    setCierreDRealStatus(null);
+    beginDailyClosingsRequest();
+    setDailyClosingsHydrated(false);
+    try {
+      const document = await DailyClosingsService.getDocument(company.trim());
+      const realDailyClosings = document
+        ? DailyClosingsService.extractAllClosings(document)
+        : [];
+      const closingsForOperationalDay = realDailyClosings.filter(
+        (closing) =>
+          getCostaRicaOperationalDateKey(
+            closing.closingDate,
+            empresaForShiftResolution?.horarioApertura,
+          ) === operationalDateKey,
+      );
+      const hasRealD = closingsForOperationalDay.some(
+        (closing) =>
+          inferDailyClosingTurno(
+            closing,
+            closingsForOperationalDay,
+            empresaForShiftResolution?.horarioApertura,
+          ) === "D",
+      );
+      setDailyClosings(realDailyClosings);
+      setCierreDRealStatus({
+        operationalDateKey,
+        hasCierreD: hasRealD,
+      });
+      setDailyClosingsHydrated(true);
+      return { realDailyClosings, closingsForOperationalDay, hasRealD };
+    } catch (err) {
+      setDailyClosingsHydrated(false);
+      throw err;
+    } finally {
+      finishDailyClosingsRequest();
+    }
+  };
+
+  const handleEditMovement = async (entry: FondoEntry) => {
     // Superadmin should not edit "CIERRE FONDO VENTAS"; they should delete it.
     if (isSuperAdminUser && isCierreFondoVentasMovement(entry)) {
       showToast(
@@ -2014,18 +2071,53 @@ export function FondoSection({
     // prefilled with that closing's values so the user edits the closing (not the generic movement).
     if (entry.originalEntryId) {
       const closingId = entry.originalEntryId;
-      const record = dailyClosings.find((d) => d.id === closingId);
+      let record = dailyClosings.find((d) => d.id === closingId);
       if (!record) {
         // If we don't have the closing record locally, fall back to the generic editor.
         startEditingEntry(entry);
         return;
       }
 
-      const editingTurno = inferDailyClosingTurno(
+      let editingTurno = inferDailyClosingTurno(
         record,
         dailyClosings,
         empresaForShiftResolution?.horarioApertura,
       );
+      const operationalDateKey = getCostaRicaOperationalDateKey(
+        record.closingDate,
+        empresaForShiftResolution?.horarioApertura,
+      );
+      if (!operationalDateKey) {
+        showToast(
+          "No se pudo resolver el dia operativo del cierre.",
+          "error",
+          6000,
+        );
+        return;
+      }
+      setDailyClosingOperationalDateKey(operationalDateKey);
+      if (editingTurno === "N") {
+        try {
+          const refreshed =
+            await refreshRealDailyClosingsForOperationalDay(operationalDateKey);
+          record =
+            refreshed.realDailyClosings.find((closing) => closing.id === closingId) ??
+            record;
+          editingTurno = inferDailyClosingTurno(
+            record,
+            refreshed.closingsForOperationalDay,
+            empresaForShiftResolution?.horarioApertura,
+          );
+        } catch (err) {
+          console.error("[FG] Error refreshing daily closings before edit:", err);
+          showToast(
+            "No se pudieron validar los cierres generales reales. Edicion bloqueada.",
+            "error",
+            6000,
+          );
+          return;
+        }
+      }
       const initial: DailyClosingFormValues = {
         closingDate: record.closingDate,
         manager: record.manager,
@@ -3476,6 +3568,32 @@ export function FondoSection({
         empresaForShiftResolution?.horarioApertura,
       ) ?? "",
     );
+    const operationalDateKey = getCostaRicaOperationalDateKey(
+      nowISO,
+      empresaForShiftResolution?.horarioApertura,
+    );
+    if (!operationalDateKey) {
+      showToast(
+        "No se pudo resolver el dia operativo actual. Cierre bloqueado.",
+        "error",
+        6000,
+      );
+      return;
+    }
+    let hasRealD: boolean;
+    try {
+      const refreshed =
+        await refreshRealDailyClosingsForOperationalDay(operationalDateKey);
+      hasRealD = refreshed.hasRealD;
+    } catch (err) {
+      console.error("[FG] Error refreshing daily closings before opening:", err);
+      showToast(
+        "No se pudieron validar los cierres generales reales. Cierre bloqueado.",
+        "error",
+        6000,
+      );
+      return;
+    }
 
     try {
       const resolution = await resolveShiftManagerForNow(nowISO);
@@ -3543,11 +3661,7 @@ export function FondoSection({
       totalUSD: currentBalanceUSD,
       breakdownCRC: {},
       breakdownUSD: {},
-      turno: getCierreWindowTurno(
-        cierreFondoVentasMinutesBeforeEnd,
-        cierreFondoVentasMinutesAfterEnd,
-        new Date(nowISO),
-      ),
+      turno: hasRealD ? "N" : "D",
     };
 
     setDailyClosingTurno(initialValues.turno);
@@ -3560,6 +3674,8 @@ export function FondoSection({
     setDailyClosingModalOpen(false);
     setEditingDailyClosingId(null);
     setDailyClosingInitialValues(null);
+    setDailyClosingOperationalDateKey("");
+    setCierreDRealStatus(null);
     setDailyClosingSingleReasonRequired(false);
     setClosingPaymentModalOpen(false);
     setClosingPaymentTarget(null);
@@ -5683,7 +5799,12 @@ export function FondoSection({
         turno={dailyClosingTurno}
         cierreFondoVentasMinutesBeforeEnd={cierreFondoVentasMinutesBeforeEnd}
         cierreFondoVentasMinutesAfterEnd={cierreFondoVentasMinutesAfterEnd}
-        cierreDBase={cierreDBase}
+        cierreDBase={
+          dailyClosingTurno === "N" && hasCierreDReal !== true
+            ? null
+            : cierreDBase
+        }
+        hasCierreDReal={hasCierreDReal}
       />
 
       <FacturaPaymentModal

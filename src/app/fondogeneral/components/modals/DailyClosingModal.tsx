@@ -104,6 +104,7 @@ type DailyClosingModalProps = {
   cierreFondoVentasMinutesBeforeEnd: number;
   cierreFondoVentasMinutesAfterEnd: number;
   cierreDBase?: { conticaCRC: number; tucanCRC: number; tiemposCRC?: number; conticaTiemposCRC?: number } | null;
+  hasCierreDReal?: boolean;
 };
 
 const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
@@ -123,6 +124,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   cierreFondoVentasMinutesBeforeEnd,
   cierreFondoVentasMinutesAfterEnd,
   cierreDBase,
+  hasCierreDReal,
 }) => {
   const modalRef = useRef<HTMLDivElement | null>(null);
   const managerFieldRef = useRef<HTMLSelectElement | HTMLInputElement | null>(
@@ -832,6 +834,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
             <SistemasVerificationSection
               turno={turno}
               cierreDBase={cierreDBase}
+              hasCierreDReal={hasCierreDReal}
               totalConticaCRC={totalConticaCRC}
               totalTucanCRC={totalTucanCRC}
               totalConticaTiemposCRC={totalConticaTiemposCRC}
