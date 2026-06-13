@@ -1,7 +1,7 @@
 {
-  "version": "1.7.18",
-  "versionstorage": "1.2.5",
-  "notasDeSistemas": "1.2.3",
+  "version": "1.8.1",
+  "versionstorage": "1.3.1",
+  "notasDeSistemas": "1.3.1",
   "releaseNotes": [
     {
       "date": "2026-06-11",
@@ -10,6 +10,11 @@
     }
   ],
   "systemNotes": [
+    {
+      "date": "2026-06-13",
+      "title": "Mejoras y correcciones en cierres",
+      "description": "Se mejoró la gestión de cierres diarios por día operativo y turno D/N, incluyendo validación de horarios y actualización de cierres reales. Se corrigió la asignación incorrecta del encargado durante los cierres; ahora se determina según Control Horario, el turno D/N, la hora oficial de Costa Rica y los cierres reales del día operativo."
+    },
     {
       "date": "2026-06-11",
       "title": "Validacion y apertura de fondo",

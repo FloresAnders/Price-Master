@@ -80,12 +80,15 @@ async function syncVersion() {
 
     if (!versionDoc.exists) {
       // Si no existe el documento, crear uno nuevo
-      await versionRef.set({
-        version: localVersion,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        description: 'Versión actual de la aplicación',
-        source: 'version.json'
-      });
+      await versionRef.set(
+        {
+          version: localVersion,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          description: 'Versión actual de la aplicación',
+          source: 'version.json'
+        },
+        { merge: true }
+      );
       console.log(`${colors.green}✅ Documento creado en Firestore con versión: ${localVersion}${colors.reset}\n`);
       await admin.app().delete();
       process.exit(0);
@@ -99,13 +102,16 @@ async function syncVersion() {
 
     if (comparison > 0) {
       // La versión local es SUPERIOR - Actualizar Firestore
-      await versionRef.set({
-        version: localVersion,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        description: 'Versión actual de la aplicación',
-        source: 'version.json',
-        previousVersion: dbVersion
-      });
+      await versionRef.set(
+        {
+          version: localVersion,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          description: 'Versión actual de la aplicación',
+          source: 'version.json',
+          previousVersion: dbVersion
+        },
+        { merge: true }
+      );
       console.log(`${colors.green}⬆️  Versión local superior - Firestore actualizado: ${localVersion}${colors.reset}`);
       console.log(`${colors.green}   ${dbVersion} → ${localVersion}${colors.reset}\n`);
     } else if (comparison === 0) {
