@@ -138,6 +138,9 @@ const shiftDateKey = (year: number, month: number, day: number, delta: number) =
   return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
 };
 
+const buildCostaRicaEndOfDayISO = (dateKey: string): string =>
+  new Date(`${dateKey}T23:59:00-06:00`).toISOString();
+
 export const getOperationalDateKey = (
   iso: string,
   schedule: DailyClosingSchedule,
@@ -617,11 +620,22 @@ export class DailyClosingsService {
         throw new Error("No se pudo resolver el día operativo del cierre.");
       }
       if (!isEditing && operationalDateKey && sanitizedRecord.turno) {
-        const sameOperationalDay = allExisting.filter(
-          (item) =>
-            item.id !== sanitizedRecord.id &&
-            getOperationalDateKey(item.closingDate, schedule) ===
-            operationalDateKey,
+        const sameOperationalDay = Object.entries(currentMap).flatMap(
+          ([storedDateKey, records]) =>
+            records.filter(
+              (item) => {
+                if (item.id === sanitizedRecord.id) return false;
+                const itemOperationalDateKey = getOperationalDateKey(
+                  item.closingDate,
+                  schedule,
+                );
+                return (
+                  itemOperationalDateKey === operationalDateKey ||
+                  (itemOperationalDateKey === null &&
+                    storedDateKey === operationalDateKey)
+                );
+              },
+            ),
         );
         if (
           getOccupiedClosingShifts(sameOperationalDay).has(
@@ -632,6 +646,11 @@ export class DailyClosingsService {
             `${DAILY_CLOSING_DUPLICATE_ERROR} ${operationalDateKey}, turno ${sanitizedRecord.turno}.`,
           );
         }
+      }
+      if (!isEditing && operationalDateKey && sanitizedRecord.turno === "N") {
+        sanitizedRecord.closingDate =
+          buildCostaRicaEndOfDayISO(operationalDateKey);
+        dateKey = operationalDateKey;
       }
 
       Object.keys(currentMap).forEach((key) => {
