@@ -70,6 +70,15 @@ import {
 const MAINTENANCE_TAB_STORAGE_KEY = "pricemaster:maintenance-active-tab";
 const MAINTENANCE_TAB_EVENT = "pricemaster:maintenance-tab-change";
 
+const HOME_GREETINGS = [
+  "Todo lo que necesitas, aquí",
+  "Tu negocio, simplificado",
+  "Gestiona. Controla. Crece.",
+  "La información que importa",
+  "Decisiones más rápidas",
+  "Trabaja de forma inteligente",
+] as const;
+
 const menuItems = [
   {
     id: "scanner",
@@ -257,6 +266,7 @@ function SortableHomeMenuCard({
 }
 
 export default function HomeMenu({ currentUser }: HomeMenuProps) {
+  const [homeGreeting, setHomeGreeting] = useState<string>(HOME_GREETINGS[0]);
   const [hovered, setHovered] = useState(false);
   const [clickCount, setClickCount] = useState(0);
   const [showStickman, setShowStickman] = useState(false);
@@ -287,6 +297,12 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   >(null);
 
   const fireworksRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setHomeGreeting(
+      HOME_GREETINGS[Math.floor(Math.random() * HOME_GREETINGS.length)],
+    );
+  }, []);
 
   // Resolve user permissions once for reuse
   const resolvedPermissions: UserPermissions | null = (() => {
@@ -1582,16 +1598,16 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   }, [showStickman]);
 
   return (
-    <div className="relative flex min-h-[60vh] flex-col items-center justify-center py-8">
+    <div className="relative flex min-h-[60vh] flex-col items-center justify-start py-4 sm:justify-center sm:py-8">
       <div
         ref={fireworksRef}
         className="fixed inset-0 pointer-events-none z-40"
       />
-      <div className="mb-2 flex items-center justify-center relative">
+      <div className="mb-1 flex items-center justify-center relative sm:mb-2">
         <Image
           src="/Logos/LogoBlanco2.png"
           alt="Time Master logo"
-          className={`w-28 h-28 mr-2 transition-transform duration-300 ${
+          className={`h-20 w-20 transition-transform duration-300 sm:h-28 sm:w-28 ${
             hovered ? "scale-110 rotate-12" : "scale-100"
           }`}
           width={56}
@@ -1605,18 +1621,27 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
           }}
         />
       </div>
-      <div className="relative mb-8 w-full max-w-screen-xl px-2 sm:px-4">
-        <h1 className="text-3xl font-bold text-center pr-12">
-          {currentUser
-            ? `¡Qué gusto verte, ${
-                currentUser.name ?? currentUser.email ?? "Usuario"
-              } !`
-            : "¡Qué gusto verte!"}
+      <div className="relative mb-6 w-full max-w-screen-xl px-12 text-center sm:mb-8 sm:px-16">
+        <h1 className="text-balance text-2xl font-extrabold leading-tight tracking-tight sm:text-4xl lg:text-5xl">
+          <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-fuchsia-500 bg-clip-text text-transparent">
+            {homeGreeting}
+            {currentUser ? ", " : ""}
+            {currentUser
+              ? (currentUser.name ?? currentUser.email ?? "Usuario")
+              : ""}
+          </span>
         </h1>
+        <p className="mx-auto mt-3 max-w-2xl text-sm text-[var(--muted-foreground)] sm:mt-4 sm:text-lg">
+          Todo lo que necesitas, en un solo lugar.
+        </p>
+        <div
+          aria-hidden="true"
+          className="mx-auto mt-4 h-px w-28 bg-gradient-to-r from-transparent via-fuchsia-500 to-transparent sm:mt-5 sm:w-44"
+        />
         <button
           type="button"
           onClick={() => setShowFavoritesView((prev) => !prev)}
-          className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md transition-colors border border-[var(--input-border)] sm:right-4 ${
+          className={`absolute right-1 top-1/2 -translate-y-1/2 rounded-md border border-[var(--input-border)] p-2 transition-colors sm:right-4 ${
             showFavoritesView
               ? "bg-[var(--hover-bg)] text-amber-500"
               : "text-[var(--muted-foreground)] hover:bg-[var(--hover-bg)]"
@@ -1650,7 +1675,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full max-w-screen-xl pt-4">
+        <div className="grid w-full max-w-screen-xl grid-cols-1 gap-3 px-1 pt-2 sm:grid-cols-2 sm:gap-6 sm:px-4 sm:pt-4 md:grid-cols-3 lg:grid-cols-4">
           {shouldShowSupplierWeekCard && (
             <SupplierWeekSection
               isSupplierWeekRoute={isSupplierWeekRoute}
