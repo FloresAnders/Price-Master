@@ -175,6 +175,7 @@ export function filterEmpresasByUser(
       id: e.id,
       label: e.name || e.ubicacion || e.id || "Empresa",
       value: e.ubicacion || e.name || e.id || "",
+      mostrarInfoPago: e.mostrarInfoPago !== false,
       names: controlHorarioEmployees.map((emp: any) => emp.Empleado || ""),
       employees: controlHorarioEmployees.map((emp: any) => ({
         name: emp.Empleado || "",

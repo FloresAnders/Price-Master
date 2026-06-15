@@ -805,6 +805,7 @@ export default function DataEditor() {
               empresa.cierreFondoVentasMinutesBeforeEnd,
             cierreFondoVentasMinutesAfterEnd:
               empresa.cierreFondoVentasMinutesAfterEnd,
+            mostrarInfoPago: empresa.mostrarInfoPago !== false,
             empleados: empresa.empleados || [],
           });
         }

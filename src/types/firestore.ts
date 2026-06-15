@@ -25,6 +25,7 @@ export interface Empresas {
   horarioCierre?: string;
   cierreFondoVentasMinutesBeforeEnd?: number;
   cierreFondoVentasMinutesAfterEnd?: number;
+  mostrarInfoPago?: boolean;
   empleados: EmpresaEmpleado[];
 }
 

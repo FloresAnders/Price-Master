@@ -95,6 +95,7 @@ export default function ControlHorario({ currentUser }: Props = {}) {
   }
 
   const shiftOptions = getShiftOptions(isUserAdmin(h.user));
+  const selectedEmpresaMeta = h.empresas.find((e) => e.value === h.empresa);
 
   return (
     <>
@@ -235,16 +236,20 @@ export default function ControlHorario({ currentUser }: Props = {}) {
                 {(selectedEmployee === "Todos" ? h.names : [selectedEmployee]).map((name, index) => (
                   <tr key={`${name}-${index}`}>
                     <td className="border border-[var(--input-border)] p-2 font-semibold text-[var(--foreground)] sticky left-0 z-10 cursor-pointer text-xs bg-[var(--card-bg)]" style={{ minWidth: "80px", left: 0, height: "40px" }}>
-                      <TapTooltip content={
-                        <div className="min-w-[180px] text-left whitespace-pre-line">
-                          <EmployeeTooltipSummary employeeName={name} empresaValue={h.empresa} empresaLabel={h.empresas.find((e) => e.value === h.empresa)?.label}
-                            employeeConfig={h.empresas.find((e) => e.value === h.empresa)?.employees?.find((e) => e.name === name)} shiftsByDay={h.scheduleData[name]}
-                            year={h.year} month={h.month} daysToShow={h.daysToShow} isDelifoodEmpresa={h.isDelifoodEmpresa} delifoodHoursData={h.delifoodHoursData} user={h.user}
-                          />
-                        </div>
-                      }>
+                      {selectedEmpresaMeta?.mostrarInfoPago !== false ? (
+                        <TapTooltip content={
+                          <div className="min-w-[180px] text-left whitespace-pre-line">
+                            <EmployeeTooltipSummary employeeName={name} empresaValue={h.empresa} empresaLabel={selectedEmpresaMeta?.label}
+                              employeeConfig={selectedEmpresaMeta?.employees?.find((e) => e.name === name)} shiftsByDay={h.scheduleData[name]}
+                              year={h.year} month={h.month} daysToShow={h.daysToShow} isDelifoodEmpresa={h.isDelifoodEmpresa} delifoodHoursData={h.delifoodHoursData} user={h.user}
+                            />
+                          </div>
+                        }>
+                          <span className="block truncate">{name}</span>
+                        </TapTooltip>
+                      ) : (
                         <span className="block truncate">{name}</span>
-                      </TapTooltip>
+                      )}
                     </td>
                     {h.daysToShow.map((day) => {
                       const cellDate = new Date(h.year, h.month, day);

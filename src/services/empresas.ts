@@ -15,6 +15,18 @@ export class EmpresasService {
     return Math.max(0, Math.round(parsed));
   }
 
+  private static normalizeBoolean(value: unknown, fallback = true): boolean {
+    if (value === undefined || value === null || value === "") return fallback;
+    if (typeof value === "boolean") return value;
+    if (typeof value === "number") return value !== 0;
+    if (typeof value === "string") {
+      const normalized = value.trim().toLowerCase();
+      if (["true", "1", "si", "sí", "yes"].includes(normalized)) return true;
+      if (["false", "0", "no"].includes(normalized)) return false;
+    }
+    return fallback;
+  }
+
   private static cloneEmpresas(list: Empresas[]): Empresas[] {
     return (list || []).map((e) => ({
       ...e,
@@ -168,6 +180,9 @@ export class EmpresasService {
         EmpresasService.normalizeClosingWindowMinutes(
           e.cierreFondoVentasMinutesAfterEnd,
         ),
+      mostrarInfoPago: EmpresasService.normalizeBoolean(
+        (e as any).mostrarInfoPago,
+      ),
       empleados: EmpresasService.normalizeEmpleados(e.empleados as unknown),
     }));
     this.empresasCache = {
@@ -192,6 +207,9 @@ export class EmpresasService {
         EmpresasService.normalizeClosingWindowMinutes(
           (doc as any).cierreFondoVentasMinutesAfterEnd,
         ),
+      mostrarInfoPago: EmpresasService.normalizeBoolean(
+        (doc as any).mostrarInfoPago,
+      ),
       empleados: EmpresasService.normalizeEmpleados(
         (doc as any).empleados as unknown,
       ),
@@ -251,6 +269,9 @@ export class EmpresasService {
           EmpresasService.normalizeClosingWindowMinutes(
             empresa.cierreFondoVentasMinutesAfterEnd,
           ),
+        mostrarInfoPago: EmpresasService.normalizeBoolean(
+          empresa.mostrarInfoPago,
+        ),
         empleados: empleadosToSave,
       });
       return empresa.id;
@@ -272,6 +293,9 @@ export class EmpresasService {
         EmpresasService.normalizeClosingWindowMinutes(
           empresa.cierreFondoVentasMinutesAfterEnd,
         ),
+      mostrarInfoPago: EmpresasService.normalizeBoolean(
+        empresa.mostrarInfoPago,
+      ),
       empleados: empleadosToSave,
     });
   }
@@ -298,6 +322,11 @@ export class EmpresasService {
         EmpresasService.normalizeClosingWindowMinutes(
           patch.cierreFondoVentasMinutesAfterEnd,
         );
+    }
+    if ("mostrarInfoPago" in patch) {
+      patch.mostrarInfoPago = EmpresasService.normalizeBoolean(
+        patch.mostrarInfoPago,
+      );
     }
     return await FirestoreService.update(
       this.COLLECTION_NAME,

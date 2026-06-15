@@ -191,6 +191,7 @@ export default function EmpresasEditorSection({
                 horarioCierre: "",
                 cierreFondoVentasMinutesBeforeEnd: 15,
                 cierreFondoVentasMinutesAfterEnd: 90,
+                mostrarInfoPago: true,
                 empleados: [
                   {
                     Empleado: "",
@@ -271,6 +272,14 @@ export default function EmpresasEditorSection({
                         </p>
                         <p className="text-sm sm:text-base font-semibold text-[var(--foreground)] break-words">
                           {empresa.cierreFondoVentasMinutesAfterEnd ?? 90} min
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2.5 sm:px-4 sm:py-3">
+                        <p className="text-[10px] sm:text-xs font-medium text-[var(--muted-foreground)]">
+                          Info pago
+                        </p>
+                        <p className="text-sm sm:text-base font-semibold text-[var(--foreground)] break-words">
+                          {empresa.mostrarInfoPago !== false ? "Visible" : "Oculta"}
                         </p>
                       </div>
                     </div>
@@ -447,6 +456,22 @@ export default function EmpresasEditorSection({
                           }}
                         />
                       </div>
+
+                      <label className="flex items-center gap-2 text-xs sm:text-sm">
+                        <input
+                          type="checkbox"
+                          checked={empresa.mostrarInfoPago !== false}
+                          onChange={(e) => {
+                            const copy = [...empresasData];
+                            copy[idx] = {
+                              ...copy[idx],
+                              mostrarInfoPago: e.target.checked,
+                            };
+                            setEmpresasData(copy);
+                          }}
+                        />
+                        Mostrar info pago
+                      </label>
                     </div>
 
                     <div className="mt-4 sm:mt-5">
@@ -846,6 +871,8 @@ export default function EmpresasEditorSection({
                                       e.cierreFondoVentasMinutesBeforeEnd,
                                     cierreFondoVentasMinutesAfterEnd:
                                       e.cierreFondoVentasMinutesAfterEnd,
+                                    mostrarInfoPago:
+                                      e.mostrarInfoPago !== false,
                                     empleados: e.empleados || [],
                                   });
                                   await loadData();

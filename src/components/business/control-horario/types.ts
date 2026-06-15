@@ -2,6 +2,7 @@ export interface MappedEmpresa {
   id?: string;
   label: string;
   value: string;
+  mostrarInfoPago: boolean;
   names: string[];
   employees: {
     name: string;
