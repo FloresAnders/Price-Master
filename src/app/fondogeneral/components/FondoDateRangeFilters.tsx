@@ -33,6 +33,7 @@ interface Props {
   rightSlot?: ReactNode;
   showTopBorder?: boolean;
   className?: string;
+  disableFuture?: boolean;
 }
 
 function renderMonthCells({
@@ -40,12 +41,14 @@ function renderMonthCells({
   todayKey,
   selectedKey,
   padKeyPrefix,
+  disableFuture,
   onSelectDay,
 }: {
   monthDate: Date;
   todayKey: string;
   selectedKey: string | null;
   padKeyPrefix: string;
+  disableFuture: boolean;
   onSelectDay: (key: string) => void;
 }) {
   const cells: ReactNode[] = [];
@@ -62,7 +65,7 @@ function renderMonthCells({
   for (let day = 1; day <= daysInMonth; day++) {
     const d = new Date(year, month, day);
     const key = dateKeyFromDate(d);
-    const enabled = key <= todayKey;
+    const enabled = !disableFuture || key <= todayKey;
     const isSelected = selectedKey === key;
 
     if (enabled) {
@@ -121,6 +124,7 @@ export function FondoDateRangeFilters({
   rightSlot,
   showTopBorder = true,
   className,
+  disableFuture = true,
 }: Props) {
   return (
     <div
@@ -205,6 +209,7 @@ export function FondoDateRangeFilters({
                     todayKey,
                     selectedKey: fromFilter,
                     padKeyPrefix: "f",
+                    disableFuture,
                     onSelectDay: (key) => {
                       setQuickRange(null);
                       setFromFilter(key);
@@ -313,6 +318,7 @@ export function FondoDateRangeFilters({
                     todayKey,
                     selectedKey: toFilter,
                     padKeyPrefix: "t",
+                    disableFuture,
                     onSelectDay: (key) => {
                       setQuickRange(null);
                       setToFilter(key);

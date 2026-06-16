@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { ref, deleteObject } from "firebase/storage";
 import { storage } from "@/config/firebase";
+import { SchedulesService } from "../../../../services/schedules";
 import type { QrState, ScheduleData, DelifoodHoursData } from "../types";
 
 interface Props {
@@ -14,6 +15,7 @@ interface Props {
   fullMonthView: boolean;
   viewMode: "first" | "second";
   monthName: string;
+  month: number;
   year: number;
   selectedPeriod: "1-15" | "16-30" | "monthly";
   isDelifoodEmpresa: boolean;
@@ -22,16 +24,104 @@ interface Props {
   showToast: (msg: string, type: "success" | "error" | "warning") => void;
 }
 
+interface WorkedRangeRow {
+  employeeName: string;
+  workedDays: number;
+  totalHours: number;
+}
+
+const isPrivilegedUser = (user: { role?: string } | null) =>
+  user?.role === "admin" || user?.role === "superadmin";
+
+const toInputDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const parseInputDate = (value: string | null) => {
+  if (!value) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+};
+
+const formatInputDateToDisplay = (value: string | null) => {
+  if (!value) return "dd/mm/yyyy";
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return "dd/mm/yyyy";
+  return `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`;
+};
+
+const escapeHtml = (value: unknown) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const dateKey = (year: number, month: number, day: number) =>
+  `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
 export function useScheduleExport(props: Props) {
   const {
     user, names, empresa, empresas, daysToShow, fullMonthView, viewMode,
-    monthName, year, selectedPeriod, isDelifoodEmpresa, scheduleData, delifoodHoursData, showToast,
+    monthName, month, year, selectedPeriod, isDelifoodEmpresa, scheduleData, delifoodHoursData, showToast,
   } = props;
 
   const [isExporting, setIsExporting] = useState(false);
+  const [workedRangeModalOpen, setWorkedRangeModalOpen] = useState(false);
+  const [workedRangeStartDate, setWorkedRangeStartDate] = useState<string | null>("");
+  const [workedRangeEndDate, setWorkedRangeEndDate] = useState<string | null>("");
+  const [workedRangeRows, setWorkedRangeRows] = useState<WorkedRangeRow[]>([]);
+  const [workedRangeGenerated, setWorkedRangeGenerated] = useState(false);
+  const [isGeneratingWorkedRange, setIsGeneratingWorkedRange] = useState(false);
+  const [workedRangeQuickRange, setWorkedRangeQuickRange] = useState<string | null>(null);
+  const [workedRangeFromCalendarOpen, setWorkedRangeFromCalendarOpen] = useState(false);
+  const [workedRangeToCalendarOpen, setWorkedRangeToCalendarOpen] = useState(false);
+  const [workedRangeFromCalendarMonth, setWorkedRangeFromCalendarMonth] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+  const [workedRangeToCalendarMonth, setWorkedRangeToCalendarMonth] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+  const workedRangeFromCalendarRef = useRef<HTMLDivElement | null>(null);
+  const workedRangeToCalendarRef = useRef<HTMLDivElement | null>(null);
+  const workedRangeFromButtonRef = useRef<HTMLButtonElement | null>(null);
+  const workedRangeToButtonRef = useRef<HTMLButtonElement | null>(null);
   const [qrState, setQrState] = useState<QrState>({
     show: false, dataURL: "", storageRef: "", imageBlob: null, countdown: null,
   });
+  const workedRangeTodayKey = useMemo(() => toInputDate(new Date()), []);
+
+  useEffect(() => {
+    if (!workedRangeFromCalendarOpen && !workedRangeToCalendarOpen) return;
+
+    const handler = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (workedRangeFromCalendarOpen) {
+        if (workedRangeFromCalendarRef.current?.contains(target)) return;
+        if (workedRangeFromButtonRef.current?.contains(target)) return;
+        setWorkedRangeFromCalendarOpen(false);
+      }
+      if (workedRangeToCalendarOpen) {
+        if (workedRangeToCalendarRef.current?.contains(target)) return;
+        if (workedRangeToButtonRef.current?.contains(target)) return;
+        setWorkedRangeToCalendarOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [workedRangeFromCalendarOpen, workedRangeToCalendarOpen]);
 
   // QR countdown effect
   useEffect(() => {
@@ -60,6 +150,247 @@ export function useScheduleExport(props: Props) {
     }
     setQrState({ show: false, dataURL: "", storageRef: "", imageBlob: null, countdown: null });
   }, [qrState.storageRef]);
+
+  const openWorkedRangeModal = useCallback(() => {
+    if (!isPrivilegedUser(user)) {
+      showToast("Solo Admin o SuperAdmin puede exportar dias/horas", "error");
+      return;
+    }
+
+    const firstDay = daysToShow[0] || 1;
+    const lastDay = daysToShow[daysToShow.length - 1] || firstDay;
+    const start = new Date(year, month, firstDay);
+    const end = new Date(year, month, lastDay);
+    setWorkedRangeStartDate(toInputDate(start));
+    setWorkedRangeEndDate(toInputDate(end));
+    setWorkedRangeFromCalendarMonth(new Date(start.getFullYear(), start.getMonth(), 1));
+    setWorkedRangeToCalendarMonth(new Date(end.getFullYear(), end.getMonth(), 1));
+    setWorkedRangeQuickRange(null);
+    setWorkedRangeFromCalendarOpen(false);
+    setWorkedRangeToCalendarOpen(false);
+    setWorkedRangeRows([]);
+    setWorkedRangeGenerated(false);
+    setWorkedRangeModalOpen(true);
+  }, [daysToShow, month, showToast, user, year]);
+
+  const closeWorkedRangeModal = useCallback(() => {
+    setWorkedRangeModalOpen(false);
+    setWorkedRangeFromCalendarOpen(false);
+    setWorkedRangeToCalendarOpen(false);
+  }, []);
+
+  const generateWorkedRange = useCallback(async () => {
+    if (!isPrivilegedUser(user)) {
+      showToast("Solo Admin o SuperAdmin puede generar dias/horas", "error");
+      return;
+    }
+    if (!empresa) {
+      showToast("Selecciona una empresa", "error");
+      return;
+    }
+
+    const start = parseInputDate(workedRangeStartDate);
+    const end = parseInputDate(workedRangeEndDate);
+    if (!start || !end) {
+      showToast("Selecciona fecha de inicio y fecha final", "error");
+      return;
+    }
+    if (end < start) {
+      showToast("La fecha final debe ser mayor o igual a la inicial", "error");
+      return;
+    }
+
+    try {
+      setIsGeneratingWorkedRange(true);
+      setWorkedRangeGenerated(false);
+
+      const visibleNames = new Set(names);
+      const employeeHours = new Map<string, Map<string, number>>();
+      const employeeConfig = new Map(
+        (empresas.find((item) => item.value === empresa) as any)?.employees?.map(
+          (employee: { name: string; hoursPerShift?: number }) => [
+            employee.name,
+            employee.hoursPerShift ?? 8,
+          ],
+        ) || [],
+      );
+
+      const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+      const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+
+      while (cursor <= endMonth) {
+        const currentYear = cursor.getFullYear();
+        const currentMonth = cursor.getMonth();
+        const startDay =
+          currentYear === start.getFullYear() && currentMonth === start.getMonth()
+            ? start.getDate()
+            : 1;
+        const endDay =
+          currentYear === end.getFullYear() && currentMonth === end.getMonth()
+            ? end.getDate()
+            : new Date(currentYear, currentMonth + 1, 0).getDate();
+
+        const monthEntries = await SchedulesService.getSchedulesByLocationYearMonthDayRange(
+          empresa,
+          currentYear,
+          currentMonth,
+          startDay,
+          endDay,
+        );
+
+        monthEntries.forEach((entry) => {
+          const entryDate = new Date(entry.year, entry.month, entry.day);
+          if (entryDate < start || entryDate > end || !entry.employeeName) return;
+          if (!visibleNames.has(entry.employeeName)) return;
+
+          let hours = 0;
+          if (isDelifoodEmpresa) {
+            const rawHours = Number(entry.horasPorDia);
+            if (Number.isFinite(rawHours) && rawHours > 0) hours = rawHours;
+          } else if (entry.shift === "D" || entry.shift === "N") {
+            const rawHours = Number(entry.horasPorDia);
+            hours =
+              Number.isFinite(rawHours) && rawHours > 0
+                ? rawHours
+                : Number(employeeConfig.get(entry.employeeName) || 8);
+          }
+
+          if (hours <= 0) return;
+
+          const employeeDays =
+            employeeHours.get(entry.employeeName) || new Map<string, number>();
+          const key = dateKey(entry.year, entry.month, entry.day);
+          employeeDays.set(key, (employeeDays.get(key) || 0) + hours);
+          employeeHours.set(entry.employeeName, employeeDays);
+        });
+
+        cursor.setMonth(cursor.getMonth() + 1);
+      }
+
+      const rows = Array.from(employeeHours.entries())
+        .map(([employeeName, days]) => ({
+          employeeName,
+          workedDays: days.size,
+          totalHours: Array.from(days.values()).reduce((sum, value) => sum + value, 0),
+        }))
+        .filter((row) => row.workedDays > 0 || row.totalHours > 0)
+        .sort((a, b) => a.employeeName.localeCompare(b.employeeName, "es"));
+
+      setWorkedRangeRows(rows);
+      setWorkedRangeGenerated(true);
+      showToast("Dias/horas generados", "success");
+    } catch (error) {
+      console.error("Error generating worked range:", error);
+      showToast("Error al generar dias/horas", "error");
+    } finally {
+      setIsGeneratingWorkedRange(false);
+    }
+  }, [
+    empresa,
+    empresas,
+    isDelifoodEmpresa,
+    names,
+    showToast,
+    user,
+    workedRangeEndDate,
+    workedRangeStartDate,
+  ]);
+
+  const exportWorkedRangeImage = useCallback(async () => {
+    if (!workedRangeGenerated) {
+      showToast("Genera los dias/horas primero", "error");
+      return;
+    }
+    if (!workedRangeRows.length) {
+      showToast("No hay datos para exportar", "error");
+      return;
+    }
+
+    let div: HTMLDivElement | null = null;
+    try {
+      setIsExporting(true);
+      const companyLabel = empresas.find((item) => item.value === empresa)?.label || empresa;
+      const startLabel = formatInputDateToDisplay(workedRangeStartDate);
+      const endLabel = formatInputDateToDisplay(workedRangeEndDate);
+      div = document.createElement("div");
+      div.style.cssText = "position:absolute;left:-9999px;top:0;z-index:-1000;background:#fff;color:#171717;padding:32px;border-radius:18px;font-family:Arial,sans-serif;min-width:520px";
+      div.innerHTML = `
+        <h2 style="font-size:1.35rem;font-weight:700;text-align:center;margin:0 0 0.75rem;">Dias/horas trabajados</h2>
+        <div style="text-align:center;margin-bottom:1rem;color:#4b5563;">
+          <div><strong>Empresa:</strong> ${escapeHtml(companyLabel)}</div>
+          <div><strong>Rango:</strong> ${escapeHtml(startLabel)} - ${escapeHtml(endLabel)}</div>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:1rem;">
+          <thead>
+            <tr>
+              <th style="border:1px solid #d1d5db;padding:8px 12px;background:#f3f4f6;text-align:left;">Empleado</th>
+              <th style="border:1px solid #d1d5db;padding:8px 12px;background:#f3f4f6;text-align:right;">Dias</th>
+              <th style="border:1px solid #d1d5db;padding:8px 12px;background:#f3f4f6;text-align:right;">Horas</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${workedRangeRows
+              .map(
+                (row) => `
+                  <tr>
+                    <td style="border:1px solid #d1d5db;padding:8px 12px;font-weight:600;">${escapeHtml(row.employeeName)}</td>
+                    <td style="border:1px solid #d1d5db;padding:8px 12px;text-align:right;">${row.workedDays}</td>
+                    <td style="border:1px solid #d1d5db;padding:8px 12px;text-align:right;">${row.totalHours}</td>
+                  </tr>
+                `,
+              )
+              .join("")}
+          </tbody>
+        </table>
+        <div style="margin-top:1rem;text-align:right;font-size:0.9rem;color:#6b7280;">${new Date().toLocaleString("es-CR")}</div>
+      `;
+
+      document.body.appendChild(div);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const html2canvas = (await import("html2canvas")).default;
+      const canvas = await html2canvas(div, {
+        useCORS: true,
+        allowTaint: true,
+        width: div.scrollWidth,
+        height: div.scrollHeight,
+        logging: false,
+        background: "#ffffff",
+      });
+      if (div.parentNode) document.body.removeChild(div);
+
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/png"),
+      );
+      if (!blob) {
+        showToast("Error al generar imagen", "error");
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `dias_horas_${empresa}_${workedRangeStartDate || "inicio"}_${workedRangeEndDate || "final"}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast("Imagen exportada", "success");
+    } catch (error) {
+      console.error("Error exporting worked range image:", error);
+      showToast("Error al exportar imagen", "error");
+    } finally {
+      if (div?.parentNode) document.body.removeChild(div);
+      setIsExporting(false);
+    }
+  }, [
+    empresa,
+    empresas,
+    showToast,
+    workedRangeEndDate,
+    workedRangeGenerated,
+    workedRangeRows,
+    workedRangeStartDate,
+  ]);
 
   const exportScheduleAsImage = async () => {
     if (user?.role !== "superadmin") {
@@ -286,5 +617,40 @@ export function useScheduleExport(props: Props) {
   // We'll handle this by accepting it as a prop... but html2canvas export uses it.
   // Actually let me just inline the exported function to use whatever selectedPeriod is available.
 
-  return { isExporting, qrState, setQrState, closeQR, exportScheduleAsImage, exportQuincenaToPNG };
+  return {
+    isExporting,
+    qrState,
+    setQrState,
+    closeQR,
+    exportScheduleAsImage,
+    exportQuincenaToPNG,
+    workedRangeModalOpen,
+    workedRangeStartDate,
+    workedRangeEndDate,
+    workedRangeRows,
+    workedRangeGenerated,
+    isGeneratingWorkedRange,
+    workedRangeQuickRange,
+    workedRangeTodayKey,
+    workedRangeFromCalendarOpen,
+    workedRangeToCalendarOpen,
+    workedRangeFromCalendarMonth,
+    workedRangeToCalendarMonth,
+    workedRangeFromCalendarRef,
+    workedRangeToCalendarRef,
+    workedRangeFromButtonRef,
+    workedRangeToButtonRef,
+    openWorkedRangeModal,
+    closeWorkedRangeModal,
+    setWorkedRangeStartDate,
+    setWorkedRangeEndDate,
+    setWorkedRangeQuickRange,
+    setWorkedRangeFromCalendarOpen,
+    setWorkedRangeToCalendarOpen,
+    setWorkedRangeFromCalendarMonth,
+    setWorkedRangeToCalendarMonth,
+    generateWorkedRange,
+    exportWorkedRangeImage,
+    formatWorkedRangeDateToDisplay: formatInputDateToDisplay,
+  };
 }

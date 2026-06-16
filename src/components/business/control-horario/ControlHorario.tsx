@@ -5,12 +5,14 @@ import Image from "next/image";
 import {
   Clock, ChevronLeft, ChevronRight, User as UserIcon,
   Lock, Unlock, Eye, EyeOff, Layers, ChevronDown,
+  CalendarDays, Download, X,
 } from "lucide-react";
+import { FondoDateRangeFilters } from "@/app/fondogeneral/components/FondoDateRangeFilters";
 import { hasPermission } from "../../../utils/permissions";
 import { useControlHorario } from "./hooks/useControlHorario";
 import EmployeeTooltipSummary from "./components/EmployeeTooltipSummary";
 import {
-  isUserAdmin, userCanChangeEmpresa, userIsSuperAdmin,
+  isUserAdmin, userCanChangeEmpresa,
   getShiftOptions, getCellStyle, getStateLabel,
 } from "./utils";
 import type { MappedEmpresa } from "./types";
@@ -26,6 +28,8 @@ interface Props {
 export default function ControlHorario({ currentUser }: Props = {}) {
   const h = useControlHorario(currentUser);
   const [selectedEmployee, setSelectedEmployee] = useState("Todos");
+  const [, setWorkedRangeCalendarPageSize] = useState<"daily" | number | "all">("all");
+  const [, setWorkedRangeCalendarPageIndex] = useState(0);
 
   if (!hasPermission(h.user?.permissions, "controlhorario")) {
     return (
@@ -192,8 +196,11 @@ export default function ControlHorario({ currentUser }: Props = {}) {
                   {h.names.map((name, i) => (<option key={`${name}-${i}`} value={name}>{name}</option>))}
                 </select>
               </div>
-              {userIsSuperAdmin(h.user) && (
-                <button onClick={h.exportScheduleAsImage} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-lg">Exportar Imagen</button>
+              {isUserAdmin(h.user) && (
+                <button onClick={h.openWorkedRangeModal} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-lg">
+                  <CalendarDays className="w-5 h-5" />
+                  Exportar Dias/horas
+                </button>
               )}
               <button onClick={h.exportQuincenaToPNG} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-gradient-to-r from-cyan-500 to-teal-500 text-white rounded-lg" disabled={h.isExporting}>
                 <ChevronDown className="w-5 h-5" />
@@ -308,6 +315,103 @@ export default function ControlHorario({ currentUser }: Props = {}) {
         onConfirm={async () => { if (h.confirmModal.onConfirm) await h.confirmModal.onConfirm(); }}
         onCancel={() => h.setConfirmModal({ open: false, message: "", onConfirm: null, actionType: "assign" })}
       />
+
+      {/* Worked Days/Hours Modal */}
+      {h.workedRangeModalOpen && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 p-4" onClick={h.closeWorkedRangeModal}>
+          <div className="w-full max-w-2xl rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-[var(--input-border)] px-4 py-3">
+              <div className="flex items-center gap-2">
+                <CalendarDays className="h-5 w-5 text-cyan-500" />
+                <h2 className="text-lg font-bold">Exportar Dias/horas</h2>
+              </div>
+              <button type="button" onClick={h.closeWorkedRangeModal} className="rounded-full p-2 hover:bg-[var(--muted)]" aria-label="Cerrar">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 p-4">
+              <FondoDateRangeFilters
+                quickRange={h.workedRangeQuickRange}
+                todayKey={h.workedRangeTodayKey}
+                fromFilter={h.workedRangeStartDate}
+                toFilter={h.workedRangeEndDate}
+                calendarFromOpen={h.workedRangeFromCalendarOpen}
+                calendarToOpen={h.workedRangeToCalendarOpen}
+                calendarFromMonth={h.workedRangeFromCalendarMonth}
+                calendarToMonth={h.workedRangeToCalendarMonth}
+                formatKeyToDisplay={h.formatWorkedRangeDateToDisplay}
+                setQuickRange={h.setWorkedRangeQuickRange}
+                setFromFilter={h.setWorkedRangeStartDate}
+                setToFilter={h.setWorkedRangeEndDate}
+                setPageSize={setWorkedRangeCalendarPageSize}
+                setPageIndex={setWorkedRangeCalendarPageIndex}
+                setCalendarFromOpen={h.setWorkedRangeFromCalendarOpen}
+                setCalendarToOpen={h.setWorkedRangeToCalendarOpen}
+                setCalendarFromMonth={h.setWorkedRangeFromCalendarMonth}
+                setCalendarToMonth={h.setWorkedRangeToCalendarMonth}
+                fromCalendarRef={h.workedRangeFromCalendarRef}
+                toCalendarRef={h.workedRangeToCalendarRef}
+                fromButtonRef={h.workedRangeFromButtonRef}
+                toButtonRef={h.workedRangeToButtonRef}
+                showTopBorder={false}
+                disableFuture={false}
+              />
+
+              <div className="flex flex-col justify-end gap-2 sm:flex-row">
+                {h.workedRangeGenerated && h.workedRangeRows.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={h.exportWorkedRangeImage}
+                    disabled={h.isExporting}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] hover:border-cyan-500 disabled:opacity-60"
+                  >
+                    <Download className="h-4 w-4" />
+                    Exportar imagen
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={h.generateWorkedRange}
+                  disabled={h.isGeneratingWorkedRange}
+                  className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  {h.isGeneratingWorkedRange ? "Generando..." : "Generar"}
+                </button>
+              </div>
+
+              {h.workedRangeGenerated && (
+                <div className="max-h-[50vh] overflow-auto rounded-lg border border-[var(--input-border)]">
+                  <table className="w-full border-collapse text-sm">
+                    <thead className="sticky top-0 bg-[var(--card-bg)]">
+                      <tr>
+                        <th className="border-b border-[var(--input-border)] px-3 py-2 text-left">Empleado</th>
+                        <th className="border-b border-[var(--input-border)] px-3 py-2 text-right">Dias</th>
+                        <th className="border-b border-[var(--input-border)] px-3 py-2 text-right">Horas</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {h.workedRangeRows.length > 0 ? (
+                        h.workedRangeRows.map((row) => (
+                          <tr key={row.employeeName} className="odd:bg-[var(--muted)]/30">
+                            <td className="border-b border-[var(--input-border)] px-3 py-2 font-medium">{row.employeeName}</td>
+                            <td className="border-b border-[var(--input-border)] px-3 py-2 text-right">{row.workedDays}</td>
+                            <td className="border-b border-[var(--input-border)] px-3 py-2 text-right">{row.totalHours}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={3} className="px-3 py-6 text-center text-[var(--muted-foreground)]">No hay empleados con dias/horas en el rango.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Unlock Past Days Modal */}
       {h.unlockPastDaysModal && h.user?.role === "user" && !h.editPastDaysEnabled ? (
