@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
+import { NotebookText } from "lucide-react";
 import { useVersion } from "../../hooks/useVersion";
 import delikorLogo from "../../../public/Logos/delikor.png";
 import tmLogo from "../../../public/Logos/LogoBlanco2.png";
@@ -15,6 +16,9 @@ export default function Footer() {
   const googleSearchUrl = `https://www.google.com/search?q=${encodeURIComponent(
     "Time Master",
   )}`;
+  const openSystemNotes = () => {
+    window.dispatchEvent(new Event("open-system-notes-modal"));
+  };
 
   useEffect(() => {
     if (!isGitHubModalOpen) return;
@@ -100,21 +104,15 @@ export default function Footer() {
                   <path d="M21.8 10.02h-9.18v3.96h5.27c-.23 1.22-1.36 3.59-5.27 3.59-3.18 0-5.76-2.63-5.76-5.87s2.58-5.87 5.76-5.87c1.81 0 3.02.72 3.72 1.35l2.54-2.46C16.29 3.13 14.37 2 12 2 6.48 2 2 6.48 2 12s4.48 10 10 10c5.52 0 10-4.48 10-10 0-.68-.07-1.36-.2-1.98z" />
                 </svg>
               </a>
-              <a
-                href="https://youtube.com"
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={openSystemNotes}
                 className={socialButtonClass}
-                aria-label="Visitar nuestro canal de YouTube"
+                aria-label="Abrir notas del sistema"
+                title="Notas del sistema"
               >
-                <svg
-                  className="h-5 w-5 fill-current"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path d="M22.54 6.42a2.78 2.78 0 00-1.95-1.95C18.88 4 12 4 12 4s-6.88 0-8.59.47A2.78 2.78 0 001.46 6.42C1 8.13 1 12 1 12s0 3.87.46 5.58a2.78 2.78 0 001.95 1.95C5.12 20 12 20 12 20s6.88 0 8.59-.47a2.78 2.78 0 001.95-1.95C23 15.87 23 12 23 12s0-3.87-.46-5.58zM10 15.5V8.5l6 3.5-6 3.5z" />
-                </svg>
-              </a>
+                <NotebookText className="h-5 w-5" aria-hidden="true" />
+              </button>
             </div>
 
             <div

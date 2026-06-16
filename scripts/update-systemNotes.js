@@ -108,6 +108,7 @@ async function syncSystemNotes() {
 
     const dbData = versionDoc.data() || {};
     const dbNotasDeSistemas = String(dbData.notasDeSistemas || '').trim();
+    const dbSystemNotes = Array.isArray(dbData.systemNotes) ? dbData.systemNotes : [];
 
     if (!dbNotasDeSistemas) {
       await versionRef.set(
@@ -146,6 +147,17 @@ async function syncSystemNotes() {
       console.log(`${colors.green}⬆️  notasDeSistemas local superior - Firestore actualizado: ${localNotasDeSistemas}${colors.reset}`);
       console.log(`${colors.green}   ${dbNotasDeSistemas} → ${localNotasDeSistemas}${colors.reset}\n`);
     } else if (comparison === 0) {
+      if (JSON.stringify(localSystemNotes) !== JSON.stringify(dbSystemNotes)) {
+        await versionRef.set(
+          {
+            systemNotes: localSystemNotes,
+            systemNotesUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            systemNotesSource: 'version.json'
+          },
+          { merge: true }
+        );
+        console.log(`${colors.green}✅ Notas del sistema actualizadas desde version.json${colors.reset}`);
+      }
       console.log(`${colors.green}✅ notasDeSistemas sincronizado - Usando valor de Firestore: ${dbNotasDeSistemas}${colors.reset}`);
       console.log(`${colors.blue}ℹ️  No se requieren cambios${colors.reset}\n`);
     } else {

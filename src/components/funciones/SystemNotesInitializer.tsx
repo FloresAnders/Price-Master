@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { X } from "lucide-react";
+import { Maximize2, X } from "lucide-react";
 import { db } from "@/config/firebase";
 import { doc, onSnapshot } from "firebase/firestore";
 import versionData from "@/data/version.json";
@@ -10,17 +10,52 @@ type SystemNote = {
   date: string;
   title: string;
   description: string;
+  url?: string;
 };
 
 const STORAGE_KEY = "system_notes_version";
 
+const getValidVideoUrl = (value: unknown) => {
+  if (typeof value !== "string") return "";
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return "";
+    return url.toString();
+  } catch {
+    return "";
+  }
+};
+
+const buildSystemNotesSeenKey = (version: string, videoUrl: string) =>
+  videoUrl ? `${version}|${videoUrl}` : version;
+
+const buildMissingNote = (version: string): SystemNote => ({
+  date: new Date().toISOString().slice(0, 10),
+  title: "Actualización de Notas del Sistema",
+  description: `Se detectó una actualización de notas (v${version}). No se encontró detalle para esta versión en systemNotes.`,
+});
+
+const initialSystemNotesVersion = String(versionData.notasDeSistemas || "").trim();
+const initialSystemNote =
+  (versionData.systemNotes as SystemNote[] | undefined)?.[0] ??
+  buildMissingNote(initialSystemNotesVersion);
+const initialSystemNotesVideoUrl = getValidVideoUrl(initialSystemNote.url);
+
 export default function SystemNotesInitializer() {
   const [note, setNote] = React.useState<SystemNote | null>(null);
   const [activeVersion, setActiveVersion] = React.useState<string>("");
+  const [videoUrl, setVideoUrl] = React.useState<string>("");
   const [isOpen, setIsOpen] = React.useState(false);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const unsubscribeRef = React.useRef<(() => void) | null>(null);
   const lastNotifiedVersionRef = React.useRef<string | null>(null);
+  const latestNoteRef = React.useRef<SystemNote | null>(initialSystemNote);
+  const latestVersionRef = React.useRef<string>(initialSystemNotesVersion);
+  const latestVideoUrlRef = React.useRef<string>(initialSystemNotesVideoUrl);
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -33,13 +68,14 @@ export default function SystemNotesInitializer() {
   }, []);
 
   const playArrivalSound = React.useCallback(() => {
-    const player =
+    const basePlayer =
       audioRef.current ??
       (typeof Audio !== "undefined" ? new Audio("/arrival-sound.mp3") : null);
 
-    if (!player) return;
+    if (!basePlayer) return;
 
-    audioRef.current = player;
+    audioRef.current = basePlayer;
+    const player = basePlayer.cloneNode(true) as HTMLAudioElement;
 
     try {
       player.currentTime = 0;
@@ -64,7 +100,33 @@ export default function SystemNotesInitializer() {
     }
   }, []);
 
-  // Cargar la versión almacenada en localStorage al montar
+  const showSystemNote = React.useCallback(
+    (
+      nextNote: SystemNote,
+      nextVersion: string,
+      nextVideoUrl: string,
+      shouldPlaySound = true,
+    ) => {
+      setNote(nextNote);
+      setActiveVersion(nextVersion);
+      setVideoUrl(nextVideoUrl);
+      setIsOpen(true);
+      if (shouldPlaySound) {
+        playArrivalSound();
+      }
+    },
+    [playArrivalSound],
+  );
+
+  const setLatestNote = React.useCallback(
+    (nextNote: SystemNote, nextVersion: string, nextVideoUrl: string) => {
+      latestNoteRef.current = nextNote;
+      latestVersionRef.current = nextVersion;
+      latestVideoUrlRef.current = nextVideoUrl;
+    },
+    [],
+  );
+
   React.useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -78,7 +140,6 @@ export default function SystemNotesInitializer() {
     }
   }, []);
 
-  // Escuchar cambios en tiempo real desde Firestore
   React.useEffect(() => {
     const versionRef = doc(db, "version", "current");
 
@@ -97,6 +158,11 @@ export default function SystemNotesInitializer() {
         const systemNotesDb = Array.isArray(firestoreData?.systemNotes)
           ? firestoreData.systemNotes
           : [];
+        const currentNote =
+          (systemNotesDb as SystemNote[])[0] ?? buildMissingNote(notasDeSistemasDb);
+        const systemNotesVideoUrl = getValidVideoUrl(currentNote.url);
+
+        setLatestNote(currentNote, notasDeSistemasDb, systemNotesVideoUrl);
 
         console.log(
           "Sistema de Notas - Versión en Firestore:",
@@ -108,37 +174,22 @@ export default function SystemNotesInitializer() {
         );
 
         const previousVersion = lastNotifiedVersionRef.current;
+        const seenKey = buildSystemNotesSeenKey(
+          notasDeSistemasDb,
+          systemNotesVideoUrl,
+        );
 
-        // Si la versión cambió, mostrar notificación inmediatamente
-        if (notasDeSistemasDb && notasDeSistemasDb !== previousVersion) {
-          const currentNote = (systemNotesDb as SystemNote[])[0] ?? null;
-
-          if (currentNote) {
-            console.log(
-              "Mostrando nota del sistema para versión:",
-              notasDeSistemasDb,
-            );
-            setNote(currentNote);
-            setActiveVersion(notasDeSistemasDb);
-            setIsOpen(true);
-            playArrivalSound();
-          } else {
-            setNote({
-              date: new Date().toISOString().slice(0, 10),
-              title: "Actualización de Notas del Sistema",
-              description: `Se detectó una actualización de notas (v${notasDeSistemasDb}). No se encontró detalle para esta versión en systemNotes.`,
-            });
-            setActiveVersion(notasDeSistemasDb);
-            setIsOpen(true);
-            playArrivalSound();
-          }
-
-          persistSeenVersion(notasDeSistemasDb);
+        if (notasDeSistemasDb && seenKey !== previousVersion) {
+          console.log(
+            "Mostrando nota del sistema para versión:",
+            notasDeSistemasDb,
+          );
+          showSystemNote(currentNote, notasDeSistemasDb, systemNotesVideoUrl);
+          persistSeenVersion(seenKey);
         } else if (notasDeSistemasDb) {
-          // Mantener sincronizada la versión en localStorage aunque no haya cambio de modal
           const persistedVersion = localStorage.getItem(STORAGE_KEY);
-          if (persistedVersion !== notasDeSistemasDb) {
-            persistSeenVersion(notasDeSistemasDb);
+          if (persistedVersion !== seenKey) {
+            persistSeenVersion(seenKey);
           }
         }
       },
@@ -153,9 +204,8 @@ export default function SystemNotesInitializer() {
         unsubscribeRef.current = null;
       }
     };
-  }, [persistSeenVersion, playArrivalSound]);
+  }, [persistSeenVersion, setLatestNote, showSystemNote]);
 
-  // Cargar versión local al montar (fallback si Firestore no está disponible)
   React.useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -163,40 +213,57 @@ export default function SystemNotesInitializer() {
       const storedVersion = localStorage.getItem(STORAGE_KEY);
       const currentVersion = versionData.notasDeSistemas;
       const systemNotes = versionData.systemNotes as SystemNote[];
+      const currentNote = systemNotes[0] ?? buildMissingNote(currentVersion);
+      const systemNotesVideoUrl = getValidVideoUrl(currentNote.url);
+      const seenKey = buildSystemNotesSeenKey(
+        currentVersion,
+        systemNotesVideoUrl,
+      );
 
       console.log("Sistema de Notas - Versión local:", currentVersion);
       console.log("Sistema de Notas - Versión almacenada:", storedVersion);
 
-      // Solo usar fallback si no tenemos datos de Firestore y es diferente
-      if (storedVersion !== currentVersion && !isOpen) {
-        const currentNote = systemNotes[0] ?? null;
+      if (!latestNoteRef.current) {
+        setLatestNote(currentNote, currentVersion, systemNotesVideoUrl);
+      }
 
-        if (!lastNotifiedVersionRef.current) {
-          if (currentNote) {
-            setNote(currentNote);
-            setActiveVersion(currentVersion);
-          } else {
-            setNote({
-              date: new Date().toISOString().slice(0, 10),
-              title: "Actualización de Notas del Sistema",
-              description: `Se detectó una actualización de notas (v${currentVersion}). No se encontró detalle para esta versión en systemNotes.`,
-            });
-            setActiveVersion(currentVersion);
-          }
-
-          setIsOpen(true);
-          persistSeenVersion(currentVersion);
-        }
+      if (storedVersion !== seenKey && !isOpen && !lastNotifiedVersionRef.current) {
+        showSystemNote(currentNote, currentVersion, systemNotesVideoUrl);
+        persistSeenVersion(seenKey);
       }
     } catch (error) {
       console.warn("Error cargando notas del sistema:", error);
     }
-  }, [isOpen, persistSeenVersion]);
+  }, [isOpen, persistSeenVersion, setLatestNote, showSystemNote]);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleOpenSystemNotes = () => {
+      const nextNote = initialSystemNote;
+      const nextVersion = initialSystemNotesVersion;
+      if (!nextNote || !nextVersion) return;
+      showSystemNote(nextNote, nextVersion, initialSystemNotesVideoUrl, false);
+    };
+
+    window.addEventListener("open-system-notes-modal", handleOpenSystemNotes);
+
+    return () => {
+      window.removeEventListener("open-system-notes-modal", handleOpenSystemNotes);
+    };
+  }, [showSystemNote]);
 
   const handleClose = React.useCallback(() => {
     setIsOpen(false);
     setNote(null);
     setActiveVersion("");
+    setVideoUrl("");
+  }, []);
+
+  const handleFullscreen = React.useCallback(() => {
+    videoRef.current?.requestFullscreen?.().catch((error) => {
+      console.warn("Unable to open system notes video fullscreen:", error);
+    });
   }, []);
 
   if (!isOpen || !note) return null;
@@ -204,7 +271,6 @@ export default function SystemNotesInitializer() {
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60">
       <div className="relative w-full h-full max-w-2xl max-h-[90vh] bg-[var(--card-bg)] border border-[var(--input-border)] rounded-2xl shadow-2xl p-6 md:p-10 overflow-auto">
-        {/* Botón de cerrar */}
         <button
           type="button"
           onClick={handleClose}
@@ -215,19 +281,15 @@ export default function SystemNotesInitializer() {
           <X className="w-5 h-5" />
         </button>
 
-        {/* Contenido */}
         <div className="space-y-4">
-          {/* Etiqueta de versión */}
           <div className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-widest">
             Notas del Sistema — v{activeVersion}
           </div>
 
-          {/* Título */}
           <h2 className="text-3xl md:text-4xl font-bold text-[var(--foreground)] leading-tight">
             {note.title}
           </h2>
 
-          {/* Fecha */}
           <div className="text-sm text-[var(--muted-foreground)]">
             {new Date(note.date).toLocaleDateString("es-CR", {
               year: "numeric",
@@ -236,12 +298,37 @@ export default function SystemNotesInitializer() {
             })}
           </div>
 
-          {/* Descripción */}
           <div className="pt-6 text-base md:text-lg text-[var(--foreground)] whitespace-pre-wrap leading-relaxed">
             {note.description}
           </div>
 
-          {/* Botón de confirmar */}
+          {videoUrl ? (
+            <div className="pt-4 space-y-3">
+              <video
+                ref={videoRef}
+                className="w-full rounded-xl border border-[var(--input-border)] bg-black"
+                src={videoUrl}
+                controls
+                autoPlay
+                loop
+                playsInline
+                preload="metadata"
+              >
+                Tu navegador no soporta video HTML5.
+              </video>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleFullscreen}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] hover:opacity-90 transition-opacity"
+                >
+                  <Maximize2 className="w-4 h-4" />
+                  Pantalla completa
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           <div className="pt-8 flex justify-end">
             <button
               type="button"
