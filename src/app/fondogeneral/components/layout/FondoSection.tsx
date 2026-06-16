@@ -4307,8 +4307,11 @@ export function FondoSection({
 
   if (!fondoTypesLoaded) {
     return (
-      <div id={id} className="mt-6">
-        <div className="p-8 bg-[var(--card-bg)] border border-[var(--input-border)] rounded text-center space-y-3">
+      <div
+        id={id}
+        className="mt-6 grid min-h-[240px] w-full self-stretch place-items-center"
+      >
+        <div className="mx-auto w-full max-w-md p-8 bg-[var(--card-bg)] border border-[var(--input-border)] rounded text-center space-y-3">
           <div className="flex justify-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent)]"></div>
           </div>

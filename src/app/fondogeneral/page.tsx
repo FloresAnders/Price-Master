@@ -374,7 +374,7 @@ export default function FondoPage() {
         </div>
         <div className="flex h-full w-full flex-col rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-3 shadow-sm sm:p-4 md:p-5">
           {activeTab ? (
-            <div className="w-ful flex min-h-0 flex-1">
+            <div className="w-full flex min-h-0 flex-1">
               <FondoSection
                 namespace={activeTab.namespace}
                 companySelectorPlacement="external"
