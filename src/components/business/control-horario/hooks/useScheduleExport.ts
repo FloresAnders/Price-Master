@@ -24,10 +24,20 @@ interface Props {
   showToast: (msg: string, type: "success" | "error" | "warning") => void;
 }
 
-interface WorkedRangeRow {
+export interface WorkedRangeRow {
   employeeName: string;
   workedDays: number;
   totalHours: number;
+  dayDetails: WorkedRangeDayDetail[];
+}
+
+export interface WorkedRangeDayDetail {
+  dateKey: string;
+  day: number;
+  month: number;
+  year: number;
+  quincena: "1-15" | "16-fin";
+  hours: number;
 }
 
 const isPrivilegedUser = (user: { role?: string } | null) =>
@@ -205,7 +215,7 @@ export function useScheduleExport(props: Props) {
       setWorkedRangeGenerated(false);
 
       const visibleNames = new Set(names);
-      const employeeHours = new Map<string, Map<string, number>>();
+      const employeeHours = new Map<string, Map<string, WorkedRangeDayDetail>>();
       const employeeConfig = new Map(
         (empresas.find((item) => item.value === empresa) as any)?.employees?.map(
           (employee: { name: string; hoursPerShift?: number }) => [
@@ -258,9 +268,18 @@ export function useScheduleExport(props: Props) {
           if (hours <= 0) return;
 
           const employeeDays =
-            employeeHours.get(entry.employeeName) || new Map<string, number>();
+            employeeHours.get(entry.employeeName) ||
+            new Map<string, WorkedRangeDayDetail>();
           const key = dateKey(entry.year, entry.month, entry.day);
-          employeeDays.set(key, (employeeDays.get(key) || 0) + hours);
+          const previous = employeeDays.get(key);
+          employeeDays.set(key, {
+            dateKey: key,
+            day: entry.day,
+            month: entry.month,
+            year: entry.year,
+            quincena: entry.day <= 15 ? "1-15" : "16-fin",
+            hours: (previous?.hours || 0) + hours,
+          });
           employeeHours.set(entry.employeeName, employeeDays);
         });
 
@@ -271,7 +290,10 @@ export function useScheduleExport(props: Props) {
         .map(([employeeName, days]) => ({
           employeeName,
           workedDays: days.size,
-          totalHours: Array.from(days.values()).reduce((sum, value) => sum + value, 0),
+          totalHours: Array.from(days.values()).reduce((sum, value) => sum + value.hours, 0),
+          dayDetails: Array.from(days.values()).sort((a, b) =>
+            a.dateKey.localeCompare(b.dateKey),
+          ),
         }))
         .filter((row) => row.workedDays > 0 || row.totalHours > 0)
         .sort((a, b) => a.employeeName.localeCompare(b.employeeName, "es"));

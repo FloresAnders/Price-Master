@@ -5,11 +5,12 @@ import Image from "next/image";
 import {
   Clock, ChevronLeft, ChevronRight, User as UserIcon,
   Lock, Unlock, Eye, EyeOff, Layers, ChevronDown,
-  CalendarDays, Download, X,
+  CalendarDays, Download, Loader2, X,
 } from "lucide-react";
 import { FondoDateRangeFilters } from "@/app/fondogeneral/components/FondoDateRangeFilters";
 import { hasPermission } from "../../../utils/permissions";
 import { useControlHorario } from "./hooks/useControlHorario";
+import type { WorkedRangeRow } from "./hooks/useScheduleExport";
 import EmployeeTooltipSummary from "./components/EmployeeTooltipSummary";
 import {
   isUserAdmin, userCanChangeEmpresa,
@@ -28,8 +29,13 @@ interface Props {
 export default function ControlHorario({ currentUser }: Props = {}) {
   const h = useControlHorario(currentUser);
   const [selectedEmployee, setSelectedEmployee] = useState("Todos");
+  const [selectedWorkedRangeRow, setSelectedWorkedRangeRow] = useState<WorkedRangeRow | null>(null);
   const [, setWorkedRangeCalendarPageSize] = useState<"daily" | number | "all">("all");
   const [, setWorkedRangeCalendarPageIndex] = useState(0);
+  const closeWorkedRangeModal = () => {
+    setSelectedWorkedRangeRow(null);
+    h.closeWorkedRangeModal();
+  };
 
   if (!hasPermission(h.user?.permissions, "controlhorario")) {
     return (
@@ -318,14 +324,14 @@ export default function ControlHorario({ currentUser }: Props = {}) {
 
       {/* Worked Days/Hours Modal */}
       {h.workedRangeModalOpen && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 p-4" onClick={h.closeWorkedRangeModal}>
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 p-4" onClick={closeWorkedRangeModal}>
           <div className="w-full max-w-2xl rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-[var(--input-border)] px-4 py-3">
               <div className="flex items-center gap-2">
                 <CalendarDays className="h-5 w-5 text-cyan-500" />
                 <h2 className="text-lg font-bold">Exportar Dias/horas</h2>
               </div>
-              <button type="button" onClick={h.closeWorkedRangeModal} className="rounded-full p-2 hover:bg-[var(--muted)]" aria-label="Cerrar">
+              <button type="button" onClick={closeWorkedRangeModal} className="rounded-full p-2 hover:bg-[var(--muted)]" aria-label="Cerrar">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -374,8 +380,9 @@ export default function ControlHorario({ currentUser }: Props = {}) {
                   type="button"
                   onClick={h.generateWorkedRange}
                   disabled={h.isGeneratingWorkedRange}
-                  className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                 >
+                  {h.isGeneratingWorkedRange && <Loader2 className="h-4 w-4 animate-spin" />}
                   {h.isGeneratingWorkedRange ? "Generando..." : "Generar"}
                 </button>
               </div>
@@ -395,7 +402,16 @@ export default function ControlHorario({ currentUser }: Props = {}) {
                         h.workedRangeRows.map((row) => (
                           <tr key={row.employeeName} className="odd:bg-[var(--muted)]/30">
                             <td className="border-b border-[var(--input-border)] px-3 py-2 font-medium">{row.employeeName}</td>
-                            <td className="border-b border-[var(--input-border)] px-3 py-2 text-right">{row.workedDays}</td>
+                            <td className="border-b border-[var(--input-border)] px-3 py-2 text-right">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedWorkedRangeRow(row)}
+                                className="rounded px-2 py-1 font-semibold text-cyan-500 underline-offset-4 hover:bg-[var(--muted)] hover:underline"
+                                title="Ver detalle por quincena"
+                              >
+                                {row.workedDays}
+                              </button>
+                            </td>
                             <td className="border-b border-[var(--input-border)] px-3 py-2 text-right">{row.totalHours}</td>
                           </tr>
                         ))
@@ -408,6 +424,37 @@ export default function ControlHorario({ currentUser }: Props = {}) {
                   </table>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedWorkedRangeRow && (
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 p-4" onClick={() => setSelectedWorkedRangeRow(null)}>
+          <div className="w-full max-w-lg rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-[var(--input-border)] px-4 py-3">
+              <div>
+                <h2 className="text-lg font-bold">Detalle de dias</h2>
+                <p className="text-sm text-[var(--muted-foreground)]">{selectedWorkedRangeRow.employeeName}</p>
+              </div>
+              <button type="button" onClick={() => setSelectedWorkedRangeRow(null)} className="rounded-full p-2 hover:bg-[var(--muted)]" aria-label="Cerrar detalle">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="max-h-[60vh] overflow-auto p-4">
+              <div className="space-y-3">
+                {getWorkedRangeDetailGroups(selectedWorkedRangeRow).map((group) => (
+                  <div key={group.key} className="rounded-lg border border-[var(--input-border)] p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="font-semibold">{group.label}</div>
+                      <div className="text-sm text-[var(--muted-foreground)]">{group.days.length} dias / {group.hours}h</div>
+                    </div>
+                    <div className="mt-2 text-sm text-[var(--muted-foreground)]">
+                      Dias: {group.days.join(", ")}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -513,4 +560,36 @@ function LegendItem({ color, label, border }: { color: string; label: string; bo
       <span className="text-sm font-medium text-[var(--foreground)]">{label}</span>
     </div>
   );
+}
+
+function getWorkedRangeDetailGroups(row: WorkedRangeRow) {
+  const groups = new Map<
+    string,
+    { key: string; label: string; days: number[]; hours: number }
+  >();
+
+  row.dayDetails.forEach((detail) => {
+    const monthLabel = new Date(detail.year, detail.month, 1).toLocaleDateString("es-CR", {
+      month: "long",
+      year: "numeric",
+    });
+    const quincenaLabel = detail.quincena === "1-15" ? "Primera quincena" : "Segunda quincena";
+    const key = `${detail.year}-${detail.month}-${detail.quincena}`;
+    const current =
+      groups.get(key) || {
+        key,
+        label: `${monthLabel} - ${quincenaLabel}`,
+        days: [],
+        hours: 0,
+      };
+
+    current.days.push(detail.day);
+    current.hours += detail.hours;
+    groups.set(key, current);
+  });
+
+  return Array.from(groups.values()).map((group) => ({
+    ...group,
+    days: group.days.sort((a, b) => a - b),
+  }));
 }
