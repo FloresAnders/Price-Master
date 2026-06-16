@@ -17,12 +17,14 @@ interface PayrollRecordsViewerProps {
 }
 
 interface PeriodToDelete {
+  type: "quincena" | "custom";
   locationValue: string;
   employeeName: string;
   year: number;
   month: number;
   period: "first" | "second";
   periodLabel: string;
+  rangeKey?: string;
 }
 
 export default function PayrollRecordsViewer({
@@ -105,7 +107,30 @@ export default function PayrollRecordsViewer({
         year,
         month,
         period,
+        type: "quincena",
         periodLabel: `${periodLabel} de ${monthName} ${year}`,
+      },
+      loading: false,
+    });
+  };
+
+  const prepareRangeDeletion = (
+    locationValue: string,
+    employeeName: string,
+    rangeKey: string,
+    periodLabel: string,
+  ) => {
+    setConfirmModal({
+      open: true,
+      periodToDelete: {
+        type: "custom",
+        locationValue,
+        employeeName,
+        year: 0,
+        month: 0,
+        period: "first",
+        periodLabel,
+        rangeKey,
       },
       loading: false,
     });
@@ -118,16 +143,24 @@ export default function PayrollRecordsViewer({
     setConfirmModal((prev) => ({ ...prev, loading: true }));
 
     try {
-      const { locationValue, employeeName, year, month, period } =
+      const { locationValue, employeeName, year, month, period, type, rangeKey } =
         confirmModal.periodToDelete;
 
-      await PayrollRecordsService.deletePeriodFromRecord(
-        locationValue,
-        employeeName,
-        year,
-        month,
-        period,
-      );
+      if (type === "custom" && rangeKey) {
+        await PayrollRecordsService.deleteRangeFromRecord(
+          locationValue,
+          employeeName,
+          rangeKey,
+        );
+      } else {
+        await PayrollRecordsService.deletePeriodFromRecord(
+          locationValue,
+          employeeName,
+          year,
+          month,
+          period,
+        );
+      }
 
       showToast(
         `${confirmModal.periodToDelete.periodLabel} de ${employeeName} eliminada exitosamente`,
@@ -182,6 +215,9 @@ export default function PayrollRecordsViewer({
         }
       });
     });
+    Object.values(employeeRecord.customRanges || {}).forEach((range) => {
+      totalDays += range.DiasLaborados;
+    });
     return totalDays;
   };
 
@@ -203,6 +239,29 @@ export default function PayrollRecordsViewer({
     ];
     // Los meses en la base de datos están en formato 0-11 (JavaScript getMonth())
     return months[month] || `Mes ${month + 1}`;
+  };
+
+  const formatStoredDate = (value?: string) => {
+    if (!value) return "";
+    const [year, month, day] = value.split("-");
+    if (!year || !month || !day) return value;
+    return `${day}/${month}/${year}`;
+  };
+
+  const getQuincenaRangeLabel = (
+    year: number,
+    month: number,
+    period: "first" | "second",
+    saved?: { startDate?: string; endDate?: string; label?: string },
+  ) => {
+    if (saved?.startDate && saved?.endDate) {
+      return `${formatStoredDate(saved.startDate)} - ${formatStoredDate(saved.endDate)}`;
+    }
+    const endDay =
+      period === "first" ? 15 : new Date(year, month + 1, 0).getDate();
+    const startDay = period === "first" ? 1 : 16;
+    const mm = String(month + 1).padStart(2, "0");
+    return `${String(startDay).padStart(2, "0")}/${mm}/${year} - ${String(endDay).padStart(2, "0")}/${mm}/${year}`;
   };
 
   if (loading) {
@@ -299,6 +358,14 @@ export default function PayrollRecordsViewer({
                             <h6 className="font-medium text-sm text-blue-600 dark:text-blue-400 pr-8">
                               Primera Quincena
                             </h6>
+                            <p className="text-xs text-[var(--tab-text)]">
+                              {getQuincenaRangeLabel(
+                                parseInt(year),
+                                parseInt(month),
+                                "first",
+                                monthData.NumeroQuincena1,
+                              )}
+                            </p>
                             <p className="text-sm">
                               Días laborados:{" "}
                               {monthData.NumeroQuincena1.DiasLaborados}
@@ -333,6 +400,14 @@ export default function PayrollRecordsViewer({
                             <h6 className="font-medium text-sm text-green-600 dark:text-green-400 pr-8">
                               Segunda Quincena
                             </h6>
+                            <p className="text-xs text-[var(--tab-text)]">
+                              {getQuincenaRangeLabel(
+                                parseInt(year),
+                                parseInt(month),
+                                "second",
+                                monthData.NumeroQuincena2,
+                              )}
+                            </p>
                             <p className="text-sm">
                               Días laborados:{" "}
                               {monthData.NumeroQuincena2.DiasLaborados}
@@ -350,6 +425,52 @@ export default function PayrollRecordsViewer({
                       </div>
                     </div>
                   )),
+                )}
+                {Object.entries(record.customRanges || {}).length > 0 && (
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded p-3">
+                    <h5 className="font-medium mb-2">Rangos personalizados</h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {Object.entries(record.customRanges || {}).map(
+                        ([rangeKey, range]) => (
+                          <div
+                            key={rangeKey}
+                            className="bg-white dark:bg-gray-700 rounded p-2 relative"
+                          >
+                            <button
+                              onClick={() =>
+                                prepareRangeDeletion(
+                                  record.companieValue,
+                                  record.employeeName,
+                                  rangeKey,
+                                  range.label,
+                                )
+                              }
+                              className="absolute top-1 right-1 p-1 bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors"
+                              title="Eliminar rango"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                            <h6 className="font-medium text-sm text-purple-600 dark:text-purple-400 pr-8">
+                              {range.label}
+                            </h6>
+                            <p className="text-xs text-[var(--tab-text)]">
+                              {formatStoredDate(range.startDate)} -{" "}
+                              {formatStoredDate(range.endDate)}
+                            </p>
+                            <p className="text-sm">
+                              Días laborados: {range.DiasLaborados}
+                            </p>
+                            <p className="text-sm">
+                              Horas por día: {range.hoursPerDay}
+                            </p>
+                            <p className="text-sm">
+                              Total horas: {range.totalHours}
+                            </p>
+                          </div>
+                        ),
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
 

@@ -158,6 +158,40 @@ export default function PayrollExporter({
       selectedLocation
     );
   }, [selectedLocation, locations]);
+  const formatDateInput = (date: Date) => date.toISOString().slice(0, 10);
+  const [useCustomRange, setUseCustomRange] = useState(false);
+  const [rangeStart, setRangeStart] = useState("");
+  const [rangeEnd, setRangeEnd] = useState("");
+  const activeRange = useMemo(() => {
+    if (useCustomRange && rangeStart && rangeEnd) {
+      const start = new Date(`${rangeStart}T00:00:00`);
+      const end = new Date(`${rangeEnd}T00:00:00`);
+      if (
+        !Number.isNaN(start.getTime()) &&
+        !Number.isNaN(end.getTime()) &&
+        start.getTime() <= end.getTime()
+      ) {
+        return {
+          start,
+          end,
+          label: `${start.toLocaleDateString("es-CR")} - ${end.toLocaleDateString("es-CR")}`,
+        };
+      }
+    }
+    if (useCustomRange) return null;
+    if (!currentPeriod) return null;
+    return {
+      start: currentPeriod.start,
+      end: currentPeriod.end,
+      label: currentPeriod.label,
+    };
+  }, [currentPeriod, rangeEnd, rangeStart, useCustomRange]);
+
+  useEffect(() => {
+    if (!currentPeriod || useCustomRange) return;
+    setRangeStart(formatDateInput(currentPeriod.start));
+    setRangeEnd(formatDateInput(currentPeriod.end));
+  }, [currentPeriod, useCustomRange]);
 
   // Constantes de salario por defecto (fallback)
   const REGULAR_HOURLY_RATE = 1529.62;
@@ -475,7 +509,7 @@ export default function PayrollExporter({
   // Cargar datos de planilla cuando cambie el período o ubicación
   useEffect(() => {
     const loadPayrollData = async () => {
-      if (!currentPeriod) {
+      if (!activeRange) {
         setLoading(false);
         return;
       }
@@ -485,18 +519,24 @@ export default function PayrollExporter({
         const allSchedules = await SchedulesService.getAllSchedules();
 
         // Filtrar por período actual
+        const startKey = new Date(
+          activeRange.start.getFullYear(),
+          activeRange.start.getMonth(),
+          activeRange.start.getDate(),
+        ).getTime();
+        const endKey = new Date(
+          activeRange.end.getFullYear(),
+          activeRange.end.getMonth(),
+          activeRange.end.getDate(),
+        ).getTime();
+
         const periodSchedules = allSchedules.filter((schedule) => {
-          const matchesPeriod =
-            schedule.year === currentPeriod.year &&
-            schedule.month === currentPeriod.month;
-
-          if (!matchesPeriod) return false;
-
-          if (currentPeriod.period === "first") {
-            return schedule.day >= 1 && schedule.day <= 15;
-          } else {
-            return schedule.day >= 16;
-          }
+          const scheduleKey = new Date(
+            schedule.year,
+            schedule.month,
+            schedule.day,
+          ).getTime();
+          return scheduleKey >= startKey && scheduleKey <= endKey;
         });
 
         // Agrupar por ubicación
@@ -537,7 +577,10 @@ export default function PayrollExporter({
 
             schedules.forEach((schedule) => {
               if (schedule.shift && schedule.shift.trim() !== "") {
-                days[schedule.day] = schedule.shift;
+                const dayKey = useCustomRange
+                  ? schedule.year * 10000 + (schedule.month + 1) * 100 + schedule.day
+                  : schedule.day;
+                days[dayKey] = schedule.shift;
               }
             });
             if (Object.keys(days).length > 0) {
@@ -579,12 +622,13 @@ export default function PayrollExporter({
         setLoading(false);
       }
     };
-    if (currentPeriod && locations.length > 0) {
+    if (activeRange && locations.length > 0) {
       loadPayrollData();
     }
   }, [
-    currentPeriod,
+    activeRange,
     selectedLocation,
+    useCustomRange,
     locations,
     calculatePayrollData,
     showToast,
@@ -1253,12 +1297,12 @@ export default function PayrollExporter({
     employee: EnhancedEmployeePayrollData,
     locationName: string,
   ) => {
-    if (!currentPeriod) {
+    if (!activeRange) {
       showToast("No hay período seleccionado", "error");
       return;
     }
 
-    const periodDates = `${currentPeriod.start.getDate()}-${currentPeriod.end.getDate()}`;
+    const periodDates = `${activeRange.start.getDate()}-${activeRange.end.getDate()}`;
 
     showToast(`📊 Generando imagen de ${employee.employeeName}...`, "success");
 
@@ -1282,8 +1326,8 @@ export default function PayrollExporter({
     employee: EnhancedEmployeePayrollData,
     locationValue: string,
   ) => {
-    if (!currentPeriod) {
-      showToast("No hay período seleccionado", "error");
+    if (!currentPeriod || !activeRange) {
+      showToast("No hay período o rango seleccionado", "error");
       return;
     }
 
@@ -1293,16 +1337,35 @@ export default function PayrollExporter({
         "success",
       );
 
-      await PayrollRecordsService.saveRecord(
-        locationValue,
-        employee.employeeName,
-        currentPeriod.year,
-        currentPeriod.month,
-        currentPeriod.period,
-        employee.totalWorkDays,
-        employee.hoursPerDay,
-        employee.totalHours,
-      );
+      if (useCustomRange) {
+        await PayrollRecordsService.saveRangeRecord(
+          locationValue,
+          employee.employeeName,
+          `custom:${rangeStart}:${rangeEnd}`,
+          activeRange.label,
+          rangeStart,
+          rangeEnd,
+          employee.totalWorkDays,
+          employee.hoursPerDay,
+          employee.totalHours,
+        );
+      } else {
+        await PayrollRecordsService.saveRecord(
+          locationValue,
+          employee.employeeName,
+          currentPeriod.year,
+          currentPeriod.month,
+          currentPeriod.period,
+          employee.totalWorkDays,
+          employee.hoursPerDay,
+          employee.totalHours,
+          {
+            startDate: formatDateInput(currentPeriod.start),
+            endDate: formatDateInput(currentPeriod.end),
+            label: currentPeriod.label,
+          },
+        );
+      }
 
       showToast(
         `✅ Registro de ${employee.employeeName} guardado exitosamente`,
@@ -1323,8 +1386,8 @@ export default function PayrollExporter({
     employees: EnhancedEmployeePayrollData[],
   ) => {
     // Abrir modal de confirmación antes de guardar en lote
-    if (!currentPeriod) {
-      showToast("No hay período seleccionado", "error");
+    if (!currentPeriod || !activeRange) {
+      showToast("No hay periodo o rango seleccionado", "error");
       return;
     }
 
@@ -1345,16 +1408,35 @@ export default function PayrollExporter({
 
       for (const emp of employees) {
         try {
-          await PayrollRecordsService.saveRecord(
-            locationValue,
-            emp.employeeName,
-            year,
-            month,
-            period,
-            emp.totalWorkDays,
-            emp.hoursPerDay,
-            emp.totalHours,
-          );
+          if (useCustomRange) {
+            await PayrollRecordsService.saveRangeRecord(
+              locationValue,
+              emp.employeeName,
+              `custom:${rangeStart}:${rangeEnd}`,
+              activeRange.label,
+              rangeStart,
+              rangeEnd,
+              emp.totalWorkDays,
+              emp.hoursPerDay,
+              emp.totalHours,
+            );
+          } else {
+            await PayrollRecordsService.saveRecord(
+              locationValue,
+              emp.employeeName,
+              year,
+              month,
+              period,
+              emp.totalWorkDays,
+              emp.hoursPerDay,
+              emp.totalHours,
+              {
+                startDate: formatDateInput(currentPeriod.start),
+                endDate: formatDateInput(currentPeriod.end),
+                label: currentPeriod.label,
+              },
+            );
+          }
           success++;
         } catch (err) {
           console.error(
@@ -1380,6 +1462,82 @@ export default function PayrollExporter({
       "Guardar Registros",
       `¿Deseas guardar ${employees.length} registro(s) para ${locationValue}?`,
       doSaveAll,
+    );
+  };
+
+  const savePayrollRecordsForAllLocations = async () => {
+    if (!currentPeriod || !activeRange) {
+      showToast("No hay periodo o rango seleccionado", "error");
+      return;
+    }
+
+    const entries = memoizedPayrollCalculations.flatMap((locationData) =>
+      locationData.employees.map((employee) => ({
+        locationValue: locationData.location.value,
+        employee: employee as EnhancedEmployeePayrollData,
+      })),
+    );
+
+    if (entries.length === 0) {
+      showToast("No hay registros para guardar", "error");
+      return;
+    }
+
+    const doSaveAllCompanies = async () => {
+      let success = 0;
+      let errors = 0;
+
+      showToast(`Guardando ${entries.length} registros...`, "success");
+
+      for (const entry of entries) {
+        try {
+          if (useCustomRange) {
+            await PayrollRecordsService.saveRangeRecord(
+              entry.locationValue,
+              entry.employee.employeeName,
+              `custom:${rangeStart}:${rangeEnd}`,
+              activeRange.label,
+              rangeStart,
+              rangeEnd,
+              entry.employee.totalWorkDays,
+              entry.employee.hoursPerDay,
+              entry.employee.totalHours,
+            );
+          } else {
+            await PayrollRecordsService.saveRecord(
+              entry.locationValue,
+              entry.employee.employeeName,
+              currentPeriod.year,
+              currentPeriod.month,
+              currentPeriod.period,
+              entry.employee.totalWorkDays,
+              entry.employee.hoursPerDay,
+              entry.employee.totalHours,
+              {
+                startDate: formatDateInput(currentPeriod.start),
+                endDate: formatDateInput(currentPeriod.end),
+                label: currentPeriod.label,
+              },
+            );
+          }
+          success++;
+        } catch (err) {
+          console.error("Error saving payroll record", err);
+          errors++;
+        }
+      }
+
+      if (errors === 0) {
+        showToast(`${success} registros guardados`, "success");
+      } else {
+        showToast(`${success} guardados, ${errors} errores`, "error");
+      }
+    };
+
+    openConfirmModal(
+      "Guardar todas las empresas",
+      `Deseas guardar ${entries.length} registro(s) de ${memoizedPayrollCalculations.length} empresa(s)?`,
+      doSaveAllCompanies,
     );
   };
 
@@ -1453,12 +1611,12 @@ export default function PayrollExporter({
   };
 
   const exportPayroll = async () => {
-    if (!currentPeriod || memoizedPayrollCalculations.length === 0) {
+    if (!activeRange || memoizedPayrollCalculations.length === 0) {
       showToast("No hay datos para exportar", "error");
       return;
     }
 
-    const periodDates = `${currentPeriod.start.getDate()}-${currentPeriod.end.getDate()}`;
+    const periodDates = `${activeRange.start.getDate()}-${activeRange.end.getDate()}`;
     let totalEmployees = 0;
 
     // Contar total de empleados para mostrar progreso
@@ -1682,6 +1840,41 @@ export default function PayrollExporter({
                 </div>
               </div>
 
+              <div className="flex flex-col gap-2 bg-white/80 dark:bg-gray-900/60 border border-[var(--input-border)] rounded-xl px-3 py-2 w-full xl:w-auto">
+                <label className="flex items-center gap-2 text-xs font-semibold text-[var(--foreground)]">
+                  <input
+                    type="checkbox"
+                    checked={useCustomRange}
+                    onChange={(e) => setUseCustomRange(e.target.checked)}
+                  />
+                  Rango personalizado
+                </label>
+                {useCustomRange && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="date"
+                      value={rangeStart}
+                      onChange={(e) => setRangeStart(e.target.value)}
+                      className="rounded-md border border-[var(--input-border)] px-2 py-1 text-xs"
+                      style={{
+                        background: "var(--input-bg)",
+                        color: "var(--foreground)",
+                      }}
+                    />
+                    <input
+                      type="date"
+                      value={rangeEnd}
+                      onChange={(e) => setRangeEnd(e.target.value)}
+                      className="rounded-md border border-[var(--input-border)] px-2 py-1 text-xs"
+                      style={{
+                        background: "var(--input-bg)",
+                        color: "var(--foreground)",
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+
               <div className="flex items-center gap-3 bg-white dark:bg-gray-900/70 border border-[var(--input-border)] rounded-xl px-4 py-3 w-full xl:w-auto">
                 <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-100">
                   <Filter className="w-5 h-5" />
@@ -1696,8 +1889,8 @@ export default function PayrollExporter({
                       : selectedLocationLabel}
                   </p>
                   <p className="text-xs text-[var(--tab-text)]">
-                    {currentPeriod?.label
-                      ? `Período ${currentPeriod.label}`
+                    {activeRange?.label
+                      ? `Período ${activeRange.label}`
                       : "Selecciona una quincena para ver datos"}
                   </p>
                 </div>
@@ -1715,6 +1908,16 @@ export default function PayrollExporter({
                   <Image className="w-4 h-4" />
                   <span className="hidden sm:inline">Exportar Imágenes</span>
                   <span className="sm:hidden">Exportar</span>
+                </button>
+                <button
+                  onClick={savePayrollRecordsForAllLocations}
+                  disabled={memoizedPayrollCalculations.length === 0}
+                  className="flex-1 sm:flex-none px-4 py-3 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 transition-all shadow-sm flex items-center justify-center gap-2 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed"
+                  title="Guardar registros de todas las empresas visibles"
+                >
+                  <Save className="w-4 h-4" />
+                  <span className="hidden sm:inline">Guardar Todo</span>
+                  <span className="sm:hidden">Todo</span>
                 </button>
               </div>
             </div>

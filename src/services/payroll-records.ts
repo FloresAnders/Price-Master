@@ -12,14 +12,31 @@ export interface PayrollRecord {
           hoursPerDay: number;
           totalHours: number;
           period: "first";
+          startDate?: string;
+          endDate?: string;
+          label?: string;
         };
         NumeroQuincena2?: {
           DiasLaborados: number;
           hoursPerDay: number;
           totalHours: number;
           period: "second";
+          startDate?: string;
+          endDate?: string;
+          label?: string;
         };
       };
+    };
+  };
+  customRanges?: {
+    [rangeKey: string]: {
+      DiasLaborados: number;
+      hoursPerDay: number;
+      totalHours: number;
+      period: "custom";
+      startDate: string;
+      endDate: string;
+      label: string;
     };
   };
   createdAt: Date;
@@ -51,6 +68,7 @@ export class PayrollRecordsService {
     diasLaborados: number,
     hoursPerDay: number,
     totalHours: number,
+    meta?: { startDate?: string; endDate?: string; label?: string },
   ): Promise<void> {
     try {
       const docId = this.getEmployeeDocId(companieValue, employeeName);
@@ -66,6 +84,7 @@ export class PayrollRecordsService {
         hoursPerDay,
         totalHours,
         period,
+        ...meta,
       };
 
       if (existingRecord) {
@@ -113,6 +132,59 @@ export class PayrollRecordsService {
       }
     } catch (error) {
       console.error("Error saving payroll record:", error);
+      throw error;
+    }
+  }
+
+  static async saveRangeRecord(
+    companieValue: string,
+    employeeName: string,
+    rangeKey: string,
+    label: string,
+    startDate: string,
+    endDate: string,
+    diasLaborados: number,
+    hoursPerDay: number,
+    totalHours: number,
+  ): Promise<void> {
+    try {
+      const docId = this.getEmployeeDocId(companieValue, employeeName);
+      const existingRecord = await FirestoreService.getById(
+        this.COLLECTION_NAME,
+        docId,
+      );
+      const periodData = {
+        DiasLaborados: diasLaborados,
+        hoursPerDay,
+        totalHours,
+        period: "custom" as const,
+        startDate,
+        endDate,
+        label,
+      };
+
+      if (existingRecord) {
+        await FirestoreService.update(this.COLLECTION_NAME, docId, {
+          customRanges: {
+            ...(existingRecord.customRanges || {}),
+            [rangeKey]: periodData,
+          },
+          updatedAt: new Date(),
+        });
+        return;
+      }
+
+      const newRecord: PayrollRecord = {
+        employeeName,
+        companieValue,
+        records: {},
+        customRanges: { [rangeKey]: periodData },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      await FirestoreService.addWithId(this.COLLECTION_NAME, docId, newRecord);
+    } catch (error) {
+      console.error("Error saving payroll range record:", error);
       throw error;
     }
   }
@@ -218,7 +290,11 @@ export class PayrollRecordsService {
       }
 
       // If there are no more records, delete the entire document
-      if (Object.keys(updatedRecords).length === 0) {
+      if (
+        Object.keys(updatedRecords).length === 0 &&
+        Object.keys((existingRecord as PayrollRecord).customRanges || {})
+          .length === 0
+      ) {
         await FirestoreService.delete(this.COLLECTION_NAME, docId);
       } else {
         // Update the record with the remaining data
@@ -229,6 +305,43 @@ export class PayrollRecordsService {
       }
     } catch (error) {
       console.error("Error deleting period from payroll record:", error);
+      throw error;
+    }
+  }
+
+  static async deleteRangeFromRecord(
+    companieValue: string,
+    employeeName: string,
+    rangeKey: string,
+  ): Promise<void> {
+    try {
+      const docId = this.getEmployeeDocId(companieValue, employeeName);
+      const existingRecord = (await FirestoreService.getById(
+        this.COLLECTION_NAME,
+        docId,
+      )) as PayrollRecord | null;
+
+      if (!existingRecord) {
+        throw new Error("Record not found");
+      }
+
+      const customRanges = { ...(existingRecord.customRanges || {}) };
+      delete customRanges[rangeKey];
+
+      if (
+        Object.keys(customRanges).length === 0 &&
+        Object.keys(existingRecord.records || {}).length === 0
+      ) {
+        await FirestoreService.delete(this.COLLECTION_NAME, docId);
+        return;
+      }
+
+      await FirestoreService.update(this.COLLECTION_NAME, docId, {
+        customRanges,
+        updatedAt: new Date(),
+      });
+    } catch (error) {
+      console.error("Error deleting range from payroll record:", error);
       throw error;
     }
   }
