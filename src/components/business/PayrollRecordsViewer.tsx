@@ -215,9 +215,6 @@ export default function PayrollRecordsViewer({
         }
       });
     });
-    Object.values(employeeRecord.customRanges || {}).forEach((range) => {
-      totalDays += range.DiasLaborados;
-    });
     return totalDays;
   };
 
