@@ -192,6 +192,8 @@ export default function EmpresasEditorSection({
                 cierreFondoVentasMinutesBeforeEnd: 15,
                 cierreFondoVentasMinutesAfterEnd: 90,
                 mostrarInfoPago: true,
+                unicoCierre: false,
+                verificacionSistemas: true,
                 empleados: [
                   {
                     Empleado: "",
@@ -471,6 +473,38 @@ export default function EmpresasEditorSection({
                           }}
                         />
                         Mostrar info pago
+                      </label>
+
+                      <label className="flex items-center gap-2 text-xs sm:text-sm">
+                        <input
+                          type="checkbox"
+                          checked={empresa.unicoCierre === true}
+                          onChange={(e) => {
+                            const copy = [...empresasData];
+                            copy[idx] = {
+                              ...copy[idx],
+                              unicoCierre: e.target.checked,
+                            };
+                            setEmpresasData(copy);
+                          }}
+                        />
+                        Unico cierre
+                      </label>
+
+                      <label className="flex items-center gap-2 text-xs sm:text-sm">
+                        <input
+                          type="checkbox"
+                          checked={empresa.verificacionSistemas !== false}
+                          onChange={(e) => {
+                            const copy = [...empresasData];
+                            copy[idx] = {
+                              ...copy[idx],
+                              verificacionSistemas: e.target.checked,
+                            };
+                            setEmpresasData(copy);
+                          }}
+                        />
+                        Verificacion de sistemas
                       </label>
                     </div>
 
@@ -873,6 +907,9 @@ export default function EmpresasEditorSection({
                                       e.cierreFondoVentasMinutesAfterEnd,
                                     mostrarInfoPago:
                                       e.mostrarInfoPago !== false,
+                                    unicoCierre: e.unicoCierre === true,
+                                    verificacionSistemas:
+                                      e.verificacionSistemas !== false,
                                     empleados: e.empleados || [],
                                   });
                                   await loadData();

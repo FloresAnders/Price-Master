@@ -2297,6 +2297,54 @@ export function FondoSection({
     [providers, cierreFondoVentasProviderCode],
   );
 
+  const getCierreFondoVentasForDailyClosing = useCallback(
+    (operationalDateKey: string, turno: "D" | "N") => {
+      const cierreEntries = fondoEntries
+        .filter((entry) => {
+          if (!isCierreFondoVentasMovement(entry)) return false;
+          return (
+            getCostaRicaOperationalDateKey(
+              String(entry.createdAt || ""),
+              empresaForShiftResolution?.horarioApertura,
+            ) === operationalDateKey
+          );
+        })
+        .slice()
+        .sort(
+          (a, b) =>
+            Date.parse(String(b.createdAt || "")) -
+            Date.parse(String(a.createdAt || "")),
+        );
+
+      if (cierreEntries.length === 0) return null;
+
+      const resolveTurno = (entry: FondoEntry): "D" | "N" => {
+        if (entry.turno === "D" || entry.turno === "N") return entry.turno;
+        return isWithinFondoVentasNightClosingWindow({
+          nowISO: String(entry.createdAt || ""),
+          horarioCierre: activeEmpresaForCompany?.horarioCierre,
+          minutesBeforeEnd: cierreFondoVentasMinutesBeforeEnd,
+          minutesAfterEnd: cierreFondoVentasMinutesAfterEnd,
+        })
+          ? "N"
+          : "D";
+      };
+
+      return (
+        cierreEntries.find((entry) => resolveTurno(entry) === turno) ??
+        (cierreEntries.length === 1 ? cierreEntries[0] : cierreEntries[0])
+      );
+    },
+    [
+      activeEmpresaForCompany?.horarioCierre,
+      cierreFondoVentasMinutesAfterEnd,
+      cierreFondoVentasMinutesBeforeEnd,
+      empresaForShiftResolution?.horarioApertura,
+      fondoEntries,
+      isCierreFondoVentasMovement,
+    ],
+  );
+
   const handleDeleteMovement = useCallback(
     (entry: FondoEntry) => {
       void handleDeleteMovementFn(entry, {
@@ -3650,6 +3698,25 @@ export function FondoSection({
       console.error("[FG] Error resolving single-closing reason requirement:", err);
     }
 
+    const dailyClosingTurnoForNow: "D" | "N" = hasRealD ? "N" : "D";
+    const cierreFondoVentasForDailyClosing =
+      getCierreFondoVentasForDailyClosing(
+        operationalDateKey,
+        dailyClosingTurnoForNow,
+      );
+    const cierreFondoVentasManager = String(
+      cierreFondoVentasForDailyClosing?.manager || "",
+    ).trim();
+    if (!cierreFondoVentasManager) {
+      showToast(
+        "Debe existir un cierre fondo ventas con encargado para realizar el cierre diario.",
+        "warning",
+        6000,
+      );
+      return;
+    }
+    defaultManager = cierreFondoVentasManager;
+
     const initialValues: DailyClosingFormValues = {
       closingDate: nowISO,
       manager: defaultManager,
@@ -3661,7 +3728,7 @@ export function FondoSection({
       totalUSD: currentBalanceUSD,
       breakdownCRC: {},
       breakdownUSD: {},
-      turno: hasRealD ? "N" : "D",
+      turno: dailyClosingTurnoForNow,
     };
 
     setDailyClosingTurno(initialValues.turno);
@@ -3835,7 +3902,37 @@ export function FondoSection({
   );
 
   const handleConfirmDailyClosing = async (closing: DailyClosingFormValues) => {
-    await handleConfirmDailyClosingFn(closing, {
+    const operationalDateKey = getCostaRicaOperationalDateKey(
+      closing.closingDate,
+      empresaForShiftResolution?.horarioApertura,
+    );
+    if (!operationalDateKey) {
+      showToast(
+        "No se pudo resolver el dia operativo del cierre.",
+        "error",
+        6000,
+      );
+      return;
+    }
+    const cierreFondoVentasForDailyClosing =
+      getCierreFondoVentasForDailyClosing(operationalDateKey, closing.turno);
+    const cierreFondoVentasManager = String(
+      cierreFondoVentasForDailyClosing?.manager || "",
+    ).trim();
+    if (!cierreFondoVentasManager) {
+      showToast(
+        "Debe existir un cierre fondo ventas con encargado para guardar el cierre diario.",
+        "warning",
+        6000,
+      );
+      return;
+    }
+    const closingWithCierreManager: DailyClosingFormValues = {
+      ...closing,
+      manager: cierreFondoVentasManager,
+    };
+
+    await handleConfirmDailyClosingFn(closingWithCierreManager, {
       accountKey,
       activeOwnerId,
       beginDailyClosingsRequest,
@@ -3854,7 +3951,12 @@ export function FondoSection({
       isRegularUser,
       lastDailyClosingSavedAtRef,
       minutesAfterClose: cierreFondoVentasMinutesAfterEnd,
-      requireSingleClosingReason: dailyClosingSingleReasonRequired && !editingDailyClosingId,
+      requireSingleClosingReason:
+        dailyClosingSingleReasonRequired &&
+        !editingDailyClosingId &&
+        activeEmpresaForCompany?.unicoCierre !== true,
+      skipSistemasVerification:
+        activeEmpresaForCompany?.verificacionSistemas === false,
       loadedDailyClosingKeysRef,
       loadingDailyClosingKeysRef,
       ownerAdminEmail,
@@ -3996,7 +4098,11 @@ export function FondoSection({
             ? nowMin >= nightWindowStartMin && nowMin < nightWindowEndMin
             : nowMin >= nightWindowStartMin || nowMin < nightWindowEndMin;
 
-        if (isWithinWindow && !hasRecentDayClosing) {
+        if (
+          isWithinWindow &&
+          !hasRecentDayClosing &&
+          activeEmpresaForCompany.unicoCierre !== true
+        ) {
           const notesWithoutPrefix = notes.replace(SINGLE_CLOSING_REASON_PREFIX, "").trim();
           if (notesWithoutPrefix.length === 0) {
             showToast(
@@ -4007,7 +4113,11 @@ export function FondoSection({
             return false;
           }
         }
-      } else if (isInNightClosingWindow && !hasRecentDayClosing) {
+      } else if (
+        isInNightClosingWindow &&
+        !hasRecentDayClosing &&
+        activeEmpresaForCompany.unicoCierre !== true
+      ) {
         const notesWithoutPrefix = notes.replace(SINGLE_CLOSING_REASON_PREFIX, "").trim();
         if (notesWithoutPrefix.length === 0) {
           showToast(
@@ -5796,7 +5906,12 @@ export function FondoSection({
         currentBalanceCRC={currentBalanceCRC}
         currentBalanceUSD={currentBalanceUSD}
         requireSingleClosingReason={
-          dailyClosingSingleReasonRequired && !editingDailyClosingId
+          dailyClosingSingleReasonRequired &&
+          !editingDailyClosingId &&
+          activeEmpresaForCompany?.unicoCierre !== true
+        }
+        skipSistemasVerification={
+          activeEmpresaForCompany?.verificacionSistemas === false
         }
         managerReadonly={!editingDailyClosingId}
         turno={dailyClosingTurno}

@@ -27,6 +27,14 @@ export class EmpresasService {
     return fallback;
   }
 
+  private static normalizeUnicoCierre(value: unknown): boolean {
+    return EmpresasService.normalizeBoolean(value, false);
+  }
+
+  private static normalizeVerificacionSistemas(value: unknown): boolean {
+    return EmpresasService.normalizeBoolean(value, true);
+  }
+
   private static cloneEmpresas(list: Empresas[]): Empresas[] {
     return (list || []).map((e) => ({
       ...e,
@@ -183,6 +191,12 @@ export class EmpresasService {
       mostrarInfoPago: EmpresasService.normalizeBoolean(
         (e as any).mostrarInfoPago,
       ),
+      unicoCierre: EmpresasService.normalizeUnicoCierre(
+        (e as any).unicoCierre,
+      ),
+      verificacionSistemas: EmpresasService.normalizeVerificacionSistemas(
+        (e as any).verificacionSistemas,
+      ),
       empleados: EmpresasService.normalizeEmpleados(e.empleados as unknown),
     }));
     this.empresasCache = {
@@ -209,6 +223,12 @@ export class EmpresasService {
         ),
       mostrarInfoPago: EmpresasService.normalizeBoolean(
         (doc as any).mostrarInfoPago,
+      ),
+      unicoCierre: EmpresasService.normalizeUnicoCierre(
+        (doc as any).unicoCierre,
+      ),
+      verificacionSistemas: EmpresasService.normalizeVerificacionSistemas(
+        (doc as any).verificacionSistemas,
       ),
       empleados: EmpresasService.normalizeEmpleados(
         (doc as any).empleados as unknown,
@@ -272,6 +292,12 @@ export class EmpresasService {
         mostrarInfoPago: EmpresasService.normalizeBoolean(
           empresa.mostrarInfoPago,
         ),
+        unicoCierre: EmpresasService.normalizeUnicoCierre(
+          empresa.unicoCierre,
+        ),
+        verificacionSistemas: EmpresasService.normalizeVerificacionSistemas(
+          empresa.verificacionSistemas,
+        ),
         empleados: empleadosToSave,
       });
       return empresa.id;
@@ -295,6 +321,10 @@ export class EmpresasService {
         ),
       mostrarInfoPago: EmpresasService.normalizeBoolean(
         empresa.mostrarInfoPago,
+      ),
+      unicoCierre: EmpresasService.normalizeUnicoCierre(empresa.unicoCierre),
+      verificacionSistemas: EmpresasService.normalizeVerificacionSistemas(
+        empresa.verificacionSistemas,
       ),
       empleados: empleadosToSave,
     });
@@ -327,6 +357,17 @@ export class EmpresasService {
       patch.mostrarInfoPago = EmpresasService.normalizeBoolean(
         patch.mostrarInfoPago,
       );
+    }
+    if ("unicoCierre" in patch) {
+      patch.unicoCierre = EmpresasService.normalizeUnicoCierre(
+        patch.unicoCierre,
+      );
+    }
+    if ("verificacionSistemas" in patch) {
+      patch.verificacionSistemas =
+        EmpresasService.normalizeVerificacionSistemas(
+          patch.verificacionSistemas,
+        );
     }
     return await FirestoreService.update(
       this.COLLECTION_NAME,

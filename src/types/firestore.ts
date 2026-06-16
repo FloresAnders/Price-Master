@@ -26,6 +26,8 @@ export interface Empresas {
   cierreFondoVentasMinutesBeforeEnd?: number;
   cierreFondoVentasMinutesAfterEnd?: number;
   mostrarInfoPago?: boolean;
+  unicoCierre?: boolean;
+  verificacionSistemas?: boolean;
   empleados: EmpresaEmpleado[];
 }
 

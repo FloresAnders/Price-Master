@@ -806,6 +806,8 @@ export default function DataEditor() {
             cierreFondoVentasMinutesAfterEnd:
               empresa.cierreFondoVentasMinutesAfterEnd,
             mostrarInfoPago: empresa.mostrarInfoPago !== false,
+            unicoCierre: empresa.unicoCierre === true,
+            verificacionSistemas: empresa.verificacionSistemas !== false,
             empleados: empresa.empleados || [],
           });
         }

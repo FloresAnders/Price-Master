@@ -331,7 +331,11 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
           );
         });
 
-        if (isInNightClosingWindow && !hasRecentDayClosing) {
+        if (
+          isInNightClosingWindow &&
+          !hasRecentDayClosing &&
+          activeEmpresaForCompany.unicoCierre !== true
+        ) {
           shouldPrefixSingleClosingReason = true;
           const notesWithoutPrefix = trimmedNotes.replace(SINGLE_CLOSING_REASON_PREFIX, "").trim();
           if (notesWithoutPrefix.length === 0) {

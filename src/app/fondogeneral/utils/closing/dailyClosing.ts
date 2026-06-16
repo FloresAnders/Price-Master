@@ -65,6 +65,7 @@ export interface HandleConfirmDailyClosingDeps {
   lastDailyClosingSavedAtRef: NumberRef;
   minutesAfterClose?: number | null;
   requireSingleClosingReason: boolean;
+  skipSistemasVerification?: boolean;
   loadedDailyClosingKeysRef: StringSetRef;
   loadingDailyClosingKeysRef: StringSetRef;
   ownerAdminEmail: string | null;
@@ -124,6 +125,7 @@ export async function handleConfirmDailyClosing(
     lastDailyClosingSavedAtRef,
     minutesAfterClose,
     requireSingleClosingReason,
+    skipSistemasVerification = false,
     loadedDailyClosingKeysRef,
     loadingDailyClosingKeysRef,
     ownerAdminEmail,
@@ -218,7 +220,7 @@ export async function handleConfirmDailyClosing(
     return;
   }
 
-  if (!noMovements && !hasCompleteSistemasVerification) {
+  if (!noMovements && !skipSistemasVerification && !hasCompleteSistemasVerification) {
     showToast(
       "Debe completar la verificación de sistemas antes de guardar.",
       "warning",
