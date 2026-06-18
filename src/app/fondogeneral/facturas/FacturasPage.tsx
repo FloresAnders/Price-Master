@@ -18,6 +18,7 @@ import {
   Pencil,
   BadgeCheck,
   Save,
+  Trash2,
   X,
 } from "lucide-react";
 import { writeBatch, doc } from "firebase/firestore";
@@ -258,6 +259,9 @@ export default function FacturasCreditoPage() {
   const [editZeroNCAmount, setEditZeroNCAmount] = useState("");
   const [editZeroNCError, setEditZeroNCError] = useState<string | null>(null);
   const [editZeroNCSubmitting, setEditZeroNCSubmitting] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<FacturaMovement | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
   // Filter state (mirrors Fondo toolbar names)
   const [providerFilter, setProviderFilter] = useState("");
@@ -1063,6 +1067,23 @@ export default function FacturasCreditoPage() {
     selectedCompany,
     showToast,
   ]);
+
+  const executeDeleteMovement = useCallback(async () => {
+    if (!deleteTarget) return;
+    setDeleteSubmitting(true);
+    try {
+      await FacturasService.deleteMovement(selectedCompany, deleteTarget.id);
+      setMovements((prev) => prev.filter((m) => m.id !== deleteTarget.id));
+      showToast("Factura eliminada correctamente.", "success", 3500);
+      setDeleteTarget(null);
+      setDeleteConfirmOpen(false);
+    } catch (error) {
+      console.error("[FACTURAS] Error deleting movement:", error);
+      showToast("No se pudo eliminar la factura.", "error", 4000);
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  }, [deleteTarget, selectedCompany, showToast]);
 
   useEffect(() => {
     if (visibleCompanies.length === 0) {
@@ -3460,32 +3481,59 @@ export default function FacturasCreditoPage() {
                           </div>
                         </td>
                         <td className="border-b border-[var(--input-border)]/60 px-4 py-4 align-top text-right">
-                          {movement.invoiceDocType === "FCR" && !isPaid ? (
-                            <button
-                              type="button"
-                              onClick={() => openPaymentModal(movement)}
-                              disabled={pendingCierreDeCaja}
-                              className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-colors ${registerPaymentTone}`}
-                            >
-                              <CreditCard className="h-3.5 w-3.5" />
-                              {pendingCierreDeCaja
-                                ? "Bloqueado"
-                                : "Registrar Abono"}
-                            </button>
-                          ) : canEditZeroNC ? (
-                            <button
-                              type="button"
-                              onClick={() => openEditZeroNCModal(movement)}
-                              className="inline-flex items-center gap-2 rounded-xl border border-amber-400/45 bg-amber-500/10 px-3.5 py-2 text-xs font-semibold text-amber-200 transition-colors hover:bg-amber-500/20"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                              Editar monto
-                            </button>
-                          ) : (
-                            <span className="text-xs text-[var(--muted-foreground)]">
-                              -
-                            </span>
-                          )}
+                          <div className="flex flex-col items-end gap-1.5">
+                            {movement.invoiceDocType === "FCR" && !isPaid ? (
+                              <button
+                                type="button"
+                                onClick={() => openPaymentModal(movement)}
+                                disabled={pendingCierreDeCaja}
+                                className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition-colors ${registerPaymentTone}`}
+                              >
+                                <CreditCard className="h-3.5 w-3.5" />
+                                {pendingCierreDeCaja
+                                  ? "Bloqueado"
+                                  : "Registrar Abono"}
+                              </button>
+                            ) : canEditZeroNC ? (
+                              <button
+                                type="button"
+                                onClick={() => openEditZeroNCModal(movement)}
+                                className="inline-flex items-center gap-2 rounded-xl border border-amber-400/45 bg-amber-500/10 px-3.5 py-2 text-xs font-semibold text-amber-200 transition-colors hover:bg-amber-500/20"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                                Editar monto
+                              </button>
+                            ) : null}
+                            {isAdminOrSuperAdmin &&
+                              (movement.invoiceDocType === "FCR" ||
+                                movement.invoiceDocType === "NC") &&
+                              paymentStatus === "PENDIENTE" && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setDeleteTarget(movement);
+                                    setDeleteConfirmOpen(true);
+                                  }}
+                                  disabled={deleteSubmitting}
+                                  className="inline-flex items-center gap-2 rounded-xl border border-red-400/40 bg-red-500/10 px-3.5 py-2 text-xs font-semibold text-red-300 transition-colors hover:bg-red-500/20 disabled:opacity-60"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  Eliminar
+                                </button>
+                              )}
+                            {!(
+                              (movement.invoiceDocType === "FCR" && !isPaid) ||
+                              canEditZeroNC ||
+                              (isAdminOrSuperAdmin &&
+                                (movement.invoiceDocType === "FCR" ||
+                                  movement.invoiceDocType === "NC") &&
+                                paymentStatus === "PENDIENTE")
+                            ) && (
+                              <span className="text-xs text-[var(--muted-foreground)]">
+                                -
+                              </span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -3776,6 +3824,23 @@ export default function FacturasCreditoPage() {
               setConfirmZeroNCOpen(false);
               void submitCreateMovement(true);
             }}
+          />
+        )}
+
+        {deleteConfirmOpen && deleteTarget && (
+          <ConfirmModal
+            open={deleteConfirmOpen}
+            title="Eliminar factura"
+            message={`¿Estás seguro de eliminar la factura ${deleteTarget.invoiceNumber}? Esta acción no se puede deshacer.`}
+            confirmText="Eliminar"
+            cancelText="Cancelar"
+            actionType="delete"
+            loading={deleteSubmitting}
+            onCancel={() => {
+              setDeleteConfirmOpen(false);
+              setDeleteTarget(null);
+            }}
+            onConfirm={() => void executeDeleteMovement()}
           />
         )}
 
