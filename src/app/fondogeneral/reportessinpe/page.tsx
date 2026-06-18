@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   FileSpreadsheet,
   Lock,
@@ -10,6 +12,7 @@ import {
   ShieldCheck,
   Wallet,
 } from "lucide-react";
+import { dateKeyFromDate } from "../utils/helpers";
 import { useAuth } from "@/hooks/useAuth";
 import { useActorOwnership } from "@/hooks/useActorOwnership";
 import { EmpresasService } from "@/services/empresas";
@@ -156,6 +159,15 @@ export default function ReportesSinpePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  const [startCalOpen, setStartCalOpen] = useState(false);
+  const [endCalOpen, setEndCalOpen] = useState(false);
+  const [startCalMonth, setStartCalMonth] = useState(() => new Date());
+  const [endCalMonth, setEndCalMonth] = useState(() => new Date());
+  const startCalRef = useRef<HTMLDivElement | null>(null);
+  const endCalRef = useRef<HTMLDivElement | null>(null);
+  const startBtnRef = useRef<HTMLButtonElement | null>(null);
+  const endBtnRef = useRef<HTMLButtonElement | null>(null);
+
   useEffect(() => {
     if (!canUse || !user) return;
 
@@ -189,6 +201,167 @@ export default function ReportesSinpePage() {
       mounted = false;
     };
   }, [canUse, ownerIds, user]);
+
+  useEffect(() => {
+    const handleClick = (event: MouseEvent) => {
+      if (
+        startCalOpen &&
+        startCalRef.current &&
+        !startCalRef.current.contains(event.target as Node) &&
+        startBtnRef.current &&
+        !startBtnRef.current.contains(event.target as Node)
+      )
+        setStartCalOpen(false);
+      if (
+        endCalOpen &&
+        endCalRef.current &&
+        !endCalRef.current.contains(event.target as Node) &&
+        endBtnRef.current &&
+        !endBtnRef.current.contains(event.target as Node)
+      )
+        setEndCalOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [startCalOpen, endCalOpen]);
+
+  const renderMonthCells = (
+    monthDate: Date,
+    selectedKey: string | null,
+    onSelectDay: (key: string) => void,
+  ) => {
+    const cells: ReactNode[] = [];
+    const year = monthDate.getFullYear();
+    const month = monthDate.getMonth();
+    const first = new Date(year, month, 1);
+    const start = first.getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const todayKey = dateKeyFromDate(new Date());
+
+    for (let i = 0; i < start; i++)
+      cells.push(<div key={`pad-${i}`} />);
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const d = new Date(year, month, day);
+      const key = dateKeyFromDate(d);
+      const isFuture = key > todayKey;
+      const isSelected = selectedKey === key;
+
+      if (isFuture) {
+        cells.push(
+          <div key={key} className="py-1 text-white/40 opacity-60">
+            {day}
+          </div>,
+        );
+      } else {
+        cells.push(
+          <button
+            key={key}
+            type="button"
+            onClick={() => onSelectDay(key)}
+            className={`rounded py-1 ${
+              isSelected
+                ? "bg-cyan-500/30 text-white"
+                : "hover:bg-white/10"
+            }`}
+          >
+            {day}
+          </button>,
+        );
+      }
+    }
+    return cells;
+  };
+
+  const CalendarDropdown = ({
+    open,
+    month,
+    selected,
+    onSelect,
+    onClose,
+    onMonthChange,
+    calRef,
+  }: {
+    open: boolean;
+    month: Date;
+    selected: string;
+    onSelect: (key: string) => void;
+    onClose: () => void;
+    onMonthChange: (m: Date) => void;
+    calRef: React.RefObject<HTMLDivElement | null>;
+  }) => {
+    if (!open) return null;
+    return (
+      <div
+        ref={calRef}
+        className="absolute left-0 top-full mt-2 z-50 w-full min-w-[280px]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="w-full rounded-2xl border border-white/10 bg-[#0b1730] p-4 text-white shadow-lg">
+          <div className="mb-2 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => {
+                const m = new Date(month);
+                m.setMonth(m.getMonth() - 1);
+                onMonthChange(new Date(m));
+              }}
+              className="rounded p-1 hover:bg-white/10"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <div className="text-sm font-semibold capitalize">
+              {month.toLocaleString("es-CR", {
+                month: "long",
+                year: "numeric",
+              })}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const m = new Date(month);
+                m.setMonth(m.getMonth() + 1);
+                onMonthChange(new Date(m));
+              }}
+              className="rounded p-1 hover:bg-white/10"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="mb-1 grid grid-cols-7 gap-1 text-center text-xs text-white/50">
+            {["D", "L", "M", "M", "J", "V", "S"].map((d, i) => (
+              <div key={`${d}-${i}`} className="py-1">{d}</div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-1 text-sm">
+            {renderMonthCells(month, selected, (key) => {
+              onSelect(key);
+              onClose();
+            })}
+          </div>
+          <div className="mt-3 flex justify-between">
+            <button
+              type="button"
+              onClick={() => {
+                onSelect(dateKeyFromDate(new Date()));
+                onClose();
+              }}
+              className="rounded border border-white/10 px-2 py-1 text-xs text-white/60 hover:bg-white/10"
+            >
+              Hoy
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded border border-white/10 px-2 py-1 text-xs text-white/60 hover:bg-white/10"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const summary = useMemo(
     () => ({
@@ -324,20 +497,29 @@ export default function ReportesSinpePage() {
           </label>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="block">
+            <div className="relative block">
               <span className="mb-2 block text-sm text-white/70">
                 Fecha inicio
               </span>
-              <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#0b1730] px-4 py-3">
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(event) => setStartDate(event.target.value)}
-                  className="w-full bg-transparent text-sm text-white outline-none [color-scheme:dark]"
-                />
+              <button
+                type="button"
+                ref={startBtnRef}
+                onClick={() => setStartCalOpen((prev) => !prev)}
+                className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-[#0b1730] px-4 py-3 text-sm text-white outline-none"
+              >
+                <span className="flex-1 text-left">{displayDate(startDate)}</span>
                 <CalendarDays className="h-4 w-4 text-cyan-300" />
-              </div>
-            </label>
+              </button>
+              <CalendarDropdown
+                open={startCalOpen}
+                month={startCalMonth}
+                selected={startDate}
+                onSelect={setStartDate}
+                onClose={() => setStartCalOpen(false)}
+                onMonthChange={setStartCalMonth}
+                calRef={startCalRef}
+              />
+            </div>
 
             <div className="block">
               <span className="mb-2 block text-sm text-white/70">
@@ -352,20 +534,29 @@ export default function ReportesSinpePage() {
               </span>
             </div>
 
-            <label className="block">
+            <div className="relative block">
               <span className="mb-2 block text-sm text-white/70">
                 Fecha fin
               </span>
-              <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#0b1730] px-4 py-3">
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(event) => setEndDate(event.target.value)}
-                  className="w-full bg-transparent text-sm text-white outline-none [color-scheme:dark]"
-                />
+              <button
+                type="button"
+                ref={endBtnRef}
+                onClick={() => setEndCalOpen((prev) => !prev)}
+                className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-[#0b1730] px-4 py-3 text-sm text-white outline-none"
+              >
+                <span className="flex-1 text-left">{displayDate(endDate)}</span>
                 <CalendarDays className="h-4 w-4 text-cyan-300" />
-              </div>
-            </label>
+              </button>
+              <CalendarDropdown
+                open={endCalOpen}
+                month={endCalMonth}
+                selected={endDate}
+                onSelect={setEndDate}
+                onClose={() => setEndCalOpen(false)}
+                onMonthChange={setEndCalMonth}
+                calRef={endCalRef}
+              />
+            </div>
 
             <div className="block">
               <span className="mb-2 block text-sm text-white/70">Hora fin</span>
