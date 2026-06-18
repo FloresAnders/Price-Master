@@ -81,10 +81,11 @@ export function useControlPedido(
     normalizedWeekStartKey,
   ]);
 
+  const emptyEntries = useMemo(() => [], []);
   const entries =
     subscriptionKey && subscriptionState.key === subscriptionKey
       ? subscriptionState.entries
-      : [];
+      : emptyEntries;
   const subscriptionError =
     subscriptionKey && subscriptionState.key === subscriptionKey
       ? subscriptionState.error

@@ -1227,7 +1227,9 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     if (!controlPedidoCacheKey) return;
     if (!controlPedidoEnabled) return;
 
-    setCachedControlEntries(controlEntries || []);
+    const next = controlEntries || [];
+    if (next === cachedControlEntries) return;
+    setCachedControlEntries(next);
 
     try {
       const safe = (controlEntries || []).map((e) => ({
