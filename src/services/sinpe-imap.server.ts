@@ -82,6 +82,12 @@ const parseReference = (body: string): string | null => {
   return match?.[1] || null;
 };
 
+const toCRDateMidnight = (d: Date) => {
+  const crOffset = 6 * 60 * 60 * 1000;
+  const crDateStr = new Date(d.getTime() - crOffset).toISOString().substring(0, 10);
+  return new Date(`${crDateStr}T00:00:00-06:00`);
+};
+
 export async function readBcrSinpeReport(params: {
   email: string;
   password: string;
@@ -104,8 +110,8 @@ export async function readBcrSinpeReport(params: {
     try {
       const searchResult = await client.search({
         from: BCR_FROM,
-        since: start,
-        before: new Date(end.getTime() + 24 * 60 * 60 * 1000),
+        since: toCRDateMidnight(start),
+        before: new Date(toCRDateMidnight(end).getTime() + 24 * 60 * 60 * 1000),
       });
       const uids = Array.isArray(searchResult) ? searchResult : [];
 
