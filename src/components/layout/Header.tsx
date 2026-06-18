@@ -568,8 +568,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     currentHash === "#agregarproveedor" ||
     currentHash === "#facturas" ||
     currentHash === "#reportes" ||
-    currentHash === "#reportessinpe" ||
-    currentHash === "#configuracion";
+    currentHash === "#reportessinpe";
 
   const isRecetasSection =
     currentHash === "#recetas" || currentHash === "#agregarproducto";
@@ -860,26 +859,6 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 </button>
               )}
 
-              {/* ConfiguraciÃ³n */}
-              {isFondoPrivileged && (
-                <button
-                  onClick={() => {
-                    safeWindow.location.hash("#configuracion");
-                  }}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
-                    currentHash === "#configuracion"
-                      ? "text-[var(--tab-text-active)] font-semibold"
-                      : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
-                  }`}
-                  title="Configuración del fondo"
-                >
-                  <Settings className="w-4 h-4" />
-                  <span className="hidden xl:inline">Configuración</span>
-                  {currentHash === "#configuracion" && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
-                  )}
-                </button>
-              )}
             </nav>
           )}
 
@@ -1265,24 +1244,6 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   </button>
                 )}
 
-                {/* ConfiguraciÃ³n */}
-                {isFondoPrivileged && (
-                  <button
-                    onClick={() => {
-                      safeWindow.location.hash("#configuracion");
-                      setShowMobileMenu(false);
-                    }}
-                    className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${
-                      currentHash === "#configuracion"
-                        ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                        : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
-                    }`}
-                    title="Configuración del fondo"
-                  >
-                    <Settings className="w-4 h-4" />
-                    <span>Configuración</span>
-                  </button>
-                )}
               </div>
             )}
 

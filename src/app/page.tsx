@@ -112,10 +112,6 @@ const ReportesSinpePage = dynamic(
   () => import("@/app/fondogeneral/reportessinpe/page"),
   { ssr: false },
 );
-const ConfiguracionFondoGeneralPage = dynamic(
-  () => import("@/app/fondogeneral/configuracion/page"),
-  { ssr: false },
-);
 const FacturasPage = dynamic(
   () => import("@/app/fondogeneral/facturas/FacturasPage"),
   { ssr: false },
@@ -165,7 +161,6 @@ type ActiveTab =
   | "facturas"
   | "reportes"
   | "reportessinpe"
-  | "configuracion"
   | "pruebas";
 
 export default function HomePage() {
@@ -303,7 +298,6 @@ export default function HomePage() {
           "facturas",
           "reportes",
           "reportessinpe",
-          "configuracion",
           ...(isSuperAdmin ? ["pruebas"] : []),
         ];
         if (validTabs.includes(hash)) {
@@ -357,7 +351,6 @@ export default function HomePage() {
           "facturas",
           "reportes",
           "reportessinpe",
-          "configuracion",
           ...(isSuperAdmin ? ["pruebas"] : []),
         ];
         if (validTabs.includes(hash)) {
@@ -458,11 +451,6 @@ export default function HomePage() {
 
               {/* REPORTES SINPE */}
               {activeTab === "reportessinpe" && <ReportesSinpePage />}
-
-              {/* CONFIGURACION */}
-              {activeTab === "configuracion" && (
-                <ConfiguracionFondoGeneralPage />
-              )}
 
               {/* SOLICITUD */}
               {activeTab === "solicitud" && <SolicitudForm />}

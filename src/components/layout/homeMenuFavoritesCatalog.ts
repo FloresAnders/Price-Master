@@ -301,15 +301,6 @@ export const HOME_MENU_FAVORITE_OPTIONS: HomeMenuFavoriteOption[] = [
     hash: "reportessinpe",
   },
   {
-    id: "configuracion",
-    label: "Configuración",
-    description: "Configurar el fondo general",
-    group: "Fondo General",
-    icon: Settings,
-    permission: "fondogeneral",
-    hash: "configuracion",
-  },
-  {
     id: "supplierweek",
     label: "Semana Proveedores",
     description: "Ver la tarjeta semanal de proveedores",
@@ -342,7 +333,7 @@ export function getAccessibleHomeMenuFavoriteOptions(
 
   return HOME_MENU_FAVORITE_OPTIONS.filter((option) => {
     if (
-      (option.id === "reportes" || option.id === "configuracion") &&
+      option.id === "reportes" &&
       !isFondoPrivileged
     ) {
       return false;
