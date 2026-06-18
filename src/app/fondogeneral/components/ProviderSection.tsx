@@ -396,6 +396,8 @@ export function ProviderSection({ id }: { id?: string }) {
     ProviderVisitFrequency | ""
   >("");
   const [visitStartDateISO, setVisitStartDateISO] = useState<string>("");
+  const visitUsesAutomaticWeeklyFrequency =
+    visitCreateDays.length > 1 || visitReceiveDays.length > 1;
 
   const formatProviderPhone = useCallback((value: string) => {
     const digits = value.replace(/\D/g, "").slice(0, 8);
@@ -464,6 +466,17 @@ export function ProviderSection({ id }: { id?: string }) {
       setVisitStartDateISO("");
     }
   }, [isCompraInventarioProvider]);
+
+  useEffect(() => {
+    if (!addVisit || !visitUsesAutomaticWeeklyFrequency) return;
+    if (visitFrequency !== "SEMANAL") setVisitFrequency("SEMANAL");
+    if (visitStartDateISO) setVisitStartDateISO("");
+  }, [
+    addVisit,
+    visitFrequency,
+    visitStartDateISO,
+    visitUsesAutomaticWeeklyFrequency,
+  ]);
 
   useEffect(() => {
     // Si no es semanal, permitir configurar fecha inicial.
@@ -1950,34 +1963,38 @@ export function ProviderSection({ id }: { id?: string }) {
                         </div>
                       </div>
 
-                      <div>
-                        <label className="text-xs text-[var(--muted-foreground)] mb-1 block">
-                          Frecuencia
-                        </label>
-                        <select
-                          value={visitFrequency}
-                          onChange={(e) =>
-                            setVisitFrequency(
-                              e.target.value as ProviderVisitFrequency | "",
-                            )
-                          }
-                          className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
-                          style={{
-                            backgroundColor: "var(--card-bg)",
-                            color: "var(--foreground)",
-                          }}
-                          disabled={!company || saving}
-                        >
-                          <option value="">Seleccione una frecuencia</option>
-                          {VISIT_FREQUENCY_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                      {!visitUsesAutomaticWeeklyFrequency ? (
+                        <div>
+                          <label className="text-xs text-[var(--muted-foreground)] mb-1 block">
+                            Frecuencia
+                          </label>
+                          <select
+                            value={visitFrequency}
+                            onChange={(e) =>
+                              setVisitFrequency(
+                                e.target.value as ProviderVisitFrequency | "",
+                              )
+                            }
+                            className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                            style={{
+                              backgroundColor: "var(--card-bg)",
+                              color: "var(--foreground)",
+                            }}
+                            disabled={!company || saving}
+                          >
+                            <option value="">Seleccione una frecuencia</option>
+                            {VISIT_FREQUENCY_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : null}
 
-                      {visitFrequency && visitFrequency !== "SEMANAL" ? (
+                      {!visitUsesAutomaticWeeklyFrequency &&
+                      visitFrequency &&
+                      visitFrequency !== "SEMANAL" ? (
                         <div>
                           <label className="text-xs text-[var(--muted-foreground)] mb-1 block">
                             Fecha inicial
@@ -2063,6 +2080,10 @@ export function ProviderSection({ id }: { id?: string }) {
 
                   let visit: ProviderVisitConfig | undefined = undefined;
                   if (isCompraInventarioProvider && addVisit) {
+                    const effectiveVisitFrequency: ProviderVisitFrequency | "" =
+                      visitUsesAutomaticWeeklyFrequency
+                        ? "SEMANAL"
+                        : visitFrequency;
                     if (visitCreateDays.length === 0) {
                       setFormError(
                         "Debe seleccionar al menos un día para crear pedido.",
@@ -2075,7 +2096,7 @@ export function ProviderSection({ id }: { id?: string }) {
                       );
                       return;
                     }
-                    if (!visitFrequency) {
+                    if (!effectiveVisitFrequency) {
                       setFormError(
                         "Debe seleccionar una frecuencia de visita.",
                       );
@@ -2083,7 +2104,7 @@ export function ProviderSection({ id }: { id?: string }) {
                     }
 
                     let startDateKey: number | undefined = undefined;
-                    if (visitFrequency !== "SEMANAL") {
+                    if (effectiveVisitFrequency !== "SEMANAL") {
                       const key = isoDateToDateKey(visitStartDateISO);
                       if (!key) {
                         setFormError(
@@ -2097,7 +2118,7 @@ export function ProviderSection({ id }: { id?: string }) {
                     visit = {
                       createOrderDays: visitCreateDays,
                       receiveOrderDays: visitReceiveDays,
-                      frequency: visitFrequency as ProviderVisitFrequency,
+                      frequency: effectiveVisitFrequency,
                       ...(typeof startDateKey === "number"
                         ? { startDateKey }
                         : {}),

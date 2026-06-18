@@ -51,7 +51,6 @@ import type { ControlPedidoEntry } from "../../services/controlpedido";
 import {
   addDays,
   dateToKey,
-  nextBusinessDay,
   visitDayFromDate,
   weekStartKeyFromDateKey,
 } from "../../utils/dateKey";
@@ -970,6 +969,32 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     S: "Sábado",
   };
 
+  const nextMatchingVisitDay = useCallback(
+    (
+      baseDate: Date,
+      allowed: VisitDay[],
+      includeSameDay: boolean,
+    ): Date | null => {
+      if (!Array.isArray(allowed) || allowed.length === 0) return null;
+      let candidate = new Date(baseDate);
+      candidate.setHours(0, 0, 0, 0);
+
+      if (includeSameDay) {
+        const c = visitDayFromDate(candidate) as VisitDay;
+        if (allowed.includes(c)) return candidate;
+      }
+
+      for (let i = 0; i < 14; i++) {
+        candidate = addDays(candidate, 1);
+        const c = visitDayFromDate(candidate) as VisitDay;
+        if (allowed.includes(c)) return candidate;
+      }
+
+      return null;
+    },
+    [],
+  );
+
   const weekModel = (() => {
     const todayKey = dateToKey(new Date());
 
@@ -1039,32 +1064,6 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
       createByCode.set(c, []);
       receiveByCode.set(c, []);
     });
-
-    // Helper: compute the next date (same day allowed) whose VisitDay is in allowed codes.
-    // We intentionally do NOT skip weekends here, because some providers may have D/S as valid receive days.
-    const nextMatchingVisitDay = (
-      baseDate: Date,
-      allowed: VisitDay[],
-      includeSameDay: boolean,
-    ): Date | null => {
-      if (!Array.isArray(allowed) || allowed.length === 0) return null;
-      let candidate = new Date(baseDate);
-      candidate.setHours(0, 0, 0, 0);
-
-      if (includeSameDay) {
-        const c = visitDayFromDate(candidate) as VisitDay;
-        if (allowed.includes(c)) return candidate;
-      }
-
-      // Guard: deliveries are expected within the next two weeks at most.
-      for (let i = 0; i < 14; i++) {
-        candidate = addDays(candidate, 1);
-        const c = visitDayFromDate(candidate) as VisitDay;
-        if (allowed.includes(c)) return candidate;
-      }
-
-      return null;
-    };
 
     const isDateWithinWeek = (date: Date, weekStart: Date): boolean => {
       const startKey = dateToKey(weekStart);
@@ -1369,20 +1368,13 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
       if (!provider || receiveDays.length === 0) return dateToKey(createDate);
 
       const createCode = visitDayFromDate(createDate) as VisitDay;
-      if (receiveDays.includes(createCode)) return dateToKey(createDate);
+      const deliveryDate = nextMatchingVisitDay(
+        createDate,
+        receiveDays,
+        receiveDays.includes(createCode),
+      );
 
-      let candidate = nextBusinessDay(createDate);
-      if (receiveDays.length > 0) {
-        let guard = 0;
-        while (guard < 14) {
-          const code = visitDayFromDate(candidate) as VisitDay;
-          if (receiveDays.includes(code)) break;
-          candidate = nextBusinessDay(candidate);
-          guard++;
-        }
-      }
-
-      return dateToKey(candidate);
+      return dateToKey(deliveryDate ?? createDate);
     };
 
     if (!selectedDay || !selectedProviderCode) {
@@ -1398,7 +1390,14 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     setSelectedReceiveDateKey(
       computeDefaultReceiveDateKey(selectedProviderCode, selectedDay.date),
     );
-  }, [selectedDay, selectedDay?.dateKey, selectedProviderCode, isImmediateDeliveryProvider, weekModel]);
+  }, [
+    selectedDay,
+    selectedDay?.dateKey,
+    selectedProviderCode,
+    isImmediateDeliveryProvider,
+    weekModel,
+    nextMatchingVisitDay,
+  ]);
 
   const formatAmount = (amount: number) => {
     if (!Number.isFinite(amount)) return String(amount);
