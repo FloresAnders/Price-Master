@@ -542,15 +542,6 @@ export default function VerificarInventarioPage() {
   }, [selectedEmpresaListados]);
 
   const openScannerModal = () => {
-    if (!state.selectedEmpresaId) {
-      setError("Selecciona una empresa antes de abrir el escaner.");
-      return;
-    }
-    if (!inventoryMode && !listProductsMode) {
-      setError("Activa Inventariar o Listar productos.");
-      return;
-    }
-
     setError(null);
     setManualSearchCodigo("");
     setManualSearchError(null);
@@ -1087,9 +1078,7 @@ export default function VerificarInventarioPage() {
         onOpenDeleteModal={() => setIsDeleteOpen(true)}
         onUploadXlsx={handleUploadXlsx}
         disableUpload={saving || !state.selectedEmpresaId}
-        disableScanner={
-          saving || !state.selectedEmpresaId || (!inventoryMode && !listProductsMode)
-        }
+        disableScanner={false}
         hideManagementControls={listProductsMode}
       />
 
