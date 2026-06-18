@@ -3259,6 +3259,12 @@ export default function FacturasCreditoPage() {
                     N° Factura
                   </th>
                   <th className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">
+                    Encargado
+                  </th>
+                  <th className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">
+                    Observación
+                  </th>
+                  <th className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">
                     Tipo pago
                   </th>
                   <th className="border-b border-[var(--input-border)] px-4 py-3 text-right font-semibold">
@@ -3276,7 +3282,7 @@ export default function FacturasCreditoPage() {
                 {movementsLoading ? (
                   <>
                     <tr className="bg-cyan-500/5">
-                      <td colSpan={7} className="px-4 py-2">
+                      <td colSpan={9} className="px-4 py-2">
                         <div className="h-4 w-44 animate-pulse rounded bg-cyan-100/10" />
                       </td>
                     </tr>
@@ -3302,6 +3308,12 @@ export default function FacturasCreditoPage() {
                         </td>
                         <td className="px-4 py-4">
                           <div className="h-4 w-16 animate-pulse rounded bg-cyan-100/10" />
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="h-4 w-20 animate-pulse rounded bg-cyan-100/10" />
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="h-4 w-28 animate-pulse rounded bg-cyan-100/10" />
                         </td>
                         <td className="px-4 py-4">
                           <div className="h-6 w-24 animate-pulse rounded bg-cyan-100/10" />
@@ -3397,6 +3409,12 @@ export default function FacturasCreditoPage() {
                           {movement.invoiceNumber}
                         </td>
                         <td className="px-4 py-4 align-top text-sm text-[var(--foreground)]">
+                          {movement.manager || '-'}
+                        </td>
+                        <td className="max-w-[300px] px-4 py-4 align-top text-sm text-[var(--muted-foreground)] break-words whitespace-pre-wrap">
+                          {movement.notes || '-'}
+                        </td>
+                        <td className="px-4 py-4 align-top text-sm text-[var(--foreground)]">
                           <span className="inline-flex items-center gap-2 rounded-full border border-[var(--input-border)] bg-[var(--muted)]/18 px-3 py-1.5 font-medium">
                             <ShoppingCart className="h-3.5 w-3.5 text-cyan-300/90" />
                             {formatMovementType(movement.paymentType)}
@@ -3477,7 +3495,7 @@ export default function FacturasCreditoPage() {
                 {!movementsLoading && filteredMovements.length === 0 && (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={9}
                       className="px-4 py-10 text-center text-sm text-[var(--muted-foreground)]"
                     >
                       No hay facturas para los filtros seleccionados.
