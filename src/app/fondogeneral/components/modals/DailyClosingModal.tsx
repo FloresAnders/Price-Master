@@ -195,7 +195,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
 
   const diffConticaTucanCRC = useMemo(() => {
     if (turno === "N" && cierreDBase) {
-      return conticaAjustada - tucanAjustado + (cierreDContica - cierreDTucan);
+      return conticaAjustada - tucanAjustado;
     }
     return conticaNum - tucanNum;
   }, [
@@ -203,15 +203,13 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     cierreDBase,
     conticaAjustada,
     tucanAjustado,
-    cierreDContica,
-    cierreDTucan,
     conticaNum,
     tucanNum,
   ]);
 
   const diffConticaTiemposCRC = useMemo(() => {
     if (turno === "N" && cierreDBase) {
-      return conticaTiemposAjustado - tiemposAjustado + (cierreDConticaTiempos - cierreDTiempos);
+      return conticaTiemposAjustado - tiemposAjustado;
     }
     return conticaTiemposNum - tiemposNum;
   }, [
@@ -219,8 +217,6 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     cierreDBase,
     conticaTiemposAjustado,
     tiemposAjustado,
-    cierreDConticaTiempos,
-    cierreDTiempos,
     conticaTiemposNum,
     tiemposNum,
   ]);
@@ -515,6 +511,8 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
           }
         : {}),
     };
+
+    console.log("monto", values.sistemas);
 
     if (hasDifferences) {
       setPendingSubmitValues(values);
