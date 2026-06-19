@@ -127,17 +127,17 @@ const SistemasVerificationSection: React.FC<SistemasVerificationSectionProps> = 
 
   const diffConticaTucanCRC = useMemo(() => {
     if (turno === "N" && cierreDBase) {
-      return conticaAjustada - tucanAjustado;
+      return conticaAjustada - tucanAjustado + (cierreDContica - cierreDTucan);
     }
     return conticaNum - tucanNum;
-  }, [turno, cierreDBase, conticaAjustada, tucanAjustado, conticaNum, tucanNum]);
+  }, [turno, cierreDBase, conticaAjustada, tucanAjustado, cierreDContica, cierreDTucan, conticaNum, tucanNum]);
 
   const diffConticaTiemposCRC = useMemo(() => {
     if (turno === "N" && cierreDBase) {
-      return conticaTiemposAjustado - tiemposAjustado;
+      return conticaTiemposAjustado - tiemposAjustado + (cierreDConticaTiempos - cierreDTiempos);
     }
     return conticaTiemposNum - tiemposNum;
-  }, [turno, cierreDBase, conticaTiemposAjustado, tiemposAjustado, conticaTiemposNum, tiemposNum]);
+  }, [turno, cierreDBase, conticaTiemposAjustado, tiemposAjustado, cierreDConticaTiempos, cierreDTiempos, conticaTiemposNum, tiemposNum]);
 
   return (
     <section className="rounded-lg border border-[var(--input-border)] p-4 space-y-4">
