@@ -3239,6 +3239,10 @@ export function FondoSection({
           const referenceShiftEndMin =
             closingShift === "D" ? shiftDEndMin : shiftNEndMin;
           const referenceShiftLabel = closingShift === "D" ? "D" : "N";
+          const referenceMinutesAfterEnd =
+            closingShift === "N"
+              ? cierreFondoVentasMinutesAfterEnd * 2
+              : cierreFondoVentasMinutesAfterEnd;
           const referenceShiftEndLabel =
             referenceShiftLabel === "D"
               ? formatMinuteOfDay(shiftDEndMin)
@@ -3252,7 +3256,7 @@ export function FondoSection({
           const referenceWindowEndLabel = formatMinuteOfDay(
             addMinutesToMinuteOfDay(
               referenceShiftEndMin,
-              cierreFondoVentasMinutesAfterEnd,
+              referenceMinutesAfterEnd,
             ),
           );
           const minutesRelativeToReferenceEnd = getMinutesRelativeTo(
@@ -3263,14 +3267,14 @@ export function FondoSection({
             minutesRelativeToReferenceEnd >=
               -cierreFondoVentasMinutesBeforeEnd &&
             minutesRelativeToReferenceEnd <=
-              cierreFondoVentasMinutesAfterEnd;
+              referenceMinutesAfterEnd;
 
           if (!isInReferenceWindow) {
             const humanDelta =
               minutesRelativeToReferenceEnd <
               -cierreFondoVentasMinutesBeforeEnd
                 ? `Faltan ${-cierreFondoVentasMinutesBeforeEnd - minutesRelativeToReferenceEnd} minutos para poder ingresar el cierre.`
-                : `Han pasado ${minutesRelativeToReferenceEnd - cierreFondoVentasMinutesAfterEnd} minutos desde el cierre.`;
+                : `Han pasado ${minutesRelativeToReferenceEnd - referenceMinutesAfterEnd} minutos desde el cierre.`;
             showToast(
               `El \"CIERRE FONDO VENTAS\" solo se puede registrar desde las ${referenceWindowStartLabel} hasta las ${referenceWindowEndLabel} alrededor del fin del turno ${referenceShiftLabel} (${referenceShiftEndLabel}). ${humanDelta}.`,
               "warning",
