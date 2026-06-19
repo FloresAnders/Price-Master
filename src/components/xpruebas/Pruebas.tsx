@@ -22,8 +22,20 @@ import type {
   MovementCurrencyKey,
   MovementStorage,
 } from "@/services/movimientos-fondos";
+import type { ScheduleEntry } from "@/services/schedules";
+import type { Empleado, EmpresaEmpleado, Empresas } from "@/types/firestore";
 
 type MovimientosCompanyRecord = MovementStorage<unknown> & { id: string };
+type EmployeeScheduleExportCompany = Pick<
+  Empresas,
+  "id" | "name" | "ubicacion" | "empleados"
+>;
+type EmployeeScheduleConfig = Partial<
+  Omit<EmpresaEmpleado, "ccssType"> & Omit<Empleado, "ccssType">
+> & {
+  Empleado?: string;
+  ccssType?: EmpresaEmpleado["ccssType"] | Empleado["ccssType"];
+};
 
 const summarizeCompanyMovements = (
   storage?: MovementStorage<unknown> | null,
@@ -72,6 +84,75 @@ const createCollectionFilename = (collectionName: string) => {
     .replace(/^-+|-+$/g, "");
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   return `firestore-${normalized || "sin-nombre"}-${timestamp}.json`;
+};
+
+const createEmployeeScheduleFilename = (
+  companyLabel: string,
+  from: string,
+  to: string,
+) => {
+  const normalized = (companyLabel || "empresa")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  return `empleados-horarios-${normalized || "empresa"}-${from}-a-${to}-${timestamp}.json`;
+};
+
+const toDateKey = (year: number, month: number, day: number) =>
+  `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+const isValidDateKey = (dateKey: string) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  return (
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day
+  );
+};
+
+const normalizeKey = (value?: string | null) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
+
+const employeeNameKey = (value?: string | null) => normalizeKey(value);
+
+const monthLabel = (year: number, month: number) =>
+  new Intl.DateTimeFormat("es-CR", {
+    year: "numeric",
+    month: "long",
+  }).format(new Date(year, month, 1));
+
+const buildEmployeeConfigMap = (
+  embeddedEmployees: EmpresaEmpleado[] = [],
+  employeeDocs: Empleado[] = [],
+) => {
+  const map = new Map<string, EmployeeScheduleConfig>();
+
+  embeddedEmployees.forEach((employee) => {
+    const key = employeeNameKey(employee.Empleado);
+    if (!key) return;
+    map.set(key, { ...employee });
+  });
+
+  employeeDocs.forEach((employee) => {
+    const key = employeeNameKey(employee.Empleado);
+    if (!key) return;
+    map.set(key, {
+      ...(map.get(key) || {}),
+      ...employee,
+    });
+  });
+
+  return map;
 };
 
 const downloadJson = (filename: string, payload: unknown) => {
@@ -144,6 +225,17 @@ export default function Pruebas() {
     Record<string, number | null>
   >({});
   const [dbBackupActive, setDbBackupActive] = useState<string | null>(null);
+  const [employeeExportCompanies, setEmployeeExportCompanies] = useState<
+    EmployeeScheduleExportCompany[]
+  >([]);
+  const [employeeExportCompanyId, setEmployeeExportCompanyId] =
+    useState<string>("");
+  const [employeeExportFrom, setEmployeeExportFrom] = useState<string>("");
+  const [employeeExportTo, setEmployeeExportTo] = useState<string>("");
+  const [employeeScheduleExporting, setEmployeeScheduleExporting] =
+    useState<boolean>(false);
+  const [employeeCompaniesLoading, setEmployeeCompaniesLoading] =
+    useState<boolean>(false);
 
   // Hook para funcionalidad de correo
   const { sendEmail, checkEmailConfig, error: emailError } = useEmail();
@@ -193,6 +285,33 @@ export default function Pruebas() {
   useEffect(() => {
     fetchMovimientosCompanies();
   }, [fetchMovimientosCompanies]);
+
+  const fetchEmployeeExportCompanies = useCallback(async () => {
+    setEmployeeCompaniesLoading(true);
+
+    try {
+      const { EmpresasService } = await import("@/services/empresas");
+      const empresas = await EmpresasService.getAllEmpresas();
+      setEmployeeExportCompanies(empresas);
+      setEmployeeExportCompanyId((current) => {
+        if (current) return current;
+        return empresas[0]?.id || "";
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Error desconocido";
+      setTestResults((prev) => ({
+        ...prev,
+        "employee-schedule-companies": `❌ Error cargando empresas: ${message}`,
+      }));
+    } finally {
+      setEmployeeCompaniesLoading(false);
+    }
+  }, [setTestResults]);
+
+  useEffect(() => {
+    fetchEmployeeExportCompanies();
+  }, [fetchEmployeeExportCompanies]);
 
   const handleExportMovimientos = useCallback(
     async (docId: string, companyLabel: string) => {
@@ -520,6 +639,304 @@ export default function Pruebas() {
     },
     [setTestResults],
   );
+
+  const handleExportEmployeeSchedulesByMonth = useCallback(async () => {
+    const key = "employee-schedule-export";
+    const selectedEmpresa = employeeExportCompanies.find(
+      (empresa) => empresa.id === employeeExportCompanyId,
+    );
+
+    if (!selectedEmpresa) {
+      setTestResults((prev) => ({
+        ...prev,
+        [key]: "❌ Selecciona una empresa válida",
+      }));
+      return;
+    }
+
+    if (
+      !isValidDateKey(employeeExportFrom) ||
+      !isValidDateKey(employeeExportTo)
+    ) {
+      setTestResults((prev) => ({
+        ...prev,
+        [key]: "❌ Selecciona rango de fechas válido",
+      }));
+      return;
+    }
+
+    if (employeeExportFrom > employeeExportTo) {
+      setTestResults((prev) => ({
+        ...prev,
+        [key]: "❌ Fecha inicial mayor que fecha final",
+      }));
+      return;
+    }
+
+    setEmployeeScheduleExporting(true);
+    setTestResults((prev) => ({
+      ...prev,
+      [key]: "🔄 Preparando export de empleados con horarios...",
+    }));
+
+    try {
+      const [{ SchedulesService }, { EmpleadosService }] = await Promise.all([
+        import("@/services/schedules"),
+        import("@/services/empleados"),
+      ]);
+      const [allSchedules, employeeDocs] = await Promise.all([
+        SchedulesService.getAllSchedules(),
+        selectedEmpresa.id
+          ? EmpleadosService.getByEmpresaId(selectedEmpresa.id, true)
+          : Promise.resolve([]),
+      ]);
+
+      const companyKeys = new Set(
+        [
+          selectedEmpresa.id,
+          selectedEmpresa.name,
+          selectedEmpresa.ubicacion,
+        ]
+          .map(normalizeKey)
+          .filter(Boolean),
+      );
+      const employeeConfigByName = buildEmployeeConfigMap(
+        selectedEmpresa.empleados || [],
+        employeeDocs,
+      );
+      const months = new Map<
+        string,
+        {
+          year: number;
+          month: number;
+          label: string;
+          employees: Map<
+            string,
+            {
+              employeeName: string;
+              employeeConfig: EmployeeScheduleConfig;
+              employeeRegistered: boolean;
+              schedules: Array<{
+                date: string;
+                day: number;
+                shift: string;
+                horasPorDia: number | null;
+              }>;
+            }
+          >;
+        }
+      >();
+
+      const filteredSchedules = (allSchedules as ScheduleEntry[])
+        .filter((schedule) => {
+          const scheduleDate = toDateKey(
+            Number(schedule.year),
+            Number(schedule.month),
+            Number(schedule.day),
+          );
+          const shift = String(schedule.shift || "").trim();
+          const employeeKey = employeeNameKey(schedule.employeeName);
+          const employeeConfig = employeeConfigByName.get(employeeKey);
+          const hireDate = String(employeeConfig?.diaContratacion || "").trim();
+          const existedOnScheduledDay = !hireDate || scheduleDate >= hireDate;
+          const hasAssignedHours =
+            shift === "D" ||
+            shift === "N" ||
+            (typeof schedule.horasPorDia === "number" &&
+              schedule.horasPorDia > 0);
+
+          return (
+            companyKeys.has(normalizeKey(schedule.companieValue)) &&
+            scheduleDate >= employeeExportFrom &&
+            scheduleDate <= employeeExportTo &&
+            hasAssignedHours &&
+            Boolean(employeeKey) &&
+            existedOnScheduledDay
+          );
+        })
+        .sort((a, b) => {
+          const dateA = toDateKey(Number(a.year), Number(a.month), Number(a.day));
+          const dateB = toDateKey(Number(b.year), Number(b.month), Number(b.day));
+          return (
+            dateA.localeCompare(dateB) ||
+            String(a.employeeName || "").localeCompare(
+              String(b.employeeName || ""),
+            )
+          );
+        });
+
+      filteredSchedules.forEach((schedule) => {
+        const year = Number(schedule.year);
+        const month = Number(schedule.month);
+        const date = toDateKey(year, month, Number(schedule.day));
+        const monthKeyValue = `${year}-${String(month + 1).padStart(2, "0")}`;
+        const employeeKey = employeeNameKey(schedule.employeeName);
+        const registeredEmployeeConfig = employeeConfigByName.get(employeeKey);
+        const employeeConfig = registeredEmployeeConfig || {
+          Empleado: schedule.employeeName,
+          hoursPerShift: 8,
+          extraAmount: 0,
+          ccssType: "TC",
+        };
+        const horasPorDia =
+          typeof schedule.horasPorDia === "number"
+            ? schedule.horasPorDia
+            : typeof employeeConfig.hoursPerShift === "number"
+              ? employeeConfig.hoursPerShift
+              : null;
+
+        if (!months.has(monthKeyValue)) {
+          months.set(monthKeyValue, {
+            year,
+            month: month + 1,
+            label: monthLabel(year, month),
+            employees: new Map(),
+          });
+        }
+
+        const monthBucket = months.get(monthKeyValue)!;
+        if (!monthBucket.employees.has(employeeKey)) {
+          monthBucket.employees.set(employeeKey, {
+            employeeName: schedule.employeeName,
+            employeeConfig,
+            employeeRegistered: Boolean(registeredEmployeeConfig),
+            schedules: [],
+          });
+        }
+
+        monthBucket.employees.get(employeeKey)!.schedules.push({
+          date,
+          day: Number(schedule.day),
+          shift: String(schedule.shift || "").trim(),
+          horasPorDia,
+        });
+      });
+
+      const employeesInRange = new Map<
+        string,
+        {
+          empleado: string;
+          diaContratacion: string | null;
+          registradoEnEmpresa: boolean;
+          ccssType: EmployeeScheduleConfig["ccssType"] | null;
+          hoursPerShift: number | null;
+          totalDiasAsignados: number;
+          totalHoras: number;
+        }
+      >();
+
+      const meses = Array.from(months.entries()).map(([monthKeyValue, data]) => {
+        const employees = Array.from(data.employees.values()).map((entry) => {
+          const totalHoras = entry.schedules.reduce(
+            (sum, schedule) => sum + (schedule.horasPorDia || 0),
+            0,
+          );
+          const employeeKey = employeeNameKey(entry.employeeName);
+          const currentEmployee = employeesInRange.get(employeeKey);
+          const employeeSummary = {
+            empleado: entry.employeeName,
+            diaContratacion: entry.employeeConfig.diaContratacion || null,
+            registradoEnEmpresa: entry.employeeRegistered,
+            ccssType: entry.employeeConfig.ccssType || null,
+            hoursPerShift: entry.employeeConfig.hoursPerShift ?? null,
+          };
+
+          employeesInRange.set(employeeKey, {
+            ...employeeSummary,
+            totalDiasAsignados:
+              (currentEmployee?.totalDiasAsignados || 0) +
+              entry.schedules.length,
+            totalHoras: (currentEmployee?.totalHoras || 0) + totalHoras,
+          });
+
+          return {
+            ...employeeSummary,
+            totalDiasAsignados: entry.schedules.length,
+            totalHoras,
+            diasHoras: entry.schedules.map((schedule) => ({
+              fecha: schedule.date,
+              dia: schedule.day,
+              turno: schedule.shift,
+              horas: schedule.horasPorDia,
+            })),
+          };
+        });
+
+        return {
+          mes: monthKeyValue,
+          year: data.year,
+          month: data.month,
+          label: data.label,
+          totalEmpleados: employees.length,
+          totalHorarios: employees.reduce(
+            (sum, employee) => sum + employee.totalDiasAsignados,
+            0,
+          ),
+          totalHoras: employees.reduce(
+            (sum, employee) => sum + employee.totalHoras,
+            0,
+          ),
+          empleados: employees,
+        };
+      });
+      const empleadosEnRango = Array.from(employeesInRange.values()).sort(
+        (a, b) => a.empleado.localeCompare(b.empleado),
+      );
+
+      const payload = {
+        kind: "EmployeeScheduleByMonthExport",
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        filters: {
+          empresaId: selectedEmpresa.id || null,
+          empresaName: selectedEmpresa.name,
+          ubicacion: selectedEmpresa.ubicacion,
+          dateFrom: employeeExportFrom,
+          dateTo: employeeExportTo,
+        },
+        summary: {
+          totalMonths: meses.length,
+          totalEmployees: empleadosEnRango.length,
+          totalSchedules: filteredSchedules.length,
+          totalHours: empleadosEnRango.reduce(
+            (sum, employee) => sum + employee.totalHoras,
+            0,
+          ),
+          empleados: empleadosEnRango,
+        },
+        meses,
+      };
+
+      downloadJson(
+        createEmployeeScheduleFilename(
+          selectedEmpresa.name || selectedEmpresa.ubicacion,
+          employeeExportFrom,
+          employeeExportTo,
+        ),
+        payload,
+      );
+
+      setTestResults((prev) => ({
+        ...prev,
+        [key]: `✅ Export listo: ${payload.summary.totalEmployees} empleados, ${payload.summary.totalSchedules} horarios, ${payload.summary.totalMonths} meses`,
+      }));
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Error desconocido";
+      setTestResults((prev) => ({
+        ...prev,
+        [key]: `❌ Error exportando empleados/horarios: ${message}`,
+      }));
+    } finally {
+      setEmployeeScheduleExporting(false);
+    }
+  }, [
+    employeeExportCompanies,
+    employeeExportCompanyId,
+    employeeExportFrom,
+    employeeExportTo,
+    setTestResults,
+  ]);
 
   const handleRunTest = (testId: string, testName: string) => {
     setActiveTest(testId);
@@ -1308,7 +1725,7 @@ export default function Pruebas() {
           const filteredSchedules = allSchedules.filter((schedule) => {
             const scheduleDate = new Date(
               schedule.year,
-              schedule.month - 1,
+              schedule.month,
               schedule.day,
             );
             return (
@@ -2336,6 +2753,98 @@ export default function Pruebas() {
             })}
           </div>
         )}
+      </div>
+
+      {/* Employee Schedule Export Section */}
+      <div className="bg-[var(--input-bg)] rounded-lg border border-[var(--border)] p-6 mb-8">
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold text-[var(--foreground)] flex items-center">
+            <Calendar className="w-5 h-5 mr-2 text-indigo-600" />
+            Exportar Empleados con Horario
+          </h3>
+          <p className="text-sm text-[var(--muted-foreground)]">
+            Exporta por empresa los empleados con horario asignado en un rango.
+            El JSON queda dividido por mes.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+              Empresa
+            </label>
+            <select
+              value={employeeExportCompanyId}
+              onChange={(event) =>
+                setEmployeeExportCompanyId(event.target.value)
+              }
+              disabled={employeeCompaniesLoading || employeeScheduleExporting}
+              className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
+            >
+              {employeeExportCompanies.length === 0 ? (
+                <option value="">
+                  {employeeCompaniesLoading ? "Cargando..." : "Sin empresas"}
+                </option>
+              ) : (
+                employeeExportCompanies.map((empresa) => (
+                  <option key={empresa.id || empresa.name} value={empresa.id}>
+                    {empresa.name || empresa.ubicacion || empresa.id}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+              Desde
+            </label>
+            <input
+              type="date"
+              value={employeeExportFrom}
+              onChange={(event) => setEmployeeExportFrom(event.target.value)}
+              disabled={employeeScheduleExporting}
+              className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-[var(--foreground)] mb-2">
+              Hasta
+            </label>
+            <input
+              type="date"
+              value={employeeExportTo}
+              onChange={(event) => setEmployeeExportTo(event.target.value)}
+              disabled={employeeScheduleExporting}
+              className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--background)] text-[var(--foreground)]"
+            />
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <p className="text-xs text-[var(--muted-foreground)]">
+            Incluye turnos D/N y registros con horas. Usa fecha de contratación
+            cuando existe; empleados solo presentes en horarios salen marcados.
+          </p>
+          <button
+            onClick={handleExportEmployeeSchedulesByMonth}
+            disabled={
+              employeeScheduleExporting ||
+              employeeCompaniesLoading ||
+              !employeeExportCompanyId
+            }
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              employeeScheduleExporting ||
+              employeeCompaniesLoading ||
+              !employeeExportCompanyId
+                ? "bg-gray-300 text-gray-700 cursor-not-allowed"
+                : "bg-indigo-600 hover:bg-indigo-700 text-white"
+            }`}
+          >
+            {employeeScheduleExporting ? "Exportando..." : "Exportar por mes"}
+          </button>
+        </div>
       </div>
 
       {/* Firestore Collections Backup Section */}
