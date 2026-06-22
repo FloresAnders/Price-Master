@@ -15,18 +15,6 @@ export type DailyClosingEmailContext = {
   singleClosingReason?: string;
   noMovements?: boolean;
   noMovementsReason?: string;
-  sistemas?: {
-    conticaCRC: number;
-    tucanCRC?: number;
-    tiemposCRC?: number;
-    conticaTiemposCRC?: number;
-    diffCRC?: number;
-    diffTiemposCRC?: number;
-    conticaAjustadaCRC?: number;
-    conticaTiemposAjustadaCRC?: number;
-    tucanAjustadaCRC?: number;
-    tiemposAjustadaCRC?: number;
-  } | null;
 };
 
 type EmailTemplate = {
@@ -59,21 +47,6 @@ const formatDiff = (currency: "CRC" | "USD", diff: number) => {
   const formatted = formatCurrency(currency, Math.abs(diff));
   return diff > 0 ? `Sobrante de ${formatted}` : `Faltante de ${formatted}`;
 };
-
-const renderVerificationMatrixRow = (
-  label: string,
-  conticaAmount?: number,
-  serviceAmount?: number,
-  diffAmount?: number,
-  striped = false,
-) => `
-    <tr${striped ? ` style="background: #f6f8fa;"` : ""}>
-      <td style="padding: 4px 8px; border: 1px solid #000;">${label}</td>
-      <td style="padding: 4px 8px; border: 1px solid #000; text-align: right;">${typeof conticaAmount === "number" ? formatCurrency("CRC", conticaAmount) : ""}</td>
-      <td style="padding: 4px 8px; border: 1px solid #000; text-align: right;">${typeof serviceAmount === "number" ? formatCurrency("CRC", serviceAmount) : ""}</td>
-      <td style="padding: 4px 8px; border: 1px solid #000; text-align: right;">${typeof diffAmount === "number" ? formatCurrency("CRC", diffAmount) : ""}</td>
-    </tr>
-  `;
 
 export const buildDailyClosingEmailTemplate = (
   context: DailyClosingEmailContext,
@@ -110,21 +83,6 @@ ${context.noMovementsReason.trim()}
 `
       : "";
 
-  const sistemasSectionTextExtended = context.sistemas
-    ? `
-Verificacion de sistemas:
- - Contica: ${formatCurrency("CRC", context.sistemas.conticaCRC)}
- ${typeof context.sistemas.tucanCRC === "number" ? ` - Tucan: ${formatCurrency("CRC", context.sistemas.tucanCRC)}\n` : ""}
- ${typeof context.sistemas.tiemposCRC === "number" ? ` - Tiempos: ${formatCurrency("CRC", context.sistemas.tiemposCRC)}\n` : ""}
- ${typeof context.sistemas.conticaAjustadaCRC === "number" ? ` - Contica ajustada: ${formatCurrency("CRC", context.sistemas.conticaAjustadaCRC)}\n` : ""}
- ${typeof context.sistemas.tucanAjustadaCRC === "number" ? ` - Tucan ajustada: ${formatCurrency("CRC", context.sistemas.tucanAjustadaCRC)}\n` : ""}
- ${typeof context.sistemas.tiemposAjustadaCRC === "number" ? ` - Tiempos ajustado: ${formatCurrency("CRC", context.sistemas.tiemposAjustadaCRC)}\n` : ""}
- ${typeof (context.sistemas as any).conticaTiemposCRC === "number" ? ` - Contica (Tiempos): ${formatCurrency("CRC", (context.sistemas as any).conticaTiemposCRC)}\n` : ""}
- ${typeof context.sistemas.diffCRC === "number" ? ` - Diferencia (Contica-Tucan): ${formatCurrency("CRC", context.sistemas.diffCRC)}\n` : ""}
- ${typeof context.sistemas.diffTiemposCRC === "number" ? ` - Diferencia (Contica-Tiempos): ${formatCurrency("CRC", context.sistemas.diffTiemposCRC)}\n` : ""}
-`
-    : "";
-
   const text = `Se registro un nuevo cierre diario en Time Master.
 
 Empresa: ${context.company}
@@ -144,44 +102,6 @@ Diferencias:
  - Colones: ${formatDiff("CRC", context.diffCRC)}
  - Dolares: ${formatDiff("USD", context.diffUSD)}
 ${singleClosingReasonSection}${noMovementsSection}${notesSection}`.trim();
-
-  const textWithSistemas = sistemasSectionTextExtended
-    ? `${text}\n${sistemasSectionTextExtended}`
-    : text;
-
-  const sistemasHtmlSection = context.sistemas
-    ? `
-            <h3 style="margin: 16px 0 8px 0;">Verificacion de sistemas</h3>
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 14px;">
-              <thead>
-                <tr style="background: #d9d9d9;">
-                  <th style="padding: 4px 8px; border: 1px solid #000; text-align: left;">Sistema</th>
-                  <th style="padding: 4px 8px; border: 1px solid #000; text-align: right;">CONTICA</th>
-                  <th style="padding: 4px 8px; border: 1px solid #000; text-align: right;">SERVICIO</th>
-                  <th style="padding: 4px 8px; border: 1px solid #000; text-align: right;">DIFERENCIA</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${renderVerificationMatrixRow(
-                  "TUCAN",
-                  context.sistemas.conticaAjustadaCRC ?? context.sistemas.conticaCRC,
-                  context.sistemas.tucanAjustadaCRC ?? context.sistemas.tucanCRC,
-                  context.sistemas.diffCRC,
-                )}
-                ${renderVerificationMatrixRow(
-                  "TIEMPOS",
-                  (context.sistemas as any).conticaTiemposAjustadaCRC ??
-                    (context.sistemas as any).conticaTiemposCRC ??
-                    context.sistemas.conticaAjustadaCRC ??
-                    context.sistemas.conticaCRC,
-                  context.sistemas.tiemposAjustadaCRC ?? context.sistemas.tiemposCRC,
-                  context.sistemas.diffTiemposCRC,
-                  true,
-                )}
-              </tbody>
-            </table>
-          `
-    : "";
 
   const html = `
         <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #1b1f23;">
@@ -230,7 +150,6 @@ ${singleClosingReasonSection}${noMovementsSection}${notesSection}`.trim();
                     </div>`
                 : ""
             }
-            ${sistemasHtmlSection}
             ${
               context.notes && context.notes.trim().length > 0
                 ? `<div style="border-left: 4px solid #0366d6; background: #f1f8ff; padding: 12px 16px; border-radius: 6px;">
@@ -244,7 +163,7 @@ ${singleClosingReasonSection}${noMovementsSection}${notesSection}`.trim();
 
   return {
     subject,
-    text: textWithSistemas,
+    text,
     html,
   };
 };

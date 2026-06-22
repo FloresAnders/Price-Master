@@ -41,18 +41,6 @@ export type DailyClosingRecord = {
   diffUSD: number;
   notes: string;
   turno?: "D" | "N";
-  sistemas?: {
-    conticaCRC: number;
-    tucanCRC?: number;
-    tiemposCRC?: number;
-    conticaTiemposCRC?: number;
-    diffCRC?: number;
-    diffTiemposCRC?: number;
-    conticaAjustadaCRC?: number;
-    tucanAjustadaCRC?: number;
-    tiemposAjustadaCRC?: number;
-    conticaTiemposAjustadaCRC?: number;
-  };
   singleClosingReason?: string;
   noMovements?: boolean;
   noMovementsReason?: string;

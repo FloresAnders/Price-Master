@@ -28,10 +28,6 @@ import {
   AUTO_ADJUSTMENT_MANAGER,
   AUTO_ADJUSTMENT_PROVIDER_CODE,
 } from "../../constants";
-import {
-  deleteCierreFondoVentasCache,
-  setCierreFondoVentasCache,
-} from "./cierreFondoVentasDb";
 import { acquireClosingGuard, releaseClosingGuard, touchClosingGuard } from "./closingGuards";
 
 type LedgerSnapshot = {
@@ -65,7 +61,6 @@ export interface HandleConfirmDailyClosingDeps {
   lastDailyClosingSavedAtRef: NumberRef;
   minutesAfterClose?: number | null;
   requireSingleClosingReason: boolean;
-  skipSistemasVerification?: boolean;
   loadedDailyClosingKeysRef: StringSetRef;
   loadingDailyClosingKeysRef: StringSetRef;
   ownerAdminEmail: string | null;
@@ -125,7 +120,6 @@ export async function handleConfirmDailyClosing(
     lastDailyClosingSavedAtRef,
     minutesAfterClose,
     requireSingleClosingReason,
-    skipSistemasVerification = false,
     loadedDailyClosingKeysRef,
     loadingDailyClosingKeysRef,
     ownerAdminEmail,
@@ -191,12 +185,6 @@ export async function handleConfirmDailyClosing(
   const singleClosingReason = String(closing.singleClosingReason || "").trim();
   const noMovements = Boolean(closing.noMovements);
   const noMovementsReason = String(closing.noMovementsReason || "").trim();
-  const hasCompleteSistemasVerification =
-    Boolean(closing.sistemas) &&
-    Number(closing.sistemas?.conticaCRC ?? 0) > 0 &&
-    Number(closing.sistemas?.tucanCRC ?? 0) > 0 &&
-    Number(closing.sistemas?.conticaTiemposCRC ?? 0) > 0 &&
-    Number(closing.sistemas?.tiemposCRC ?? 0) > 0;
   const closingDateKey =
     getCostaRicaOperationalDateKey(
       closingDateValue.toISOString(),
@@ -214,15 +202,6 @@ export async function handleConfirmDailyClosing(
   if (noMovements && !noMovementsReason) {
     showToast(
       "Debe indicar el motivo de por qué no hubo movimientos.",
-      "warning",
-      5000,
-    );
-    return;
-  }
-
-  if (!noMovements && !skipSistemasVerification && !hasCompleteSistemasVerification) {
-    showToast(
-      "Debe completar la verificación de sistemas antes de guardar.",
       "warning",
       5000,
     );
@@ -247,7 +226,6 @@ export async function handleConfirmDailyClosing(
     dailyClosings.find((d) => d.id === editingDailyClosingId)?.turno
       ? { turno: closing.turno }
       : {}),
-    ...(closing.sistemas ? { sistemas: closing.sistemas } : {}),
     ...(singleClosingReason ? { singleClosingReason } : {}),
     ...(noMovements ? { noMovements: true, noMovementsReason } : {}),
     breakdownCRC: closing.breakdownCRC ?? {},
@@ -337,27 +315,6 @@ export async function handleConfirmDailyClosing(
     console.log(
       `[CIERRE] ? Cierre guardado exitosamente en Firestore. ID: ${record.id}, Fecha: ${record.closingDate}`,
     );
-
-    if (record.turno === "D") {
-      try {
-        if (record.sistemas) {
-          await setCierreFondoVentasCache(normalizedCompany, closingDateKey, {
-            conticaCRC: record.sistemas.conticaCRC,
-            tucanCRC: (record.sistemas as any).tucanCRC ?? 0,
-            tiemposCRC: (record.sistemas as any).tiemposCRC ?? 0,
-            conticaTiemposCRC: (record.sistemas as any).conticaTiemposCRC ?? 0,
-            diffCRC: (record.sistemas as any).diffCRC ?? 0,
-            // store tiempos diff if present as well? keep primary conticaAjustada
-            conticaAjustadaCRC: (record.sistemas as any).conticaAjustadaCRC ?? 0,
-            closingDateISO: record.closingDate,
-          });
-        } else {
-          await deleteCierreFondoVentasCache(normalizedCompany, closingDateKey);
-        }
-      } catch (cacheErr) {
-        console.error("[CIERRE] ? Error guardando cache de sistemas del turno D:", cacheErr);
-      }
-    }
 
     if (!isEditingClosing && !isRegularUser) {
       void touchClosingGuard(normalizedCompany, "FONDO_GENERAL", user, serverNowMs);
@@ -487,7 +444,6 @@ export async function handleConfirmDailyClosing(
     singleClosingReason: record.singleClosingReason,
     noMovements: record.noMovements,
     noMovementsReason: record.noMovementsReason,
-    ...(record.sistemas ? { sistemas: record.sistemas } : {}),
   });
 
   if (notificationRecipients.size === 0 && activeOwnerId) {

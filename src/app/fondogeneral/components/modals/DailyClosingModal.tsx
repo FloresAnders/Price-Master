@@ -8,7 +8,6 @@ import React, {
 
 import ConfirmModal from "../../../../components/ui/ConfirmModal";
 import { isWithinCierreRange } from "../../utils/turnoRango";
-import SistemasVerificationSection from "./SistemasVerificationSection";
 // Usar botones nativos con clases Tailwind en vez de un componente Button central
 
 const CRC_DENOMINATIONS: readonly number[] = [
@@ -72,18 +71,6 @@ export type DailyClosingFormValues = {
   breakdownCRC: Record<number, number>;
   breakdownUSD: Record<number, number>;
   turno: "D" | "N";
-  sistemas?: {
-    conticaCRC: number;
-    tucanCRC?: number;
-    tiemposCRC?: number;
-    conticaTiemposCRC?: number;
-    diffCRC?: number;
-    diffTiemposCRC?: number;
-    conticaAjustadaCRC?: number;
-    tucanAjustadaCRC?: number;
-    tiemposAjustadaCRC?: number;
-    conticaTiemposAjustadaCRC?: number;
-  };
 };
 
 type DailyClosingModalProps = {
@@ -98,14 +85,11 @@ type DailyClosingModalProps = {
   currentBalanceCRC: number;
   currentBalanceUSD: number;
   requireSingleClosingReason?: boolean;
-  skipSistemasVerification?: boolean;
   managerReadonly?: boolean;
 
   turno: "D" | "N";
   cierreFondoVentasMinutesBeforeEnd: number;
   cierreFondoVentasMinutesAfterEnd: number;
-  cierreDBase?: { conticaCRC: number; tucanCRC: number; tiemposCRC?: number; conticaTiemposCRC?: number } | null;
-  hasCierreDReal?: boolean;
 };
 
 const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
@@ -120,13 +104,10 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   currentBalanceCRC,
   currentBalanceUSD,
   requireSingleClosingReason = false,
-  skipSistemasVerification = false,
   managerReadonly = false,
   turno,
   cierreFondoVentasMinutesBeforeEnd,
   cierreFondoVentasMinutesAfterEnd,
-  cierreDBase,
-  hasCierreDReal,
 }) => {
   const modalRef = useRef<HTMLDivElement | null>(null);
   const managerFieldRef = useRef<HTMLSelectElement | HTMLInputElement | null>(
@@ -157,73 +138,6 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const [pendingSubmitValues, setPendingSubmitValues] =
     useState<DailyClosingFormValues | null>(null);
 
-  const [totalConticaCRC, setTotalConticaCRC] = useState<string>("");
-  const [totalTucanCRC, setTotalTucanCRC] = useState<string>("");
-  const [totalConticaTiemposCRC, setTotalConticaTiemposCRC] = useState<string>("");
-  const [totalTiemposCRC, setTotalTiemposCRC] = useState<string>("");
-
-  const showSistemas = !skipSistemasVerification;
-
-  const conticaNum = Number(totalConticaCRC.replace(/\D/g, "")) || 0;
-  const tucanNum = Number(totalTucanCRC.replace(/\D/g, "")) || 0;
-  const conticaTiemposNum = Number(totalConticaTiemposCRC.replace(/\D/g, "")) || 0;
-  const tiemposNum = Number(totalTiemposCRC.replace(/\D/g, "")) || 0;
-  const cierreDContica = cierreDBase?.conticaCRC ?? 0;
-  const cierreDTucan = cierreDBase?.tucanCRC ?? 0;
-  const cierreDTiempos = cierreDBase?.tiemposCRC ?? 0;
-  const cierreDConticaTiempos = cierreDBase?.conticaTiemposCRC ?? 0;
-
-  const conticaAjustada = useMemo(() => {
-    if (turno === "D" || !cierreDBase) return conticaNum;
-    return conticaNum - cierreDContica;
-  }, [turno, cierreDBase, conticaNum, cierreDContica]);
-
-  const tucanAjustado = useMemo(() => {
-    if (turno === "D" || !cierreDBase) return tucanNum;
-    return tucanNum - cierreDTucan;
-  }, [turno, cierreDBase, tucanNum, cierreDTucan]);
-
-  const conticaTiemposAjustado = useMemo(() => {
-    if (turno === "D" || !cierreDBase) return conticaTiemposNum;
-    return conticaTiemposNum - cierreDConticaTiempos;
-  }, [turno, cierreDBase, conticaTiemposNum, cierreDConticaTiempos]);
-
-  const tiemposAjustado = useMemo(() => {
-    if (turno === "D" || !cierreDBase) return tiemposNum;
-    return tiemposNum - cierreDTiempos;
-  }, [turno, cierreDBase, tiemposNum, cierreDTiempos]);
-
-  const diffConticaTucanCRC = useMemo(() => {
-    if (turno === "N" && cierreDBase) {
-      return conticaAjustada - tucanAjustado + (cierreDContica - cierreDTucan);
-    }
-    return conticaNum - tucanNum;
-  }, [
-    turno,
-    cierreDBase,
-    conticaAjustada,
-    tucanAjustado,
-    cierreDContica,
-    cierreDTucan,
-    conticaNum,
-    tucanNum,
-  ]);
-
-  const diffConticaTiemposCRC = useMemo(() => {
-    if (turno === "N" && cierreDBase) {
-      return conticaTiemposAjustado - tiemposAjustado + (cierreDConticaTiempos - cierreDTiempos);
-    }
-    return conticaTiemposNum - tiemposNum;
-  }, [
-    turno,
-    cierreDBase,
-    conticaTiemposAjustado,
-    tiemposAjustado,
-    cierreDConticaTiempos,
-    cierreDTiempos,
-    conticaTiemposNum,
-    tiemposNum,
-  ]);
 
   const secondaryButtonClass =
     "inline-flex h-11 items-center justify-center rounded-lg border border-[var(--input-border)] px-4 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20 disabled:cursor-not-allowed disabled:opacity-60";
@@ -289,16 +203,10 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const diffCRC = totalCRC - Math.trunc(currentBalanceCRC);
   const diffUSD = totalUSD - Math.trunc(currentBalanceUSD);
   const hasAnyCash = totalCRC > 0 || totalUSD > 0;
-  const hasCompleteSistemasVerification =
-    conticaNum > 0 &&
-    tucanNum > 0 &&
-    conticaTiemposNum > 0 &&
-    tiemposNum > 0;
   const submitDisabled =
     displayedManager.trim().length === 0 ||
     !hasAnyCash ||
-    (requireSingleClosingReason && singleClosingReason.trim().length === 0) ||
-    (showSistemas && !hasCompleteSistemasVerification);
+    (requireSingleClosingReason && singleClosingReason.trim().length === 0);
   const hasDifferences = diffCRC !== 0 || diffUSD !== 0;
 
   const submitDisabledReason = useMemo(() => {
@@ -311,16 +219,11 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     if (requireSingleClosingReason && singleClosingReason.trim().length === 0) {
       return "Debes indicar el motivo de por qué solo hubo un cierre en el día.";
     }
-    if (showSistemas && !hasCompleteSistemasVerification) {
-      return "Debes completar la verificación de sistemas antes de guardar.";
-    }
     return "";
   }, [
     displayedManager,
     hasAnyCash,
-    hasCompleteSistemasVerification,
     requireSingleClosingReason,
-    showSistemas,
     singleClosingReason,
   ]);
 
@@ -497,23 +400,6 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
       breakdownCRC: buildBreakdown(crcCounts, CRC_DENOMINATIONS),
       breakdownUSD: buildBreakdown(usdCounts, USD_DENOMINATIONS),
       turno,
-      ...(showSistemas &&
-      hasCompleteSistemasVerification
-        ? {
-            sistemas: {
-              conticaCRC: conticaNum,
-              tucanCRC: tucanNum || 0,
-              tiemposCRC: tiemposNum || 0,
-              conticaTiemposCRC: conticaTiemposNum || 0,
-              diffCRC: diffConticaTucanCRC,
-              diffTiemposCRC: diffConticaTiemposCRC,
-              conticaAjustadaCRC: conticaAjustada,
-              tucanAjustadaCRC: tucanAjustado,
-              tiemposAjustadaCRC: tiemposAjustado,
-              conticaTiemposAjustadaCRC: conticaTiemposAjustado,
-            },
-          }
-        : {}),
     };
 
     if (hasDifferences) {
@@ -798,21 +684,6 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
               </section>
             </div>
           </div>
-          {showSistemas && (
-            <SistemasVerificationSection
-              turno={turno}
-              cierreDBase={cierreDBase}
-              hasCierreDReal={hasCierreDReal}
-              totalConticaCRC={totalConticaCRC}
-              totalTucanCRC={totalTucanCRC}
-              totalConticaTiemposCRC={totalConticaTiemposCRC}
-              totalTiemposCRC={totalTiemposCRC}
-              onConticaChange={setTotalConticaCRC}
-              onTucanChange={setTotalTucanCRC}
-              onConticaTiemposChange={setTotalConticaTiemposCRC}
-              onTiemposChange={setTotalTiemposCRC}
-            />
-          )}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
               Observaciones

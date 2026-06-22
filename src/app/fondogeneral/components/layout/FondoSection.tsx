@@ -55,11 +55,6 @@ import {
   MovementStorage,
   MovementStorageState,
 } from "../../../../services/movimientos-fondos";
-import {
-  deleteCierreFondoVentasCache,
-  getCierreFondoVentasCache,
-  setCierreFondoVentasCache,
-} from "../../utils/closing/cierreFondoVentasDb";
 
 
 import DailyClosingModal, { DailyClosingFormValues } from "../modals/DailyClosingModal";
@@ -637,163 +632,6 @@ export function FondoSection({
     };
   }, [company, empresaForShiftResolution?.horarioApertura]);
 
-  const cierreDBaseFromDailyClosings = useMemo(() => {
-    if (!dailyClosingOperationalDateKey) return null;
-    const todayClosings = dailyClosings
-      .filter(
-        (closing) =>
-          getCostaRicaOperationalDateKey(
-            closing.closingDate,
-            empresaForShiftResolution?.horarioApertura,
-          ) ===
-          dailyClosingOperationalDateKey,
-      )
-      .slice()
-      .sort(
-        (a, b) =>
-          Date.parse(a.closingDate) - Date.parse(b.closingDate),
-      );
-    const dClosing =
-      todayClosings.find(
-        (closing) =>
-          inferDailyClosingTurno(
-            closing,
-            todayClosings,
-            empresaForShiftResolution?.horarioApertura,
-          ) === "D",
-      ) ?? null;
-    if (!dClosing?.sistemas) return null;
-    return {
-      conticaCRC: dClosing.sistemas.conticaCRC,
-      tucanCRC: dClosing.sistemas.tucanCRC ?? 0,
-      tiemposCRC: (dClosing.sistemas as any).tiemposCRC ?? 0,
-      conticaTiemposCRC: (dClosing.sistemas as any).conticaTiemposCRC ?? 0,
-    };
-  }, [
-    dailyClosingOperationalDateKey,
-    dailyClosings,
-    empresaForShiftResolution?.horarioApertura,
-  ]);
-  const [cierreDBaseFromCache, setCierreDBaseFromCache] = useState<{
-    conticaCRC: number;
-    tucanCRC: number;
-    tiemposCRC?: number;
-    conticaTiemposCRC?: number;
-  } | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const normalizedCompany = (company || "").trim();
-    if (!normalizedCompany) {
-      setCierreDBaseFromCache(null);
-      return;
-    }
-
-    const todayKey = dailyClosingOperationalDateKey;
-    if (!todayKey) {
-      setCierreDBaseFromCache(null);
-      return;
-    }
-    const todayClosings = dailyClosings
-      .filter(
-        (closing) =>
-          getCostaRicaOperationalDateKey(
-            closing.closingDate,
-            empresaForShiftResolution?.horarioApertura,
-          ) ===
-          todayKey,
-      )
-      .slice()
-      .sort(
-        (a, b) =>
-          Date.parse(a.closingDate) - Date.parse(b.closingDate),
-      );
-    const todayClosing = todayClosings.find(
-      (closing) =>
-        inferDailyClosingTurno(
-          closing,
-          todayClosings,
-          empresaForShiftResolution?.horarioApertura,
-        ) === "D",
-    );
-
-    if (todayClosing?.sistemas) {
-      const base = {
-        conticaCRC: todayClosing.sistemas.conticaCRC,
-        tucanCRC: todayClosing.sistemas.tucanCRC ?? 0,
-        tiemposCRC: (todayClosing.sistemas as any).tiemposCRC ?? 0,
-        conticaTiemposCRC: (todayClosing.sistemas as any).conticaTiemposCRC ?? 0,
-      };
-      setCierreDBaseFromCache(base);
-      void setCierreFondoVentasCache(normalizedCompany, todayKey, {
-        conticaCRC: todayClosing.sistemas.conticaCRC,
-        tucanCRC: todayClosing.sistemas.tucanCRC ?? 0,
-        tiemposCRC: (todayClosing.sistemas as any).tiemposCRC ?? 0,
-        conticaTiemposCRC: (todayClosing.sistemas as any).conticaTiemposCRC ?? 0,
-        diffCRC: todayClosing.sistemas.diffCRC ?? 0,
-        conticaAjustadaCRC: todayClosing.sistemas.conticaAjustadaCRC ?? 0,
-        closingDateISO: todayClosing.closingDate,
-      }).catch((cacheErr) => {
-        console.error("Error storing daily closing systems cache:", cacheErr);
-      });
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    if (todayClosing) {
-      setCierreDBaseFromCache(null);
-      void deleteCierreFondoVentasCache(normalizedCompany, todayKey).catch((cacheErr) => {
-        console.error("Error clearing daily closing systems cache:", cacheErr);
-      });
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    void (async () => {
-      try {
-        const cached = await getCierreFondoVentasCache(normalizedCompany, todayKey);
-        if (cancelled) return;
-        setCierreDBaseFromCache(
-          cached
-            ? {
-                conticaCRC: cached.conticaCRC,
-                tucanCRC: cached.tucanCRC,
-                tiemposCRC: (cached as any).tiemposCRC ?? 0,
-                conticaTiemposCRC: (cached as any).conticaTiemposCRC ?? 0,
-              }
-            : null,
-        );
-      } catch (cacheErr) {
-        console.error("Error reading daily closing systems cache:", cacheErr);
-        if (!cancelled) {
-          setCierreDBaseFromCache(null);
-          void deleteCierreFondoVentasCache(normalizedCompany, todayKey).catch(() => {
-            // ignore cleanup errors
-          });
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    dailyClosingOperationalDateKey,
-    company,
-    dailyClosings,
-    empresaForShiftResolution?.horarioApertura,
-  ]);
-
-  const cierreDBase = cierreDBaseFromDailyClosings ?? cierreDBaseFromCache;
-  const hasCierreDReal =
-    dailyClosingOperationalDateKey &&
-    dailyClosingsHydrated &&
-    !dailyClosingsRefreshing &&
-    cierreDRealStatus?.operationalDateKey === dailyClosingOperationalDateKey
-      ? cierreDRealStatus.hasCierreD
-      : undefined;
   const {
     selectedProvider,
     setSelectedProvider,
@@ -3959,8 +3797,6 @@ export function FondoSection({
         dailyClosingSingleReasonRequired &&
         !editingDailyClosingId &&
         activeEmpresaForCompany?.unicoCierre !== true,
-      skipSistemasVerification:
-        activeEmpresaForCompany?.verificacionSistemas === false,
       loadedDailyClosingKeysRef,
       loadingDailyClosingKeysRef,
       ownerAdminEmail,
@@ -5914,19 +5750,10 @@ export function FondoSection({
           !editingDailyClosingId &&
           activeEmpresaForCompany?.unicoCierre !== true
         }
-        skipSistemasVerification={
-          activeEmpresaForCompany?.verificacionSistemas === false
-        }
         managerReadonly={!editingDailyClosingId}
         turno={dailyClosingTurno}
         cierreFondoVentasMinutesBeforeEnd={cierreFondoVentasMinutesBeforeEnd}
         cierreFondoVentasMinutesAfterEnd={cierreFondoVentasMinutesAfterEnd}
-        cierreDBase={
-          dailyClosingTurno === "N" && hasCierreDReal !== true
-            ? null
-            : cierreDBase
-        }
-        hasCierreDReal={hasCierreDReal}
       />
 
       <FacturaPaymentModal
