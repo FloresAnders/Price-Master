@@ -1,5 +1,5 @@
 {
-  "version": "1.8.13",
+  "version": "1.8.14",
   "versionstorage": "1.3.5",
   "notasDeSistemas": "1.3.10",
   "releaseNotes": [
@@ -13,7 +13,7 @@
     {
       "date": "2026-06-13",
       "title": "Guia de obtencion de datos para cierres diarios",
-      "url": "https://firebasestorage.googleapis.com/v0/b/pricemaster-4a611.firebasestorage.app/o/videos%2FREPORTES.mp4?alt=media&token=bc1d9366-9305-4664-b596-36dcb43b1917",
+      "url": "",
       "description": "Se agrego una guia para obtener los datos necesarios para realizar los cierres diarios, esta guia se puede encontrar la final de la pagina en la seccion de 'Notas del sistema'"
     }
   ],

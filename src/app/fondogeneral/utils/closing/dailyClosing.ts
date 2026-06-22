@@ -357,17 +357,27 @@ export async function handleConfirmDailyClosing(
       return;
     }
 
+    const errorReason =
+      err instanceof Error
+        ? err.message
+        : typeof err === "string"
+          ? err
+          : (() => {
+              try {
+                return JSON.stringify(err);
+              } catch {
+                return String(err);
+              }
+            })();
+
     try {
     const whenISO = await getAuthoritativeNowISO().catch(
       () => "Hora del servidor no disponible",
     );
       const where = "FondoSection.handleConfirmDailyClosing -> DailyClosingsService.saveClosing";
-      const errorMessage =
-        err instanceof Error
-          ? `${err.name}: ${err.message}${err.stack ? `\n\nStack:\n${err.stack}` : ""}`
-          : typeof err === "string"
-            ? err
-            : JSON.stringify(err);
+      const errorMessage = err instanceof Error && err.stack
+        ? `${errorReason}\n\nStack:\n${err.stack}`
+        : errorReason;
 
       const subject = `[ALERTA][CIERRE] Error al guardar cierre (${normalizedCompany})`;
       const text = [
@@ -378,7 +388,7 @@ export async function handleConfirmDailyClosing(
         `Cierre ID: ${record.id}`,
         `Fecha cierre: ${record.closingDate}`,
         "",
-        `Error: ${errorMessage}`,
+        `Motivo exacto: ${errorMessage}`,
       ].join("\n");
 
       const recipients = ["chavesa698@gmail.com", "price.master.srl@gmail.com"];
@@ -398,7 +408,7 @@ export async function handleConfirmDailyClosing(
       console.error("[CIERRE] ? Error preparando email de alerta:", mailErr);
     }
 
-    showToast("Error al guardar el cierre. Por favor, intente de nuevo.", "error", 5000);
+    showToast(`Error al guardar el cierre: ${errorReason}`, "error", 10000);
 
     if (closingGuard) {
       try {

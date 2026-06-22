@@ -605,7 +605,9 @@ export class DailyClosingsService {
         schedule,
       ) : null;
       if (!isEditing && !operationalDateKey) {
-        throw new Error("No se pudo resolver el día operativo del cierre.");
+        throw new Error(
+          "No se pudo resolver el día operativo del cierre. Generalmente ocurre porque el cierre se intentó guardar fuera del horario permitido.",
+        );
       }
       if (!isEditing && operationalDateKey && sanitizedRecord.turno) {
         const sameOperationalDay = Object.entries(currentMap).flatMap(
