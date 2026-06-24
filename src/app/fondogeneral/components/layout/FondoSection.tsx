@@ -1968,6 +1968,10 @@ export function FondoSection({
         breakdownCRC: record.breakdownCRC ?? {},
         breakdownUSD: record.breakdownUSD ?? {},
         turno: editingTurno,
+        r08: record.reconciliation?.contica.r08 ?? 0,
+        t11: record.reconciliation?.contica.t11 ?? 0,
+        tucanCumulative: record.reconciliation?.externalSnapshots.tucanCumulative ?? 0,
+        tiemposCumulative: record.reconciliation?.externalSnapshots.tiemposCumulative ?? 0,
       };
       setDailyClosingTurno(editingTurno);
       setEditingDailyClosingId(record.id);
@@ -3534,7 +3538,7 @@ export function FondoSection({
         );
 
         requireSingleReason =
-          isInNightClosingWindow && hasNightClosing && !hasDayClosing;
+          isInNightClosingWindow && hasNightClosing && !hasDayClosing && !hasRealD;
       }
     } catch (err) {
       console.error("[FG] Error resolving single-closing reason requirement:", err);
@@ -3571,6 +3575,10 @@ export function FondoSection({
       breakdownCRC: {},
       breakdownUSD: {},
       turno: dailyClosingTurnoForNow,
+      r08: 0,
+      t11: 0,
+      tucanCumulative: 0,
+      tiemposCumulative: 0,
     };
 
     setDailyClosingTurno(initialValues.turno);
@@ -5754,6 +5762,8 @@ export function FondoSection({
         turno={dailyClosingTurno}
         cierreFondoVentasMinutesBeforeEnd={cierreFondoVentasMinutesBeforeEnd}
         cierreFondoVentasMinutesAfterEnd={cierreFondoVentasMinutesAfterEnd}
+        previousReconciliation={dailyClosings.find((item) => item.turno === "D")?.reconciliation}
+        cumulativeContica={{ r08: 0, t11: 0 }}
       />
 
       <FacturaPaymentModal

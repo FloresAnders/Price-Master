@@ -11,6 +11,8 @@ import {
   getAuthoritativeNowMs,
 } from "@/utils/serverTime";
 import { FirestoreService } from "./firestore";
+import type { ClosingReconciliation } from "@/domain/reconciliation";
+import { reconcileClosing } from "@/domain/reconciliation";
 
 const COSTA_RICA_TZ = "America/Costa_Rica";
 const DEFAULT_MINUTES_AFTER_CLOSE = 45;
@@ -46,6 +48,7 @@ export type DailyClosingRecord = {
   noMovementsReason?: string;
   breakdownCRC: Record<number, number>;
   breakdownUSD: Record<number, number>;
+  reconciliation?: ClosingReconciliation;
   adjustmentResolution?: {
     removedAdjustments?: Array<{
       id?: string;
@@ -325,6 +328,9 @@ const sanitizeRecord = (raw: unknown): DailyClosingRecord | null => {
     ...(noMovementsReason ? { noMovementsReason } : {}),
     breakdownCRC: sanitizeBreakdown(candidate.breakdownCRC),
     breakdownUSD: sanitizeBreakdown(candidate.breakdownUSD),
+    ...(candidate.reconciliation && typeof candidate.reconciliation === "object"
+      ? { reconciliation: candidate.reconciliation as ClosingReconciliation }
+      : {}),
   } as DailyClosingRecord;
 
   // sanitize optional adjustmentResolution if present
@@ -462,6 +468,26 @@ const trimClosingsMap = (
     result[key] = result[key].slice().sort(sortRecordsDescending);
   });
   return result;
+};
+
+const recalculateReconciliations = (records: DailyClosingRecord[]) => {
+  let previous: ClosingReconciliation | undefined;
+  let cumulativeR08 = 0;
+  let cumulativeT11 = 0;
+  return records.slice().sort((a, b) => (a.turno === "D" ? -1 : b.turno === "D" ? 1 : sortValueForRecord(a) - sortValueForRecord(b))).map((record) => {
+    if (!record.reconciliation) return record;
+    const { contica, externalSnapshots } = record.reconciliation;
+    cumulativeR08 += contica.r08;
+    cumulativeT11 += contica.t11;
+    try {
+      const reconciliation = reconcileClosing({ r08: contica.r08, t11: contica.t11, tucanCumulative: externalSnapshots.tucanCumulative, tiemposCumulative: externalSnapshots.tiemposCumulative, previous, cumulativeR08, cumulativeT11, isFinalShift: record.turno === "N" });
+      previous = reconciliation;
+      return { ...record, reconciliation };
+    } catch {
+      previous = record.reconciliation;
+      return record;
+    }
+  });
 };
 
 const sanitizeDocument = (
@@ -650,6 +676,7 @@ export class DailyClosingsService {
         if (currentMap[key].length === 0) delete currentMap[key];
       });
       currentMap[dateKey] = [sanitizedRecord, ...(currentMap[dateKey] ?? [])];
+      currentMap[dateKey] = recalculateReconciliations(currentMap[dateKey]);
       const payload: DailyClosingsDocument = {
         company: existingDocument?.company ?? docId,
         updatedAt,

@@ -225,6 +225,18 @@ export default function DailyClosingHistorySection({
                     </div>
                   </div>
 
+                  {record.reconciliation && (
+                    <div className="mt-3 rounded border border-sky-700/20 bg-sky-950/10 p-3 text-xs text-[var(--muted-foreground)]">
+                      <div className="mb-1 font-semibold text-[var(--foreground)]">Verificación Contica / Tucán / Tiempos · {record.reconciliation.tiemposStatus}</div>
+                      <div className="grid gap-1 sm:grid-cols-2">
+                        <span>R08 / Tucán: {record.reconciliation.contica.r08} / {record.reconciliation.calculated.tucanForShift} · {record.reconciliation.calculated.tucanDifference}</span>
+                        <span>T11 / Tiempos: {record.reconciliation.contica.t11} / {record.reconciliation.calculated.tiemposForShift} · real {record.reconciliation.calculated.tiemposRealShiftDifference}</span>
+                        <span>Bruta: {record.reconciliation.calculated.tiemposRawDifference} · compensado: {record.reconciliation.calculated.compensatedTiemposAmount}</span>
+                        <span>Pendiente: {record.reconciliation.calculated.tiemposPendingAfterClosing} · día: {record.reconciliation.calculated.cumulativeTiemposDifference}</span>
+                      </div>
+                    </div>
+                  )}
+
                   {record.notes && record.notes.length > 0 && (
                     <div className="mt-3 rounded border border-[var(--input-border)]/40 bg-[var(--muted)]/5 p-2.5">
                       <div className="flex items-start gap-2 text-xs text-[var(--muted-foreground)]">

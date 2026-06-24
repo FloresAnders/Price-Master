@@ -8,6 +8,7 @@ import React, {
 
 import ConfirmModal from "../../../../components/ui/ConfirmModal";
 import { isWithinCierreRange } from "../../utils/turnoRango";
+import { reconcileClosing, type ClosingReconciliation } from "@/domain/reconciliation";
 // Usar botones nativos con clases Tailwind en vez de un componente Button central
 
 const CRC_DENOMINATIONS: readonly number[] = [
@@ -71,6 +72,10 @@ export type DailyClosingFormValues = {
   breakdownCRC: Record<number, number>;
   breakdownUSD: Record<number, number>;
   turno: "D" | "N";
+  r08: number;
+  t11: number;
+  tucanCumulative: number;
+  tiemposCumulative: number;
 };
 
 type DailyClosingModalProps = {
@@ -90,6 +95,8 @@ type DailyClosingModalProps = {
   turno: "D" | "N";
   cierreFondoVentasMinutesBeforeEnd: number;
   cierreFondoVentasMinutesAfterEnd: number;
+  previousReconciliation?: ClosingReconciliation | null;
+  cumulativeContica?: { r08: number; t11: number };
 };
 
 const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
@@ -108,6 +115,8 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   turno,
   cierreFondoVentasMinutesBeforeEnd,
   cierreFondoVentasMinutesAfterEnd,
+  previousReconciliation,
+  cumulativeContica,
 }) => {
   const modalRef = useRef<HTMLDivElement | null>(null);
   const managerFieldRef = useRef<HTMLSelectElement | HTMLInputElement | null>(
@@ -133,6 +142,10 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const [usdCounts, setUsdCounts] = useState<CountState>(
     () => buildFormState(initialValues).usdCounts,
   );
+  const [r08, setR08] = useState(() => initialValues?.r08 ? String(initialValues.r08) : "");
+  const [t11, setT11] = useState(() => initialValues?.t11 ? String(initialValues.t11) : "");
+  const [tucanCumulative, setTucanCumulative] = useState(() => initialValues?.tucanCumulative ? String(initialValues.tucanCumulative) : "");
+  const [tiemposCumulative, setTiemposCumulative] = useState(() => initialValues?.tiemposCumulative ? String(initialValues.tiemposCumulative) : "");
 
   const [confirmDiffOpen, setConfirmDiffOpen] = useState(false);
   const [pendingSubmitValues, setPendingSubmitValues] =
@@ -208,6 +221,10 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     !hasAnyCash ||
     (requireSingleClosingReason && singleClosingReason.trim().length === 0);
   const hasDifferences = diffCRC !== 0 || diffUSD !== 0;
+  const parseAmount = (value: string) => Number.parseInt(value || "0", 10) || 0;
+  const reconciliationPreview = useMemo(() => {
+    try { return reconcileClosing({ r08: parseAmount(r08), t11: parseAmount(t11), tucanCumulative: parseAmount(tucanCumulative), tiemposCumulative: parseAmount(tiemposCumulative), previous: previousReconciliation, cumulativeR08: (cumulativeContica?.r08 || 0) + parseAmount(r08), cumulativeT11: (cumulativeContica?.t11 || 0) + parseAmount(t11), isFinalShift: turno === "N" }); } catch { return null; }
+  }, [r08, t11, tucanCumulative, tiemposCumulative, previousReconciliation, cumulativeContica, turno]);
 
   const submitDisabledReason = useMemo(() => {
     if (displayedManager.trim().length === 0) {
@@ -400,6 +417,10 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
       breakdownCRC: buildBreakdown(crcCounts, CRC_DENOMINATIONS),
       breakdownUSD: buildBreakdown(usdCounts, USD_DENOMINATIONS),
       turno,
+      r08: parseAmount(r08),
+      t11: parseAmount(t11),
+      tucanCumulative: parseAmount(tucanCumulative),
+      tiemposCumulative: parseAmount(tiemposCumulative),
     };
 
     if (hasDifferences) {
@@ -535,6 +556,23 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
               </kbd>{" "}
               para sumar/restar
             </div>
+            <section className="rounded-lg border border-[var(--input-border)] p-4">
+              <h4 className="mb-3 text-sm font-semibold">Verificacion Contica / Tucán / Tiempos</h4>
+              <div className="space-y-3">
+                <div className="hidden grid-cols-3 gap-3 text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)] md:grid"><span>Contica</span><span>Reporte acumulado</span><span>Diferencia turno</span></div>
+                {[
+                  ["R08", r08, setR08, "Tucán", tucanCumulative, setTucanCumulative, reconciliationPreview?.calculated.tucanDifference],
+                  ["T11", t11, setT11, "Tiempos", tiemposCumulative, setTiemposCumulative, reconciliationPreview?.calculated.tiemposRawDifference],
+                ].map(([conticaLabel, conticaValue, setContica, externalLabel, externalValue, setExternal, difference]) => (
+                  <div key={conticaLabel as string} className="grid gap-3 md:grid-cols-3">
+                    <label className="text-xs text-[var(--muted-foreground)]"><span className="md:hidden">Contica · </span>{conticaLabel as string}<input value={conticaValue as string} onChange={(event) => (setContica as React.Dispatch<React.SetStateAction<string>>)(event.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" className="mt-1 h-10 w-full rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)]" /></label>
+                    <label className="text-xs text-[var(--muted-foreground)]"><span className="md:hidden">Acumulado · </span>{externalLabel as string}<input value={externalValue as string} onChange={(event) => (setExternal as React.Dispatch<React.SetStateAction<string>>)(event.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" className="mt-1 h-10 w-full rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)]" /></label>
+                    <label className="text-xs text-[var(--muted-foreground)]"><span className="md:hidden">Diferencia · </span>Diferencia<input value={(() => { const amount = (difference as number | undefined) ?? 0; return amount > 0 ? `+${amount}` : String(amount); })()} readOnly aria-label={`Diferencia ${conticaLabel as string}`} className="mt-1 h-10 w-full cursor-default rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm font-semibold text-[var(--foreground)]" /></label>
+                  </div>
+                ))}
+              </div>
+              {reconciliationPreview && <div className="mt-3 grid gap-1 text-xs text-[var(--muted-foreground)] md:grid-cols-2"><span>Tucán turno: {reconciliationPreview.calculated.tucanForShift} · Dif: {reconciliationPreview.calculated.tucanDifference}</span><span>Tiempos turno: {reconciliationPreview.calculated.tiemposForShift} · Bruta: {reconciliationPreview.calculated.tiemposRawDifference}</span><span>Compensado: {reconciliationPreview.calculated.compensatedTiemposAmount} · Real: {reconciliationPreview.calculated.tiemposRealShiftDifference}</span><span>Pendiente: {reconciliationPreview.calculated.tiemposPendingAfterClosing} · {reconciliationPreview.tiemposStatus}</span></div>}
+            </section>
             <div className="grid gap-4 grid-cols-2 md:grid-cols-2">
               <section>
                 <h4 className="text-sm font-semibold text-[var(--foreground)] mb-3">

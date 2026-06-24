@@ -17,6 +17,8 @@ import type { Dispatch, SetStateAction } from "react";
 import type { DailyClosingFormValues } from "../../components/modals/DailyClosingModal";
 import type { FondoEntry } from "../../types";
 import { buildDailyClosingEmailTemplate } from "@/services/email-templates/daily-closing";
+import { reconcileClosing } from "@/domain/reconciliation";
+import { exportDailyClosingSuperAdminImage } from "@/data/gereaImagenSuperAdmin/dailyClosingImage";
 import {
   compressAuditHistory,
   formatByCurrency,
@@ -87,7 +89,7 @@ export interface HandleConfirmDailyClosingDeps {
   setPendingCierreDeCaja: (value: boolean) => void;
   showToast: (message: string, kind?: "success" | "warning" | "error", durationMs?: number) => void;
   storageSnapshotRef: { current: any };
-  user: { email?: string | null; id?: string | null } | null;
+  user: { email?: string | null; id?: string | null; role?: string | null } | null;
 }
 
 const formatDailyClosingDiff = (currency: "CRC" | "USD", diff: number) => {
@@ -190,6 +192,29 @@ export async function handleConfirmDailyClosing(
       closingDateValue.toISOString(),
       horarioApertura,
     ) ?? closingDateValue.toISOString().slice(0, 10);
+  const sameDayClosings = dailyClosings.filter((item) =>
+    item.id !== editingDailyClosingId &&
+    (getCostaRicaOperationalDateKey(item.closingDate, horarioApertura) ?? item.closingDate.slice(0, 10)) === closingDateKey,
+  );
+  const previousDayClosing = sameDayClosings.find((item) => item.turno === "D");
+  if (closing.turno === "N" && !previousDayClosing) {
+    showToast("Debe existir cierre diurno antes del nocturno.", "warning", 5000);
+    return;
+  }
+  let reconciliation;
+  try {
+    reconciliation = reconcileClosing({
+      r08: closing.r08, t11: closing.t11,
+      tucanCumulative: closing.tucanCumulative, tiemposCumulative: closing.tiemposCumulative,
+      previous: previousDayClosing?.reconciliation,
+      cumulativeR08: (previousDayClosing?.reconciliation?.calculated.cumulativeR08 ?? 0) + closing.r08,
+      cumulativeT11: (previousDayClosing?.reconciliation?.calculated.cumulativeT11 ?? 0) + closing.t11,
+      isFinalShift: closing.turno === "N",
+    });
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : "Datos de conciliación inválidos.", "warning", 6000);
+    return;
+  }
 
   if (requireSingleClosingReason && !singleClosingReason) {
     showToast(
@@ -230,6 +255,7 @@ export async function handleConfirmDailyClosing(
     ...(noMovements ? { noMovements: true, noMovementsReason } : {}),
     breakdownCRC: closing.breakdownCRC ?? {},
     breakdownUSD: closing.breakdownUSD ?? {},
+    reconciliation,
   };
 
   const normalizedCompany = (company || "").trim();
@@ -342,6 +368,12 @@ export async function handleConfirmDailyClosing(
 
     setPendingCierreDeCaja(false);
     setDailyClosingModalOpen(false);
+    if (user?.role === "superadmin") {
+      void exportDailyClosingSuperAdminImage(normalizedCompany, record).catch((error) => {
+        console.error("[CIERRE] Error exportando imagen SuperAdmin:", error);
+        showToast("Cierre guardado, pero no se pudo exportar imagen.", "warning", 6000);
+      });
+    }
   } catch (err) {
     console.error("[CIERRE] ? Error guardando cierre en Firestore:", err);
     if (err instanceof Error && err.message.startsWith(DAILY_CLOSING_DUPLICATE_ERROR)) {
@@ -454,6 +486,7 @@ export async function handleConfirmDailyClosing(
     singleClosingReason: record.singleClosingReason,
     noMovements: record.noMovements,
     noMovementsReason: record.noMovementsReason,
+    reconciliation: record.reconciliation,
   });
 
   if (notificationRecipients.size === 0 && activeOwnerId) {

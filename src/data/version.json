@@ -1,8 +1,13 @@
 {
-  "version": "1.8.15",
+  "version": "1.8.17",
   "versionstorage": "1.3.5",
-  "notasDeSistemas": "1.3.10",
+  "notasDeSistemas": "1.3.11",
   "releaseNotes": [
+    {
+      "date": "2026-06-23",
+      "title": "Validacion y apertura de fondo",
+      "description": "El cierre diario ahora registra y concilia R08, T11 y reportes acumulados. Muestra pendientes temporales, compensaciones entre turnos, historial detallado y correo de cierre con cuadrícula de verificación."
+    },
     {
       "date": "2026-06-11",
       "title": "Validacion y apertura de fondo" ,
@@ -10,6 +15,12 @@
     }
   ],
   "systemNotes": [
+    {
+      "date": "2026-06-23",
+      "title": "Conciliación de cierres por turno",
+      "url": "",
+      "description": "Digite R08 y T11 de Contica, junto con acumulados de Tucán y Tiempos. El turno diurno puede quedar pendiente; el nocturno compensa automáticamente ese monto. Para SuperAdmin, cada cierre genera una imagen descargable con el mismo resumen del correo."
+    },
     {
       "date": "2026-06-13",
       "title": "Guia de obtencion de datos para cierres diarios",

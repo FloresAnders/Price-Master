@@ -551,6 +551,7 @@ export const sanitizeDailyClosings = (raw: unknown): DailyClosingRecord[] => {
         : {}),
       breakdownCRC: sanitizeBreakdown(record.breakdownCRC),
       breakdownUSD: sanitizeBreakdown(record.breakdownUSD),
+      ...(record.reconciliation ? { reconciliation: record.reconciliation } : {}),
       ...(adjustmentResolution ? { adjustmentResolution } : {}),
     });
     return acc;
