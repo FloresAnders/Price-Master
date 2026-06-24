@@ -218,6 +218,27 @@ export const isWithinFondoVentasNightClosingWindow = (args: {
     : nowMin >= startMin || nowMin < endMin;
 };
 
+/**
+ * True only for post-close grace which crossed midnight. This remains a valid
+ * closing window, but belongs to prior calendar day and must not be treated as
+ * evidence that current day had only one closing.
+ */
+export const isFondoVentasPostCloseGraceOnNextDay = (args: {
+  nowISO: string;
+  horarioCierre?: string | null;
+  minutesAfterEnd: number;
+}): boolean => {
+  const parts = getCRParts(new Date(args.nowISO));
+  const closeMin = parseHHMMToMinutes(args.horarioCierre);
+  if (!parts || closeMin === null) return false;
+
+  const graceEndMin = closeMin + Math.max(0, args.minutesAfterEnd) + 1;
+  if (graceEndMin <= 1440) return false;
+
+  const nowMin = parts.hour * 60 + parts.minute;
+  return nowMin < graceEndMin - 1440;
+};
+
 const getPreviousDateKey = (parts: CRParts): string => {
   const previous = new Date(Date.UTC(parts.year, parts.month0, parts.day - 1));
   return `${previous.getUTCFullYear()}-${String(

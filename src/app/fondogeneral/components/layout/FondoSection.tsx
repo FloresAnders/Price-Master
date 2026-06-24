@@ -38,6 +38,7 @@ import {
   getCostaRicaDateKeyAndMinute,
   getCostaRicaOperationalDateKey,
   getOccupiedClosingShifts,
+  isFondoVentasPostCloseGraceOnNextDay,
   isWithinFondoVentasNightClosingWindow,
   resolveFondoVentasClosingShift,
   type ShiftCode,
@@ -3168,7 +3169,13 @@ export function FondoSection({
             minutesBeforeEnd: cierreFondoVentasMinutesBeforeEnd,
             minutesAfterEnd: cierreFondoVentasMinutesAfterEnd,
           });
-          if (isInNightClosingWindow) {
+          const isPostCloseGraceOnNextDay =
+            isFondoVentasPostCloseGraceOnNextDay({
+              nowISO,
+              horarioCierre: activeEmpresaForCompany?.horarioCierre,
+              minutesAfterEnd: cierreFondoVentasMinutesAfterEnd,
+            });
+          if (isInNightClosingWindow && !isPostCloseGraceOnNextDay) {
             const operationalDateKey = getCostaRicaOperationalDateKey(
               nowISO,
               empresaForShiftResolution?.horarioApertura,

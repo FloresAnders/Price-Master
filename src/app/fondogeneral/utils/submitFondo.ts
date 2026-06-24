@@ -2,6 +2,7 @@ import { db } from "@/config/firebase";
 import {
   getCostaRicaOperationalDateKey,
   getOccupiedClosingShifts,
+  isFondoVentasPostCloseGraceOnNextDay,
   isWithinFondoVentasNightClosingWindow,
   resolveFondoVentasClosingShift,
   resolveManagerFromControlHorario,
@@ -305,19 +306,31 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
             activeEmpresaForCompany.cierreFondoVentasMinutesAfterEnd ??
             CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
         });
-        const nowMs = new Date(nowISO).getTime();
-        const hasRecentDayClosing = fondoEntries.some((entry: FondoEntry) => {
+        const isPostCloseGraceOnNextDay =
+          isFondoVentasPostCloseGraceOnNextDay({
+            nowISO,
+            horarioCierre: activeEmpresaForCompany.horarioCierre,
+            minutesAfterEnd:
+              activeEmpresaForCompany.cierreFondoVentasMinutesAfterEnd ??
+              CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
+          });
+        const operationalDateKey = getCostaRicaOperationalDateKey(
+          nowISO,
+          activeEmpresaForCompany.horarioApertura,
+        );
+        const hasDayClosingForOperationalDate = fondoEntries.some((entry: FondoEntry) => {
           const createdAt = String(entry.createdAt || "");
           const createdAtMs = new Date(createdAt).getTime();
-          const ageMs = nowMs - createdAtMs;
           const provider = movementProviders.find(
             (p: any) => p.code === entry.providerCode,
           );
           return (
             provider?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME &&
             Number.isFinite(createdAtMs) &&
-            ageMs >= 0 &&
-            ageMs <= 24 * 60 * 60 * 1000 &&
+            getCostaRicaOperationalDateKey(
+              createdAt,
+              activeEmpresaForCompany.horarioApertura,
+            ) === operationalDateKey &&
             !isWithinFondoVentasNightClosingWindow({
               nowISO: createdAt,
               horarioCierre: activeEmpresaForCompany.horarioCierre,
@@ -333,7 +346,8 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
 
         if (
           isInNightClosingWindow &&
-          !hasRecentDayClosing &&
+          !isPostCloseGraceOnNextDay &&
+          !hasDayClosingForOperationalDate &&
           activeEmpresaForCompany.unicoCierre !== true
         ) {
           shouldPrefixSingleClosingReason = true;
