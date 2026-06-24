@@ -465,9 +465,6 @@ export default function ReportesSinpePage() {
           </div>
           <h1 className="flex items-center gap-2 text-3xl font-semibold">
             Reportes SINPE
-            <span className="rounded-full border border-amber-400/40 bg-amber-400/15 px-2 py-0.5 text-[11px] font-semibold leading-none text-amber-700 dark:border-amber-300/40 dark:bg-amber-400/20 dark:text-amber-300">
-              BETA
-            </span>
           </h1>
           <p className="mt-2 text-sm text-white/60">
             Genera reportes a partir de transacciones SINPE en el rango

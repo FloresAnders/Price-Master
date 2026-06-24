@@ -9,10 +9,9 @@ import {
   X,
   Scan,
   Calculator,
-  Type,
+  Languages,
   FileCode,
   Banknote,
-  Smartphone,
   Clock,
   Truck,
   History,
@@ -21,7 +20,6 @@ import {
   Bell,
   UserPlus,
   Users,
-  Layers,
   Shield,
   Star,
   RefreshCw,
@@ -30,6 +28,14 @@ import {
   Camera,
   ScanBarcode,
   QrCode,
+  Landmark,
+  Timer,
+  BriefcaseBusiness,
+  CookingPot,
+  BadgeDollarSign,
+  ChartNoAxesCombined,
+  ClipboardPenLine,
+  ReceiptText,
 } from "lucide-react";
 import { CustomIcon } from "@/icons/icons";
 import { useState, useEffect, useRef } from "react";
@@ -442,7 +448,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     {
       id: "fondogeneral" as ActiveTab,
       name: "Fondo General",
-      icon: Banknote,
+      icon: Landmark,
       description: "Administrar el fondo general",
       permission: "fondogeneral" as keyof UserPermissions,
     },
@@ -463,7 +469,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     {
       id: "converter" as ActiveTab,
       name: "Conversor",
-      icon: Type,
+      icon: Languages,
       description: "Convertir y transformar texto",
       permission: "converter" as keyof UserPermissions,
     },
@@ -484,7 +490,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     {
       id: "timingcontrol" as ActiveTab,
       name: "Control Tiempos",
-      icon: Smartphone,
+      icon: Timer,
       description: "Registro de venta de tiempos",
       permission: "timingcontrol" as keyof UserPermissions,
     },
@@ -498,7 +504,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     {
       id: "funciones" as ActiveTab,
       name: "Funciones",
-      icon: Bell,
+      icon: BriefcaseBusiness,
       description: "Funciones por empresa",
       permission: "notificaciones" as keyof UserPermissions,
     },
@@ -512,14 +518,14 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     {
       id: "recetas" as ActiveTab,
       name: "Recetas",
-      icon: Layers,
+      icon: CookingPot,
       description: "Agregar y gestionar recetas",
       permission: "recetas" as keyof UserPermissions,
     },
     {
       id: "calculohorasprecios" as ActiveTab,
       name: "Cálculo precios",
-      icon: Calculator,
+      icon: BadgeDollarSign,
       description: "Cálculo de horas y precios (planilla)",
       permission: "calculohorasprecios" as keyof UserPermissions,
     },
@@ -547,7 +553,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     {
       id: "solicitud" as ActiveTab,
       name: "Solicitud",
-      icon: Type,
+      icon: ClipboardPenLine,
       description: "Solicitudes y trámites",
       permission: "solicitud" as keyof UserPermissions,
     },
@@ -793,7 +799,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 }`}
                 title={fondoMenuLabel}
               >
-                <Banknote className="w-4 h-4" />
+                <Landmark className="w-4 h-4" />
                 <span className="hidden xl:inline">{fondoMenuLabel}</span>
                 {currentHash === "#fondogeneral" && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
@@ -811,7 +817,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 }`}
                 title="FC/NC"
               >
-                <Banknote className="w-4 h-4" />
+                <ReceiptText className="w-4 h-4" />
                 <span className="hidden xl:inline">FC/NC</span>
                 {currentHash === "#facturas" && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
@@ -830,7 +836,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   }`}
                   title="Reportes"
                 >
-                  <Layers className="w-4 h-4" />
+                  <ChartNoAxesCombined className="w-4 h-4" />
                   <span className="hidden xl:inline">Reportes</span>
                   {currentHash === "#reportes" && (
                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
@@ -851,7 +857,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   }`}
                   title="Reportes SINPE"
                 >
-                  <Smartphone className="w-4 h-4" />
+                  <ChartNoAxesCombined className="w-4 h-4" />
                   <span className="hidden xl:inline">Reportes SINPE</span>
                   {currentHash === "#reportessinpe" && (
                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
@@ -896,7 +902,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 }`}
                 title="Recetas"
               >
-                <CustomIcon name="FoodAndSoda" className="w-4 h-4" />
+                  <CookingPot className="w-4 h-4" />
                 <span className="hidden xl:inline">Recetas</span>
                 {currentHash === "#recetas" && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
@@ -1185,7 +1191,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   }`}
                   title={fondoMenuLabel}
                 >
-                  <Banknote className="w-4 h-4" />
+                  <Landmark className="w-4 h-4" />
                   <span>{fondoMenuLabel}</span>
                 </button>
 
@@ -1202,7 +1208,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   }`}
                   title="FC/NC"
                 >
-                  <Banknote className="w-4 h-4" />
+                  <ReceiptText className="w-4 h-4" />
                   <span>FC/NC</span>
                 </button>
 
@@ -1220,7 +1226,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                     }`}
                     title="Reportes"
                   >
-                    <Layers className="w-4 h-4" />
+                    <ChartNoAxesCombined className="w-4 h-4" />
                     <span>Reportes</span>
                   </button>
                 )}
@@ -1239,7 +1245,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                     }`}
                     title="Reportes SINPE"
                   >
-                    <Smartphone className="w-4 h-4" />
+                    <ChartNoAxesCombined className="w-4 h-4" />
                     <span>Reportes SINPE</span>
                   </button>
                 )}
@@ -1263,7 +1269,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   }`}
                   title="Recetas"
                 >
-                  <Layers className="w-4 h-4" />
+                  <CookingPot className="w-4 h-4" />
                   <span>Recetas</span>
                 </button>
 

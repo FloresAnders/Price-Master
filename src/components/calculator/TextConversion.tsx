@@ -116,7 +116,9 @@ export default function TextConversion() {
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/10 text-cyan-300">
             <LockIcon className="h-6 w-6" />
           </div>
-          <h3 className="mb-2 text-xl font-semibold text-white">Acceso Restringido</h3>
+          <h3 className="mb-2 text-xl font-semibold text-white">
+            Acceso Restringido
+          </h3>
           <p className="text-sm text-slate-400">
             No tienes permisos para acceder al Conversor de Texto.
           </p>
@@ -129,7 +131,7 @@ export default function TextConversion() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-10rem)] w-full items-center justify-center px-4 py-8">
+    <div className="flex w-full items-top justify-center px-4 py-8 ">
       <div className="w-full max-w-4xl">
         <div className="text-center mb-8">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-500/10 text-cyan-300">
@@ -161,24 +163,6 @@ export default function TextConversion() {
               placeholder="Escribe o pega tu texto..."
             />
           </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <button
-              onClick={pasteFromClipboard}
-              className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-900/80 hover:border-white/20"
-            >
-              <ClipboardPaste className="h-4 w-4" />
-              Pegar
-            </button>
-            <button
-              onClick={clearInput}
-              className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-900/80 hover:border-white/20"
-            >
-              <Trash2 className="h-4 w-4" />
-              Limpiar
-            </button>
-          </div>
-
           <div className="grid gap-3 sm:grid-cols-3">
             <button
               onClick={uppercaseFromClipboardAndCopy}
@@ -206,6 +190,22 @@ export default function TextConversion() {
             >
               <Sparkles className="h-4 w-4" />
               Título
+            </button>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <button
+              onClick={pasteFromClipboard}
+              className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-900/80 hover:border-white/20"
+            >
+              <ClipboardPaste className="h-4 w-4" />
+              Pegar
+            </button>
+            <button
+              onClick={clearInput}
+              className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-900/80 hover:border-white/20"
+            >
+              <Trash2 className="h-4 w-4" />
+              Limpiar
             </button>
           </div>
         </div>

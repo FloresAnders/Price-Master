@@ -25,10 +25,9 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   Scan,
   Calculator,
-  Type,
+  Languages,
   FileCode,
   Banknote,
-  Smartphone,
   Clock,
   Truck,
   Settings,
@@ -37,9 +36,15 @@ import {
   Star,
   Plus,
   ArrowRight,
+  Landmark,
+  Timer,
+  BriefcaseBusiness,
+  CookingPot,
+  BadgeDollarSign,
+  ChartNoAxesCombined,
+  ClipboardPenLine,
 } from "lucide-react";
 import AnimatedStickman from "../ui/AnimatedStickman";
-import { CustomIcon } from "../../icons/icons";
 import { User, UserPermissions } from "../../types/firestore";
 import { getDefaultPermissions } from "../../utils/permissions";
 import { useProviders } from "../../hooks/useProviders";
@@ -96,7 +101,7 @@ const menuItems = [
   {
     id: "converter",
     name: "Conversor",
-    icon: Type,
+    icon: Languages,
     description: "Convertir y transformar texto",
     permission: "converter" as keyof UserPermissions,
   },
@@ -110,7 +115,7 @@ const menuItems = [
   {
     id: "cashcounter",
     name: "Contador Efectivo",
-    icon: Banknote,
+    icon: Landmark,
     description: "Contar billetes y monedas (CRC/USD)",
     permission: "cashcounter" as keyof UserPermissions,
   },
@@ -124,14 +129,14 @@ const menuItems = [
   {
     id: "timingcontrol",
     name: "Control Tiempos",
-    icon: Smartphone,
+    icon: Timer,
     description: "Registro de venta de tiempos",
     permission: "timingcontrol" as keyof UserPermissions,
   },
   {
     id: "controlhorario",
     name: "Control Horario",
-    icon: Clock,
+    icon: BriefcaseBusiness,
     description: "Registro de horarios de trabajo",
     permission: "controlhorario" as keyof UserPermissions,
   },
@@ -152,16 +157,14 @@ const menuItems = [
   {
     id: "recetas",
     name: "Recetas",
-    icon: (props: { className?: string }) => (
-      <CustomIcon name="FoodAndSoda" {...props} />
-    ),
+    icon: CookingPot,
     description: "Crear y editar recetas",
     permission: "recetas" as keyof UserPermissions,
   },
   {
     id: "calculohorasprecios",
     name: "Cálculo Horas Precios",
-    icon: Calculator,
+    icon: BadgeDollarSign,
     description: "Cálculo de horas y precios (planilla)",
     permission: "calculohorasprecios" as keyof UserPermissions,
   },
@@ -175,7 +178,7 @@ const menuItems = [
   {
     id: "reportessinpe",
     name: "Reportes SINPE",
-    icon: Smartphone,
+    icon: ChartNoAxesCombined,
     description: "Generar reportes de transacciones SINPE",
     permission: "reportessinpe" as keyof UserPermissions,
   },
@@ -189,7 +192,7 @@ const menuItems = [
   {
     id: "solicitud",
     name: "Solicitud",
-    icon: Type,
+    icon: ClipboardPenLine,
     description: "Solicitudes y trámites",
     permission: "solicitud" as keyof UserPermissions,
   },

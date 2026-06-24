@@ -52,42 +52,42 @@ export default function CashCounterTabs() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050816] pb-28">
-      <div className="relative mb-7 p-5 sm:p-6">
-        <div className="flex items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-5">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-teal-500/15 border border-cyan-400/30 flex items-center justify-center shadow-[0_12px_35px_rgba(6,182,212,0.18)]">
-              <Banknote className="w-8 h-8 text-cyan-300" />
+    <div className="min-h-screen overflow-x-hidden pb-24 sm:pb-28">
+      <div className="relative mb-5 p-4 sm:mb-7 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-5">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan-400/30 bg-gradient-to-br from-cyan-500/20 to-teal-500/15 shadow-[0_12px_35px_rgba(6,182,212,0.18)] sm:h-16 sm:w-16">
+              <Banknote className="h-6 w-6 text-cyan-300 sm:h-8 sm:w-8" />
             </div>
-            <div>
-              <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">Cash Counter</h1>
-              <p className="text-sm text-white/45 mt-1 font-medium tracking-wide">Administra y controla el efectivo por tipos de billetes</p>
+            <div className="min-w-0">
+              <h1 className="text-2xl font-bold tracking-tight text-white sm:text-4xl">Cash Counter</h1>
+              <p className="mt-1 text-xs font-medium tracking-wide text-white/45 sm:text-sm">Administra y controla el efectivo por tipos de billetes</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 pt-1">
+          <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end sm:pt-1">
             <AnimatePresence mode="wait">
               {saving ? (
                 <motion.span key="s" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  className="text-[11px] text-cyan-300/90 bg-cyan-500/10 rounded-lg px-3 py-1.5 border border-cyan-400/20 flex items-center">
+                  className="flex min-w-0 items-center truncate rounded-lg border border-cyan-400/20 bg-cyan-500/10 px-3 py-1.5 text-[11px] text-cyan-300/90">
                   <div className="animate-spin rounded-full h-2.5 w-2.5 border-b-2 border-cyan-200/70 mr-1.5" /> Guardando...
                 </motion.span>
               ) : lastSaved ? (
                 <motion.span key="d" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  className="text-[11px] text-cyan-300/90 bg-cyan-500/10 rounded-lg px-3 py-1.5 border border-cyan-400/20">
+                  className="max-w-[calc(100vw-8rem)] truncate rounded-lg border border-cyan-400/20 bg-cyan-500/10 px-3 py-1.5 text-[11px] text-cyan-300/90 sm:max-w-none">
                   Guardado {lastSaved}
                 </motion.span>
               ) : null}
             </AnimatePresence>
             <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
               onClick={() => setMenuOpen(true)}
-              className="w-10 h-10 rounded-xl bg-[#0d1117] border border-white/10 flex items-center justify-center text-cyan-200/70 hover:text-cyan-200 hover:border-cyan-400/30 transition-all">
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-[#0d1117] text-cyan-200/70 transition-all hover:border-cyan-400/30 hover:text-cyan-200">
               <Layers className="w-4.5 h-4.5" />
             </motion.button>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6 max-w-[1800px] mx-auto px-4 sm:px-6">
+      <div className="mx-auto flex max-w-[1800px] flex-col gap-4 px-3 sm:gap-6 sm:px-6 lg:flex-row">
         <CounterSidebar
           data={data}
           active={active}
@@ -128,7 +128,7 @@ export default function CashCounterTabs() {
         )}
       </div>
 
-      <div className="fixed bottom-6 right-6 z-30 flex flex-col gap-2.5">
+      <div className="fixed bottom-4 right-4 z-30 flex flex-col gap-2.5 sm:bottom-6 sm:right-6">
         <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
           onClick={() => setSinpeOpen(true)}
           className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/15 border border-emerald-500/25 flex items-center justify-center shadow-lg text-emerald-400 hover:text-emerald-300 transition-all" aria-label="SINPE">
