@@ -222,19 +222,12 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     (requireSingleClosingReason && singleClosingReason.trim().length === 0);
   const hasDifferences = diffCRC !== 0 || diffUSD !== 0;
   const parseAmount = (value: string) => Number.parseInt(value || "0", 10) || 0;
-  const prevTucan = previousReconciliation?.externalSnapshots.tucanCumulative ?? 0;
-  const prevTiempos = previousReconciliation?.externalSnapshots.tiemposCumulative ?? 0;
   const r08Num = parseAmount(r08);
   const t11Num = parseAmount(t11);
   const tucanNum = parseAmount(tucanCumulative);
   const tiemposNum = parseAmount(tiemposCumulative);
-
-  const tucanTouched = r08.trim().length > 0 || tucanCumulative.trim().length > 0;
-  const tiemposTouched = t11.trim().length > 0 || tiemposCumulative.trim().length > 0;
-  const tucanForShift = tucanNum >= prevTucan ? tucanNum - prevTucan : 0;
-  const tiemposForShift = tiemposNum >= prevTiempos ? tiemposNum - prevTiempos : 0;
-  const conticaTucanDiff = tucanTouched ? r08Num - tucanForShift : null;
-  const conticaTiemposDiff = tiemposTouched ? t11Num - tiemposForShift : null;
+  const conticaTucanDiff = r08Num - tucanNum;
+  const conticaTiemposDiff = t11Num - tiemposNum;
 
   const reconciliationPreview = useMemo(() => {
     try { return reconcileClosing({ r08: r08Num, t11: t11Num, tucanCumulative: tucanNum, tiemposCumulative: tiemposNum, previous: previousReconciliation, cumulativeR08: (cumulativeContica?.r08 || 0) + r08Num, cumulativeT11: (cumulativeContica?.t11 || 0) + t11Num, isFinalShift: turno === "N" }); } catch { return null; }
@@ -581,7 +574,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                   <div key={conticaLabel as string} className="grid gap-3 md:grid-cols-3">
                     <label className="text-xs text-[var(--muted-foreground)]"><span className="md:hidden">Contica · </span>{conticaLabel as string}<input value={conticaValue as string} onChange={(event) => (setContica as React.Dispatch<React.SetStateAction<string>>)(event.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" className="mt-1 h-10 w-full rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)]" /></label>
                     <label className="text-xs text-[var(--muted-foreground)]"><span className="md:hidden">Acumulado · </span>{externalLabel as string}<input value={externalValue as string} onChange={(event) => (setExternal as React.Dispatch<React.SetStateAction<string>>)(event.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" className="mt-1 h-10 w-full rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)]" /></label>
-                    <label className="text-xs text-[var(--muted-foreground)]"><span className="md:hidden">Diferencia · </span>Diferencia<input value={(() => { if (difference === null) return "—"; const amount = difference as number; return amount > 0 ? `+${crcFormatter.format(amount)}` : crcFormatter.format(amount); })()} readOnly aria-label={`Diferencia ${conticaLabel as string}`} className="mt-1 h-10 w-full cursor-default rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm font-semibold text-[var(--foreground)]" /></label>
+                    <label className="text-xs text-[var(--muted-foreground)]"><span className="md:hidden">Diferencia · </span>Diferencia<input value={(() => { const amount = difference as number; return amount > 0 ? `+${crcFormatter.format(amount)}` : crcFormatter.format(amount); })()} readOnly aria-label={`Diferencia ${conticaLabel as string}`} className="mt-1 h-10 w-full cursor-default rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm font-semibold text-[var(--foreground)]" /></label>
                   </div>
                 ))}
               </div>
