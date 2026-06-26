@@ -33,7 +33,7 @@ function parseArgs(argv) {
 
   if (!args.source) {
     throw new Error(
-      "Uso: node scripts/migrate-schedules.mjs <export.json> [--database restauracion] [--service-account ../serviceAccountKey.json] [--dry-run]",
+      "Uso: node scripts/migrate-schedules.mjs <HORARIOS.json> [--database restauracion] [--service-account ../serviceAccountKey.json] [--dry-run]",
     );
   }
 
@@ -54,9 +54,12 @@ function initAdmin(serviceAccountArg) {
 
   admin.initializeApp();
 }
-
 function getDb(databaseId) {
-  return databaseId ? admin.app().firestore(databaseId) : admin.firestore();
+  const db = admin.firestore();
+  if (databaseId && databaseId !== "(default)") {
+    db.settings({ databaseId });
+  }
+  return db;
 }
 
 function plainFirestoreValue(value) {
