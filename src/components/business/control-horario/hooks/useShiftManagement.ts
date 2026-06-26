@@ -33,6 +33,7 @@ export function useShiftManagement(props: Props) {
   const [delifoodModal, setDelifoodModal] = useState<DelifoodModalState>({
     isOpen: false, employeeName: "", day: 0, currentHours: 0,
   });
+  const [pendingCellValues, setPendingCellValues] = useState<ScheduleData>({});
 
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
 
@@ -47,6 +48,23 @@ export function useShiftManagement(props: Props) {
 
   const updateScheduleCell = async (employeeName: string, day: string, newValue: string) => {
     const currentValue = scheduleData[employeeName]?.[day] || "";
+    const setPendingValue = () => {
+      setPendingCellValues((prev) => ({
+        ...prev,
+        [employeeName]: { ...(prev[employeeName] || {}), [day]: newValue },
+      }));
+    };
+    const clearPendingValue = () => {
+      setPendingCellValues((prev) => {
+        if (!prev[employeeName] || !(day in prev[employeeName])) return prev;
+        const nextEmployee = { ...prev[employeeName] };
+        delete nextEmployee[day];
+        const next = { ...prev };
+        if (Object.keys(nextEmployee).length > 0) next[employeeName] = nextEmployee;
+        else delete next[employeeName];
+        return next;
+      });
+    };
 
     if (newValue && ["V", "I"].includes(newValue) && !isAdmin) {
       showToast(`Solo ADMIN puede asignar "${newValue === "V" ? "Vacaciones" : "Incapacidad"}.`, "error");
@@ -92,6 +110,7 @@ export function useShiftManagement(props: Props) {
           : `¿Asignar "${newValue}" a ${employeeName} el día ${day}?`;
       }
 
+      setPendingValue();
       setConfirmModal({
         open: true, message: msg,
         onConfirm: async () => {
@@ -105,6 +124,7 @@ export function useShiftManagement(props: Props) {
       return;
     }
 
+    setPendingValue();
     await doUpdate();
 
     async function doUpdate() {
@@ -118,13 +138,20 @@ export function useShiftManagement(props: Props) {
           ...prev,
           [employeeName]: { ...(prev[employeeName] || {}), [day]: newValue },
         }));
+        clearPendingValue();
         showToast(newValue.trim() ? "Horario actualizado" : "Turno eliminado", "success");
       } catch {
+        clearPendingValue();
         showToast("Error al actualizar el horario", "error");
       } finally {
         setSaving(false);
       }
     }
+  };
+
+  const cancelConfirmModal = () => {
+    setPendingCellValues({});
+    setConfirmModal({ open: false, message: "", onConfirm: null, actionType: "assign" });
   };
 
   const handleCellChange = (employeeName: string, day: number, value: string) => {
@@ -183,6 +210,7 @@ export function useShiftManagement(props: Props) {
   return {
     saving, confirmModal, setConfirmModal, modalLoading,
     delifoodModal, setDelifoodModal,
+    pendingCellValues, cancelConfirmModal,
     updateScheduleCell, handleCellChange, handleDelifoodCellClick, handleDelifoodHoursSave,
   };
 }

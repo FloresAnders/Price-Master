@@ -282,7 +282,7 @@ export default function ControlHorario({ currentUser }: Props = {}) {
                         );
                       }
 
-                      const value = h.scheduleData[name]?.[day.toString()] || "";
+                      const value = h.pendingCellValues[name]?.[day.toString()] ?? h.scheduleData[name]?.[day.toString()] ?? "";
                       if (!isUserAdmin(h.user) && ["V", "I"].includes(value)) disabled = true;
 
                       if (["V", "I"].includes(value) && !isUserAdmin(h.user)) {
@@ -319,7 +319,7 @@ export default function ControlHorario({ currentUser }: Props = {}) {
       {/* Confirm Modal */}
       <ConfirmModal open={h.confirmModal.open} message={h.confirmModal.message} loading={h.modalLoading} actionType={h.confirmModal.actionType}
         onConfirm={async () => { if (h.confirmModal.onConfirm) await h.confirmModal.onConfirm(); }}
-        onCancel={() => h.setConfirmModal({ open: false, message: "", onConfirm: null, actionType: "assign" })}
+        onCancel={h.cancelConfirmModal}
       />
 
       {/* Worked Days/Hours Modal */}

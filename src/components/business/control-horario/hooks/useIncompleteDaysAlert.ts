@@ -33,6 +33,10 @@ export function useIncompleteDaysAlert(props: Props) {
 
     const empresaEmployees = empresas.find((l) => l.value === empresa)?.names;
     if (!empresaEmployees?.length) return;
+    const scheduleDataReady = empresaEmployees.every((name) =>
+      Object.prototype.hasOwnProperty.call(scheduleData, name),
+    );
+    if (!scheduleDataReady) return;
 
     if (timerRef.current) {
       window.clearTimeout(timerRef.current);
