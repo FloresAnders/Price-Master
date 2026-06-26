@@ -18,6 +18,7 @@
     "seed:tiposEgresoXml": "node scripts/seed-tiposEgresoXml.js",
     "svg-icon": "node .\\svg-to-custom-icon.js",
     "migrate:proveedores": "node scripts/migrate-proveedores-backup.js",
+    "migrate:schedules": "node scripts/migrate-schedules.mjs",
     "convert:tiposEgresoXml": "node scripts/convert-egresos-csv-to-json.js",
     "firebase:migrate": "curl -X POST http://localhost:3000/api/firebase-test",
     "firebase:test": "curl http://localhost:3000/api/firebase-test",
