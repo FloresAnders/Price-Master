@@ -142,10 +142,10 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const [usdCounts, setUsdCounts] = useState<CountState>(
     () => buildFormState(initialValues).usdCounts,
   );
-  const [r08, setR08] = useState(() => initialValues?.r08 ? String(initialValues.r08) : "");
-  const [t11, setT11] = useState(() => initialValues?.t11 ? String(initialValues.t11) : "");
-  const [tucanCumulative, setTucanCumulative] = useState(() => initialValues?.tucanCumulative ? String(initialValues.tucanCumulative) : "");
-  const [tiemposCumulative, setTiemposCumulative] = useState(() => initialValues?.tiemposCumulative ? String(initialValues.tiemposCumulative) : "");
+  const [r08, setR08] = useState(() => initialValues?.r08 != null ? String(initialValues.r08) : "");
+  const [t11, setT11] = useState(() => initialValues?.t11 != null ? String(initialValues.t11) : "");
+  const [tucanCumulative, setTucanCumulative] = useState(() => initialValues?.tucanCumulative != null ? String(initialValues.tucanCumulative) : "");
+  const [tiemposCumulative, setTiemposCumulative] = useState(() => initialValues?.tiemposCumulative != null ? String(initialValues.tiemposCumulative) : "");
 
   const [confirmDiffOpen, setConfirmDiffOpen] = useState(false);
   const [pendingSubmitValues, setPendingSubmitValues] =
@@ -222,9 +222,20 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     (requireSingleClosingReason && singleClosingReason.trim().length === 0);
   const hasDifferences = diffCRC !== 0 || diffUSD !== 0;
   const parseAmount = (value: string) => Number.parseInt(value || "0", 10) || 0;
+  const prevTucan = previousReconciliation?.externalSnapshots.tucanCumulative ?? 0;
+  const prevTiempos = previousReconciliation?.externalSnapshots.tiemposCumulative ?? 0;
+  const r08Num = parseAmount(r08);
+  const t11Num = parseAmount(t11);
+  const tucanNum = parseAmount(tucanCumulative);
+  const tiemposNum = parseAmount(tiemposCumulative);
+  const tucanForShift = tucanNum - prevTucan;
+  const tiemposForShift = tiemposNum - prevTiempos;
+  const conticaTucanDiff = r08Num - tucanForShift;
+  const conticaTiemposDiff = t11Num - tiemposForShift;
+
   const reconciliationPreview = useMemo(() => {
-    try { return reconcileClosing({ r08: parseAmount(r08), t11: parseAmount(t11), tucanCumulative: parseAmount(tucanCumulative), tiemposCumulative: parseAmount(tiemposCumulative), previous: previousReconciliation, cumulativeR08: (cumulativeContica?.r08 || 0) + parseAmount(r08), cumulativeT11: (cumulativeContica?.t11 || 0) + parseAmount(t11), isFinalShift: turno === "N" }); } catch { return null; }
-  }, [r08, t11, tucanCumulative, tiemposCumulative, previousReconciliation, cumulativeContica, turno]);
+    try { return reconcileClosing({ r08: r08Num, t11: t11Num, tucanCumulative: tucanNum, tiemposCumulative: tiemposNum, previous: previousReconciliation, cumulativeR08: (cumulativeContica?.r08 || 0) + r08Num, cumulativeT11: (cumulativeContica?.t11 || 0) + t11Num, isFinalShift: turno === "N" }); } catch { return null; }
+  }, [r08Num, t11Num, tucanNum, tiemposNum, previousReconciliation, cumulativeContica, turno]);
 
   const submitDisabledReason = useMemo(() => {
     if (displayedManager.trim().length === 0) {
@@ -561,13 +572,13 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
               <div className="space-y-3">
                 <div className="hidden grid-cols-3 gap-3 text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)] md:grid"><span>Contica</span><span>Reporte acumulado</span><span>Diferencia turno</span></div>
                 {[
-                  ["R08", r08, setR08, "Tucán", tucanCumulative, setTucanCumulative, reconciliationPreview?.calculated.tucanDifference],
-                  ["T11", t11, setT11, "Tiempos", tiemposCumulative, setTiemposCumulative, reconciliationPreview?.calculated.tiemposRawDifference],
+                  ["R08", r08, setR08, "Tucán", tucanCumulative, setTucanCumulative, conticaTucanDiff],
+                  ["T11", t11, setT11, "Tiempos", tiemposCumulative, setTiemposCumulative, conticaTiemposDiff],
                 ].map(([conticaLabel, conticaValue, setContica, externalLabel, externalValue, setExternal, difference]) => (
                   <div key={conticaLabel as string} className="grid gap-3 md:grid-cols-3">
                     <label className="text-xs text-[var(--muted-foreground)]"><span className="md:hidden">Contica · </span>{conticaLabel as string}<input value={conticaValue as string} onChange={(event) => (setContica as React.Dispatch<React.SetStateAction<string>>)(event.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" className="mt-1 h-10 w-full rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)]" /></label>
                     <label className="text-xs text-[var(--muted-foreground)]"><span className="md:hidden">Acumulado · </span>{externalLabel as string}<input value={externalValue as string} onChange={(event) => (setExternal as React.Dispatch<React.SetStateAction<string>>)(event.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" className="mt-1 h-10 w-full rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)]" /></label>
-                    <label className="text-xs text-[var(--muted-foreground)]"><span className="md:hidden">Diferencia · </span>Diferencia<input value={(() => { const amount = (difference as number | undefined) ?? 0; return amount > 0 ? `+${amount}` : String(amount); })()} readOnly aria-label={`Diferencia ${conticaLabel as string}`} className="mt-1 h-10 w-full cursor-default rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm font-semibold text-[var(--foreground)]" /></label>
+                    <label className="text-xs text-[var(--muted-foreground)]"><span className="md:hidden">Diferencia · </span>Diferencia<input value={(() => { const amount = (difference as number | undefined) ?? 0; return amount > 0 ? `+${crcFormatter.format(amount)}` : crcFormatter.format(amount); })()} readOnly aria-label={`Diferencia ${conticaLabel as string}`} className="mt-1 h-10 w-full cursor-default rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm font-semibold text-[var(--foreground)]" /></label>
                   </div>
                 ))}
               </div>
