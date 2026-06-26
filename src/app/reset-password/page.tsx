@@ -12,6 +12,9 @@ import {
   ArrowLeft,
   AlertCircle,
 } from "lucide-react";
+import TurnstileCaptcha, {
+  isTurnstileEnabled,
+} from "@/components/forms/TurnstileCaptcha";
 
 function ResetPasswordContent() {
   const router = useRouter();
@@ -26,6 +29,8 @@ function ResetPasswordContent() {
   const [tokenValid, setTokenValid] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const captchaEnabled = isTurnstileEnabled();
 
   // Validación de requisitos de contraseña
   const [passwordChecks, setPasswordChecks] = useState({
@@ -107,6 +112,7 @@ function ResetPasswordContent() {
           token,
           newPassword,
           confirmPassword,
+          captchaToken,
         }),
       });
 
@@ -284,6 +290,12 @@ function ResetPasswordContent() {
             </div>
           </div>
 
+          <TurnstileCaptcha
+            onVerify={setCaptchaToken}
+            onExpire={() => setCaptchaToken("")}
+            className="mb-6 flex justify-center"
+          />
+
           {/* Botones */}
           <div className="space-y-3">
             <button
@@ -291,6 +303,7 @@ function ResetPasswordContent() {
               className="w-full px-4 py-3 bg-[var(--primary)] text-[var(--button-text)] rounded-lg hover:bg-[var(--button-hover)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
               disabled={
                 loading ||
+                (captchaEnabled && !captchaToken) ||
                 !Object.values(passwordChecks).every((check) => check)
               }
             >

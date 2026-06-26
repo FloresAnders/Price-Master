@@ -5,6 +5,9 @@ import { EmpresasService } from "@/services/empresas";
 import { SolicitudesService } from "@/services/solicitudes";
 import type { Empresas } from "@/types/firestore";
 import useToast from "@/hooks/useToast";
+import TurnstileCaptcha, {
+  isTurnstileEnabled,
+} from "@/components/forms/TurnstileCaptcha";
 
 const STORAGE_KEY_EMPRESA_SELECTED = "solicitud.empresaSelected";
 
@@ -18,6 +21,8 @@ export default function SolicitudForm() {
   const [searchText, setSearchText] = useState("");
   const [showListosOnly, setShowListosOnly] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const captchaEnabled = isTurnstileEnabled();
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -147,19 +152,33 @@ export default function SolicitudForm() {
     setSaving(true);
     setMessage(null);
     try {
-      await SolicitudesService.addSolicitud({
-        productName: productName.trim(),
-        empresa: empresaSelected,
+      const response = await fetch("/api/solicitudes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productName: productName.trim(),
+          empresa: empresaSelected,
+          captchaToken,
+        }),
       });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result?.error || "Error al enviar la solicitud.");
+      }
       showTempMessage({
         type: "success",
         text: "Solicitud enviada correctamente.",
       });
       setProductName("");
+      setCaptchaToken("");
       await loadSolicitudes();
     } catch (err) {
       console.error("Error saving solicitud:", err);
-      setMessage({ type: "error", text: "Error al enviar la solicitud." });
+      setMessage({
+        type: "error",
+        text:
+          err instanceof Error ? err.message : "Error al enviar la solicitud.",
+      });
     } finally {
       setSaving(false);
     }
@@ -325,9 +344,14 @@ export default function SolicitudForm() {
         </div>
 
         <div className="flex justify-end pt-4">
+          <TurnstileCaptcha
+            onVerify={setCaptchaToken}
+            onExpire={() => setCaptchaToken("")}
+            className="mr-auto flex justify-center"
+          />
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || (captchaEnabled && !captchaToken)}
             className="px-6 py-3 bg-[var(--primary)] text-white rounded-md font-semibold text-sm shadow-md hover:shadow-lg hover:opacity-90 disabled:opacity-50 disabled:shadow-none transition-all duration-200"
           >
             {saving ? "Enviando..." : "Guardar Solicitud"}

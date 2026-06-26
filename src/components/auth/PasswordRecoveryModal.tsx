@@ -2,6 +2,9 @@
 
 import React, { useState } from "react";
 import { Mail, X, AlertCircle, CheckCircle, Loader } from "lucide-react";
+import TurnstileCaptcha, {
+  isTurnstileEnabled,
+} from "@/components/forms/TurnstileCaptcha";
 
 interface PasswordRecoveryModalProps {
   isOpen: boolean;
@@ -16,6 +19,8 @@ export const PasswordRecoveryModal: React.FC<PasswordRecoveryModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
+  const captchaEnabled = isTurnstileEnabled();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +33,7 @@ export const PasswordRecoveryModal: React.FC<PasswordRecoveryModalProps> = ({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, captchaToken }),
       });
 
       const result = await response.json();
@@ -44,6 +49,7 @@ export const PasswordRecoveryModal: React.FC<PasswordRecoveryModalProps> = ({
         onClose();
         setSuccess(false);
         setEmail("");
+        setCaptchaToken("");
       }, 3000);
     } catch (err: any) {
       setError(err.message || "Error al procesar la solicitud");
@@ -128,6 +134,12 @@ export const PasswordRecoveryModal: React.FC<PasswordRecoveryModalProps> = ({
                 </p>
               </div>
 
+              <TurnstileCaptcha
+                onVerify={setCaptchaToken}
+                onExpire={() => setCaptchaToken("")}
+                className="mb-6 flex justify-center"
+              />
+
               <div className="flex space-x-3">
                 <button
                   type="button"
@@ -140,7 +152,7 @@ export const PasswordRecoveryModal: React.FC<PasswordRecoveryModalProps> = ({
                 <button
                   type="submit"
                   className="flex-1 px-4 py-2 bg-[var(--primary)] text-[var(--button-text)] rounded-lg hover:bg-[var(--button-hover)] disabled:opacity-50 flex items-center justify-center space-x-2"
-                  disabled={loading}
+                  disabled={loading || (captchaEnabled && !captchaToken)}
                 >
                   {loading ? (
                     <>

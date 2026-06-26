@@ -14,6 +14,7 @@ import SystemNotesInitializer from "../components/funciones/SystemNotesInitializ
 import { XmlEgresosProvider } from "../components/xml/XmlEgresosProvider";
 import BackToTop from "../components/ui/BackToTop";
 import SubscriptionNotice from "../components/subscription/SubscriptionNotice";
+import GoogleAnalytics from "../components/analytics/GoogleAnalytics";
 
 export const metadata = {
   title: "Time Master",
@@ -124,6 +125,7 @@ export default function RootLayout({
         className="bg-background text-foreground transition-colors duration-500 min-h-screen flex flex-col"
         suppressHydrationWarning
       >
+        <GoogleAnalytics />
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <AuthWrapper>
             <PermissionsManager>

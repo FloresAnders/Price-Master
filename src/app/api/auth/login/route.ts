@@ -6,10 +6,26 @@ import {
   verifyPasswordServer,
   hashPasswordServer,
 } from "@/lib/auth/password.server";
+import { verifyCaptchaFromBody } from "@/lib/captcha/turnstile";
 
 export async function POST(request: Request) {
   try {
-    const { username, password } = await request.json();
+    const body = await request.json();
+    if (!body || typeof body !== "object") {
+      return NextResponse.json(
+        { ok: false, error: "Invalid input" },
+        { status: 400, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+    const captcha = await verifyCaptchaFromBody(body, request);
+    if (!captcha.ok) {
+      return NextResponse.json(
+        { ok: false, error: captcha.error },
+        { status: captcha.status, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+
+    const { username, password } = body;
 
     if (typeof username !== "string" || typeof password !== "string") {
       return NextResponse.json(

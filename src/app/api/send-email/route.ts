@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { EmailService } from "../../../services/email";
+import { verifyCaptchaFromBody } from "@/lib/captcha/turnstile";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,6 +11,8 @@ type EmailPayload = {
   subject?: string;
   text?: string;
   html?: string;
+  captchaToken?: string;
+  turnstileToken?: string;
 };
 
 export async function GET() {
@@ -22,6 +25,14 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const payload = (await request.json()) as EmailPayload | null;
+    const captcha = await verifyCaptchaFromBody(payload ?? {}, request);
+    if (!captcha.ok) {
+      return NextResponse.json(
+        { success: false, error: captcha.error },
+        { status: captcha.status },
+      );
+    }
+
     if (!payload || !payload.to || !payload.subject || !payload.text) {
       return NextResponse.json(
         {

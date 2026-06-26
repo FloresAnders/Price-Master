@@ -3,6 +3,7 @@ import { RecoveryTokenService } from "@/services/recoveryTokenService";
 import { EmailService } from "@/services/email";
 import { db } from "@/config/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
+import { verifyCaptchaFromBody } from "@/lib/captcha/turnstile";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,9 +11,24 @@ export const revalidate = 0;
 
 export async function POST(request: NextRequest) {
   try {
-    const { email } = await request.json();
+    const body = await request.json();
+    if (!body || typeof body !== "object") {
+      return NextResponse.json(
+        { success: false, error: "Email es requerido" },
+        { status: 400 },
+      );
+    }
+    const captcha = await verifyCaptchaFromBody(body, request);
+    if (!captcha.ok) {
+      return NextResponse.json(
+        { success: false, error: captcha.error },
+        { status: captcha.status },
+      );
+    }
 
-    if (!email) {
+    const { email } = body;
+
+    if (typeof email !== "string" || !email) {
       return NextResponse.json(
         { success: false, error: "Email es requerido" },
         { status: 400 },

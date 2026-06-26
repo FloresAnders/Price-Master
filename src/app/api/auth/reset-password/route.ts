@@ -4,6 +4,7 @@ import { EmailService } from "@/services/email";
 import { hashPasswordServer } from "@/lib/auth/password.server";
 import { db } from "@/config/firebase";
 import { doc, updateDoc } from "firebase/firestore";
+import { verifyCaptchaFromBody } from "@/lib/captcha/turnstile";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,9 +12,31 @@ export const revalidate = 0;
 
 export async function POST(request: NextRequest) {
   try {
-    const { token, newPassword, confirmPassword } = await request.json();
+    const body = await request.json();
+    if (!body || typeof body !== "object") {
+      return NextResponse.json(
+        { success: false, error: "Todos los campos son requeridos" },
+        { status: 400 },
+      );
+    }
+    const captcha = await verifyCaptchaFromBody(body, request);
+    if (!captcha.ok) {
+      return NextResponse.json(
+        { success: false, error: captcha.error },
+        { status: captcha.status },
+      );
+    }
 
-    if (!token || !newPassword || !confirmPassword) {
+    const { token, newPassword, confirmPassword } = body;
+
+    if (
+      typeof token !== "string" ||
+      typeof newPassword !== "string" ||
+      typeof confirmPassword !== "string" ||
+      !token ||
+      !newPassword ||
+      !confirmPassword
+    ) {
       return NextResponse.json(
         { success: false, error: "Todos los campos son requeridos" },
         { status: 400 },

@@ -38,7 +38,7 @@ import {
   ReceiptText,
 } from "lucide-react";
 import { CustomIcon } from "@/icons/icons";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import QRCode from "qrcode";
 import {
   collection,
@@ -181,6 +181,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
   const isClient = typeof window !== "undefined";
 
+  const closeMobileMenu = useCallback(() => {
+    setShowMobileMenu(false);
+  }, []);
+
   useEffect(() => {
     if (!isClient) return;
 
@@ -284,13 +288,25 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     }
   }, [enableHomeMenuSortMobile]);
 
-  // Keep currentHash in sync in case some code manipulates history.hash
+  useEffect(() => {
+    const timeoutId = window.setTimeout(closeMobileMenu, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [pathname, closeMobileMenu]);
+
+  // Keep currentHash in sync and close mobile menu on hash/history navigation.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const updateHash = () => setCurrentHash(window.location.hash || "");
+    const updateHash = () => {
+      setCurrentHash(window.location.hash || "");
+      closeMobileMenu();
+    };
     window.addEventListener("hashchange", updateHash);
-    return () => window.removeEventListener("hashchange", updateHash);
-  }, []);
+    window.addEventListener("popstate", updateHash);
+    return () => {
+      window.removeEventListener("hashchange", updateHash);
+      window.removeEventListener("popstate", updateHash);
+    };
+  }, [closeMobileMenu]);
 
   // Close dropdown on scroll or resize
   useEffect(() => {

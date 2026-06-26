@@ -8,6 +8,9 @@ import Image from "next/image";
 import { useVersion } from "@/hooks/useVersion";
 import { hashPassword } from "@/lib/auth/password";
 import { PHASH_KEY } from "@/hooks/useUnlockPastDays";
+import TurnstileCaptcha, {
+  isTurnstileEnabled,
+} from "@/components/forms/TurnstileCaptcha";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -44,6 +47,8 @@ export default function LoginModal({
   const [shakePassword, setShakePassword] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [captchaToken, setCaptchaToken] = useState("");
+  const captchaEnabled = isTurnstileEnabled();
 
   // Mount animation
   useEffect(() => {
@@ -51,6 +56,7 @@ export default function LoginModal({
       setTimeout(() => setMounted(true), 10);
     } else {
       setMounted(false);
+      setCaptchaToken("");
     }
   }, [isOpen]);
 
@@ -120,7 +126,11 @@ export default function LoginModal({
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: normalizedUsername, password }),
+        body: JSON.stringify({
+          username: normalizedUsername,
+          password,
+          captchaToken,
+        }),
       });
       const respJson = await response.json();
       const isSuperAdmin = respJson.isSuperAdmin; // Extraer la bandera
@@ -341,6 +351,11 @@ export default function LoginModal({
                 {error}
               </div>
             )}
+            <TurnstileCaptcha
+              onVerify={setCaptchaToken}
+              onExpire={() => setCaptchaToken("")}
+              className="flex justify-center"
+            />
             <div className={`flex gap-3 ${canClose ? "" : "justify-center"}`}>
               {canClose && (
                 <button
@@ -357,7 +372,7 @@ export default function LoginModal({
                 className={`py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 ${
                   canClose ? "flex-1" : "w-full"
                 }`}
-                disabled={loading}
+                disabled={loading || (captchaEnabled && !captchaToken)}
               >
                 {loading ? "Verificando..." : "Iniciar Sesión"}
               </button>
