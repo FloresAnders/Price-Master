@@ -16,6 +16,7 @@ import { dateKeyFromDate } from "../utils/helpers";
 import { useAuth } from "@/hooks/useAuth";
 import { useActorOwnership } from "@/hooks/useActorOwnership";
 import { EmpresasService } from "@/services/empresas";
+import { SchedulesService, type ScheduleEntry } from "@/services/schedules";
 import type { Empresas } from "@/types/firestore";
 import { getDefaultPermissions } from "@/utils/permissions";
 
@@ -131,6 +132,138 @@ const Time12Select = ({
   );
 };
 
+type QueryShift = "full" | "D" | "N" | "custom";
+type ShiftRange = {
+  start: string;
+  end: string;
+  startDayOffset: number;
+  endDayOffset: number;
+};
+
+const FALLBACK_SHIFT_RANGES = {
+  full: { start: "06:00", end: "23:59", startDayOffset: 0, endDayOffset: 0 },
+  D: { start: "06:00", end: "13:59", startDayOffset: 0, endDayOffset: 0 },
+  N: { start: "14:00", end: "23:59", startDayOffset: 0, endDayOffset: 0 },
+} satisfies Record<Exclude<QueryShift, "custom">, ShiftRange>;
+
+const parseHHMMToMinutes = (value: unknown): number | null => {
+  const raw = String(value || "").trim();
+  const match = raw.match(/^(\d{2}):(\d{2})$/);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  return hour * 60 + minute;
+};
+
+const minutesToHHMM = (minutes: number) => {
+  const normalized = ((Math.trunc(minutes) % 1440) + 1440) % 1440;
+  const hour = Math.floor(normalized / 60);
+  const minute = normalized % 60;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+};
+
+const addDaysToDateKey = (value: string, days: number) => {
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day + days);
+  return dateKeyFromDate(date);
+};
+
+const getDateKeyParts = (value: string) => {
+  const [year, month, day] = value.split("-").map(Number);
+  return { year, month0: month - 1, day };
+};
+
+const getCompanyKeysToTry = (empresa: Empresas | undefined) => {
+  const keys = new Set<string>();
+  [empresa?.ubicacion, empresa?.name, empresa?.id]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .forEach((value) => keys.add(value));
+  return Array.from(keys);
+};
+
+const findScheduleForShift = (
+  schedules: ScheduleEntry[],
+  shiftDateKey: string,
+  shift: "D" | "N",
+) => {
+  const { day } = getDateKeyParts(shiftDateKey);
+  return schedules
+    .filter((entry) => entry.day === day && String(entry.shift || "").trim() === shift)
+    .sort((a, b) => {
+      const score = (entry: ScheduleEntry) =>
+        (String(entry.employeeName || "").trim() ? 2 : 0) +
+        (Number(entry.horasPorDia) > 0 ? 1 : 0);
+      return score(b) - score(a);
+    })[0];
+};
+
+const getScheduleHours = (
+  schedule: ScheduleEntry | undefined,
+  empresa: Empresas | undefined,
+  fallback = 8,
+) => {
+  const employeeName = String(schedule?.employeeName || "").trim();
+  const employeeHours = empresa?.empleados?.find(
+    (empleado) => empleado.Empleado === employeeName,
+  )?.hoursPerShift;
+  const parsedEmployeeHours = Number(employeeHours);
+  if (Number.isFinite(parsedEmployeeHours) && parsedEmployeeHours > 0) {
+    return parsedEmployeeHours;
+  }
+  const scheduledHours = Number(schedule?.horasPorDia);
+  return Number.isFinite(scheduledHours) && scheduledHours > 0
+    ? scheduledHours
+    : fallback;
+};
+
+const getEmpresaShiftRanges = (
+  empresa: Empresas | undefined,
+  schedules: ScheduleEntry[],
+  shiftDateKey: string,
+) => {
+  const openMin = parseHHMMToMinutes(empresa?.horarioApertura);
+  const closeMin = parseHHMMToMinutes(empresa?.horarioCierre);
+  if (openMin === null || closeMin === null) return FALLBACK_SHIFT_RANGES;
+
+  const daySchedule = findScheduleForShift(schedules, shiftDateKey, "D");
+  const nightSchedule = findScheduleForShift(schedules, shiftDateKey, "N");
+  const dayHours = getScheduleHours(daySchedule, empresa);
+  const nightHours = getScheduleHours(nightSchedule, empresa);
+  const fullEndOffset = closeMin <= openMin ? 1 : 0;
+  const closeAbsoluteMin = closeMin + fullEndOffset * 1440;
+  const shiftChangeMin = openMin + Math.round(dayHours * 60);
+  const dayEndMin = shiftChangeMin - 1;
+  const nightStartMin = closeAbsoluteMin - Math.round(nightHours * 60);
+  const dayStartOffset = Math.floor(openMin / 1440);
+  const dayEndOffset = Math.floor(dayEndMin / 1440);
+  const nightStartOffset = Math.floor(nightStartMin / 1440);
+  const nightEndOffset = fullEndOffset;
+
+  return {
+    full: {
+      start: minutesToHHMM(openMin),
+      end: minutesToHHMM(closeMin),
+      startDayOffset: 0,
+      endDayOffset: fullEndOffset,
+    },
+    D: {
+      start: minutesToHHMM(openMin),
+      end: minutesToHHMM(dayEndMin),
+      startDayOffset: dayStartOffset,
+      endDayOffset: dayEndOffset,
+    },
+    N: {
+      start: minutesToHHMM(nightStartMin),
+      end: minutesToHHMM(closeMin),
+      startDayOffset: nightStartOffset,
+      endDayOffset: nightEndOffset,
+    },
+  } satisfies Record<Exclude<QueryShift, "custom">, ShiftRange>;
+};
+
 export default function ReportesSinpePage() {
   const { user, loading } = useAuth();
   const { ownerIds } = useActorOwnership(user);
@@ -140,10 +273,14 @@ export default function ReportesSinpePage() {
 
   const [empresas, setEmpresas] = useState<Empresas[]>([]);
   const [empresaId, setEmpresaId] = useState("");
+  const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
+  const [schedulesLoading, setSchedulesLoading] = useState(false);
   const [startDate, setStartDate] = useState(todayValue);
+  const [shiftDate, setShiftDate] = useState(todayValue);
   const [endDate, setEndDate] = useState(todayValue);
   const [startTime, setStartTime] = useState("06:00");
   const [endTime, setEndTime] = useState("23:59");
+  const [queryShift, setQueryShift] = useState<QueryShift>("full");
   const [report, setReport] = useState<{
     processedEmails: number;
     validTransactions: number;
@@ -167,6 +304,14 @@ export default function ReportesSinpePage() {
   const endCalRef = useRef<HTMLDivElement | null>(null);
   const startBtnRef = useRef<HTMLButtonElement | null>(null);
   const endBtnRef = useRef<HTMLButtonElement | null>(null);
+  const selectedEmpresa = useMemo(
+    () => empresas.find((empresa) => empresa.id === empresaId),
+    [empresas, empresaId],
+  );
+  const shiftRanges = useMemo(
+    () => getEmpresaShiftRanges(selectedEmpresa, scheduleEntries, shiftDate),
+    [scheduleEntries, selectedEmpresa, shiftDate],
+  );
 
   useEffect(() => {
     if (!canUse || !user) return;
@@ -224,6 +369,48 @@ export default function ReportesSinpePage() {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [startCalOpen, endCalOpen]);
+
+  useEffect(() => {
+    if (!selectedEmpresa) {
+      setScheduleEntries([]);
+      setSchedulesLoading(false);
+      return;
+    }
+
+    let mounted = true;
+    const { year, month0 } = getDateKeyParts(shiftDate);
+    const keys = getCompanyKeysToTry(selectedEmpresa);
+    setSchedulesLoading(true);
+    setScheduleEntries([]);
+
+    Promise.all(
+      keys.map((key) =>
+        SchedulesService.getSchedulesByLocationYearMonth(key, year, month0),
+      ),
+    )
+      .then((lists) => {
+        if (mounted) setScheduleEntries(lists.flat());
+      })
+      .catch(() => {
+        if (mounted) setScheduleEntries([]);
+      })
+      .finally(() => {
+        if (mounted) setSchedulesLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [selectedEmpresa, shiftDate]);
+
+  useEffect(() => {
+    if (queryShift === "custom") return;
+    const range = shiftRanges[queryShift];
+    setStartTime(range.start);
+    setEndTime(range.end);
+    setStartDate(addDaysToDateKey(shiftDate, range.startDayOffset));
+    setEndDate(addDaysToDateKey(shiftDate, range.endDayOffset));
+  }, [queryShift, shiftRanges, shiftDate]);
 
   const renderMonthCells = (
     monthDate: Date,
@@ -372,7 +559,29 @@ export default function ReportesSinpePage() {
     [report],
   );
 
+  const applyQueryShift = (shift: QueryShift) => {
+    setQueryShift(shift);
+    if (shift === "custom") return;
+    const range = shiftRanges[shift];
+    setStartTime(range.start);
+    setEndTime(range.end);
+    setStartDate(addDaysToDateKey(shiftDate, range.startDayOffset));
+    setEndDate(addDaysToDateKey(shiftDate, range.endDayOffset));
+  };
+
+  const setQueryStartDate = (dateKey: string) => {
+    if (queryShift === "custom") {
+      setStartDate(dateKey);
+      return;
+    }
+    const range = shiftRanges[queryShift];
+    setShiftDate(dateKey);
+    setStartDate(addDaysToDateKey(dateKey, range.startDayOffset));
+    setEndDate(addDaysToDateKey(dateKey, range.endDayOffset));
+  };
+
   const generateReport = async () => {
+    if (schedulesLoading) return;
     setBusy(true);
     setError("");
     setReport(null);
@@ -493,6 +702,26 @@ export default function ReportesSinpePage() {
             </select>
           </label>
 
+          <label className="mb-4 block">
+            <span className="mb-2 block text-sm text-white/70">Turno</span>
+            <select
+              value={queryShift}
+              onChange={(event) => applyQueryShift(event.target.value as QueryShift)}
+              className="w-full rounded-2xl border border-white/10 bg-[#0b1730] px-4 py-3 text-sm text-white outline-none"
+            >
+              <option value="full">
+                Completo ({formatTime12(shiftRanges.full.start)} - {formatTime12(shiftRanges.full.end)})
+              </option>
+              <option value="D">
+                Diurno ({formatTime12(shiftRanges.D.start)} - {formatTime12(shiftRanges.D.end)})
+              </option>
+              <option value="N">
+                Nocturno ({formatTime12(shiftRanges.N.start)} - {formatTime12(shiftRanges.N.end)})
+              </option>
+              <option value="custom">Personalizado</option>
+            </select>
+          </label>
+
           <div className="grid gap-4 md:grid-cols-2">
             <div className="relative block">
               <span className="mb-2 block text-sm text-white/70">
@@ -504,14 +733,16 @@ export default function ReportesSinpePage() {
                 onClick={() => setStartCalOpen((prev) => !prev)}
                 className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-[#0b1730] px-4 py-3 text-sm text-white outline-none"
               >
-                <span className="flex-1 text-left">{displayDate(startDate)}</span>
+                <span className="flex-1 text-left">
+                  {displayDate(queryShift === "custom" ? startDate : shiftDate)}
+                </span>
                 <CalendarDays className="h-4 w-4 text-cyan-300" />
               </button>
               <CalendarDropdown
                 open={startCalOpen}
                 month={startCalMonth}
-                selected={startDate}
-                onSelect={setStartDate}
+                selected={queryShift === "custom" ? startDate : shiftDate}
+                onSelect={setQueryStartDate}
                 onClose={() => setStartCalOpen(false)}
                 onMonthChange={setStartCalMonth}
                 calRef={startCalRef}
@@ -523,7 +754,13 @@ export default function ReportesSinpePage() {
                 Hora inicio
               </span>
               <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#0b1730] px-4 py-3">
-                <Time12Select value={startTime} onChange={setStartTime} />
+                <Time12Select
+                  value={startTime}
+                  onChange={(value) => {
+                    setStartTime(value);
+                    setQueryShift("custom");
+                  }}
+                />
                 <Clock3 className="h-4 w-4 text-cyan-300" />
               </div>
               <span className="mt-1 block text-xs text-white/45">
@@ -548,7 +785,10 @@ export default function ReportesSinpePage() {
                 open={endCalOpen}
                 month={endCalMonth}
                 selected={endDate}
-                onSelect={setEndDate}
+                onSelect={(dateKey) => {
+                  setEndDate(dateKey);
+                  setQueryShift("custom");
+                }}
                 onClose={() => setEndCalOpen(false)}
                 onMonthChange={setEndCalMonth}
                 calRef={endCalRef}
@@ -558,7 +798,13 @@ export default function ReportesSinpePage() {
             <div className="block">
               <span className="mb-2 block text-sm text-white/70">Hora fin</span>
               <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#0b1730] px-4 py-3">
-                <Time12Select value={endTime} onChange={setEndTime} />
+                <Time12Select
+                  value={endTime}
+                  onChange={(value) => {
+                    setEndTime(value);
+                    setQueryShift("custom");
+                  }}
+                />
                 <Clock3 className="h-4 w-4 text-cyan-300" />
               </div>
               <span className="mt-1 block text-xs text-white/45">
@@ -570,11 +816,15 @@ export default function ReportesSinpePage() {
           <button
             type="button"
             onClick={generateReport}
-            disabled={busy || !empresaId}
+            disabled={busy || schedulesLoading || !empresaId}
             className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(90deg,_#2ab5ff_0%,_#9d4edd_100%)] px-4 py-3 text-sm font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <FileSpreadsheet className="h-4 w-4" />
-            {busy ? "Leyendo correos..." : "Generar"}
+            {busy
+              ? "Leyendo correos..."
+              : schedulesLoading
+                ? "Cargando turno..."
+                : "Generar"}
           </button>
           {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
         </div>
