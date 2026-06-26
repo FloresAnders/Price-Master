@@ -228,12 +228,13 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const t11Num = parseAmount(t11);
   const tucanNum = parseAmount(tucanCumulative);
   const tiemposNum = parseAmount(tiemposCumulative);
-  const tucanValid = tucanNum >= prevTucan;
-  const tiemposValid = tiemposNum >= prevTiempos;
-  const tucanForShift = tucanNum - prevTucan;
-  const tiemposForShift = tiemposNum - prevTiempos;
-  const conticaTucanDiff = tucanValid ? r08Num - tucanForShift : null;
-  const conticaTiemposDiff = tiemposValid ? t11Num - tiemposForShift : null;
+
+  const tucanTouched = r08.trim().length > 0 || tucanCumulative.trim().length > 0;
+  const tiemposTouched = t11.trim().length > 0 || tiemposCumulative.trim().length > 0;
+  const tucanForShift = tucanNum >= prevTucan ? tucanNum - prevTucan : 0;
+  const tiemposForShift = tiemposNum >= prevTiempos ? tiemposNum - prevTiempos : 0;
+  const conticaTucanDiff = tucanTouched ? r08Num - tucanForShift : null;
+  const conticaTiemposDiff = tiemposTouched ? t11Num - tiemposForShift : null;
 
   const reconciliationPreview = useMemo(() => {
     try { return reconcileClosing({ r08: r08Num, t11: t11Num, tucanCumulative: tucanNum, tiemposCumulative: tiemposNum, previous: previousReconciliation, cumulativeR08: (cumulativeContica?.r08 || 0) + r08Num, cumulativeT11: (cumulativeContica?.t11 || 0) + t11Num, isFinalShift: turno === "N" }); } catch { return null; }
