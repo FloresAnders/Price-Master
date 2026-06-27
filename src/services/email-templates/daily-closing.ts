@@ -50,6 +50,8 @@ const formatDiff = (currency: "CRC" | "USD", diff: number) => {
   return diff > 0 ? `Sobrante de ${formatted}` : `Faltante de ${formatted}`;
 };
 
+const formatCRC = (value: number) => formatCurrency("CRC", value);
+
 export const buildDailyClosingEmailTemplate = (
   context: DailyClosingEmailContext,
 ): EmailTemplate => {
@@ -85,13 +87,13 @@ ${context.noMovementsReason.trim()}
 `
       : "";
   const reconciliationSection = context.reconciliation
-    ? `\nVerificación Contica / Tucán / Tiempos:\n Contica | Sistema | Diferencia\n R08: ${context.reconciliation.contica.r08} | Tucán: ${context.reconciliation.calculated.tucanForShift} | ${context.reconciliation.calculated.tucanDifference}\n T11: ${context.reconciliation.contica.t11} | Tiempos: ${context.reconciliation.calculated.tiemposForShift} | ${context.reconciliation.calculated.previousTiemposPending > 0 ? context.reconciliation.calculated.tiemposRealShiftDifference : context.reconciliation.calculated.tiemposRawDifference}\n Tucán acumulado digitado: ${context.reconciliation.externalSnapshots.tucanCumulative}\n Tiempos acumulado digitado: ${context.reconciliation.externalSnapshots.tiemposCumulative}\n ${context.reconciliation.calculated.previousTiemposPending > 0 ? context.reconciliation.calculated.compensatedTiemposAmount > 0 ? `Resolución turno anterior: se compensaron ${context.reconciliation.calculated.compensatedTiemposAmount}.` : "Resolución turno anterior: no hubo compensación." : "Resolución turno anterior: no aplica; se espera cierre nocturno."}\n`
+    ? `\nVerificación Contica / Tucán / Tiempos:\n Contica | Sistema | Diferencia\n R08: ${formatCRC(context.reconciliation.contica.r08)} | Tucán: ${formatCRC(context.reconciliation.calculated.tucanForShift)} | ${formatCRC(context.reconciliation.calculated.tucanDifference)}\n T11: ${formatCRC(context.reconciliation.contica.t11)} | Tiempos: ${formatCRC(context.reconciliation.calculated.tiemposForShift)} | ${formatCRC(context.reconciliation.calculated.previousTiemposPending > 0 ? context.reconciliation.calculated.tiemposRealShiftDifference : context.reconciliation.calculated.tiemposRawDifference)}\n Tucán acumulado digitado: ${formatCRC(context.reconciliation.externalSnapshots.tucanCumulative)}\n Tiempos acumulado digitado: ${formatCRC(context.reconciliation.externalSnapshots.tiemposCumulative)}\n ${context.reconciliation.calculated.previousTiemposPending > 0 ? context.reconciliation.calculated.compensatedTiemposAmount > 0 ? `Resolución turno anterior: se compensaron ${formatCRC(context.reconciliation.calculated.compensatedTiemposAmount)}.` : "Resolución turno anterior: no hubo compensación." : "Resolución turno anterior: no aplica; se espera cierre nocturno."}\n`
     : "";
   const reconciliationExplanation =
     context.reconciliation?.tiemposStatus === "TEMPORARY_PENDING"
       ? "Diferencia temporal: se espera revision del cierre nocturno."
       : context.reconciliation?.tiemposStatus === "RESOLVED"
-        ? `Se compensaron ${context.reconciliation.calculated.compensatedTiemposAmount} pendientes del turno diurno; no existe diferencia real nocturna para TIEMPOS.`
+        ? `Se compensaron ${formatCRC(context.reconciliation.calculated.compensatedTiemposAmount)} pendientes del turno diurno; no existe diferencia real nocturna para TIEMPOS.`
         : "";
   const tiemposDifferenceForDisplay = context.reconciliation
     ? context.reconciliation.calculated.previousTiemposPending > 0
@@ -101,14 +103,14 @@ ${context.noMovementsReason.trim()}
   const reconciliationResolution = context.reconciliation
     ? context.reconciliation.calculated.previousTiemposPending > 0
       ? context.reconciliation.calculated.compensatedTiemposAmount > 0
-        ? `Resolucion turno anterior: se compensaron ${context.reconciliation.calculated.compensatedTiemposAmount}.`
+        ? `Resolucion turno anterior: se compensaron ${formatCRC(context.reconciliation.calculated.compensatedTiemposAmount)}.`
         : "Resolucion turno anterior: no hubo compensacion."
       : "Resolucion turno anterior: no aplica; se espera cierre nocturno."
     : "";
   const tiemposSystemDisplay = context.reconciliation
     ? context.reconciliation.calculated.compensatedTiemposAmount > 0
-      ? `Tiempos: ${context.reconciliation.calculated.tiemposForShift} - ${context.reconciliation.calculated.compensatedTiemposAmount} = ${context.reconciliation.contica.t11}`
-      : `Tiempos: ${context.reconciliation.calculated.tiemposForShift}`
+      ? `Tiempos: ${formatCRC(context.reconciliation.calculated.tiemposForShift)} - ${formatCRC(context.reconciliation.calculated.compensatedTiemposAmount)} = ${formatCRC(context.reconciliation.contica.t11)}`
+      : `Tiempos: ${formatCRC(context.reconciliation.calculated.tiemposForShift)}`
     : "";
 
   const text = `Se registro un nuevo cierre diario en Time Master.
@@ -164,7 +166,7 @@ ${singleClosingReasonSection}${noMovementsSection}${reconciliationSection}${reco
             </ul>
             ${
               context.reconciliation
-                ? `<h3 style="margin: 16px 0 8px 0;">Conciliacion Contica / Tucan / Tiempos</h3><table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;"><thead><tr><th style="padding: 8px; border: 1px solid #d0d7de; text-align: left;">Contica</th><th style="padding: 8px; border: 1px solid #d0d7de; text-align: left;">Sistema</th><th style="padding: 8px; border: 1px solid #d0d7de; text-align: left;">Diferencia</th></tr></thead><tbody><tr><td style="padding: 8px; border: 1px solid #d0d7de;">R08: ${context.reconciliation.contica.r08}</td><td style="padding: 8px; border: 1px solid #d0d7de;">Tucan: ${context.reconciliation.calculated.tucanForShift}</td><td style="padding: 8px; border: 1px solid #d0d7de;">${context.reconciliation.calculated.tucanDifference}</td></tr><tr><td style="padding: 8px; border: 1px solid #d0d7de;">T11: ${context.reconciliation.contica.t11}</td><td style="padding: 8px; border: 1px solid #d0d7de;">${tiemposSystemDisplay}</td><td style="padding: 8px; border: 1px solid #d0d7de;">${tiemposDifferenceForDisplay}</td></tr></tbody></table><p style="margin: 0 0 8px 0;"><strong>Tucan acumulado digitado:</strong> ${context.reconciliation.externalSnapshots.tucanCumulative}<br/><strong>Tiempos acumulado digitado:</strong> ${context.reconciliation.externalSnapshots.tiemposCumulative}<br/>${reconciliationResolution}</p><p style="margin: 0 0 16px 0;">${reconciliationExplanation}</p>`
+                ? `<h3 style="margin: 16px 0 8px 0;">Conciliacion Contica / Tucan / Tiempos</h3><table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;"><thead><tr><th style="padding: 8px; border: 1px solid #d0d7de; text-align: left;">Contica</th><th style="padding: 8px; border: 1px solid #d0d7de; text-align: left;">Sistema</th><th style="padding: 8px; border: 1px solid #d0d7de; text-align: left;">Diferencia</th></tr></thead><tbody><tr><td style="padding: 8px; border: 1px solid #d0d7de;">R08: ${formatCRC(context.reconciliation.contica.r08)}</td><td style="padding: 8px; border: 1px solid #d0d7de;">Tucan: ${formatCRC(context.reconciliation.calculated.tucanForShift)}</td><td style="padding: 8px; border: 1px solid #d0d7de;">${formatCRC(context.reconciliation.calculated.tucanDifference)}</td></tr><tr><td style="padding: 8px; border: 1px solid #d0d7de;">T11: ${formatCRC(context.reconciliation.contica.t11)}</td><td style="padding: 8px; border: 1px solid #d0d7de;">${tiemposSystemDisplay}</td><td style="padding: 8px; border: 1px solid #d0d7de;">${formatCRC(tiemposDifferenceForDisplay)}</td></tr></tbody></table><p style="margin: 0 0 8px 0;"><strong>Tucan acumulado digitado:</strong> ${formatCRC(context.reconciliation.externalSnapshots.tucanCumulative)}<br/><strong>Tiempos acumulado digitado:</strong> ${formatCRC(context.reconciliation.externalSnapshots.tiemposCumulative)}<br/>${reconciliationResolution}</p><p style="margin: 0 0 16px 0;">${reconciliationExplanation}</p>`
                 : ""
             }
             ${
