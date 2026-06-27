@@ -786,12 +786,49 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                   ["T11", t11, setT11, "Tiempos", tiemposCumulative, setTiemposCumulative, conticaTiemposDiff],
                 ].map(([conticaLabel, conticaValue, setContica, externalLabel, externalValue, setExternal, difference]) => (
                   <div key={conticaLabel as string} className="grid gap-3 md:grid-cols-3">
-                    <label className="text-xs text-[var(--muted-foreground)]"><span className="md:hidden">Contica · </span>{conticaLabel as string}<input value={formatMoneyInput(conticaValue as string)} onChange={(event) => (setContica as React.Dispatch<React.SetStateAction<string>>)(normalizeMoneyInput(event.target.value))} inputMode="decimal" className="mt-1 h-10 w-full rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)]" /></label>
-                    <label className="text-xs text-[var(--muted-foreground)]"><span className="md:hidden">Acumulado · </span>{externalLabel as string}<input value={formatMoneyInput(externalValue as string)} onChange={(event) => (setExternal as React.Dispatch<React.SetStateAction<string>>)(normalizeMoneyInput(event.target.value))} inputMode="decimal" className="mt-1 h-10 w-full rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)]" /></label>
+                    <label className="text-xs text-[var(--muted-foreground)]">
+                      <span className="md:hidden">Contica · </span>
+                      {conticaLabel as string}
+                      <div className="relative mt-1">
+                        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-[var(--muted-foreground)]">
+                          ₡
+                        </span>
+                        <input
+                          value={formatMoneyInput(conticaValue as string)}
+                          onChange={(event) =>
+                            (setContica as React.Dispatch<React.SetStateAction<string>>)(
+                              normalizeMoneyInput(event.target.value),
+                            )
+                          }
+                          inputMode="decimal"
+                          className="h-10 w-full rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 pl-7 text-sm text-[var(--foreground)]"
+                        />
+                      </div>
+                    </label>
+                    <label className="text-xs text-[var(--muted-foreground)]">
+                      <span className="md:hidden">Acumulado · </span>
+                      {externalLabel as string}
+                      <div className="relative mt-1">
+                        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-[var(--muted-foreground)]">
+                          ₡
+                        </span>
+                        <input
+                          value={formatMoneyInput(externalValue as string)}
+                          onChange={(event) =>
+                            (setExternal as React.Dispatch<React.SetStateAction<string>>)(
+                              normalizeMoneyInput(event.target.value),
+                            )
+                          }
+                          inputMode="decimal"
+                          className="h-10 w-full rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 pl-7 text-sm text-[var(--foreground)]"
+                        />
+                      </div>
+                    </label>
                     <label className="text-xs text-[var(--muted-foreground)]"><span className="md:hidden">Diferencia · </span>Diferencia<input value={(() => { const amount = difference as number; return amount > 0 ? `+${crcFormatter.format(amount)}` : crcFormatter.format(amount); })()} readOnly aria-label={`Diferencia ${conticaLabel as string}`} className="mt-1 h-10 w-full cursor-default rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm font-semibold text-[var(--foreground)]" /></label>
                   </div>
                 ))}
-              </div>              {reconciliationPreview && (
+              </div>
+              {reconciliationPreview && (
                 <div className="mt-4 rounded-lg border border-[var(--input-border)] bg-[var(--background)] p-3">
                   <div className="mb-2 text-sm font-semibold text-[var(--foreground)]">
                     Resultado de la verificación: {reconciliationStatusLabel}
