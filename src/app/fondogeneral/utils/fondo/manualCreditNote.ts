@@ -1,5 +1,9 @@
 import type { FondoEntry } from "../../types";
 import { formatByCurrency } from "../helpers";
+import {
+  appendManualCreditNoteDraft,
+  type ManualCreditNoteDraft,
+} from "./manualCreditNoteDrafts";
 
 export interface SaveManualCreditNoteDeps {
   manualCreditNoteTarget: FondoEntry | null;
@@ -9,23 +13,11 @@ export interface SaveManualCreditNoteDeps {
   manualCreditNoteObservation: string;
   setManualCreditNoteError: (value: string) => void;
   setManualCreditNoteSaving: (value: boolean) => void;
-  setManualCreditNoteDraft: (
+  manualCreditNoteDrafts: ManualCreditNoteDraft[];
+  setManualCreditNoteDrafts: (
     value:
-      | {
-          invoiceNumber: string;
-          amount: number;
-          observation?: string;
-        }
-      | null
-      | ((prev: {
-          invoiceNumber: string;
-          amount: number;
-          observation?: string;
-        } | null) => {
-          invoiceNumber: string;
-          amount: number;
-          observation?: string;
-        } | null),
+      | ManualCreditNoteDraft[]
+      | ((prev: ManualCreditNoteDraft[]) => ManualCreditNoteDraft[]),
   ) => void;
   setSelectedAppliedCreditNoteIds: (
     value: string[] | ((prev: string[]) => string[]),
@@ -90,16 +82,19 @@ export async function handleSaveManualCreditNote(
   deps.setManualCreditNoteSaving(true);
   deps.setManualCreditNoteError("");
   try {
-    deps.setManualCreditNoteDraft({
-      invoiceNumber: invoiceNumberValue,
-      amount: amountValue,
-      observation: observationValue || undefined,
-    });
-    // Marcar la NC manual como seleccionada para que aparezca inmediatamente
+    const result = appendManualCreditNoteDraft(
+      deps.manualCreditNoteDrafts,
+      {
+        invoiceNumber: invoiceNumberValue,
+        amount: amountValue,
+        observation: observationValue || undefined,
+      },
+      [],
+    );
+    const [nextDraft] = result.drafts.slice(-1);
+    deps.setManualCreditNoteDrafts(result.drafts);
     deps.setSelectedAppliedCreditNoteIds((prev) =>
-      prev && prev.includes("manual-nc-draft")
-        ? prev
-        : [...(prev || []), "manual-nc-draft"],
+      nextDraft && !prev.includes(nextDraft.id) ? [...prev, nextDraft.id] : prev,
     );
     deps.showToast("Nota de crédito manual lista para guardar", "success", 3000);
     deps.closeManualCreditNoteModal();

@@ -376,6 +376,19 @@ export async function persistMovementToFirestore(
               batch.delete(
                 FacturasService.buildMovementRef(normalizedCompany, `${deletedId}-NC`),
               );
+              const manualCreditNotes = Array.isArray(beforeEntry?.appliedCreditNotes)
+                ? beforeEntry.appliedCreditNotes.filter((note) =>
+                    String(note?.id || "").startsWith(`manual-nc-${deletedId}-`),
+                  )
+                : [];
+              manualCreditNotes.forEach((_, index) => {
+                batch.delete(
+                  FacturasService.buildMovementRef(
+                    normalizedCompany,
+                    `${deletedId}-NC-${index + 1}`,
+                  ),
+                );
+              });
             }
           }
         : undefined;

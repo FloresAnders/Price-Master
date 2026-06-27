@@ -73,6 +73,10 @@ import { FondoFiltersToolbar } from "../FondoFiltersToolbar";
 import { MovementDrawer } from "../drawers/MovementDrawer";
 import { MovementNotesBlock } from "../MovementNotesBlock";
 import { handleSaveManualCreditNote as handleSaveManualCreditNoteFn } from "../../utils/fondo/manualCreditNote";
+import {
+  isManualCreditNoteDraftId,
+  type ManualCreditNoteDraft,
+} from "../../utils/fondo/manualCreditNoteDrafts";
 import { handleSubmitFondo as handleSubmitFondoFn } from "../../utils/submitFondo";
 import { useActorOwnership } from "../../../../hooks/useActorOwnership";
 import type { FondoEntry, FondoMovementType } from "../../types";
@@ -471,11 +475,9 @@ export function FondoSection({
     useState("");
   const [manualCreditNoteSaving, setManualCreditNoteSaving] = useState(false);
   const [manualCreditNoteError, setManualCreditNoteError] = useState("");
-  const [manualCreditNoteDraft, setManualCreditNoteDraft] = useState<{
-    invoiceNumber: string;
-    amount: number;
-    observation?: string;
-  } | null>(null);
+  const [manualCreditNoteDrafts, setManualCreditNoteDrafts] = useState<
+    ManualCreditNoteDraft[]
+  >([]);
   const [pendingCierreModalOpen, setPendingCierreModalOpen] = useState(false);
   const [
     pendingZeroAmountCreditNoteModalOpen,
@@ -1432,7 +1434,7 @@ export function FondoSection({
     setManager2("");
     setSelectedAppliedCreditNoteIds([]);
     setSelectedPendingCreditInvoiceIds([]);
-    setManualCreditNoteDraft(null);
+    setManualCreditNoteDrafts([]);
     setManualCreditNoteOpen(false);
     setManualCreditNoteTarget(null);
     setManualCreditNoteInvoiceNumber("");
@@ -1738,7 +1740,7 @@ export function FondoSection({
       ownerAdminEmail,
       activeOwnerId,
       user,
-      manualCreditNoteDraft,
+      manualCreditNoteDrafts,
       setSelectedProviderPendingCreditNotes,
       setSelectedAppliedCreditNoteIds,
       pendingClosingCreditInvoices,
@@ -2024,12 +2026,10 @@ export function FondoSection({
       invoiceDocType: invoiceDocType === "FCR" ? "FCR" : "FCO",
     });
     setManualCreditNoteInvoiceNumber(
-      manualCreditNoteDraft?.invoiceNumber ?? "",
+      "",
     );
-    setManualCreditNoteAmount(
-      manualCreditNoteDraft ? String(manualCreditNoteDraft.amount) : "",
-    );
-    setManualCreditNoteObservation(manualCreditNoteDraft?.observation ?? "");
+    setManualCreditNoteAmount("");
+    setManualCreditNoteObservation("");
     setManualCreditNoteError("");
     setManualCreditNoteOpen(true);
   };
@@ -2053,7 +2053,8 @@ export function FondoSection({
       manualCreditNoteObservation,
       setManualCreditNoteError,
       setManualCreditNoteSaving,
-      setManualCreditNoteDraft,
+      manualCreditNoteDrafts,
+      setManualCreditNoteDrafts,
       setSelectedAppliedCreditNoteIds,
       showToast,
       closeManualCreditNoteModal,
@@ -2354,15 +2355,15 @@ export function FondoSection({
     if (!isEgreso || editingEntryId) return [];
     const selectedIds = new Set(selectedAppliedCreditNoteIds);
     const availableNotes =
-      manualCreditNoteDraft && invoiceDocType === "FCO"
+      manualCreditNoteDrafts.length > 0 && invoiceDocType === "FCO"
         ? [
-            {
-              id: "manual-nc-draft",
-              invoiceNumber: manualCreditNoteDraft.invoiceNumber,
-              amount: manualCreditNoteDraft.amount,
-              balanceDue: manualCreditNoteDraft.amount,
+            ...manualCreditNoteDrafts.map((draft) => ({
+              id: draft.id,
+              invoiceNumber: draft.invoiceNumber,
+              amount: draft.amount,
+              balanceDue: draft.amount,
               currency: movementCurrency,
-            },
+            })),
             ...selectedProviderPendingCreditNotes,
           ]
         : selectedProviderPendingCreditNotes;
@@ -2374,7 +2375,7 @@ export function FondoSection({
     editingEntryId,
     invoiceDocType,
     isEgreso,
-    manualCreditNoteDraft,
+    manualCreditNoteDrafts,
     movementCurrency,
     selectedAppliedCreditNoteIds,
     selectedProviderPendingCreditNotes,
@@ -2383,20 +2384,20 @@ export function FondoSection({
   const movementPendingCreditNotes = useMemo(
     () =>
       invoiceDocType === "FCO"
-        ? manualCreditNoteDraft
+        ? manualCreditNoteDrafts.length > 0
           ? [
-              {
-                id: "manual-nc-draft",
-                invoiceNumber: manualCreditNoteDraft.invoiceNumber,
-                amount: manualCreditNoteDraft.amount,
-                balanceDue: manualCreditNoteDraft.amount,
+              ...manualCreditNoteDrafts.map((draft) => ({
+                id: draft.id,
+                invoiceNumber: draft.invoiceNumber,
+                amount: draft.amount,
+                balanceDue: draft.amount,
                 currency: movementCurrency,
-              },
+              })),
               ...selectedProviderPendingCreditNotes,
             ]
           : selectedProviderPendingCreditNotes
         : [],
-    [invoiceDocType, manualCreditNoteDraft, movementCurrency, selectedProviderPendingCreditNotes],
+    [invoiceDocType, manualCreditNoteDrafts, movementCurrency, selectedProviderPendingCreditNotes],
   );
 
   const selectedProviderType = selectedProvider
@@ -2429,14 +2430,24 @@ export function FondoSection({
     : undefined;
 
   useEffect(() => {
+    setManualCreditNoteDrafts([]);
+    setSelectedAppliedCreditNoteIds((prev) =>
+      prev.filter((id) => !isManualCreditNoteDraftId(id)),
+    );
+  }, [invoiceDocType, movementCurrency, selectedProvider]);
+
+  useEffect(() => {
     setSelectedAppliedCreditNoteIds((prev) =>
       prev.filter((id) =>
-        selectedProviderPendingCreditNotes.some(
-          (note) => note.id === id && note.currency === movementCurrency,
+        movementPendingCreditNotes.some(
+          (note) =>
+            note.id === id &&
+            note.currency === movementCurrency &&
+            Math.max(0, Math.trunc(Number(note.balanceDue || note.amount) || 0)) > 0,
         ),
       ),
     );
-  }, [movementCurrency, selectedProviderPendingCreditNotes]);
+  }, [movementCurrency, movementPendingCreditNotes]);
 
   const { currentBalanceCRC, currentBalanceUSD } = useMemo(() => {
     return {

@@ -118,7 +118,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     ownerAdminEmail,
     activeOwnerId,
     user,
-    manualCreditNoteDraft,
+    manualCreditNoteDrafts = [],
     setSelectedProviderPendingCreditNotes,
     setSelectedAppliedCreditNoteIds,
     pendingClosingCreditInvoices,
@@ -457,7 +457,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
       ),
     };
   };
-  const selectedCreditNotesRequestedTotal =
+  const selectedPersistedCreditNotesRequestedTotal =
     isEgreso && effectiveInvoiceDocType === "FCO"
     ? selectedProviderPendingCreditNotes.reduce((sum: number, note: any) => {
           if (!selectedAppliedCreditNoteIds.includes(note.id)) return sum;
@@ -465,6 +465,16 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
           return sum + Math.max(0, Math.trunc(note.balanceDue));
         }, 0)
       : 0;
+  const selectedManualCreditNotesRequestedTotal =
+    isEgreso && effectiveInvoiceDocType === "FCO"
+      ? manualCreditNoteDrafts.reduce((sum: number, draft: any) => {
+          if (!selectedAppliedCreditNoteIds.includes(draft.id)) return sum;
+          return sum + Math.max(0, Math.trunc(Number(draft.amount) || 0));
+        }, 0)
+      : 0;
+  const selectedCreditNotesRequestedTotal =
+    selectedPersistedCreditNotesRequestedTotal +
+    selectedManualCreditNotesRequestedTotal;
   if (
     isEgreso &&
     effectiveInvoiceDocType === "FCO" &&
@@ -478,15 +488,36 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     return;
   }
   const creditNoteApplication = buildAppliedCreditNotes(egresoValue);
-  const manualCreditNoteAppliedAmount =
-    isEgreso && effectiveInvoiceDocType === "FCO" && manualCreditNoteDraft
-      ? Math.min(
-          manualCreditNoteDraft.amount,
-          Math.max(0, egresoValue - creditNoteApplication.total),
-        )
-      : 0;
+  const manualCreditNoteApplication = (() => {
+    if (!isEgreso || effectiveInvoiceDocType !== "FCO") {
+      return { notes: [] as AppliedCreditNote[], total: 0 };
+    }
+    const selectedIds = new Set(selectedAppliedCreditNoteIds);
+    let remaining = Math.max(0, egresoValue - creditNoteApplication.total);
+    let total = 0;
+    const notes: AppliedCreditNote[] = [];
+
+    manualCreditNoteDrafts.forEach((draft: any) => {
+      if (remaining <= 0 || !selectedIds.has(draft.id)) return;
+      const amount = Math.max(0, Math.trunc(Number(draft.amount) || 0));
+      const appliedAmount = Math.min(remaining, amount);
+      if (appliedAmount <= 0) return;
+      total += appliedAmount;
+      remaining -= appliedAmount;
+      notes.push({
+        id: draft.id,
+        invoiceNumber: draft.invoiceNumber,
+        amount,
+        appliedAmount,
+        currency: movementCurrency,
+        observation: draft.observation,
+      } as AppliedCreditNote);
+    });
+
+    return { notes, total };
+  })();
   const totalCreditNotesAppliedAmount =
-    creditNoteApplication.total + manualCreditNoteAppliedAmount;
+    creditNoteApplication.total + manualCreditNoteApplication.total;
   const roundedInvoicePaymentAmount = roundCreditNotePaymentAmount(
     Math.max(0, egresoValue - totalCreditNotesAppliedAmount),
     movementCurrency,
@@ -1200,29 +1231,16 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
       const dateKey = `${yyyy}_${MM}_${DD}`; // YYYY_MM_DD (local)
       const timeKey = `${HH}_${mm}_${ss}_${mmm}`; // HH_MM_SS_mmm (local, URL-safe)
       const movementId = `${dateKey}-${timeKey}_${accountKey}`;
-      const manualCreditNoteApplied =
-        isEgreso &&
-        effectiveInvoiceDocType === "FCO" &&
-        manualCreditNoteDraft &&
-        manualCreditNoteAppliedAmount > 0
-          ? [
-              {
-                id: `manual-nc-${movementId}`,
-                invoiceNumber: manualCreditNoteDraft.invoiceNumber,
-                amount: manualCreditNoteDraft.amount,
-                appliedAmount: manualCreditNoteAppliedAmount,
-                currency: movementCurrency,
-                observation: manualCreditNoteDraft.observation,
-              } as AppliedCreditNote,
-            ]
-          : [];
       const appliedCreditNotes = [
         ...creditNoteApplication.notes,
-        ...manualCreditNoteApplied,
+        ...manualCreditNoteApplication.notes.map((note, index) => ({
+          ...note,
+          id: `manual-nc-${movementId}-${index + 1}`,
+        })),
       ];
       const totalAppliedCreditNotes =
         creditNoteApplication.total +
-        manualCreditNoteApplied.reduce(
+        manualCreditNoteApplication.notes.reduce(
           (sum, note) => sum + Math.max(0, Math.trunc(note.appliedAmount)),
           0,
         );
@@ -1360,33 +1378,41 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
           );
         }
 
-        if (normalizedCompany.length > 0 && manualCreditNoteDraft) {
+        if (
+          normalizedCompany.length > 0 &&
+          manualCreditNoteApplication.notes.length > 0
+        ) {
           try {
             if (shouldMirrorMovementToFacturas) {
-              const manualCreditNoteMovement: FacturaMovement = {
-                id: `${entry.id}-NC`,
-                empresa: normalizedCompany,
-                accountId: accountKey,
-                amount: manualCreditNoteDraft.amount,
-                amountEgreso: 0,
-                amountIngreso: manualCreditNoteDraft.amount,
-                amountPayment: manualCreditNoteDraft.amount,
-                balanceDue: 0,
-                createdAt: entry.createdAt,
-                currency: movementCurrency,
-                invoiceNumber: manualCreditNoteDraft.invoiceNumber,
-                manager,
-                manager2: manager2 || undefined,
-                notes: manualCreditNoteDraft.observation ?? "",
-                invoiceDocType: "NC",
-                paymentType,
-                providerCode: selectedProvider,
-                paidAmount: manualCreditNoteDraft.amount,
-                paymentStatus: "PAGADA",
-              };
-              await FacturasService.upsertMovement(
-                normalizedCompany,
-                manualCreditNoteMovement,
+              await Promise.all(
+                manualCreditNoteApplication.notes.map((note, index) => {
+                  const manualCreditNoteMovement: FacturaMovement = {
+                    id: `${entry.id}-NC-${index + 1}`,
+                    empresa: normalizedCompany,
+                    accountId: accountKey,
+                    amount: note.amount,
+                    amountEgreso: 0,
+                    amountIngreso: note.amount,
+                    amountPayment: note.appliedAmount,
+                    balanceDue: Math.max(0, note.amount - note.appliedAmount),
+                    createdAt: entry.createdAt,
+                    currency: movementCurrency,
+                    invoiceNumber: note.invoiceNumber,
+                    manager,
+                    manager2: manager2 || undefined,
+                    notes: note.observation ?? "",
+                    invoiceDocType: "NC",
+                    paymentType,
+                    providerCode: selectedProvider,
+                    paidAmount: note.appliedAmount,
+                    paymentStatus:
+                      note.appliedAmount >= note.amount ? "PAGADA" : "PARCIAL",
+                  };
+                  return FacturasService.upsertMovement(
+                    normalizedCompany,
+                    manualCreditNoteMovement,
+                  );
+                }),
               );
             }
           } catch (err) {
@@ -1402,6 +1428,9 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
           try {
             const batch = writeBatch(db);
             entry.appliedCreditNotes.forEach((note) => {
+              if (note.id.startsWith(`manual-nc-${entry.id}-`)) {
+                return;
+              }
               const pendingNote = selectedProviderPendingCreditNotes.find(
                 (item: any) => item.id === note.id,
               );

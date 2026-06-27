@@ -1,7 +1,7 @@
 {
-  "version": "1.8.26",
+  "version": "1.8.27",
   "versionstorage": "1.3.5",
-  "notasDeSistemas": "1.3.18",
+  "notasDeSistemas": "1.3.17",
   "releaseNotes": [
     {
       "date": "2026-06-26",
@@ -18,7 +18,7 @@
     {
       "date": "2026-06-26",
       "title": "Reportes SINPE por turno",
-      "url": "https://firebasestorage.googleapis.com/v0/b/pricemaster-4a611.firebasestorage.app/o/videos%2FREPORTESS.mp4?alt=media&token=061293c6-186c-4f33-be62-b83f48505729",
+      "url": "",
       "description": "En Reportes SINPE se agrego selector de turno. Al elegir diurno o nocturno, el sistema ajusta fecha y hora segun el horario de apertura/cierre de la empresa y las horas del encargado asignado en Control Horario. Si se cambia una fecha u hora manualmente, el rango pasa a personalizado."
     },
     {

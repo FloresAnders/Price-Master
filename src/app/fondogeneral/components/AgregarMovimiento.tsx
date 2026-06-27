@@ -722,7 +722,6 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
         )}
         {isEgreso &&
           !editingEntryId &&
-          selectedCreditNoteIds.length === 0 &&
           onAddManualCreditNote && (
             <button
               type="button"

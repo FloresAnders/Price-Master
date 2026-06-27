@@ -771,6 +771,10 @@ export const sanitizeFondoEntries = (
               amount: Math.max(0, Math.trunc(Number(note?.amount) || 0)),
               appliedAmount,
               currency: note?.currency === "USD" ? "USD" : "CRC",
+              observation:
+                typeof note?.observation === "string"
+                  ? note.observation.trim() || undefined
+                  : undefined,
             } as AppliedCreditNote;
           })
           .filter((note): note is AppliedCreditNote => Boolean(note))
