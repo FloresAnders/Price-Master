@@ -116,7 +116,7 @@ export default function ScannerModal({
         <div className="flex items-center justify-between gap-3 border-b border-[var(--input-border)] px-5 py-4">
           <div>
             <h2 className="text-lg font-semibold text-[var(--foreground)]">
-              Abrir escaner
+              Abrir escáner
             </h2>
             <p className="text-sm opacity-70">
               Escanea un código de barras para buscarlo en la empresa activa.
@@ -147,8 +147,13 @@ export default function ScannerModal({
 
           <div className="mt-4 rounded-2xl border border-[var(--input-border)] bg-[var(--background)] p-4">
             <label className="block text-sm font-medium text-[var(--foreground)]">
-              {listProductsMode ? "Agregar código manualmente" : "Buscar código manualmente"}
+              {listProductsMode ? "Agregar código a la lista" : "Buscar código manualmente"}
             </label>
+            <p className="mt-1 text-xs opacity-70">
+              {listProductsMode
+                ? "Escribe el código de barras y presiona Agregar."
+                : "Escribe el código de barras y presiona Buscar."}
+            </p>
             <div className="mt-2 flex flex-col gap-2 sm:flex-row">
               <input
                 value={manualSearchCodigo}
@@ -160,7 +165,7 @@ export default function ScannerModal({
                   }
                 }}
                 className="w-full rounded-md border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none"
-                placeholder="Escribe o pega el código"
+                placeholder="Código de barras"
               />
               <button
                 type="button"
@@ -200,23 +205,27 @@ export default function ScannerModal({
               </p>
             ) : null}
             <p className="mt-3 text-sm text-slate-300">
-              Codigo: {scanNotice.codigoProducto || scanNotice.codigo}
+              Código: {scanNotice.codigoProducto || scanNotice.codigo}
             </p>
             {scanNotice.variant === "added" ? (
-              <p className="mt-2 text-sm text-emerald-200">Codigo agregado a lista.</p>
+              <p className="mt-2 text-sm text-emerald-200">
+                Código agregado a la lista. Escanea otro código o cierra el escáner.
+              </p>
             ) : null}
             {scanNotice.variant === "duplicate" ? (
-              <p className="mt-2 text-sm text-amber-200">Codigo ya fue escaneado.</p>
+              <p className="mt-2 text-sm text-amber-200">
+                Este código ya fue escaneado. Escanea otro código.
+              </p>
             ) : null}
             {scanNotice.codigoBarras ? (
               <p className="mt-1 text-sm text-slate-300">
-                Codigo de barras: {scanNotice.codigoBarras}
+                Código de barras: {scanNotice.codigoBarras}
               </p>
             ) : null}
             {inventoryMode && scanNotice.variant === "found" ? (
               <div className="mt-5">
                 <label className="block text-sm font-medium text-slate-100">
-                  Inventario
+                  Cantidad en inventario
                 </label>
                 <input
                   value={inventoryCount}
@@ -263,6 +272,9 @@ export default function ScannerModal({
               Guardar en pendientes
             </h3>
             <p className="mt-2 text-sm opacity-70">{pendingCodigo}</p>
+            <p className="mt-2 text-sm opacity-70">
+              No encontramos este código. Escribe el nombre para guardarlo como pendiente.
+            </p>
 
             <label className="mt-4 block text-sm font-medium text-[var(--foreground)]">
               Nombre del producto
@@ -277,7 +289,7 @@ export default function ScannerModal({
                 }
               }}
               className="mt-2 w-full rounded-md border border-[var(--input-border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none"
-              placeholder="Escribe el nombre para guardarlo"
+              placeholder="Nombre para identificar el producto"
             />
 
             {pendingError ? (
@@ -316,6 +328,9 @@ export default function ScannerModal({
             <h3 className="text-lg font-semibold text-[var(--foreground)]">
               Agregar código manualmente
             </h3>
+            <p className="mt-2 text-sm opacity-70">
+              Completa el código de barras y el nombre para guardarlo como pendiente.
+            </p>
 
             <label className="mt-4 block text-sm font-medium text-[var(--foreground)]">
               Código de barras
@@ -330,7 +345,7 @@ export default function ScannerModal({
                 }
               }}
               className="mt-2 w-full rounded-md border border-[var(--input-border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none"
-              placeholder="Escribe o pega el código"
+              placeholder="Código de barras"
             />
 
             <label className="mt-4 block text-sm font-medium text-[var(--foreground)]">
@@ -346,7 +361,7 @@ export default function ScannerModal({
                 }
               }}
               className="mt-2 w-full rounded-md border border-[var(--input-border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none"
-              placeholder="Escribe el nombre"
+              placeholder="Nombre para identificar el producto"
             />
 
             {manualPendingError ? (

@@ -84,10 +84,10 @@ export default function CameraScanner({
           >
             <RefreshIcon className="w-6 h-6 animate-spin" />
           </span>
-          <span>{cameraActive ? "Detener Cámara" : "Iniciar Cámara"}</span>
+          <span>{cameraActive ? "Detener cámara" : "Iniciar cámara"}</span>
         </button>
         <p className="text-xs text-indigo-500 dark:text-indigo-300 font-semibold tracking-wide">
-          Escaneo en vivo usando la cámara
+          Apunta la cámara al código de barras. Cuando lo detecte, revisa el resultado abajo.
         </p>
       </div>
 
@@ -127,7 +127,7 @@ export default function CameraScanner({
                 <div className="flex items-center justify-center gap-3 mb-2">
                   <CheckIcon className="w-7 h-7 text-green-300 drop-shadow" />
                   <span className="text-lg font-bold text-white drop-shadow">
-                    ¡Código detectado y copiado!
+                    Código detectado y copiado.
                   </span>
                 </div>
                 <div
@@ -183,6 +183,9 @@ export default function CameraScanner({
                     Método: {detectionMethod}
                   </span>
                 ) : null}
+                <p className="mt-2 text-xs font-semibold text-white/85">
+                  Revisa el producto o presiona Escanear otro código.
+                </p>
               </div>
             </div>
           </div>
@@ -197,7 +200,7 @@ export default function CameraScanner({
             className="px-7 py-3 text-base rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400 transition-colors duration-300 bg-gradient-to-r from-zinc-200 to-red-200 dark:from-zinc-800 dark:to-red-900 text-zinc-800 dark:text-zinc-100 hover:bg-red-500 hover:text-white font-bold shadow-lg"
           >
             <TrashIcon className="w-5 h-5 inline-block mr-2" />
-            Limpiar Todo
+            Escanear otro código
           </button>
         </div>
       ) : null}
@@ -207,6 +210,9 @@ export default function CameraScanner({
         <div className="text-center text-red-700 dark:text-red-300 bg-gradient-to-r from-red-100 to-red-200 dark:from-red-900 dark:to-red-950 p-6 rounded-2xl flex flex-col items-center gap-3 border-2 border-red-200 dark:border-red-800 shadow-xl">
           <AlertIcon className="w-7 h-7" />
           <p className="text-base font-bold">{error}</p>
+          <p className="text-sm font-medium">
+            Corrige el problema y presiona Intentar de nuevo.
+          </p>
           <button
             onClick={handleClear}
             className="mt-2 text-sm bg-red-200 dark:bg-red-800 hover:bg-red-300 dark:hover:bg-red-700 px-4 py-2 rounded-xl transition-colors duration-300 font-bold shadow"

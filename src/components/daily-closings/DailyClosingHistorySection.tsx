@@ -51,6 +51,30 @@ export default function DailyClosingHistorySection({
   setExpandedClosings,
 }: DailyClosingHistorySectionProps) {
   const list = dailyClosings || [];
+  const reconciliationStatusLabel = (status: string | undefined) => {
+    switch (status) {
+      case "MATCHED":
+        return "Todo cuadra";
+      case "TEMPORARY_PENDING":
+        return "Pendiente para próximo turno";
+      case "PARTIALLY_RESOLVED":
+        return "Compensado parcialmente";
+      case "RESOLVED":
+        return "Compensado completo";
+      case "REAL_DIFFERENCE":
+        return "Diferencia real";
+      case "DAILY_UNRESOLVED":
+        return "Día no cuadra";
+      default:
+        return "Revisión pendiente";
+    }
+  };
+  const reconciliationDiffLabel = (value: number) => {
+    if (value === 0) return "Cuadra";
+    return value > 0
+      ? `Sobra ${formatByCurrency("CRC", Math.abs(value))}`
+      : `Falta ${formatByCurrency("CRC", Math.abs(value))}`;
+  };
 
   return (
     <>
@@ -227,12 +251,28 @@ export default function DailyClosingHistorySection({
 
                   {record.reconciliation && (
                     <div className="mt-3 rounded border border-sky-700/20 bg-sky-950/10 p-3 text-xs text-[var(--muted-foreground)]">
-                      <div className="mb-1 font-semibold text-[var(--foreground)]">Verificación Contica / Tucán / Tiempos · {record.reconciliation.tiemposStatus}</div>
-                      <div className="grid gap-1 sm:grid-cols-2">
-                        <span>R08 / Tucán: {record.reconciliation.contica.r08} / {record.reconciliation.calculated.tucanForShift} · {record.reconciliation.calculated.tucanDifference}</span>
-                        <span>T11 / Tiempos: {record.reconciliation.contica.t11} / {record.reconciliation.calculated.tiemposForShift} · real {record.reconciliation.calculated.tiemposRealShiftDifference}</span>
-                        <span>Bruta: {record.reconciliation.calculated.tiemposRawDifference} · compensado: {record.reconciliation.calculated.compensatedTiemposAmount}</span>
-                        <span>Pendiente: {record.reconciliation.calculated.tiemposPendingAfterClosing} · día: {record.reconciliation.calculated.cumulativeTiemposDifference}</span>
+                      <div className="mb-2 font-semibold text-[var(--foreground)]">
+                        Verificación Contica / Tucán / Tiempos · {reconciliationStatusLabel(record.reconciliation.tiemposStatus)}
+                      </div>
+                      <div className="grid gap-1.5 sm:grid-cols-2">
+                        <span>
+                          Tucán vendido en el turno: {formatByCurrency("CRC", record.reconciliation.calculated.tucanForShift)}
+                        </span>
+                        <span>
+                          Diferencia con R08: {reconciliationDiffLabel(record.reconciliation.calculated.tucanDifference)}
+                        </span>
+                        <span>
+                          Tiempos vendido en el turno: {formatByCurrency("CRC", record.reconciliation.calculated.tiemposForShift)}
+                        </span>
+                        <span>
+                          Diferencia antes de ajustes: {reconciliationDiffLabel(record.reconciliation.calculated.tiemposRawDifference)}
+                        </span>
+                        <span>
+                          Pendiente usado para compensar: {formatByCurrency("CRC", record.reconciliation.calculated.compensatedTiemposAmount)}
+                        </span>
+                        <span>
+                          Pendiente para próximo turno: {reconciliationDiffLabel(record.reconciliation.calculated.tiemposPendingAfterClosing)}
+                        </span>
                       </div>
                     </div>
                   )}

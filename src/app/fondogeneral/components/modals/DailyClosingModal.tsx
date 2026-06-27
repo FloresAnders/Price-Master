@@ -161,7 +161,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     () =>
       new Intl.NumberFormat("es-CR", {
         minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
+        maximumFractionDigits: 2,
       }),
     [],
   );
@@ -169,7 +169,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     () =>
       new Intl.NumberFormat("en-US", {
         minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
+        maximumFractionDigits: 2,
       }),
     [],
   );
@@ -185,9 +185,40 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const formatCurrency = useCallback(
     (currency: "CRC" | "USD", value: number) =>
       currency === "USD"
-        ? `$ ${usdFormatter.format(Math.trunc(value))}`
-        : `₡ ${crcFormatter.format(Math.trunc(value))}`,
+        ? `$ ${usdFormatter.format(value)}`
+        : `₡ ${crcFormatter.format(value)}`,
     [usdFormatter, crcFormatter],
+  );
+
+  const normalizeMoneyInput = useCallback((raw: string) => {
+    if (!raw) return "";
+
+    const stripped = raw.replace(/\s/g, "").replace(/[^\d.,]/g, "");
+    const decimalIndex = Math.max(stripped.lastIndexOf(","), stripped.lastIndexOf("."));
+
+    if (decimalIndex === -1) {
+      return stripped;
+    }
+
+    const integerPart = stripped.slice(0, decimalIndex).replace(/[.,]/g, "");
+    const fractionPart = stripped.slice(decimalIndex + 1).replace(/[.,]/g, "");
+
+    return fractionPart.length > 0 ? `${integerPart}.${fractionPart}` : `${integerPart}.`;
+  }, []);
+
+  const formatMoneyInput = useCallback(
+    (value: string) => {
+      if (!value) return "";
+      const normalized = normalizeMoneyInput(value);
+      if (normalized.endsWith(".")) {
+        const integerValue = Number.parseFloat(normalized.slice(0, -1) || "0") || 0;
+        return `${crcFormatter.format(integerValue)},`;
+      }
+
+      const numericValue = Number.parseFloat(normalized);
+      return Number.isFinite(numericValue) ? crcFormatter.format(numericValue) : "";
+    },
+    [crcFormatter, normalizeMoneyInput],
   );
 
   const normalizeCount = useCallback((raw: string) => {
@@ -213,15 +244,15 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     [usdCounts, normalizeCount],
   );
 
-  const diffCRC = totalCRC - Math.trunc(currentBalanceCRC);
-  const diffUSD = totalUSD - Math.trunc(currentBalanceUSD);
+  const diffCRC = totalCRC - currentBalanceCRC;
+  const diffUSD = totalUSD - currentBalanceUSD;
   const hasAnyCash = totalCRC > 0 || totalUSD > 0;
   const submitDisabled =
     displayedManager.trim().length === 0 ||
     !hasAnyCash ||
     (requireSingleClosingReason && singleClosingReason.trim().length === 0);
   const hasDifferences = diffCRC !== 0 || diffUSD !== 0;
-  const parseAmount = (value: string) => Number.parseInt(value || "0", 10) || 0;
+  const parseAmount = (value: string) => Number.parseFloat(normalizeMoneyInput(value) || "0") || 0;
   const r08Num = parseAmount(r08);
   const t11Num = parseAmount(t11);
   const tucanNum = parseAmount(tucanCumulative);
@@ -232,6 +263,41 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const reconciliationPreview = useMemo(() => {
     try { return reconcileClosing({ r08: r08Num, t11: t11Num, tucanCumulative: tucanNum, tiemposCumulative: tiemposNum, previous: previousReconciliation, cumulativeR08: (cumulativeContica?.r08 || 0) + r08Num, cumulativeT11: (cumulativeContica?.t11 || 0) + t11Num, isFinalShift: turno === "N" }); } catch { return null; }
   }, [r08Num, t11Num, tucanNum, tiemposNum, previousReconciliation, cumulativeContica, turno]);
+
+  const formatCRCAmount = useCallback(
+    (value: number) => formatCurrency("CRC", Math.abs(value)),
+    [formatCurrency],
+  );
+
+  const formatReconciliationDifference = useCallback(
+    (value: number) => {
+      if (value === 0) return "Cuadra";
+      return value > 0
+        ? `Sobra ${formatCRCAmount(value)}`
+        : `Falta ${formatCRCAmount(value)}`;
+    },
+    [formatCRCAmount],
+  );
+
+  const reconciliationStatusLabel = useMemo(() => {
+    if (!reconciliationPreview) return "";
+    switch (reconciliationPreview.tiemposStatus) {
+      case "MATCHED":
+        return "Todo cuadra";
+      case "TEMPORARY_PENDING":
+        return "Queda diferencia para revisar en el siguiente turno";
+      case "PARTIALLY_RESOLVED":
+        return "Se ajustó parte de una diferencia anterior";
+      case "RESOLVED":
+        return "Diferencia anterior resuelta";
+      case "REAL_DIFFERENCE":
+        return "Hay una diferencia real en este turno";
+      case "DAILY_UNRESOLVED":
+        return "El cierre del día queda con diferencia";
+      default:
+        return "Revisión pendiente";
+    }
+  }, [reconciliationPreview]);
 
   const submitDisabledReason = useMemo(() => {
     if (displayedManager.trim().length === 0) {
@@ -563,23 +629,6 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
               </kbd>{" "}
               para sumar/restar
             </div>
-            <section className="rounded-lg border border-[var(--input-border)] p-4">
-              <h4 className="mb-3 text-sm font-semibold">Verificacion Contica / Tucán / Tiempos</h4>
-              <div className="space-y-3">
-                <div className="hidden grid-cols-3 gap-3 text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)] md:grid"><span>Contica</span><span>Reporte acumulado</span><span>Diferencia turno</span></div>
-                {[
-                  ["R08", r08, setR08, "Tucán", tucanCumulative, setTucanCumulative, conticaTucanDiff],
-                  ["T11", t11, setT11, "Tiempos", tiemposCumulative, setTiemposCumulative, conticaTiemposDiff],
-                ].map(([conticaLabel, conticaValue, setContica, externalLabel, externalValue, setExternal, difference]) => (
-                  <div key={conticaLabel as string} className="grid gap-3 md:grid-cols-3">
-                    <label className="text-xs text-[var(--muted-foreground)]"><span className="md:hidden">Contica · </span>{conticaLabel as string}<input value={conticaValue as string} onChange={(event) => (setContica as React.Dispatch<React.SetStateAction<string>>)(event.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" className="mt-1 h-10 w-full rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)]" /></label>
-                    <label className="text-xs text-[var(--muted-foreground)]"><span className="md:hidden">Acumulado · </span>{externalLabel as string}<input value={externalValue as string} onChange={(event) => (setExternal as React.Dispatch<React.SetStateAction<string>>)(event.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" className="mt-1 h-10 w-full rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)]" /></label>
-                    <label className="text-xs text-[var(--muted-foreground)]"><span className="md:hidden">Diferencia · </span>Diferencia<input value={(() => { const amount = difference as number; return amount > 0 ? `+${crcFormatter.format(amount)}` : crcFormatter.format(amount); })()} readOnly aria-label={`Diferencia ${conticaLabel as string}`} className="mt-1 h-10 w-full cursor-default rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm font-semibold text-[var(--foreground)]" /></label>
-                  </div>
-                ))}
-              </div>
-              {reconciliationPreview && <div className="mt-3 grid gap-1 text-xs text-[var(--muted-foreground)] md:grid-cols-2"><span>Tucán turno: {reconciliationPreview.calculated.tucanForShift} · Dif: {reconciliationPreview.calculated.tucanDifference}</span><span>Tiempos turno: {reconciliationPreview.calculated.tiemposForShift} · Bruta: {reconciliationPreview.calculated.tiemposRawDifference}</span><span>Compensado: {reconciliationPreview.calculated.compensatedTiemposAmount} · Real: {reconciliationPreview.calculated.tiemposRealShiftDifference}</span><span>Pendiente: {reconciliationPreview.calculated.tiemposPendingAfterClosing} · {reconciliationPreview.tiemposStatus}</span></div>}
-            </section>
             <div className="grid gap-4 grid-cols-2 md:grid-cols-2">
               <section>
                 <h4 className="text-sm font-semibold text-[var(--foreground)] mb-3">
@@ -728,6 +777,54 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                 </div>
               </section>
             </div>
+            <section className="rounded-lg border border-[var(--input-border)] p-4">
+              <h4 className="mb-3 text-sm font-semibold">Verificacion Contica / Tucán / Tiempos</h4>
+              <div className="space-y-3">
+                <div className="hidden grid-cols-3 gap-3 text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)] md:grid"><span>Contica</span><span>Reporte acumulado</span><span>Diferencia turno</span></div>
+                {[
+                  ["R08", r08, setR08, "Tucán", tucanCumulative, setTucanCumulative, conticaTucanDiff],
+                  ["T11", t11, setT11, "Tiempos", tiemposCumulative, setTiemposCumulative, conticaTiemposDiff],
+                ].map(([conticaLabel, conticaValue, setContica, externalLabel, externalValue, setExternal, difference]) => (
+                  <div key={conticaLabel as string} className="grid gap-3 md:grid-cols-3">
+                    <label className="text-xs text-[var(--muted-foreground)]"><span className="md:hidden">Contica · </span>{conticaLabel as string}<input value={formatMoneyInput(conticaValue as string)} onChange={(event) => (setContica as React.Dispatch<React.SetStateAction<string>>)(normalizeMoneyInput(event.target.value))} inputMode="decimal" className="mt-1 h-10 w-full rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)]" /></label>
+                    <label className="text-xs text-[var(--muted-foreground)]"><span className="md:hidden">Acumulado · </span>{externalLabel as string}<input value={formatMoneyInput(externalValue as string)} onChange={(event) => (setExternal as React.Dispatch<React.SetStateAction<string>>)(normalizeMoneyInput(event.target.value))} inputMode="decimal" className="mt-1 h-10 w-full rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)]" /></label>
+                    <label className="text-xs text-[var(--muted-foreground)]"><span className="md:hidden">Diferencia · </span>Diferencia<input value={(() => { const amount = difference as number; return amount > 0 ? `+${crcFormatter.format(amount)}` : crcFormatter.format(amount); })()} readOnly aria-label={`Diferencia ${conticaLabel as string}`} className="mt-1 h-10 w-full cursor-default rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm font-semibold text-[var(--foreground)]" /></label>
+                  </div>
+                ))}
+              </div>              {reconciliationPreview && (
+                <div className="mt-4 rounded-lg border border-[var(--input-border)] bg-[var(--background)] p-3">
+                  <div className="mb-2 text-sm font-semibold text-[var(--foreground)]">
+                    Resultado de la verificación: {reconciliationStatusLabel}
+                  </div>
+                  <div className="grid gap-2 text-xs text-[var(--muted-foreground)] md:grid-cols-2">
+                    <div>
+                      <span className="font-semibold text-[var(--foreground)]">Tucán vendido en este turno:</span>{" "}
+                      {formatCRCAmount(reconciliationPreview.calculated.tucanForShift)}
+                    </div>
+                    <div>
+                      <span className="font-semibold text-[var(--foreground)]">Diferencia con R08:</span>{" "}
+                      {formatReconciliationDifference(reconciliationPreview.calculated.tucanDifference)}
+                    </div>
+                    <div>
+                      <span className="font-semibold text-[var(--foreground)]">Tiempos vendido en este turno:</span>{" "}
+                      {formatCRCAmount(reconciliationPreview.calculated.tiemposForShift)}
+                    </div>
+                    <div>
+                      <span className="font-semibold text-[var(--foreground)]">Diferencia antes de ajustes:</span>{" "}
+                      {formatReconciliationDifference(reconciliationPreview.calculated.tiemposRawDifference)}
+                    </div>
+                    <div>
+                      <span className="font-semibold text-[var(--foreground)]">Pendiente usado para compensar:</span>{" "}
+                      {formatCRCAmount(reconciliationPreview.calculated.compensatedTiemposAmount)}
+                    </div>
+                    <div>
+                      <span className="font-semibold text-[var(--foreground)]">Pendiente para próximo turno:</span>{" "}
+                      {formatReconciliationDifference(reconciliationPreview.calculated.tiemposPendingAfterClosing)}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </section>
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">

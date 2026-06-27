@@ -28,7 +28,7 @@ export type ReconciliationInput = {
   isFinalShift: boolean;
 };
 
-const money = (value: number) => Math.trunc(Number.isFinite(value) ? value : 0);
+const money = (value: number) => (Number.isFinite(value) ? value : 0);
 const matched = (value: number) => Math.abs(value) <= RECONCILIATION_TOLERANCE;
 
 export function reconcileClosing(input: ReconciliationInput): ClosingReconciliation {

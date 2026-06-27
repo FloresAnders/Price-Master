@@ -1078,21 +1078,31 @@ export default function VerificarInventarioPage() {
         onOpenDeleteModal={() => setIsDeleteOpen(true)}
         onUploadXlsx={handleUploadXlsx}
         disableUpload={saving || !state.selectedEmpresaId}
-        disableScanner={false}
-        hideManagementControls={listProductsMode}
+        disableScanner={!state.selectedEmpresaId}
+        hideManagementControls={listProductsMode && Boolean(state.selectedEmpresaId)}
       />
 
       {!listProductsMode ? (
-        <div className="rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--card-bg)] p-6 text-[var(--foreground)]">
-          <p className="text-center text-sm opacity-70">
-            Codigos cargados: {selectedEmpresaRelacionesCount}
-          </p>
-          <p className="mt-2 text-center text-sm opacity-70">
-            Inventario guardado: {selectedEmpresaInventarios.length}
-          </p>
-          <p className="mt-2 text-center text-sm opacity-70">
-            Lista productos: {selectedEmpresaListados.length}
-          </p>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            ["Códigos XLSX", selectedEmpresaRelacionesCount, "Base para verificar escaneos."],
+            ["Inventario", selectedEmpresaInventarios.length, "Conteos guardados."],
+            ["Listados", selectedEmpresaListados.length, "Productos agregados a lista."],
+            ["Pendientes", selectedEmpresaPendientes.length, "No existen en el XLSX."],
+          ].map(([label, value, helper]) => (
+            <div
+              key={label as string}
+              className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-4 text-[var(--foreground)] shadow-sm"
+            >
+              <div className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                {label}
+              </div>
+              <div className="mt-2 text-2xl font-bold">{value}</div>
+              <div className="mt-1 text-xs text-[var(--muted-foreground)]">
+                {helper}
+              </div>
+            </div>
+          ))}
         </div>
       ) : null}
 
@@ -1102,7 +1112,9 @@ export default function VerificarInventarioPage() {
           <div>
             <h2 className="text-base font-semibold">Inventario</h2>
             <p className="text-sm opacity-70">
-              {inventoryMode ? "Modo inventariar activo." : "Activa Inventariar para guardar conteos."}
+              {inventoryMode
+                ? `Escanea productos de ${selectedEmpresa?.nombre ?? "la empresa"} y guarda cantidades.`
+                : "Activa Inventariar para guardar conteos."}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -1132,9 +1144,9 @@ export default function VerificarInventarioPage() {
                 className="rounded-md border border-[var(--input-border)] bg-[var(--background)] p-3"
               >
                 <div className="text-sm font-semibold">{item.descripcion}</div>
-                <div className="text-xs opacity-75">Codigo: {item.codigo}</div>
+                <div className="text-xs opacity-75">Código: {item.codigo}</div>
                 <div className="text-xs opacity-75">
-                  Codigo de barras: {item.codigoBarras}
+                  Código de barras: {item.codigoBarras}
                 </div>
                 <div className="mt-2 text-sm font-semibold">
                   Inventario: {item.inventario}
@@ -1159,7 +1171,7 @@ export default function VerificarInventarioPage() {
             <div>
               <h2 className="text-base font-semibold">Listar productos</h2>
               <p className="text-sm opacity-70">
-                Escanea y exporta: codigo, codigo, codigo.
+                Escanea productos y exporta una lista separada por comas.
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -1186,7 +1198,7 @@ export default function VerificarInventarioPage() {
               {listedProductsExportText}
             </div>
           ) : (
-            <p className="text-sm opacity-70">No hay codigos listados.</p>
+            <p className="text-sm opacity-70">No hay códigos listados.</p>
           )}
           {listStatus ? (
             <p className="mt-4 text-xs text-emerald-600">{listStatus}</p>
@@ -1199,7 +1211,7 @@ export default function VerificarInventarioPage() {
           <div>
             <h2 className="text-base font-semibold">Pendientes</h2>
             <p className="text-sm opacity-70">
-              Códigos sin cargadar para {selectedEmpresa?.nombre ?? "la empresa seleccionada"}.
+              Productos escaneados que no existen en el XLSX cargado de {selectedEmpresa?.nombre ?? "la empresa seleccionada"}.
             </p>
           </div>
           <div className="flex items-center gap-2">
