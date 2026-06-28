@@ -11,6 +11,8 @@ export type FuncionListItem = {
   descripcion?: string;
   reminderTimeCr?: string;
   reminderTimesCr?: string[];
+  blockOnReminder?: boolean;
+  blockSeconds?: number;
   createdAt?: string;
   audience?: "DELIKOR" | "DELIFOOD";
   empresaIds?: string[];

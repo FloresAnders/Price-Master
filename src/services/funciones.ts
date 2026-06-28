@@ -18,6 +18,8 @@ export type FuncionGeneralDoc = {
   // Optional reminder time in Costa Rica local time (HH:mm)
   reminderTimeCr?: string;
   reminderTimesCr?: string[];
+  blockOnReminder?: boolean;
+  blockSeconds?: number;
   createdAt: string; // ISO
   updatedAt?: string; // ISO
 };
@@ -287,6 +289,8 @@ export class FuncionesService {
     descripcion?: string;
     reminderTimeCr?: string;
     reminderTimesCr?: string[];
+    blockOnReminder?: boolean;
+    blockSeconds?: number;
     audience?: FuncionAudience;
     empresaIds?: string[];
     createdAt?: string;
@@ -310,6 +314,12 @@ export class FuncionesService {
           .filter(Boolean),
       ),
     );
+    const blockSeconds =
+      params.blockOnReminder &&
+      Number.isSafeInteger(params.blockSeconds) &&
+      Number(params.blockSeconds) > 0
+        ? Number(params.blockSeconds)
+        : undefined;
 
     const doc: FuncionGeneralDoc = {
       type: "general",
@@ -319,6 +329,8 @@ export class FuncionesService {
       descripcion: params.descripcion ? String(params.descripcion).trim() : "",
       reminderTimeCr: reminderTimesCr[0],
       reminderTimesCr: reminderTimesCr.length > 0 ? reminderTimesCr : undefined,
+      blockOnReminder: blockSeconds ? true : undefined,
+      blockSeconds,
       audience,
       empresaIds: empresaIds.length > 0 ? empresaIds : undefined,
       createdAt,

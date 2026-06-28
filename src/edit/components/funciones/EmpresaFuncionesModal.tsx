@@ -29,6 +29,7 @@ import {
 import type { FuncionListItem } from "./RecetasListItems";
 import {
   normalizeReminderTimesCr,
+  validateBlockSeconds,
   validateReminderTimesCr,
 } from "@/components/funciones/reminderTimes";
 
@@ -263,6 +264,11 @@ export default function EmpresaFuncionesModal({
               descripcion: String(d.descripcion || ""),
               reminderTimeCr: reminderTimesCr[0] || "",
               reminderTimesCr,
+              blockOnReminder: (d as any).blockOnReminder === true,
+              blockSeconds:
+                typeof (d as any).blockSeconds === "number"
+                  ? (d as any).blockSeconds
+                  : undefined,
               createdAt: String(d.createdAt || ""),
               audience,
               empresaIds,
@@ -300,6 +306,9 @@ export default function EmpresaFuncionesModal({
   const [createReminderTimesCr, setCreateReminderTimesCr] = React.useState<
     string[]
   >([""]);
+  const [createBlockOnReminder, setCreateBlockOnReminder] =
+    React.useState(false);
+  const [createBlockSeconds, setCreateBlockSeconds] = React.useState("30");
   const [createLoading, setCreateLoading] = React.useState(false);
 
   const [localExtras, setLocalExtras] = React.useState<FuncionListItem[]>([]);
@@ -514,6 +523,14 @@ export default function EmpresaFuncionesModal({
       showToast(reminderValidation.error, "error");
       return;
     }
+    const blockValidation = validateBlockSeconds(
+      createHasReminder && createBlockOnReminder,
+      createBlockSeconds,
+    );
+    if (blockValidation.error) {
+      showToast(blockValidation.error, "error");
+      return;
+    }
 
     if (!ownerId) {
       showToast("ownerId requerido.", "error");
@@ -545,6 +562,8 @@ export default function EmpresaFuncionesModal({
           descripcion,
           reminderTimeCr: reminderValidation.times[0],
           reminderTimesCr: reminderValidation.times,
+          blockOnReminder: blockValidation.blockOnReminder,
+          blockSeconds: blockValidation.blockSeconds,
           audience,
           empresaIds,
           createdAt: new Date().toISOString(),
@@ -558,6 +577,8 @@ export default function EmpresaFuncionesModal({
           descripcion: String(saved.descripcion || ""),
           reminderTimeCr: normalizeReminderTimesCr(saved as any)[0] || "",
           reminderTimesCr: normalizeReminderTimesCr(saved as any),
+          blockOnReminder: saved.blockOnReminder === true,
+          blockSeconds: saved.blockSeconds,
           createdAt: String(saved.createdAt || ""),
           audience:
             String(saved.audience || "").toUpperCase() === "DELIFOOD"
@@ -586,6 +607,8 @@ export default function EmpresaFuncionesModal({
         setCreateDescripcion("");
         setCreateHasReminder(false);
         setCreateReminderTimesCr([""]);
+        setCreateBlockOnReminder(false);
+        setCreateBlockSeconds("30");
         setCreateOpen(false);
         showToast("Función creada para esta empresa.", "success");
       } catch (err) {
@@ -601,6 +624,8 @@ export default function EmpresaFuncionesModal({
   }, [
     assignedIds,
     createDescripcion,
+    createBlockOnReminder,
+    createBlockSeconds,
     createHasReminder,
     createNombre,
     createReminderTimesCr,
@@ -726,7 +751,10 @@ export default function EmpresaFuncionesModal({
                     onChange={(e) => {
                       const next = e.target.checked;
                       setCreateHasReminder(next);
-                      if (!next) setCreateReminderTimesCr([""]);
+                      if (!next) {
+                        setCreateReminderTimesCr([""]);
+                        setCreateBlockOnReminder(false);
+                      }
                     }}
                     disabled={createLoading}
                   />
@@ -780,6 +808,36 @@ export default function EmpresaFuncionesModal({
                     >
                       Agregar otro
                     </button>
+                    <label className="flex items-center gap-2 text-sm text-[var(--foreground)] select-none">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4"
+                        checked={createBlockOnReminder}
+                        onChange={(e) =>
+                          setCreateBlockOnReminder(e.target.checked)
+                        }
+                        disabled={createLoading}
+                      />
+                      bloquear
+                    </label>
+                    {createBlockOnReminder ? (
+                      <div>
+                        <label className="block text-xs text-[var(--muted-foreground)]">
+                          Segundos
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          step={1}
+                          className="w-full p-2.5 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                          value={createBlockSeconds}
+                          onChange={(e) =>
+                            setCreateBlockSeconds(e.target.value)
+                          }
+                          disabled={createLoading}
+                        />
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
 

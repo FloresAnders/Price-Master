@@ -22,6 +22,8 @@ type EmpresaFuncionesResolved = {
     descripcion?: string;
     reminderTimeCr?: string;
     reminderTimesCr?: string[];
+    blockOnReminder?: boolean;
+    blockSeconds?: number;
   }>;
 };
 
@@ -143,6 +145,8 @@ export function FuncionesTab() {
                 descripcion?: string;
                 reminderTimeCr?: string;
                 reminderTimesCr?: string[];
+                blockOnReminder?: boolean;
+                blockSeconds?: number;
               }
             >();
             for (const d of visibleGeneralDocs as any[]) {
@@ -159,6 +163,11 @@ export function FuncionesTab() {
                   : "",
                 reminderTimeCr: reminderTimesCr[0] || "",
                 reminderTimesCr,
+                blockOnReminder: (d as any).blockOnReminder === true,
+                blockSeconds:
+                  typeof (d as any).blockSeconds === "number"
+                    ? (d as any).blockSeconds
+                    : undefined,
               };
 
               for (const key of getFuncionIdLookupKeys(funcionId)) {
@@ -193,6 +202,8 @@ export function FuncionesTab() {
                       String(g.descripcion || "").trim() || undefined,
                     reminderTimeCr: g.reminderTimeCr || undefined,
                     reminderTimesCr: g.reminderTimesCr,
+                    blockOnReminder: g.blockOnReminder,
+                    blockSeconds: g.blockSeconds,
                   };
                 })
                 .filter(Boolean)
@@ -207,6 +218,8 @@ export function FuncionesTab() {
                 descripcion?: string;
                 reminderTimeCr?: string;
                 reminderTimesCr?: string[];
+                blockOnReminder?: boolean;
+                blockSeconds?: number;
               }>;
 
             return {

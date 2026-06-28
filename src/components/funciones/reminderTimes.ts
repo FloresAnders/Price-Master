@@ -38,3 +38,30 @@ export function validateReminderTimesCr(
 
   return { times };
 }
+
+export function validateBlockSeconds(
+  blockOnReminder: boolean,
+  rawSeconds: unknown,
+): { blockOnReminder: boolean; blockSeconds?: number; error?: string } {
+  if (!blockOnReminder) {
+    return { blockOnReminder: false, blockSeconds: undefined };
+  }
+
+  const value = String(rawSeconds ?? "").trim();
+  if (!/^\d+$/.test(value)) {
+    return {
+      blockOnReminder: true,
+      error: "Segundos de bloqueo inválidos.",
+    };
+  }
+
+  const seconds = Number.parseInt(value, 10);
+  if (!Number.isSafeInteger(seconds) || seconds <= 0) {
+    return {
+      blockOnReminder: true,
+      error: "Segundos de bloqueo inválidos.",
+    };
+  }
+
+  return { blockOnReminder: true, blockSeconds: seconds };
+}

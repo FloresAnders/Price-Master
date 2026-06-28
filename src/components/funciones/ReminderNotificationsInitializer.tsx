@@ -23,6 +23,8 @@ type ReminderItem = {
   funcionNombre: string;
   funcionDescripcion?: string;
   reminderTimeCr: string; // HH:mm
+  blockOnReminder?: boolean;
+  blockSeconds?: number;
 };
 
 const STORAGE_KEY = "funciones_reminders_fired";
@@ -69,6 +71,7 @@ export default function ReminderNotificationsInitializer() {
   );
   const [queue, setQueue] = React.useState<ReminderItem[]>([]);
   const [active, setActive] = React.useState<ReminderItem | null>(null);
+  const [blockRemaining, setBlockRemaining] = React.useState(0);
 
   const firedRef = React.useRef<{ dateKey: string; set: Set<string> }>({
     dateKey: "",
@@ -210,6 +213,8 @@ export default function ReminderNotificationsInitializer() {
               descripcion?: string;
               reminderTimeCr?: string;
               reminderTimesCr?: string[];
+              blockOnReminder?: boolean;
+              blockSeconds?: number;
             }
           >();
           for (const d of visibleGeneralDocs as any[]) {
@@ -225,6 +230,11 @@ export default function ReminderNotificationsInitializer() {
                 : "",
               reminderTimeCr: normalizeReminderTimesCr(d as any)[0] || "",
               reminderTimesCr: normalizeReminderTimesCr(d as any),
+              blockOnReminder: (d as any).blockOnReminder === true,
+              blockSeconds:
+                typeof (d as any).blockSeconds === "number"
+                  ? (d as any).blockSeconds
+                  : undefined,
             };
 
             for (const key of getFuncionIdLookupKeys(funcionId)) {
@@ -255,6 +265,8 @@ export default function ReminderNotificationsInitializer() {
                   String(g?.descripcion || "").trim() ||
                   (g ? undefined : `ID: ${funcionId}`),
                 reminderTimeCr,
+                blockOnReminder: g?.blockOnReminder,
+                blockSeconds: g?.blockSeconds,
               });
             }
           }
@@ -368,8 +380,31 @@ export default function ReminderNotificationsInitializer() {
     setQueue((prev) => prev.slice(1));
   }, [active, queue]);
 
+  React.useEffect(() => {
+    if (!active) {
+      setBlockRemaining(0);
+      return;
+    }
+
+    const seconds =
+      active.blockOnReminder === true &&
+      Number.isSafeInteger(active.blockSeconds) &&
+      Number(active.blockSeconds) > 0
+        ? Number(active.blockSeconds)
+        : 0;
+    setBlockRemaining(seconds);
+    if (seconds <= 0) return;
+
+    const interval = window.setInterval(() => {
+      setBlockRemaining((prev) => Math.max(0, prev - 1));
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [active]);
+
   const handleDone = React.useCallback(() => {
     if (!active) return;
+    if (blockRemaining > 0) return;
 
     const dateKey = firedRef.current.dateKey;
     if (dateKey) {
@@ -379,23 +414,34 @@ export default function ReminderNotificationsInitializer() {
 
     pendingRef.current.delete(active.key);
     setActive(null);
-  }, [active, persistFired]);
+  }, [active, blockRemaining, persistFired]);
 
   if (!active) return null;
+  const closeBlocked = blockRemaining > 0;
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60">
       <div className="relative w-full h-full max-w-5xl max-h-[92vh] bg-[var(--card-bg)] border border-[var(--input-border)] rounded-2xl shadow-2xl p-6 md:p-10 overflow-auto">
-        <button
-          type="button"
-          onClick={handleDone}
-          className="absolute top-4 right-4 inline-flex items-center gap-2 rounded-full border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] hover:opacity-90"
-          aria-label="Listo"
-          title="Listo"
-        >
-          <Check className="w-4 h-4" />
-          <span className="text-xs">Listo</span>
-        </button>
+        <div className="absolute top-4 right-4 flex items-center gap-2">
+          {closeBlocked ? (
+            <span className="text-xs font-medium text-[var(--foreground)]">
+              Puedes cerrar en: {blockRemaining}s
+            </span>
+          ) : null}
+          <button
+            type="button"
+            onClick={handleDone}
+            className="inline-flex items-center gap-2 rounded-full border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+            disabled={closeBlocked}
+            aria-label="Listo"
+            title={
+              closeBlocked ? `Puedes cerrar en: ${blockRemaining}s` : "Listo"
+            }
+          >
+            <Check className="w-4 h-4" />
+            <span className="text-xs">Listo</span>
+          </button>
+        </div>
 
         <div className="space-y-4">
           <div className="text-sm text-[var(--muted-foreground)]">

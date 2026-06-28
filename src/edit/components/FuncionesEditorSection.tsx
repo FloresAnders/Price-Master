@@ -21,6 +21,7 @@ import { RightDrawer } from "@/components/ui/RightDrawer";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import {
   normalizeReminderTimesCr,
+  validateBlockSeconds,
   validateReminderTimesCr,
 } from "@/components/funciones/reminderTimes";
 
@@ -70,6 +71,9 @@ export default function FuncionesEditorSection({
   const [draftReminderTimesCr, setDraftReminderTimesCr] = React.useState<
     string[]
   >([""]);
+  const [draftBlockOnReminder, setDraftBlockOnReminder] =
+    React.useState(false);
+  const [draftBlockSeconds, setDraftBlockSeconds] = React.useState("30");
   const [formError, setFormError] = React.useState<string | null>(null);
 
   const [confirmState, setConfirmState] = React.useState<{
@@ -272,6 +276,11 @@ export default function FuncionesEditorSection({
               descripcion: String(d.descripcion || ""),
               reminderTimeCr: normalizeReminderTimesCr(d as any)[0] || "",
               reminderTimesCr: normalizeReminderTimesCr(d as any),
+              blockOnReminder: (d as any).blockOnReminder === true,
+              blockSeconds:
+                typeof (d as any).blockSeconds === "number"
+                  ? (d as any).blockSeconds
+                  : undefined,
               createdAt: String(d.createdAt || ""),
               audience,
               empresaIds,
@@ -312,6 +321,8 @@ export default function FuncionesEditorSection({
     setDraftEmpresaIds([]);
     setDraftHasReminder(false);
     setDraftReminderTimesCr([""]);
+    setDraftBlockOnReminder(false);
+    setDraftBlockSeconds("30");
     setDrawerOpen(true);
   }, [isAdminLike, searchValue]);
 
@@ -335,6 +346,12 @@ export default function FuncionesEditorSection({
       const timesCr = normalizeReminderTimesCr(item as any);
       setDraftHasReminder(timesCr.length > 0);
       setDraftReminderTimesCr(timesCr.length > 0 ? timesCr : [""]);
+      setDraftBlockOnReminder(item.blockOnReminder === true);
+      setDraftBlockSeconds(
+        item.blockSeconds && item.blockSeconds > 0
+          ? String(item.blockSeconds)
+          : "30",
+      );
       setDrawerOpen(true);
     },
     [isAdminLike],
@@ -349,6 +366,8 @@ export default function FuncionesEditorSection({
     setDraftEmpresaIds([]);
     setDraftHasReminder(false);
     setDraftReminderTimesCr([""]);
+    setDraftBlockOnReminder(false);
+    setDraftBlockSeconds("30");
     setFormError(null);
   }, []);
 
@@ -369,6 +388,14 @@ export default function FuncionesEditorSection({
     );
     if (reminderValidation.error) {
       setFormError(reminderValidation.error);
+      return;
+    }
+    const blockValidation = validateBlockSeconds(
+      draftHasReminder && draftBlockOnReminder,
+      draftBlockSeconds,
+    );
+    if (blockValidation.error) {
+      setFormError(blockValidation.error);
       return;
     }
 
@@ -402,6 +429,8 @@ export default function FuncionesEditorSection({
         descripcion,
         reminderTimeCr: reminderValidation.times[0],
         reminderTimesCr: reminderValidation.times,
+        blockOnReminder: blockValidation.blockOnReminder,
+        blockSeconds: blockValidation.blockSeconds,
         audience: draftAudience,
         empresaIds: draftAudience === "DELIKOR" ? draftEmpresaIds : [],
         createdAt: createdAtIso,
@@ -621,6 +650,8 @@ export default function FuncionesEditorSection({
         descripcion: saved.descripcion || "",
         reminderTimeCr: normalizeReminderTimesCr(saved as any)[0] || "",
         reminderTimesCr: normalizeReminderTimesCr(saved as any),
+        blockOnReminder: saved.blockOnReminder === true,
+        blockSeconds: saved.blockSeconds,
         createdAt: saved.createdAt,
         audience:
           String(saved.audience || "").toUpperCase() === "DELIFOOD"
@@ -659,6 +690,8 @@ export default function FuncionesEditorSection({
     draftAudience,
     draftDescripcion,
     draftEmpresaIds,
+    draftBlockOnReminder,
+    draftBlockSeconds,
     draftHasReminder,
     draftNombre,
     draftReminderTimesCr,
@@ -1020,7 +1053,10 @@ export default function FuncionesEditorSection({
                 onChange={(e) => {
                   const next = e.target.checked;
                   setDraftHasReminder(next);
-                  if (!next) setDraftReminderTimesCr([""]);
+                  if (!next) {
+                    setDraftReminderTimesCr([""]);
+                    setDraftBlockOnReminder(false);
+                  }
                 }}
               />
               Agregar recordatorio
@@ -1069,6 +1105,30 @@ export default function FuncionesEditorSection({
                 >
                   Agregar otro
                 </button>
+                <label className="flex items-center gap-2 text-sm text-[var(--foreground)] select-none">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={draftBlockOnReminder}
+                    onChange={(e) => setDraftBlockOnReminder(e.target.checked)}
+                  />
+                  bloquear
+                </label>
+                {draftBlockOnReminder ? (
+                  <div className="max-w-xs">
+                    <label className="block text-xs text-[var(--muted-foreground)]">
+                      Segundos
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                      value={draftBlockSeconds}
+                      onChange={(e) => setDraftBlockSeconds(e.target.value)}
+                    />
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </div>
