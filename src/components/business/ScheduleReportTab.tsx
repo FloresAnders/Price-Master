@@ -20,6 +20,7 @@ import { useActorOwnership } from "../../hooks/useActorOwnership";
 import { SchedulesService, ScheduleEntry } from "../../services/schedules";
 import PayrollExporter from "./PayrollExporter";
 import PayrollRecordsViewer from "./PayrollRecordsViewer";
+import ConfirmModal from "../ui/ConfirmModal";
 
 interface MappedEmpresa {
   id?: string;
@@ -52,6 +53,15 @@ interface LocationSchedule {
   location: MappedEmpresa;
   employees: EmployeeSchedule[];
   totalWorkDays: number;
+}
+
+interface PendingScheduleEdit {
+  companieValue: string;
+  employeeName: string;
+  year: number;
+  month: number;
+  day: number;
+  shift: string;
 }
 
 export default function ScheduleReportTab() {
@@ -119,9 +129,11 @@ export default function ScheduleReportTab() {
 
   // Estado para manejar horarios editables
   const [editableSchedules, setEditableSchedules] = useState<{
-    [key: string]: string;
+    [key: string]: PendingScheduleEdit;
   }>({});
   const [isEditing, setIsEditing] = useState(false);
+  const [isSavingSchedules, setIsSavingSchedules] = useState(false);
+  const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
 
   // notifications handled by ToastProvider via showToast()
   // Función para obtener el período de quincena actual
@@ -518,32 +530,86 @@ export default function ScheduleReportTab() {
     employeeName: string,
     day: number,
   ): string => {
-    return `${companieValue}-${employeeName}-${day}`;
+    return `${currentPeriod?.year ?? "none"}-${currentPeriod?.month ?? "none"}-${companieValue}-${employeeName}-${day}`;
   };
-  // Función para actualizar horario
-  const updateSchedule = async (
-    companieValue: string,
-    employeeName: string,
-    day: number,
-    shift: string,
-  ) => {
-    try {
-      await SchedulesService.updateScheduleShift(
-        companieValue,
-        employeeName,
-        currentPeriod!.year,
-        currentPeriod!.month,
-        day,
-        shift,
-      );
+  // Función para guardar los cambios pendientes al finalizar edición
+  const savePendingSchedules = async () => {
+    const pendingSchedules = Object.values(editableSchedules);
 
-      // Recargar datos
-      await loadScheduleData();
-      showToast("Horario actualizado exitosamente", "success");
-    } catch (error) {
-      console.error("Error updating schedule:", error);
-      showToast("Error al actualizar el horario", "error");
+    if (pendingSchedules.length === 0) {
+      setIsEditing(false);
+      return;
     }
+
+    if (!currentPeriod) {
+      showToast("No hay quincena seleccionada para guardar horarios", "error");
+      return;
+    }
+
+    setIsSavingSchedules(true);
+    try {
+      const results = await Promise.allSettled(
+        pendingSchedules.map((schedule) =>
+          SchedulesService.updateScheduleShift(
+            schedule.companieValue,
+            schedule.employeeName,
+            schedule.year,
+            schedule.month,
+            schedule.day,
+            schedule.shift,
+          ),
+        ),
+      );
+      const failedCount = results.filter(
+        (result) => result.status === "rejected",
+      ).length;
+
+      await loadScheduleData();
+      if (failedCount > 0) {
+        const failedSchedules = pendingSchedules.reduce<
+          Record<string, PendingScheduleEdit>
+        >((failed, schedule, index) => {
+          if (results[index].status === "rejected") {
+            const cellKey = `${schedule.year}-${schedule.month}-${schedule.companieValue}-${schedule.employeeName}-${schedule.day}`;
+            failed[cellKey] = schedule;
+          }
+          return failed;
+        }, {});
+
+        setEditableSchedules(failedSchedules);
+        showToast(
+          `${failedCount} cambio${failedCount === 1 ? "" : "s"} no se pudieron guardar`,
+          "error",
+        );
+        return;
+      }
+
+      showToast("Horarios actualizados exitosamente", "success");
+      setEditableSchedules({});
+      setIsEditing(false);
+      setConfirmSaveOpen(false);
+    } catch (error) {
+      console.error("Error updating schedules:", error);
+      showToast("Error al actualizar los horarios", "error");
+    } finally {
+      setIsSavingSchedules(false);
+    }
+  };
+
+  const handleEditToggle = async () => {
+    if (isSavingSchedules) return;
+
+    if (!isEditing) {
+      setIsEditing(true);
+      return;
+    }
+
+    if (Object.keys(editableSchedules).length === 0) {
+      setIsEditing(false);
+      return;
+    }
+
+    setConfirmSaveOpen(true);
   };
 
   // Función para manejar cambio en celda
@@ -570,50 +636,15 @@ export default function ScheduleReportTab() {
     const cellKey = getCellKey(companieValue, employeeName, day);
     setEditableSchedules((prev) => ({
       ...prev,
-      [cellKey]: value,
+      [cellKey]: {
+        companieValue,
+        employeeName,
+        year: currentPeriod!.year,
+        month: currentPeriod!.month,
+        day,
+        shift: value,
+      },
     }));
-  };
-
-  // Función para confirmar cambio y guardar en base de datos
-  const handleCellBlur = (
-    companieValue: string,
-    employeeName: string,
-    day: number,
-  ) => {
-    // Defensa extra: bloquear guardado si pertenece a quincena pasada.
-    if (currentUser?.role === "user" && currentPeriod) {
-      const cellDate = new Date(currentPeriod.year, currentPeriod.month, day);
-      cellDate.setHours(0, 0, 0, 0);
-      const quincenaStart = getStartOfCurrentQuincena();
-      if (cellDate < quincenaStart) {
-        showToast(
-          `No se puede editar ${formatDateShort(cellDate)} porque pertenece a una quincena pasada. Solo se permite editar desde ${formatDateShort(quincenaStart)}.`,
-          "warning",
-        );
-        // Limpiar el estado temporal por si hubiera quedado algo
-        const cellKey = getCellKey(companieValue, employeeName, day);
-        setEditableSchedules((prev) => {
-          if (prev[cellKey] === undefined) return prev;
-          const newState = { ...prev };
-          delete newState[cellKey];
-          return newState;
-        });
-        return;
-      }
-    }
-
-    const cellKey = getCellKey(companieValue, employeeName, day);
-    const newValue = editableSchedules[cellKey];
-
-    if (newValue !== undefined) {
-      updateSchedule(companieValue, employeeName, day, newValue);
-      // Limpiar el estado temporal
-      setEditableSchedules((prev) => {
-        const newState = { ...prev };
-        delete newState[cellKey];
-        return newState;
-      });
-    }
   };
 
   if (loading) {
@@ -735,7 +766,8 @@ export default function ScheduleReportTab() {
                 </div>
 
                 <button
-                  onClick={() => setIsEditing(!isEditing)}
+                  onClick={handleEditToggle}
+                  disabled={isSavingSchedules}
                   className={`flex items-center justify-between gap-3 px-4 py-3 rounded-xl text-sm font-semibold shadow-sm transition-all w-full lg:w-auto ${
                     isEditing
                       ? "bg-gradient-to-r from-rose-500 to-red-600 text-white"
@@ -750,10 +782,18 @@ export default function ScheduleReportTab() {
                   <span className="flex items-center gap-2">
                     <Clock className="w-4 h-4" />
                     <span className="hidden sm:inline">
-                      {isEditing ? "Modo edición activo" : "Editar horarios"}
+                      {isSavingSchedules
+                        ? "Guardando..."
+                        : isEditing
+                          ? "Modo edición activo"
+                          : "Editar horarios"}
                     </span>
                     <span className="sm:hidden">
-                      {isEditing ? "Edición" : "Editar"}
+                      {isSavingSchedules
+                        ? "Guardando"
+                        : isEditing
+                          ? "Edición"
+                          : "Editar"}
                     </span>
                   </span>
                   <span
@@ -986,7 +1026,7 @@ export default function ScheduleReportTab() {
                                 );
                                 const currentValue =
                                   editableSchedules[cellKey] !== undefined
-                                    ? editableSchedules[cellKey]
+                                    ? editableSchedules[cellKey].shift
                                     : employee.days[day] || "";
 
                                 return (
@@ -1003,13 +1043,6 @@ export default function ScheduleReportTab() {
                                             employee.employeeName,
                                             day,
                                             e.target.value,
-                                          )
-                                        }
-                                        onBlur={() =>
-                                          handleCellBlur(
-                                            locationData.location.value,
-                                            employee.employeeName,
-                                            day,
                                           )
                                         }
                                         className="w-full h-full p-1 text-center font-semibold text-xs sm:text-sm border-none focus:outline-none focus:ring-1 focus:ring-cyan-500"
@@ -1040,9 +1073,18 @@ export default function ScheduleReportTab() {
                               >
                                 <span className="text-sm sm:text-base">
                                   {
-                                    Object.values(employee.days).filter(
-                                      (shift) => shift === "D" || shift === "N",
-                                    ).length
+                                    getDaysInPeriod().filter((day) => {
+                                      const cellKey = getCellKey(
+                                        locationData.location.value,
+                                        employee.employeeName,
+                                        day,
+                                      );
+                                      const shift =
+                                        editableSchedules[cellKey]?.shift ??
+                                        employee.days[day] ??
+                                        "";
+                                      return shift === "D" || shift === "N";
+                                    }).length
                                   }
                                 </span>
                               </td>
@@ -1070,6 +1112,18 @@ export default function ScheduleReportTab() {
         /* Tab de Registros Guardados */
         <PayrollRecordsViewer selectedLocation={selectedLocation} />
       )}
+
+      <ConfirmModal
+        open={confirmSaveOpen}
+        title="Guardar cambios"
+        message={`¿Desea guardar ${Object.keys(editableSchedules).length} cambio${Object.keys(editableSchedules).length === 1 ? "" : "s"} realizado${Object.keys(editableSchedules).length === 1 ? "" : "s"} en horarios?`}
+        confirmText="Guardar"
+        cancelText="Cancelar"
+        loading={isSavingSchedules}
+        actionType="change"
+        onCancel={() => setConfirmSaveOpen(false)}
+        onConfirm={() => void savePendingSchedules()}
+      />
     </div>
   );
 }
