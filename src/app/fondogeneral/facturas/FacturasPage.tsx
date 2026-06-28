@@ -43,6 +43,7 @@ import {
 } from "@/utils/controlHorarioManager";
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
 import { CIERRE_FONDO_VENTAS_MINUTES_AFTER_END } from "../constants";
+import { resolveFacturaPaymentType } from "./facturaPaymentType";
 
 import type { Empresas } from "../../../types/firestore";
 
@@ -689,16 +690,9 @@ export default function FacturasCreditoPage() {
     );
   }, [companyEmployees, paymentManager2, user?.email, user?.name, user?.role]);
 
-  const createSelectedProvider = useMemo(
-    () =>
-      providers.find((provider) => provider.code === createProviderCode) ??
-      null,
-    [createProviderCode, providers],
-  );
-
   const createPaymentType = useMemo(
-    () => String(createSelectedProvider?.type || "").trim(),
-    [createSelectedProvider],
+    () => resolveFacturaPaymentType("PENDIENTE"),
+    [],
   );
 
   const filteredCreateProviders = useMemo(
@@ -947,7 +941,7 @@ export default function FacturasCreditoPage() {
       manager: effectiveManager,
       notes: String(createNotes || "").trim(),
       invoiceDocType: createInvoiceDocType,
-      paymentType: createPaymentType || "FACTURA A CREDITO",
+      paymentType: resolveFacturaPaymentType("PENDIENTE"),
       providerCode,
       paidAmount: undefined,
       balanceDue: amount,
@@ -982,7 +976,6 @@ export default function FacturasCreditoPage() {
     createInvoiceNumber,
     createManager,
     createNotes,
-    createPaymentType,
     createProviderCode,
     loadMovements,
     resetCreateForm,
@@ -1041,6 +1034,7 @@ export default function FacturasCreditoPage() {
       paidAmount: undefined,
       balanceDue: amount,
       paymentStatus: "PENDIENTE",
+      paymentType: resolveFacturaPaymentType("PENDIENTE"),
       updateAt: nowISO,
       zeroAmountEditCount: 1,
       zeroAmountEditedAt: nowISO,
@@ -1319,7 +1313,7 @@ export default function FacturasCreditoPage() {
         manager: paymentTarget.manager,
         notes: cleanedNotes,
         invoiceDocType: paymentTarget.invoiceDocType,
-        paymentType: paymentTarget.paymentType,
+        paymentType: resolveFacturaPaymentType(nextStatus),
         providerCode: paymentTarget.providerCode,
         amountEgreso: paymentTarget.amountEgreso,
         amountIngreso: paymentTarget.amountIngreso,
@@ -1333,7 +1327,10 @@ export default function FacturasCreditoPage() {
       const paymentMovement =
         MovimientosFondosService.buildInvoicePaymentMovement({
           company: selectedCompany,
-          invoice: updatedMovement,
+          invoice: {
+            ...updatedMovement,
+            paymentType: resolveFacturaPaymentType("PAGADA"),
+          },
           paymentAmount: paymentAmountToApply,
           updateAt: nowISO,
           manager2: paymentManager2Value || undefined,
