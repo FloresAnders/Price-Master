@@ -345,6 +345,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         });
 
         if (
+          !isSuperAdminUser &&
           isInNightClosingWindow &&
           !isPostCloseGraceOnNextDay &&
           !hasDayClosingForOperationalDate &&

@@ -247,16 +247,19 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const diffCRC = totalCRC - currentBalanceCRC;
   const diffUSD = totalUSD - currentBalanceUSD;
   const hasAnyCash = totalCRC > 0 || totalUSD > 0;
-  const submitDisabled =
-    displayedManager.trim().length === 0 ||
-    !hasAnyCash ||
-    (requireSingleClosingReason && singleClosingReason.trim().length === 0);
-  const hasDifferences = diffCRC !== 0 || diffUSD !== 0;
   const parseAmount = (value: string) => Number.parseFloat(normalizeMoneyInput(value) || "0") || 0;
   const r08Num = parseAmount(r08);
   const t11Num = parseAmount(t11);
   const tucanNum = parseAmount(tucanCumulative);
   const tiemposNum = parseAmount(tiemposCumulative);
+  const hasZeroClosingReport =
+    r08Num === 0 || t11Num === 0 || tucanNum === 0 || tiemposNum === 0;
+  const submitDisabled =
+    displayedManager.trim().length === 0 ||
+    !hasAnyCash ||
+    hasZeroClosingReport ||
+    (requireSingleClosingReason && singleClosingReason.trim().length === 0);
+  const hasDifferences = diffCRC !== 0 || diffUSD !== 0;
   const conticaTucanDiff = r08Num - tucanNum;
   const conticaTiemposDiff = t11Num - tiemposNum;
 
@@ -306,6 +309,9 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     if (!hasAnyCash) {
       return "No se puede guardar: el efectivo está en 0. Ingresa el conteo en colones o dólares para realizar el cierre.";
     }
+    if (hasZeroClosingReport) {
+      return "No se puede guardar debido a la falta de R08, T11, Tucan y Tiempos";
+    }
     if (requireSingleClosingReason && singleClosingReason.trim().length === 0) {
       return "Debes indicar el motivo de por qué solo hubo un cierre en el día.";
     }
@@ -313,6 +319,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   }, [
     displayedManager,
     hasAnyCash,
+    hasZeroClosingReport,
     requireSingleClosingReason,
     singleClosingReason,
   ]);
@@ -476,7 +483,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
 
   const handleSubmit = () => {
     const trimmedManager = displayedManager.trim();
-    if (!trimmedManager || !hasAnyCash) return;
+    if (submitDisabled) return;
 
     const values: DailyClosingFormValues = {
       closingDate: closingDateISO,
@@ -490,10 +497,10 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
       breakdownCRC: buildBreakdown(crcCounts, CRC_DENOMINATIONS),
       breakdownUSD: buildBreakdown(usdCounts, USD_DENOMINATIONS),
       turno,
-      r08: parseAmount(r08),
-      t11: parseAmount(t11),
-      tucanCumulative: parseAmount(tucanCumulative),
-      tiemposCumulative: parseAmount(tiemposCumulative),
+      r08: r08Num,
+      t11: t11Num,
+      tucanCumulative: tucanNum,
+      tiemposCumulative: tiemposNum,
     };
 
     if (hasDifferences) {

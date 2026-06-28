@@ -12,6 +12,7 @@ import {
   lookupGeneralByFuncionId,
 } from "@/services/funciones";
 import type { Empresas, UserPermissions } from "@/types/firestore";
+import { normalizeReminderTimesCr } from "./reminderTimes";
 
 type EmpresaFuncionesResolved = {
   empresa: Empresas;
@@ -20,6 +21,7 @@ type EmpresaFuncionesResolved = {
     nombre: string;
     descripcion?: string;
     reminderTimeCr?: string;
+    reminderTimesCr?: string[];
   }>;
 };
 
@@ -140,6 +142,7 @@ export function FuncionesTab() {
                 nombre: string;
                 descripcion?: string;
                 reminderTimeCr?: string;
+                reminderTimesCr?: string[];
               }
             >();
             for (const d of visibleGeneralDocs as any[]) {
@@ -147,15 +150,15 @@ export function FuncionesTab() {
               const nombre = String((d as any).nombre || "").trim();
               if (!funcionId || !nombre) continue;
 
+              const reminderTimesCr = normalizeReminderTimesCr(d as any);
               const value = {
                 funcionId,
                 nombre,
                 descripcion: (d as any).descripcion
                   ? String((d as any).descripcion).trim()
                   : "",
-                reminderTimeCr: (d as any).reminderTimeCr
-                  ? String((d as any).reminderTimeCr).trim()
-                  : "",
+                reminderTimeCr: reminderTimesCr[0] || "",
+                reminderTimesCr,
               };
 
               for (const key of getFuncionIdLookupKeys(funcionId)) {
@@ -188,9 +191,8 @@ export function FuncionesTab() {
                     nombre: g.nombre,
                     descripcion:
                       String(g.descripcion || "").trim() || undefined,
-                    reminderTimeCr: g.reminderTimeCr
-                      ? g.reminderTimeCr
-                      : undefined,
+                    reminderTimeCr: g.reminderTimeCr || undefined,
+                    reminderTimesCr: g.reminderTimesCr,
                   };
                 })
                 .filter(Boolean)
@@ -204,6 +206,7 @@ export function FuncionesTab() {
                 nombre: string;
                 descripcion?: string;
                 reminderTimeCr?: string;
+                reminderTimesCr?: string[];
               }>;
 
             return {
@@ -315,26 +318,31 @@ export function FuncionesTab() {
                     </div>
                   ) : (
                     <ul className="divide-y divide-[var(--input-border)]">
-                      {row.funciones.map((f) => (
-                        <li
-                          key={`f-${f.funcionId}`}
-                          className="py-2 text-sm text-[var(--foreground)] flex items-start justify-between gap-3"
-                        >
-                          <div className="min-w-0">
-                            <div className="truncate">{f.nombre}</div>
-                            {f.descripcion ? (
-                              <div className="text-xs text-[var(--muted-foreground)] leading-snug break-words">
-                                {f.descripcion}
-                              </div>
+                      {row.funciones.map((f) => {
+                        const reminderTimesCr = normalizeReminderTimesCr(
+                          f as any,
+                        );
+                        return (
+                          <li
+                            key={`f-${f.funcionId}`}
+                            className="py-2 text-sm text-[var(--foreground)] flex items-start justify-between gap-3"
+                          >
+                            <div className="min-w-0">
+                              <div className="truncate">{f.nombre}</div>
+                              {f.descripcion ? (
+                                <div className="text-xs text-[var(--muted-foreground)] leading-snug break-words">
+                                  {f.descripcion}
+                                </div>
+                              ) : null}
+                            </div>
+                            {reminderTimesCr.length > 0 ? (
+                              <span className="text-xs text-[var(--muted-foreground)] whitespace-nowrap">
+                                {reminderTimesCr.join(", ")}
+                              </span>
                             ) : null}
-                          </div>
-                          {f.reminderTimeCr ? (
-                            <span className="text-xs text-[var(--muted-foreground)] whitespace-nowrap">
-                              {f.reminderTimeCr}
-                            </span>
-                          ) : null}
-                        </li>
-                      ))}
+                          </li>
+                        );
+                      })}
                     </ul>
                   )}
                 </div>

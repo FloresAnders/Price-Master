@@ -3123,7 +3123,7 @@ export function FondoSection({
             minutesRelativeToReferenceEnd <=
               referenceMinutesAfterEnd;
 
-          if (!isInReferenceWindow) {
+          if (!isSuperAdminUser && !isInReferenceWindow) {
             const humanDelta =
               minutesRelativeToReferenceEnd <
               -cierreFondoVentasMinutesBeforeEnd
@@ -3965,6 +3965,7 @@ export function FondoSection({
             : nowMin >= nightWindowStartMin || nowMin < nightWindowEndMin;
 
         if (
+          !isSuperAdminUser &&
           isWithinWindow &&
           !hasRecentDayClosing &&
           activeEmpresaForCompany.unicoCierre !== true
@@ -3980,6 +3981,7 @@ export function FondoSection({
           }
         }
       } else if (
+        !isSuperAdminUser &&
         isInNightClosingWindow &&
         !hasRecentDayClosing &&
         activeEmpresaForCompany.unicoCierre !== true
@@ -4007,6 +4009,7 @@ export function FondoSection({
     company,
     getFGMonthlySchedulesCached,
     fondoEntries,
+    isSuperAdminUser,
     notes,
     showToast,
     isCierreFondoVentasMovement,

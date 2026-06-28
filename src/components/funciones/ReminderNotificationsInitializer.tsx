@@ -13,6 +13,7 @@ import {
   lookupGeneralByFuncionId,
 } from "@/services/funciones";
 import type { Empresas, UserPermissions } from "@/types/firestore";
+import { normalizeReminderTimesCr } from "./reminderTimes";
 
 type ReminderItem = {
   key: string; // unique per day
@@ -208,6 +209,7 @@ export default function ReminderNotificationsInitializer() {
               nombre: string;
               descripcion?: string;
               reminderTimeCr?: string;
+              reminderTimesCr?: string[];
             }
           >();
           for (const d of visibleGeneralDocs as any[]) {
@@ -221,9 +223,8 @@ export default function ReminderNotificationsInitializer() {
               descripcion: (d as any).descripcion
                 ? String((d as any).descripcion).trim()
                 : "",
-              reminderTimeCr: (d as any).reminderTimeCr
-                ? String((d as any).reminderTimeCr).trim()
-                : "",
+              reminderTimeCr: normalizeReminderTimesCr(d as any)[0] || "",
+              reminderTimesCr: normalizeReminderTimesCr(d as any),
             };
 
             for (const key of getFuncionIdLookupKeys(funcionId)) {
@@ -244,19 +245,18 @@ export default function ReminderNotificationsInitializer() {
 
           for (const funcionId of funcionesIds) {
             const g = lookupGeneralByFuncionId(generalById, funcionId);
-            const reminderTimeCr = String(g?.reminderTimeCr || "").trim();
-            if (!reminderTimeCr) continue;
-
-            nextItems.push({
-              empresaId,
-              empresaName: String(empresa?.name || empresaId),
-              funcionId,
-              funcionNombre: String(g?.nombre || "Función no encontrada"),
-              funcionDescripcion:
-                String(g?.descripcion || "").trim() ||
-                (g ? undefined : `ID: ${funcionId}`),
-              reminderTimeCr,
-            });
+            for (const reminderTimeCr of normalizeReminderTimesCr(g as any)) {
+              nextItems.push({
+                empresaId,
+                empresaName: String(empresa?.name || empresaId),
+                funcionId,
+                funcionNombre: String(g?.nombre || "Función no encontrada"),
+                funcionDescripcion:
+                  String(g?.descripcion || "").trim() ||
+                  (g ? undefined : `ID: ${funcionId}`),
+                reminderTimeCr,
+              });
+            }
           }
         }),
     );

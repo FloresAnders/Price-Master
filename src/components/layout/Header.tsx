@@ -143,6 +143,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showAdminSidebar, setShowAdminSidebar] = useState(false);
+  const [isAdminSidebarHovered, setIsAdminSidebarHovered] = useState(false);
   const [adminSidebarExpandedWidth, setAdminSidebarExpandedWidth] = useState(
     DEFAULT_ADMIN_SIDEBAR_EXPANDED_WIDTH,
   );
@@ -600,11 +601,12 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   );
 
   // El sidebar inicia cerrado; el usuario lo abre manualmente.
+  const isAdminSidebarExpanded = showAdminSidebar || isAdminSidebarHovered;
 
   useEffect(() => {
     if (typeof document === "undefined") return;
 
-    const currentWidth = showAdminSidebar
+    const currentWidth = isAdminSidebarExpanded
       ? adminSidebarExpandedWidth
       : adminSidebarCollapsedWidth;
 
@@ -625,7 +627,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     adminSidebarCollapsedWidth,
     adminSidebarExpandedWidth,
     canShowAdminSidebar,
-    showAdminSidebar,
+    isAdminSidebarExpanded,
   ]);
 
   const handleLogoutClick = () => {
@@ -1431,15 +1433,6 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         onClose={() => setShowEditProfileModal(false)}
       />
 
-      {canShowAdminSidebar && showAdminSidebar && (
-        <button
-          type="button"
-          aria-label="Cerrar menú lateral"
-          onClick={() => setShowAdminSidebar(false)}
-          className="hidden lg:block fixed inset-0 z-30 bg-transparent"
-        />
-      )}
-
       {canShowAdminSidebar && (
         <aside
           className={`hidden lg:flex fixed left-0 top-0 z-40 h-screen flex-col border-r border-[var(--input-border)] bg-[var(--background)] shadow-lg overflow-hidden ${
@@ -1448,10 +1441,12 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               : "transition-[width] duration-300 ease-in-out"
           }`}
           style={{
-            width: showAdminSidebar
+            width: isAdminSidebarExpanded
               ? adminSidebarExpandedWidth
               : adminSidebarCollapsedWidth,
           }}
+          onMouseEnter={() => setIsAdminSidebarHovered(true)}
+          onMouseLeave={() => setIsAdminSidebarHovered(false)}
         >
           {/* Drag handle when expanded */}
           <div
@@ -1459,11 +1454,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             aria-orientation="vertical"
             title="Arrastra para ensanchar el menú (desplegado)"
             className={`absolute right-0 top-0 h-full w-2 cursor-col-resize bg-transparent hover:bg-[var(--accent)]/10 ${
-              showAdminSidebar ? "opacity-100" : "opacity-0 pointer-events-none"
+              isAdminSidebarExpanded
+                ? "opacity-100"
+                : "opacity-0 pointer-events-none"
             }`}
             onPointerDown={(event) => {
               if (event.button !== 0) return;
-              if (!showAdminSidebar) return;
+              if (!isAdminSidebarExpanded) return;
 
               event.preventDefault();
               setIsResizingAdminSidebar(true);
@@ -1509,11 +1506,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             aria-orientation="vertical"
             title="Arrastra para ensanchar el menú (contraído)"
             className={`absolute right-0 top-0 h-full w-2 cursor-col-resize bg-transparent hover:bg-[var(--accent)]/10 ${
-              showAdminSidebar ? "opacity-0 pointer-events-none" : "opacity-100"
+              isAdminSidebarExpanded
+                ? "opacity-0 pointer-events-none"
+                : "opacity-100"
             }`}
             onPointerDown={(event) => {
               if (event.button !== 0) return;
-              if (showAdminSidebar) return;
+              if (isAdminSidebarExpanded) return;
 
               event.preventDefault();
               setIsResizingAdminSidebar(true);
@@ -1560,7 +1559,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 window.location.href = "/#";
               }}
               className={`flex items-center gap-3 rounded-2xl transition-all ${
-                showAdminSidebar ? "justify-start" : "justify-center"
+                isAdminSidebarExpanded ? "justify-start" : "justify-center"
               }`}
             >
               <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl">
@@ -1575,7 +1574,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               </div>
 
               <div
-                className={`min-w-0 ${showAdminSidebar ? "block" : "hidden"}`}
+                className={`min-w-0 ${isAdminSidebarExpanded ? "block" : "hidden"}`}
               >
                 <div className="text-[10px] uppercase tracking-[0.22em] text-[var(--muted-foreground)]">
                   Navegación
@@ -1600,13 +1599,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   <button
                     key={tab.id}
                     type="button"
-                    onClick={() => {
-                      if (!showAdminSidebar) {
-                        setShowAdminSidebar(true);
-                        return;
-                      }
-                      handleTabClick(tab.id);
-                    }}
+                    onClick={() => handleTabClick(tab.id)}
                     className={`group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors ${
                       isActive
                         ? "bg-[var(--hover-bg)] text-[var(--foreground)]"
@@ -1619,7 +1612,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                     </div>
 
                     <div
-                      className={`min-w-0 flex-1 ${showAdminSidebar ? "block" : "hidden"}`}
+                      className={`min-w-0 flex-1 ${isAdminSidebarExpanded ? "block" : "hidden"}`}
                     >
                       <div className="text-sm font-medium truncate">
                         {tab.name}
@@ -1629,7 +1622,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                       </div>
                     </div>
 
-                    {showAdminSidebar && (
+                    {isAdminSidebarExpanded && (
                       <ChevronDown className="w-4 h-4 flex-shrink-0 -rotate-90 opacity-60" />
                     )}
                   </button>
@@ -1641,7 +1634,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           <div className="p-2">
             <button
               type="button"
-              onClick={() => setShowAdminSidebar((prev) => !prev)}
+              onClick={() => {
+                setIsAdminSidebarHovered(false);
+                setShowAdminSidebar((prev) => !prev);
+              }}
               className="flex h-10 w-full items-center justify-center rounded-xl text-[var(--foreground)] transition-colors hover:bg-[var(--hover-bg)]"
               title={showAdminSidebar ? "Colapsar menú" : "Expandir menú"}
             >

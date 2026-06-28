@@ -17,6 +17,7 @@ export type FuncionGeneralDoc = {
   empresaIds?: string[];
   // Optional reminder time in Costa Rica local time (HH:mm)
   reminderTimeCr?: string;
+  reminderTimesCr?: string[];
   createdAt: string; // ISO
   updatedAt?: string; // ISO
 };
@@ -285,6 +286,7 @@ export class FuncionesService {
     nombre: string;
     descripcion?: string;
     reminderTimeCr?: string;
+    reminderTimesCr?: string[];
     audience?: FuncionAudience;
     empresaIds?: string[];
     createdAt?: string;
@@ -296,15 +298,27 @@ export class FuncionesService {
     const empresaIds =
       audience === "DELIKOR" ? normalizeEmpresaIds(params.empresaIds) : [];
 
+    const reminderTimesCr = Array.from(
+      new Set(
+        (Array.isArray(params.reminderTimesCr)
+          ? params.reminderTimesCr
+          : params.reminderTimeCr
+            ? [params.reminderTimeCr]
+            : []
+        )
+          .map((value) => String(value || "").trim())
+          .filter(Boolean),
+      ),
+    );
+
     const doc: FuncionGeneralDoc = {
       type: "general",
       ownerId: String(params.ownerId || "").trim(),
       funcionId: String(params.funcionId || "").trim(),
       nombre: String(params.nombre || "").trim(),
       descripcion: params.descripcion ? String(params.descripcion).trim() : "",
-      reminderTimeCr: params.reminderTimeCr
-        ? String(params.reminderTimeCr).trim()
-        : undefined,
+      reminderTimeCr: reminderTimesCr[0],
+      reminderTimesCr: reminderTimesCr.length > 0 ? reminderTimesCr : undefined,
       audience,
       empresaIds: empresaIds.length > 0 ? empresaIds : undefined,
       createdAt,

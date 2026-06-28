@@ -27,6 +27,10 @@ import {
 } from "@/services/funciones";
 
 import type { FuncionListItem } from "./RecetasListItems";
+import {
+  normalizeReminderTimesCr,
+  validateReminderTimesCr,
+} from "@/components/funciones/reminderTimes";
 
 type EmpresaFuncionesModalProps = {
   open: boolean;
@@ -250,13 +254,15 @@ export default function EmpresaFuncionesModal({
                 )
               : [];
 
+            const reminderTimesCr = normalizeReminderTimesCr(d as any);
             return {
               id: String(d.funcionId || ""),
               docId: String(d.docId || ""),
               ownerId: String((d as any).ownerId || ""),
               nombre: String(d.nombre || ""),
               descripcion: String(d.descripcion || ""),
-              reminderTimeCr: d.reminderTimeCr ? String(d.reminderTimeCr) : "",
+              reminderTimeCr: reminderTimesCr[0] || "",
+              reminderTimesCr,
               createdAt: String(d.createdAt || ""),
               audience,
               empresaIds,
@@ -291,7 +297,9 @@ export default function EmpresaFuncionesModal({
   const [createNombre, setCreateNombre] = React.useState("");
   const [createDescripcion, setCreateDescripcion] = React.useState("");
   const [createHasReminder, setCreateHasReminder] = React.useState(false);
-  const [createReminderTimeCr, setCreateReminderTimeCr] = React.useState("");
+  const [createReminderTimesCr, setCreateReminderTimesCr] = React.useState<
+    string[]
+  >([""]);
   const [createLoading, setCreateLoading] = React.useState(false);
 
   const [localExtras, setLocalExtras] = React.useState<FuncionListItem[]>([]);
@@ -498,18 +506,13 @@ export default function EmpresaFuncionesModal({
       return;
     }
 
-    const reminderTimeCr = createHasReminder
-      ? String(createReminderTimeCr || "").trim()
-      : "";
-    if (createHasReminder) {
-      if (!reminderTimeCr) {
-        showToast("Selecciona una hora para el recordatorio.", "error");
-        return;
-      }
-      if (!/^\d{2}:\d{2}$/.test(reminderTimeCr)) {
-        showToast("Hora de recordatorio inválida (usa HH:mm).", "error");
-        return;
-      }
+    const reminderValidation = validateReminderTimesCr(
+      createHasReminder,
+      createReminderTimesCr,
+    );
+    if (reminderValidation.error) {
+      showToast(reminderValidation.error, "error");
+      return;
     }
 
     if (!ownerId) {
@@ -540,7 +543,8 @@ export default function EmpresaFuncionesModal({
           funcionId,
           nombre,
           descripcion,
-          reminderTimeCr: createHasReminder ? reminderTimeCr : undefined,
+          reminderTimeCr: reminderValidation.times[0],
+          reminderTimesCr: reminderValidation.times,
           audience,
           empresaIds,
           createdAt: new Date().toISOString(),
@@ -552,9 +556,8 @@ export default function EmpresaFuncionesModal({
           ownerId: String(saved.ownerId),
           nombre: String(saved.nombre),
           descripcion: String(saved.descripcion || ""),
-          reminderTimeCr: saved.reminderTimeCr
-            ? String(saved.reminderTimeCr)
-            : "",
+          reminderTimeCr: normalizeReminderTimesCr(saved as any)[0] || "",
+          reminderTimesCr: normalizeReminderTimesCr(saved as any),
           createdAt: String(saved.createdAt || ""),
           audience:
             String(saved.audience || "").toUpperCase() === "DELIFOOD"
@@ -582,7 +585,7 @@ export default function EmpresaFuncionesModal({
         setCreateNombre("");
         setCreateDescripcion("");
         setCreateHasReminder(false);
-        setCreateReminderTimeCr("");
+        setCreateReminderTimesCr([""]);
         setCreateOpen(false);
         showToast("Función creada para esta empresa.", "success");
       } catch (err) {
@@ -600,7 +603,7 @@ export default function EmpresaFuncionesModal({
     createDescripcion,
     createHasReminder,
     createNombre,
-    createReminderTimeCr,
+    createReminderTimesCr,
     empresaId,
     ownerId,
     showToast,
@@ -723,7 +726,7 @@ export default function EmpresaFuncionesModal({
                     onChange={(e) => {
                       const next = e.target.checked;
                       setCreateHasReminder(next);
-                      if (!next) setCreateReminderTimeCr("");
+                      if (!next) setCreateReminderTimesCr([""]);
                     }}
                     disabled={createLoading}
                   />
@@ -731,18 +734,52 @@ export default function EmpresaFuncionesModal({
                 </label>
 
                 {createHasReminder ? (
-                  <div className="max-w-xs">
-                    <label className="block text-xs text-[var(--muted-foreground)] mb-1">
-                      Hora (Costa Rica)
+                  <div className="max-w-xs space-y-2">
+                    <label className="block text-xs text-[var(--muted-foreground)]">
+                      Horas (Costa Rica)
                     </label>
-                    <input
-                      type="time"
-                      step={60}
-                      className="w-full p-2.5 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
-                      value={createReminderTimeCr}
-                      onChange={(e) => setCreateReminderTimeCr(e.target.value)}
+                    {createReminderTimesCr.map((time, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <input
+                          type="time"
+                          step={60}
+                          className="w-full p-2.5 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                          value={time}
+                          onChange={(e) => {
+                            const next = [...createReminderTimesCr];
+                            next[index] = e.target.value;
+                            setCreateReminderTimesCr(next);
+                          }}
+                          disabled={createLoading}
+                        />
+                        <button
+                          type="button"
+                          className="px-3 py-2 border border-[var(--input-border)] rounded text-sm text-[var(--foreground)] disabled:opacity-40"
+                          onClick={() =>
+                            setCreateReminderTimesCr((prev) =>
+                              prev.length > 1
+                                ? prev.filter((_, i) => i !== index)
+                                : [""],
+                            )
+                          }
+                          disabled={
+                            createLoading || createReminderTimesCr.length === 1
+                          }
+                        >
+                          Quitar
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      className="px-3 py-2 border border-[var(--input-border)] rounded text-sm text-[var(--foreground)] disabled:opacity-40"
+                      onClick={() =>
+                        setCreateReminderTimesCr((prev) => [...prev, ""])
+                      }
                       disabled={createLoading}
-                    />
+                    >
+                      Agregar otro
+                    </button>
                   </div>
                 ) : null}
 

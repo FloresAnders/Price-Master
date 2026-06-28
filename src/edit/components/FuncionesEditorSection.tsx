@@ -19,6 +19,10 @@ import type { FuncionListItem } from "./funciones/RecetasListItems";
 import EmpresaFuncionesModal from "./funciones/EmpresaFuncionesModal";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import {
+  normalizeReminderTimesCr,
+  validateReminderTimesCr,
+} from "@/components/funciones/reminderTimes";
 
 type FuncionesEditorSectionProps = {
   ownerId?: string;
@@ -63,7 +67,9 @@ export default function FuncionesEditorSection({
   >("DELIKOR");
   const [draftEmpresaIds, setDraftEmpresaIds] = React.useState<string[]>([]);
   const [draftHasReminder, setDraftHasReminder] = React.useState(false);
-  const [draftReminderTimeCr, setDraftReminderTimeCr] = React.useState("");
+  const [draftReminderTimesCr, setDraftReminderTimesCr] = React.useState<
+    string[]
+  >([""]);
   const [formError, setFormError] = React.useState<string | null>(null);
 
   const [confirmState, setConfirmState] = React.useState<{
@@ -264,7 +270,8 @@ export default function FuncionesEditorSection({
               ownerId: String((d as any).ownerId || ""),
               nombre: String(d.nombre || ""),
               descripcion: String(d.descripcion || ""),
-              reminderTimeCr: d.reminderTimeCr ? String(d.reminderTimeCr) : "",
+              reminderTimeCr: normalizeReminderTimesCr(d as any)[0] || "",
+              reminderTimesCr: normalizeReminderTimesCr(d as any),
               createdAt: String(d.createdAt || ""),
               audience,
               empresaIds,
@@ -304,7 +311,7 @@ export default function FuncionesEditorSection({
     setDraftAudience("DELIKOR");
     setDraftEmpresaIds([]);
     setDraftHasReminder(false);
-    setDraftReminderTimeCr("");
+    setDraftReminderTimesCr([""]);
     setDrawerOpen(true);
   }, [isAdminLike, searchValue]);
 
@@ -325,9 +332,9 @@ export default function FuncionesEditorSection({
           ? item.empresaIds.map((x) => String(x).trim()).filter(Boolean)
           : [],
       );
-      const timeCr = String(item.reminderTimeCr || "").trim();
-      setDraftHasReminder(Boolean(timeCr));
-      setDraftReminderTimeCr(timeCr);
+      const timesCr = normalizeReminderTimesCr(item as any);
+      setDraftHasReminder(timesCr.length > 0);
+      setDraftReminderTimesCr(timesCr.length > 0 ? timesCr : [""]);
       setDrawerOpen(true);
     },
     [isAdminLike],
@@ -341,7 +348,7 @@ export default function FuncionesEditorSection({
     setDraftAudience("DELIKOR");
     setDraftEmpresaIds([]);
     setDraftHasReminder(false);
-    setDraftReminderTimeCr("");
+    setDraftReminderTimesCr([""]);
     setFormError(null);
   }, []);
 
@@ -356,16 +363,13 @@ export default function FuncionesEditorSection({
       return;
     }
 
-    const reminderTimeCr = draftHasReminder ? draftReminderTimeCr.trim() : "";
-    if (draftHasReminder) {
-      if (!reminderTimeCr) {
-        setFormError("Selecciona una hora para el recordatorio.");
-        return;
-      }
-      if (!/^\d{2}:\d{2}$/.test(reminderTimeCr)) {
-        setFormError("Hora de recordatorio inválida (usa HH:mm).");
-        return;
-      }
+    const reminderValidation = validateReminderTimesCr(
+      draftHasReminder,
+      draftReminderTimesCr,
+    );
+    if (reminderValidation.error) {
+      setFormError(reminderValidation.error);
+      return;
     }
 
     const persist = async () => {
@@ -396,7 +400,8 @@ export default function FuncionesEditorSection({
         funcionId,
         nombre: name,
         descripcion,
-        reminderTimeCr: draftHasReminder ? reminderTimeCr : undefined,
+        reminderTimeCr: reminderValidation.times[0],
+        reminderTimesCr: reminderValidation.times,
         audience: draftAudience,
         empresaIds: draftAudience === "DELIKOR" ? draftEmpresaIds : [],
         createdAt: createdAtIso,
@@ -614,9 +619,8 @@ export default function FuncionesEditorSection({
         ownerId: saved.ownerId,
         nombre: saved.nombre,
         descripcion: saved.descripcion || "",
-        reminderTimeCr: saved.reminderTimeCr
-          ? String(saved.reminderTimeCr)
-          : "",
+        reminderTimeCr: normalizeReminderTimesCr(saved as any)[0] || "",
+        reminderTimesCr: normalizeReminderTimesCr(saved as any),
         createdAt: saved.createdAt,
         audience:
           String(saved.audience || "").toUpperCase() === "DELIFOOD"
@@ -657,7 +661,7 @@ export default function FuncionesEditorSection({
     draftEmpresaIds,
     draftHasReminder,
     draftNombre,
-    draftReminderTimeCr,
+    draftReminderTimesCr,
     editingId,
     isAdminLike,
     ownerEmpresas,
@@ -1016,24 +1020,55 @@ export default function FuncionesEditorSection({
                 onChange={(e) => {
                   const next = e.target.checked;
                   setDraftHasReminder(next);
-                  if (!next) setDraftReminderTimeCr("");
+                  if (!next) setDraftReminderTimesCr([""]);
                 }}
               />
               Agregar recordatorio
             </label>
 
             {draftHasReminder ? (
-              <div>
-                <label className="block text-xs text-[var(--muted-foreground)] mb-1">
-                  Hora (Costa Rica)
+              <div className="space-y-2">
+                <label className="block text-xs text-[var(--muted-foreground)]">
+                  Horas (Costa Rica)
                 </label>
-                <input
-                  type="time"
-                  step={60}
-                  className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
-                  value={draftReminderTimeCr}
-                  onChange={(e) => setDraftReminderTimeCr(e.target.value)}
-                />
+                {draftReminderTimesCr.map((time, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <input
+                      type="time"
+                      step={60}
+                      className="w-full p-3 bg-[var(--input-bg)] border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                      value={time}
+                      onChange={(e) => {
+                        const next = [...draftReminderTimesCr];
+                        next[index] = e.target.value;
+                        setDraftReminderTimesCr(next);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="px-3 py-2 border border-[var(--input-border)] rounded text-sm text-[var(--foreground)] disabled:opacity-40"
+                      onClick={() =>
+                        setDraftReminderTimesCr((prev) =>
+                          prev.length > 1
+                            ? prev.filter((_, i) => i !== index)
+                            : [""],
+                        )
+                      }
+                      disabled={draftReminderTimesCr.length === 1}
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="px-3 py-2 border border-[var(--input-border)] rounded text-sm text-[var(--foreground)]"
+                  onClick={() =>
+                    setDraftReminderTimesCr((prev) => [...prev, ""])
+                  }
+                >
+                  Agregar otro
+                </button>
               </div>
             ) : null}
           </div>

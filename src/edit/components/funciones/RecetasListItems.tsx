@@ -10,6 +10,7 @@ export type FuncionListItem = {
   nombre: string;
   descripcion?: string;
   reminderTimeCr?: string;
+  reminderTimesCr?: string[];
   createdAt?: string;
   audience?: "DELIKOR" | "DELIFOOD";
   empresaIds?: string[];
