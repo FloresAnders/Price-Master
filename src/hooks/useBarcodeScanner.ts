@@ -8,7 +8,11 @@ import {
   binarizeOtsu,
   enhanceContrast,
 } from "../utils/barcodeUtils";
-import ZBAR_PRIORITY_CONFIG, { logZbarPriority } from "../config/zbar-priority";
+import ZBAR_PRIORITY_CONFIG, {
+  createStableCodeDetector,
+  isAcceptedBarcodeValue,
+  logZbarPriority,
+} from "../config/zbar-priority";
 
 export function useBarcodeScanner(
   onDetect?: (code: string, productName?: string) => void,
@@ -121,12 +125,7 @@ export function useBarcodeScanner(
             const symbols = await scanImageData(variant);
             if (symbols && symbols.length > 0) {
               const c = symbols[0].decode();
-              if (
-                c &&
-                ZBAR_PRIORITY_CONFIG.VALID_CODE_PATTERN.test(c) &&
-                c.length >= ZBAR_PRIORITY_CONFIG.MIN_CODE_LENGTH &&
-                c.length <= ZBAR_PRIORITY_CONFIG.MAX_CODE_LENGTH
-              ) {
+              if (isAcceptedBarcodeValue(c)) {
                 logZbarPriority("ZBAR_SUCCESS", `ZBar detectó código (${label})`, c);
                 return c;
               }
@@ -182,7 +181,7 @@ export function useBarcodeScanner(
           );
           try {
             const quaggaResult = await detectWithQuagga2(imageData, 0);
-            if (quaggaResult) {
+            if (isAcceptedBarcodeValue(quaggaResult)) {
               detectedCode = quaggaResult;
               usedMethod = "Quagga 2 (Fallback)";
               logZbarPriority(
@@ -312,8 +311,18 @@ export function useBarcodeScanner(
   // --- Cámara: iniciar/detener Quagga2 LiveStream ---
   useEffect(() => {
     let zbarInterval: number | null = null;
-    let lastZbarCode = "";
-    let lastQuaggaCode = "";
+    const stableZbarCode = createStableCodeDetector();
+    const stableQuaggaCode = createStableCodeDetector();
+    const clearZbarInterval = () => {
+      if (zbarInterval !== null) {
+        window.clearInterval(zbarInterval);
+        zbarInterval = null;
+      }
+      if (zbarIntervalRef.current !== null) {
+        window.clearInterval(zbarIntervalRef.current);
+        zbarIntervalRef.current = null;
+      }
+    };
     const cleanupRef: HTMLDivElement | null = liveStreamRef.current;
     async function startCamera() {
       try {
@@ -387,27 +396,34 @@ export function useBarcodeScanner(
             const vWidth = videoElem.videoWidth;
             const vHeight = videoElem.videoHeight;
             if (vWidth > 0 && vHeight > 0) {
+              const sourceWidth = Math.floor(vWidth * 0.8);
+              const sourceHeight = Math.floor(vHeight * 0.35);
+              const sourceX = Math.floor((vWidth - sourceWidth) / 2);
+              const sourceY = Math.floor((vHeight - sourceHeight) / 2);
               const canvas = document.createElement("canvas");
-              canvas.width = vWidth;
-              canvas.height = vHeight;
+              canvas.width = sourceWidth;
+              canvas.height = sourceHeight;
               const ctx = canvas.getContext("2d");
               if (!ctx) return;
-              ctx.drawImage(videoElem, 0, 0, vWidth, vHeight);
-              const frameData = ctx.getImageData(0, 0, vWidth, vHeight);
+              ctx.drawImage(
+                videoElem,
+                sourceX,
+                sourceY,
+                sourceWidth,
+                sourceHeight,
+                0,
+                0,
+                sourceWidth,
+                sourceHeight,
+              );
+              const frameData = ctx.getImageData(0, 0, sourceWidth, sourceHeight);
               try {
                 logZbarPriority("ZBAR_START", "Escaneando frame con ZBar-WASM");
                 // PRIMERO ZBAR con validación mejorada
                 const symbols = await scanImageData(frameData);
                 if (symbols && symbols.length > 0) {
-                  const zbarCode = symbols[0].decode();
-                  if (
-                    zbarCode &&
-                    zbarCode !== lastZbarCode &&
-                    ZBAR_PRIORITY_CONFIG.VALID_CODE_PATTERN.test(zbarCode) &&
-                    zbarCode.length >= ZBAR_PRIORITY_CONFIG.MIN_CODE_LENGTH &&
-                    zbarCode.length <= ZBAR_PRIORITY_CONFIG.MAX_CODE_LENGTH
-                  ) {
-                    lastZbarCode = zbarCode;
+                  const zbarCode = stableZbarCode(symbols[0].decode());
+                  if (zbarCode) {
                     setCode(zbarCode);
                     setDetectionMethod("Cámara (ZBar‑WASM PRIORIDAD MÁXIMA)");
                     logZbarPriority(
@@ -419,7 +435,7 @@ export function useBarcodeScanner(
                     if (onDetect) onDetect(zbarCode);
                     Quagga.stop();
                     setCameraActive(false);
-                    if (zbarInterval) window.clearInterval(zbarInterval);
+                    clearZbarInterval();
                     return;
                   }
                 } // SOLO SI ZBAR NO DETECTA, USAR QUAGGA
@@ -433,26 +449,13 @@ export function useBarcodeScanner(
             }
           }
         }, ZBAR_PRIORITY_CONFIG.ZBAR_SCAN_INTERVAL); // Usar configuración de intervalo
+        zbarIntervalRef.current = zbarInterval;
 
         // Quagga2 detection SOLO SI ZBar no detecta (con configuración mejorada)
         Quagga.offDetected(); // Elimina cualquier listener anterior para evitar duplicados
         Quagga.onDetected((data: { codeResult?: { code: string | null } }) => {
-          if (lastZbarCode) {
-            logZbarPriority(
-              "QUAGGA_IGNORED",
-              "Quagga2 ignorado - ZBar-WASM ya detectó código",
-            );
-            return; // Si ZBar ya detectó, ignorar Quagga
-          }
-          const code = data.codeResult?.code;
-          // Usar validación de la configuración de prioridad
-          const valid =
-            typeof code === "string" &&
-            ZBAR_PRIORITY_CONFIG.VALID_CODE_PATTERN.test(code) &&
-            code.length >= ZBAR_PRIORITY_CONFIG.MIN_CODE_LENGTH &&
-            code.length <= ZBAR_PRIORITY_CONFIG.MAX_CODE_LENGTH;
-          if (valid && code !== lastQuaggaCode) {
-            lastQuaggaCode = code;
+          const code = stableQuaggaCode(data.codeResult?.code);
+          if (code) {
             setCode(code);
             setDetectionMethod("Cámara (Quagga2 Fallback)");
             logZbarPriority(
@@ -463,6 +466,7 @@ export function useBarcodeScanner(
             copyCodeToClipboard(code);
             if (onDetect) onDetect(code);
             Quagga.stop();
+            clearZbarInterval();
             setCameraActive(false);
           }
         });
@@ -479,6 +483,7 @@ export function useBarcodeScanner(
           const Quagga = (await import("@ericblade/quagga2")).default;
           Quagga.stop();
         } catch {}
+        clearZbarInterval();
         if (cleanupRef) {
           while (cleanupRef.firstChild)
             cleanupRef.removeChild(cleanupRef.firstChild);
@@ -491,6 +496,7 @@ export function useBarcodeScanner(
           const Quagga = (await import("@ericblade/quagga2")).default;
           Quagga.stop();
         } catch {}
+        clearZbarInterval();
         if (cleanupRef) {
           while (cleanupRef.firstChild)
             cleanupRef.removeChild(cleanupRef.firstChild);
