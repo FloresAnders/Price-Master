@@ -38,6 +38,7 @@ import { SchedulesService } from "@/services/schedules";
 import CreateInvoiceDrawer from "../components/drawers/CreateInvoiceDrawer";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import {
+  getEmployeesWithAssignedHoursForDay,
   resolveManagerFromControlHorario,
   type ShiftCode,
 } from "@/utils/controlHorarioManager";
@@ -108,6 +109,11 @@ const dateKeyInCostaRica = (iso: string): string => {
   } catch {
     return "";
   }
+};
+
+const dayFromDateKey = (dateKey: string): number | null => {
+  const day = Number(String(dateKey || "").split("-")[2]);
+  return Number.isInteger(day) && day > 0 ? day : null;
 };
 
 const formatKeyToDisplay = (key: string): string => {
@@ -464,6 +470,9 @@ export default function FacturasCreditoPage() {
     string | null
   >(null);
   const [companyEmployees, setCompanyEmployees] = useState<string[]>([]);
+  const [delifoodHourlyEmployees, setDelifoodHourlyEmployees] = useState<
+    string[]
+  >([]);
   const [employeesLoading, setEmployeesLoading] = useState(false);
   const [createManagerLockedByShift, setCreateManagerLockedByShift] =
     useState(false);
@@ -526,6 +535,35 @@ export default function FacturasCreditoPage() {
       }) ?? null
     );
   }, [availableCompanies, selectedCompany]);
+
+  const isSelectedDelifoodCompany = useMemo(
+    () =>
+      [selectedCompany, selectedEmpresaMeta?.name, selectedEmpresaMeta?.ubicacion]
+        .some((value) =>
+          String(value || "")
+            .trim()
+            .toLowerCase()
+            .includes("delifood"),
+        ),
+    [selectedCompany, selectedEmpresaMeta],
+  );
+
+  const getSelectedCompanyKeys = useCallback(() => {
+    const normalizedCompany = String(selectedCompany || "").trim();
+    if (!normalizedCompany) return [];
+
+    const set = new Set<string>();
+    set.add(normalizedCompany);
+    [
+      selectedEmpresaMeta?.name,
+      selectedEmpresaMeta?.ubicacion,
+      selectedEmpresaMeta?.id,
+    ]
+      .map((v) => (typeof v === "string" ? v.trim() : String(v || "").trim()))
+      .filter(Boolean)
+      .forEach((v) => set.add(v));
+    return Array.from(set);
+  }, [selectedCompany, selectedEmpresaMeta]);
 
   const getCompanyLabel = useCallback(
     (emp: Empresas) => {
@@ -676,6 +714,14 @@ export default function FacturasCreditoPage() {
       if (name) unique.add(name);
     };
 
+    if (isSelectedDelifoodCompany) {
+      delifoodHourlyEmployees.forEach((name) => add(name));
+      if (delifoodHourlyEmployees.includes(paymentManager2)) add(paymentManager2);
+      return Array.from(unique).sort((a, b) =>
+        a.localeCompare(b, "es", { sensitivity: "base" }),
+      );
+    }
+
     companyEmployees.forEach((name) => add(name));
 
     if (user?.role === "admin" || user?.role === "superadmin") {
@@ -688,7 +734,15 @@ export default function FacturasCreditoPage() {
     return Array.from(unique).sort((a, b) =>
       a.localeCompare(b, "es", { sensitivity: "base" }),
     );
-  }, [companyEmployees, paymentManager2, user?.email, user?.name, user?.role]);
+  }, [
+    companyEmployees,
+    delifoodHourlyEmployees,
+    isSelectedDelifoodCompany,
+    paymentManager2,
+    user?.email,
+    user?.name,
+    user?.role,
+  ]);
 
   const createPaymentType = useMemo(
     () => resolveFacturaPaymentType("PENDIENTE"),
@@ -741,6 +795,43 @@ export default function FacturasCreditoPage() {
     );
   }, [createProviderCode, providers]);
 
+  const resolveDelifoodHourlyEmployeesForNow = useCallback(
+    async (nowISO: string) => {
+      if (!isSelectedDelifoodCompany) return null;
+
+      const companyKeysToTry = getSelectedCompanyKeys();
+      if (companyKeysToTry.length === 0) return null;
+
+      const ymParts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Costa_Rica",
+        year: "numeric",
+        month: "2-digit",
+      }).formatToParts(new Date(nowISO));
+      const year = Number(ymParts.find((p) => p.type === "year")?.value);
+      const month1 = Number(ymParts.find((p) => p.type === "month")?.value);
+      const month0 = Math.max(0, Math.min(11, month1 - 1));
+      const dateKey = dateKeyInCostaRica(nowISO);
+      const day = dayFromDateKey(dateKey);
+      if (!Number.isFinite(year) || !Number.isFinite(month1) || day === null) {
+        return { dateKey, employees: [] };
+      }
+
+      const schedulesLists = await Promise.all(
+        companyKeysToTry.map((key) => getMonthlySchedulesCached(key, year, month0)),
+      );
+      const employees = getEmployeesWithAssignedHoursForDay(
+        schedulesLists.flat(),
+        day,
+      );
+      return { dateKey, employees };
+    },
+    [
+      getMonthlySchedulesCached,
+      getSelectedCompanyKeys,
+      isSelectedDelifoodCompany,
+    ],
+  );
+
   const resetCreateForm = useCallback(() => {
     setCreateProviderCode("");
     setCreateProviderFilter("");
@@ -751,9 +842,18 @@ export default function FacturasCreditoPage() {
     setCreateAmount("");
     setCreateCurrency("CRC");
     setCreateNotes("");
-    setCreateManager(String(user?.name || user?.email || "").trim());
+    setCreateManager(
+      isSelectedDelifoodCompany
+        ? delifoodHourlyEmployees[0] || ""
+        : String(user?.name || user?.email || "").trim(),
+    );
     setCreateFormError(null);
-  }, [user?.email, user?.name]);
+  }, [
+    delifoodHourlyEmployees,
+    isSelectedDelifoodCompany,
+    user?.email,
+    user?.name,
+  ]);
 
   const handleCloseCreateDrawer = useCallback(() => {
     setCreateDrawerOpen(false);
@@ -767,15 +867,8 @@ export default function FacturasCreditoPage() {
       const normalizedCompany = String(selectedCompany || "").trim();
       if (!empresa || !normalizedCompany) return null;
 
-      const companyKeysToTry = (() => {
-        const set = new Set<string>();
-        set.add(normalizedCompany);
-        [empresa?.name, empresa?.ubicacion, empresa?.id]
-          .map((v) => (typeof v === "string" ? v.trim() : String(v || "").trim()))
-          .filter(Boolean)
-          .forEach((v) => set.add(v));
-        return Array.from(set);
-      })();
+      const companyKeysToTry = getSelectedCompanyKeys();
+      if (companyKeysToTry.length === 0) return null;
 
       const ymParts = new Intl.DateTimeFormat("en-US", {
         timeZone: "America/Costa_Rica",
@@ -805,13 +898,20 @@ export default function FacturasCreditoPage() {
           CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
       });
     },
-    [getMonthlySchedulesCached, selectedCompany, selectedEmpresaMeta],
+    [
+      getMonthlySchedulesCached,
+      getSelectedCompanyKeys,
+      movements,
+      providers,
+      selectedCompany,
+      selectedEmpresaMeta,
+    ],
   );
 
   useEffect(() => {
     const shouldAuto = user?.role === "user" && createDrawerOpen;
 
-    if (!shouldAuto) {
+    if (!shouldAuto || isSelectedDelifoodCompany) {
       setCreateManagerLockedByShift(false);
       return;
     }
@@ -848,7 +948,12 @@ export default function FacturasCreditoPage() {
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [createDrawerOpen, resolveShiftManagerForNow, user?.role]);
+  }, [
+    createDrawerOpen,
+    isSelectedDelifoodCompany,
+    resolveShiftManagerForNow,
+    user?.role,
+  ]);
 
   const submitCreateMovement = useCallback(async (confirmedZeroNC = false) => {
     const empresa = String(selectedCompany || "").trim();
@@ -895,7 +1000,30 @@ export default function FacturasCreditoPage() {
     }
     let effectiveManager = String(createManager || "").trim();
 
-    if (user?.role === "user") {
+    if (isSelectedDelifoodCompany) {
+      try {
+        const resolution = await resolveDelifoodHourlyEmployeesForNow(nowISO);
+        const employeesWithHours = resolution?.employees ?? [];
+        setDelifoodHourlyEmployees(employeesWithHours);
+        if (employeesWithHours.length === 0) {
+          setMissingShiftDateKey(resolution?.dateKey || dateKeyInCostaRica(nowISO));
+          setMissingShiftModalOpen(true);
+          return;
+        }
+        if (!employeesWithHours.includes(effectiveManager)) {
+          setCreateFormError("Selecciona un encargado con horas asignadas.");
+          return;
+        }
+      } catch (err) {
+        console.error("[FACTURAS] Error resolving DELIFOOD hours:", err);
+        setCreateFormError(
+          "No se pudo validar la hora del servidor. Guardado bloqueado.",
+        );
+        return;
+      }
+    }
+
+    if (user?.role === "user" && !isSelectedDelifoodCompany) {
       try {
         const resolution = await resolveShiftManagerForNow(nowISO);
         if (resolution) {
@@ -979,9 +1107,11 @@ export default function FacturasCreditoPage() {
     createProviderCode,
     loadMovements,
     resetCreateForm,
+    resolveDelifoodHourlyEmployeesForNow,
     resolveShiftManagerForNow,
     selectedCompany,
     showToast,
+    isSelectedDelifoodCompany,
     user?.role,
   ]);
 
@@ -1606,6 +1736,7 @@ export default function FacturasCreditoPage() {
   useEffect(() => {
     if (!selectedCompany) {
       setCompanyEmployees([]);
+      setDelifoodHourlyEmployees([]);
       setEmployeesLoading(false);
       return;
     }
@@ -1619,6 +1750,41 @@ export default function FacturasCreditoPage() {
     setCompanyEmployees(names as string[]);
     setEmployeesLoading(false);
   }, [availableCompanies, getCompanyKey, selectedCompany]);
+
+  useEffect(() => {
+    if (!isSelectedDelifoodCompany) {
+      setDelifoodHourlyEmployees([]);
+      return;
+    }
+
+    let cancelled = false;
+    setEmployeesLoading(true);
+    getAuthoritativeNowISO()
+      .then((nowISO) => resolveDelifoodHourlyEmployeesForNow(nowISO))
+      .then((resolution) => {
+        if (!cancelled) setDelifoodHourlyEmployees(resolution?.employees ?? []);
+      })
+      .catch((error) => {
+        console.error("[FACTURAS] Error loading DELIFOOD hourly employees:", error);
+        if (!cancelled) setDelifoodHourlyEmployees([]);
+      })
+      .finally(() => {
+        if (!cancelled) setEmployeesLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isSelectedDelifoodCompany, resolveDelifoodHourlyEmployeesForNow]);
+
+  useEffect(() => {
+    if (!isSelectedDelifoodCompany || !createDrawerOpen) return;
+    setCreateManager((current) =>
+      delifoodHourlyEmployees.includes(current)
+        ? current
+        : delifoodHourlyEmployees[0] || "",
+    );
+  }, [createDrawerOpen, delifoodHourlyEmployees, isSelectedDelifoodCompany]);
 
   useEffect(() => {
     if (!isAdminOrSuperAdmin) return;
@@ -1974,6 +2140,33 @@ export default function FacturasCreditoPage() {
         4000,
       );
       return;
+    }
+
+    if (isSelectedDelifoodCompany) {
+      try {
+        const nowISO = await getAuthoritativeNowISO();
+        const resolution = await resolveDelifoodHourlyEmployeesForNow(nowISO);
+        const employeesWithHours = resolution?.employees ?? [];
+        setDelifoodHourlyEmployees(employeesWithHours);
+        if (employeesWithHours.length === 0) {
+          setMissingShiftDateKey(resolution?.dateKey || dateKeyInCostaRica(nowISO));
+          setMissingShiftModalOpen(true);
+          return;
+        }
+        resetCreateForm();
+        setCreateManager(employeesWithHours[0] || "");
+        setCreateManagerLockedByShift(false);
+        setCreateDrawerOpen(true);
+        return;
+      } catch (err) {
+        console.error("[FACTURAS] Error checking DELIFOOD hours:", err);
+        showToast(
+          "No se pudo validar la hora del servidor. Apertura bloqueada.",
+          "error",
+          6000,
+        );
+        return;
+      }
     }
 
     if (user?.role === "user") {
@@ -3843,8 +4036,14 @@ export default function FacturasCreditoPage() {
 
         <ConfirmModal
           open={missingShiftModalOpen}
-          title="Turno no asignado"
-          message={`No se cuenta con un turno (${missingShiftExpectedShift}) asignado para ${missingShiftDateKey || "hoy"}. Debes asignarlo en Control Horario para continuar.`}
+          title={
+            isSelectedDelifoodCompany ? "Horas no asignadas" : "Turno no asignado"
+          }
+          message={
+            isSelectedDelifoodCompany
+              ? `No se cuenta con encargados con horas asignadas para ${missingShiftDateKey || "hoy"}. Debes asignarlas en Control Horario para continuar.`
+              : `No se cuenta con un turno (${missingShiftExpectedShift}) asignado para ${missingShiftDateKey || "hoy"}. Debes asignarlo en Control Horario para continuar.`
+          }
           confirmText="Ir a Control Horario"
           cancelText="Cancelar"
           actionType="change"

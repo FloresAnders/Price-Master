@@ -317,6 +317,23 @@ export const findBestSchedule = (
   return best;
 };
 
+export const getEmployeesWithAssignedHoursForDay = (
+  schedules: ScheduleEntry[],
+  day: number,
+): string[] => {
+  const unique = new Set<string>();
+  schedules.forEach((entry) => {
+    const hours = Number(entry.horasPorDia);
+    const employeeName = String(entry.employeeName || "").trim();
+    if (entry.day === day && employeeName && Number.isFinite(hours) && hours > 0) {
+      unique.add(employeeName);
+    }
+  });
+  return Array.from(unique).sort((a, b) =>
+    a.localeCompare(b, "es", { sensitivity: "base" }),
+  );
+};
+
 const isCierreFondoVentasMovementLike = (
   entry: ClosingMovementLike,
   providers?: ClosingProviderLike[],
