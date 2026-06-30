@@ -194,6 +194,7 @@ export default function EmpresasEditorSection({
                 mostrarInfoPago: true,
                 unicoCierre: false,
                 verificacionSistemas: true,
+                solicitarApertura: true,
                 empleados: [
                   {
                     Empleado: "",
@@ -282,6 +283,14 @@ export default function EmpresasEditorSection({
                         </p>
                         <p className="text-sm sm:text-base font-semibold text-[var(--foreground)] break-words">
                           {empresa.mostrarInfoPago !== false ? "Visible" : "Oculta"}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2.5 sm:px-4 sm:py-3">
+                        <p className="text-[10px] sm:text-xs font-medium text-[var(--muted-foreground)]">
+                          Solicitar apertura
+                        </p>
+                        <p className="text-sm sm:text-base font-semibold text-[var(--foreground)] break-words">
+                          {empresa.solicitarApertura !== false ? "Activa" : "Omitida"}
                         </p>
                       </div>
                     </div>
@@ -505,6 +514,22 @@ export default function EmpresasEditorSection({
                           }}
                         />
                         Verificacion de sistemas
+                      </label>
+
+                      <label className="flex items-center gap-2 text-xs sm:text-sm">
+                        <input
+                          type="checkbox"
+                          checked={empresa.solicitarApertura !== false}
+                          onChange={(e) => {
+                            const copy = [...empresasData];
+                            copy[idx] = {
+                              ...copy[idx],
+                              solicitarApertura: e.target.checked,
+                            };
+                            setEmpresasData(copy);
+                          }}
+                        />
+                        Solicitar apertura
                       </label>
                     </div>
 
@@ -910,6 +935,8 @@ export default function EmpresasEditorSection({
                                     unicoCierre: e.unicoCierre === true,
                                     verificacionSistemas:
                                       e.verificacionSistemas !== false,
+                                    solicitarApertura:
+                                      e.solicitarApertura !== false,
                                     empleados: e.empleados || [],
                                   });
                                   await loadData();

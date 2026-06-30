@@ -808,6 +808,7 @@ export default function DataEditor() {
             mostrarInfoPago: empresa.mostrarInfoPago !== false,
             unicoCierre: empresa.unicoCierre === true,
             verificacionSistemas: empresa.verificacionSistemas !== false,
+            solicitarApertura: empresa.solicitarApertura !== false,
             empleados: empresa.empleados || [],
           });
         }

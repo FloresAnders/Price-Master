@@ -63,6 +63,7 @@ export interface HandleConfirmDailyClosingDeps {
   lastDailyClosingSavedAtRef: NumberRef;
   minutesAfterClose?: number | null;
   requireSingleClosingReason: boolean;
+  solicitarApertura: boolean;
   loadedDailyClosingKeysRef: StringSetRef;
   loadingDailyClosingKeysRef: StringSetRef;
   ownerAdminEmail: string | null;
@@ -122,6 +123,7 @@ export async function handleConfirmDailyClosing(
     lastDailyClosingSavedAtRef,
     minutesAfterClose,
     requireSingleClosingReason,
+    solicitarApertura,
     loadedDailyClosingKeysRef,
     loadingDailyClosingKeysRef,
     ownerAdminEmail,
@@ -588,7 +590,7 @@ export async function handleConfirmDailyClosing(
         breakdown: closing.breakdownCRC ?? {},
         closingBalanceCRC,
         closingBalanceUSD,
-        requiresOpening: true,
+        requiresOpening: solicitarApertura,
       } as FondoEntry;
       newMovements.push(entry);
     }
@@ -613,7 +615,7 @@ export async function handleConfirmDailyClosing(
         currency: "USD",
         closingBalanceCRC,
         closingBalanceUSD,
-        requiresOpening: true,
+        requiresOpening: solicitarApertura,
       } as FondoEntry;
       if ((entry as any).currency === "USD") (entry as any).breakdown = closing.breakdownUSD ?? {};
       newMovements.push(entry);
@@ -635,7 +637,7 @@ export async function handleConfirmDailyClosing(
         breakdown: closing.breakdownCRC ?? {},
         closingBalanceCRC,
         closingBalanceUSD,
-        requiresOpening: true,
+        requiresOpening: solicitarApertura,
       } as FondoEntry;
       newMovements.push(entry);
     }
@@ -789,7 +791,7 @@ export async function handleConfirmDailyClosing(
               originalEntryId: record.id,
               closingBalanceCRC: movement.closingBalanceCRC,
               closingBalanceUSD: movement.closingBalanceUSD,
-              requiresOpening: true,
+              requiresOpening: solicitarApertura,
             } as FondoEntry;
 
             const saved = await persistMovementToFirestore(fondoEntries, "edit", {
@@ -875,6 +877,7 @@ export async function handleConfirmDailyClosing(
                 manager: AUTO_ADJUSTMENT_MANAGER,
                 closingBalanceCRC: match.closingBalanceCRC,
                 closingBalanceUSD: match.closingBalanceUSD,
+                requiresOpening: match.requiresOpening,
                 isAudit: true,
                 originalEntryId: e.originalEntryId ?? e.id,
                 auditDetails: JSON.stringify({ history: compressedHistory }),

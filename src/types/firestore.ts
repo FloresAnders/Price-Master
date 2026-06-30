@@ -28,6 +28,7 @@ export interface Empresas {
   mostrarInfoPago?: boolean;
   unicoCierre?: boolean;
   verificacionSistemas?: boolean;
+  solicitarApertura?: boolean;
   empleados: EmpresaEmpleado[];
 }
 

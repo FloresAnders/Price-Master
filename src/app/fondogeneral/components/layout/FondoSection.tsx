@@ -409,6 +409,8 @@ export function FondoSection({
   const cierreFondoVentasMinutesAfterEnd =
     empresaForShiftResolution?.cierreFondoVentasMinutesAfterEnd ??
     CIERRE_FONDO_VENTAS_MINUTES_AFTER_END;
+  const empresaSolicitaApertura =
+    empresaForShiftResolution?.solicitarApertura !== false;
 
   const {
     getFGMonthlySchedulesCached,
@@ -783,10 +785,16 @@ export function FondoSection({
   const shouldPromptPhysicalCount = useCallback(
     (): boolean => {
       if (accountKey !== "FondoGeneral") return false;
+      if (!empresaSolicitaApertura) return false;
       if (!latestMovementOverallLoaded) return true;
       return latestMovementOverall?.requiresOpening === true && latestMovementOverall?.accountId === "FondoGeneral";
     },
-    [accountKey, latestMovementOverall, latestMovementOverallLoaded],
+    [
+      accountKey,
+      empresaSolicitaApertura,
+      latestMovementOverall,
+      latestMovementOverallLoaded,
+    ],
   );
 
   const loadLatestDailyClosing =
@@ -3903,6 +3911,7 @@ export function FondoSection({
         dailyClosingSingleReasonRequired &&
         !editingDailyClosingId &&
         activeEmpresaForCompany?.unicoCierre !== true,
+      solicitarApertura: empresaSolicitaApertura,
       loadedDailyClosingKeysRef,
       loadingDailyClosingKeysRef,
       ownerAdminEmail,
@@ -3919,7 +3928,10 @@ export function FondoSection({
       storageSnapshotRef,
       user,
     });
-    setLatestMovementOverall({ requiresOpening: true, accountId: "FondoGeneral" } as FondoEntry);
+    setLatestMovementOverall({
+      requiresOpening: empresaSolicitaApertura,
+      accountId: "FondoGeneral",
+    } as FondoEntry);
   };
 
   const validateBeforeMovementSubmitConfirm = useCallback(async () => {

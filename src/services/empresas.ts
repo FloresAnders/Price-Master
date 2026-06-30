@@ -35,6 +35,10 @@ export class EmpresasService {
     return EmpresasService.normalizeBoolean(value, true);
   }
 
+  private static normalizeSolicitarApertura(value: unknown): boolean {
+    return EmpresasService.normalizeBoolean(value, true);
+  }
+
   private static cloneEmpresas(list: Empresas[]): Empresas[] {
     return (list || []).map((e) => ({
       ...e,
@@ -197,6 +201,9 @@ export class EmpresasService {
       verificacionSistemas: EmpresasService.normalizeVerificacionSistemas(
         (e as any).verificacionSistemas,
       ),
+      solicitarApertura: EmpresasService.normalizeSolicitarApertura(
+        (e as any).solicitarApertura,
+      ),
       empleados: EmpresasService.normalizeEmpleados(e.empleados as unknown),
     }));
     this.empresasCache = {
@@ -229,6 +236,9 @@ export class EmpresasService {
       ),
       verificacionSistemas: EmpresasService.normalizeVerificacionSistemas(
         (doc as any).verificacionSistemas,
+      ),
+      solicitarApertura: EmpresasService.normalizeSolicitarApertura(
+        (doc as any).solicitarApertura,
       ),
       empleados: EmpresasService.normalizeEmpleados(
         (doc as any).empleados as unknown,
@@ -298,6 +308,9 @@ export class EmpresasService {
         verificacionSistemas: EmpresasService.normalizeVerificacionSistemas(
           empresa.verificacionSistemas,
         ),
+        solicitarApertura: EmpresasService.normalizeSolicitarApertura(
+          empresa.solicitarApertura,
+        ),
         empleados: empleadosToSave,
       });
       return empresa.id;
@@ -325,6 +338,9 @@ export class EmpresasService {
       unicoCierre: EmpresasService.normalizeUnicoCierre(empresa.unicoCierre),
       verificacionSistemas: EmpresasService.normalizeVerificacionSistemas(
         empresa.verificacionSistemas,
+      ),
+      solicitarApertura: EmpresasService.normalizeSolicitarApertura(
+        empresa.solicitarApertura,
       ),
       empleados: empleadosToSave,
     });
@@ -368,6 +384,11 @@ export class EmpresasService {
         EmpresasService.normalizeVerificacionSistemas(
           patch.verificacionSistemas,
         );
+    }
+    if ("solicitarApertura" in patch) {
+      patch.solicitarApertura = EmpresasService.normalizeSolicitarApertura(
+        patch.solicitarApertura,
+      );
     }
     return await FirestoreService.update(
       this.COLLECTION_NAME,
