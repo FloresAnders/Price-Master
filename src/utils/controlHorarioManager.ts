@@ -39,6 +39,21 @@ type ClosingMovementLike = {
   turno?: ShiftCode;
 };
 
+type DailyClosingLike = {
+  createdAt?: string;
+  closingDate?: string;
+  turno?: ShiftCode;
+};
+
+export type CashOpeningAvailability =
+  | { allowed: true }
+  | {
+      allowed: false;
+      closingTurno: ShiftCode;
+      waitUntilLabel: string;
+      reason: "next_shift_not_started" | "next_day_shift_not_started";
+    };
+
 export const getOccupiedClosingShifts = (
   closings: ClosingMovementLike[],
 ): Set<ShiftCode> => {
@@ -183,6 +198,73 @@ export const getCostaRicaOperationalDateKey = (
   return `${parts.year}-${String(parts.month1).padStart(2, "0")}-${String(
     parts.day,
   ).padStart(2, "0")}`;
+};
+
+const formatMinuteOfDay = (minute: number): string => {
+  const normalized = normalizeMinuteOfDay(minute);
+  const hours = Math.floor(normalized / 60);
+  const mins = normalized % 60;
+  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+};
+
+export const getCashOpeningAvailabilityAfterDailyClosing = (args: {
+  nowISO: string;
+  horarioApertura?: string | null;
+  latestDailyClosing?: DailyClosingLike | null;
+  shiftChangeMin?: number | null;
+}): CashOpeningAvailability => {
+  const latest = args.latestDailyClosing;
+  if (latest?.turno !== "D" && latest?.turno !== "N") {
+    return { allowed: true };
+  }
+
+  const openMin = parseHHMMToMinutes(args.horarioApertura);
+  if (openMin === null) return { allowed: true };
+
+  const nowInfo = getCostaRicaDateKeyAndMinute(args.nowISO);
+  if (!nowInfo) return { allowed: true };
+
+  const nowOperationalDateKey = getCostaRicaOperationalDateKey(
+    args.nowISO,
+    args.horarioApertura,
+  );
+  const closingISO = String(latest.closingDate || latest.createdAt || "");
+  const closingOperationalDateKey = getCostaRicaOperationalDateKey(
+    closingISO,
+    args.horarioApertura,
+  );
+  if (
+    !nowOperationalDateKey ||
+    !closingOperationalDateKey ||
+    nowOperationalDateKey !== closingOperationalDateKey
+  ) {
+    return { allowed: true };
+  }
+
+  if (latest.turno === "N") {
+    return {
+      allowed: false,
+      closingTurno: "N",
+      waitUntilLabel: formatMinuteOfDay(openMin),
+      reason: "next_day_shift_not_started",
+    };
+  }
+
+  const shiftChangeMin = Number(args.shiftChangeMin);
+  if (!Number.isFinite(shiftChangeMin)) return { allowed: true };
+
+  const currentElapsed = normalizeMinuteOfDay(nowInfo.minuteOfDay - openMin);
+  const shiftChangeElapsed = normalizeMinuteOfDay(shiftChangeMin - openMin);
+  if (shiftChangeElapsed > 0 && currentElapsed < shiftChangeElapsed) {
+    return {
+      allowed: false,
+      closingTurno: "D",
+      waitUntilLabel: formatMinuteOfDay(shiftChangeMin),
+      reason: "next_shift_not_started",
+    };
+  }
+
+  return { allowed: true };
 };
 
 const parseHHMMToMinutes = (value: unknown): number | null => {

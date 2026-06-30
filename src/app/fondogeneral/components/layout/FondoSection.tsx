@@ -35,6 +35,7 @@ import { ManualCreditNoteDrawer } from "../drawers/ManualCreditNoteDrawer";
 import { FondoConfirmModals } from "../FondoConfirmModals";
 import {
   getControlHorarioShiftTiming,
+  getCashOpeningAvailabilityAfterDailyClosing,
   getCostaRicaDateKeyAndMinute,
   getCostaRicaOperationalDateKey,
   getOccupiedClosingShifts,
@@ -786,6 +787,65 @@ export function FondoSection({
       return latestMovementOverall?.requiresOpening === true && latestMovementOverall?.accountId === "FondoGeneral";
     },
     [accountKey, latestMovementOverall, latestMovementOverallLoaded],
+  );
+
+  const loadLatestDailyClosing =
+    useCallback(async (): Promise<DailyClosingRecord | null> => {
+      const normalizedCompany = (company || "").trim();
+      if (accountKey !== "FondoGeneral" || !normalizedCompany) return null;
+
+      const document = await DailyClosingsService.getDocument(normalizedCompany);
+      if (document) {
+        return DailyClosingsService.extractAllClosings(document)[0] ?? null;
+      }
+
+      return (
+        dailyClosings
+          .slice()
+          .sort(
+            (a, b) =>
+              Date.parse(b.createdAt || b.closingDate || "") -
+              Date.parse(a.createdAt || a.closingDate || ""),
+          )[0] ?? null
+      );
+    }, [accountKey, company, dailyClosings]);
+
+  const validateCashOpeningShiftWindow = useCallback(
+    async (nowISO: string): Promise<boolean> => {
+      try {
+        const timing = await resolveShiftTimingForNow(nowISO);
+        const latestClosing = await loadLatestDailyClosing();
+        const availability = getCashOpeningAvailabilityAfterDailyClosing({
+          nowISO,
+          horarioApertura: empresaForShiftResolution?.horarioApertura,
+          latestDailyClosing: latestClosing,
+          shiftChangeMin: timing?.withinHorario ? timing.shiftChangeMin : null,
+        });
+        if (availability.allowed) return true;
+
+        showToast(
+          availability.closingTurno === "D"
+            ? `Apertura bloqueada. El cierre del turno D ya fue realizado; puede abrir a partir de las ${availability.waitUntilLabel}.`
+            : `Apertura bloqueada. El cierre del turno N ya fue realizado; puede abrir a partir de las ${availability.waitUntilLabel}.`,
+          "warning",
+          7000,
+        );
+      } catch (err) {
+        console.error("[CASH_OPENING] Error validating shift window:", err);
+        showToast(
+          "No se pudo validar la hora del servidor. Apertura bloqueada.",
+          "error",
+          6000,
+        );
+      }
+      return false;
+    },
+    [
+      empresaForShiftResolution?.horarioApertura,
+      loadLatestDailyClosing,
+      resolveShiftTimingForNow,
+      showToast,
+    ],
   );
 
   const toggleExpandedOpeningBalance = useCallback((key: string) => {
@@ -3642,6 +3702,8 @@ export function FondoSection({
       return;
     }
 
+    if (!(await validateCashOpeningShiftWindow(nowISO))) return;
+
     if (isRegularUser) {
       try {
         const resolution = await resolveShiftManagerForNow(nowISO);
@@ -3689,6 +3751,7 @@ export function FondoSection({
     isRegularUser,
     resolveShiftManagerForNow,
     showToast,
+    validateCashOpeningShiftWindow,
   ]);
 
   const buildCashOpeningInitialValuesFromEntry = useCallback(
@@ -3730,6 +3793,22 @@ export function FondoSection({
 
   const handleConfirmCashOpening = useCallback(
     async (opening: CashOpeningFormValues) => {
+      if (!cashOpeningEditingEntry) {
+        let nowISO: string;
+        try {
+          nowISO = await getAuthoritativeNowISO();
+        } catch (err) {
+          console.error("[CASH_OPENING] Error validating server time:", err);
+          showToast(
+            "No se pudo validar la hora del servidor. Apertura bloqueada.",
+            "error",
+            6000,
+          );
+          return;
+        }
+        if (!(await validateCashOpeningShiftWindow(nowISO))) return;
+      }
+
       const apEntry = await handleConfirmCashOpeningFn(opening, {
         accountKey,
         company,
@@ -3766,6 +3845,7 @@ export function FondoSection({
       openingSubmitInProgressRef,
       cashOpeningEditingEntry,
       setLatestMovementOverall,
+      validateCashOpeningShiftWindow,
     ],
   );
 
