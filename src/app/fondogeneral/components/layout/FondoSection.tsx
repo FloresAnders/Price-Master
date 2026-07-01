@@ -614,6 +614,25 @@ export function FondoSection({
     operationalDateKey: string;
     hasCierreD: boolean;
   } | null>(null);
+  const dailyClosingDayD = useMemo(() => {
+    if (!dailyClosingOperationalDateKey) return null;
+    return dailyClosings.find(
+      (closing) =>
+        getCostaRicaOperationalDateKey(
+          closing.closingDate,
+          empresaForShiftResolution?.horarioApertura,
+        ) === dailyClosingOperationalDateKey &&
+        inferDailyClosingTurno(
+          closing,
+          dailyClosings,
+          empresaForShiftResolution?.horarioApertura,
+        ) === "D",
+    ) ?? null;
+  }, [
+    dailyClosingOperationalDateKey,
+    dailyClosings,
+    empresaForShiftResolution?.horarioApertura,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -5901,8 +5920,11 @@ export function FondoSection({
         turno={dailyClosingTurno}
         cierreFondoVentasMinutesBeforeEnd={cierreFondoVentasMinutesBeforeEnd}
         cierreFondoVentasMinutesAfterEnd={cierreFondoVentasMinutesAfterEnd}
-        previousReconciliation={dailyClosings.find((item) => item.turno === "D")?.reconciliation}
-        cumulativeContica={{ r08: 0, t11: 0 }}
+        previousReconciliation={dailyClosingTurno === "N" ? dailyClosingDayD?.reconciliation : null}
+        cumulativeContica={dailyClosingTurno === "N" ? {
+          r08: dailyClosingDayD?.reconciliation?.calculated.cumulativeR08 ?? 0,
+          t11: dailyClosingDayD?.reconciliation?.calculated.cumulativeT11 ?? 0,
+        } : { r08: 0, t11: 0 }}
       />
 
       <FacturaPaymentModal

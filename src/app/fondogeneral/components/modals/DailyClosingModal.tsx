@@ -303,12 +303,14 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     hasZeroClosingReport ||
     (requireSingleClosingReason && singleClosingReason.trim().length === 0);
   const hasDifferences = diffCRC !== 0 || diffUSD !== 0;
-  const conticaTucanDiff = r08Num - tucanNum;
-  const conticaTiemposDiff = t11Num - tiemposNum;
 
   const reconciliationPreview = useMemo(() => {
     try { return reconcileClosing({ r08: r08Num, t11: t11Num, tucanCumulative: tucanNum, tiemposCumulative: tiemposNum, previous: previousReconciliation, cumulativeR08: (cumulativeContica?.r08 || 0) + r08Num, cumulativeT11: (cumulativeContica?.t11 || 0) + t11Num, isFinalShift: turno === "N" }); } catch { return null; }
   }, [r08Num, t11Num, tucanNum, tiemposNum, previousReconciliation, cumulativeContica, turno]);
+  const conticaTucanDiff =
+    reconciliationPreview?.calculated.tucanDifference ?? r08Num - tucanNum;
+  const conticaTiemposDiff =
+    reconciliationPreview?.calculated.tiemposDifference ?? t11Num - tiemposNum;
 
   const formatCRCAmount = useCallback(
     (value: number) => formatCurrency("CRC", Math.abs(value)),

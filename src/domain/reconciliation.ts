@@ -14,7 +14,7 @@ export type ClosingReconciliation = {
   calculated: {
     previousTucanCumulative: number; previousTiemposCumulative: number;
     tucanForShift: number; tiemposForShift: number; tucanDifference: number;
-    tiemposRawDifference: number; previousTiemposPending: number;
+    tiemposRawDifference: number; tiemposDifference: number; previousTiemposPending: number;
     compensatedTiemposAmount: number; tiemposRealShiftDifference: number;
     tiemposPendingAfterClosing: number; cumulativeR08: number; cumulativeT11: number;
     cumulativeTucanDifference: number; cumulativeTiemposDifference: number;
@@ -43,10 +43,17 @@ export function reconcileClosing(input: ReconciliationInput): ClosingReconciliat
   const tiemposForShift = tiempos - prevTiempos;
   const tucanDifference = r08 - tucanForShift;
   const tiemposRawDifference = t11 - tiemposForShift;
-  const compensation = prevPending > 0 && tiemposRawDifference < 0 ? Math.min(prevPending, Math.abs(tiemposRawDifference)) : 0;
-  const afterCompensation = tiemposRawDifference + compensation;
-  const pendingAfter = prevPending - compensation + Math.max(afterCompensation, 0);
-  const realDifference = Math.min(afterCompensation, 0);
+  const combinedTiemposDifference = prevPending + tiemposRawDifference;
+  const hasOppositePending =
+    prevPending !== 0 &&
+    tiemposRawDifference !== 0 &&
+    Math.sign(prevPending) !== Math.sign(tiemposRawDifference);
+  const compensation = hasOppositePending
+    ? Math.min(Math.abs(prevPending), Math.abs(tiemposRawDifference))
+    : 0;
+  const tiemposDifference = input.isFinalShift ? combinedTiemposDifference : tiemposRawDifference;
+  const pendingAfter = input.isFinalShift ? 0 : tiemposDifference;
+  const realDifference = input.isFinalShift ? tiemposDifference : 0;
   const cumulativeR08 = money(input.cumulativeR08 ?? r08);
   const cumulativeT11 = money(input.cumulativeT11 ?? t11);
   const cumulativeTiemposDifference = cumulativeT11 - tiempos;
@@ -56,5 +63,5 @@ export function reconcileClosing(input: ReconciliationInput): ClosingReconciliat
   else if (compensation > 0 && matched(pendingAfter)) tiemposStatus = "RESOLVED";
   else if (compensation > 0) tiemposStatus = "PARTIALLY_RESOLVED";
   else if (!matched(pendingAfter)) tiemposStatus = "TEMPORARY_PENDING";
-  return { contica: { r08, t11 }, externalSnapshots: { tucanCumulative: tucan, tiemposCumulative: tiempos }, calculated: { previousTucanCumulative: prevTucan, previousTiemposCumulative: prevTiempos, tucanForShift, tiemposForShift, tucanDifference, tiemposRawDifference, previousTiemposPending: prevPending, compensatedTiemposAmount: compensation, tiemposRealShiftDifference: realDifference, tiemposPendingAfterClosing: pendingAfter, cumulativeR08, cumulativeT11, cumulativeTucanDifference: cumulativeR08 - tucan, cumulativeTiemposDifference }, tiemposStatus };
+  return { contica: { r08, t11 }, externalSnapshots: { tucanCumulative: tucan, tiemposCumulative: tiempos }, calculated: { previousTucanCumulative: prevTucan, previousTiemposCumulative: prevTiempos, tucanForShift, tiemposForShift, tucanDifference, tiemposRawDifference, tiemposDifference, previousTiemposPending: prevPending, compensatedTiemposAmount: compensation, tiemposRealShiftDifference: realDifference, tiemposPendingAfterClosing: pendingAfter, cumulativeR08, cumulativeT11, cumulativeTucanDifference: cumulativeR08 - tucan, cumulativeTiemposDifference }, tiemposStatus };
 }
