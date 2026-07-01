@@ -216,17 +216,20 @@ export class MovimientosFondosService {
     manager2?: string;
   }): Record<string, unknown> & { id: string } {
     const invoice = input.invoice;
-    const paymentAmount = Math.max(0, Math.trunc(Number(input.paymentAmount) || 0));
+    const paymentAmount = Math.max(
+      0,
+      Math.round((Number(input.paymentAmount) || 0) * 100) / 100,
+    );
     const updateAt = String(input.updateAt || new Date().toISOString());
     const invoiceCreatedAt = String(invoice.createdAt || "");
     const paymentKey = updateAt.replace(/[:.]/g, "-");
     const originalAmount = Math.max(
       0,
-      Math.trunc(Number(invoice.originalAmount ?? invoice.amount) || 0),
+      Math.round((Number(invoice.originalAmount ?? invoice.amount) || 0) * 100) / 100,
     );
     const amountDue = Math.max(
       0,
-      Math.trunc(Number(invoice.amountDue ?? invoice.balanceDue) || 0),
+      Math.round((Number(invoice.amountDue ?? invoice.balanceDue) || 0) * 100) / 100,
     );
     return {
       id: `fcr-pago-${invoice.id}-${paymentKey}`,
@@ -553,8 +556,14 @@ export class MovimientosFondosService {
           currency: balance.currency as MovementCurrencyKey,
           enabled:
             balance.enabled === undefined ? true : Boolean(balance.enabled),
-          initialBalance: this.sanitizeBalance(balance.initialBalance),
-          currentBalance: this.sanitizeBalance(balance.currentBalance),
+          initialBalance: this.sanitizeBalance(
+            balance.initialBalance,
+            balance.accountId as MovementAccountKey,
+          ),
+          currentBalance: this.sanitizeBalance(
+            balance.currentBalance,
+            balance.accountId as MovementAccountKey,
+          ),
         });
       });
     }
@@ -572,8 +581,14 @@ export class MovimientosFondosService {
             currency,
             enabled:
               settings.enabled === undefined ? true : Boolean(settings.enabled),
-            initialBalance: this.sanitizeBalance(settings.initialBalance),
-            currentBalance: this.sanitizeBalance(settings.currentBalance),
+            initialBalance: this.sanitizeBalance(
+              settings.initialBalance,
+              accountId,
+            ),
+            currentBalance: this.sanitizeBalance(
+              settings.currentBalance,
+              accountId,
+            ),
           });
         });
       });
@@ -591,8 +606,14 @@ export class MovimientosFondosService {
             currency,
             enabled:
               settings.enabled === undefined ? true : Boolean(settings.enabled),
-            initialBalance: this.sanitizeBalance(settings.initialBalance),
-            currentBalance: this.sanitizeBalance(settings.currentBalance),
+            initialBalance: this.sanitizeBalance(
+              settings.initialBalance,
+              accountId,
+            ),
+            currentBalance: this.sanitizeBalance(
+              settings.currentBalance,
+              accountId,
+            ),
           });
         });
       });
@@ -637,18 +658,24 @@ export class MovimientosFondosService {
     } as T;
   }
 
-  private static sanitizeBalance(value: unknown): number {
+  private static sanitizeBalance(
+    value: unknown,
+    _accountId: MovementAccountKey = "FondoGeneral",
+  ): number {
     const parsed = typeof value === "number" ? value : Number(value);
     if (Number.isFinite(parsed)) {
-      return Math.trunc(parsed);
+      return Math.round(parsed * 100) / 100;
     }
     return 0;
   }
 
   private static resolveMovementAmount(record: Record<string, unknown>): number {
-    const ingreso = this.sanitizeBalance(record.amountIngreso);
-    const egreso = this.sanitizeBalance(record.amountEgreso);
-    const payment = this.sanitizeBalance(record.amountPayment);
+    const accountId = this.isMovementAccountKey(record.accountId)
+      ? (record.accountId as MovementAccountKey)
+      : "FondoGeneral";
+    const ingreso = this.sanitizeBalance(record.amountIngreso, accountId);
+    const egreso = this.sanitizeBalance(record.amountEgreso, accountId);
+    const payment = this.sanitizeBalance(record.amountPayment, accountId);
     if (record.amountPayment !== undefined && egreso > 0) {
       return Math.max(0, Math.abs(payment));
     }

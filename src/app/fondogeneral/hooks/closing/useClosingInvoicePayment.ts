@@ -16,7 +16,7 @@ import {
   submitClosingInvoicePayment as submitClosingInvoicePaymentFn,
   type ClosingInvoicePaymentDeps,
 } from "../../utils/invoicePayment/closingInvoicePayment";
-import type { PendingCreditNoteOption } from "../../utils/helpers";
+import { roundMoney2, type PendingCreditNoteOption } from "../../utils/helpers";
 
 type V2MovementsCacheEntry = {
   loaded: boolean;
@@ -95,15 +95,15 @@ export function useClosingInvoicePayment({
       }
       const totalAmount = Math.max(
         0,
-        Math.trunc(Number(invoice.originalAmount ?? invoice.amount) || 0),
+        roundMoney2(invoice.originalAmount ?? invoice.amount),
       );
       const paidAmount = Math.max(
         0,
-        Math.trunc(Number(invoice.paidAmount) || 0),
+        roundMoney2(invoice.paidAmount),
       );
       const balanceDue = Math.max(
         0,
-        Math.trunc(Number(invoice.balanceDue ?? totalAmount - paidAmount) || 0),
+        roundMoney2(invoice.balanceDue ?? totalAmount - paidAmount),
       );
 
       setSelectedProvider(invoice.providerCode);
@@ -167,24 +167,22 @@ export function useClosingInvoicePayment({
     if (!closingPaymentTarget) return 0;
     const totalAmount = Math.max(
       0,
-      Math.trunc(
-        Number(closingPaymentTarget.originalAmount ?? closingPaymentTarget.amount) || 0,
-      ),
+      roundMoney2(closingPaymentTarget.originalAmount ?? closingPaymentTarget.amount),
     );
     const paidAmount = Math.max(
       0,
-      Math.trunc(Number(closingPaymentTarget.paidAmount) || 0),
+      roundMoney2(closingPaymentTarget.paidAmount),
     );
     let remaining = Math.max(
       0,
-      Math.trunc(Number(closingPaymentTarget.balanceDue ?? totalAmount - paidAmount) || 0),
+      roundMoney2(closingPaymentTarget.balanceDue ?? totalAmount - paidAmount),
     );
     let total = 0;
     closingPaymentSelectedCreditNotes.forEach((note) => {
       if (remaining <= 0) return;
       const applied = Math.min(
         remaining,
-        Math.max(0, Math.trunc(Number(note.balanceDue) || 0)),
+        Math.max(0, roundMoney2(note.balanceDue)),
       );
       total += applied;
       remaining -= applied;

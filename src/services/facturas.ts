@@ -114,23 +114,27 @@ const sanitizeFacturaMovement = (raw: unknown): FacturaMovement | null => {
   if (!id || !empresa || !providerCode || !invoiceNumber || !createdAt || !manager) {
     return null;
   }
+  const roundMoney2 = (value: unknown) => {
+    const parsed = typeof value === "number" ? value : Number(value);
+    return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : 0;
+  };
 
   const amountValue =
     candidate.amount !== undefined
       ? Number(candidate.amount)
       : Number(candidate.amountIngreso || 0) - Number(candidate.amountEgreso || 0);
-  const amount = Math.trunc(amountValue || 0);
+  const amount = roundMoney2(amountValue || 0);
   const originalAmount =
     candidate.originalAmount !== undefined
-      ? Math.max(0, Math.trunc(Number(candidate.originalAmount) || 0))
+      ? Math.max(0, roundMoney2(candidate.originalAmount))
       : undefined;
   const amountDue =
     candidate.amountDue !== undefined
-      ? Math.max(0, Math.trunc(Number(candidate.amountDue) || 0))
+      ? Math.max(0, roundMoney2(candidate.amountDue))
       : undefined;
-  const amountEgreso = Math.trunc(Number(candidate.amountEgreso) || 0);
-  const amountIngreso = Math.trunc(Number(candidate.amountIngreso) || 0);
-  const amountPayment = Math.trunc(Number(candidate.amountPayment) || 0);
+  const amountEgreso = roundMoney2(candidate.amountEgreso);
+  const amountIngreso = roundMoney2(candidate.amountIngreso);
+  const amountPayment = roundMoney2(candidate.amountPayment);
   const appliedCreditNotes = Array.isArray(candidate.appliedCreditNotes)
     ? candidate.appliedCreditNotes
         .map((item) => {
@@ -141,10 +145,10 @@ const sanitizeFacturaMovement = (raw: unknown): FacturaMovement | null => {
             typeof raw.invoiceNumber === "string"
               ? raw.invoiceNumber.trim()
               : "";
-          const noteAmount = Math.max(0, Math.trunc(Number(raw.amount) || 0));
+          const noteAmount = Math.max(0, roundMoney2(raw.amount));
           const appliedAmount = Math.max(
             0,
-            Math.trunc(Number(raw.appliedAmount) || 0),
+            roundMoney2(raw.appliedAmount),
           );
           const noteCurrency: MovementCurrencyKey =
             raw.currency === "USD" ? "USD" : "CRC";
@@ -164,8 +168,8 @@ const sanitizeFacturaMovement = (raw: unknown): FacturaMovement | null => {
         })
         .filter((item): item is AppliedCreditNote => Boolean(item))
     : undefined;
-  const paidAmount = Math.trunc(Number(candidate.paidAmount) || 0);
-  const balanceDue = Math.trunc(Number(candidate.balanceDue) || 0);
+  const paidAmount = roundMoney2(candidate.paidAmount);
+  const balanceDue = roundMoney2(candidate.balanceDue);
   const paymentStatus =
     candidate.paymentStatus === "PAGADA" ||
     candidate.paymentStatus === "PARCIAL" ||

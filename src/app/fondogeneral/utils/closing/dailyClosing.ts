@@ -14,7 +14,10 @@ import {
 } from "@/services/daily-closings";
 import { MovimientosFondosService } from "@/services/movimientos-fondos";
 import type { Dispatch, SetStateAction } from "react";
-import type { DailyClosingFormValues } from "../../components/modals/DailyClosingModal";
+import {
+  clearDailyClosingModalDraft,
+  type DailyClosingFormValues,
+} from "../../components/modals/DailyClosingModal";
 import type { FondoEntry } from "../../types";
 import { buildDailyClosingEmailTemplate } from "@/services/email-templates/daily-closing";
 import { reconcileClosing } from "@/domain/reconciliation";
@@ -370,6 +373,7 @@ export async function handleConfirmDailyClosing(
 
     setPendingCierreDeCaja(false);
     setDailyClosingModalOpen(false);
+    clearDailyClosingModalDraft();
     if (user?.role === "superadmin") {
       void exportDailyClosingSuperAdminImage(normalizedCompany, record).catch((error) => {
         console.error("[CIERRE] Error exportando imagen SuperAdmin:", error);

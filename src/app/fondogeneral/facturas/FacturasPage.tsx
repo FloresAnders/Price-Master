@@ -54,6 +54,28 @@ const formatMovementType = (type: string) => {
   return trimmed.replace(/_/g, " ");
 };
 
+const roundMoney2 = (value: unknown): number => {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : 0;
+};
+
+const sanitizeMoneyInput = (value: string) => {
+  const stripped = value.replace(/\s/g, "").replace(/[^\d.,]/g, "");
+  const decimalIndex = Math.max(
+    stripped.lastIndexOf(","),
+    stripped.lastIndexOf("."),
+  );
+  if (decimalIndex === -1) return stripped.replace(/[.,]/g, "");
+  const integerPart = stripped.slice(0, decimalIndex).replace(/[.,]/g, "");
+  const fractionPart = stripped
+    .slice(decimalIndex + 1)
+    .replace(/[.,]/g, "")
+    .slice(0, 2);
+  return fractionPart.length > 0
+    ? `${integerPart}.${fractionPart}`
+    : `${integerPart}.`;
+};
+
 const formatInvoiceDocTypeLabel = (value: string) => {
   const docType = String(value || "")
     .trim()
@@ -124,7 +146,7 @@ const formatKeyToDisplay = (key: string): string => {
 };
 
 const resolveFacturaPaidAmount = (movement: FacturaMovement): number => {
-  const amount = Math.max(0, Math.trunc(Number(movement.amount) || 0));
+  const amount = Math.max(0, roundMoney2(movement.amount));
   if (
     String(movement.invoiceDocType || "")
       .trim()
@@ -132,12 +154,12 @@ const resolveFacturaPaidAmount = (movement: FacturaMovement): number => {
   ) {
     return amount;
   }
-  const paidAmount = Math.max(0, Math.trunc(Number(movement.paidAmount) || 0));
+  const paidAmount = Math.max(0, roundMoney2(movement.paidAmount));
   return Math.min(amount, paidAmount);
 };
 
 const resolveFacturaBalance = (movement: FacturaMovement): number => {
-  const amount = Math.max(0, Math.trunc(Number(movement.amount) || 0));
+  const amount = Math.max(0, roundMoney2(movement.amount));
   if (
     String(movement.invoiceDocType || "")
       .trim()
@@ -146,7 +168,7 @@ const resolveFacturaBalance = (movement: FacturaMovement): number => {
     return 0;
   }
   const paidAmount = resolveFacturaPaidAmount(movement);
-  const balanceDue = Math.max(0, Math.trunc(Number(movement.balanceDue) || 0));
+  const balanceDue = Math.max(0, roundMoney2(movement.balanceDue));
   if (balanceDue > 0) return Math.min(amount, balanceDue);
   return Math.max(0, amount - paidAmount);
 };
@@ -158,7 +180,7 @@ const resolveFacturaStatus = (
     String(movement.invoiceDocType || "")
       .trim()
       .toUpperCase() === "NC" &&
-    Math.max(0, Math.trunc(Number(movement.amount) || 0)) === 0 &&
+    Math.max(0, roundMoney2(movement.amount)) === 0 &&
     !["PAGADA", "REBAJADA"].includes(
       String(movement.paymentStatus || "PENDIENTE").toUpperCase(),
     )
@@ -976,7 +998,7 @@ export default function FacturasCreditoPage() {
       return;
     }
 
-    const amount = Math.max(0, Math.trunc(Number(createAmount) || 0));
+    const amount = Math.max(0, roundMoney2(createAmount));
     if (amount <= 0 && createInvoiceDocType !== "NC") {
       setCreateFormError("Ingresa un monto mayor a cero.");
       return;
@@ -1292,7 +1314,7 @@ export default function FacturasCreditoPage() {
   }, [paymentTarget]);
 
   const enteredPaymentAmount = useMemo(
-    () => Math.max(0, Math.trunc(Number(paymentAmount) || 0)),
+    () => Math.max(0, roundMoney2(paymentAmount)),
     [paymentAmount],
   );
 
@@ -1319,7 +1341,7 @@ export default function FacturasCreditoPage() {
       }
       const total = Math.max(
         0,
-        Math.trunc(Number(movement.originalAmount ?? movement.amount) || 0),
+        roundMoney2(movement.originalAmount ?? movement.amount),
       );
       const paid = resolveFacturaPaidAmount(movement);
       const balance = Math.max(0, Math.min(total, total - paid));
@@ -1350,16 +1372,10 @@ export default function FacturasCreditoPage() {
 
       const parentInvoiceAmount = Math.max(
         0,
-        Math.trunc(
-          Number(
-            paymentTarget.originalAmount ??
-              paymentTarget.amount ??
-              selectedPaymentPaid +
-                Math.max(
-                  0,
-                  Math.trunc(Number(resolveFacturaBalance(paymentTarget)) || 0),
-                ),
-          ) || 0,
+        roundMoney2(
+          paymentTarget.originalAmount ??
+            paymentTarget.amount ??
+            selectedPaymentPaid + Math.max(0, roundMoney2(resolveFacturaBalance(paymentTarget))),
         ),
       );
       const totalAmount = parentInvoiceAmount;
@@ -1407,9 +1423,9 @@ export default function FacturasCreditoPage() {
       }
       const nextPaidAmount = Math.min(
         totalAmount,
-        selectedPaymentPaid + paymentAmountToApply,
+        roundMoney2(selectedPaymentPaid + paymentAmountToApply),
       );
-      const nextBalanceDue = Math.max(0, totalAmount - nextPaidAmount);
+      const nextBalanceDue = Math.max(0, roundMoney2(totalAmount - nextPaidAmount));
       const nextStatus =
         nextBalanceDue === 0
           ? "PAGADA"
@@ -3830,22 +3846,22 @@ export default function FacturasCreditoPage() {
                     </span>
                     <input
                       type="text"
-                      inputMode="numeric"
+                      inputMode="decimal"
                       value={
                         paymentAmount
-                          ? Math.trunc(Number(paymentAmount)).toLocaleString(
+                          ? roundMoney2(paymentAmount).toLocaleString(
                               "es-CR",
                               {
                                 style: "currency",
                                 currency: paymentTarget.currency,
-                                minimumFractionDigits: 0,
-                                maximumFractionDigits: 0,
+                                minimumFractionDigits: paymentAmount.includes(".") ? 2 : 0,
+                                maximumFractionDigits: 2,
                               },
                             )
                           : ""
                       }
                       onChange={(event) =>
-                        setPaymentAmount(event.target.value.replace(/\D/g, ""))
+                        setPaymentAmount(sanitizeMoneyInput(event.target.value))
                       }
                       className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
                     />

@@ -3,7 +3,7 @@ import {
   FacturasService,
   type FacturaMovement,
 } from "@/services/facturas";
-import { normalizeInvoiceDocType } from "../utils/helpers";
+import { normalizeInvoiceDocType, roundMoney2 } from "../utils/helpers";
 
 interface Props {
   company: string;
@@ -39,17 +39,15 @@ export function usePendingClosingCreditInvoices({ company }: Props) {
             }
             const totalAmount = Math.max(
               0,
-              Math.trunc(Number(movement.originalAmount ?? movement.amount) || 0),
+              roundMoney2(movement.originalAmount ?? movement.amount),
             );
             const paidAmount = Math.max(
               0,
-              Math.trunc(Number(movement.paidAmount) || 0),
+              roundMoney2(movement.paidAmount),
             );
             const balanceDue = Math.max(
               0,
-              Math.trunc(
-                Number(movement.balanceDue ?? totalAmount - paidAmount) || 0,
-              ),
+              roundMoney2(movement.balanceDue ?? totalAmount - paidAmount),
             );
             return (
               balanceDue > 0 &&
@@ -70,18 +68,18 @@ export function usePendingClosingCreditInvoices({ company }: Props) {
           }
           const totalAmount = Math.max(
             0,
-            Math.abs(Math.trunc(Number(movement.originalAmount ?? movement.amount) || 0)),
+            Math.abs(roundMoney2(movement.originalAmount ?? movement.amount)),
           );
           const paidAmount = Math.max(
             0,
-            Math.trunc(Number(movement.paidAmount) || 0),
+            roundMoney2(movement.paidAmount),
           );
           const balanceDue = Math.max(
             0,
-            Math.trunc(Number(movement.balanceDue ?? totalAmount - paidAmount) || 0),
+            roundMoney2(movement.balanceDue ?? totalAmount - paidAmount),
           );
           const isZeroAmountNote =
-            Math.max(0, Math.trunc(Number(movement.amount) || 0)) === 0;
+            Math.max(0, roundMoney2(movement.amount)) === 0;
           return (
             (balanceDue > 0 || isZeroAmountNote) &&
             !["PAGADA", "REBAJADA"].includes(
@@ -94,7 +92,7 @@ export function usePendingClosingCreditInvoices({ company }: Props) {
           if (normalizeInvoiceDocType(movement.invoiceDocType) !== "NC") {
             return false;
           }
-          if (Math.max(0, Math.trunc(Number(movement.amount) || 0)) !== 0) {
+          if (Math.max(0, roundMoney2(movement.amount)) !== 0) {
             return false;
           }
           return !["PAGADA", "REBAJADA"].includes(

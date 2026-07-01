@@ -1,5 +1,5 @@
 import type { FondoEntry } from "../../types";
-import { formatByCurrency } from "../helpers";
+import { formatByCurrency, roundMoney2 } from "../helpers";
 import {
   appendManualCreditNoteDraft,
   type ManualCreditNoteDraft,
@@ -54,7 +54,7 @@ export async function handleSaveManualCreditNote(
 
   const amountValue = Math.max(
     0,
-    Math.trunc(Number(deps.manualCreditNoteAmount) || 0),
+    roundMoney2(deps.manualCreditNoteAmount),
   );
   if (amountValue <= 0) {
     deps.setManualCreditNoteError("Ingresa un monto mayor a cero.");
@@ -66,7 +66,7 @@ export async function handleSaveManualCreditNote(
   const targetCurrency = (target.currency as "CRC" | "USD") || "CRC";
   const targetBaseAmount = Math.max(
     0,
-    Math.trunc(Number(target.amountEgreso || target.amountIngreso) || 0),
+    roundMoney2(target.amountEgreso || target.amountIngreso),
   );
 
   if (amountValue > targetBaseAmount) {

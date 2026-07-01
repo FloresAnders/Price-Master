@@ -106,7 +106,8 @@ export async function persistMovementToFirestore(
 
     const parseBalance = (value: unknown) => {
       const parsed = typeof value === "number" ? value : Number(value);
-      return Number.isFinite(parsed) ? Math.trunc(parsed) : 0;
+      if (!Number.isFinite(parsed)) return 0;
+      return Math.round(parsed * 100) / 100;
     };
 
     const normalizeCurrency = (value: unknown): MovementCurrencyKey =>
@@ -118,7 +119,10 @@ export async function persistMovementToFirestore(
       if (!entry) return null;
       const currency = normalizeCurrency(entry.currency);
       const ingreso = parseBalance((entry as any).amountIngreso ?? 0);
-      const egreso = resolveEffectiveEgresoAmount(entry);
+      const egreso = resolveEffectiveEgresoAmount({
+        ...entry,
+        accountId: entry.accountId ?? accountKey,
+      });
       return { currency, delta: ingreso - egreso };
     };
 
@@ -126,8 +130,8 @@ export async function persistMovementToFirestore(
       initialAmount.trim().length > 0 ? initialAmount.trim() : "0";
     const normalizedInitialUSD =
       initialAmountUSD.trim().length > 0 ? initialAmountUSD.trim() : "0";
-    const parsedInitialCRC = Number(normalizedInitialCRC) || 0;
-    const parsedInitialUSD = Number(normalizedInitialUSD) || 0;
+    const parsedInitialCRC = parseBalance(normalizedInitialCRC);
+    const parsedInitialUSD = parseBalance(normalizedInitialUSD);
 
     const stateSnapshot =
       baseStorage.state ??
@@ -180,11 +184,11 @@ export async function persistMovementToFirestore(
       if (isCashOpening) {
         const openingCRC = Math.max(
           0,
-          Math.trunc(Number((afterEntry as any)?.openingBalanceCRC ?? 0) || 0),
+          parseBalance((afterEntry as any)?.openingBalanceCRC ?? 0),
         );
         const openingUSD = Math.max(
           0,
-          Math.trunc(Number((afterEntry as any)?.openingBalanceUSD ?? 0) || 0),
+          parseBalance((afterEntry as any)?.openingBalanceUSD ?? 0),
         );
         deltas.CRC += openingCRC - prevCurrentCRC;
         deltas.USD += openingUSD - prevCurrentUSD;
@@ -198,19 +202,19 @@ export async function persistMovementToFirestore(
       if (isCashOpening) {
         const openingCRC = Math.max(
           0,
-          Math.trunc(Number((beforeEntry as any)?.openingBalanceCRC ?? 0) || 0),
+          parseBalance((beforeEntry as any)?.openingBalanceCRC ?? 0),
         );
         const openingUSD = Math.max(
           0,
-          Math.trunc(Number((beforeEntry as any)?.openingBalanceUSD ?? 0) || 0),
+          parseBalance((beforeEntry as any)?.openingBalanceUSD ?? 0),
         );
         const previousCRC = Math.max(
           0,
-          Math.trunc(Number((beforeEntry as any)?.openingPreviousBalanceCRC ?? 0) || 0),
+          parseBalance((beforeEntry as any)?.openingPreviousBalanceCRC ?? 0),
         );
         const previousUSD = Math.max(
           0,
-          Math.trunc(Number((beforeEntry as any)?.openingPreviousBalanceUSD ?? 0) || 0),
+          parseBalance((beforeEntry as any)?.openingPreviousBalanceUSD ?? 0),
         );
         deltas.CRC -= openingCRC - previousCRC;
         deltas.USD -= openingUSD - previousUSD;
@@ -226,19 +230,19 @@ export async function persistMovementToFirestore(
       if (isCashOpeningBefore || isCashOpeningAfter) {
         const beforeCRC = Math.max(
           0,
-          Math.trunc(Number((beforeEntry as any)?.openingBalanceCRC ?? 0) || 0),
+          parseBalance((beforeEntry as any)?.openingBalanceCRC ?? 0),
         );
         const beforeUSD = Math.max(
           0,
-          Math.trunc(Number((beforeEntry as any)?.openingBalanceUSD ?? 0) || 0),
+          parseBalance((beforeEntry as any)?.openingBalanceUSD ?? 0),
         );
         const afterCRC = Math.max(
           0,
-          Math.trunc(Number((afterEntry as any)?.openingBalanceCRC ?? 0) || 0),
+          parseBalance((afterEntry as any)?.openingBalanceCRC ?? 0),
         );
         const afterUSD = Math.max(
           0,
-          Math.trunc(Number((afterEntry as any)?.openingBalanceUSD ?? 0) || 0),
+          parseBalance((afterEntry as any)?.openingBalanceUSD ?? 0),
         );
         deltas.CRC += afterCRC - beforeCRC;
         deltas.USD += afterUSD - beforeUSD;

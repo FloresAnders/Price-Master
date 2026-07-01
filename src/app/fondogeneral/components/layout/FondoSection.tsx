@@ -128,6 +128,7 @@ import {
   getPrimaryMovementManager,
 
   roundCreditNotePaymentAmount,
+  roundMoney2,
 
   buildStorageKey,
 
@@ -1870,14 +1871,10 @@ export function FondoSection({
     const isEgreso =
       isEgresoType(correctPaymentType) || isGastoType(correctPaymentType);
     if (isEgreso) {
-      setEgreso(
-        Math.trunc(entry.amountEgreso || entry.amountIngreso).toString(),
-      );
+      setEgreso(roundMoney2(entry.amountEgreso || entry.amountIngreso).toString());
       setIngreso("");
     } else {
-      setIngreso(
-        Math.trunc(entry.amountIngreso || entry.amountEgreso).toString(),
-      );
+      setIngreso(roundMoney2(entry.amountIngreso || entry.amountEgreso).toString());
       setEgreso("");
     }
     setMovementModalOpen(true);
@@ -2075,7 +2072,7 @@ export function FondoSection({
     }
     const currentMovementAmount = Math.max(
       0,
-      Math.trunc(Number(isEgreso ? egreso : ingreso) || 0),
+      Math.round((Number(isEgreso ? egreso : ingreso) || 0) * 100) / 100,
     );
     setManualCreditNoteTarget({
       id: "manual-credit-note-draft",
@@ -2407,8 +2404,14 @@ export function FondoSection({
 
   const invoiceValid =
     /^[0-9]{1,4}$/.test(invoiceNumber) || invoiceNumber.length === 0;
-  const egresoValue = Number.parseInt(egreso, 10);
-  const ingresoValue = Number.parseInt(ingreso, 10);
+  const parseAccountAmount = (value: string) => {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed)
+      ? Math.round(parsed * 100) / 100
+      : Number.NaN;
+  };
+  const egresoValue = parseAccountAmount(egreso);
+  const ingresoValue = parseAccountAmount(ingreso);
   const egresoValid = isEgreso
     ? !Number.isNaN(egresoValue) && egresoValue > 0
     : true;
@@ -2475,13 +2478,13 @@ export function FondoSection({
     selectedProviderType.trim().toUpperCase() === "COMPRA INVENTARIO";
 
   const creditNotesAppliedTotal = useMemo(() => {
-    let remaining = Math.max(0, Math.trunc(Number(egreso) || 0));
+    let remaining = Math.max(0, roundMoney2(egreso));
     let total = 0;
     selectedAppliedCreditNotes.forEach((note) => {
       if (remaining <= 0) return;
       const applied = Math.min(
         remaining,
-        Math.max(0, Math.trunc(Number(note.balanceDue) || 0)),
+        Math.max(0, roundMoney2(note.balanceDue)),
       );
       total += applied;
       remaining -= applied;
@@ -2491,7 +2494,7 @@ export function FondoSection({
 
   const computedAmountPayment = isEgreso
     ? roundCreditNotePaymentAmount(
-        Math.max(0, Math.trunc(Number(egreso) || 0) - creditNotesAppliedTotal),
+        Math.max(0, roundMoney2(egreso) - creditNotesAppliedTotal),
         movementCurrency,
         accountKey,
       )
@@ -2511,7 +2514,7 @@ export function FondoSection({
           (note) =>
             note.id === id &&
             note.currency === movementCurrency &&
-            Math.max(0, Math.trunc(Number(note.balanceDue || note.amount) || 0)) > 0,
+            Math.max(0, roundMoney2(note.balanceDue || note.amount)) > 0,
         ),
       ),
     );
@@ -2533,7 +2536,11 @@ export function FondoSection({
   const balanceAfterByIdCRC = useMemo(() => {
     // Derivar balances desde el currentBalance real (persistido), no desde initialAmount + subset.
     // Caminamos hacia atrás: balanceAfter(entry) se obtiene restando deltas de movimientos más recientes.
-    let running = Math.trunc(currentBalanceCRC);
+    const normalizeAccountAmount = (value: unknown) => {
+      const parsed = Number(value) || 0;
+      return Math.round(parsed * 100) / 100;
+    };
+    let running = normalizeAccountAmount(currentBalanceCRC);
     const orderedDesc = [...fondoEntries]
       .filter((e) => ((e.currency as any) || "CRC") === "CRC")
       .sort((a, b) => {
@@ -2544,14 +2551,18 @@ export function FondoSection({
     const map = new Map<string, number>();
     orderedDesc.forEach((entry) => {
       map.set(entry.id, running);
-      running -= Math.trunc(entry.amountIngreso || 0);
+      running -= normalizeAccountAmount(entry.amountIngreso || 0);
       running += resolveEffectiveEgresoAmount(entry);
     });
     return map;
-  }, [fondoEntries, currentBalanceCRC]);
+  }, [accountKey, fondoEntries, currentBalanceCRC]);
 
   const balanceAfterByIdUSD = useMemo(() => {
-    let running = Math.trunc(currentBalanceUSD);
+    const normalizeAccountAmount = (value: unknown) => {
+      const parsed = Number(value) || 0;
+      return Math.round(parsed * 100) / 100;
+    };
+    let running = normalizeAccountAmount(currentBalanceUSD);
     const orderedDesc = [...fondoEntries]
       .filter((e) => ((e.currency as any) || "CRC") === "USD")
       .sort((a, b) => {
@@ -2562,11 +2573,11 @@ export function FondoSection({
     const map = new Map<string, number>();
     orderedDesc.forEach((entry) => {
       map.set(entry.id, running);
-      running -= Math.trunc(entry.amountIngreso || 0);
+      running -= normalizeAccountAmount(entry.amountIngreso || 0);
       running += resolveEffectiveEgresoAmount(entry);
     });
     return map;
-  }, [fondoEntries, currentBalanceUSD]);
+  }, [accountKey, fondoEntries, currentBalanceUSD]);
 
   useEffect(() => {
     if (!entriesHydrated || hydratedAccountKey !== accountKey) return;
@@ -2616,13 +2627,13 @@ export function FondoSection({
           MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
             normalizedCompany,
           ).state;
-        const parsedInitialCRC = Number(normalizedInitialCRC) || 0;
-        const parsedInitialUSD = Number(normalizedInitialUSD) || 0;
-
         const parseBalance = (value: unknown) => {
           const parsed = typeof value === "number" ? value : Number(value);
-          return Number.isFinite(parsed) ? Math.trunc(parsed) : 0;
+          if (!Number.isFinite(parsed)) return 0;
+          return Math.round(parsed * 100) / 100;
         };
+        const parsedInitialCRC = parseBalance(normalizedInitialCRC);
+        const parsedInitialUSD = parseBalance(normalizedInitialUSD);
 
         const existingCRC = stateSnapshot.balancesByAccount.find(
           (balance) =>
@@ -2772,7 +2783,7 @@ export function FondoSection({
     () =>
       new Intl.NumberFormat("es-CR", {
         minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
+        maximumFractionDigits: 2,
       }),
     [],
   );
@@ -2780,7 +2791,7 @@ export function FondoSection({
     () =>
       new Intl.NumberFormat("en-US", {
         minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
+        maximumFractionDigits: 2,
       }),
     [],
   );
@@ -2794,8 +2805,8 @@ export function FondoSection({
   );
   const formatByCurrency = (currency: "CRC" | "USD", value: number) =>
     currency === "USD"
-      ? `$ ${amountFormatterUSD.format(Math.trunc(value))}`
-      : `₡ ${amountFormatter.format(Math.trunc(value))}`;
+      ? `$ ${amountFormatterUSD.format(roundMoney2(value))}`
+      : `₡ ${amountFormatter.format(roundMoney2(value))}`;
 
   const pendingSupplierPaymentAlerts = useMemo(() => {
     const map = new Map<
@@ -2806,15 +2817,15 @@ export function FondoSection({
     pendingClosingCreditInvoices.forEach((invoice) => {
       const totalAmount = Math.max(
         0,
-        Math.trunc(Number(invoice.originalAmount ?? invoice.amount) || 0),
+        roundMoney2(invoice.originalAmount ?? invoice.amount),
       );
       const paidAmount = Math.max(
         0,
-        Math.trunc(Number(invoice.paidAmount) || 0),
+        roundMoney2(invoice.paidAmount),
       );
       const balanceAmount = Math.max(
         0,
-        Math.trunc(Number(invoice.balanceDue ?? totalAmount - paidAmount) || 0),
+        roundMoney2(invoice.balanceDue ?? totalAmount - paidAmount),
       );
       if (balanceAmount <= 0) return;
 
@@ -2904,15 +2915,15 @@ export function FondoSection({
         .map((note) => {
           const totalAmount = Math.max(
             0,
-            Math.abs(Math.trunc(Number(note.originalAmount ?? note.amount) || 0)),
+            Math.abs(roundMoney2(note.originalAmount ?? note.amount)),
           );
           const paidAmount = Math.max(
             0,
-            Math.trunc(Number(note.paidAmount) || 0),
+            roundMoney2(note.paidAmount),
           );
           const balanceDue = Math.max(
             0,
-            Math.abs(Math.trunc(Number(note.balanceDue ?? totalAmount - paidAmount) || 0)),
+            Math.abs(roundMoney2(note.balanceDue ?? totalAmount - paidAmount)),
           );
           return {
             id: note.id,
@@ -2934,17 +2945,15 @@ export function FondoSection({
             .map((invoice) => {
               const totalAmount = Math.max(
                 0,
-                Math.trunc(Number(invoice.originalAmount ?? invoice.amount) || 0),
+                roundMoney2(invoice.originalAmount ?? invoice.amount),
               );
               const paidAmount = Math.max(
                 0,
-                Math.trunc(Number(invoice.paidAmount) || 0),
+                roundMoney2(invoice.paidAmount),
               );
               const balanceDue = Math.max(
                 0,
-                Math.trunc(
-                  Number(invoice.balanceDue ?? totalAmount - paidAmount) || 0,
-                ),
+                roundMoney2(invoice.balanceDue ?? totalAmount - paidAmount),
               );
               return {
                 id: invoice.id,
@@ -5026,13 +5035,13 @@ export function FondoSection({
                             );
                             const entryCurrency =
                               (fe.currency as "CRC" | "USD") || "CRC";
-                            const normalizedIngreso = Math.trunc(
+                            const normalizedIngreso = roundMoney2(
                               fe.amountIngreso || 0,
                             );
-                            const normalizedEgreso = Math.trunc(
+                            const normalizedEgreso = roundMoney2(
                               resolveEffectiveEgresoAmount(fe),
                             );
-                            const invoiceEgresoAmount = Math.trunc(
+                            const invoiceEgresoAmount = roundMoney2(
                               String(fe.id || "").startsWith("fcr-pago-")
                                 ? (fe.originalAmount ?? fe.amountEgreso) || 0
                                 : (fe.amountEgreso || 0),
@@ -5045,9 +5054,7 @@ export function FondoSection({
                                     sum +
                                     Math.max(
                                       0,
-                                      Math.trunc(
-                                        Number(note.appliedAmount) || 0,
-                                      ),
+                                      roundMoney2(note.appliedAmount),
                                     ),
                                   0,
                                 )
@@ -5078,9 +5085,9 @@ export function FondoSection({
                             const balanceAfter =
                               entryCurrency === "USD"
                                 ? (balanceAfterByIdUSD.get(fe.id) ??
-                                  Math.trunc(currentBalanceUSD))
+                                  roundMoney2(currentBalanceUSD))
                                 : (balanceAfterByIdCRC.get(fe.id) ??
-                                  Math.trunc(currentBalanceCRC));
+                                  roundMoney2(currentBalanceCRC));
                             // compute the balance immediately before this movement was applied (in the movement currency)
                             const previousBalance = isEntryEgreso
                               ? balanceAfter + normalizedEgreso
@@ -5115,7 +5122,7 @@ export function FondoSection({
                             )
                               ? Math.max(
                                   0,
-                                  Math.trunc(Number(owedFcrAmountRaw) || 0),
+                                  roundMoney2(owedFcrAmountRaw),
                                 )
                               : null;
 
@@ -5124,7 +5131,7 @@ export function FondoSection({
                             )
                               ? Math.max(
                                   0,
-                                  Math.trunc(Number(fe.originalAmount) || 0),
+                                  roundMoney2(fe.originalAmount),
                                 )
                               : null;
                             const isAppliedCreditNotesExpanded =

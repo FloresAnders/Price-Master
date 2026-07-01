@@ -41,6 +41,40 @@ export function ManualCreditNoteDrawer({
   onObservationChange,
   onSubmit,
 }: ManualCreditNoteDrawerProps) {
+  const currency = ((target?.currency as "CRC" | "USD") || "CRC");
+  const sanitizeAmountInput = (value: string) => {
+    const stripped = value.replace(/\s/g, "").replace(/[^\d.,]/g, "");
+    const decimalIndex = Math.max(
+      stripped.lastIndexOf(","),
+      stripped.lastIndexOf("."),
+    );
+    if (decimalIndex === -1) return stripped.replace(/[.,]/g, "");
+    const integerPart = stripped.slice(0, decimalIndex).replace(/[.,]/g, "");
+    const fractionPart = stripped
+      .slice(decimalIndex + 1)
+      .replace(/[.,]/g, "")
+      .slice(0, 2);
+    return fractionPart.length > 0
+      ? `${integerPart}.${fractionPart}`
+      : `${integerPart}.`;
+  };
+  const formatAmountInput = (value: string) => {
+    if (!value) return "";
+    const normalized = sanitizeAmountInput(value);
+    const [integerPart, fractionPart] = normalized.split(".");
+    const integerValue = Number(integerPart || "0");
+    const formattedInteger = integerValue.toLocaleString(
+      currency === "USD" ? "en-US" : "es-CR",
+    );
+    const decimalSeparator = currency === "USD" ? "." : ",";
+    const suffix = normalized.includes(".")
+      ? `${decimalSeparator}${fractionPart ?? ""}`
+      : "";
+    return currency === "USD"
+      ? `$ ${formattedInteger}${suffix}`
+      : `₡ ${formattedInteger}${suffix}`;
+  };
+
   return (
     <Drawer
       anchor="right"
@@ -157,10 +191,10 @@ export function ManualCreditNoteDrawer({
 
             <input
               type="text"
-              inputMode="numeric"
-              value={amount}
+              inputMode="decimal"
+              value={formatAmountInput(amount)}
               onChange={(event) =>
-                onAmountChange(event.target.value.replace(/\D/g, ""))
+                onAmountChange(sanitizeAmountInput(event.target.value))
               }
               placeholder="Monto"
               disabled={saving}

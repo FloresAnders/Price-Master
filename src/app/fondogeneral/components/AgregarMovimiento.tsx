@@ -196,7 +196,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     () =>
       new Intl.NumberFormat("es-CR", {
         minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
+        maximumFractionDigits: 2,
       }),
     [],
   );
@@ -204,21 +204,46 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     () =>
       new Intl.NumberFormat("en-US", {
         minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
+        maximumFractionDigits: 2,
       }),
     [],
   );
 
+  const sanitizeAmountInput = (value: string) => {
+    const stripped = value.replace(/\s/g, "").replace(/[^\d.,]/g, "");
+    const decimalIndex = Math.max(
+      stripped.lastIndexOf(","),
+      stripped.lastIndexOf("."),
+    );
+    if (decimalIndex === -1) return stripped.replace(/[.,]/g, "");
+    const integerPart = stripped.slice(0, decimalIndex).replace(/[.,]/g, "");
+    const fractionPart = stripped
+      .slice(decimalIndex + 1)
+      .replace(/[.,]/g, "")
+      .slice(0, 2);
+    return fractionPart.length > 0
+      ? `${integerPart}.${fractionPart}`
+      : `${integerPart}.`;
+  };
   const formatInputDisplay = (raw: string) => {
     if (!raw || raw.trim().length === 0) return "";
     const n = Number(raw);
     if (Number.isNaN(n)) return raw;
+    const normalized = sanitizeAmountInput(raw);
+    const [integerPart, fractionPart] = normalized.split(".");
+    const integerValue = Number(integerPart || "0");
+    const formattedInteger =
+      currency === "USD"
+        ? inputFormatterUSD.format(integerValue)
+        : inputFormatterCRC.format(integerValue);
+    const decimalSeparator = currency === "USD" ? "." : ",";
+    const suffix = normalized.includes(".")
+      ? `${decimalSeparator}${fractionPart ?? ""}`
+      : "";
     return currency === "USD"
-      ? `$ ${inputFormatterUSD.format(Math.trunc(n))}`
-      : `₡ ${inputFormatterCRC.format(Math.trunc(n))}`;
+      ? `$ ${formattedInteger}${suffix}`
+      : `₡ ${formattedInteger}${suffix}`;
   };
-
-  const extractDigits = (value: string) => value.replace(/[^0-9]/g, "");
 
   const [filter, setFilter] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -303,12 +328,13 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   );
   const formatCurrencyAmount = (value: number, targetCurrency = currency) =>
     targetCurrency === "USD"
-      ? `$ ${inputFormatterUSD.format(Math.trunc(value))}`
-      : `₡ ${inputFormatterCRC.format(Math.trunc(value))}`;
-  const baseAmount = Math.max(
-    0,
-    Math.trunc(Number(isEgreso ? egreso : ingreso) || 0),
-  );
+      ? `$ ${inputFormatterUSD.format(Math.round(value * 100) / 100)}`
+      : `₡ ${inputFormatterCRC.format(Math.round(value * 100) / 100)}`;
+  const normalizeAccountAmount = (value: unknown) => {
+    const parsed = Number(value) || 0;
+    return Math.round(parsed * 100) / 100;
+  };
+  const baseAmount = Math.max(0, normalizeAccountAmount(isEgreso ? egreso : ingreso));
   const appliedCreditNotesTotal =
     isEgreso && invoiceDocType === "FCO"
       ? Math.max(0, Math.trunc(creditNotesAppliedTotal))
@@ -318,7 +344,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     return pendingCreditNotes.reduce((sum, note) => {
       if (!selectedCreditNoteIdSet.has(note.id)) return sum;
       if (note.currency !== currency) return sum;
-      return sum + Math.max(0, Math.trunc(note.balanceDue));
+      return sum + Math.max(0, Math.round((Number(note.balanceDue) || 0) * 100) / 100);
     }, 0);
   }, [
     pendingCreditNotes,
@@ -702,9 +728,9 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
           placeholder="0"
           value={formatInputDisplay(isEgreso ? egreso : ingreso)}
           onChange={(event) => {
-            const digits = extractDigits(event.target.value);
-            if (isEgreso) onEgresoChange(digits);
-            else onIngresoChange(digits);
+            const amount = sanitizeAmountInput(event.target.value);
+            if (isEgreso) onEgresoChange(amount);
+            else onIngresoChange(amount);
           }}
           onKeyDown={onFieldKeyDown}
           className={`${fieldBase} text-lg font-semibold ${
@@ -714,7 +740,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                 ? egresoBorderClass
                 : ingresoBorderClass
           } ${currencyEnabled[currency] ? "" : "cursor-not-allowed opacity-50"}`}
-          inputMode="numeric"
+          inputMode="decimal"
           disabled={!currencyEnabled[currency]}
         />
         {amountError && (
@@ -759,7 +785,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                   !checked &&
                   baseAmount > 0 &&
                   selectedCreditNotesRequestedTotal +
-                    Math.max(0, Math.trunc(note.balanceDue)) >
+                            Math.max(0, Math.round((Number(note.balanceDue) || 0) * 100) / 100) >
                     baseAmount;
                 const disabled =
                   note.currency !== currency || baseAmount <= 0 || wouldExceed;

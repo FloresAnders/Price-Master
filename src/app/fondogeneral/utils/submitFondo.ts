@@ -46,6 +46,7 @@ import {
   parseLastCreatedCooldown,
   resolveEffectiveEgresoAmount,
   roundCreditNotePaymentAmount,
+  roundMoney2,
   stripUndefinedDeep,
 } from "../utils/helpers";
 import { doc, getDoc, serverTimestamp, writeBatch } from "firebase/firestore";
@@ -263,8 +264,14 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     setManagerError("");
     setManager2Error("");
   }
-  const egresoValue = isEgreso ? Number.parseInt(egreso, 10) : 0;
-  const ingresoValue = isIngreso ? Number.parseInt(ingreso, 10) : 0;
+  const parseAccountAmount = (value: string) => {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed)
+      ? Math.round(parsed * 100) / 100
+      : Number.NaN;
+  };
+  const egresoValue = isEgreso ? parseAccountAmount(egreso) : 0;
+  const ingresoValue = isIngreso ? parseAccountAmount(ingreso) : 0;
   const trimmedNotes = notes.trim();
   const movementSelectedProviderData = movementProviders.find(
       (p: any) => p.code === selectedProvider,
@@ -425,7 +432,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     }
 
     const selectedIds = new Set(selectedAppliedCreditNoteIds);
-    let remaining = Math.max(0, Math.trunc(invoiceAmount));
+    let remaining = Math.max(0, roundMoney2(invoiceAmount));
     let total = 0;
     const notes: AppliedCreditNote[] = [];
 
@@ -434,7 +441,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
       if (note.currency !== movementCurrency) return;
       const appliedAmount = Math.min(
         remaining,
-        Math.max(0, Math.trunc(Number(note.balanceDue) || 0)),
+        Math.max(0, roundMoney2(note.balanceDue)),
       );
       if (appliedAmount <= 0) return;
       total += appliedAmount;
@@ -452,7 +459,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
       notes,
       total,
       amountPayment: roundCreditNotePaymentAmount(
-        Math.max(0, Math.trunc(invoiceAmount) - total),
+        Math.max(0, roundMoney2(invoiceAmount) - total),
         movementCurrency,
         accountKey,
       ),
@@ -463,14 +470,14 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     ? selectedProviderPendingCreditNotes.reduce((sum: number, note: any) => {
           if (!selectedAppliedCreditNoteIds.includes(note.id)) return sum;
           if (note.currency !== movementCurrency) return sum;
-          return sum + Math.max(0, Math.trunc(note.balanceDue));
+          return sum + Math.max(0, roundMoney2(note.balanceDue));
         }, 0)
       : 0;
   const selectedManualCreditNotesRequestedTotal =
     isEgreso && effectiveInvoiceDocType === "FCO"
       ? manualCreditNoteDrafts.reduce((sum: number, draft: any) => {
           if (!selectedAppliedCreditNoteIds.includes(draft.id)) return sum;
-          return sum + Math.max(0, Math.trunc(Number(draft.amount) || 0));
+          return sum + Math.max(0, roundMoney2(draft.amount));
         }, 0)
       : 0;
   const selectedCreditNotesRequestedTotal =
@@ -500,7 +507,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
 
     manualCreditNoteDrafts.forEach((draft: any) => {
       if (remaining <= 0 || !selectedIds.has(draft.id)) return;
-      const amount = Math.max(0, Math.trunc(Number(draft.amount) || 0));
+      const amount = Math.max(0, roundMoney2(draft.amount));
       const appliedAmount = Math.min(remaining, amount);
       if (appliedAmount <= 0) return;
       total += appliedAmount;
@@ -529,7 +536,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     ? selectedProviderPendingCreditInvoices.reduce((sum: number, invoice: any) => {
         if (!selectedCreditInvoiceIdSet.has(invoice.id)) return sum;
         if (invoice.currency !== movementCurrency) return sum;
-        return sum + Math.max(0, Math.trunc(invoice.balanceDue));
+        return sum + Math.max(0, roundMoney2(invoice.balanceDue));
       }, 0)
     : 0;
   const egresoBalanceImpact =
@@ -762,7 +769,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
       const newAmount = effectiveIsEgreso ? egresoValue : ingresoValue;
       const maxEditablePaidFcrAmount = Math.max(
         0,
-        Math.trunc(Number(originalAmount) || 0),
+        roundMoney2(originalAmount),
       );
       if (isEditingPaidFcr && newAmount > maxEditablePaidFcrAmount) {
         const formatted = maxEditablePaidFcrAmount.toLocaleString("es-CR");
@@ -851,7 +858,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
             if (remainingAppliedBase <= 0) return acc;
             const appliedAmount = Math.min(
               remainingAppliedBase,
-              Math.max(0, Math.trunc(Number(note.appliedAmount) || 0)),
+              Math.max(0, roundMoney2(note.appliedAmount)),
             );
             if (appliedAmount > 0) {
               acc.push({ ...note, appliedAmount });
@@ -862,7 +869,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
           [] as AppliedCreditNote[],
         );
         const nextAppliedTotal = nextAppliedCreditNotes.reduce(
-          (sum: number, note: AppliedCreditNote) => sum + Math.max(0, Math.trunc(note.appliedAmount)),
+          (sum: number, note: AppliedCreditNote) => sum + Math.max(0, roundMoney2(note.appliedAmount)),
           0,
         );
         const nextAmountPayment =
@@ -908,11 +915,11 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         // Comprimir historial para evitar QuotaExceededError
         const compressedHistory = compressAuditHistory(history);
         // keep original createdAt so chronological order and balances are preserved
-        const baseAmountDue = Math.max(0, Math.trunc(Number(e.amountDue ?? e.balanceDue) || 0));
-        const basePaymentAmount = Math.max(0, Math.trunc(Number(e.amountEgreso) || 0));
+        const baseAmountDue = Math.max(0, roundMoney2(e.amountDue ?? e.balanceDue));
+        const basePaymentAmount = Math.max(0, roundMoney2(e.amountEgreso));
         const newPaymentAmount = effectiveIsEgreso ? egresoValue : 0;
         const nextAmountDue = isEditingPaidFcr
-          ? Math.max(0, baseAmountDue - (newPaymentAmount - basePaymentAmount))
+          ? Math.max(0, roundMoney2(baseAmountDue - (newPaymentAmount - basePaymentAmount)))
           : baseAmountDue;
         updatedEntry = {
           ...e,
@@ -988,14 +995,14 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                 const invoiceSnap = await getDoc(invoiceRef);
                 if (invoiceSnap.exists()) {
                   const invoiceData = invoiceSnap.data() as FacturaMovement;
-                  const oldPaymentAmount = Math.max(0, Math.trunc(Number(original.amountEgreso) || 0));
-                  const newPaymentAmount = Math.max(0, Math.trunc(Number(facturaEntry.amountEgreso) || 0));
+                  const oldPaymentAmount = Math.max(0, roundMoney2(original.amountEgreso));
+                  const newPaymentAmount = Math.max(0, roundMoney2(facturaEntry.amountEgreso));
                   const diff = newPaymentAmount - oldPaymentAmount;
                   if (diff !== 0) {
-                    const totalAmount = Math.max(0, Math.trunc(Number(invoiceData.originalAmount ?? invoiceData.amount) || 0));
-                    const currentPaid = Math.max(0, Math.trunc(Number(invoiceData.paidAmount) || 0));
-                    const nextPaid = Math.min(totalAmount, Math.max(0, currentPaid + diff));
-                    const nextBalance = Math.max(0, totalAmount - nextPaid);
+                    const totalAmount = Math.max(0, roundMoney2(invoiceData.originalAmount ?? invoiceData.amount));
+                    const currentPaid = Math.max(0, roundMoney2(invoiceData.paidAmount));
+                    const nextPaid = Math.min(totalAmount, Math.max(0, roundMoney2(currentPaid + diff)));
+                    const nextBalance = Math.max(0, roundMoney2(totalAmount - nextPaid));
                     const nextStatus = nextBalance === 0 ? "PAGADA" : nextPaid > 0 ? "PARCIAL" : "PENDIENTE";
                     await FacturasService.upsertMovement(normalizedCompany, {
                       ...(invoiceData as any),
@@ -1242,7 +1249,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
       const totalAppliedCreditNotes =
         creditNoteApplication.total +
         manualCreditNoteApplication.notes.reduce(
-          (sum, note) => sum + Math.max(0, Math.trunc(note.appliedAmount)),
+          (sum, note) => sum + Math.max(0, roundMoney2(note.appliedAmount)),
           0,
         );
       const entry: FondoEntry = {
@@ -1540,26 +1547,21 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
               invoicesToPay.forEach((invoice: any) => {
                 const totalAmount = Math.max(
                   0,
-                  Math.trunc(
-                    Number(invoice.originalAmount ?? invoice.amount) || 0,
-                  ),
+                  roundMoney2(invoice.originalAmount ?? invoice.amount),
                 );
                 const paidAmount = Math.max(
                   0,
-                  Math.trunc(Number(invoice.paidAmount) || 0),
+                  roundMoney2(invoice.paidAmount),
                 );
                 const balance = Math.max(
                   0,
-                  Math.trunc(
-                    Number(invoice.balanceDue ?? totalAmount - paidAmount) ||
-                      0,
-                  ),
+                  roundMoney2(invoice.balanceDue ?? totalAmount - paidAmount),
                 );
                 if (balance <= 0) return;
 
                 const nextPaidAmount = Math.min(
                   totalAmount,
-                  paidAmount + balance,
+                  roundMoney2(paidAmount + balance),
                 );
                 const nextBalanceDue = Math.max(0, totalAmount - nextPaidAmount);
                 const nextStatus =

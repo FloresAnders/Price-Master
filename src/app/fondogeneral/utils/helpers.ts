@@ -246,23 +246,28 @@ export const formatByCurrency = (currency: "CRC" | "USD", value: number) =>
   currency === "USD"
     ? `$ ${new Intl.NumberFormat("en-US", {
         minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }).format(Math.trunc(value))}`
+        maximumFractionDigits: 2,
+      }).format(roundMoney2(value))}`
     : `₡ ${new Intl.NumberFormat("es-CR", {
         minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }).format(Math.trunc(value))}`;
+        maximumFractionDigits: 2,
+      }).format(roundMoney2(value))}`;
+
+export const roundMoney2 = (value: unknown): number => {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : 0;
+};
 
 export const resolveEffectiveEgresoAmount = (
   entry: Partial<FondoEntry> | null | undefined,
 ): number => {
   if (!entry) return 0;
-  const egreso = Math.max(0, Math.trunc(Number(entry.amountEgreso) || 0));
+  const normalize = (value: unknown) => {
+    return roundMoney2(value);
+  };
+  const egreso = Math.max(0, normalize(entry.amountEgreso));
   const hasPayment = (entry as any).amountPayment !== undefined;
-  const payment = Math.max(
-    0,
-    Math.trunc(Number((entry as any).amountPayment) || 0),
-  );
+  const payment = Math.max(0, normalize((entry as any).amountPayment));
   return egreso > 0 && hasPayment ? payment : egreso;
 };
 
@@ -318,13 +323,11 @@ export const getFcrPaymentInvoiceId = (entry: Partial<FondoEntry>): string | nul
 export const getFcrPaymentAmount = (entry: Partial<FondoEntry>): number =>
   Math.max(
     0,
-    Math.trunc(
-      Number(
-        (entry as any).amountEgreso ??
-          (entry as any).amountPayment ??
-          (entry as any).amount ??
-          0,
-      ) || 0,
+    roundMoney2(
+      (entry as any).amountEgreso ??
+        (entry as any).amountPayment ??
+        (entry as any).amount ??
+        0,
     ),
   );
 
@@ -333,7 +336,7 @@ export const roundCreditNotePaymentAmount = (
   currency: MovementCurrencyKey,
   accountKey?: string,
 ): number => {
-  const normalized = Math.max(0, Math.trunc(Number(amount) || 0));
+  const normalized = Math.max(0, roundMoney2(amount));
   if (currency !== "CRC") return normalized;
   if (accountKey && accountKey !== "FondoGeneral") return normalized;
   return Math.floor(normalized / 1000) * 1000;
@@ -426,7 +429,7 @@ export const buildDailyClosingStorageKey = (
 export const sanitizeMoneyNumber = (value: unknown) => {
   const parsed = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(parsed)) return 0;
-  return Math.trunc(parsed);
+  return roundMoney2(parsed);
 };
 
 export const sanitizeBreakdown = (input: unknown): Record<number, number> => {
@@ -641,11 +644,11 @@ export const coerceNotes = (value: unknown): string => {
 
 export const coerceTruncNumber = (value: unknown): number | undefined => {
   if (typeof value === "number" && Number.isFinite(value)) {
-    return Math.trunc(value);
+    return roundMoney2(value);
   }
   if (typeof value === "string") {
     const parsed = Number(value);
-    return Number.isFinite(parsed) ? Math.trunc(parsed) : undefined;
+    return Number.isFinite(parsed) ? roundMoney2(parsed) : undefined;
   }
   return undefined;
 };
@@ -735,6 +738,19 @@ export const sanitizeFondoEntries = (
 
     if (!id || !providerCode || !manager || !createdAt) return acc;
 
+    const currency: MovementCurrencyKey =
+      forcedCurrency ?? (entry.currency === "USD" ? "USD" : "CRC");
+    const accountId =
+      forcedAccount ??
+      (isMovementAccountKey(entry.accountId) ? entry.accountId : undefined);
+    const normalizeEntryAmount = (value: unknown) => {
+      return roundMoney2(value);
+    };
+    const normalizeOptionalEntryAmount = (value: unknown) => {
+      if (value === undefined || value === null || value === "") return undefined;
+      return normalizeEntryAmount(value);
+    };
+
     const rawEgreso =
       typeof entry.amountEgreso === "number"
         ? entry.amountEgreso
@@ -744,17 +760,17 @@ export const sanitizeFondoEntries = (
         ? entry.amountIngreso
         : Number(entry.amountIngreso) || 0;
 
-    const amountEgreso = Math.trunc(rawEgreso);
-    const amountIngreso = Math.trunc(rawIngreso);
+    const amountEgreso = normalizeEntryAmount(rawEgreso);
+    const amountIngreso = normalizeEntryAmount(rawIngreso);
 
-    const amount = coerceTruncNumber(entry.amount);
-    const originalAmount = coerceTruncNumber((entry as any).originalAmount);
-    const amountDue = coerceTruncNumber((entry as any).amountDue);
-    const balanceDue = coerceTruncNumber((entry as any).balanceDue);
+    const amount = normalizeOptionalEntryAmount(entry.amount);
+    const originalAmount = normalizeOptionalEntryAmount((entry as any).originalAmount);
+    const amountDue = normalizeOptionalEntryAmount((entry as any).amountDue);
+    const balanceDue = normalizeOptionalEntryAmount((entry as any).balanceDue);
     const rawAmountPayment = (entry as any).amountPayment;
     const amountPayment =
       rawAmountPayment !== undefined
-        ? Math.max(0, Math.trunc(Number(rawAmountPayment) || 0))
+        ? Math.max(0, normalizeEntryAmount(rawAmountPayment))
         : undefined;
     const appliedCreditNotes = Array.isArray((entry as any).appliedCreditNotes)
       ? ((entry as any).appliedCreditNotes as any[])
@@ -762,13 +778,13 @@ export const sanitizeFondoEntries = (
             const id = String(note?.id || "").trim();
             const appliedAmount = Math.max(
               0,
-              Math.trunc(Number(note?.appliedAmount) || 0),
+              normalizeEntryAmount(note?.appliedAmount),
             );
             if (!id || appliedAmount <= 0) return null;
             return {
               id,
               invoiceNumber: String(note?.invoiceNumber || "").trim(),
-              amount: Math.max(0, Math.trunc(Number(note?.amount) || 0)),
+              amount: Math.max(0, normalizeEntryAmount(note?.amount)),
               appliedAmount,
               currency: note?.currency === "USD" ? "USD" : "CRC",
               observation:
@@ -779,12 +795,6 @@ export const sanitizeFondoEntries = (
           })
           .filter((note): note is AppliedCreditNote => Boolean(note))
       : undefined;
-
-    const currency: MovementCurrencyKey =
-      forcedCurrency ?? (entry.currency === "USD" ? "USD" : "CRC");
-    const accountId =
-      forcedAccount ??
-      (isMovementAccountKey(entry.accountId) ? entry.accountId : undefined);
 
     const typesLoaded =
       FONDO_INGRESO_TYPES.length > 0 ||
@@ -838,10 +848,10 @@ export const sanitizeFondoEntries = (
       invoiceCreatedAt,
       closingBalanceCRC,
       closingBalanceUSD,
-      openingBalanceCRC: coerceTruncNumber((entry as any).openingBalanceCRC),
-      openingBalanceUSD: coerceTruncNumber((entry as any).openingBalanceUSD),
-      openingPreviousBalanceCRC: coerceTruncNumber((entry as any).openingPreviousBalanceCRC),
-      openingPreviousBalanceUSD: coerceTruncNumber((entry as any).openingPreviousBalanceUSD),
+      openingBalanceCRC: normalizeOptionalEntryAmount((entry as any).openingBalanceCRC),
+      openingBalanceUSD: normalizeOptionalEntryAmount((entry as any).openingBalanceUSD),
+      openingPreviousBalanceCRC: normalizeOptionalEntryAmount((entry as any).openingPreviousBalanceCRC),
+      openingPreviousBalanceUSD: normalizeOptionalEntryAmount((entry as any).openingPreviousBalanceUSD),
       openingBreakdownCRC: (entry as any).openingBreakdownCRC ?? undefined,
       openingBreakdownUSD: (entry as any).openingBreakdownUSD ?? undefined,
       turno: entry.turno === "D" || entry.turno === "N" ? entry.turno : undefined,

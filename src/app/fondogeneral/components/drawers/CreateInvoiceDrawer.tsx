@@ -109,7 +109,7 @@ export default function CreateInvoiceDrawer({
   const formatAmount = React.useCallback(
     (raw: string) => {
       if (!raw || raw.trim().length === 0) return createCurrency === "CRC" ? "₡ 0" : "$ 0";
-      const n = Math.trunc(Number(raw) || 0);
+      const n = Math.round((Number(raw) || 0) * 100) / 100;
       const formatted =
         createCurrency === "CRC"
           ? n.toLocaleString("es-CR")
@@ -118,15 +118,49 @@ export default function CreateInvoiceDrawer({
     },
     [createCurrency],
   );
+  const sanitizeAmountInput = React.useCallback((value: string) => {
+    const stripped = value.replace(/\s/g, "").replace(/[^\d.,]/g, "");
+    const decimalIndex = Math.max(
+      stripped.lastIndexOf(","),
+      stripped.lastIndexOf("."),
+    );
+    if (decimalIndex === -1) return stripped.replace(/[.,]/g, "");
+    const integerPart = stripped.slice(0, decimalIndex).replace(/[.,]/g, "");
+    const fractionPart = stripped
+      .slice(decimalIndex + 1)
+      .replace(/[.,]/g, "")
+      .slice(0, 2);
+    return fractionPart.length > 0
+      ? `${integerPart}.${fractionPart}`
+      : `${integerPart}.`;
+  }, []);
+  const formatAmountInput = React.useCallback(
+    (raw: string) => {
+      if (!raw) return "";
+      const normalized = sanitizeAmountInput(raw);
+      const [integerPart, fractionPart] = normalized.split(".");
+      const integerValue = Number(integerPart || "0");
+      const formattedInteger = integerValue.toLocaleString(
+        createCurrency === "CRC" ? "es-CR" : "en-US",
+      );
+      const decimalSeparator = createCurrency === "CRC" ? "," : ".";
+      const suffix = normalized.includes(".")
+        ? `${decimalSeparator}${fractionPart ?? ""}`
+        : "";
+      return createCurrency === "CRC"
+        ? `₡ ${formattedInteger}${suffix}`
+        : `$ ${formattedInteger}${suffix}`;
+    },
+    [createCurrency, sanitizeAmountInput],
+  );
 
   React.useEffect(() => {
     if (!createAmount) {
       setDisplayAmount("");
       return;
     }
-    const symbol = createCurrency === "CRC" ? "₡" : "$";
-    setDisplayAmount(symbol + Number(createAmount).toLocaleString("es-CR"));
-  }, [createCurrency, createAmount]);
+    setDisplayAmount(formatAmountInput(createAmount));
+  }, [createAmount, formatAmountInput]);
 
   const sectionClass =
     "rounded-xl border border-cyan-700/25 bg-cyan-950/10 p-3 sm:p-4";
@@ -417,14 +451,11 @@ export default function CreateInvoiceDrawer({
               <div>
                 <input
                   type="text"
-                  inputMode="numeric"
+                  inputMode="decimal"
                   value={displayAmount}
                   onChange={(e) => {
-                    const raw = e.target.value.replace(/\D/g, "");
-                    const symbol = createCurrency === "CRC" ? "₡" : "$";
-                    setDisplayAmount(
-                      raw ? symbol + Number(raw).toLocaleString("es-CR") : "",
-                    );
+                    const raw = sanitizeAmountInput(e.target.value);
+                    setDisplayAmount(formatAmountInput(raw));
                     setCreateAmount(raw);
                   }}
                   placeholder={createCurrency === "CRC" ? "₡0" : "$0"}

@@ -13,6 +13,7 @@ import {
   getFcrPaymentInvoiceId,
   isAutoAdjustmentProvider,
   isPaidFcrMovement,
+  roundMoney2,
   stripUndefinedDeep,
 } from "../utils/helpers";
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
@@ -215,11 +216,11 @@ export async function confirmDeleteMovement(
         const paymentAmount = getFcrPaymentAmount(entry);
         const totalAmount = Math.max(
           0,
-          Math.trunc(Number(invoiceData.originalAmount ?? invoiceData.amount) || 0),
+          roundMoney2(invoiceData.originalAmount ?? invoiceData.amount),
         );
-        const currentPaid = Math.max(0, Math.trunc(Number(invoiceData.paidAmount) || 0));
-        const nextPaid = Math.max(0, Math.min(totalAmount, currentPaid - paymentAmount));
-        const nextBalance = Math.max(0, totalAmount - nextPaid);
+        const currentPaid = Math.max(0, roundMoney2(invoiceData.paidAmount));
+        const nextPaid = Math.max(0, Math.min(totalAmount, roundMoney2(currentPaid - paymentAmount)));
+        const nextBalance = Math.max(0, roundMoney2(totalAmount - nextPaid));
         const nextStatus =
           nextBalance === 0 ? "PAGADA" : nextPaid > 0 ? "PARCIAL" : "PENDIENTE";
 
@@ -230,7 +231,7 @@ export async function confirmDeleteMovement(
         const noteWrites = await Promise.all(
           appliedCreditNotes.map(async (note) => {
             const noteId = String(note?.id || "").trim();
-            const appliedAmount = Math.max(0, Math.trunc(Number(note?.appliedAmount) || 0));
+            const appliedAmount = Math.max(0, roundMoney2(note?.appliedAmount));
             if (!noteId || appliedAmount <= 0) return null;
 
             const noteRef = FacturasService.buildMovementRef(normalizedCompany, noteId);
@@ -240,14 +241,14 @@ export async function confirmDeleteMovement(
             const noteData = noteSnap.data() as FacturaMovement;
             const noteTotal = Math.max(
               0,
-              Math.trunc(Number(noteData.originalAmount ?? noteData.amount) || 0),
+              roundMoney2(noteData.originalAmount ?? noteData.amount),
             );
-            const currentNotePaid = Math.max(0, Math.trunc(Number(noteData.paidAmount) || 0));
+            const currentNotePaid = Math.max(0, roundMoney2(noteData.paidAmount));
             const nextNotePaid = Math.max(
               0,
-              Math.min(noteTotal, currentNotePaid - appliedAmount),
+              Math.min(noteTotal, roundMoney2(currentNotePaid - appliedAmount)),
             );
-            const nextNoteBalance = Math.max(0, noteTotal - nextNotePaid);
+            const nextNoteBalance = Math.max(0, roundMoney2(noteTotal - nextNotePaid));
             const nextNoteStatus =
               nextNotePaid <= 0
                 ? "PENDIENTE"

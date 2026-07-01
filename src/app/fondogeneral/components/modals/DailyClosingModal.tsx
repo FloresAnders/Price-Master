@@ -60,6 +60,43 @@ const buildFormState = (
   };
 };
 
+const DAILY_CLOSING_MODAL_DRAFT_KEY = "fondogeneral-daily-closing-modal-draft";
+
+type DailyClosingModalDraft = {
+  manager?: string;
+  notes?: string;
+  singleClosingReason?: string;
+  crcCounts?: CountState;
+  usdCounts?: CountState;
+  r08?: string;
+  t11?: string;
+  tucanCumulative?: string;
+  tiemposCumulative?: string;
+};
+
+const readDailyClosingDraft = (): DailyClosingModalDraft | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(DAILY_CLOSING_MODAL_DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object"
+      ? (parsed as DailyClosingModalDraft)
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+export const clearDailyClosingModalDraft = () => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(DAILY_CLOSING_MODAL_DRAFT_KEY);
+  } catch {
+    // ignore storage errors
+  }
+};
+
 export type DailyClosingFormValues = {
   closingDate: string;
   manager: string;
@@ -122,30 +159,33 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const managerFieldRef = useRef<HTMLSelectElement | HTMLInputElement | null>(
     null,
   );
+  const savedDraft = useMemo(() => (editId ? null : readDailyClosingDraft()), [editId]);
 
   const [closingDateISO] = useState(
     () => buildFormState(initialValues).closingDateISO,
   );
 
   const [manager, setManager] = useState(
-    () => buildFormState(initialValues).manager,
+    () => savedDraft?.manager ?? buildFormState(initialValues).manager,
   );
   const displayedManager = useMemo(() => manager, [manager]);
 
-  const [notes, setNotes] = useState(() => buildFormState(initialValues).notes);
+  const [notes, setNotes] = useState(
+    () => savedDraft?.notes ?? buildFormState(initialValues).notes,
+  );
   const [singleClosingReason, setSingleClosingReason] = useState(
-    () => initialValues?.singleClosingReason || "",
+    () => savedDraft?.singleClosingReason ?? initialValues?.singleClosingReason ?? "",
   );
   const [crcCounts, setCrcCounts] = useState<CountState>(
-    () => buildFormState(initialValues).crcCounts,
+    () => ({ ...buildFormState(initialValues).crcCounts, ...(savedDraft?.crcCounts ?? {}) }),
   );
   const [usdCounts, setUsdCounts] = useState<CountState>(
-    () => buildFormState(initialValues).usdCounts,
+    () => ({ ...buildFormState(initialValues).usdCounts, ...(savedDraft?.usdCounts ?? {}) }),
   );
-  const [r08, setR08] = useState(() => initialValues?.r08 != null ? String(initialValues.r08) : "");
-  const [t11, setT11] = useState(() => initialValues?.t11 != null ? String(initialValues.t11) : "");
-  const [tucanCumulative, setTucanCumulative] = useState(() => initialValues?.tucanCumulative != null ? String(initialValues.tucanCumulative) : "");
-  const [tiemposCumulative, setTiemposCumulative] = useState(() => initialValues?.tiemposCumulative != null ? String(initialValues.tiemposCumulative) : "");
+  const [r08, setR08] = useState(() => savedDraft?.r08 ?? (initialValues?.r08 != null ? String(initialValues.r08) : ""));
+  const [t11, setT11] = useState(() => savedDraft?.t11 ?? (initialValues?.t11 != null ? String(initialValues.t11) : ""));
+  const [tucanCumulative, setTucanCumulative] = useState(() => savedDraft?.tucanCumulative ?? (initialValues?.tucanCumulative != null ? String(initialValues.tucanCumulative) : ""));
+  const [tiemposCumulative, setTiemposCumulative] = useState(() => savedDraft?.tiemposCumulative ?? (initialValues?.tiemposCumulative != null ? String(initialValues.tiemposCumulative) : ""));
 
   const [confirmDiffOpen, setConfirmDiffOpen] = useState(false);
   const [pendingSubmitValues, setPendingSubmitValues] =
@@ -201,7 +241,10 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     }
 
     const integerPart = stripped.slice(0, decimalIndex).replace(/[.,]/g, "");
-    const fractionPart = stripped.slice(decimalIndex + 1).replace(/[.,]/g, "");
+    const fractionPart = stripped
+      .slice(decimalIndex + 1)
+      .replace(/[.,]/g, "")
+      .slice(0, 2);
 
     return fractionPart.length > 0 ? `${integerPart}.${fractionPart}` : `${integerPart}.`;
   }, []);
@@ -377,6 +420,40 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [open, onClose]);
 
+  useEffect(() => {
+    if (!open || editId) return;
+    try {
+      window.localStorage.setItem(
+        DAILY_CLOSING_MODAL_DRAFT_KEY,
+        JSON.stringify({
+          manager,
+          notes,
+          singleClosingReason,
+          crcCounts,
+          usdCounts,
+          r08,
+          t11,
+          tucanCumulative,
+          tiemposCumulative,
+        } satisfies DailyClosingModalDraft),
+      );
+    } catch {
+      // ignore storage errors
+    }
+  }, [
+    open,
+    editId,
+    manager,
+    notes,
+    singleClosingReason,
+    crcCounts,
+    usdCounts,
+    r08,
+    t11,
+    tucanCumulative,
+    tiemposCumulative,
+  ]);
+
   const handleCountChange = (
     currency: "CRC" | "USD",
     denom: number,
@@ -536,7 +613,6 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
-      onClick={onClose}
     >
       <div
         className="w-full max-w-full sm:max-w-4xl rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] shadow-lg max-h-[95vh] overflow-hidden flex flex-col"
@@ -548,15 +624,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
           <h3 className="text-lg font-semibold text-center">
             Cierre diario del fondo
           </h3>
-          <div className="flex-1 flex justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className={secondaryButtonClass}
-            >
-              Cerrar
-            </button>
-          </div>
+          <div className="flex-1" />
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
@@ -927,13 +995,6 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
             )}
           </div>
           <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className={secondaryButtonClass}
-            >
-              Cancelar
-            </button>
             <div className="relative group">
               <button
                 type="button"

@@ -15,6 +15,7 @@ import {
 import { type FondoEntry } from "../../types";
 import {
   roundCreditNotePaymentAmount,
+  roundMoney2,
   stripUndefinedDeep,
   type PendingCreditNoteOption,
 } from "../helpers";
@@ -103,19 +104,17 @@ export async function submitClosingInvoicePayment(
 
   const totalAmount = Math.max(
     0,
-    Math.trunc(
-      Number(closingPaymentTarget.originalAmount ?? closingPaymentTarget.amount) || 0,
-    ),
+    roundMoney2(closingPaymentTarget.originalAmount ?? closingPaymentTarget.amount),
   );
-  const paidAmount = Math.max(0, Math.trunc(Number(closingPaymentTarget.paidAmount) || 0));
+  const paidAmount = Math.max(0, roundMoney2(closingPaymentTarget.paidAmount));
   const balance = Math.max(
     0,
     Math.min(
       totalAmount,
-      Math.trunc(Number(closingPaymentTarget.balanceDue ?? totalAmount - paidAmount) || 0),
+      roundMoney2(closingPaymentTarget.balanceDue ?? totalAmount - paidAmount),
     ),
   );
-  const enteredAmount = Math.max(0, Math.trunc(Number(closingPaymentAmount) || 0));
+  const enteredAmount = Math.max(0, roundMoney2(closingPaymentAmount));
   const selectedNoteIds = new Set(closingPaymentCreditNoteIds);
   let remainingForNotes = balance;
   const appliedCreditNotes = selectedProviderPendingCreditNotes.reduce<AppliedCreditNote[]>(
@@ -124,7 +123,7 @@ export async function submitClosingInvoicePayment(
       if (note.currency !== closingPaymentTarget.currency) return acc;
       const appliedAmount = Math.min(
         remainingForNotes,
-        Math.max(0, Math.trunc(Number(note.balanceDue) || 0)),
+        Math.max(0, roundMoney2(note.balanceDue)),
       );
       if (appliedAmount <= 0) return acc;
       remainingForNotes -= appliedAmount;
@@ -140,7 +139,7 @@ export async function submitClosingInvoicePayment(
     [],
   );
   const creditNotesAmountToApply = appliedCreditNotes.reduce(
-    (sum, note) => sum + Math.max(0, Math.trunc(note.appliedAmount)),
+    (sum, note) => sum + Math.max(0, roundMoney2(note.appliedAmount)),
     0,
   );
   const maxCashPaymentBeforeAdjustment = Math.max(0, balance - creditNotesAmountToApply);
@@ -154,8 +153,9 @@ export async function submitClosingInvoicePayment(
     mode === "full"
       ? Math.max(0, maxCashPaymentBeforeAdjustment - paymentAmountToApply)
       : 0;
-  const totalAppliedToInvoice =
-    paymentAmountToApply + creditNotesAmountToApply + creditNoteAdjustmentAmount;
+  const totalAppliedToInvoice = roundMoney2(
+    paymentAmountToApply + creditNotesAmountToApply + creditNoteAdjustmentAmount,
+  );
 
   if (paymentAmountToApply <= 0) {
     showToast("Ingrese un monto valido para el pago.", "error", 4000);
@@ -182,8 +182,11 @@ export async function submitClosingInvoicePayment(
   }
 
   const nowISO = await getAuthoritativeNowISO();
-  const nextPaidAmount = Math.min(totalAmount, paidAmount + totalAppliedToInvoice);
-  const nextBalanceDue = Math.max(0, totalAmount - nextPaidAmount);
+  const nextPaidAmount = Math.min(
+    totalAmount,
+    roundMoney2(paidAmount + totalAppliedToInvoice),
+  );
+  const nextBalanceDue = Math.max(0, roundMoney2(totalAmount - nextPaidAmount));
   const nextStatus =
     nextBalanceDue === 0 ? "PAGADA" : nextPaidAmount > 0 ? "PARCIAL" : "PENDIENTE";
   const cleanedNotes = closingPaymentNotes.trim();
@@ -240,7 +243,7 @@ export async function submitClosingInvoicePayment(
       ledger.state ?? MovimientosFondosService.createEmptyMovementStorage(company).state;
     const acctKey = targetAccountKey;
     const currency = (paymentMovement as any).currency as MovementCurrencyKey;
-    const amountToApply = Math.trunc(paymentAmountToApply || 0);
+    const amountToApply = roundMoney2(paymentAmountToApply || 0);
     let found = false;
     state.balancesByAccount = state.balancesByAccount.map((b) => {
       if (b.accountId === acctKey && b.currency === currency) {
@@ -273,13 +276,13 @@ export async function submitClosingInvoicePayment(
     if (appliedCreditNotes.length > 0) {
       appliedCreditNotes.forEach((note) => {
         const pendingNote = selectedProviderPendingCreditNotes.find((item) => item.id === note.id);
-        const noteAmount = Math.max(0, Math.trunc(Number(pendingNote?.amount ?? note.amount) || 0));
-        const previousPaid = Math.max(0, Math.trunc(Number(pendingNote?.paidAmount) || 0));
+        const noteAmount = Math.max(0, roundMoney2(pendingNote?.amount ?? note.amount));
+        const previousPaid = Math.max(0, roundMoney2(pendingNote?.paidAmount));
         const nextPaidAmount = Math.min(
           noteAmount,
-          previousPaid + Math.trunc(Number(note.appliedAmount) || 0),
+          roundMoney2(previousPaid + roundMoney2(note.appliedAmount)),
         );
-        const nextBalanceDue = Math.max(0, noteAmount - nextPaidAmount);
+        const nextBalanceDue = Math.max(0, roundMoney2(noteAmount - nextPaidAmount));
 
         batch.set(
           FacturasService.buildMovementRef(company, note.id),

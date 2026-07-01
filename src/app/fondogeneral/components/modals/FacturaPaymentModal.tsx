@@ -53,7 +53,7 @@ const roundCreditNotePaymentAmount = (
   currency: "CRC" | "USD",
   accountKey?: string,
 ): number => {
-  const normalized = Math.max(0, Math.trunc(Number(amount) || 0));
+  const normalized = Math.max(0, Math.round((Number(amount) || 0) * 100) / 100);
   if (currency !== "CRC") return normalized;
   if (accountKey && accountKey !== "FondoGeneral") return normalized;
   return Math.floor(normalized / 1000) * 1000;
@@ -95,7 +95,7 @@ export default function FacturaPaymentModal({
     () =>
       new Intl.NumberFormat("es-CR", {
         minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
+        maximumFractionDigits: 2,
       }),
     [],
   );
@@ -103,7 +103,7 @@ export default function FacturaPaymentModal({
     () =>
       new Intl.NumberFormat("en-US", {
         minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
+        maximumFractionDigits: 2,
       }),
     [],
   );
@@ -111,20 +111,67 @@ export default function FacturaPaymentModal({
   const formatCurrencyAmount = React.useCallback(
     (value: number, targetCurrency: string) =>
       targetCurrency === "USD"
-        ? `$ ${inputFormatterUSD.format(Math.trunc(value))}`
-        : `₡ ${inputFormatterCRC.format(Math.trunc(value))}`,
+        ? `$ ${inputFormatterUSD.format(Math.round(value * 100) / 100)}`
+        : `₡ ${inputFormatterCRC.format(Math.round(value * 100) / 100)}`,
     [inputFormatterCRC, inputFormatterUSD],
+  );
+  const sanitizePaymentInput = React.useCallback(
+    (value: string) => {
+      const stripped = value.replace(/\s/g, "").replace(/[^\d.,]/g, "");
+      const decimalIndex = Math.max(
+        stripped.lastIndexOf(","),
+        stripped.lastIndexOf("."),
+      );
+      if (decimalIndex === -1) return stripped.replace(/[.,]/g, "");
+      const integerPart = stripped.slice(0, decimalIndex).replace(/[.,]/g, "");
+      const fractionPart = stripped
+        .slice(decimalIndex + 1)
+        .replace(/[.,]/g, "")
+        .slice(0, 2);
+      return fractionPart.length > 0
+        ? `${integerPart}.${fractionPart}`
+        : `${integerPart}.`;
+    },
+    [],
+  );
+  const formatPaymentInput = React.useCallback(
+    (raw: string, targetCurrency: string) => {
+      if (!raw) return "";
+      const normalized = sanitizePaymentInput(raw);
+      const [integerPart, fractionPart] = normalized.split(".");
+      const integerValue = Number(integerPart || "0");
+      const formattedInteger =
+        targetCurrency === "USD"
+          ? inputFormatterUSD.format(integerValue)
+          : inputFormatterCRC.format(integerValue);
+      const decimalSeparator = targetCurrency === "USD" ? "." : ",";
+      const suffix = normalized.includes(".")
+        ? `${decimalSeparator}${fractionPart ?? ""}`
+        : "";
+      return targetCurrency === "USD"
+        ? `$ ${formattedInteger}${suffix}`
+        : `₡ ${formattedInteger}${suffix}`;
+    },
+    [formatCurrencyAmount, inputFormatterCRC, inputFormatterUSD, sanitizePaymentInput],
   );
 
   const [pendingAction, setPendingAction] = React.useState<"partial" | "full" | null>(null);
 
-  const enteredPaymentAmount = Math.max(0, Math.trunc(Number(paymentAmount) || 0));
+  const normalizeTargetAmount = React.useCallback(
+    (value: unknown) => {
+      const parsed = Number(value) || 0;
+      return Math.round(parsed * 100) / 100;
+    },
+    [],
+  );
+
+  const enteredPaymentAmount = Math.max(0, normalizeTargetAmount(paymentAmount));
   const selectedCreditNotesRequestedTotal = React.useMemo(() => {
     if (!target) return 0;
     return pendingCreditNotes.reduce((sum, note) => {
       if (!selectedCreditNoteIdSet.has(note.id)) return sum;
       if (note.currency !== target.currency) return sum;
-      return sum + Math.max(0, Math.trunc(note.balanceDue));
+      return sum + Math.max(0, Math.round((Number(note.balanceDue) || 0) * 100) / 100);
     }, 0);
   }, [pendingCreditNotes, selectedCreditNoteIdSet, target]);
   const creditNotesOverLimit =
@@ -132,7 +179,8 @@ export default function FacturaPaymentModal({
     selectedCreditNotesRequestedTotal > selectedPaymentBalance;
   const maxCashPaymentBeforeAdjustment = Math.max(
     0,
-    Math.trunc(selectedPaymentBalance) - Math.trunc(creditNotesAppliedTotal),
+    normalizeTargetAmount(selectedPaymentBalance) -
+      normalizeTargetAmount(creditNotesAppliedTotal),
   );
   const maxCashPayment =
     target
@@ -154,10 +202,8 @@ export default function FacturaPaymentModal({
     if (!allowPartialPayment) {
       return formatCurrencyAmount(maxCashPayment, target.currency);
     }
-    const digits = String(paymentAmount || "").replace(/\D/g, "");
-    if (!digits) return "";
-    return formatCurrencyAmount(Number(digits), target.currency);
-  }, [paymentAmount, target, formatCurrencyAmount, allowPartialPayment, maxCashPayment]);
+    return formatPaymentInput(paymentAmount, target.currency);
+  }, [paymentAmount, target, formatPaymentInput, allowPartialPayment, maxCashPayment, formatCurrencyAmount]);
 
   return (
     <><Drawer
@@ -246,7 +292,7 @@ export default function FacturaPaymentModal({
                     Monto total
                   </p>
                   <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">
-                    {Math.max(0, Math.trunc(Number(target.amount) || 0)).toLocaleString(
+                    {Math.max(0, Math.round((Number(target.amount) || 0) * 100) / 100).toLocaleString(
                       "es-CR",
                       {
                         style: "currency",
@@ -294,11 +340,13 @@ export default function FacturaPaymentModal({
                   </span>
                   <input
                     type="text"
-                    inputMode="numeric"
+                    inputMode="decimal"
                     value={paymentDisplayValue}
                     onChange={(event) => {
                       if (!allowPartialPayment) return;
-                      onPaymentAmountChange(event.target.value.replace(/\D/g, ""));
+                      onPaymentAmountChange(
+                        sanitizePaymentInput(event.target.value),
+                      );
                     }}
                     disabled={!allowPartialPayment}
                     className="w-full rounded-lg border border-cyan-700/35 bg-cyan-950/25 px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-75"
@@ -359,7 +407,7 @@ export default function FacturaPaymentModal({
                         !checked &&
                         selectedPaymentBalance > 0 &&
                         selectedCreditNotesRequestedTotal +
-                            Math.max(0, Math.trunc(note.balanceDue)) >
+                            Math.max(0, Math.round((Number(note.balanceDue) || 0) * 100) / 100) >
                           selectedPaymentBalance;
                       const disabled =
                         note.currency !== target.currency ||
@@ -449,7 +497,7 @@ export default function FacturaPaymentModal({
                   <div className="flex items-center justify-between">
                     <span className="text-cyan-100/70">Monto total factura</span>
                     <span className="font-semibold text-[var(--foreground)]">
-                      {Math.max(0, Math.trunc(Number(target.amount) || 0)).toLocaleString(
+                      {Math.max(0, Math.round((Number(target.amount) || 0) * 100) / 100).toLocaleString(
                         "es-CR",
                         {
                           style: "currency",

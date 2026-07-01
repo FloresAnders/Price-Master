@@ -67,7 +67,22 @@ export function useMovementForm({ mode, fondoEntries }: Props) {
     [editingEntry],
   );
 
-  const normalizeMoneyInput = (value: string) => value.replace(/[^0-9]/g, "");
+  const normalizeMoneyInput = (value: string) => {
+    const stripped = value.replace(/\s/g, "").replace(/[^\d.,]/g, "");
+    const decimalIndex = Math.max(
+      stripped.lastIndexOf(","),
+      stripped.lastIndexOf("."),
+    );
+    if (decimalIndex === -1) return stripped.replace(/[.,]/g, "");
+    const integerPart = stripped.slice(0, decimalIndex).replace(/[.,]/g, "");
+    const fractionPart = stripped
+      .slice(decimalIndex + 1)
+      .replace(/[.,]/g, "")
+      .slice(0, 2);
+    return fractionPart.length > 0
+      ? `${integerPart}.${fractionPart}`
+      : `${integerPart}.`;
+  };
 
   const handleInvoiceNumberChange = (value: string) => {
     const cleaned = value.replace(/\D/g, "").slice(0, 4);
