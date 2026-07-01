@@ -3247,7 +3247,12 @@ export function FondoSection({
             console.error("[FG] Error checking duplicate cierres:", dupErr);
           }
 
-          if (closingShift === "N" && closingsToday.length === 0 && !notes.startsWith(SINGLE_CLOSING_REASON_PREFIX)) {
+          if (
+            closingShift === "N" &&
+            closingsToday.length === 0 &&
+            activeEmpresaForCompany?.unicoCierre !== true &&
+            !notes.startsWith(SINGLE_CLOSING_REASON_PREFIX)
+          ) {
             setNotes(SINGLE_CLOSING_REASON_PREFIX);
           }
         } else if (nowTiming && !nowTiming.withinHorario) {
@@ -3284,7 +3289,11 @@ export function FondoSection({
               );
               return;
             }
-            if (todayClosings.length === 0 && !notes.startsWith(SINGLE_CLOSING_REASON_PREFIX)) {
+            if (
+              todayClosings.length === 0 &&
+              activeEmpresaForCompany?.unicoCierre !== true &&
+              !notes.startsWith(SINGLE_CLOSING_REASON_PREFIX)
+            ) {
               setNotes(SINGLE_CLOSING_REASON_PREFIX);
             }
           }
@@ -4039,6 +4048,14 @@ export function FondoSection({
           activeEmpresaForCompany.cierreFondoVentasMinutesAfterEnd ??
           CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
       });
+      const isPostCloseGraceOnNextDay =
+        isFondoVentasPostCloseGraceOnNextDay({
+          nowISO,
+          horarioCierre: activeEmpresaForCompany.horarioCierre,
+          minutesAfterEnd:
+            activeEmpresaForCompany.cierreFondoVentasMinutesAfterEnd ??
+            CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
+        });
 
       if (timing.withinHorario) {
         const normalizeMin = (value: number) => ((value % 1440) + 1440) % 1440;
@@ -4068,6 +4085,7 @@ export function FondoSection({
         if (
           !isSuperAdminUser &&
           isWithinWindow &&
+          !isPostCloseGraceOnNextDay &&
           !hasRecentDayClosing &&
           activeEmpresaForCompany.unicoCierre !== true
         ) {
@@ -4084,6 +4102,7 @@ export function FondoSection({
       } else if (
         !isSuperAdminUser &&
         isInNightClosingWindow &&
+        !isPostCloseGraceOnNextDay &&
         !hasRecentDayClosing &&
         activeEmpresaForCompany.unicoCierre !== true
       ) {
