@@ -57,7 +57,7 @@ export function useScheduleData(props: Props) {
 
         namesList.forEach((name) => {
           newData[name] = {};
-          if (isDelifoodEmpresa) newDelifood[name] = {};
+          newDelifood[name] = {};
         });
 
         (allEntries || []).forEach((entry) => {
@@ -66,13 +66,13 @@ export function useScheduleData(props: Props) {
           if (entry.shift?.trim()) {
             newData[entry.employeeName][entry.day.toString()] = entry.shift;
           }
-          if (isDelifoodEmpresa && entry.horasPorDia != null && entry.horasPorDia > 0) {
+          if (entry.horasPorDia != null && entry.horasPorDia > 0) {
             if (!newDelifood[entry.employeeName]) newDelifood[entry.employeeName] = {};
             newDelifood[entry.employeeName][entry.day.toString()] = { hours: entry.horasPorDia };
           }
         });
 
-        if (isDelifoodEmpresa) setDelifoodHoursData(newDelifood);
+        setDelifoodHoursData(newDelifood);
         setScheduleData(newData);
       } catch (error) {
         console.error("Error loading schedule data:", error);

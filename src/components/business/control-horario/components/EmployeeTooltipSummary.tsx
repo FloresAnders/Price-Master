@@ -3,11 +3,27 @@
 import React from "react";
 import { CcssConfigService } from "../../../../services/ccss-config";
 import type { EmployeeSummary } from "../types";
+import type { CcssConfig } from "../../../../types/firestore";
+
+function normalizeKey(value: unknown): string {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function findCompanyConfig(configs: CcssConfig[], candidates: string[]) {
+  return (configs || [])
+    .flatMap((config) => config.companie || [])
+    .find((comp) => candidates.includes(normalizeKey(comp.ownerCompanie)));
+}
 
 interface Props {
   employeeName: string;
   empresaValue: string;
   empresaLabel?: string;
+  empresaOwnerId?: string;
   employeeConfig?: {
     name: string;
     ccssType: "TC" | "MT";
@@ -29,6 +45,7 @@ export default function EmployeeTooltipSummary({
   employeeName,
   empresaValue,
   empresaLabel,
+  empresaOwnerId,
   employeeConfig,
   shiftsByDay,
   year,
@@ -43,64 +60,54 @@ export default function EmployeeTooltipSummary({
   React.useEffect(() => {
     const fetchSummary = async () => {
       try {
-        const employee = employeeConfig;
-        const userOwnerId = user?.ownerId || user?.id || "";
-        const ccssConfig = await CcssConfigService.getCcssConfig(userOwnerId);
-        const empresaName = empresaLabel || empresaValue;
+        const configOwnerId = empresaOwnerId || user?.ownerId || user?.id || "";
+        const configs = await CcssConfigService.getAllCcssConfigsByOwner(
+          configOwnerId,
+        );
+        const companyCandidates = [empresaLabel, empresaValue]
+          .map(normalizeKey)
+          .filter(Boolean);
 
         let workedDaysInPeriod = 0;
         let totalHours = 0;
 
         if (isDelifoodEmpresa) {
           totalHours = daysToShow.reduce((total, day) => {
-            const hours = delifoodHoursData[employeeName]?.[day.toString()]?.hours || 0;
+            const hours =
+              delifoodHoursData[employeeName]?.[day.toString()]?.hours || 0;
             return total + hours;
           }, 0);
           workedDaysInPeriod = daysToShow.filter((day) => {
-            const hours = delifoodHoursData[employeeName]?.[day.toString()]?.hours || 0;
+            const hours =
+              delifoodHoursData[employeeName]?.[day.toString()]?.hours || 0;
             return hours > 0;
           }).length;
         } else {
-          const hoursPerDay = employee?.hoursPerShift ?? 8;
+          const hoursPerDay = Number(employeeConfig?.hoursPerShift) || 0;
           daysToShow.forEach((day) => {
             const shift = shiftsByDay?.[day.toString()] || "";
             if (shift === "N" || shift === "D") {
               workedDaysInPeriod++;
-              totalHours += hoursPerDay;
+              const savedHours =
+                delifoodHoursData[employeeName]?.[day.toString()]?.hours;
+              totalHours +=
+                savedHours && savedHours > 0 ? savedHours : hoursPerDay;
             }
           });
         }
 
-        const ccssType = employee?.ccssType || "MT";
-        const extraAmount = employee?.extraAmount || 0;
-
-        let grossSalary = 0;
-        let ccssDeduction = 0;
-        let netSalary = 0;
-
-        if (totalHours > 0) {
-          const companyConfig = ccssConfig?.companie?.find(
-            (comp) => comp.ownerCompanie === empresaName,
-          );
-          const hourlyRate = companyConfig?.horabruta || 1529.62;
-          grossSalary = totalHours * hourlyRate;
-          const ccssAmount =
-            ccssType === "TC"
-              ? companyConfig?.tc || 11017.39
-              : companyConfig?.mt || 3672.46;
-          ccssDeduction = ccssAmount;
-          netSalary = grossSalary - ccssDeduction + extraAmount;
-        } else {
-          netSalary = extraAmount;
-        }
+        const companyConfig = findCompanyConfig(configs, companyCandidates);
+        const configuredHourlyRate = Number(companyConfig?.valorhora);
+        const fallbackHourlyRate = Number(companyConfig?.pagoTotalPH);
+        const hourlyRate =
+          configuredHourlyRate > 0
+            ? configuredHourlyRate
+            : fallbackHourlyRate || 0;
 
         setSummary({
           workedDays: workedDaysInPeriod,
           hours: totalHours,
-          colones: grossSalary,
-          ccss: ccssDeduction,
-          neto: netSalary,
-          extraAmount: extraAmount,
+          colones: totalHours * hourlyRate,
         });
       } catch (error) {
         console.error("Error fetching employee summary:", error);
@@ -108,9 +115,6 @@ export default function EmployeeTooltipSummary({
           workedDays: 0,
           hours: 0,
           colones: 0,
-          ccss: 0,
-          neto: 0,
-          extraAmount: 0,
         });
       }
     };
@@ -120,6 +124,7 @@ export default function EmployeeTooltipSummary({
     employeeName,
     empresaValue,
     empresaLabel,
+    empresaOwnerId,
     employeeConfig,
     shiftsByDay,
     year,
@@ -138,30 +143,15 @@ export default function EmployeeTooltipSummary({
   return (
     <>
       <div>
-        <b>{isDelifoodEmpresa ? "Días con horas:" : "Días trabajados:"}</b>{" "}
+        <b>{isDelifoodEmpresa ? "Dias con horas:" : "Dias trabajados:"}</b>{" "}
         {summary.workedDays}
       </div>
       <div>
         <b>Horas trabajadas:</b> {summary.hours}
       </div>
       <div>
-        <b>Total bruto:</b> ₡{summary.colones.toLocaleString("es-CR")}
-      </div>
-      <div>
-        <b>CCSS:</b> -₡
-        {summary.ccss.toLocaleString("es-CR", { minimumFractionDigits: 2 })}
-      </div>
-      {summary.extraAmount > 0 && (
-        <div>
-          <b>Monto extra:</b> +₡
-          {summary.extraAmount.toLocaleString("es-CR", {
-            minimumFractionDigits: 2,
-          })}
-        </div>
-      )}
-      <div>
-        <b>Salario neto:</b> ₡
-        {summary.neto.toLocaleString("es-CR", { minimumFractionDigits: 2 })}
+        <b>Salario:</b> {"\u20a1"}
+        {summary.colones.toLocaleString("es-CR", { minimumFractionDigits: 2 })}
       </div>
     </>
   );

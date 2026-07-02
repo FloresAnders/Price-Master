@@ -173,6 +173,8 @@ export function filterEmpresasByUser(
     });
     return {
       id: e.id,
+      key: e.id || `${e.ownerId || ""}:${e.ubicacion || e.name || ""}`,
+      ownerId: e.ownerId,
       label: e.name || e.ubicacion || e.id || "Empresa",
       value: e.ubicacion || e.name || e.id || "",
       mostrarInfoPago: e.mostrarInfoPago !== false,

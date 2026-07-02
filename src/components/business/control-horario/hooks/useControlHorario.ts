@@ -26,6 +26,7 @@ export function useControlHorario(propUser?: FirestoreUser | null) {
   const [empresas, setEmpresas] = useState<MappedEmpresa[]>([]);
   const [loading, setLoading] = useState(true);
   const [empresa, setEmpresa] = useState("");
+  const [empresaKey, setEmpresaKey] = useState("");
   const [assignedEmpresaValue, setAssignedEmpresaValue] = useState<string | null>(null);
 
   useEffect(() => {
@@ -36,19 +37,36 @@ export function useControlHorario(propUser?: FirestoreUser | null) {
         setEmpresas(mapped);
         if (assignedEmpresa && mapped.length > 0) {
           const r = resolveEmpresaValue(assignedEmpresa, mapped);
-          if (r) { setAssignedEmpresaValue(r); if (!empresa) setEmpresa(r); }
+          const matchedEmpresa = mapped.find((item) => item.value === r);
+          if (r) {
+            setAssignedEmpresaValue(r);
+            if (!empresa) setEmpresa(r);
+            if (!empresaKey && matchedEmpresa) setEmpresaKey(matchedEmpresa.key);
+          }
           else setAssignedEmpresaValue(null);
         }
       } catch (e) { console.error(e); }
       finally { setLoading(false); }
     })();
-  }, [user, assignedEmpresa, empresa]);
+  }, [user, assignedEmpresa, empresa, empresaKey]);
 
   useEffect(() => {
     if (!user) return;
-    if (user.role === "user" && assignedEmpresaValue) setEmpresa(assignedEmpresaValue);
-    else if (assignedEmpresaValue && !empresa) setEmpresa(String(assignedEmpresaValue));
-  }, [user, empresa, assignedEmpresa, assignedEmpresaValue]);
+    const matchedEmpresa = empresas.find((item) => item.value === assignedEmpresaValue);
+    if (user.role === "user" && assignedEmpresaValue) {
+      setEmpresa(assignedEmpresaValue);
+      if (matchedEmpresa) setEmpresaKey(matchedEmpresa.key);
+    } else if (assignedEmpresaValue && !empresa) {
+      setEmpresa(String(assignedEmpresaValue));
+      if (matchedEmpresa) setEmpresaKey(matchedEmpresa.key);
+    }
+  }, [user, empresa, empresas, assignedEmpresaValue]);
+
+  useEffect(() => {
+    if (!empresa || empresaKey) return;
+    const matchedEmpresa = empresas.find((item) => item.value === empresa);
+    if (matchedEmpresa) setEmpresaKey(matchedEmpresa.key);
+  }, [empresa, empresaKey, empresas]);
 
   useEffect(() => {
     const forced = assignedEmpresaValue;
@@ -60,7 +78,9 @@ export function useControlHorario(propUser?: FirestoreUser | null) {
 
   const handleEmpresaChange = (newEmpresa: string) => {
     if (user?.role === "user") { showToast("No puedes cambiar de empresa", "error"); return; }
-    setEmpresa(newEmpresa);
+    const selectedEmpresa = empresas.find((item) => item.key === newEmpresa);
+    setEmpresaKey(selectedEmpresa?.key || "");
+    setEmpresa(selectedEmpresa?.value || newEmpresa);
   };
 
   // Unlock past days
@@ -116,7 +136,7 @@ export function useControlHorario(propUser?: FirestoreUser | null) {
 
   return {
     showToast,
-    user, empresas, loading, empresa, setEmpresa,
+    user, empresas, loading, empresa, empresaKey, setEmpresa,
     assignedEmpresa, assignedEmpresaValue,
     scheduleData: sd.scheduleData,
     saving: shift.saving,

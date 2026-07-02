@@ -1,5 +1,7 @@
 export interface MappedEmpresa {
   id?: string;
+  key: string;
+  ownerId?: string;
   label: string;
   value: string;
   mostrarInfoPago: boolean;
@@ -39,9 +41,6 @@ export interface EmployeeSummary {
   workedDays: number;
   hours: number;
   colones: number;
-  ccss: number;
-  neto: number;
-  extraAmount: number;
 }
 
 export interface ConfirmModalState {

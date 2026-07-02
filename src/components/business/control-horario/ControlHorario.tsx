@@ -93,11 +93,11 @@ export default function ControlHorario({ currentUser }: Props = {}) {
         <div className="max-w-md mx-auto mb-4">
           <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">Empresa:</label>
           <select className="w-full px-4 py-2 rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-            value={h.empresa}
+            value={h.empresaKey}
             onChange={(e) => h.handleEmpresaChange(e.target.value)}
           >
             <option value="">Seleccionar empresa</option>
-            {h.empresas.map((item: MappedEmpresa) => (<option key={item.value} value={item.value}>{item.label}</option>))}
+            {h.empresas.map((item: MappedEmpresa) => (<option key={item.key} value={item.key}>{item.label}</option>))}
           </select>
         </div>
       </div>
@@ -105,7 +105,9 @@ export default function ControlHorario({ currentUser }: Props = {}) {
   }
 
   const shiftOptions = getShiftOptions(isUserAdmin(h.user));
-  const selectedEmpresaMeta = h.empresas.find((e) => e.value === h.empresa);
+  const selectedEmpresaMeta =
+    h.empresas.find((e) => e.key === h.empresaKey) ||
+    h.empresas.find((e) => e.value === h.empresa);
 
   return (
     <>
@@ -134,11 +136,11 @@ export default function ControlHorario({ currentUser }: Props = {}) {
               <div className="flex items-center gap-2">
                 <Layers className="w-5 h-5 text-cyan-500 flex-shrink-0" />
                 <select className="px-4 py-2 text-sm rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                  value={h.empresa}
+                  value={h.empresaKey}
                   onChange={(e) => h.handleEmpresaChange(e.target.value)}
                 >
                   <option value="">Seleccionar empresa</option>
-                  {h.empresas.map((item: MappedEmpresa) => (<option key={item.value} value={item.value}>{item.label}</option>))}
+                  {h.empresas.map((item: MappedEmpresa) => (<option key={item.key} value={item.key}>{item.label}</option>))}
                 </select>
               </div>
             )}
@@ -254,7 +256,7 @@ export default function ControlHorario({ currentUser }: Props = {}) {
                           <div className="min-w-[180px] text-left whitespace-pre-line">
                             <EmployeeTooltipSummary employeeName={name} empresaValue={h.empresa} empresaLabel={selectedEmpresaMeta?.label}
                               employeeConfig={selectedEmpresaMeta?.employees?.find((e) => e.name === name)} shiftsByDay={h.scheduleData[name]}
-                              year={h.year} month={h.month} daysToShow={h.daysToShow} isDelifoodEmpresa={h.isDelifoodEmpresa} delifoodHoursData={h.delifoodHoursData} user={h.user}
+                              year={h.year} month={h.month} daysToShow={h.daysToShow} isDelifoodEmpresa={h.isDelifoodEmpresa} delifoodHoursData={h.delifoodHoursData} empresaOwnerId={selectedEmpresaMeta?.ownerId} user={h.user}
                             />
                           </div>
                         }>
