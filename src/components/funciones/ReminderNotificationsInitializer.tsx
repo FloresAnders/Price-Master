@@ -14,18 +14,11 @@ import {
 } from "@/services/funciones";
 import type { Empresas, UserPermissions } from "@/types/firestore";
 import { normalizeReminderTimesCr } from "./reminderTimes";
-
-type ReminderItem = {
-  key: string; // unique per day
-  empresaId: string;
-  empresaName: string;
-  funcionId: string;
-  funcionNombre: string;
-  funcionDescripcion?: string;
-  reminderTimeCr: string; // HH:mm
-  blockOnReminder?: boolean;
-  blockSeconds?: number;
-};
+import {
+  groupReminderSources,
+  type QueuedReminderItem,
+  type ReminderSourceItem,
+} from "./reminderQueue";
 
 const STORAGE_KEY = "funciones_reminders_fired";
 
@@ -66,11 +59,9 @@ export default function ReminderNotificationsInitializer() {
   const { user: currentUser, loading: authLoading } = useAuth();
   const { ownerIds: actorOwnerIds } = useActorOwnership(currentUser);
 
-  const [items, setItems] = React.useState<Array<Omit<ReminderItem, "key">>>(
-    [],
-  );
-  const [queue, setQueue] = React.useState<ReminderItem[]>([]);
-  const [active, setActive] = React.useState<ReminderItem | null>(null);
+  const [items, setItems] = React.useState<ReminderSourceItem[]>([]);
+  const [queue, setQueue] = React.useState<QueuedReminderItem[]>([]);
+  const [active, setActive] = React.useState<QueuedReminderItem | null>(null);
   const [blockRemaining, setBlockRemaining] = React.useState(0);
 
   const firedRef = React.useRef<{ dateKey: string; set: Set<string> }>({
@@ -188,7 +179,7 @@ export default function ReminderNotificationsInitializer() {
       role: currentUser.role,
     });
 
-    const nextItems: Array<Omit<ReminderItem, "key">> = [];
+    const nextItems: ReminderSourceItem[] = [];
 
     await Promise.all(
       empresas
@@ -336,13 +327,15 @@ export default function ReminderNotificationsInitializer() {
       const matching = items.filter((it) => it.reminderTimeCr === timeHHmm);
       if (matching.length === 0) return;
 
-      const nextToEnqueue: ReminderItem[] = [];
-      for (const it of matching) {
-        const key = `${dateKey}|${it.empresaId}|${it.funcionId}|${it.reminderTimeCr}`;
-        if (firedRef.current.set.has(key)) continue;
-        if (pendingRef.current.has(key)) continue;
+      const { queued: nextToEnqueue, pendingKeys } = groupReminderSources({
+        dateKey,
+        items: matching,
+        firedKeys: firedRef.current.set,
+        pendingKeys: pendingRef.current,
+      });
+
+      for (const key of pendingKeys) {
         pendingRef.current.add(key);
-        nextToEnqueue.push({ key, ...it });
       }
 
       if (nextToEnqueue.length === 0) return;
@@ -408,11 +401,15 @@ export default function ReminderNotificationsInitializer() {
 
     const dateKey = firedRef.current.dateKey;
     if (dateKey) {
-      firedRef.current.set.add(active.key);
+      for (const key of active.keys) {
+        firedRef.current.set.add(key);
+      }
       persistFired();
     }
 
-    pendingRef.current.delete(active.key);
+    for (const key of active.keys) {
+      pendingRef.current.delete(key);
+    }
     setActive(null);
   }, [active, blockRemaining, persistFired]);
 
@@ -447,18 +444,24 @@ export default function ReminderNotificationsInitializer() {
           <div className="text-sm text-[var(--muted-foreground)]">
             Recordatorio — {active.empresaName}
           </div>
-          <div className="text-3xl md:text-4xl font-bold text-[var(--foreground)] leading-tight">
-            {active.funcionNombre}
+          <div className="space-y-5">
+            {active.funciones.map((funcion) => (
+              <div key={funcion.funcionId} className="space-y-2">
+                <div className="text-3xl md:text-4xl font-bold text-[var(--foreground)] leading-tight">
+                  {funcion.funcionNombre}
+                </div>
+                {funcion.funcionDescripcion ? (
+                  <div className="text-base md:text-lg text-[var(--foreground)] whitespace-pre-wrap">
+                    {funcion.funcionDescripcion}
+                  </div>
+                ) : (
+                  <div className="text-base md:text-lg text-[var(--muted-foreground)]">
+                    (Sin descripción)
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
-          {active.funcionDescripcion ? (
-            <div className="text-base md:text-lg text-[var(--foreground)] whitespace-pre-wrap">
-              {active.funcionDescripcion}
-            </div>
-          ) : (
-            <div className="text-base md:text-lg text-[var(--muted-foreground)]">
-              (Sin descripción)
-            </div>
-          )}
 
           <div className="pt-4 text-sm text-[var(--muted-foreground)]">
             Hora CR: {active.reminderTimeCr}

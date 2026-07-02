@@ -19,6 +19,7 @@ import type { FuncionListItem } from "./funciones/RecetasListItems";
 import EmpresaFuncionesModal from "./funciones/EmpresaFuncionesModal";
 import { RightDrawer } from "@/components/ui/RightDrawer";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import { Loader2 } from "lucide-react";
 import {
   normalizeReminderTimesCr,
   validateBlockSeconds,
@@ -75,6 +76,8 @@ export default function FuncionesEditorSection({
     React.useState(false);
   const [draftBlockSeconds, setDraftBlockSeconds] = React.useState("30");
   const [formError, setFormError] = React.useState<string | null>(null);
+  const [isSavingDrawer, setIsSavingDrawer] = React.useState(false);
+  const isSavingDrawerRef = React.useRef(false);
 
   const [confirmState, setConfirmState] = React.useState<{
     open: boolean;
@@ -373,6 +376,7 @@ export default function FuncionesEditorSection({
 
   const handleSaveDrawer = React.useCallback(() => {
     if (!isAdminLike) return;
+    if (isSavingDrawerRef.current) return;
     setFormError(null);
 
     const name = draftNombre.trim();
@@ -399,12 +403,15 @@ export default function FuncionesEditorSection({
       return;
     }
 
-    const persist = async () => {
-      if (!resolvedOwnerId) {
-        setFormError("No se pudo resolver el ownerId.");
-        return;
-      }
+    if (!resolvedOwnerId) {
+      setFormError("No se pudo resolver el ownerId.");
+      return;
+    }
 
+    isSavingDrawerRef.current = true;
+    setIsSavingDrawer(true);
+
+    const persist = async () => {
       const existing = editingId
         ? recetasListItems.find((x) => x.id === editingId)
         : undefined;
@@ -679,12 +686,17 @@ export default function FuncionesEditorSection({
       closeDrawer();
     };
 
-    void persist().catch((err) => {
-      const msg =
-        err instanceof Error ? err.message : "No se pudo guardar la función.";
-      setFormError(msg);
-      showToast(msg, "error");
-    });
+    void persist()
+      .catch((err) => {
+        const msg =
+          err instanceof Error ? err.message : "No se pudo guardar la función.";
+        setFormError(msg);
+        showToast(msg, "error");
+      })
+      .finally(() => {
+        isSavingDrawerRef.current = false;
+        setIsSavingDrawer(false);
+      });
   }, [
     closeDrawer,
     draftAudience,
@@ -1137,10 +1149,18 @@ export default function FuncionesEditorSection({
             <button
               type="button"
               onClick={handleSaveDrawer}
-              className="px-4 py-2 bg-[var(--accent)] text-white rounded disabled:opacity-50"
-              disabled={!isAdminLike}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[var(--accent)] text-white rounded disabled:opacity-50"
+              disabled={!isAdminLike || isSavingDrawer}
+              aria-busy={isSavingDrawer}
             >
-              {editingId ? "Guardar cambios" : "Guardar función"}
+              {isSavingDrawer && (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              )}
+              {isSavingDrawer
+                ? "Guardando..."
+                : editingId
+                  ? "Guardar cambios"
+                  : "Guardar función"}
             </button>
           </div>
         </div>
