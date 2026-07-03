@@ -20,6 +20,10 @@ import { SchedulesService, type ScheduleEntry } from "@/services/schedules";
 import type { Empresas } from "@/types/firestore";
 import { getDefaultPermissions } from "@/utils/permissions";
 
+type SinpeSortOrder = "desc" | "asc";
+
+const REPORTES_SINPE_SORT_ORDER_KEY = "reportes-sinpe-sort-order";
+
 const todayValue = () => {
   const now = new Date();
   const year = now.getFullYear();
@@ -292,6 +296,12 @@ export default function ReportesSinpePage() {
       amount: number;
     }>;
   } | null>(null);
+  const [sortOrder, setSortOrder] = useState<SinpeSortOrder>(() => {
+    if (typeof window === "undefined") return "desc";
+    return localStorage.getItem(REPORTES_SINPE_SORT_ORDER_KEY) === "asc"
+      ? "asc"
+      : "desc";
+  });
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -312,6 +322,10 @@ export default function ReportesSinpePage() {
     () => getEmpresaShiftRanges(selectedEmpresa, scheduleEntries, shiftDate),
     [scheduleEntries, selectedEmpresa, shiftDate],
   );
+
+  useEffect(() => {
+    localStorage.setItem(REPORTES_SINPE_SORT_ORDER_KEY, sortOrder);
+  }, [sortOrder]);
 
   useEffect(() => {
     if (!canUse || !user) return;
@@ -558,6 +572,17 @@ export default function ReportesSinpePage() {
     }),
     [report],
   );
+
+  const sortedTransactions = useMemo(() => {
+    const transactions = report?.transactions || [];
+    return transactions.slice().sort((a, b) => {
+      const byDate =
+        sortOrder === "asc"
+          ? new Date(a.date).getTime() - new Date(b.date).getTime()
+          : new Date(b.date).getTime() - new Date(a.date).getTime();
+      return byDate || a.uid - b.uid;
+    });
+  }, [report?.transactions, sortOrder]);
 
   const applyQueryShift = (shift: QueryShift) => {
     setQueryShift(shift);
@@ -872,11 +897,7 @@ export default function ReportesSinpePage() {
 
         {report && (
           <div className="mt-5 rounded-[28px] border border-white/10 bg-[#091426]/90 p-5 sm:p-6">
-            <button
-              type="button"
-              onClick={() => setDetailsOpen((open) => !open)}
-              className="flex w-full items-center justify-between gap-3 text-left"
-            >
+            <div className="flex w-full items-center justify-between gap-3">
               <span>
                 <span className="block text-sm font-semibold text-white">
                   Correos encontrados
@@ -885,15 +906,50 @@ export default function ReportesSinpePage() {
                   {report.transactions.length} transacciones SINPE
                 </span>
               </span>
-              <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-cyan-300">
+              <span className="flex items-center gap-2">
+                <span
+                  className="inline-flex rounded-full border border-white/10 bg-white/5 p-1"
+                  aria-label="Ordenar transacciones"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setSortOrder("asc")}
+                    className={`rounded-full px-3 py-1 text-xs transition ${
+                      sortOrder === "asc"
+                        ? "bg-cyan-400 text-slate-950"
+                        : "text-white/60 hover:text-white"
+                    }`}
+                    aria-pressed={sortOrder === "asc"}
+                  >
+                    Más antiguo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSortOrder("desc")}
+                    className={`rounded-full px-3 py-1 text-xs transition ${
+                      sortOrder === "desc"
+                        ? "bg-cyan-400 text-slate-950"
+                        : "text-white/60 hover:text-white"
+                    }`}
+                    aria-pressed={sortOrder === "desc"}
+                  >
+                    Más reciente
+                  </button>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setDetailsOpen((open) => !open)}
+                  className="rounded-full border border-white/10 px-3 py-1 text-xs text-cyan-300"
+                >
                 {detailsOpen ? "Ocultar" : "Ver lista"}
+                </button>
               </span>
-            </button>
+            </div>
 
             {detailsOpen && (
               <div className="mt-4 space-y-3">
-                {report.transactions.length > 0 ? (
-                  report.transactions.map((transaction) => (
+                {sortedTransactions.length > 0 ? (
+                  sortedTransactions.map((transaction) => (
                     <div
                       key={transaction.uid}
                       className="rounded-2xl border border-white/10 bg-[#0b1730] p-4"
