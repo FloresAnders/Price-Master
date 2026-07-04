@@ -1,17 +1,17 @@
 {
-  "version": "1.8.41",
+  "version": "1.8.42",
   "versionstorage": "1.3.6",
   "notasDeSistemas": "1.3.22",
   "releaseNotes": [
     {
-      "date": "2026-06-26",
+      "date": "2026-07-04",
       "title": "Ajuste",
       "description": "Se ajusto el calculo de R08 y T11 acumulados para que se tomen del turno diurno cuando se esta en turno nocturno, y asi poder verificar el cierre diario."
     }
   ],
   "systemNotes": [
     {
-      "date": "2026-06-26",
+      "date": "2026-07-04",
       "title": "Ajuste en cálculo de R08 y T11",
       "url": "",
       "description": "Se ajusto el calculo de R08 y T11 acumulados para que se tomen del turno diurno cuando se esta en turno nocturno, y asi poder verificar el cierre diario. \nSi algo no cuadra, notificarlo"

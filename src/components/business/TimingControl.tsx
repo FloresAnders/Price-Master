@@ -63,6 +63,13 @@ const VALID_CODES = {
   TTT: "TIEMPOS (TICA)",
 };
 
+type TimingMode = "mixto" | "individual";
+
+const TIMING_MODE_STORAGE_KEY = "timingControlTimingMode";
+
+const isTimingMode = (value: unknown): value is TimingMode =>
+  value === "mixto" || value === "individual";
+
 interface TicketEntry {
   id: string;
   code: string;
@@ -78,6 +85,12 @@ export default function TimingControl() {
   const [sorteos, setSorteos] = useState<Sorteo[]>([]);
   const [personName, setPersonName] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+  const [timingMode, setTimingMode] = useState<TimingMode>(() => {
+    if (typeof window === "undefined") return "mixto";
+
+    const savedMode = localStorage.getItem(TIMING_MODE_STORAGE_KEY);
+    return isTimingMode(savedMode) ? savedMode : "mixto";
+  });
   const [showSummary, setShowSummary] = useState(false);
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [currentCode, setCurrentCode] = useState("");
@@ -137,6 +150,11 @@ export default function TimingControl() {
       if (savedBuffer) {
         setKeyBuffer(savedBuffer);
       }
+
+      const savedTimingMode = localStorage.getItem(TIMING_MODE_STORAGE_KEY);
+      if (isTimingMode(savedTimingMode)) {
+        setTimingMode(savedTimingMode);
+      }
     }
 
     // Reset modal states on load
@@ -156,16 +174,21 @@ export default function TimingControl() {
     localStorage.setItem("timingControlKeyBuffer", keyBuffer);
   }, [keyBuffer]);
 
+  useEffect(() => {
+    localStorage.setItem(TIMING_MODE_STORAGE_KEY, timingMode);
+  }, [timingMode]);
+
   // Función para guardar estado completo en localStorage
   const saveCompleteState = useCallback(() => {
     const state = {
       tickets,
       personName,
       keyBuffer,
+      timingMode,
       timestamp: Date.now(),
     };
     localStorage.setItem("timingControlCompleteState", JSON.stringify(state));
-  }, [tickets, personName, keyBuffer]);
+  }, [tickets, personName, keyBuffer, timingMode]);
 
   // Efecto para guardar estado completo periódicamente
   useEffect(() => {
@@ -189,10 +212,12 @@ export default function TimingControl() {
     localStorage.removeItem("timingControlTickets");
     localStorage.removeItem("timingControlPersonName");
     localStorage.removeItem("timingControlKeyBuffer");
+    localStorage.removeItem(TIMING_MODE_STORAGE_KEY);
     localStorage.removeItem("timingControlCompleteState");
     setTickets([]);
     setPersonName("");
     setKeyBuffer("");
+    setTimingMode("mixto");
     resetModalStates();
   };
 
@@ -216,6 +241,12 @@ export default function TimingControl() {
         if (parsed.tickets) setTickets(parsed.tickets);
         if (parsed.personName) setPersonName(parsed.personName);
         if (parsed.keyBuffer) setKeyBuffer(parsed.keyBuffer);
+        const savedTimingMode = localStorage.getItem(TIMING_MODE_STORAGE_KEY);
+        if (isTimingMode(savedTimingMode)) {
+          setTimingMode(savedTimingMode);
+        } else if (isTimingMode(parsed.timingMode)) {
+          setTimingMode(parsed.timingMode);
+        }
         return true;
       } catch {
         console.warn("Error parsing complete state from localStorage");
@@ -263,7 +294,29 @@ export default function TimingControl() {
   const totalGeneral = Object.values(resumenSorteos).reduce(
     (a: number, b: number) => a + b,
     0,
-  ); // Handle keyboard input for code detection
+  );
+  const isMixedComodinEntry =
+    timingMode === "mixto" && currentCode === "T11" && !showCodeModal;
+
+  const startCodeEntry = useCallback(
+    (code: keyof typeof VALID_CODES) => {
+      setCurrentCode(code);
+      setSelectedSorteoIndex(-1);
+      setModalAmount("");
+
+      if (timingMode === "mixto" && code === "T11") {
+        setSelectedSorteo(VALID_CODES.T11);
+        setShowCodeModal(false);
+        return;
+      }
+
+      setSelectedSorteo("");
+      setShowCodeModal(true);
+    },
+    [timingMode],
+  );
+
+  // Handle keyboard input for code detection
   useEffect(() => {
     let bufferTimeout: NodeJS.Timeout;
     const handleKeyPress = (event: KeyboardEvent) => {
@@ -300,9 +353,7 @@ export default function TimingControl() {
             newBuffer === "NNN" ||
             newBuffer === "TTT"
           ) {
-            setCurrentCode(newBuffer);
-            setSelectedSorteoIndex(-1); // Reset keyboard navigation
-            setShowCodeModal(true);
+            startCodeEntry(newBuffer);
             clearTimeout(bufferTimeout);
             return ""; // Clear buffer after detection
           }
@@ -320,7 +371,7 @@ export default function TimingControl() {
       document.removeEventListener("keydown", handleKeyPress);
       if (bufferTimeout) clearTimeout(bufferTimeout);
     };
-  }, [showCodeModal, showSummary, showDeleteModal]);
+  }, [showCodeModal, showSummary, showDeleteModal, startCodeEntry]);
 
   // Filter sorteos based on current code
   const getFilteredSorteos = useCallback(() => {
@@ -399,6 +450,7 @@ export default function TimingControl() {
     setCurrentCode("");
     setSelectedSorteo("");
     setModalAmount("");
+    setSelectedSorteoIndex(-1);
   };
 
   // Handle ticket deletion
@@ -426,6 +478,14 @@ export default function TimingControl() {
       }, 100);
     }
   }, [showCodeModal, selectedSorteo]);
+
+  useEffect(() => {
+    if (isMixedComodinEntry && amountInputRef.current) {
+      setTimeout(() => {
+        amountInputRef.current?.focus();
+      }, 100);
+    }
+  }, [isMixedComodinEntry]);
 
   // useEffect para selección automática en móvil
   useEffect(() => {
@@ -613,9 +673,7 @@ export default function TimingControl() {
   const handleMobileCodeSubmit = () => {
     const code = mobileCodeInput.trim().toUpperCase();
     if (code === "T11" || code === "T10" || code === "NNN" || code === "TTT") {
-      setCurrentCode(code);
-      setSelectedSorteoIndex(-1); // Reset keyboard navigation
-      setShowCodeModal(true);
+      startCodeEntry(code);
       setMobileCodeInput("");
     } else {
       toast.showToast("Código inválido. Usa: T11, T10, NNN, o TTT", "warning");
@@ -1232,8 +1290,62 @@ export default function TimingControl() {
                 </div>
               )}
 
+              {isMixedComodinEntry && (
+                <div className="mb-4 w-full sm:max-w-md rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] p-3">
+                  <label
+                    className="block text-sm font-medium mb-2"
+                    style={{ color: "var(--foreground)" }}
+                  >
+                    Monto para TIEMPOS (COMODIN):
+                  </label>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      ref={amountInputRef}
+                      type="number"
+                      min="0"
+                      className="flex-1 h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] hover:border-[var(--accent)]/60 focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+                      value={modalAmount}
+                      onChange={(e) => setModalAmount(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          handleAddTicket();
+                        }
+                      }}
+                      placeholder="Ingresa el monto"
+                    />
+                    <button
+                      className="h-11 rounded-lg bg-[var(--button-bg)] px-4 text-[var(--button-text)] font-semibold hover:bg-[var(--button-hover)] transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+                      onClick={handleAddTicket}
+                      disabled={
+                        !modalAmount ||
+                        isNaN(Number(modalAmount)) ||
+                        Number(modalAmount) <= 0
+                      }
+                    >
+                      Agregar
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="mb-4">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] p-1">
+                    {(["mixto", "individual"] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        className={`h-10 rounded-md px-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 ${
+                          timingMode === mode
+                            ? "bg-[var(--accent)] text-white"
+                            : "text-[var(--foreground)] hover:bg-[var(--muted)]/20"
+                        }`}
+                        onClick={() => setTimingMode(mode)}
+                      >
+                        {mode === "mixto" ? "Mixto" : "Individual"}
+                      </button>
+                    ))}
+                  </div>
                   <button
                     className="w-full rounded-lg bg-[var(--button-bg)] px-4 py-3 text-[var(--button-text)] font-medium hover:bg-[var(--button-hover)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                     onClick={() => setShowSummary(true)}
@@ -1267,6 +1379,7 @@ export default function TimingControl() {
               {/* Lista de tickets y carrusel */}
               {tickets.length > 0 &&
                 !showCodeModal &&
+                !isMixedComodinEntry &&
                 !showDeleteModal &&
                 !showQRModal && (
                   <div className="mb-6">
@@ -1295,6 +1408,7 @@ export default function TimingControl() {
               {/* Mensaje cuando no hay tickets */}
               {tickets.length === 0 &&
                 !showCodeModal &&
+                !isMixedComodinEntry &&
                 !showDeleteModal &&
                 !showQRModal && (
                   <div className="mb-6 text-center py-12">
