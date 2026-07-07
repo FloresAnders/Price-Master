@@ -653,11 +653,42 @@ export default function EmpresaFuncionesModal({
 
     const removalKeys = new Set(getFuncionIdLookupKeys(id));
     removalKeys.add(id);
-    setAssignedIds((prev) =>
-      prev.filter((x) => !removalKeys.has(String(x).trim())),
+    const next = assignedIds.filter(
+      (x) => !removalKeys.has(String(x).trim()),
     );
+    setAssignedIds(next);
     setRemoveConfirm({ open: false });
-  }, [removeConfirm.item?.id]);
+
+    if (empresaId && ownerId) {
+      FuncionesService.upsertEmpresaFunciones({
+        ownerId,
+        empresaId,
+        funciones: next.filter((id) => funcionesById.has(String(id))),
+      })
+        .then(() => {
+          setInitialAssignedKey(normalizeIdsKey(next));
+          showToast(
+            `Función "${removeConfirm.item?.nombre || ""}" quitada.`,
+            "success",
+          );
+        })
+        .catch((err) => {
+          const msg =
+            err instanceof Error
+              ? err.message
+              : "No se pudo quitar la función.";
+          showToast(msg, "error");
+        });
+    }
+  }, [
+    assignedIds,
+    empresaId,
+    funcionesById,
+    ownerId,
+    removeConfirm.item?.id,
+    removeConfirm.item?.nombre,
+    showToast,
+  ]);
 
   if (!open) return null;
 
