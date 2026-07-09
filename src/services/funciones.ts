@@ -85,6 +85,19 @@ function isNumericFuncionId(value: unknown): boolean {
   return /^\d+$/.test(String(value || "").trim());
 }
 
+function getFuncionIdPrefixFromDocId(value: unknown): string {
+  return String(value || "")
+    .trim()
+    .split("_")[0]
+    ?.trim() || "";
+}
+
+function isNumericFuncionDocId(value: unknown): boolean {
+  const raw = String(value || "").trim();
+  if (isNumericFuncionId(raw)) return true;
+  return isNumericFuncionId(getFuncionIdPrefixFromDocId(raw));
+}
+
 function isGeneralFuncionDoc(raw: unknown): boolean {
   if (!raw || typeof raw !== "object") return false;
   const d = raw as Record<string, unknown>;
@@ -104,6 +117,24 @@ function isOwnedNumericFuncionDoc(raw: unknown): boolean {
   if (!isGeneralFuncionDoc(raw)) return false;
   const d = raw as Record<string, unknown>;
   return isNumericFuncionId(d.funcionId);
+}
+
+function getDocTimestampMs(raw: unknown, field: "updatedAt" | "createdAt"): number {
+  if (!raw || typeof raw !== "object") return Number.NEGATIVE_INFINITY;
+  const value = String((raw as Record<string, unknown>)[field] || "").trim();
+  if (!value) return Number.NEGATIVE_INFINITY;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? ms : Number.NEGATIVE_INFINITY;
+}
+
+function compareFuncionGeneralDocPreference(a: any, b: any): number {
+  const updatedDiff = getDocTimestampMs(a, "updatedAt") - getDocTimestampMs(b, "updatedAt");
+  if (updatedDiff !== 0) return updatedDiff;
+
+  const createdDiff = getDocTimestampMs(a, "createdAt") - getDocTimestampMs(b, "createdAt");
+  if (createdDiff !== 0) return createdDiff;
+
+  return String(a?.id || "").localeCompare(String(b?.id || ""));
 }
 
 export function filterFuncionesGeneralesForEmpresa<
@@ -253,9 +284,14 @@ export class FuncionesService {
     for (const d of [...sharedGeneral, ...ownedDocs.filter(isOwnedNumericFuncionDoc)]) {
       const docId = String((d as any).id || "").trim();
       const ownerId = String((d as any).ownerId || "").trim();
-      const key = `${ownerId}::${docId}`;
-      if (!docId || !ownerId || generalByKey.has(key)) continue;
-      generalByKey.set(key, d);
+      const funcionId = String((d as any).funcionId || "").trim();
+      const key = `${ownerId}::${funcionId}`;
+      if (!docId || !ownerId || !funcionId) continue;
+
+      const current = generalByKey.get(key);
+      if (!current || compareFuncionGeneralDocPreference(d, current) > 0) {
+        generalByKey.set(key, d);
+      }
     }
 
     const general = Array.from(generalByKey.values()) as Array<any>;
@@ -347,7 +383,7 @@ export class FuncionesService {
     // If renaming changed docId, create new doc and delete old.
     const prevDocId = params.previousDocId ? String(params.previousDocId) : "";
     if (prevDocId && prevDocId !== nextDocId) {
-      const sourceCollection = isNumericFuncionId(prevDocId)
+      const sourceCollection = isNumericFuncionDocId(prevDocId)
         ? `${OWNER_FUNCIONES_COLLECTION}/${ownerCollectionId}/${OWNER_FUNCIONES_SUBCOLLECTION}`
         : this.COLLECTION_NAME;
       await FirestoreService.addWithId(targetCollection, nextDocId, doc);
@@ -368,7 +404,7 @@ export class FuncionesService {
     ownerId: string,
   ): Promise<void> {
     const ownerCollectionId = await this.resolveOwnerCollectionId(ownerId);
-    const isNumeric = isNumericFuncionId(docId);
+    const isNumeric = isNumericFuncionDocId(docId);
     const targetCollection = isNumeric
       ? `${OWNER_FUNCIONES_COLLECTION}/${ownerCollectionId}/${OWNER_FUNCIONES_SUBCOLLECTION}`
       : this.COLLECTION_NAME;

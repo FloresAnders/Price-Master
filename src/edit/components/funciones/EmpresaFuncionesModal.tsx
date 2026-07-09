@@ -208,6 +208,7 @@ export default function EmpresaFuncionesModal({
     React.useState<string>("[]");
 
   const [saveLoading, setSaveLoading] = React.useState(false);
+  const saveInFlightRef = React.useRef(false);
 
   const [expandedIds, setExpandedIds] = React.useState<string[]>([]);
 
@@ -310,6 +311,8 @@ export default function EmpresaFuncionesModal({
     React.useState(false);
   const [createBlockSeconds, setCreateBlockSeconds] = React.useState("30");
   const [createLoading, setCreateLoading] = React.useState(false);
+  const createInFlightRef = React.useRef(false);
+  const removeAssignedInFlightRef = React.useRef(false);
 
   const [localExtras, setLocalExtras] = React.useState<FuncionListItem[]>([]);
   const [serviceFuncionesGenerales, setServiceFuncionesGenerales] =
@@ -471,6 +474,8 @@ export default function EmpresaFuncionesModal({
 
   const handleSave = React.useCallback(() => {
     if (!empresaId || !ownerId) return;
+    if (saveInFlightRef.current) return;
+    saveInFlightRef.current = true;
 
     const run = async () => {
       setSaveLoading(true);
@@ -492,6 +497,7 @@ export default function EmpresaFuncionesModal({
             : "No se pudieron guardar las funciones.";
         showToast(msg, "error");
       } finally {
+        saveInFlightRef.current = false;
         setSaveLoading(false);
       }
     };
@@ -508,6 +514,8 @@ export default function EmpresaFuncionesModal({
   ]);
 
   const handleCreateExclusive = React.useCallback(() => {
+    if (createInFlightRef.current) return;
+
     const nombre = String(createNombre || "").trim();
     const descripcion = String(createDescripcion || "").trim();
     if (!nombre) {
@@ -540,6 +548,8 @@ export default function EmpresaFuncionesModal({
       showToast("Empresa inválida.", "error");
       return;
     }
+
+    createInFlightRef.current = true;
 
     const run = async () => {
       setCreateLoading(true);
@@ -616,6 +626,7 @@ export default function EmpresaFuncionesModal({
           err instanceof Error ? err.message : "No se pudo crear la función.";
         showToast(msg, "error");
       } finally {
+        createInFlightRef.current = false;
         setCreateLoading(false);
       }
     };
@@ -645,6 +656,8 @@ export default function EmpresaFuncionesModal({
   }, []);
 
   const confirmRemoveAssigned = React.useCallback(() => {
+    if (removeAssignedInFlightRef.current) return;
+
     const id = String(removeConfirm.item?.id || "").trim();
     if (!id) {
       setRemoveConfirm({ open: false });
@@ -660,6 +673,7 @@ export default function EmpresaFuncionesModal({
     setRemoveConfirm({ open: false });
 
     if (empresaId && ownerId) {
+      removeAssignedInFlightRef.current = true;
       FuncionesService.upsertEmpresaFunciones({
         ownerId,
         empresaId,
@@ -678,6 +692,9 @@ export default function EmpresaFuncionesModal({
               ? err.message
               : "No se pudo quitar la función.";
           showToast(msg, "error");
+        })
+        .finally(() => {
+          removeAssignedInFlightRef.current = false;
         });
     }
   }, [
