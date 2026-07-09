@@ -66,6 +66,14 @@ export function groupReminderSources(params: {
     if (existing) {
       existing.keys.push(key);
       existing.funciones.push(funcion);
+      if (
+        existing.funciones.length > 1 &&
+        (existing.blockOnReminder === true || item.blockOnReminder === true)
+      ) {
+        existing.blockOnReminder = true;
+        existing.blockSeconds = 5;
+        continue;
+      }
       if (seconds > Number(existing.blockSeconds || 0)) {
         existing.blockOnReminder = seconds > 0;
         existing.blockSeconds = seconds || undefined;
