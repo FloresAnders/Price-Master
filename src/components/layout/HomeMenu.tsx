@@ -648,8 +648,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     (isSupplierWeekRoute || showSupplierWeekInMenu);
   const showOnlySupplierWeek = isSupplierWeekRoute && hasSupplierWeekPermission;
   const showExpandedSupplierWeek =
-    hasSupplierWeekPermission &&
-    (isSupplierWeekRoute || showSupplierWeekInMenu);
+    hasSupplierWeekPermission && isSupplierWeekRoute;
 
   const canChangeSupplierWeekCompany =
     currentUser?.role === "admin" || currentUser?.role === "superadmin";
