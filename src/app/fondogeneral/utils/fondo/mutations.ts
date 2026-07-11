@@ -9,6 +9,7 @@ import {
 import type { FondoEntry } from "../../types";
 import {
   isAutoAdjustmentProvider,
+  isCierreFondoVentasMovement,
   isIngresoDesdeFondoVentasMovement,
   parseLastCreatedCooldown,
   getEffectiveLastCreatedAtMs,
@@ -302,7 +303,12 @@ export async function persistCreatedMovement(
         entry,
         providerDisplayName,
       );
-      const shouldMarkCreatedCooldown = !isIngresoDesdeFV && !deps.isCajaNegra;
+      const isCierreFondoVentas = isCierreFondoVentasMovement(
+        entry,
+        providerDisplayName,
+      );
+      const shouldMarkCreatedCooldown =
+        !isIngresoDesdeFV && !isCierreFondoVentas && !deps.isCajaNegra;
       if (shouldMarkCreatedCooldown)
         deps.lastMovementCreatedAtRef.current = savedAtMs;
       if (typeof window !== "undefined") {
@@ -322,7 +328,9 @@ export async function persistCreatedMovement(
             const prevAt = getEffectiveLastCreatedAtMs(previous);
             const ignorePayload: LastCreatedCooldownPayload = {
               at: savedAtMs,
-              kind: "INGRESO_DESDE_FONDO_VENTAS",
+              kind: isCierreFondoVentas
+                ? "CIERRE_FONDO_VENTAS"
+                : "INGRESO_DESDE_FONDO_VENTAS",
               ...(prevAt > 0 ? { prevAt } : {}),
             };
             localStorage.setItem(createdKey, JSON.stringify(ignorePayload));

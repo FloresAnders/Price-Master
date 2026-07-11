@@ -1,7 +1,6 @@
 import { getDoc, type WriteBatch } from "firebase/firestore";
 import { FacturasService, type FacturaMovement } from "../../../services/facturas";
 import {
-  APERTURA_FONDO_PROVIDER_CODE,
   CIERRE_FONDO_VENTAS_PROVIDER_NAME,
 } from "../constants";
 import type { FondoEntry } from "../types";
@@ -11,8 +10,10 @@ import {
 import {
   getFcrPaymentAmount,
   getFcrPaymentInvoiceId,
+  getEffectiveLastCreatedAtMs,
   isAutoAdjustmentProvider,
   isPaidFcrMovement,
+  parseLastCreatedCooldown,
   roundMoney2,
   stripUndefinedDeep,
 } from "../utils/helpers";
@@ -319,13 +320,7 @@ export async function confirmDeleteMovement(
     }
 
     try {
-      const providerName = deps.providers
-        .find((p) => p.code === entry.providerCode)
-        ?.name?.toUpperCase();
-      const isCierreVentas = providerName === CIERRE_FONDO_VENTAS_PROVIDER_NAME;
-      const isCashOpening =
-        entry.providerCode === APERTURA_FONDO_PROVIDER_CODE ||
-        providerName === APERTURA_FONDO_PROVIDER_CODE;
+      const isCierreVentas = isCierreFondoVentasMovement(entry, deps);
       if (normalizedCompany.length > 0 && isCierreVentas) {
         await forceClearClosingGuards(
           normalizedCompany,
@@ -334,14 +329,23 @@ export async function confirmDeleteMovement(
         );
 
         if (deps.lastDailyClosingSavedAtRef) deps.lastDailyClosingSavedAtRef.current = 0;
-        if (deps.lastMovementCreatedAtRef) deps.lastMovementCreatedAtRef.current = 0;
         if (deps.lastMovementDedupeRef) deps.lastMovementDedupeRef.current = null;
         if (typeof window !== "undefined") {
           const dailyKey = `fondogeneral-lastDailyClosingSavedAt:${normalizedCompany}`;
           const createdKey = `fondogeneral-lastMovementCreatedAt:${normalizedCompany}:${deps.accountKey}`;
           const dedupeKey = `fondogeneral-lastMovementDedupe:${normalizedCompany}:${deps.accountKey}`;
+          const previousCooldownAt = getEffectiveLastCreatedAtMs(
+            parseLastCreatedCooldown(localStorage.getItem(createdKey)),
+          );
           localStorage.removeItem(dailyKey);
-          localStorage.removeItem(createdKey);
+          if (previousCooldownAt > 0) {
+            localStorage.setItem(createdKey, JSON.stringify({ at: previousCooldownAt }));
+            if (deps.lastMovementCreatedAtRef)
+              deps.lastMovementCreatedAtRef.current = previousCooldownAt;
+          } else {
+            localStorage.removeItem(createdKey);
+            if (deps.lastMovementCreatedAtRef) deps.lastMovementCreatedAtRef.current = 0;
+          }
           localStorage.removeItem(dedupeKey);
         }
       }

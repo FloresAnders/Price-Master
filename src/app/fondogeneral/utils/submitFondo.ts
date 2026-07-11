@@ -42,6 +42,7 @@ import {
   formatToastWaitTime,
   getChangedFields,
   getEffectiveLastCreatedAtMs,
+  isCierreFondoVentasMovement,
   isIngresoDesdeFondoVentasMovement,
   isInventoryPurchasePaymentType,
   isInventoryPurchaseProviderType,
@@ -659,9 +660,8 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         }
 
         // Admins/Superadmins are exempt from the 1-minute cooldown.
-        // Additionally, if the NEW movement is "INGRESO DESDE FONDO VENTAS",
-        // it should NOT be blocked by a prior movement's cooldown.
-      const providerForSelected = movementProviders.find(
+        // Fondo ventas automatic movements should NOT be blocked by a prior movement's cooldown.
+        const providerForSelected = movementProviders.find(
           (p: any) => p.code === selectedProvider,
         );
         const providerDisplayForSelected =
@@ -674,8 +674,14 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
           },
           providerDisplayForSelected,
         );
+        const newIsCierreFondoVentas = isCierreFondoVentasMovement(
+          {
+            providerCode: selectedProvider,
+          },
+          providerDisplayForSelected,
+        );
 
-        if (!newIsIngresoDesdeFV) {
+        if (!newIsIngresoDesdeFV && !newIsCierreFondoVentas) {
           if (
             !isAdminUser &&
             !isSuperAdminUser &&

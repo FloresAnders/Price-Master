@@ -9,6 +9,7 @@ import {
   AUTO_ADJUSTMENT_PROVIDER_CODE,
   AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY,
   ACCOUNT_KEY_BY_NAMESPACE,
+  CIERRE_FONDO_VENTAS_PROVIDER_NAME,
   DAILY_CLOSINGS_STORAGE_PREFIX,
   FONDO_EGRESO_TYPES,
   FONDO_GASTO_TYPES,
@@ -47,7 +48,7 @@ export const normalizeMovementLabel = (value: unknown): string =>
 
 export type LastCreatedCooldownPayload = {
   at: number;
-  kind?: "INGRESO_DESDE_FONDO_VENTAS";
+  kind?: "INGRESO_DESDE_FONDO_VENTAS" | "CIERRE_FONDO_VENTAS";
   prevAt?: number;
 };
 
@@ -65,8 +66,11 @@ export const parseLastCreatedCooldown = (
     const at = Number(parsed.at);
     if (!Number.isFinite(at) || at <= 0) return null;
     const payload: LastCreatedCooldownPayload = { at };
-    if (parsed.kind === "INGRESO_DESDE_FONDO_VENTAS") {
-      payload.kind = "INGRESO_DESDE_FONDO_VENTAS";
+    if (
+      parsed.kind === "INGRESO_DESDE_FONDO_VENTAS" ||
+      parsed.kind === "CIERRE_FONDO_VENTAS"
+    ) {
+      payload.kind = parsed.kind;
     }
     const prevAt = Number(parsed.prevAt);
     if (Number.isFinite(prevAt) && prevAt > 0) payload.prevAt = prevAt;
@@ -80,7 +84,11 @@ export const getEffectiveLastCreatedAtMs = (
   payload: LastCreatedCooldownPayload | null,
 ): number => {
   if (!payload) return 0;
-  if (payload.kind === "INGRESO_DESDE_FONDO_VENTAS") return payload.prevAt ?? 0;
+  if (
+    payload.kind === "INGRESO_DESDE_FONDO_VENTAS" ||
+    payload.kind === "CIERRE_FONDO_VENTAS"
+  )
+    return payload.prevAt ?? 0;
   return payload.at;
 };
 
@@ -107,6 +115,17 @@ export const isIngresoDesdeFondoVentasMovement = (
     type === target ||
     notes.includes(target)
   );
+};
+
+export const isCierreFondoVentasMovement = (
+  movement: Partial<FondoEntry>,
+  providerDisplayName?: string,
+) => {
+  const providerCode = normalizeMovementLabel(movement.providerCode);
+  const providerName = normalizeMovementLabel(providerDisplayName);
+  const target = normalizeMovementLabel(CIERRE_FONDO_VENTAS_PROVIDER_NAME);
+
+  return providerCode === target || providerName === target;
 };
 
 export const getMovementTypeKey = (value: unknown): string =>
