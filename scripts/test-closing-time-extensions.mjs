@@ -93,5 +93,7 @@ assert.equal(typeof ClosingTimeExtensionsService.rejectNightExtension, "function
 assert.equal(typeof ClosingTimeExtensionsService.requestExtension, "function");
 assert.equal(typeof ClosingTimeExtensionsService.approveExtension, "function");
 assert.equal(typeof ClosingTimeExtensionsService.rejectExtension, "function");
+assert.equal(typeof ClosingTimeExtensionsService.getAnsweredExtensionsByRequester, "function");
+assert.equal(typeof ClosingTimeExtensionsService.markResponseSeen, "function");
 
 console.log("closing-time-extensions tests passed");

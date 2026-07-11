@@ -49,6 +49,13 @@ service cloud.firestore {
         ) ||
         (
           isSignedIn() &&
+          (resource.data.status == 'approved' ||
+            resource.data.status == 'rejected') &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['responseSeenAt'])
+        ) ||
+        (
+          isSignedIn() &&
           resource.data.status == 'approved' &&
           request.resource.data.status == 'used' &&
           request.resource.data.diff(resource.data).affectedKeys()

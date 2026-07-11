@@ -179,6 +179,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const knownSolicitudesRef = useRef<Set<string>>(new Set());
   const initializedClosingExtensionsRef = useRef(false);
   const knownClosingExtensionsRef = useRef<Set<string>>(new Set());
+  const initializedClosingExtensionResponsesRef = useRef(false);
+  const knownClosingExtensionResponsesRef = useRef<Set<string>>(new Set());
   const [currentHash, setCurrentHash] = useState(() => {
     if (typeof window === "undefined") return "";
     return window.location.hash || "";
@@ -478,7 +480,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       const unsubscribe = onSnapshot(
         q,
         (snapshot) => {
-          const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+          const docs: any[] = snapshot.docs.map((d) => ({
+            id: d.id,
+            ...d.data(),
+          }));
 
           if (initializedClosingExtensionsRef.current) {
             const previousIds = knownClosingExtensionsRef.current;
@@ -523,6 +528,85 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       return () => unsubscribe();
     } catch (err) {
       console.error("Error setting up closingTimeExtensions listener:", err);
+      return;
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const requestedBy = String((user as any)?.email || user.id || "").trim();
+    if (!requestedBy) {
+      knownClosingExtensionResponsesRef.current = new Set();
+      initializedClosingExtensionResponsesRef.current = false;
+      return;
+    }
+
+    knownClosingExtensionResponsesRef.current = new Set();
+    initializedClosingExtensionResponsesRef.current = false;
+
+    try {
+      const q = fbQuery(
+        collection(db, "closingTimeExtensions"),
+        fbWhere("requestedBy", "==", requestedBy),
+        fbWhere("status", "in", ["approved", "rejected"]),
+        fbOrderBy("updatedAt", "desc"),
+        fbLimit(20),
+      );
+
+      const unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const docs: any[] = snapshot.docs.map((d) => ({
+            id: d.id,
+            ...d.data(),
+          }));
+          const unseenDocs = docs.filter((doc) => !doc?.responseSeenAt);
+
+          if (initializedClosingExtensionResponsesRef.current) {
+            const previousIds = knownClosingExtensionResponsesRef.current;
+            const hasNewResponse = unseenDocs.some((doc) => {
+              const id = doc?.id;
+              return typeof id === "string" && !previousIds.has(id);
+            });
+
+            if (hasNewResponse) {
+              setHasNewClosingExtensions(true);
+              const player =
+                audioRef.current ??
+                (typeof Audio !== "undefined"
+                  ? new Audio("/arrival-sound.mp3")
+                  : null);
+              if (player) {
+                audioRef.current = player;
+                try {
+                  player.currentTime = 0;
+                  void player.play().catch((err) => {
+                    console.warn("Unable to play notification sound:", err);
+                  });
+                } catch (err) {
+                  console.warn("Unable to play notification sound:", err);
+                }
+              }
+            }
+          } else if (unseenDocs.length > 0) {
+            setHasNewClosingExtensions(true);
+          }
+
+          knownClosingExtensionResponsesRef.current = new Set(
+            unseenDocs
+              .map((doc) => doc?.id)
+              .filter((id): id is string => typeof id === "string"),
+          );
+          initializedClosingExtensionResponsesRef.current = true;
+        },
+        (err) => {
+          console.error("onSnapshot error for closing extension responses:", err);
+        },
+      );
+
+      return () => unsubscribe();
+    } catch (err) {
+      console.error("Error setting up closing extension responses listener:", err);
       return;
     }
   }, [user]);

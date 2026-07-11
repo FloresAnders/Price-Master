@@ -33,6 +33,9 @@ export default function NotificationModal({
   const [closingExtensions, setClosingExtensions] = useState<
     ClosingTimeExtensionRecord[]
   >([]);
+  const [closingExtensionResponses, setClosingExtensionResponses] = useState<
+    ClosingTimeExtensionRecord[]
+  >([]);
   const [extensionDrafts, setExtensionDrafts] = useState<
     Record<string, { extraMinutes: string; expiresAt: string }>
   >({});
@@ -85,7 +88,10 @@ export default function NotificationModal({
           (user as any)?.ownercompanie || (user as any)?.ownerCompanie || "";
         const canManageClosingExtensions =
           user?.role === "admin" || user?.role === "superadmin";
-        const [rows, extensionRows] = await Promise.all([
+        const requestedBy = String(
+          (user as any)?.email || user?.id || "",
+        ).trim();
+        const [rows, extensionRows, responseRows] = await Promise.all([
           company
             ? SolicitudesService.getSolicitudesByEmpresa(company, 200)
             : Promise.resolve([]),
@@ -96,11 +102,20 @@ export default function NotificationModal({
                 )
               : ClosingTimeExtensionsService.getPendingExtensions()
             : Promise.resolve([]),
+          requestedBy
+            ? ClosingTimeExtensionsService.getAnsweredExtensionsByRequester(
+                requestedBy,
+              )
+            : Promise.resolve([]),
         ]);
         // Only show solicitudes that are not marked 'listo'
         const visible = (rows || []).filter((r: any) => !r?.listo);
+        const unseenResponses = responseRows.filter(
+          (item) => !item.responseSeenAt,
+        );
         setSolicitudes(visible);
         setClosingExtensions(extensionRows);
+        setClosingExtensionResponses(unseenResponses);
         setExtensionDrafts(
           extensionRows.reduce<
             Record<string, { extraMinutes: string; expiresAt: string }>
@@ -119,6 +134,7 @@ export default function NotificationModal({
         console.error("Error loading solicitudes for notification modal:", err);
         setSolicitudes([]);
         setClosingExtensions([]);
+        setClosingExtensionResponses([]);
       } finally {
         setLoading(false);
       }
@@ -174,6 +190,27 @@ export default function NotificationModal({
       setClosingExtensions((prev) => prev.filter((row) => row.id !== item.id));
     } catch (err) {
       console.error("Error rejecting closing extension:", err);
+    } finally {
+      setExtensionActionId(null);
+    }
+  };
+
+  const handleAcknowledgeClosingResponse = async (
+    item: ClosingTimeExtensionRecord,
+  ) => {
+    if (!item.id || !item.company || !item.operationalDateKey) return;
+    setExtensionActionId(item.id);
+    try {
+      await ClosingTimeExtensionsService.markResponseSeen({
+        company: item.company,
+        operationalDateKey: item.operationalDateKey,
+        turno: item.turno,
+      });
+      setClosingExtensionResponses((prev) =>
+        prev.filter((row) => row.id !== item.id),
+      );
+    } catch (err) {
+      console.error("Error acknowledging closing extension response:", err);
     } finally {
       setExtensionActionId(null);
     }
@@ -515,12 +552,75 @@ export default function NotificationModal({
               <div className="text-slate-400">
                 Inicia sesión para ver las solicitudes.
               </div>
-            ) : solicitudes.length === 0 && closingExtensions.length === 0 ? (
+            ) : solicitudes.length === 0 &&
+              closingExtensions.length === 0 &&
+              closingExtensionResponses.length === 0 ? (
               <div className="p-4 rounded-lg border border-white/10 bg-slate-900/50">
                 No hay solicitudes para {user.ownercompanie || "tu empresa"}.
               </div>
             ) : (
               <div className="space-y-5">
+                {closingExtensionResponses.length > 0 ? (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+                      Respuestas tiempo extra FV
+                    </h3>
+                    {closingExtensionResponses.map((item) => {
+                      const id = item.id || "";
+                      const approved = item.status === "approved";
+                      const busy = extensionActionId === id;
+                      return (
+                        <div
+                          key={id}
+                          className={`p-3 rounded-lg border ${
+                            approved
+                              ? "border-emerald-400/20 bg-emerald-500/10"
+                              : "border-red-400/20 bg-red-500/10"
+                          }`}
+                        >
+                          <div className="space-y-2">
+                            <div
+                              className={`font-semibold ${
+                                approved ? "text-emerald-100" : "text-red-100"
+                              }`}
+                            >
+                              Solicitud {approved ? "aprobada" : "rechazada"} -
+                              turno {item.turno}
+                            </div>
+                            <div className="text-xs text-slate-300">
+                              Empresa: {item.company}
+                            </div>
+                            <div className="text-xs text-slate-300">
+                              Dia operativo: {item.operationalDateKey}
+                            </div>
+                            {approved ? (
+                              <div className="text-xs text-slate-300">
+                                Tiempo aprobado: {item.extraMinutes} minutos
+                              </div>
+                            ) : (
+                              <div className="text-xs text-slate-300">
+                                Motivo: {item.rejectionReason || "Rechazado"}
+                              </div>
+                            )}
+                            <div className="flex justify-end pt-1">
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() =>
+                                  void handleAcknowledgeClosingResponse(item)
+                                }
+                                className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-600 disabled:opacity-50"
+                              >
+                                OK
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+
                 {closingExtensions.length > 0 ? (
                   <div className="space-y-3">
                     <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">

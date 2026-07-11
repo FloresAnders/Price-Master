@@ -37,6 +37,7 @@ export type ClosingTimeExtensionRecord = {
   approvedAt?: unknown;
   rejectedAt?: unknown;
   usedAt?: unknown;
+  responseSeenAt?: unknown;
   rejectionReason?: string | null;
   expiresAt?: string | null;
 };
@@ -131,6 +132,7 @@ const sanitizeRecord = (
     approvedAt: data.approvedAt,
     rejectedAt: data.rejectedAt,
     usedAt: data.usedAt,
+    responseSeenAt: data.responseSeenAt,
     rejectionReason:
       typeof data.rejectionReason === "string" ? data.rejectionReason : null,
     expiresAt:
@@ -240,6 +242,8 @@ export class ClosingTimeExtensionsService {
           requestedBy: existing?.requestedBy ?? null,
           approvedBy: payload.approvedBy ?? null,
           approvedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          responseSeenAt: null,
           expiresAt: payload.expiresAt,
         },
         { merge: true },
@@ -311,6 +315,23 @@ export class ClosingTimeExtensionsService {
     return this.getPendingNightExtensionsByCompany(company);
   }
 
+  static async getAnsweredExtensionsByRequester(
+    requester: string,
+  ): Promise<ClosingTimeExtensionRecord[]> {
+    const requestedBy = requester.trim();
+    if (!requestedBy) return [];
+    const q = query(
+      collection(db, COLLECTION_NAME),
+      where("requestedBy", "==", requestedBy),
+      where("status", "in", ["approved", "rejected"]),
+      orderBy("updatedAt", "desc"),
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs
+      .map((item) => sanitizeRecord(item.id, item.data() as Record<string, unknown>))
+      .filter((item): item is ClosingTimeExtensionRecord => Boolean(item));
+  }
+
   static async rejectExtension(args: {
     company: string;
     operationalDateKey: string;
@@ -336,6 +357,8 @@ export class ClosingTimeExtensionsService {
           rejectedBy: args.rejectedBy ?? null,
           rejectionReason: args.rejectionReason ?? null,
           rejectedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          responseSeenAt: null,
         },
         { merge: true },
       );
@@ -375,6 +398,32 @@ export class ClosingTimeExtensionsService {
           status: "used",
           usedBy: args.usedBy ?? null,
           usedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+    });
+  }
+
+  static async markResponseSeen(args: {
+    company: string;
+    operationalDateKey: string;
+    turno: ClosingTimeExtensionTurno;
+  }): Promise<void> {
+    const id = buildClosingTimeExtensionId(
+      args.company,
+      args.operationalDateKey,
+      args.turno,
+    );
+    const ref = doc(db, COLLECTION_NAME, id);
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists()) return;
+      const record = sanitizeRecord(id, snap.data() as Record<string, unknown>);
+      if (record?.status !== "approved" && record?.status !== "rejected") return;
+      tx.set(
+        ref,
+        {
+          responseSeenAt: serverTimestamp(),
         },
         { merge: true },
       );
