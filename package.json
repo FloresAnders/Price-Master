@@ -27,6 +27,7 @@
     "update": "node scripts/update-version.js",
     "update-versionstorage": "node scripts/update-versionstorage.js",
     "update-systemNotes": "node scripts/update-systemNotes.js",
+    "test:price-calculator": "node scripts/test-price-calculator-logic.mjs",
     "check": "node scripts/check-version.js"
   },
   "dependencies": {

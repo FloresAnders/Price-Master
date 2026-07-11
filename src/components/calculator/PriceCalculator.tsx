@@ -4,6 +4,12 @@ import React, { useState } from "react";
 import { Lock as LockIcon } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { hasPermission } from "../../utils/permissions";
+import {
+  dividirPrecioFinal,
+  redondearPrecioFinal,
+  ROUNDING_MODES,
+  type RoundingMode,
+} from "./priceCalculatorLogic";
 
 interface IVAOption {
   label: string;
@@ -31,6 +37,10 @@ export default function PriceCalculator() {
   const [utilidad, setUtilidad] = useState<string>("");
   const [precioFinal, setPrecioFinal] = useState<string>("");
   const [precioOriginal, setPrecioOriginal] = useState<string>("");
+  const [dividirCantidad, setDividirCantidad] = useState<string>("");
+  const [dividirRedondeo, setDividirRedondeo] = useState<RoundingMode>(
+    ROUNDING_MODES.NEAREST,
+  );
 
   // Función para formatear números sin decimales innecesarios
   const formatearNumero = (valor: string): string => {
@@ -42,20 +52,6 @@ export default function PriceCalculator() {
     return valor;
   };
 
-  // Función para redondear precio final sin decimales
-  const redondearPrecioFinal = (valor: number): number => {
-    // Obtener los últimos dos dígitos para determinar el redondeo
-    const ultimosDosDigitos = Math.floor(valor) % 100;
-    const baseRedondeo = Math.floor(valor / 100) * 100;
-
-    if (ultimosDosDigitos <= 12) return baseRedondeo;
-    if (ultimosDosDigitos <= 37) return baseRedondeo + 25;
-    if (ultimosDosDigitos <= 62) return baseRedondeo + 50;
-    if (ultimosDosDigitos <= 87) return baseRedondeo + 75;
-    return baseRedondeo + 100;
-  };
-
-  // Calcular precio con IVA desde precio sin IVA
   const calcularConIVA = (sinIVA: number, iva: number): number => {
     return sinIVA * (1 + iva / 100);
   };
@@ -283,6 +279,12 @@ export default function PriceCalculator() {
     }
   };
 
+  const precioFinalDividido = dividirPrecioFinal(
+    parseFloat(precioFinal),
+    parseFloat(dividirCantidad),
+    dividirRedondeo,
+  );
+
   // Verificar si el usuario tiene permiso para usar la calculadora
   if (!hasPermission(user?.permissions, "calculator")) {
     return (
@@ -457,6 +459,53 @@ export default function PriceCalculator() {
                 placeholder="0"
                 step="1"
               />
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-6 shadow-2xl">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div>
+                <label className="block text-sm font-semibold text-slate-300 mb-2">
+                  Dividir Precio Final
+                </label>
+                <input
+                  type="number"
+                  value={dividirCantidad}
+                  onChange={(e) => setDividirCantidad(e.target.value)}
+                  className="w-full rounded-lg border border-white/10 bg-slate-900/80 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/30 focus:ring-1 focus:ring-cyan-400/20"
+                  placeholder="Cantidad"
+                  step="0.01"
+                  min="0"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-300 mb-2">
+                  Redondeo
+                </label>
+                <select
+                  value={dividirRedondeo}
+                  onChange={(e) =>
+                    setDividirRedondeo(e.target.value as RoundingMode)
+                  }
+                  className="w-full rounded-lg border border-white/10 bg-slate-900/80 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400/30 focus:ring-1 focus:ring-cyan-400/20"
+                >
+                  <option value={ROUNDING_MODES.NEAREST}>Más cercano</option>
+                  <option value={ROUNDING_MODES.DOWN}>Hacia abajo</option>
+                  <option value={ROUNDING_MODES.UP}>Hacia arriba</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-300 mb-2">
+                  Resultado
+                </label>
+                <div className="flex min-h-11 items-center rounded-lg border border-cyan-400/20 bg-cyan-500/10 px-4 py-3 text-lg font-semibold text-white">
+                  {precioFinalDividido === null
+                    ? "₡0"
+                    : `₡${precioFinalDividido}`}
+                </div>
+              </div>
             </div>
           </div>
 
