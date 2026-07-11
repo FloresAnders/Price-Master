@@ -1282,6 +1282,7 @@ export default function DataEditor() {
           "reportessinpe",
           "mantenimiento",
           "cajaNegra",
+          "tucan",
           "solicitud",
           "scanhistory",
         ];
@@ -1350,6 +1351,7 @@ export default function DataEditor() {
       reportessinpe: "Reportes SINPE",
       mantenimiento: "Mantenimiento",
       cajaNegra: "Caja Negra",
+      tucan: "Tucan",
       solicitud: "Solicitud",
       scanhistory: "Historial de Escaneos",
     };
@@ -1370,6 +1372,7 @@ export default function DataEditor() {
       reportessinpe: "Tarjeta y módulo de reportes SINPE",
       mantenimiento: "Acceso al panel de administración",
       cajaNegra: "Manejar dineros extra del Fondo General",
+      tucan: "Manejar dineros extra del Fondo General",
       solicitud:
         "Permite gestionar solicitudes dentro del módulo de mantenimiento",
       scanhistory: "Ver historial completo de escaneos realizados",

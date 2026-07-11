@@ -1556,9 +1556,9 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
           selectedPendingCreditInvoiceIds.length > 0
         ) {
           try {
-            if (accountKey === "CajaNegra") {
+            if (isCajaNegra) {
               showToast(
-                  "Desde Caja Negra no se debe gestionar facturas a crédito.",
+                  "Desde esta cuenta no se debe gestionar facturas a crédito.",
                 "error",
                 4500,
               );

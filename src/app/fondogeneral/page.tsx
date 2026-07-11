@@ -7,17 +7,18 @@ import {
   Lock,
   ShieldAlert,
   Coins,
+  Bird,
   type LucideIcon,
 } from "lucide-react";
 import { FondoSection } from "./components";
 import { useAuth } from "@/hooks/useAuth";
 import { getDefaultPermissions } from "@/utils/permissions";
 
-type TabId = "fondo" | "bcr" | "bn" | "bac" | "cajanegra";
+type TabId = "fondo" | "bcr" | "bn" | "bac" | "cajanegra" | "tucan";
 type FondoTab = {
   id: TabId;
   label: string;
-  namespace: "fg" | "bcr" | "bn" | "bac" | "cn";
+  namespace: "fg" | "bcr" | "bn" | "bac" | "cn" | "tc";
 };
 
 const TAB_VISUALS: Record<
@@ -71,6 +72,14 @@ const TAB_VISUALS: Record<
     activeTone:
       "bg-gradient-to-br from-blue-500/25 to-blue-700/20 border-blue-300/70 shadow-xl shadow-blue-400/30",
   },
+  tucan: {
+    icon: Bird,
+    shortLabel: "Tucan",
+    helper: "Dineros extra",
+    tone: "bg-gradient-to-br from-blue-500/15 to-blue-700/10 border-blue-400/35 shadow-lg shadow-blue-500/20",
+    activeTone:
+      "bg-gradient-to-br from-blue-500/25 to-blue-700/20 border-blue-300/70 shadow-xl shadow-blue-400/30",
+  },
 };
 
 const ACCOUNT_TAB_STORAGE_KEY = "fg_selected_account_tab";
@@ -95,6 +104,8 @@ export default function FondoPage() {
       list.push({ id: "bac", label: "Cuenta BAC", namespace: "bac" });
     if (permissions.cajaNegra)
       list.push({ id: "cajanegra", label: "Caja Negra", namespace: "cn" });
+    if (permissions.tucan)
+      list.push({ id: "tucan", label: "Tucan", namespace: "tc" });
     return list;
   }, [
     hasGeneralAccess,
@@ -102,6 +113,7 @@ export default function FondoPage() {
     permissions.fondogeneralBN,
     permissions.fondogeneralBAC,
     permissions.cajaNegra,
+    permissions.tucan,
   ]);
 
   const [active, setActiveState] = useState<TabId | "">(() => {
@@ -110,7 +122,7 @@ export default function FondoPage() {
       const stored = localStorage.getItem(ACCOUNT_TAB_STORAGE_KEY);
       if (
         stored &&
-        ["fondo", "bcr", "bn", "bac", "cajanegra"].includes(stored)
+        ["fondo", "bcr", "bn", "bac", "cajanegra", "tucan"].includes(stored)
       ) {
         return stored as TabId;
       }

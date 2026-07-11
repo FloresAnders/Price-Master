@@ -46,6 +46,7 @@ export const NAMESPACE_PERMISSIONS: Record<string, keyof UserPermissions> = {
   bn: "fondogeneralBN",
   bac: "fondogeneralBAC",
   cn: "cajaNegra",
+  tc: "tucan",
 };
 
 export const NAMESPACE_DESCRIPTIONS: Record<string, string> = {
@@ -54,6 +55,7 @@ export const NAMESPACE_DESCRIPTIONS: Record<string, string> = {
   bn: "la cuenta BN",
   bac: "la cuenta BAC",
   cn: "la Caja Negra",
+  tc: "Tucan",
 };
 
 export const ACCOUNT_KEY_BY_NAMESPACE: Record<string, MovementAccountKey> = {
@@ -62,6 +64,7 @@ export const ACCOUNT_KEY_BY_NAMESPACE: Record<string, MovementAccountKey> = {
   bn: "BN",
   bac: "BAC",
   cn: "CajaNegra",
+  tc: "Tucan",
 };
 
 export const MOVEMENT_ACCOUNT_KEYS: MovementAccountKey[] = [
@@ -70,6 +73,7 @@ export const MOVEMENT_ACCOUNT_KEYS: MovementAccountKey[] = [
   "BN",
   "BAC",
   "CajaNegra",
+  "Tucan",
 ];
 
 export const SAVE_COOLDOWN_MS = 60_000;

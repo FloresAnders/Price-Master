@@ -310,10 +310,7 @@ export function FondoSection({
     [namespace],
   );
 
-  // Caja Negra: proveedores fijos y detección
-
-  // Caja Negra: proveedores fijos y detección
-  const isCajaNegra = accountKey === "CajaNegra";
+  const isCajaNegra = accountKey === "CajaNegra" || accountKey === "Tucan";
   const cajaNegraProviders: Array<{
     code: string;
     name: string;

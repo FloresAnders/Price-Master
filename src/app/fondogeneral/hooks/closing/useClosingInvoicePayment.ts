@@ -83,7 +83,7 @@ export function useClosingInvoicePayment({
     (invoice: FacturaMovement) => {
       if (isCajaNegra) {
         showToast(
-          "Desde Caja Negra no se debe gestionar facturas a credito.",
+          "Desde esta cuenta no se debe gestionar facturas a credito.",
           "error",
           4500,
         );

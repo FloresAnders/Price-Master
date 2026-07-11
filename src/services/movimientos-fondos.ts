@@ -30,7 +30,8 @@ export type MovementAccountKey =
   | "BCR"
   | "BN"
   | "BAC"
-  | "CajaNegra";
+  | "CajaNegra"
+  | "Tucan";
 
 export type MovementRecordBase = {
   id: string;
@@ -52,6 +53,7 @@ const ACCOUNT_KEYS: MovementAccountKey[] = [
   "BN",
   "BAC",
   "CajaNegra",
+  "Tucan",
 ];
 const CURRENCY_KEYS: MovementCurrencyKey[] = ["CRC", "USD"];
 
@@ -173,19 +175,27 @@ const DEFAULT_ACCOUNT_LABELS: Record<MovementAccountKey, string> = {
   BN: "BN",
   BAC: "BAC",
   CajaNegra: "Caja Negra",
+  Tucan: "Tucan",
 };
 
 export class MovimientosFondosService {
   static readonly COLLECTION_NAME = "MovimientosFondos";
   static readonly MOVEMENTS_SUBCOLLECTION = "movements";
   static readonly CAJA_NEGRA_SUBCOLLECTION = "cajanegra";
+  static readonly TUCAN_SUBCOLLECTION = "tucan";
+
+  private static isStandaloneSubcollectionAccount(
+    accountId?: MovementAccountKey,
+  ): boolean {
+    return accountId === "CajaNegra" || accountId === "Tucan";
+  }
 
   private static resolveMovementsSubcollection(
     accountId?: MovementAccountKey,
   ): string {
-    return accountId === "CajaNegra"
-      ? this.CAJA_NEGRA_SUBCOLLECTION
-      : this.MOVEMENTS_SUBCOLLECTION;
+    if (accountId === "CajaNegra") return this.CAJA_NEGRA_SUBCOLLECTION;
+    if (accountId === "Tucan") return this.TUCAN_SUBCOLLECTION;
+    return this.MOVEMENTS_SUBCOLLECTION;
   }
 
   static buildMovementStorageKey(identifier: string): string {
@@ -961,7 +971,8 @@ export class MovimientosFondosService {
     const cursor = options?.cursor ?? null;
 
     const constraints: QueryConstraint[] = [
-      ...(options?.accountId && options.accountId !== "CajaNegra"
+      ...(options?.accountId &&
+      !this.isStandaloneSubcollectionAccount(options.accountId)
         ? [where("accountId", "==", options.accountId)]
         : []),
       orderBy("createdAt", "desc"),
@@ -1018,7 +1029,8 @@ export class MovimientosFondosService {
     const cursor = options.cursor ?? null;
 
     const constraints: QueryConstraint[] = [
-      ...(options.accountId && options.accountId !== "CajaNegra"
+      ...(options.accountId &&
+      !this.isStandaloneSubcollectionAccount(options.accountId)
         ? [where("accountId", "==", options.accountId)]
         : []),
       where("createdAt", ">=", startIso),
@@ -1069,7 +1081,8 @@ export class MovimientosFondosService {
 
     for (let page = 0; page < maxPages; page += 1) {
       const constraints: QueryConstraint[] = [
-        ...(options?.accountId && options.accountId !== "CajaNegra"
+        ...(options?.accountId &&
+        !this.isStandaloneSubcollectionAccount(options.accountId)
           ? [where("accountId", "==", options.accountId)]
           : []),
         orderBy("createdAt", "desc"),

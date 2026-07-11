@@ -38,6 +38,7 @@ const PERMISSION_LABELS = {
   fondogeneralBN: "Fondo General - BN",
   fondogeneralBAC: "Fondo General - BAC",
   cajaNegra: "Caja Negra",
+  tucan: "Tucan",
   solicitud: "Solicitud",
   scanhistory: "Historial de Escaneos",
 };
@@ -67,6 +68,7 @@ const PERMISSION_DESCRIPTIONS = {
   fondogeneralBAC:
     "Permite registrar movimientos del fondo general para la cuenta BAC",
   cajaNegra: "Manejar dineros extra del Fondo General",
+  tucan: "Manejar dineros extra del Fondo General",
   solicitud: "Permite gestionar solicitudes dentro del módulo de mantenimiento",
   scanhistory: "Ver historial completo de escaneos realizados",
 };
@@ -639,4 +641,3 @@ export default function UserPermissionsManager({
     </div>
   );
 }
-

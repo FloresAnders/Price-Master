@@ -28,9 +28,9 @@ export function useFondoCompanyMetadata({
       };
     }
 
-    // Solo cargar empleados de la empresa si estamos en fondogeneral (fg) o cajanegra (cn)
+    // Solo cargar empleados de la empresa si estamos en fondogeneral (fg), cajanegra (cn) o tucan (tc)
     // Para otros fondos (BCR, BN, BAC), no cargar empleados
-    if (namespace !== "fg" && namespace !== "cn") {
+    if (namespace !== "fg" && namespace !== "cn" && namespace !== "tc") {
       setEmployeesLoading(false);
       return () => {
         isActive = false;
