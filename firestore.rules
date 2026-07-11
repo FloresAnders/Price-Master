@@ -1,6 +1,15 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+        (request.auth.token.role == 'admin' || request.auth.token.role == 'superadmin');
+    }
+
     // Colección de emails - solo escritura desde el cliente, lectura y actualización desde Functions
     match /emails/{emailId} {
       // Permitir crear documentos desde el cliente
@@ -11,6 +20,41 @@ service cloud.firestore {
       
       // Solo lectura para administradores
       allow read: if request.auth != null && request.auth.token.role == 'admin';
+    }
+
+    match /closingTimeExtensions/{extensionId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+        (request.resource.data.status == 'pending' || isAdmin());
+      allow update: if isAdmin() ||
+        (
+          isSignedIn() &&
+          (resource.data.status == 'pending' ||
+            resource.data.status == 'rejected' ||
+            resource.data.status == 'expired') &&
+          request.resource.data.status == 'pending' &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly([
+              'company',
+              'companyKey',
+              'operationalDateKey',
+              'turno',
+              'extraMinutes',
+              'status',
+              'reason',
+              'requestedBy',
+              'createdAt',
+              'updatedAt'
+            ])
+        ) ||
+        (
+          isSignedIn() &&
+          resource.data.status == 'approved' &&
+          request.resource.data.status == 'used' &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'usedBy', 'usedAt'])
+        );
+      allow delete: if isAdmin();
     }
     
     // Otras reglas existentes...

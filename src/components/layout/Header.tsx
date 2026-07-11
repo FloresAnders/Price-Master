@@ -59,6 +59,7 @@ import { getDefaultPermissions } from "../../utils/permissions";
 import FloatingSessionTimer from "../session/FloatingSessionTimer";
 import EditProfileModal from "../edicionPerfil/EditProfileModal";
 import { getLayoutPref, setLayoutPref } from "@/services/layoutPrefsDb";
+import { normalizeClosingTimeExtensionCompanyKey } from "@/services/closing-time-extensions";
 import {
   ConfigurationModal,
   CalculatorModal,
@@ -154,6 +155,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const [showNotifModal, setShowNotifModal] = useState(false);
   const [showMobileQrModal, setShowMobileQrModal] = useState(false);
   const [hasNewSolicitudes, setHasNewSolicitudes] = useState(false);
+  const [hasNewClosingExtensions, setHasNewClosingExtensions] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
   const [showSessionTimer, setShowSessionTimer] = useState(() => {
     return safeLocalStorage.getItem("show-session-timer") === "true";
@@ -175,6 +177,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const initializedSolicitudesRef = useRef(false);
   const knownSolicitudesRef = useRef<Set<string>>(new Set());
+  const initializedClosingExtensionsRef = useRef(false);
+  const knownClosingExtensionsRef = useRef<Set<string>>(new Set());
   const [currentHash, setCurrentHash] = useState(() => {
     if (typeof window === "undefined") return "";
     return window.location.hash || "";
@@ -443,6 +447,85 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       return;
     }
   }, [isClient, user]);
+
+  useEffect(() => {
+    if (!user || (user.role !== "admin" && user.role !== "superadmin")) return;
+
+    const company =
+      (user as any)?.ownercompanie || (user as any)?.ownerCompanie || "";
+    const companyKey = normalizeClosingTimeExtensionCompanyKey(company);
+
+    knownClosingExtensionsRef.current = new Set();
+    initializedClosingExtensionsRef.current = false;
+
+    try {
+      const baseCollection = collection(db, "closingTimeExtensions");
+      const q = companyKey
+        ? fbQuery(
+            baseCollection,
+            fbWhere("companyKey", "==", companyKey),
+            fbWhere("status", "==", "pending"),
+            fbOrderBy("createdAt", "desc"),
+            fbLimit(50),
+          )
+        : fbQuery(
+            baseCollection,
+            fbWhere("status", "==", "pending"),
+            fbOrderBy("createdAt", "desc"),
+            fbLimit(50),
+          );
+
+      const unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+          if (initializedClosingExtensionsRef.current) {
+            const previousIds = knownClosingExtensionsRef.current;
+            const hasNewPending = docs.some((doc) => {
+              const id = doc?.id;
+              return typeof id === "string" && !previousIds.has(id);
+            });
+
+            if (hasNewPending) {
+              setHasNewClosingExtensions(true);
+              const player =
+                audioRef.current ??
+                (typeof Audio !== "undefined"
+                  ? new Audio("/arrival-sound.mp3")
+                  : null);
+              if (player) {
+                audioRef.current = player;
+                try {
+                  player.currentTime = 0;
+                  void player.play().catch((err) => {
+                    console.warn("Unable to play notification sound:", err);
+                  });
+                } catch (err) {
+                  console.warn("Unable to play notification sound:", err);
+                }
+              }
+            }
+          }
+
+          knownClosingExtensionsRef.current = new Set(
+            docs
+              .map((doc) => doc?.id)
+              .filter((id): id is string => typeof id === "string"),
+          );
+          initializedClosingExtensionsRef.current = true;
+        },
+        (err) => {
+          console.error("onSnapshot error for closingTimeExtensions:", err);
+        },
+      );
+
+      return () => unsubscribe();
+    } catch (err) {
+      console.error("Error setting up closingTimeExtensions listener:", err);
+      return;
+    }
+  }, [user]);
 
   // Navigation tabs with permissions
   const allTabs = [
@@ -1083,6 +1166,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                     }`;
                     localStorage.setItem(key, new Date().toISOString());
                     setHasNewSolicitudes(false);
+                    setHasNewClosingExtensions(false);
                   }
                 } catch {
                   // ignore storage errors
@@ -1093,7 +1177,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               title="Notificaciones"
             >
               <Bell className="w-5 h-5 text-[var(--foreground)]" />
-              {hasNewSolicitudes && (
+              {(hasNewSolicitudes || hasNewClosingExtensions) && (
                 <span className="absolute top-0 right-0 inline-flex w-2 h-2 bg-red-500 rounded-full transform translate-x-1 -translate-y-1" />
               )}
             </button>

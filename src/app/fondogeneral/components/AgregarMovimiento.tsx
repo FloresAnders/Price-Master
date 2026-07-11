@@ -3,6 +3,7 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   AlertTriangle,
+  Clock,
   FileText,
   Loader2,
   MessageSquare,
@@ -119,6 +120,12 @@ type AgregarMovimientoProps = {
   balanceCRC?: number;
   balanceUSD?: number;
   isCompraInventarioProvider?: boolean;
+  closingTimeRequest?: {
+    visible: boolean;
+    label?: string;
+    disabled?: boolean;
+    onClick: () => void;
+  };
 };
 
 const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
@@ -186,6 +193,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   balanceCRC = 0,
   balanceUSD = 0,
   isCompraInventarioProvider = true,
+  closingTimeRequest,
 }) => {
   const invoiceBorderClass =
     invoiceValid || invoiceNumber.length === 0
@@ -429,6 +437,17 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                 Proveedor
               </label>
               <span className="flex flex-wrap justify-end gap-1">
+                {closingTimeRequest?.visible && (
+                  <button
+                    type="button"
+                    disabled={closingTimeRequest.disabled}
+                    onClick={closingTimeRequest.onClick}
+                    className="inline-flex items-center gap-1 rounded-full border border-cyan-400/40 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-100 transition hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Clock className="h-3 w-3" />
+                    {closingTimeRequest.label || "Solicitar tiempo"}
+                  </button>
+                )}
                 {pendingCreditInvoicesCount > 0 && (
                   <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
                     <AlertTriangle className="h-3 w-3" />

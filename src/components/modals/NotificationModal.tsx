@@ -9,6 +9,10 @@ import { useBarcodeScanner } from "../../hooks/useBarcodeScanner";
 import { ScanningService } from "@/services/scanning";
 import { storage } from "@/config/firebase";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import {
+  ClosingTimeExtensionsService,
+  type ClosingTimeExtensionRecord,
+} from "@/services/closing-time-extensions";
 
 interface NotificationModalProps {
   isOpen: boolean;
@@ -26,6 +30,13 @@ export default function NotificationModal({
 }: NotificationModalProps) {
   const { user } = useAuth();
   const [solicitudes, setSolicitudes] = useState<any[]>([]);
+  const [closingExtensions, setClosingExtensions] = useState<
+    ClosingTimeExtensionRecord[]
+  >([]);
+  const [extensionDrafts, setExtensionDrafts] = useState<
+    Record<string, { extraMinutes: string; expiresAt: string }>
+  >({});
+  const [extensionActionId, setExtensionActionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [selectedSolicitud, setSelectedSolicitud] = useState<any>(null);
@@ -72,20 +83,42 @@ export default function NotificationModal({
       try {
         const company =
           (user as any)?.ownercompanie || (user as any)?.ownerCompanie || "";
-        if (!company) {
-          setSolicitudes([]);
-          return;
-        }
-        const rows = await SolicitudesService.getSolicitudesByEmpresa(
-          company,
-          200,
-        );
+        const canManageClosingExtensions =
+          user?.role === "admin" || user?.role === "superadmin";
+        const [rows, extensionRows] = await Promise.all([
+          company
+            ? SolicitudesService.getSolicitudesByEmpresa(company, 200)
+            : Promise.resolve([]),
+          canManageClosingExtensions
+            ? company
+              ? ClosingTimeExtensionsService.getPendingExtensionsByCompany(
+                  company,
+                )
+              : ClosingTimeExtensionsService.getPendingExtensions()
+            : Promise.resolve([]),
+        ]);
         // Only show solicitudes that are not marked 'listo'
         const visible = (rows || []).filter((r: any) => !r?.listo);
         setSolicitudes(visible);
+        setClosingExtensions(extensionRows);
+        setExtensionDrafts(
+          extensionRows.reduce<
+            Record<string, { extraMinutes: string; expiresAt: string }>
+          >((acc, item) => {
+            const id = item.id || "";
+            if (!id) return acc;
+            const defaultExpires = new Date(Date.now() + 2 * 60 * 60 * 1000);
+            acc[id] = {
+              extraMinutes: String(item.extraMinutes || 30),
+              expiresAt: defaultExpires.toISOString().slice(0, 16),
+            };
+            return acc;
+          }, {}),
+        );
       } catch (err) {
         console.error("Error loading solicitudes for notification modal:", err);
         setSolicitudes([]);
+        setClosingExtensions([]);
       } finally {
         setLoading(false);
       }
@@ -93,6 +126,58 @@ export default function NotificationModal({
 
     load();
   }, [isOpen, user]);
+
+  const handleApproveClosingExtension = async (
+    item: ClosingTimeExtensionRecord,
+  ) => {
+    if (!item.id || !item.company || !item.operationalDateKey) return;
+    const draft = extensionDrafts[item.id] || {
+      extraMinutes: String(item.extraMinutes || 30),
+      expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 16),
+    };
+    const extraMinutes = Math.max(1, Math.trunc(Number(draft.extraMinutes)));
+    if (!Number.isFinite(extraMinutes)) return;
+    const expiresAt = new Date(draft.expiresAt).toISOString();
+    setExtensionActionId(item.id);
+    try {
+      await ClosingTimeExtensionsService.approveExtension({
+        company: item.company,
+        operationalDateKey: item.operationalDateKey,
+        turno: item.turno,
+        extraMinutes,
+        expiresAt,
+        approvedBy: user?.email || user?.id || null,
+      });
+      setClosingExtensions((prev) => prev.filter((row) => row.id !== item.id));
+    } catch (err) {
+      console.error("Error approving closing extension:", err);
+    } finally {
+      setExtensionActionId(null);
+    }
+  };
+
+  const handleRejectClosingExtension = async (
+    item: ClosingTimeExtensionRecord,
+  ) => {
+    if (!item.id || !item.company || !item.operationalDateKey) return;
+    setExtensionActionId(item.id);
+    try {
+      await ClosingTimeExtensionsService.rejectExtension({
+        company: item.company,
+        operationalDateKey: item.operationalDateKey,
+        turno: item.turno,
+        rejectedBy: user?.email || user?.id || null,
+        rejectionReason: "Rechazado desde campana",
+      });
+      setClosingExtensions((prev) => prev.filter((row) => row.id !== item.id));
+    } catch (err) {
+      console.error("Error rejecting closing extension:", err);
+    } finally {
+      setExtensionActionId(null);
+    }
+  };
 
   useEffect(() => {
     if (!showVerificationModal || !scannedCode?.trim()) return;
@@ -430,12 +515,108 @@ export default function NotificationModal({
               <div className="text-slate-400">
                 Inicia sesión para ver las solicitudes.
               </div>
-            ) : solicitudes.length === 0 ? (
+            ) : solicitudes.length === 0 && closingExtensions.length === 0 ? (
               <div className="p-4 rounded-lg border border-white/10 bg-slate-900/50">
                 No hay solicitudes para {user.ownercompanie || "tu empresa"}.
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-5">
+                {closingExtensions.length > 0 ? (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+                      Tiempo extra cierre FV
+                    </h3>
+                    {closingExtensions.map((item) => {
+                      const id = item.id || "";
+                      const draft = extensionDrafts[id] || {
+                        extraMinutes: String(item.extraMinutes || 30),
+                        expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000)
+                          .toISOString()
+                          .slice(0, 16),
+                      };
+                      const busy = extensionActionId === id;
+                      return (
+                        <div
+                          key={id}
+                          className="p-3 rounded-lg border border-amber-400/20 bg-amber-500/10"
+                        >
+                          <div className="space-y-2">
+                            <div className="font-semibold text-amber-100">
+                              {item.company} - turno {item.turno}
+                            </div>
+                            <div className="text-xs text-slate-300">
+                              Día operativo: {item.operationalDateKey}
+                            </div>
+                            <div className="text-xs text-slate-300">
+                              Motivo: {item.reason || "Sin motivo"}
+                            </div>
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                              <label className="text-xs text-slate-300">
+                                Minutos
+                                <input
+                                  type="number"
+                                  min={1}
+                                  value={draft.extraMinutes}
+                                  onChange={(e) =>
+                                    setExtensionDrafts((prev) => ({
+                                      ...prev,
+                                      [id]: {
+                                        ...draft,
+                                        extraMinutes: e.target.value,
+                                      },
+                                    }))
+                                  }
+                                  className="mt-1 w-full rounded-md border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white"
+                                />
+                              </label>
+                              <label className="text-xs text-slate-300">
+                                Vence
+                                <input
+                                  type="datetime-local"
+                                  value={draft.expiresAt}
+                                  onChange={(e) =>
+                                    setExtensionDrafts((prev) => ({
+                                      ...prev,
+                                      [id]: {
+                                        ...draft,
+                                        expiresAt: e.target.value,
+                                      },
+                                    }))
+                                  }
+                                  className="mt-1 w-full rounded-md border border-white/10 bg-slate-900/80 px-3 py-2 text-sm text-white"
+                                />
+                              </label>
+                            </div>
+                            <div className="flex gap-2 pt-1">
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void handleApproveClosingExtension(item)}
+                                className="flex-1 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                              >
+                                Aprobar
+                              </button>
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void handleRejectClosingExtension(item)}
+                                className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                              >
+                                Rechazar
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+
+                {solicitudes.length > 0 ? (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+                      Solicitudes
+                    </h3>
                 {solicitudes.map((s) => (
                   <div
                     key={s.id}
@@ -465,6 +646,8 @@ export default function NotificationModal({
                     </div>
                   </div>
                 ))}
+                  </div>
+                ) : null}
               </div>
             )}
 

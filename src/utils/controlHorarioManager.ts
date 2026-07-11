@@ -84,6 +84,9 @@ const getMinutesRelativeTo = (minute: number, reference: number) => {
   return forward > 720 ? forward - 1440 : forward;
 };
 
+const getForwardMinutesBetween = (start: number, end: number) =>
+  normalizeMinuteOfDay(end - start);
+
 export const resolveFondoVentasClosingShift = (args: {
   currentMin: number;
   shiftDEndMin: number;
@@ -91,19 +94,41 @@ export const resolveFondoVentasClosingShift = (args: {
   expectedShift: ShiftCode;
   minutesBeforeEnd: number;
   minutesAfterEnd: number;
+  minutesAfterEndByShift?: Partial<Record<ShiftCode, number>>;
   occupiedShifts: ReadonlySet<ShiftCode>;
 }): ShiftCode => {
   const minutesBeforeEnd = Math.max(0, args.minutesBeforeEnd);
-  const minutesAfterEnd = Math.max(0, args.minutesAfterEnd);
+  const minutesAfterEndD = Math.max(
+    0,
+    Number(args.minutesAfterEndByShift?.D ?? args.minutesAfterEnd) || 0,
+  );
+  const minutesAfterEndN = Math.max(
+    0,
+    Number(args.minutesAfterEndByShift?.N ?? args.minutesAfterEnd) || 0,
+  );
   const relativeToDEnd = getMinutesRelativeTo(
     args.currentMin,
     args.shiftDEndMin,
   );
+  const nextShiftHalfMinutes = Math.floor(
+    getForwardMinutesBetween(args.shiftDEndMin, args.shiftNEndMin) / 2,
+  );
+  const isBeforeNextShiftMidpoint =
+    nextShiftHalfMinutes > 0 &&
+    normalizeMinuteOfDay(args.currentMin - args.shiftDEndMin) <=
+      nextShiftHalfMinutes;
   const isInDWindow =
     relativeToDEnd >= -minutesBeforeEnd &&
-    relativeToDEnd <= minutesAfterEnd;
+    relativeToDEnd <= minutesAfterEndD;
 
   if (!args.occupiedShifts.has("D") && isInDWindow) return "D";
+  if (
+    !args.occupiedShifts.has("D") &&
+    relativeToDEnd > minutesAfterEndD &&
+    isBeforeNextShiftMidpoint
+  ) {
+    return "D";
+  }
 
   const nightWindowStart = normalizeMinuteOfDay(
     args.shiftNEndMin - minutesBeforeEnd,
@@ -117,7 +142,7 @@ export const resolveFondoVentasClosingShift = (args: {
   );
   const isInNWindow =
     relativeToNEnd >= -minutesBeforeEnd &&
-    relativeToNEnd <= minutesAfterEnd;
+    relativeToNEnd <= minutesAfterEndN;
   const isApproachingNWindow =
     minutesUntilNightWindowStart <= minutesBeforeEnd;
 

@@ -16,6 +16,11 @@ import { findLatestMovementByInvoiceNumber, sendDuplicateInvoiceAlertEmail } fro
 import { MovimientosFondosService, type MovementCurrencyKey } from "../../../services/movimientos-fondos";
 import { ProvidersService } from "../../../services/providers";
 import {
+  ClosingTimeExtensionsService,
+  getEffectiveMinutesAfterEnd,
+  type ClosingTimeExtensionRecord,
+} from "@/services/closing-time-extensions";
+import {
   CIERRE_FONDO_VENTAS_PROVIDER_NAME,
   CACHE_TTL_MS,
   CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
@@ -281,6 +286,49 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
       CIERRE_FONDO_VENTAS_PROVIDER_NAME ||
     String(selectedProvider || "").trim().toUpperCase() ===
       CIERRE_FONDO_VENTAS_PROVIDER_NAME;
+  const cierreFondoVentasBaseMinutesAfterEnd =
+    activeEmpresaForCompany?.cierreFondoVentasMinutesAfterEnd ??
+    CIERRE_FONDO_VENTAS_MINUTES_AFTER_END;
+  const cierreFondoVentasOperationalDateKey = isCierreFondoVentasSelection
+    ? getCostaRicaOperationalDateKey(
+        nowISO,
+        activeEmpresaForCompany?.horarioApertura,
+      )
+    : null;
+  let cierreFondoVentasApprovedDayExtension: ClosingTimeExtensionRecord | null = null;
+  let cierreFondoVentasApprovedNightExtension: ClosingTimeExtensionRecord | null = null;
+  if (isCierreFondoVentasSelection && company) {
+    try {
+      const [dayExtension, nightExtension] = await Promise.all([
+        ClosingTimeExtensionsService.getApprovedExtensionForClosingWindow({
+            company,
+            operationalDateKey: cierreFondoVentasOperationalDateKey,
+            turno: "D",
+            nowISO,
+          }),
+        ClosingTimeExtensionsService.getApprovedExtensionForClosingWindow({
+            company,
+            operationalDateKey: cierreFondoVentasOperationalDateKey,
+            turno: "N",
+            nowISO,
+          }),
+      ]);
+      cierreFondoVentasApprovedDayExtension = dayExtension;
+      cierreFondoVentasApprovedNightExtension = nightExtension;
+    } catch (err) {
+      console.error("[FG] Error loading cierre fondo ventas extension:", err);
+    }
+  }
+  const cierreFondoVentasEffectiveDayMinutesAfterEnd = getEffectiveMinutesAfterEnd(
+    cierreFondoVentasBaseMinutesAfterEnd,
+    cierreFondoVentasApprovedDayExtension,
+    nowISO,
+  );
+  const cierreFondoVentasEffectiveNightMinutesAfterEnd = getEffectiveMinutesAfterEnd(
+    cierreFondoVentasBaseMinutesAfterEnd,
+    cierreFondoVentasApprovedNightExtension,
+    nowISO,
+  );
   let shouldPrefixSingleClosingReason = false;
 
   if (
@@ -309,17 +357,13 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
           minutesBeforeEnd:
             activeEmpresaForCompany.cierreFondoVentasMinutesBeforeEnd ??
             CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
-          minutesAfterEnd:
-            activeEmpresaForCompany.cierreFondoVentasMinutesAfterEnd ??
-            CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
+          minutesAfterEnd: cierreFondoVentasEffectiveNightMinutesAfterEnd,
         });
         const isPostCloseGraceOnNextDay =
           isFondoVentasPostCloseGraceOnNextDay({
             nowISO,
             horarioCierre: activeEmpresaForCompany.horarioCierre,
-            minutesAfterEnd:
-              activeEmpresaForCompany.cierreFondoVentasMinutesAfterEnd ??
-              CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
+            minutesAfterEnd: cierreFondoVentasEffectiveNightMinutesAfterEnd,
           });
         const operationalDateKey = getCostaRicaOperationalDateKey(
           nowISO,
@@ -1180,9 +1224,11 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
               minutesBeforeEnd:
                 activeEmpresaForCompany?.cierreFondoVentasMinutesBeforeEnd ??
                 CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
-              minutesAfterEnd:
-                activeEmpresaForCompany?.cierreFondoVentasMinutesAfterEnd ??
-                CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
+              minutesAfterEnd: cierreFondoVentasEffectiveDayMinutesAfterEnd,
+              minutesAfterEndByShift: {
+                D: cierreFondoVentasEffectiveDayMinutesAfterEnd,
+                N: cierreFondoVentasEffectiveNightMinutesAfterEnd,
+              },
               occupiedShifts: occupiedClosingShifts,
             })
           : "N"
@@ -1372,6 +1418,23 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
       }
 
       if (createdOk) {
+        if (
+          isCierreVentas &&
+          cierreVentasTurno &&
+          (cierreVentasTurno === "D"
+            ? cierreFondoVentasApprovedDayExtension
+            : cierreFondoVentasApprovedNightExtension)
+        ) {
+          void ClosingTimeExtensionsService.markUsed({
+            company: normalizedCompany,
+            operationalDateKey: cierreOperationalDateKey,
+            turno: cierreVentasTurno,
+            usedBy: user?.email || user?.id || null,
+          }).catch((err) => {
+            console.error("[FG] Error marking cierre fondo ventas extension used:", err);
+          });
+        }
+
         try {
           if (normalizedCompany.length > 0) {
             await ProvidersService.incrementMovementCount(

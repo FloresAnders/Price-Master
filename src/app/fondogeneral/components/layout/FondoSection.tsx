@@ -49,6 +49,10 @@ import {
   DailyClosingsService,
   type DailyClosingRecord,
 } from "@/services/daily-closings";
+import {
+  ClosingTimeExtensionsService,
+  getEffectiveMinutesAfterEnd,
+} from "@/services/closing-time-extensions";
 import { AuditHistoryModal } from "../audit-history-modal";
 import {
   MovimientosFondosService,
@@ -213,6 +217,13 @@ const inferDailyClosingTurno = (
 };
 
 // SHARED_COMPANY_STORAGE_KEY moved to constants.ts
+
+type ClosingTimeRequestState = {
+  turno: "D" | "N";
+  operationalDateKey: string;
+  extraMinutes: number;
+  reason: string;
+} | null;
 
 export function FondoSection({
   id,
@@ -424,6 +435,44 @@ export function FondoSection({
     providers,
     cierreFondoVentasMinutesAfterEnd,
   });
+
+  const resolveEffectiveClosingMinutesAfterEnd = useCallback(
+    async (
+      nowISO: string,
+      turno: "D" | "N",
+      operationalDateKey?: string | null,
+    ) => {
+      const key =
+        operationalDateKey ??
+        getCostaRicaOperationalDateKey(
+          nowISO,
+          empresaForShiftResolution?.horarioApertura,
+        );
+      if (!company || !key) return cierreFondoVentasMinutesAfterEnd;
+      try {
+        const extension =
+          await ClosingTimeExtensionsService.getApprovedExtensionForClosingWindow({
+            company,
+            operationalDateKey: key,
+            turno,
+            nowISO,
+          });
+        return getEffectiveMinutesAfterEnd(
+          cierreFondoVentasMinutesAfterEnd,
+          extension,
+          nowISO,
+        );
+      } catch (err) {
+        console.error("[FG] Error loading cierre fondo ventas extension:", err);
+        return cierreFondoVentasMinutesAfterEnd;
+      }
+    },
+    [
+      cierreFondoVentasMinutesAfterEnd,
+      company,
+      empresaForShiftResolution?.horarioApertura,
+    ],
+  );
 
   const [
     selectedProviderPendingCreditNotes,
@@ -730,6 +779,10 @@ export function FondoSection({
   );
 
   const [entriesHydrated, setEntriesHydrated] = useState(false);
+  const [closingTimeRequest, setClosingTimeRequest] =
+    useState<ClosingTimeRequestState>(null);
+  const [closingTimeRequestSaving, setClosingTimeRequestSaving] =
+    useState(false);
   const [hydratedCompany, setHydratedCompany] = useState("");
   const [hydratedAccountKey, setHydratedAccountKey] =
     useState<MovementAccountKey>(accountKey);
@@ -3162,6 +3215,28 @@ export function FondoSection({
             nowISO,
             empresaForShiftResolution?.horarioApertura,
           );
+          const effectiveDayMinutesAfterEnd =
+            await resolveEffectiveClosingMinutesAfterEnd(
+              nowISO,
+              "D",
+              operationalDateKey,
+            );
+          const effectiveNightMinutesAfterEnd =
+            await resolveEffectiveClosingMinutesAfterEnd(
+              nowISO,
+              "N",
+              operationalDateKey,
+            );
+          const extraMinutesAfterEndByShift = {
+            D: Math.max(
+              0,
+              effectiveDayMinutesAfterEnd - cierreFondoVentasMinutesAfterEnd,
+            ),
+            N: Math.max(
+              0,
+              effectiveNightMinutesAfterEnd - cierreFondoVentasMinutesAfterEnd,
+            ),
+          };
           const closingsToday = fondoEntries
             .filter((e) => isCierreFondoVentasMovement(e))
             .filter((e) => {
@@ -3183,7 +3258,11 @@ export function FondoSection({
             shiftNEndMin,
             expectedShift: nowTiming.expectedShift,
             minutesBeforeEnd: cierreFondoVentasMinutesBeforeEnd,
-            minutesAfterEnd: cierreFondoVentasMinutesAfterEnd,
+            minutesAfterEnd: effectiveDayMinutesAfterEnd,
+            minutesAfterEndByShift: {
+              D: effectiveDayMinutesAfterEnd,
+              N: effectiveNightMinutesAfterEnd,
+            },
             occupiedShifts: occupiedClosingShifts,
           });
           const referenceShiftEndMin =
@@ -3191,8 +3270,8 @@ export function FondoSection({
           const referenceShiftLabel = closingShift === "D" ? "D" : "N";
           const referenceMinutesAfterEnd =
             closingShift === "N"
-              ? cierreFondoVentasMinutesAfterEnd * 2
-              : cierreFondoVentasMinutesAfterEnd;
+              ? cierreFondoVentasMinutesAfterEnd * 2 + extraMinutesAfterEndByShift.N
+              : effectiveDayMinutesAfterEnd;
           const referenceShiftEndLabel =
             referenceShiftLabel === "D"
               ? formatMinuteOfDay(shiftDEndMin)
@@ -3220,11 +3299,28 @@ export function FondoSection({
               referenceMinutesAfterEnd;
 
           if (!isSuperAdminUser && !isInReferenceWindow) {
+            const suggestedExtraMinutes =
+              minutesRelativeToReferenceEnd > referenceMinutesAfterEnd
+                ? Math.max(
+                    15,
+                    Math.ceil(
+                      minutesRelativeToReferenceEnd - referenceMinutesAfterEnd,
+                    ),
+                  )
+                : 15;
             const humanDelta =
               minutesRelativeToReferenceEnd <
               -cierreFondoVentasMinutesBeforeEnd
                 ? `Faltan ${-cierreFondoVentasMinutesBeforeEnd - minutesRelativeToReferenceEnd} minutos para poder ingresar el cierre.`
                 : `Han pasado ${minutesRelativeToReferenceEnd - referenceMinutesAfterEnd} minutos desde el cierre.`;
+            if (operationalDateKey) {
+              setClosingTimeRequest({
+                turno: closingShift,
+                operationalDateKey,
+                extraMinutes: suggestedExtraMinutes,
+                reason: humanDelta,
+              });
+            }
             showToast(
               `El \"CIERRE FONDO VENTAS\" solo se puede registrar desde las ${referenceWindowStartLabel} hasta las ${referenceWindowEndLabel} alrededor del fin del turno ${referenceShiftLabel} (${referenceShiftEndLabel}). ${humanDelta}.`,
               "warning",
@@ -3232,6 +3328,8 @@ export function FondoSection({
             );
             return;
           }
+
+          setClosingTimeRequest(null);
 
           // Enforzar 2 cierres por día: uno al final de D y otro al final de N (cierre).
           // Bloquear duplicados por ventana.
@@ -3275,23 +3373,29 @@ export function FondoSection({
             setNotes(SINGLE_CLOSING_REASON_PREFIX);
           }
         } else if (nowTiming && !nowTiming.withinHorario) {
+          const operationalDateKey = getCostaRicaOperationalDateKey(
+            nowISO,
+            empresaForShiftResolution?.horarioApertura,
+          );
+          const effectiveNightMinutesAfterEnd =
+            await resolveEffectiveClosingMinutesAfterEnd(
+              nowISO,
+              "N",
+              operationalDateKey,
+            );
           const isInNightClosingWindow = isWithinFondoVentasNightClosingWindow({
             nowISO,
             horarioCierre: activeEmpresaForCompany?.horarioCierre,
             minutesBeforeEnd: cierreFondoVentasMinutesBeforeEnd,
-            minutesAfterEnd: cierreFondoVentasMinutesAfterEnd,
+            minutesAfterEnd: effectiveNightMinutesAfterEnd,
           });
           const isPostCloseGraceOnNextDay =
             isFondoVentasPostCloseGraceOnNextDay({
               nowISO,
               horarioCierre: activeEmpresaForCompany?.horarioCierre,
-              minutesAfterEnd: cierreFondoVentasMinutesAfterEnd,
-            });
+              minutesAfterEnd: effectiveNightMinutesAfterEnd,
+          });
           if (isInNightClosingWindow && !isPostCloseGraceOnNextDay) {
-            const operationalDateKey = getCostaRicaOperationalDateKey(
-              nowISO,
-              empresaForShiftResolution?.horarioApertura,
-            );
             const todayClosings = fondoEntries.filter(
               (e) =>
                 isCierreFondoVentasMovement(e) &&
@@ -3330,7 +3434,10 @@ export function FondoSection({
         return;
       }
     } else if (notes.startsWith(SINGLE_CLOSING_REASON_PREFIX)) {
+      setClosingTimeRequest(null);
       setNotes(notes.replace(SINGLE_CLOSING_REASON_PREFIX, ""));
+    } else {
+      setClosingTimeRequest(null);
     }
 
     setSelectedProvider(value);
@@ -3401,6 +3508,32 @@ export function FondoSection({
       setIngreso("");
     }
   };
+
+  const handleRequestClosingTimeExtension = useCallback(async () => {
+    if (!closingTimeRequest || !company) return;
+    setClosingTimeRequestSaving(true);
+    try {
+      const requestId = await ClosingTimeExtensionsService.requestExtension({
+        company,
+        operationalDateKey: closingTimeRequest.operationalDateKey,
+        turno: closingTimeRequest.turno,
+        extraMinutes: closingTimeRequest.extraMinutes,
+        reason: closingTimeRequest.reason,
+        requestedBy: user?.email || user?.id || null,
+      });
+      showToast(
+        `Solicitud enviada para turno ${closingTimeRequest.turno}. ID: ${requestId}`,
+        "success",
+        5000,
+      );
+      setClosingTimeRequest(null);
+    } catch (err) {
+      console.error("[FG] Error requesting cierre fondo ventas extension:", err);
+      showToast("No se pudo enviar la solicitud de tiempo.", "error", 6000);
+    } finally {
+      setClosingTimeRequestSaving(false);
+    }
+  }, [closingTimeRequest, company, showToast, user]);
   const handleInvoiceNumberChange = (value: string) => {
     if (isInvoiceAutoDateLocked) return;
     setInvoiceNumber(value.replace(/\D/g, "").slice(0, 4));
@@ -3625,11 +3758,17 @@ export function FondoSection({
     try {
       const currentDateKey = getCostaRicaDateKeyAndMinute(nowISO)?.dateKey;
       if (activeEmpresaForCompany && currentDateKey) {
+        const effectiveNightMinutesAfterEnd =
+          await resolveEffectiveClosingMinutesAfterEnd(
+            nowISO,
+            "N",
+            operationalDateKey,
+          );
         const isInNightClosingWindow = isWithinFondoVentasNightClosingWindow({
           nowISO,
           horarioCierre: activeEmpresaForCompany?.horarioCierre,
           minutesBeforeEnd: cierreFondoVentasMinutesBeforeEnd,
-          minutesAfterEnd: cierreFondoVentasMinutesAfterEnd,
+          minutesAfterEnd: effectiveNightMinutesAfterEnd,
         });
         const nowMs = new Date(nowISO).getTime();
         const recentClosings = fondoEntries.filter((entry) => {
@@ -3924,6 +4063,12 @@ export function FondoSection({
       ...closing,
       manager: cierreFondoVentasManager,
     };
+    const dailyClosingMinutesAfterClose =
+      await resolveEffectiveClosingMinutesAfterEnd(
+        closing.closingDate,
+        closing.turno,
+        operationalDateKey,
+      );
 
     await handleConfirmDailyClosingFn(closingWithCierreManager, {
       accountKey,
@@ -3943,7 +4088,7 @@ export function FondoSection({
       horarioCierre: empresaForShiftResolution?.horarioCierre,
       isRegularUser,
       lastDailyClosingSavedAtRef,
-      minutesAfterClose: cierreFondoVentasMinutesAfterEnd,
+      minutesAfterClose: dailyClosingMinutesAfterClose,
       requireSingleClosingReason:
         dailyClosingSingleReasonRequired &&
         !editingDailyClosingId &&
@@ -4036,6 +4181,16 @@ export function FondoSection({
       });
 
       const nowMs = new Date(nowISO).getTime();
+      const operationalDateKey = getCostaRicaOperationalDateKey(
+        nowISO,
+        activeEmpresaForCompany.horarioApertura,
+      );
+      const effectiveNightMinutesAfterEnd =
+        await resolveEffectiveClosingMinutesAfterEnd(
+          nowISO,
+          "N",
+          operationalDateKey,
+        );
       const hasRecentDayClosing = fondoEntries.some((entry) => {
         const createdAt = String(entry.createdAt || "");
         const createdAtMs = new Date(createdAt).getTime();
@@ -4063,17 +4218,13 @@ export function FondoSection({
         minutesBeforeEnd:
           activeEmpresaForCompany.cierreFondoVentasMinutesBeforeEnd ??
           CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
-        minutesAfterEnd:
-          activeEmpresaForCompany.cierreFondoVentasMinutesAfterEnd ??
-          CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
+        minutesAfterEnd: effectiveNightMinutesAfterEnd,
       });
       const isPostCloseGraceOnNextDay =
         isFondoVentasPostCloseGraceOnNextDay({
           nowISO,
           horarioCierre: activeEmpresaForCompany.horarioCierre,
-          minutesAfterEnd:
-            activeEmpresaForCompany.cierreFondoVentasMinutesAfterEnd ??
-            CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
+          minutesAfterEnd: effectiveNightMinutesAfterEnd,
         });
 
       if (timing.withinHorario) {
@@ -4091,10 +4242,7 @@ export function FondoSection({
         );
         const nightWindowEndMin = addMinutes(
           nightEndMin,
-          (
-            activeEmpresaForCompany.cierreFondoVentasMinutesAfterEnd ??
-            CIERRE_FONDO_VENTAS_MINUTES_AFTER_END
-          ) + 1,
+          effectiveNightMinutesAfterEnd + 1,
         );
         const isWithinWindow =
           nightWindowStartMin <= nightWindowEndMin
@@ -4150,6 +4298,7 @@ export function FondoSection({
     fondoEntries,
     isSuperAdminUser,
     notes,
+    resolveEffectiveClosingMinutesAfterEnd,
     showToast,
     isCierreFondoVentasMovement,
   ]);
@@ -4658,6 +4807,16 @@ export function FondoSection({
         balanceCRC={currentBalanceCRC}
         balanceUSD={currentBalanceUSD}
         isCompraInventarioProvider={isCompraInventarioProvider}
+        closingTimeRequest={{
+          visible: Boolean(closingTimeRequest),
+          label: closingTimeRequest
+            ? `Solicitar tiempo ${closingTimeRequest.turno}`
+            : "Solicitar tiempo",
+          disabled: closingTimeRequestSaving,
+          onClick: () => {
+            void handleRequestClosingTimeExtension();
+          },
+        }}
       />
 
       <ManualCreditNoteDrawer
