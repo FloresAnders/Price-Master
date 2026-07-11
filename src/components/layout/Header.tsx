@@ -84,28 +84,6 @@ function clampNumber(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-const getCreatedAtDate = (value: any): Date | null => {
-  if (!value) return null;
-  if (value instanceof Date) return value;
-  if (typeof value.toDate === "function") {
-    try {
-      const asDate = value.toDate();
-      if (asDate instanceof Date && !Number.isNaN(asDate.getTime()))
-        return asDate;
-      const fallback = new Date(asDate);
-      if (!Number.isNaN(fallback.getTime())) return fallback;
-    } catch {
-      // ignore conversion errors
-    }
-  }
-  if (typeof value === "object" && typeof value.seconds === "number") {
-    return new Date(value.seconds * 1000);
-  }
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return parsed;
-};
-
 export type ActiveTab =
   | "scanner"
   | "calculator"
@@ -400,27 +378,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         );
         initializedSolicitudesRef.current = true;
 
-        const candidate = pendingDocs[0] ?? safeDocs[0];
-        if (!candidate) {
-          setHasNewSolicitudes(false);
-          return;
-        }
-
-        const createdAt = getCreatedAtDate(candidate?.createdAt);
-        const key = `pricemaster_last_seen_solicitudes_${
-          user.id || user.ownercompanie || "anon"
-        }`;
-        const lastSeenRaw = localStorage.getItem(key);
-        const lastSeen = lastSeenRaw ? new Date(lastSeenRaw) : null;
-
-        if (
-          !lastSeen ||
-          (createdAt && createdAt.getTime() > lastSeen.getTime())
-        ) {
-          setHasNewSolicitudes(true);
-        } else {
-          setHasNewSolicitudes(false);
-        }
+        setHasNewSolicitudes(pendingDocs.length > 0);
       };
 
       const unsubscribe = onSnapshot(
@@ -1243,18 +1201,6 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             {/* Notification icon for small screens (left of hamburger) */}
             <button
               onClick={() => {
-                try {
-                  if (user) {
-                    const key = `pricemaster_last_seen_solicitudes_${
-                      user.id || user.ownercompanie || "anon"
-                    }`;
-                    localStorage.setItem(key, new Date().toISOString());
-                    setHasNewSolicitudes(false);
-                    setHasNewClosingExtensions(false);
-                  }
-                } catch {
-                  // ignore storage errors
-                }
                 setShowNotifModal(true);
               }}
               className="relative p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
