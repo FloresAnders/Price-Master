@@ -103,6 +103,7 @@ export type ActiveTab =
   | "scanhistory"
   | "edit"
   | "solicitud"
+  | "registroTucan"
   | "fondogeneral"
   | "FC/NC"
   | "agregarproveedor"
@@ -680,6 +681,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       icon: ClipboardPenLine,
       description: "Solicitudes y trámites",
       permission: "solicitud" as keyof UserPermissions,
+    },
+    {
+      id: "registroTucan" as ActiveTab,
+      name: "Registro Tucan",
+      icon: ClipboardPenLine,
+      description: "Registro Tucan",
+      permission: "registroTucan" as keyof UserPermissions,
     },
   ];
 

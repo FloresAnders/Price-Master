@@ -48,6 +48,7 @@ export default function HeaderWrapper() {
         "scanhistory",
         "edit",
         "solicitud",
+        "registroTucan",
         "fondogeneral",
         "agregarproveedor",
         "reportes",

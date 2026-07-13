@@ -11,6 +11,7 @@ import { ref, listAll } from "firebase/storage";
 import Pruebas from "@/components/xpruebas/Pruebas";
 import { storage } from "@/config/firebase";
 import { safeLocalStorage, safeWindow } from "@/utils/client";
+import { getDefaultPermissions } from "@/utils/permissions";
 
 // Dynamic imports for code splitting
 const BarcodeScanner = dynamic(
@@ -156,6 +157,7 @@ type ActiveTab =
   | "scanhistory"
   | "edit"
   | "solicitud"
+  | "registroTucan"
   | "fondogeneral"
   | "agregarproveedor"
   | "facturas"
@@ -262,6 +264,10 @@ export default function HomePage() {
   }, [checkCodeHasImages, scanHistory]); // Added scanHistory back as dependency
 
   const isSuperAdmin = user?.role === "superadmin";
+  const resolvedPermissions = user
+    ? user.permissions || getDefaultPermissions(user.role || "user")
+    : null;
+  const canAccessRegistroTucan = Boolean(resolvedPermissions?.registroTucan);
 
   // 4) Al montar, leemos el hash de la URL y marcamos la pestaña correspondiente
   useEffect(() => {
@@ -272,6 +278,12 @@ export default function HomePage() {
           .replace("#", "") as ActiveTab;
 
         if (hash === "pruebas" && !isSuperAdmin) {
+          safeWindow.location.hash("");
+          setActiveTab(null);
+          return;
+        }
+
+        if (hash === "registroTucan" && user && !canAccessRegistroTucan) {
           safeWindow.location.hash("");
           setActiveTab(null);
           return;
@@ -293,6 +305,7 @@ export default function HomePage() {
           "supplierorders",
           "scanhistory",
           "solicitud",
+          "registroTucan",
           "fondogeneral",
           "agregarproveedor",
           "facturas",
@@ -313,7 +326,7 @@ export default function HomePage() {
     checkAndSetTab();
     const timeout = setTimeout(checkAndSetTab, 100);
     return () => clearTimeout(timeout);
-  }, [isSuperAdmin]);
+  }, [isSuperAdmin, user, canAccessRegistroTucan]);
 
   // 6) Escuchar cambios en el hash para actualizar la pestaña activa
   useEffect(() => {
@@ -324,6 +337,12 @@ export default function HomePage() {
           .replace("#", "") as ActiveTab;
 
         if (hash === "pruebas" && !isSuperAdmin) {
+          safeWindow.location.hash("");
+          setActiveTab(null);
+          return;
+        }
+
+        if (hash === "registroTucan" && user && !canAccessRegistroTucan) {
           safeWindow.location.hash("");
           setActiveTab(null);
           return;
@@ -346,6 +365,7 @@ export default function HomePage() {
           "scanhistory",
           "edit",
           "solicitud",
+          "registroTucan",
           "fondogeneral",
           "agregarproveedor",
           "facturas",
@@ -364,7 +384,7 @@ export default function HomePage() {
         window.removeEventListener("hashchange", handleHashChange);
       };
     }
-  }, [isSuperAdmin]);
+  }, [isSuperAdmin, user, canAccessRegistroTucan]);
   return (
     <>
       <div className="flex-1 max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -454,6 +474,15 @@ export default function HomePage() {
 
               {/* SOLICITUD */}
               {activeTab === "solicitud" && <SolicitudForm />}
+
+              {/* REGISTRO TUCAN */}
+              {activeTab === "registroTucan" && canAccessRegistroTucan && (
+                <div className="mx-auto max-w-3xl rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-8 text-center shadow">
+                  <h2 className="text-2xl font-bold text-[var(--foreground)]">
+                    mantenimiento
+                  </h2>
+                </div>
+              )}
 
               {/* EDIT / MANTENIMIENTO */}
               {activeTab === "edit" && <Mantenimiento />}

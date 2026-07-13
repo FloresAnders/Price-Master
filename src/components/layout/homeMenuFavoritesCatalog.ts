@@ -247,6 +247,15 @@ export const HOME_MENU_FAVORITE_OPTIONS: HomeMenuFavoriteOption[] = [
     hash: "solicitud",
   },
   {
+    id: "registroTucan",
+    label: "Registro Tucan",
+    description: "Registro Tucan",
+    group: "Herramientas",
+    icon: FileText,
+    permission: "registroTucan",
+    hash: "registroTucan",
+  },
+  {
     id: "recetas",
     label: "Recetas",
     description: "Crear y editar recetas",

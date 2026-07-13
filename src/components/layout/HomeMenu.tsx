@@ -197,6 +197,13 @@ const menuItems = [
     permission: "solicitud" as keyof UserPermissions,
   },
   {
+    id: "registroTucan",
+    name: "Registro Tucan",
+    icon: ClipboardPenLine,
+    description: "Registro Tucan",
+    permission: "registroTucan" as keyof UserPermissions,
+  },
+  {
     id: "edit",
     name: "Mantenimiento",
     icon: Settings,

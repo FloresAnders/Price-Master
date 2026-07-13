@@ -39,6 +39,7 @@ const PERMISSION_LABELS = {
   fondogeneralBAC: "Fondo General - BAC",
   cajaNegra: "Caja Negra",
   tucan: "Tucan",
+  registroTucan: "Registro Tucan",
   solicitud: "Solicitud",
   scanhistory: "Historial de Escaneos",
 };
@@ -69,6 +70,7 @@ const PERMISSION_DESCRIPTIONS = {
     "Permite registrar movimientos del fondo general para la cuenta BAC",
   cajaNegra: "Manejar dineros extra del Fondo General",
   tucan: "Manejar dineros extra del Fondo General",
+  registroTucan: "Acceso a Registro Tucan",
   solicitud: "Permite gestionar solicitudes dentro del módulo de mantenimiento",
   scanhistory: "Ver historial completo de escaneos realizados",
 };

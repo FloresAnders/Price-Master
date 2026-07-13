@@ -120,6 +120,13 @@ export const MENU_CARD_THEMES: Record<
     ring: "border-violet-400/25",
     arrow: "text-violet-100",
   },
+  registroTucan: {
+    glow: "from-teal-500/15 via-transparent to-transparent",
+    iconBg: "bg-teal-500/20",
+    iconText: "text-teal-100",
+    ring: "border-teal-400/25",
+    arrow: "text-teal-100",
+  },
   edit: {
     glow: "from-emerald-500/15 via-transparent to-transparent",
     iconBg: "bg-emerald-500/20",

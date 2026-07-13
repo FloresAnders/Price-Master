@@ -14,6 +14,7 @@ import {
   Truck,
   Settings,
   History,
+  ClipboardPenLine,
   X,
 } from "lucide-react";
 import AnimatedStickman from "@/components/ui/AnimatedStickman";
@@ -108,6 +109,13 @@ const menuItems = [
     permission: "scanhistory" as keyof UserPermissions,
   },
   {
+    id: "registroTucan",
+    name: "Registro Tucan",
+    icon: ClipboardPenLine,
+    description: "Registro Tucan",
+    permission: "registroTucan" as keyof UserPermissions,
+  },
+  {
     id: "edit",
     name: "Mantenimiento",
     icon: Settings,
@@ -185,9 +193,15 @@ export default function HomePage() {
 
   const handleCardClick = (id: string, name: string) => {
     // Si es la tarjeta Fondo General, navegar a su página
-    if (id === "fondogeneral" || id === "reportessinpe") {
+    if (id === "fondogeneral" || id === "reportessinpe" || id === "registroTucan") {
       // Use hash navigation so header/tab system picks it up
-      safeWindow.location.hash(id === "reportessinpe" ? "#reportessinpe" : "#fondogeneral");
+      safeWindow.location.hash(
+        id === "reportessinpe"
+          ? "#reportessinpe"
+          : id === "registroTucan"
+            ? "#registroTucan"
+            : "#fondogeneral",
+      );
       return;
     }
 
