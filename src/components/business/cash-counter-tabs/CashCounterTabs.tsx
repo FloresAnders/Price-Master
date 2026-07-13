@@ -35,6 +35,8 @@ export default function CashCounterTabs() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showExtra, setShowExtra] = useState(false);
   const [showBD, setShowBD] = useState(false);
+  const activeCounter = data[active];
+  const activeCurrencyLabel = activeCounter?.currency === "CRC" ? "Colones" : "Dólares";
 
   if (!hasPermission(user?.permissions, "cashcounter")) {
     return (
@@ -60,8 +62,22 @@ export default function CashCounterTabs() {
               <Banknote className="h-6 w-6 text-cyan-300 sm:h-8 sm:w-8" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-2xl font-bold tracking-tight text-white sm:text-4xl">Cash Counter</h1>
-              <p className="mt-1 text-xs font-medium tracking-wide text-white/45 sm:text-sm">Administra y controla el efectivo por tipos de billetes</p>
+              <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-end sm:gap-4">
+                <h1 className="text-2xl font-bold tracking-tight text-white sm:text-4xl">Cash Counter</h1>
+                {activeCounter ? (
+                  <div className="min-w-0 pb-0.5">
+                    <div className="truncate text-sm font-semibold tracking-tight text-white/90 sm:text-base">
+                      {activeCounter.name}
+                    </div>
+                    <div className="text-[11px] tracking-wide text-white/35">
+                      {activeCurrencyLabel}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+              <p className="mt-2 text-center text-xs font-medium tracking-wide text-white/45 sm:text-sm">
+                Administra y controla el efectivo por tipos de billetes
+              </p>
             </div>
           </div>
           <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end sm:pt-1">

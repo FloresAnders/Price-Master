@@ -99,18 +99,6 @@ export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
 
   return (
     <div className="relative">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-teal-500/15 border border-cyan-400/25 shadow-[0_10px_30px_rgba(6,182,212,0.12)] flex items-center justify-center">
-            <Banknote className="w-5 h-5 text-cyan-300" />
-          </div>
-          <div>
-            <h3 className="text-base font-semibold text-white/90 tracking-tight">{data.name}</h3>
-            <p className="text-[11px] text-white/35 tracking-wide">{cur === "CRC" ? "Colones" : "Dólares"}</p>
-          </div>
-        </div>
-      </div>
-
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-2xl border border-white/10 bg-[#0d1117] p-4 mb-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
           <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3">
