@@ -2,64 +2,105 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { CashCounterData } from "../types";
+import {
+  clearCashCounterSnapshot,
+  createDefaultCashCounterSnapshot,
+  getCashCounterSnapshot,
+  normalizeCashCounterSnapshot,
+  saveCashCounterSnapshot,
+} from "@/services/cashCounterDb";
+
+const LEGACY_STORAGE_KEY = "cashCounters";
+
+function readLegacySnapshot(): unknown | undefined {
+  const raw = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+  if (!raw) return undefined;
+  return JSON.parse(raw);
+}
+
+function snapshotFromState(counters: CashCounterData[], activeTab: number) {
+  return normalizeCashCounterSnapshot({
+    counters,
+    activeTab,
+    lastSaved: new Date().toISOString(),
+  });
+}
 
 export function useCashCounter() {
   const [data, setData] = useState<CashCounterData[]>([]);
   const [active, setActive] = useState(0);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  const [canAutoSave, setCanAutoSave] = useState(false);
 
-  const save = useCallback(async (d: CashCounterData[], i: number) => {
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrate = async () => {
+      try {
+        let snapshot = await getCashCounterSnapshot();
+
+        if (!snapshot) {
+          const legacy = readLegacySnapshot();
+          snapshot = legacy
+            ? normalizeCashCounterSnapshot(legacy)
+            : createDefaultCashCounterSnapshot();
+
+          await saveCashCounterSnapshot(snapshot);
+          if (legacy) window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+        }
+
+        if (cancelled) return;
+        setData(snapshot.counters);
+        setActive(snapshot.activeTab);
+        setLastSaved(snapshot.lastSaved ? new Date(snapshot.lastSaved).toLocaleTimeString() : null);
+        setCanAutoSave(true);
+      } catch {
+        if (cancelled) return;
+        const snapshot = createDefaultCashCounterSnapshot();
+        setData(snapshot.counters);
+        setActive(snapshot.activeTab);
+        setCanAutoSave(false);
+        alert("Error al cargar datos de caja. Se conservó un contador inicial.");
+      } finally {
+        if (!cancelled) setHydrated(true);
+      }
+    };
+
+    hydrate();
+    return () => { cancelled = true; };
+  }, []);
+
+  const save = useCallback(async (counters: CashCounterData[], activeTab: number) => {
     setSaving(true);
     try {
-      window.localStorage.setItem("cashCounters", JSON.stringify({ counters: d, activeTab: i, lastSaved: new Date().toISOString() }));
-      setLastSaved(new Date().toLocaleTimeString());
-      await new Promise((r) => setTimeout(r, 400));
-    } catch { alert("Error al guardar."); }
-    finally { setSaving(false); }
+      const snapshot = snapshotFromState(counters, activeTab);
+      await saveCashCounterSnapshot(snapshot);
+      setLastSaved(new Date(snapshot.lastSaved).toLocaleTimeString());
+    } catch {
+      alert("Error al guardar.");
+    } finally {
+      setSaving(false);
+    }
   }, []);
 
   useEffect(() => {
-    try {
-      const s = window.localStorage.getItem("cashCounters");
-      if (s) {
-        const p = JSON.parse(s);
-        let c: CashCounterData[], a = 0;
-        if (Array.isArray(p)) c = p;
-        else if (p.counters) { c = p.counters; a = p.activeTab || 0; }
-        else throw new Error("bad format");
-        const n = c.map((item, i) => ({
-          name: item.name || `Contador ${i + 1}`,
-          bills: item.bills || {},
-          extraAmount: item.extraAmount || 0,
-          currency: (item.currency as "CRC" | "USD") || "CRC",
-          aperturaCaja: item.aperturaCaja || 0,
-          ventaActual: item.ventaActual || 0,
-        }));
-        setData(n);
-        setActive(Math.min(a, n.length - 1));
-      } else {
-        const d = [{ name: "Contador 1", bills: {}, extraAmount: 0, currency: "CRC" as "CRC" | "USD", aperturaCaja: 0, ventaActual: 0 }];
-        setData(d);
-        setActive(0);
-        save(d, 0);
-      }
-    } catch {
-      const d = [{ name: "Contador 1", bills: {}, extraAmount: 0, currency: "CRC" as "CRC" | "USD", aperturaCaja: 0, ventaActual: 0 }];
-      setData(d);
-      setActive(0);
-    }
-  }, [save]);
+    if (!hydrated || !canAutoSave || data.length === 0) return;
 
-  useEffect(() => { if (data.length > 0) save(data, active); }, [data, active, save]);
+    const timeoutId = window.setTimeout(() => {
+      void save(data, active);
+    }, 350);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [data, active, hydrated, canAutoSave, save]);
 
   const add = useCallback(() => {
-    const n = { name: `Contador ${data.length + 1}`, bills: {}, extraAmount: 0, currency: "CRC" as "CRC" | "USD", aperturaCaja: 0, ventaActual: 0 };
-    const d = [...data, n];
-    setData(d);
+    const n = { name: `Contador ${data.length + 1}`, bills: {}, extraAmount: 0, currency: "CRC" as const, aperturaCaja: 0, ventaActual: 0 };
+    setCanAutoSave(true);
+    setData((current) => [...current, n]);
     setActive(data.length);
-    save(d, data.length);
-  }, [data, save]);
+  }, [data.length]);
 
   const del = useCallback((i: number) => {
     if (data.length <= 1) { alert("No puedes eliminar el último."); return; }
@@ -67,17 +108,19 @@ export function useCashCounter() {
     let a = active;
     if (active === i) a = 0;
     else if (active > i) a = active - 1;
+    setCanAutoSave(true);
     setData(d);
     setActive(a);
-    save(d, a);
-  }, [data, active, save]);
+  }, [data, active]);
 
   const upd = useCallback((i: number, d: CashCounterData) => {
-    const n = [...data];
-    n[i] = d;
-    setData(n);
-    save(n, active);
-  }, [data, active, save]);
+    setCanAutoSave(true);
+    setData((current) => {
+      const n = [...current];
+      n[i] = d;
+      return n;
+    });
+  }, []);
 
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
@@ -115,12 +158,12 @@ export function useCashCounter() {
     if (active === dragIdx) a = drop;
     else if (active > dragIdx && active <= drop) a = active - 1;
     else if (active < dragIdx && active >= drop) a = active + 1;
+    setCanAutoSave(true);
     setData(n);
     setActive(a);
-    save(n, a);
     setDragIdx(null);
     setOverIdx(null);
-  }, [dragIdx, data, active, save]);
+  }, [dragIdx, data, active]);
 
   const hDE = useCallback(() => { setDragIdx(null); setOverIdx(null); }, []);
 
@@ -143,53 +186,43 @@ export function useCashCounter() {
     inp.onchange = (e) => {
       const f = (e.target as HTMLInputElement).files?.[0];
       if (!f) return;
-      new FileReader().onload = (ev) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
         try {
-          const d = JSON.parse(ev.target?.result as string);
-          if (d.counters && Array.isArray(d.counters)) {
-            const n = d.counters.map((item: unknown, i: number) => {
-              const ci = item as Record<string, unknown>;
-              return {
-                name: (typeof ci.name === "string" ? ci.name : null) || `C${i + 1}`,
-                bills: (typeof ci.bills === "object" && ci.bills !== null ? ci.bills : {}) as Record<number, number>,
-                extraAmount: (typeof ci.extraAmount === "number" ? ci.extraAmount : null) || 0,
-                currency: (ci.currency === "CRC" || ci.currency === "USD" ? ci.currency : "CRC") as "CRC" | "USD",
-                aperturaCaja: (typeof ci.aperturaCaja === "number" ? ci.aperturaCaja : null) || 0,
-                ventaActual: (typeof ci.ventaActual === "number" ? ci.ventaActual : null) || 0,
-              };
-            });
-            setData(n);
-            setActive(0);
-            save(n, 0);
-            alert(`✅ ${n.length} cargados.`);
-          } else alert("❌ Formato inválido.");
+          const snapshot = normalizeCashCounterSnapshot(JSON.parse(ev.target?.result as string));
+          setCanAutoSave(true);
+          setData(snapshot.counters);
+          setActive(snapshot.activeTab);
+          alert(`✅ ${snapshot.counters.length} cargados.`);
         } catch { alert("❌ Error."); }
       };
-      new FileReader().readAsText(f);
+      reader.readAsText(f);
     };
     inp.click();
-  }, [save]);
+  }, []);
 
   const storageInfo = useCallback(() => {
     try {
-      const d = window.localStorage.getItem("cashCounters");
-      if (d) return `${data.length} contadores • ${(new Blob([d]).size / 1024).toFixed(2)} KB`;
-      return "Sin datos";
+      const payload = JSON.stringify({ counters: data, activeTab: active });
+      return `${data.length} contadores • ${(new Blob([payload]).size / 1024).toFixed(2)} KB`;
     } catch { return "Error"; }
-  }, [data]);
+  }, [data, active]);
 
   const clear = useCallback(() => {
     if (confirm(`⚠️ ¿Borrar todos?\n\n${storageInfo()}`)) {
-      try {
-        window.localStorage.removeItem("cashCounters");
-        const d = [{ name: "Contador 1", bills: {}, extraAmount: 0, currency: "CRC" as "CRC" | "USD", aperturaCaja: 0, ventaActual: 0 }];
-        setData(d);
-        setActive(0);
-        save(d, 0);
-        alert("✅ Restablecido.");
-      } catch { alert("❌ Error."); }
+      void (async () => {
+        try {
+          await clearCashCounterSnapshot();
+          window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+          const snapshot = createDefaultCashCounterSnapshot();
+          setCanAutoSave(true);
+          setData(snapshot.counters);
+          setActive(snapshot.activeTab);
+          alert("✅ Restablecido.");
+        } catch { alert("❌ Error."); }
+      })();
     }
-  }, [storageInfo, save]);
+  }, [storageInfo]);
 
   return {
     data, active, setActive, lastSaved, saving, save,

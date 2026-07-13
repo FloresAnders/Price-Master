@@ -1,10 +1,10 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PlusCircle, MinusCircle, Banknote } from "lucide-react";
 import type { CashCounterProps } from "../types";
-import { badgeColor, badgeLabel, denomsByCurrency, calcBDBreakdown, fmtCurrency, calcTotal } from "../utils";
+import { badgeColor, badgeLabel, denomsByCurrency, calcBDBreakdown, fmtCurrency, calcTotal, calcCashDifference } from "../utils";
 
 export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
   const denoms = denomsByCurrency(data.currency);
@@ -13,6 +13,7 @@ export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
   const cur = data.currency;
   const ap = data.aperturaCaja;
   const vt = data.ventaActual;
+  const [saleToAdd, setSaleToAdd] = useState("");
   const refs = useRef<(HTMLInputElement | null)[]>([]);
 
   const ntf = (b: Record<number, number>, e: number, c: "CRC" | "USD", a?: number, v?: number) =>
@@ -26,6 +27,18 @@ export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
   const manual = (v: number, s: string) => {
     const p = parseInt(s.replace(/^0+/, ""), 10);
     ntf({ ...bills, [v]: isNaN(p) || p < 0 ? 0 : p }, extra, cur);
+  };
+  const parseAmount = (s: string) => {
+    const p = cur === "CRC"
+      ? parseInt(s.replace(/\D/g, ""), 10)
+      : parseFloat(s.replace(/[^0-9.]/g, ""));
+    return Number.isFinite(p) && p > 0 ? p : 0;
+  };
+  const addSale = () => {
+    const amount = parseAmount(saleToAdd);
+    if (amount <= 0) return;
+    ntf(bills, extra, cur, ap, vt + amount);
+    setSaleToAdd("");
   };
 
   const t = calcTotal(bills, extra);
@@ -51,10 +64,9 @@ export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
 
   const diffMsg = (cn = "") => {
     if (ap === 0 && vt === 0) return null;
-    const r = t - vt, d = Math.abs(r - ap);
-    const type = r > ap ? "sobrante" : r < ap ? "faltante" : "equilibrio";
+    const { type, amount } = calcCashDifference(t, ap, vt);
     const cl = type === "sobrante" ? "text-emerald-400" : type === "faltante" ? "text-red-400" : "text-white/30";
-    const msg = type === "sobrante" ? `Sobrante: ${fmtCurrency(d, cur)}` : type === "faltante" ? `Faltante: ${fmtCurrency(d, cur)}` : "Sin diferencia";
+    const msg = type === "sobrante" ? `Sobrante: ${fmtCurrency(amount, cur)}` : type === "faltante" ? `Faltante: ${fmtCurrency(amount, cur)}` : "Sin diferencia";
     return <span className={`${cl} font-medium text-xs ${cn}`}>{msg}</span>;
   };
 
@@ -74,26 +86,65 @@ export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
         </div>
       </div>
 
-      {ap > 0 && vt > 0 && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-2xl border border-white/10 bg-[#0d1117] p-4 mb-5">
-          <div className="flex items-center justify-around text-xs">
-            <div className="text-center">
-              <p className="text-white/30 uppercase tracking-wider mb-1">Apertura</p>
-              <p className="font-semibold text-white/80">{fmtCurrency(ap, cur)}</p>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-2xl border border-white/10 bg-[#0d1117] p-4 mb-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+          <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <label className="mb-1.5 block text-[10px] font-medium uppercase tracking-[0.16em] text-white/35">Apertura de caja</label>
+              <input
+                type="number"
+                min="0"
+                step={cur === "CRC" ? "1" : "0.01"}
+                value={ap || ""}
+                onChange={(e) => ntf(bills, extra, cur, e.target.value === "" ? 0 : Number(e.target.value), vt)}
+                className="w-full rounded-xl border border-white/10 bg-[#050816] px-3 py-2 text-right text-sm text-white outline-none transition-all placeholder-white/10 focus:border-cyan-400/35 focus:ring-1 focus:ring-cyan-400/35"
+                placeholder="0"
+              />
             </div>
-            <div className="w-px h-10 bg-white/10" />
-            <div className="text-center">
-              <p className="text-white/30 uppercase tracking-wider mb-1">Venta</p>
-              <p className="font-semibold text-white/80">{fmtCurrency(vt, cur)}</p>
+            <div>
+              <label className="mb-1.5 block text-[10px] font-medium uppercase tracking-[0.16em] text-white/35">Venta actual</label>
+              <input
+                type="number"
+                min="0"
+                step={cur === "CRC" ? "1" : "0.01"}
+                value={vt || ""}
+                onChange={(e) => ntf(bills, extra, cur, ap, e.target.value === "" ? 0 : Number(e.target.value))}
+                className="w-full rounded-xl border border-white/10 bg-[#050816] px-3 py-2 text-right text-sm text-white outline-none transition-all placeholder-white/10 focus:border-cyan-400/35 focus:ring-1 focus:ring-cyan-400/35"
+                placeholder="0"
+              />
             </div>
-            <div className="w-px h-10 bg-white/10" />
-            <div className="text-center">
-              <p className="text-white/30 uppercase tracking-wider mb-1">Estado</p>
-              <p className="font-semibold">{diffMsg("")}</p>
+            <div>
+              <label className="mb-1.5 block text-[10px] font-medium uppercase tracking-[0.16em] text-white/35">Agregar venta</label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  step={cur === "CRC" ? "1" : "0.01"}
+                  value={saleToAdd}
+                  onChange={(e) => setSaleToAdd(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") addSale(); }}
+                  className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#050816] px-3 py-2 text-right text-sm text-white outline-none transition-all placeholder-white/10 focus:border-cyan-400/35 focus:ring-1 focus:ring-cyan-400/35"
+                  placeholder="0"
+                />
+                <button
+                  type="button"
+                  onClick={addSale}
+                  disabled={parseAmount(saleToAdd) <= 0}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-500/10 text-emerald-300 transition-all hover:border-emerald-400/40 hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-white/20"
+                  aria-label="Agregar venta"
+                >
+                  <PlusCircle className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           </div>
-        </motion.div>
-      )}
+          <div className="rounded-xl border border-white/10 bg-[#050816] px-4 py-3 text-center lg:w-48">
+            <p className="mb-1 text-[10px] font-medium uppercase tracking-[0.16em] text-white/30">Estado</p>
+            {diffMsg("") || <span className="text-xs font-medium text-white/25">Sin datos</span>}
+            <p className="mt-1 text-[11px] text-white/25">{fmtCurrency(ap, cur)} / {fmtCurrency(vt, cur)}</p>
+          </div>
+        </div>
+      </motion.div>
 
       <AnimatePresence>
         {showBD && (

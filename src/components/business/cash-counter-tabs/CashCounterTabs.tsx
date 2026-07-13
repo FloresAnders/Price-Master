@@ -21,7 +21,7 @@ import { CalculatorModal } from "../../modals";
 export default function CashCounterTabs() {
   const { user } = useAuth();
   const {
-    data, active, setActive, lastSaved, saving, save,
+    data, active, setActive, lastSaved, saving,
     add, del, upd,
     dragIdx, overIdx, hDS, hDO, hDL, hDrop, hDE,
     exp, imp, clear, storageInfo,
@@ -91,7 +91,7 @@ export default function CashCounterTabs() {
         <CounterSidebar
           data={data}
           active={active}
-          onSelect={(i) => { setActive(i); save(data, i); }}
+          onSelect={setActive}
           onRename={(i) => { setRenameIdx(i); setRenameOpen(true); }}
           onAdd={add}
           dragIdx={dragIdx}

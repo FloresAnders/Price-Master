@@ -1,4 +1,4 @@
-import type { BillsMap } from "./types";
+import type { BillsMap, CashCounterData } from "./types";
 import { DENOM_ACCENTS, CRC_DENOMS, USD_DENOMS } from "./constants";
 
 export function badgeColor(value: number): string {
@@ -34,4 +34,43 @@ export function fmtCurrency(n: number, cur: "CRC" | "USD"): string {
 
 export function calcTotal(bills: BillsMap, extra: number): number {
   return Object.entries(bills).reduce((a, [d, c]) => a + Number(d) * Number(c), 0) + extra;
+}
+
+export function calcCashDifference(total: number, aperturaCaja: number, ventaActual: number): {
+  type: "sobrante" | "faltante" | "equilibrio";
+  amount: number;
+} {
+  const expected = aperturaCaja + ventaActual;
+  const diff = total - expected;
+  if (diff > 0) return { type: "sobrante", amount: diff };
+  if (diff < 0) return { type: "faltante", amount: Math.abs(diff) };
+  return { type: "equilibrio", amount: 0 };
+}
+
+export function buildCashCounterExportSummary(data: CashCounterData) {
+  const total = calcTotal(data.bills, data.extraAmount);
+  const denoms = denomsByCurrency(data.currency).map((denom) => {
+    const count = data.bills[denom.value] || 0;
+    return {
+      label: denom.label,
+      value: denom.value,
+      count,
+      subtotal: denom.value * count,
+    };
+  });
+
+  return {
+    name: data.name,
+    currency: data.currency,
+    total,
+    billsTotal: total - data.extraAmount,
+    totalBillsCount: denoms.reduce((sum, denom) => sum + denom.count, 0),
+    activeDenoms: denoms.filter((denom) => denom.count > 0).length,
+    extraAmount: data.extraAmount,
+    aperturaCaja: data.aperturaCaja,
+    ventaActual: data.ventaActual,
+    expectedTotal: data.aperturaCaja + data.ventaActual,
+    difference: calcCashDifference(total, data.aperturaCaja, data.ventaActual),
+    denoms,
+  };
 }

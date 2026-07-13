@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Reporte de Conteo de Efectivo</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Segoe UI, Arial, sans-serif;
+        }
+
+        body {
+            background: #0c1220;
+            color: #fff;
+            padding: 30px;
+        }
+
+        .container {
+            max-width: 1050px;
+            margin: auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+        }
+
+        .table-header {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            color: #7fcfff;
+            font-size: 12px;
+            text-transform: uppercase;
+            margin-bottom: 15px;
+            letter-spacing: 1px;
+        }
+
+        .card {
+            background: #111827;
+            border: 1px solid #263043;
+            border-radius: 14px;
+            padding: 18px;
+            margin-bottom: 14px;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            align-items: center;
+        }
+
+        .left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .badge {
+            width: 62px;
+            height: 42px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            color: white;
+        }
+
+        .orange {
+            background: #6b3b16;
+        }
+
+        .green {
+            background: #004d40;
+        }
+
+        .yellow {
+            background: #6d5200;
+        }
+
+        .blue {
+            background: #173a72;
+        }
+
+        .red {
+            background: #5d2030;
+        }
+
+        .gold {
+            background: #6d4c00;
+        }
+
+        .gray {
+            background: #27364d;
+        }
+
+        .bronze {
+            background: #5d4517;
+        }
+
+        .money {
+            font-size: 20px;
+        }
+
+        .qty {
+            text-align: center;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .right {
+            text-align: right;
+        }
+
+        .sub {
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .percent {
+            color: #9ca3af;
+            font-size: 14px;
+        }
+
+        .progress {
+            margin-top: 8px;
+            height: 8px;
+            background: #2c3445;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .bar {
+            height: 100%;
+            background: #6be0d2;
+        }
+
+        .total {
+            margin-top: 30px;
+            background: #0f172a;
+            border: 2px solid #2dd4bf;
+            border-radius: 15px;
+            text-align: center;
+            padding: 30px;
+        }
+
+        .total h2 {
+            color: #9ca3af;
+            margin-bottom: 10px;
+        }
+
+        .total h1 {
+            font-size: 48px;
+            color: #fff;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <div class="container">
+
+        <div class="header">
+            <h1>REPORTE DE CONTEO</h1>
+            <div>13/07/2026</div>
+        </div>
+
+        <div class="table-header">
+            <div>Denominación</div>
+            <div style="text-align:center;">Cantidad</div>
+            <div style="text-align:right;">Subtotal</div>
+        </div>
+
+        <!-- 20K -->
+        <div class="card">
+            <div class="row">
+                <div class="left">
+                    <div class="badge orange">20K</div>
+                    <div class="money">₡20 000</div>
+                </div>
+                <div class="qty">4</div>
+                <div class="right">
+                    <div class="sub">₡80 000 <span class="percent">63.7%</span></div>
+                    <div class="progress">
+                        <div class="bar" style="width:63.7%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!--10K-->
+        <div class="card">
+            <div class="row">
+                <div class="left">
+                    <div class="badge green">10K</div>
+                    <div class="money">₡10 000</div>
+                </div>
+                <div class="qty">3</div>
+                <div class="right">
+                    <div class="sub">₡30 000 <span class="percent">23.9%</span></div>
+                    <div class="progress">
+                        <div class="bar" style="width:23.9%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!--5K-->
+        <div class="card">
+            <div class="row">
+                <div class="left">
+                    <div class="badge yellow">5K</div>
+                    <div class="money">₡5 000</div>
+                </div>
+                <div class="qty">2</div>
+                <div class="right">
+                    <div class="sub">₡10 000 <span class="percent">8%</span></div>
+                    <div class="progress">
+                        <div class="bar" style="width:8%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!--2K-->
+        <div class="card">
+            <div class="row">
+                <div class="left">
+                    <div class="badge blue">2K</div>
+                    <div class="money">₡2 000</div>
+                </div>
+                <div class="qty">2</div>
+                <div class="right">
+                    <div class="sub">₡4 000 <span class="percent">3.2%</span></div>
+                    <div class="progress">
+                        <div class="bar" style="width:3.2%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!--1K-->
+        <div class="card">
+            <div class="row">
+                <div class="left">
+                    <div class="badge red">1K</div>
+                    <div class="money">₡1 000</div>
+                </div>
+                <div class="qty">1</div>
+                <div class="right">
+                    <div class="sub">₡1 000 <span class="percent">0.8%</span></div>
+                    <div class="progress">
+                        <div class="bar" style="width:.8%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!--500-->
+        <div class="card">
+            <div class="row">
+                <div class="left">
+                    <div class="badge gold">500</div>
+                    <div class="money">₡500</div>
+                </div>
+                <div class="qty">1</div>
+                <div class="right">
+                    <div class="sub">₡500 <span class="percent">0.4%</span></div>
+                    <div class="progress">
+                        <div class="bar" style="width:.4%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!--100-->
+        <div class="card">
+            <div class="row">
+                <div class="left">
+                    <div class="badge gray">100</div>
+                    <div class="money">₡100</div>
+                </div>
+                <div class="qty">0</div>
+                <div class="right">
+                    <div class="sub">₡0 <span class="percent">0%</span></div>
+                    <div class="progress">
+                        <div class="bar" style="width:0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!--50-->
+        <div class="card">
+            <div class="row">
+                <div class="left">
+                    <div class="badge gray">50</div>
+                    <div class="money">₡50</div>
+                </div>
+                <div class="qty">0</div>
+                <div class="right">
+                    <div class="sub">₡0 <span class="percent">0%</span></div>
+                    <div class="progress">
+                        <div class="bar" style="width:0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!--25-->
+        <div class="card">
+            <div class="row">
+                <div class="left">
+                    <div class="badge bronze">25</div>
+                    <div class="money">₡25</div>
+                </div>
+                <div class="qty">1</div>
+                <div class="right">
+                    <div class="sub">₡25 <span class="percent">0%</span></div>
+                    <div class="progress">
+                        <div class="bar" style="width:.1%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="total">
+            <h2>TOTAL GENERAL</h2>
+            <h1>₡125 525</h1>
+        </div>
+
+    </div>
+
+</body>
+
+</html>

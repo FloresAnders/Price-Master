@@ -2,22 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { RefreshCw, Trash2 } from "lucide-react";
-import { safeLocalStorage } from "../../../../utils/client";
 import { fmtCurrency } from "../utils";
 import { BaseModal } from "./BaseModal";
 
 export function SinpeModal({ isOpen, onClose, currency }: {
   isOpen: boolean; onClose: () => void; currency: "CRC" | "USD";
 }) {
-  const [ma, setMa] = useState<number>(() => {
-    const s = safeLocalStorage.getItem("sinpe-monto-actual");
-    if (!s) return 0;
-    const p = parseFloat(s);
-    return Number.isFinite(p) ? p : 0;
-  });
+  const [ma, setMa] = useState(0);
   const [mr, setMr] = useState(0);
 
-  useEffect(() => { safeLocalStorage.setItem("sinpe-monto-actual", ma.toString()); }, [ma]);
   useEffect(() => {
     if (!isOpen) return;
     const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
