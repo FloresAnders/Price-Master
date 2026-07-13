@@ -236,6 +236,23 @@ export interface User {
   updatedAt?: Date;
 }
 
+export interface RegistroTucanRecord {
+  id?: string;
+  empresaId?: string;
+  empresa: string;
+  dateKey: number;
+  fecha: string;
+  saldoPaginaTucan: number;
+  saldoFondoTucan: number;
+  saldoSinpesRecibidos: number;
+  total: number;
+  currency: "CRC";
+  createdById?: string;
+  createdByName?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
 export interface ScheduleEntry {
   id?: string;
   companieValue: string;

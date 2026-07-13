@@ -138,6 +138,10 @@ const AgregarProductoTab = dynamic(
     })),
   { ssr: false },
 );
+const RegistroTucan = dynamic(
+  () => import("@/components/business/RegistroTucan"),
+  { ssr: false },
+);
 
 // 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders", "edit", "scanhistory", "solicitud", "agregarproveedor", "reportes"
 type ActiveTab =
@@ -477,11 +481,7 @@ export default function HomePage() {
 
               {/* REGISTRO TUCAN */}
               {activeTab === "registroTucan" && canAccessRegistroTucan && (
-                <div className="mx-auto max-w-3xl rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-8 text-center shadow">
-                  <h2 className="text-2xl font-bold text-[var(--foreground)]">
-                    mantenimiento
-                  </h2>
-                </div>
+                <RegistroTucan />
               )}
 
               {/* EDIT / MANTENIMIENTO */}

@@ -63,6 +63,61 @@ service cloud.firestore {
         );
       allow delete: if isAdmin();
     }
+
+    function isRegistroTucanRecord() {
+      return request.resource.data.keys().hasOnly([
+          'empresaId',
+          'empresa',
+          'dateKey',
+          'fecha',
+          'saldoPaginaTucan',
+          'saldoFondoTucan',
+          'saldoSinpesRecibidos',
+          'total',
+          'currency',
+          'createdById',
+          'createdByName',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'empresaId',
+          'empresa',
+          'dateKey',
+          'fecha',
+          'saldoPaginaTucan',
+          'saldoFondoTucan',
+          'saldoSinpesRecibidos',
+          'total',
+          'currency',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        request.resource.data.empresa is string &&
+        request.resource.data.dateKey is number &&
+        request.resource.data.fecha is string &&
+        request.resource.data.saldoPaginaTucan is number &&
+        request.resource.data.saldoFondoTucan is number &&
+        request.resource.data.saldoSinpesRecibidos is number &&
+        request.resource.data.total is number &&
+        request.resource.data.currency == 'CRC' &&
+        request.resource.data.createdAt is timestamp &&
+        request.resource.data.updatedAt is timestamp &&
+        (!request.resource.data.keys().hasAny(['empresaId']) ||
+          request.resource.data.empresaId is string) &&
+        (!request.resource.data.keys().hasAny(['createdById']) ||
+          request.resource.data.createdById is string) &&
+        (!request.resource.data.keys().hasAny(['createdByName']) ||
+          request.resource.data.createdByName is string);
+    }
+
+    match /registrotucan/{empresaId}/records/{recordId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+        isRegistroTucanRecord() &&
+        request.resource.data.empresaId == empresaId;
+      allow update, delete: if isAdmin();
+    }
     
     // Otras reglas existentes...
     match /{document=**} {

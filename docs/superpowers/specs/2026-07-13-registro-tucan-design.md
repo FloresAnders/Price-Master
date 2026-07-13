@@ -13,7 +13,7 @@ Add a Registro Tucan section that records a dated snapshot with:
 total = saldoPaginaTucan + saldoFondoTucan + saldoSinpesRecibidos
 ```
 
-Records are stored in Firestore collection `registrotucan`.
+Records are stored by company under `registrotucan/{empresaId}/records`.
 
 ## Scope
 
@@ -33,7 +33,7 @@ Not included:
 
 ## Data Model
 
-Collection: `registrotucan`
+Collection path: `registrotucan/{empresaId}/records`
 
 Record fields:
 
@@ -60,7 +60,7 @@ Record fields:
 4. Page loads Fondo Tucan balance from `MovimientosFondos`.
 5. User enters date, saldo pagina Tucan, and SINPEs recibidos.
 6. UI calculates total live.
-7. Save writes one record to `registrotucan`.
+7. Save writes one record to `registrotucan/{empresaId}/records`.
 8. Recent records reload and display newest first.
 
 ## UI
@@ -98,5 +98,5 @@ Manual checks:
 
 - User with `registroTucan` sees card and page.
 - User without `registroTucan` cannot open via hash.
-- Save creates a `registrotucan` doc with correct total.
+- Save creates a `registrotucan/{empresaId}/records` doc with correct total.
 - Fondo Tucan balance is separate from manual Tucan page balance.
