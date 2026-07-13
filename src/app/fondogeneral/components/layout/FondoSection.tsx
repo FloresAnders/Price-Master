@@ -772,7 +772,7 @@ export function FondoSection({
   } = useMovementForm({ mode, fondoEntries });
   const { superAdminUsers, superAdminUsersLoading } = useSuperAdminUsers(
     Boolean(isSuperAdminUser),
-    editingEntryId,
+    movementModalOpen || Boolean(editingEntryId),
   );
 
   const [entriesHydrated, setEntriesHydrated] = useState(false);
@@ -1018,21 +1018,18 @@ export function FondoSection({
   const isEgreso = isEgresoType(paymentType) || isGastoType(paymentType);
 
   // Superadmin: when creating a movement, auto-assign the manager to themselves.
-
-  // Superadmin: when creating a movement, auto-assign the manager to themselves.
   useEffect(() => {
     if (!isSuperAdminUser) return;
     if (!movementModalOpen) return;
     if (editingEntryId) return;
+    if (manager.trim()) return;
 
     const fallback = (user?.email || "").trim();
     const name = (user?.name || "").trim() || fallback;
     if (!name) return;
 
-    if (manager !== name) {
-      setManager(name);
-      setManagerError("");
-    }
+    setManager(name);
+    setManagerError("");
   }, [
     isSuperAdminUser,
     movementModalOpen,
@@ -1043,8 +1040,8 @@ export function FondoSection({
   ]);
 
   const employeeOptions = useMemo(() => {
-    // Superadmin + editing: allow selecting ANY user.
-    if (isSuperAdminUser && editingEntryId) {
+    // Superadmin: allow selecting any user while keeping self/current value visible.
+    if (isSuperAdminUser) {
       const unique = new Set<string>();
       const push = (value: unknown) => {
         const name = String(value || "").trim();
@@ -1052,6 +1049,7 @@ export function FondoSection({
       };
 
       superAdminUsers.forEach((u) => push(u?.name));
+      companyEmployees.forEach(push);
       // Ensure self is always selectable even if name doesn't exist in DB
       push(user?.name);
       push(user?.email);
@@ -1088,7 +1086,6 @@ export function FondoSection({
     companyEmployees,
     user,
     isSuperAdminUser,
-    editingEntryId,
     superAdminUsers,
     manager,
   ]);
@@ -3536,7 +3533,7 @@ export function FondoSection({
     setInvoiceNumber(value.replace(/\D/g, "").slice(0, 4));
     setInvoiceError(""); // Clear error when user starts typing
   };
-  const managerOptionsLoading = Boolean(isSuperAdminUser && editingEntryId)
+  const managerOptionsLoading = Boolean(isSuperAdminUser)
     ? superAdminUsersLoading
     : employeesLoading;
 
@@ -3547,9 +3544,7 @@ export function FondoSection({
     (isRegularUser &&
       accountKey === "FondoGeneral" &&
       namespace === "fg" &&
-      managerLockedByShift) ||
-    // Superadmin: manager is auto-assigned when creating.
-    (Boolean(isSuperAdminUser) && !editingEntryId);
+      managerLockedByShift);
   const invoiceDisabled = !company || isInvoiceAutoDateLocked;
   const egresoBorderClass = amountClass(
     isEgreso,

@@ -9,7 +9,7 @@ interface UseSuperAdminUsersResult {
 
 export function useSuperAdminUsers(
   isSuperAdminUser: boolean,
-  editingEntryId: string | null,
+  shouldLoadUsers: boolean,
 ): UseSuperAdminUsersResult {
   const [superAdminUsers, setSuperAdminUsers] = useState<User[]>([]);
   const [superAdminUsersLoading, setSuperAdminUsersLoading] = useState(false);
@@ -17,7 +17,7 @@ export function useSuperAdminUsers(
   useEffect(() => {
     let isActive = true;
 
-    if (!isSuperAdminUser || !editingEntryId) {
+    if (!isSuperAdminUser || !shouldLoadUsers) {
       setSuperAdminUsers([]);
       setSuperAdminUsersLoading(false);
       return () => {
@@ -46,7 +46,7 @@ export function useSuperAdminUsers(
     return () => {
       isActive = false;
     };
-  }, [isSuperAdminUser, editingEntryId]);
+  }, [isSuperAdminUser, shouldLoadUsers]);
 
   return { superAdminUsers, superAdminUsersLoading };
 }
