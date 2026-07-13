@@ -17,6 +17,8 @@ import {
 interface NotificationModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSolicitudesSeen?: () => void;
+  onClosingExtensionsSeen?: () => void;
   // keep onSave optional for API compatibility, but unused here
   onSave?: (payload: {
     title: string;
@@ -27,6 +29,8 @@ interface NotificationModalProps {
 export default function NotificationModal({
   isOpen,
   onClose,
+  onSolicitudesSeen,
+  onClosingExtensionsSeen,
 }: NotificationModalProps) {
   const { user } = useAuth();
   const [solicitudes, setSolicitudes] = useState<any[]>([]);
@@ -93,7 +97,7 @@ export default function NotificationModal({
         ).trim();
         const [rows, extensionRows, responseRows] = await Promise.all([
           company
-            ? SolicitudesService.getSolicitudesByEmpresa(company, 200)
+            ? SolicitudesService.getPendingSolicitudesByEmpresa(company, 200)
             : Promise.resolve([]),
           canManageClosingExtensions
             ? company
@@ -108,14 +112,14 @@ export default function NotificationModal({
               )
             : Promise.resolve([]),
         ]);
-        // Only show solicitudes that are not marked 'listo'
-        const visible = (rows || []).filter((r: any) => !r?.listo);
         const unseenResponses = responseRows.filter(
           (item) => !item.responseSeenAt,
         );
-        setSolicitudes(visible);
+        setSolicitudes(rows || []);
         setClosingExtensions(extensionRows);
         setClosingExtensionResponses(unseenResponses);
+        onSolicitudesSeen?.();
+        onClosingExtensionsSeen?.();
         setExtensionDrafts(
           extensionRows.reduce<
             Record<string, { extraMinutes: string; expiresAt: string }>
@@ -141,7 +145,7 @@ export default function NotificationModal({
     };
 
     load();
-  }, [isOpen, user]);
+  }, [isOpen, onClosingExtensionsSeen, onSolicitudesSeen, user]);
 
   const handleApproveClosingExtension = async (
     item: ClosingTimeExtensionRecord,

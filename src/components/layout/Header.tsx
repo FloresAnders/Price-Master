@@ -38,7 +38,7 @@ import {
   ReceiptText,
 } from "lucide-react";
 import { CustomIcon } from "@/icons/icons";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import QRCode from "qrcode";
 import {
   collection,
@@ -53,6 +53,7 @@ import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../../hooks/useAuth";
 import { TokenService } from "../../services/tokenService";
+import { SolicitudesService } from "@/services/solicitudes";
 //import { ThemeToggle } from "./ThemeToggle";
 import { safeLocalStorage, safeWindow } from "../../utils/client";
 import { getDefaultPermissions } from "../../utils/permissions";
@@ -155,6 +156,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const initializedSolicitudesRef = useRef(false);
   const knownSolicitudesRef = useRef<Set<string>>(new Set());
+  const seenSolicitudesRef = useRef<Set<string>>(new Set());
   const initializedClosingExtensionsRef = useRef(false);
   const knownClosingExtensionsRef = useRef<Set<string>>(new Set());
   const initializedClosingExtensionResponsesRef = useRef(false);
@@ -163,6 +165,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     if (typeof window === "undefined") return "";
     return window.location.hash || "";
   });
+  const handleSolicitudesSeen = useCallback(() => {
+    knownSolicitudesRef.current.forEach((id) => seenSolicitudesRef.current.add(id));
+    setHasNewSolicitudes(false);
+  }, []);
+  const handleClosingExtensionsSeen = useCallback(() => {
+    setHasNewClosingExtensions(false);
+  }, []);
 
   const isClient = typeof window !== "undefined";
 
@@ -327,25 +336,21 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     }
 
     knownSolicitudesRef.current = new Set();
+    seenSolicitudesRef.current = new Set();
     initializedSolicitudesRef.current = false;
 
     try {
-      const q = fbQuery(
-        collection(db, "solicitudes"),
-        fbWhere("empresa", "==", company),
-        fbOrderBy("createdAt", "desc"),
-        fbLimit(50),
-      );
-
-      const handleSolicitudesUpdate = (docs: any[]) => {
-        const safeDocs = Array.isArray(docs) ? docs : [];
-        const pendingDocs = safeDocs.filter((doc) => !doc?.listo);
+      const handleSolicitudesUpdate = (pendingDocs: any[]) => {
+        const safeDocs = Array.isArray(pendingDocs) ? pendingDocs : [];
 
         if (initializedSolicitudesRef.current) {
           const previousIds = knownSolicitudesRef.current;
-          const hasNewPending = pendingDocs.some((doc) => {
+          const seenIds = seenSolicitudesRef.current;
+          const hasNewPending = safeDocs.some((doc) => {
             const id = doc?.id;
-            return typeof id === "string" && !previousIds.has(id);
+            return (
+              typeof id === "string" && !previousIds.has(id) && !seenIds.has(id)
+            );
           });
 
           if (hasNewPending) {
@@ -372,30 +377,23 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         }
 
         knownSolicitudesRef.current = new Set(
-          pendingDocs
+          safeDocs
             .map((doc) => doc?.id)
             .filter((id): id is string => typeof id === "string"),
         );
         initializedSolicitudesRef.current = true;
 
-        setHasNewSolicitudes(pendingDocs.length > 0);
+        setHasNewSolicitudes(
+          safeDocs.some((doc) => {
+            const id = doc?.id;
+            return typeof id === "string" && !seenSolicitudesRef.current.has(id);
+          }),
+        );
       };
 
-      const unsubscribe = onSnapshot(
-        q,
-        async (snapshot) => {
-          try {
-            if (!snapshot || snapshot.empty) {
-              handleSolicitudesUpdate([]);
-              return;
-            }
-
-            const docs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-            handleSolicitudesUpdate(docs);
-          } catch (err) {
-            console.error("Error in solicitudes onSnapshot handler:", err);
-          }
-        },
+      const unsubscribe = SolicitudesService.subscribePendingSolicitudesByEmpresa(
+        company,
+        handleSolicitudesUpdate,
         (err) => {
           console.error("onSnapshot error for solicitudes:", err);
         },
@@ -1522,6 +1520,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       <NotificationModal
         isOpen={showNotifModal}
         onClose={() => setShowNotifModal(false)}
+        onSolicitudesSeen={handleSolicitudesSeen}
+        onClosingExtensionsSeen={handleClosingExtensionsSeen}
         onSave={async () => {
           // Default behaviour for now: just log the payload. You can replace with any action.
         }}

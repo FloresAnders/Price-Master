@@ -1,6 +1,35 @@
 import { FirestoreService } from "./firestore";
-import { doc, writeBatch } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  where,
+  writeBatch,
+  type Unsubscribe,
+} from "firebase/firestore";
 import { db } from "@/config/firebase";
+
+export const normalizeSolicitudEmpresaKey = (empresa: string) =>
+  String(empresa || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+const sortByCreatedAtDesc = (rows: any[]) =>
+  [...rows].sort((a, b) => {
+    const getTime = (value: any) => {
+      if (!value) return 0;
+      if (typeof value?.seconds === "number") return value.seconds * 1000;
+      const parsed = new Date(value).getTime();
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+    return getTime(b?.createdAt) - getTime(a?.createdAt);
+  });
 
 export class SolicitudesService {
   private static readonly COLLECTION_NAME = "solicitudes";
@@ -34,6 +63,7 @@ export class SolicitudesService {
     const doc = {
       productName: payload.productName,
       empresa: payload.empresa,
+      empresaKey: normalizeSolicitudEmpresaKey(payload.empresa),
       createdAt: new Date(),
       listo: false,
     };
@@ -49,7 +79,11 @@ export class SolicitudesService {
     data: Partial<Record<string, any>>,
   ): Promise<void> {
     try {
-      await FirestoreService.update(this.COLLECTION_NAME, id, data);
+      const patch = { ...data };
+      if (typeof patch.empresa === "string") {
+        patch.empresaKey = normalizeSolicitudEmpresaKey(patch.empresa);
+      }
+      await FirestoreService.update(this.COLLECTION_NAME, id, patch);
     } catch (err) {
       console.error("Error updating solicitud", id, err);
       throw err;
@@ -160,6 +194,102 @@ export class SolicitudesService {
       console.error("Error fetching solicitudes for empresa", empresa, err);
       return [];
     }
+  }
+
+  static async getPendingSolicitudesByEmpresa(
+    empresa: string,
+    limitCount = 200,
+  ): Promise<any[]> {
+    const empresaKey = normalizeSolicitudEmpresaKey(empresa);
+    if (!empresaKey) return [];
+
+    try {
+      const byKey = await FirestoreService.query(
+        this.COLLECTION_NAME,
+        [{ field: "empresaKey", operator: "==", value: empresaKey }],
+        "createdAt",
+        "desc",
+        limitCount,
+      );
+      const exact = await this.getSolicitudesByEmpresa(empresa, limitCount);
+      const merged = new Map<string, any>();
+      [...byKey, ...exact].forEach((row) => {
+        if (row?.id) merged.set(row.id, row);
+      });
+      return sortByCreatedAtDesc(
+        Array.from(merged.values()).filter((row) => !row?.listo),
+      ).slice(0, limitCount);
+    } catch (err) {
+      console.error("Error fetching pending solicitudes for empresa", empresa, err);
+      return [];
+    }
+  }
+
+  static subscribePendingSolicitudesByEmpresa(
+    empresa: string,
+    onRows: (rows: any[]) => void,
+    onError?: (error: unknown) => void,
+    limitCount = 50,
+  ): Unsubscribe {
+    const empresaKey = normalizeSolicitudEmpresaKey(empresa);
+    if (!empresaKey) {
+      onRows([]);
+      return () => {};
+    }
+
+    const expectedSources = new Set(["empresaKey", "empresa"]);
+    const initializedSources = new Set<string>();
+    const rowsBySource = new Map<string, Map<string, any>>();
+    const emit = () => {
+      if (initializedSources.size < expectedSources.size) return;
+      const merged = new Map<string, any>();
+      rowsBySource.forEach((sourceRows) => {
+        sourceRows.forEach((row, id) => merged.set(id, row));
+      });
+      onRows(
+        sortByCreatedAtDesc(
+          Array.from(merged.values()).filter((row) => !row?.listo),
+        ).slice(0, limitCount),
+      );
+    };
+
+    const subscribe = (
+      source: string,
+      field: "empresa" | "empresaKey",
+      value: string,
+    ) =>
+      onSnapshot(
+        query(
+          collection(db, this.COLLECTION_NAME),
+          where(field, "==", value),
+          orderBy("createdAt", "desc"),
+          limit(limitCount),
+        ),
+        (snapshot) => {
+          initializedSources.add(source);
+          rowsBySource.set(
+            source,
+            new Map(
+              snapshot.docs.map((item) => [
+                item.id,
+                { id: item.id, ...item.data() },
+              ]),
+            ),
+          );
+          emit();
+        },
+        (error) => {
+          console.error("onSnapshot error for solicitudes:", error);
+          onError?.(error);
+        },
+      );
+
+    const unsubscribers = [
+      subscribe("empresaKey", "empresaKey", empresaKey),
+      subscribe("empresa", "empresa", empresa),
+    ];
+
+    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
   }
 
   /**
