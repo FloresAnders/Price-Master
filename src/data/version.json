@@ -1,7 +1,7 @@
 {
-  "version": "1.8.50",
+  "version": "1.8.51",
   "versionstorage": "1.3.8",
-  "notasDeSistemas": "1.3.22",
+  "notasDeSistemas": "1.3.24",
   "releaseNotes": [
     {
       "date": "2026-07-04",
@@ -10,6 +10,24 @@
     }
   ],
   "systemNotes": [
+    {
+      "date": "2026-07-13",
+      "title": "Solicitud de tiempo para cierre de Fondo Ventas",
+      "url": "",
+      "description": "Se agrego la solicitud de tiempo extra para completar el cierre diario de Fondo Ventas. Los usuarios pueden pedir extension cuando van tarde y los administradores pueden aprobar o rechazar la solicitud con tiempo de expiracion configurable. El cierre toma en cuenta los minutos aprobados por turno y muestra notificaciones administrativas. Tambien se ajusto el bloqueo de 1 minuto para que los movimientos CIERRE_FONDO_VENTAS no queden bloqueados por el cooldown.\n"
+    },
+    {
+      "date": "2026-07-13",
+      "title": "Division del monto total en Calculadora",
+      "url": "",
+      "description": "Se agrego la opcion de dividir el precio final en la seccion Calculadora. Ahora se puede dividir el monto total y elegir el modo de redondeo para obtener montos finales mas faciles de usar..\n"
+    },
+    {
+      "date": "2026-07-13",
+      "title": "Mejoras en Cash Counter",
+      "url": "",
+      "description": "Se agrego soporte para formulas de suma y resta en la cantidad de billetes del Cash Counter. Ahora se puede escribir 5+5, =5+5, 10-3 o =10-3 y el sistema calcula la cantidad al presionar Enter, Tab, flecha abajo o al salir del campo. Tambien se mantuvo el uso de las teclas + y - para sumar o restar billetes rapidamente; Shift + permite escribir el simbolo + y Shift - permite escribir el simbolo - para formulas."
+    },
     {
       "date": "2026-07-04",
       "title": "Ajuste en cálculo de R08 y T11",

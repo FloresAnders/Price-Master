@@ -4,7 +4,7 @@ import { useRef, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PlusCircle, MinusCircle, Banknote } from "lucide-react";
 import type { CashCounterProps } from "../types";
-import { badgeColor, badgeLabel, denomsByCurrency, calcBDBreakdown, fmtCurrency, calcTotal, calcCashDifference } from "../utils";
+import { badgeColor, badgeLabel, denomsByCurrency, calcBDBreakdown, fmtCurrency, calcTotal, calcCashDifference, parseBillCountInput, getBillCountKeyAction } from "../utils";
 
 export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
   const denoms = denomsByCurrency(data.currency);
@@ -14,19 +14,39 @@ export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
   const ap = data.aperturaCaja;
   const vt = data.ventaActual;
   const [saleToAdd, setSaleToAdd] = useState("");
+  const [quantityDrafts, setQuantityDrafts] = useState<Record<number, string>>({});
   const refs = useRef<(HTMLInputElement | null)[]>([]);
 
   const ntf = (b: Record<number, number>, e: number, c: "CRC" | "USD", a?: number, v?: number) =>
     onUpdate(id, { ...data, bills: b, extraAmount: e, currency: c, aperturaCaja: a ?? data.aperturaCaja, ventaActual: v ?? data.ventaActual });
 
-  const inc = (v: number) => ntf({ ...bills, [v]: (bills[v] || 0) + 1 }, extra, cur);
+  const clearQuantityDraft = (v: number) => {
+    setQuantityDrafts((current) => {
+      if (!(v in current)) return current;
+      const next = { ...current };
+      delete next[v];
+      return next;
+    });
+  };
+
+  const inc = (v: number) => {
+    clearQuantityDraft(v);
+    ntf({ ...bills, [v]: (bills[v] || 0) + 1 }, extra, cur);
+  };
   const dec = (v: number) => {
+    clearQuantityDraft(v);
     const n = Math.max((bills[v] || 0) - 1, 0);
     ntf({ ...bills, [v]: n }, extra, cur);
   };
-  const manual = (v: number, s: string) => {
-    const p = parseInt(s.replace(/^0+/, ""), 10);
-    ntf({ ...bills, [v]: isNaN(p) || p < 0 ? 0 : p }, extra, cur);
+  const draftQuantity = (v: number, s: string) => {
+    setQuantityDrafts((current) => ({ ...current, [v]: s }));
+  };
+  const commitQuantity = (v: number) => {
+    const draft = quantityDrafts[v];
+    if (draft === undefined) return;
+    const p = parseBillCountInput(draft);
+    clearQuantityDraft(v);
+    ntf({ ...bills, [v]: p }, extra, cur);
   };
   const parseAmount = (s: string) => {
     const p = cur === "CRC"
@@ -45,10 +65,15 @@ export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
 
   const kd = (e: React.KeyboardEvent<HTMLInputElement>, i: number) => {
     const d = denoms[i];
-    if (e.key === "+" || e.key === "ArrowRight") { e.preventDefault(); inc(d.value); return; }
-    if (e.key === "-" || e.key === "ArrowLeft") { e.preventDefault(); dec(d.value); return; }
+    const keyAction = getBillCountKeyAction(e);
+    if (keyAction === "type") return;
+    if (keyAction === "increment") { e.preventDefault(); inc(d.value); return; }
+    if (keyAction === "decrement") { e.preventDefault(); dec(d.value); return; }
+    if (e.key === "ArrowRight") { e.preventDefault(); inc(d.value); return; }
+    if (e.key === "ArrowLeft") { e.preventDefault(); dec(d.value); return; }
     if (e.key === "Enter" || e.key === "Tab" || e.key === "ArrowDown") {
       e.preventDefault();
+      commitQuantity(d.value);
       if (e.shiftKey && (e.key === "Enter" || e.key === "Tab")) {
         const p = i - 1;
         refs.current[p >= 0 ? p : denoms.length - 1]?.focus();
@@ -198,8 +223,9 @@ export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
                       aria-label={`-${den.label}`}>
                       <MinusCircle className="w-[18px] h-[18px] text-rose-200" />
                     </motion.button>
-                    <input ref={(el) => { refs.current[i] = el; }} type="text" inputMode="numeric"
-                      value={cnt === 0 ? "" : String(cnt)} onChange={(e) => manual(den.value, e.target.value)}
+                    <input ref={(el) => { refs.current[i] = el; }} type="text" inputMode="text"
+                      value={quantityDrafts[den.value] ?? (cnt === 0 ? "" : String(cnt))} onChange={(e) => draftQuantity(den.value, e.target.value)}
+                      onBlur={() => commitQuantity(den.value)}
                       onKeyDown={(e) => kd(e, i)}
                       className="w-14 text-center bg-[#050816] border border-white/10 rounded-xl py-2 text-white text-sm font-semibold focus:ring-1 focus:ring-cyan-400/35 focus:border-cyan-400/35 outline-none transition-all placeholder-white/10"
                       placeholder="0" />

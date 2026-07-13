@@ -36,6 +36,32 @@ export function calcTotal(bills: BillsMap, extra: number): number {
   return Object.entries(bills).reduce((a, [d, c]) => a + Number(d) * Number(c), 0) + extra;
 }
 
+export function parseBillCountInput(input: string): number {
+  const value = input.trim().replace(/^=/, "").replace(/\s+/g, "");
+  const formula = value.match(/^(\d+(?:\.\d+)?)([+-])(\d+(?:\.\d+)?)$/);
+
+  if (formula) {
+    const left = Number(formula[1]);
+    const right = Number(formula[3]);
+    const result = formula[2] === "+" ? left + right : left - right;
+    return Math.max(0, Math.trunc(result));
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : 0;
+}
+
+export function getBillCountKeyAction(event: {
+  key: string;
+  code: string;
+  shiftKey: boolean;
+}): "increment" | "decrement" | "type" | "none" {
+  if ((event.key === "+" || event.key === "-") && event.shiftKey) return "type";
+  if (event.key === "+" || event.code === "NumpadAdd") return "increment";
+  if (event.key === "-" || event.code === "NumpadSubtract") return "decrement";
+  return "none";
+}
+
 export function calcCashDifference(total: number, aperturaCaja: number, ventaActual: number): {
   type: "sobrante" | "faltante" | "equilibrio";
   amount: number;
