@@ -2,12 +2,8 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  CalendarDays,
   Clock3,
   FileText,
-  Lock,
-  RefreshCw,
-  Save,
   TrendingUp,
   WalletCards,
 } from "lucide-react";
@@ -30,9 +26,21 @@ import {
   parseRegistroTucanAmount,
 } from "../../utils/registroTucan";
 import { getAuthoritativeNow } from "../../utils/serverTime";
+import {
+  RegistroTucanAccessDeniedState,
+  RegistroTucanLoadingState,
+  RegistroTucanMissingEmpresaState,
+} from "./registro-tucan/RegistroTucanAccessStates";
+import { RegistroTucanForm } from "./registro-tucan/RegistroTucanForm";
+import { RegistroTucanHeader } from "./registro-tucan/RegistroTucanHeader";
+import { RegistroTucanMetrics } from "./registro-tucan/RegistroTucanMetrics";
+import { RegistroTucanRecords } from "./registro-tucan/RegistroTucanRecords";
+import type {
+  EmpresaOption,
+  RegistroTucanMetricCard,
+  RegistroTucanSortOrder,
+} from "./registro-tucan/types";
 
-type RegistroTucanSortOrder = "desc" | "asc";
-type EmpresaOption = { value: string; label: string; empresa: Empresas | null };
 const REGISTRO_TUCAN_COMPANY_STORAGE_KEY = "fg_selected_company_shared";
 
 const formatCRC = (value: number) =>
@@ -453,368 +461,84 @@ export default function RegistroTucan() {
   };
 
   if (loading) {
-    return (
-      <div className="mx-auto max-w-5xl py-10 text-center text-[var(--muted-foreground)]">
-        Cargando...
-      </div>
-    );
+    return <RegistroTucanLoadingState />;
   }
 
   if (!hasPermission) {
-    return (
-      <div className="mx-auto max-w-3xl rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-8 text-center">
-        <Lock className="mx-auto mb-4 h-10 w-10 text-[var(--muted-foreground)]" />
-        <h2 className="text-xl font-semibold text-[var(--foreground)]">
-          Acceso restringido
-        </h2>
-        <p className="mt-2 text-[var(--muted-foreground)]">
-          No tienes permisos para acceder a Registro Tucan.
-        </p>
-      </div>
-    );
+    return <RegistroTucanAccessDeniedState />;
   }
 
   if (!empresa && !empresaLoading) {
-    return (
-      <div className="mx-auto max-w-3xl rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-8 text-center">
-        <h2 className="text-xl font-semibold text-[var(--foreground)]">
-          Empresa requerida
-        </h2>
-        <p className="mt-2 text-[var(--muted-foreground)]">
-          Tu usuario no tiene empresa asignada.
-        </p>
-      </div>
-    );
+    return <RegistroTucanMissingEmpresaState />;
   }
 
   const saveDisabled =
     saving || balanceLoading || serverTimeLoading || empresaLoading || !fecha || !hora;
   const dateTimeValue = fecha && hora ? `${fecha.split("-").reverse().join("/")}  ${hora}` : "";
-  const metricCards = [
+  const metricCards: RegistroTucanMetricCard[] = [
     {
       label: "Saldo página Tucan",
       value: saldoPaginaTucan,
       icon: FileText,
-      color: "text-[var(--primary)] bg-[var(--muted)] border-[var(--input-border)]",
     },
     {
       label: "Saldo Fondo Tucan",
       value: saldoFondoTucan,
       icon: WalletCards,
-      color: "text-[var(--primary)] bg-[var(--muted)] border-[var(--input-border)]",
     },
     {
       label: "Pagos hoy",
       value: pagosHoy,
       icon: TrendingUp,
-      color: "text-[var(--success)] bg-[var(--muted)] border-[var(--input-border)]",
     },
     {
       label: "Total",
       value: total,
       icon: Clock3,
-      color: "text-[var(--accent)] bg-[var(--muted)] border-[var(--input-border)]",
     },
   ];
-  const fieldBase =
-    "h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)]";
-  const sectionClass =
-    "rounded-xl border border-cyan-700/25 bg-cyan-950/10 p-3 sm:p-4";
-  const labelClass =
-    "mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-cyan-100/70";
-  const iconBoxClass =
-    "flex h-7 w-7 items-center justify-center rounded border border-cyan-700/35 bg-cyan-900/25 text-cyan-100/80";
-  const saveButtonClass =
-    "inline-flex h-11 min-w-[148px] items-center justify-center gap-2 rounded border border-cyan-400/45 bg-cyan-500/20 px-5 text-sm font-semibold text-cyan-50 shadow-sm shadow-cyan-950/20 transition-all duration-150 hover:-translate-y-0.5 hover:border-cyan-300/70 hover:bg-cyan-500/30 hover:shadow-md hover:shadow-cyan-950/30 active:translate-y-0 active:scale-[0.99] disabled:cursor-not-allowed disabled:translate-y-0 disabled:border-[var(--input-border)] disabled:bg-cyan-950/15 disabled:text-[var(--muted-foreground)] disabled:opacity-60";
-
   return (
     <div className="mx-auto max-w-6xl space-y-4">
-      <div className="flex flex-col gap-3 border-l-4 border-cyan-500/60 pl-5 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[var(--foreground)]">
-            Registro Tucan
-          </h1>
-          <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-            {empresaLoading ? "Cargando empresas..." : empresa || "Sin empresa"}
-          </p>
-        </div>
-        {(canSelectEmpresa || empresaOptions.length > 1) && (
-          <div className="flex w-full min-w-0 flex-col gap-3 text-sm text-[var(--foreground)] md:max-w-md xl:flex-row xl:items-end xl:gap-4">
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] uppercase tracking-wide text-[var(--muted-foreground)]">
-                Empresa actual
-              </p>
-              <p
-                className="truncate text-sm font-semibold text-[var(--foreground)]"
-                title={currentEmpresaLabel}
-              >
-                {empresaLoading ? "Cargando empresas..." : currentEmpresaLabel}
-              </p>
-            </div>
-            <select
-              className="w-full min-w-0 max-w-full truncate rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/60 focus:border-[var(--accent)] xl:flex-1"
-              value={selectedEmpresa}
-              onChange={(event) => handleEmpresaChange(event.target.value)}
-              disabled={empresaLoading || saving || empresaOptions.length === 0}
-            >
-              {empresaLoading ? (
-                <option value="">Cargando empresas...</option>
-              ) : empresaOptions.length === 0 ? (
-                <option value="">Sin empresas</option>
-              ) : (
-                <>
-                  <option value="" disabled hidden>
-                    Selecciona una empresa
-                  </option>
-                  {empresaOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </>
-              )}
-            </select>
-          </div>
-        )}
-      </div>
+      <RegistroTucanHeader
+        empresa={empresa}
+        empresaLoading={empresaLoading}
+        canSelectEmpresa={canSelectEmpresa}
+        empresaOptions={empresaOptions}
+        selectedEmpresa={selectedEmpresa}
+        currentEmpresaLabel={currentEmpresaLabel}
+        saving={saving}
+        onEmpresaChange={handleEmpresaChange}
+      />
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-        {metricCards.map(({ label, value, icon: Icon }) => (
-          <div
-            key={label}
-            className={sectionClass}
-          >
-            <div className="flex items-center gap-3">
-            <div className={iconBoxClass}>
-              <Icon className="h-4 w-4" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-[var(--muted-foreground)]">{label}</p>
-              <p className="mt-2 text-xl font-bold text-[var(--foreground)]">
-                {formatCRC(value)}
-              </p>
-            </div>
-            </div>
-          </div>
-        ))}
-      </div>
+      <RegistroTucanMetrics cards={metricCards} formatCRC={formatCRC} />
 
-      <form
-        className={sectionClass}
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!saveDisabled) void handleSave();
-        }}
-      >
-        <div className="mb-7 flex items-center gap-4">
-          <div className={iconBoxClass}>
-            <CalendarDays className="h-4 w-4" />
-          </div>
-          <div>
-            <h2 className="text-base font-bold text-[var(--foreground)]">Nuevo registro</h2>
-            <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-              Complete la información para registrar el movimiento.
-            </p>
-          </div>
-        </div>
+      <RegistroTucanForm
+        dateTimeValue={dateTimeValue}
+        serverTimeLoading={serverTimeLoading}
+        saldoPaginaTucanInput={saldoPaginaTucanInput}
+        pagosHoyInput={pagosHoyInput}
+        saldoFondoTucan={saldoFondoTucan}
+        balanceLoading={balanceLoading}
+        saveDisabled={saveDisabled}
+        saving={saving}
+        error={error}
+        formatCRC={formatCRC}
+        formatInputDisplay={formatInputDisplay}
+        sanitizeAmountInput={sanitizeAmountInput}
+        onSaldoPaginaChange={setSaldoPaginaTucanInput}
+        onPagosHoyChange={setPagosHoyInput}
+        onRefreshBalance={() => void loadTucanBalance()}
+        onSubmit={() => void handleSave()}
+      />
 
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.15fr_1fr_1fr_1.15fr]">
-          <label>
-            <span className={labelClass}>
-              Fecha y hora
-            </span>
-            <div className={`flex items-center ${fieldBase}`}>
-              {serverTimeLoading ? "Cargando hora servidor..." : dateTimeValue}
-            </div>
-          </label>
-
-          <label>
-            <span className={labelClass}>
-              Saldo página Tucan
-            </span>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={formatInputDisplay(saldoPaginaTucanInput)}
-              onChange={(e) =>
-                setSaldoPaginaTucanInput(sanitizeAmountInput(e.target.value))
-              }
-              placeholder={formatCRC(0)}
-              className={`${fieldBase} text-lg font-semibold`}
-            />
-          </label>
-
-          <label>
-            <span className={labelClass}>
-              Pagos hoy
-            </span>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={formatInputDisplay(pagosHoyInput)}
-              onChange={(e) =>
-                setPagosHoyInput(sanitizeAmountInput(e.target.value))
-              }
-              placeholder={formatCRC(0)}
-              className={`${fieldBase} text-lg font-semibold`}
-            />
-          </label>
-
-          <label>
-            <span className={labelClass}>
-              Fondo Tucan
-            </span>
-            <div className="flex gap-2">
-              <input
-                value={balanceLoading ? "Cargando..." : formatCRC(saldoFondoTucan)}
-                readOnly
-                className={`${fieldBase} font-semibold`}
-              />
-              <button
-                type="button"
-                onClick={() => void loadTucanBalance()}
-                disabled={balanceLoading}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded border border-cyan-700/35 bg-cyan-950/25 text-cyan-100/80 transition-colors hover:border-cyan-500/45 hover:bg-cyan-900/25 disabled:opacity-50"
-                title="Actualizar saldo Fondo Tucan"
-                aria-label="Actualizar saldo Fondo Tucan"
-              >
-                <RefreshCw className={`h-4 w-4 ${balanceLoading ? "animate-spin" : ""}`} />
-              </button>
-            </div>
-          </label>
-        </div>
-
-        {error && (
-          <p className="mt-4 text-sm text-[var(--error)]">
-            {error}
-          </p>
-        )}
-
-        <div className="mt-7 flex justify-end">
-          <button
-            type="submit"
-            disabled={saveDisabled}
-            className={saveButtonClass}
-          >
-            <Save className="h-4 w-4" />
-            {saving ? "Guardando..." : "Guardar"}
-          </button>
-        </div>
-      </form>
-
-      <section className={sectionClass}>
-        <div className="mb-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className={iconBoxClass}>
-              <Clock3 className="h-4 w-4" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold text-[var(--foreground)]">
-                Registros recientes
-              </h2>
-              <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-                Aquí se mostrarán los registros guardados.
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <div
-              className="inline-flex rounded-full border border-cyan-700/35 bg-cyan-950/25 p-1"
-              aria-label="Ordenar registros"
-            >
-              <button
-                type="button"
-                onClick={() => setSortOrder("asc")}
-                className={`rounded-full px-3 py-1 text-xs transition ${
-                  sortOrder === "asc"
-                    ? "bg-cyan-400 text-slate-950"
-                    : "text-cyan-100/60 hover:text-cyan-50"
-                }`}
-                aria-pressed={sortOrder === "asc"}
-              >
-                Más antiguo
-              </button>
-              <button
-                type="button"
-                onClick={() => setSortOrder("desc")}
-                className={`rounded-full px-3 py-1 text-xs transition ${
-                  sortOrder === "desc"
-                    ? "bg-cyan-400 text-slate-950"
-                    : "text-cyan-100/60 hover:text-cyan-50"
-                }`}
-                aria-pressed={sortOrder === "desc"}
-              >
-                Más reciente
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={() => void loadRecentRecords()}
-              disabled={recordsLoading}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded border border-[var(--input-border)] px-4 text-sm font-semibold text-[var(--foreground)] transition-all duration-150 hover:border-cyan-500/45 hover:bg-cyan-950/25 active:scale-[0.99] disabled:opacity-50"
-            >
-              <RefreshCw className={`h-4 w-4 ${recordsLoading ? "animate-spin" : ""}`} />
-              Actualizar
-            </button>
-          </div>
-        </div>
-
-        {recordsLoading ? (
-          <p className="text-sm text-[var(--muted-foreground)]">Cargando...</p>
-        ) : sortedRecords.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--card-bg)]/60 px-4 py-6 text-center text-sm text-[var(--muted-foreground)]">
-            No hay registros guardados.
-          </p>
-        ) : (
-          <div className="relative overflow-hidden rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/80 text-white shadow-sm">
-            <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] border-separate border-spacing-0 text-xs sm:text-sm">
-              <thead className="sticky top-0 z-10 bg-cyan-950/35 text-xs uppercase tracking-wide text-cyan-50/80">
-                <tr>
-                  <th className="py-2 pr-3">Fecha</th>
-                  <th className="py-2 pr-3">Hora</th>
-                  <th className="py-2 pr-3">Página Tucan</th>
-                  <th className="py-2 pr-3">Fondo Tucan</th>
-                  <th className="py-2 pr-3">pagosHoy</th>
-                  <th className="py-2 pr-3">Total</th>
-                  <th className="py-2 pr-3">Usuario</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedRecords.map((record) => (
-                  <tr
-                    key={record.id}
-                    className="transition-colors hover:bg-[var(--muted)]/35 [&>td]:border-b [&>td]:border-cyan-900/35"
-                  >
-                    <td className="px-3 py-2 text-[var(--foreground)]">
-                      {record.fecha}
-                    </td>
-                    <td className="px-3 py-2 text-[var(--foreground)]">
-                      {record.hora || "-"}
-                    </td>
-                    <td className="px-3 py-2 text-[var(--foreground)]">
-                      {formatCRC(record.saldoPaginaTucan)}
-                    </td>
-                    <td className="px-3 py-2 text-[var(--foreground)]">
-                      {formatCRC(record.saldoFondoTucan)}
-                    </td>
-                    <td className="px-3 py-2 text-[var(--foreground)]">
-                      {formatCRC(record.pagosHoy ?? record.saldoSinpesRecibidos)}
-                    </td>
-                    <td className="px-3 py-2 font-semibold text-[var(--foreground)]">
-                      {formatCRC(record.total)}
-                    </td>
-                    <td className="px-3 py-2 text-[var(--muted-foreground)]">
-                      {record.createdByName || "-"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </div>
-          </div>
-        )}
-      </section>
+      <RegistroTucanRecords
+        records={sortedRecords}
+        recordsLoading={recordsLoading}
+        sortOrder={sortOrder}
+        onSortOrderChange={setSortOrder}
+        onRefresh={() => void loadRecentRecords()}
+        formatCRC={formatCRC}
+      />
     </div>
   );
 }
