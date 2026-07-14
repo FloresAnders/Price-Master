@@ -12,6 +12,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
+import { useActorOwnership } from "../../hooks/useActorOwnership";
 import useToast from "../../hooks/useToast";
 import { getDefaultPermissions } from "../../utils/permissions";
 import {
@@ -31,6 +32,8 @@ import {
 import { getAuthoritativeNow } from "../../utils/serverTime";
 
 type RegistroTucanSortOrder = "desc" | "asc";
+type EmpresaOption = { value: string; label: string; empresa: Empresas | null };
+const REGISTRO_TUCAN_COMPANY_STORAGE_KEY = "fg_selected_company_shared";
 
 const formatCRC = (value: number) =>
   new Intl.NumberFormat("es-CR", {
@@ -48,8 +51,24 @@ const resolveTucanBalance = (ledger: MovementStorage | null): number => {
 
 const normalizeKey = (value: unknown) => String(value || "").trim().toLowerCase();
 
+const getEmpresaValue = (empresa: Empresas | null | undefined) =>
+  String(empresa?.name || empresa?.ubicacion || empresa?.id || "").trim();
+
+const getEmpresaLabel = (empresa: Empresas | null | undefined) => {
+  const name = String(empresa?.name || "").trim();
+  const ubicacion = String(empresa?.ubicacion || "").trim();
+  if (name && ubicacion && normalizeKey(name) !== normalizeKey(ubicacion)) {
+    return `${name} - ${ubicacion}`;
+  }
+  return name || ubicacion || String(empresa?.id || "Empresa").trim();
+};
+
+const getEmpresaCandidates = (empresa: Empresas | null | undefined) =>
+  [empresa?.id, empresa?.name, empresa?.ubicacion].map(normalizeKey).filter(Boolean);
+
 export default function RegistroTucan() {
   const { user, loading } = useAuth();
+  const { ownerIds } = useActorOwnership(user || {});
   const { showToast } = useToast();
   const [fecha, setFecha] = useState(() =>
     formatRegistroTucanDateInput(new Date()),
@@ -60,19 +79,42 @@ export default function RegistroTucan() {
   const [saldoFondoTucan, setSaldoFondoTucan] = useState(0);
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [recordsLoading, setRecordsLoading] = useState(false);
-  const [empresaLoading, setEmpresaLoading] = useState(false);
+  const [empresaLoading, setEmpresaLoading] = useState(true);
   const [serverTimeLoading, setServerTimeLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [records, setRecords] = useState<RegistroTucanRecord[]>([]);
   const [sortOrder, setSortOrder] = useState<RegistroTucanSortOrder>("desc");
-  const [empresaConfig, setEmpresaConfig] = useState<Empresas | null>(null);
+  const [empresaOptions, setEmpresaOptions] = useState<EmpresaOption[]>([]);
+  const [selectedEmpresa, setSelectedEmpresa] = useState("");
 
   const resolvedPermissions = user
     ? user.permissions || getDefaultPermissions(user.role || "user")
     : null;
   const hasPermission = Boolean(resolvedPermissions?.registroTucan);
-  const empresa = String(user?.ownercompanie || "").trim();
+  const assignedEmpresa = String(user?.ownercompanie || "").trim();
+  const canSelectEmpresa = user?.role === "admin" || user?.role === "superadmin";
+  const empresa = selectedEmpresa.trim();
+  const empresaConfig = useMemo(() => {
+    const selectedKey = normalizeKey(selectedEmpresa);
+    return (
+      empresaOptions.find(
+        (item) =>
+          normalizeKey(item.value) === selectedKey ||
+          getEmpresaCandidates(item.empresa).includes(selectedKey),
+      )?.empresa || null
+    );
+  }, [empresaOptions, selectedEmpresa]);
+  const currentEmpresaLabel = useMemo(() => {
+    if (!empresa) return "Sin empresa seleccionada";
+    const selectedKey = normalizeKey(empresa);
+    const match = empresaOptions.find(
+      (item) =>
+        normalizeKey(item.value) === selectedKey ||
+        getEmpresaCandidates(item.empresa).includes(selectedKey),
+    );
+    return match ? match.label.split(" - ")[0] : empresa;
+  }, [empresa, empresaOptions]);
   const { resolveShiftManagerForNow } = useShiftScheduleResolver({
     company: empresa,
     empresa: empresaConfig,
@@ -155,8 +197,32 @@ export default function RegistroTucan() {
     [inputFormatterCRC, sanitizeAmountInput],
   );
 
+  const handleEmpresaChange = useCallback(
+    (value: string) => {
+      const previousValue = selectedEmpresa;
+      setSelectedEmpresa(value);
+      try {
+        localStorage.setItem(REGISTRO_TUCAN_COMPANY_STORAGE_KEY, value);
+        window.dispatchEvent(
+          new StorageEvent("storage", {
+            key: REGISTRO_TUCAN_COMPANY_STORAGE_KEY,
+            newValue: value,
+            oldValue: previousValue,
+            storageArea: localStorage,
+          }),
+        );
+      } catch (err) {
+        console.error("Error saving Registro Tucan empresa:", err);
+      }
+    },
+    [selectedEmpresa],
+  );
+
   const loadRecentRecords = useCallback(async () => {
-    if (!empresa || !hasPermission) return;
+    if (!empresa || !hasPermission) {
+      setRecords([]);
+      return;
+    }
     setRecordsLoading(true);
     try {
       const recent = await RegistroTucanService.getRecentRecords(empresa, 20);
@@ -170,7 +236,10 @@ export default function RegistroTucan() {
   }, [empresa, hasPermission]);
 
   const loadTucanBalance = useCallback(async () => {
-    if (!empresa || !hasPermission) return;
+    if (!empresa || !hasPermission) {
+      setSaldoFondoTucan(0);
+      return;
+    }
     setBalanceLoading(true);
     setError("");
     try {
@@ -191,8 +260,9 @@ export default function RegistroTucan() {
   }, [loadTucanBalance, loadRecentRecords]);
 
   useEffect(() => {
-    if (!empresa || !hasPermission) {
-      setEmpresaConfig(null);
+    if (!user || !hasPermission) {
+      setEmpresaOptions([]);
+      setSelectedEmpresa("");
       setEmpresaLoading(false);
       return;
     }
@@ -202,18 +272,81 @@ export default function RegistroTucan() {
     EmpresasService.getAllEmpresas()
       .then((empresas) => {
         if (cancelled) return;
-        const target = normalizeKey(empresa);
-        const match =
-          empresas.find((item) =>
-            [item.id, item.name, item.ubicacion].some(
-              (value) => normalizeKey(value) === target,
-            ),
-          ) || null;
-        setEmpresaConfig(match);
+
+        const assignedKey = normalizeKey(assignedEmpresa);
+        const ownerSet = new Set(ownerIds.map((id) => String(id).trim()).filter(Boolean));
+        const filtered =
+          user.role === "superadmin"
+            ? empresas
+            : user.role === "admin"
+              ? empresas.filter((item) => {
+                  const owner = String(item.ownerId || "").trim();
+                  return owner.length > 0 && ownerSet.has(owner);
+                })
+              : empresas.filter((item) =>
+                  getEmpresaCandidates(item).includes(assignedKey),
+                );
+
+        const mapped: EmpresaOption[] = filtered.reduce<EmpresaOption[]>(
+          (acc, item) => {
+            const value = getEmpresaValue(item);
+            if (!value) return acc;
+            acc.push({
+              value,
+              label: getEmpresaLabel(item),
+              empresa: item,
+            });
+            return acc;
+          },
+          [],
+        );
+
+        const fallback: EmpresaOption[] =
+          assignedEmpresa && mapped.length === 0
+            ? [{ value: assignedEmpresa, label: assignedEmpresa, empresa: null }]
+            : [];
+        const nextOptions = mapped.length > 0 ? mapped : fallback;
+
+        setEmpresaOptions(nextOptions);
+        setSelectedEmpresa((current) => {
+          const currentKey = normalizeKey(current);
+          const storedEmpresa =
+            typeof window !== "undefined"
+              ? window.localStorage.getItem(REGISTRO_TUCAN_COMPANY_STORAGE_KEY) || ""
+              : "";
+          const storedKey = normalizeKey(storedEmpresa);
+          const assignedOption = assignedKey
+            ? nextOptions.find((item) =>
+                getEmpresaCandidates(item.empresa).includes(assignedKey),
+              )
+            : undefined;
+          const storedOption = storedKey
+            ? nextOptions.find(
+                (item) =>
+                  normalizeKey(item.value) === storedKey ||
+                  getEmpresaCandidates(item.empresa).includes(storedKey),
+              )
+            : undefined;
+          const currentExists =
+            currentKey &&
+            nextOptions.some(
+              (item) =>
+                normalizeKey(item.value) === currentKey ||
+                getEmpresaCandidates(item.empresa).includes(currentKey),
+            );
+          if (currentExists) return current;
+          if (storedOption) return storedOption.value;
+          return assignedOption?.value || nextOptions[0]?.value || "";
+        });
       })
       .catch((err) => {
-        console.error("Error loading Registro Tucan empresa:", err);
-        if (!cancelled) setEmpresaConfig(null);
+        console.error("Error loading Registro Tucan empresas:", err);
+        if (cancelled) return;
+        const fallback = assignedEmpresa
+          ? [{ value: assignedEmpresa, label: assignedEmpresa, empresa: null }]
+          : [];
+        setEmpresaOptions(fallback);
+        setSelectedEmpresa(fallback[0]?.value || "");
       })
       .finally(() => {
         if (!cancelled) setEmpresaLoading(false);
@@ -222,7 +355,7 @@ export default function RegistroTucan() {
     return () => {
       cancelled = true;
     };
-  }, [empresa, hasPermission]);
+  }, [assignedEmpresa, hasPermission, ownerIds, user]);
 
   const refreshServerDateTime = useCallback(async () => {
     setServerTimeLoading(true);
@@ -341,7 +474,7 @@ export default function RegistroTucan() {
     );
   }
 
-  if (!empresa) {
+  if (!empresa && !empresaLoading) {
     return (
       <div className="mx-auto max-w-3xl rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-8 text-center">
         <h2 className="text-xl font-semibold text-[var(--foreground)]">
@@ -396,13 +529,53 @@ export default function RegistroTucan() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
-      <div className="border-l-4 border-cyan-500/60 pl-5">
-        <h1 className="text-2xl font-bold tracking-tight text-[var(--foreground)]">
-          Registro Tucan
-        </h1>
-        <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-          {empresa}
-        </p>
+      <div className="flex flex-col gap-3 border-l-4 border-cyan-500/60 pl-5 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-[var(--foreground)]">
+            Registro Tucan
+          </h1>
+          <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+            {empresaLoading ? "Cargando empresas..." : empresa || "Sin empresa"}
+          </p>
+        </div>
+        {(canSelectEmpresa || empresaOptions.length > 1) && (
+          <div className="flex w-full min-w-0 flex-col gap-3 text-sm text-[var(--foreground)] md:max-w-md xl:flex-row xl:items-end xl:gap-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] uppercase tracking-wide text-[var(--muted-foreground)]">
+                Empresa actual
+              </p>
+              <p
+                className="truncate text-sm font-semibold text-[var(--foreground)]"
+                title={currentEmpresaLabel}
+              >
+                {empresaLoading ? "Cargando empresas..." : currentEmpresaLabel}
+              </p>
+            </div>
+            <select
+              className="w-full min-w-0 max-w-full truncate rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/60 focus:border-[var(--accent)] xl:flex-1"
+              value={selectedEmpresa}
+              onChange={(event) => handleEmpresaChange(event.target.value)}
+              disabled={empresaLoading || saving || empresaOptions.length === 0}
+            >
+              {empresaLoading ? (
+                <option value="">Cargando empresas...</option>
+              ) : empresaOptions.length === 0 ? (
+                <option value="">Sin empresas</option>
+              ) : (
+                <>
+                  <option value="" disabled hidden>
+                    Selecciona una empresa
+                  </option>
+                  {empresaOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </>
+              )}
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
