@@ -102,6 +102,14 @@
         { "fieldPath": "empresa", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "records",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "dateKey", "order": "DESCENDING" },
+        { "fieldPath": "hora", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

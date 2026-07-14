@@ -54,6 +54,7 @@ export class RegistroTucanService {
     const q = query(
       this.recordsCollectionRef(normalizedEmpresa),
       orderBy("dateKey", "desc"),
+      orderBy("hora", "desc"),
       limit(Math.max(1, Math.trunc(limitCount))),
     );
     const snap = await getDocs(q);

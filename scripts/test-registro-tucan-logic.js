@@ -45,7 +45,7 @@ assert.strictEqual(
 
 assert.strictEqual(formatRegistroTucanDateInput(new Date("2026-07-13T18:30:00Z")), "2026-07-13");
 assert.strictEqual(formatRegistroTucanDateInput(new Date(2026, 6, 13, 23, 30)), "2026-07-13");
-assert.strictEqual(formatRegistroTucanTimeInput(new Date(2026, 6, 13, 9, 5)), "09:05");
+assert.strictEqual(formatRegistroTucanTimeInput(new Date(2026, 6, 13, 9, 5, 7)), "09:05:07");
 assert.strictEqual(buildRegistroTucanEmpresaDocId("Delikor / San José"), "DELIKOR_SAN_JOSE");
 
 console.log("Registro Tucan logic tests passed");
