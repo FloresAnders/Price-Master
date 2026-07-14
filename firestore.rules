@@ -70,8 +70,10 @@ service cloud.firestore {
           'empresa',
           'dateKey',
           'fecha',
+          'hora',
           'saldoPaginaTucan',
           'saldoFondoTucan',
+          'pagosHoy',
           'saldoSinpesRecibidos',
           'total',
           'currency',
@@ -85,8 +87,10 @@ service cloud.firestore {
           'empresa',
           'dateKey',
           'fecha',
+          'hora',
           'saldoPaginaTucan',
           'saldoFondoTucan',
+          'pagosHoy',
           'saldoSinpesRecibidos',
           'total',
           'currency',
@@ -96,8 +100,10 @@ service cloud.firestore {
         request.resource.data.empresa is string &&
         request.resource.data.dateKey is number &&
         request.resource.data.fecha is string &&
+        request.resource.data.hora is string &&
         request.resource.data.saldoPaginaTucan is number &&
         request.resource.data.saldoFondoTucan is number &&
+        request.resource.data.pagosHoy is number &&
         request.resource.data.saldoSinpesRecibidos is number &&
         request.resource.data.total is number &&
         request.resource.data.currency == 'CRC' &&
@@ -120,8 +126,8 @@ service cloud.firestore {
     }
     
     // Otras reglas existentes...
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    match /{collection}/{document=**} {
+      allow read, write: if request.auth != null && collection != 'registrotucan';
     }
   }
 }

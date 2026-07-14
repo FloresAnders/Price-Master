@@ -1,8 +1,18 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Lock, RefreshCw, Save } from "lucide-react";
+import {
+  CalendarDays,
+  Clock3,
+  FileText,
+  Lock,
+  RefreshCw,
+  Save,
+  TrendingUp,
+  WalletCards,
+} from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
+import useToast from "../../hooks/useToast";
 import { getDefaultPermissions } from "../../utils/permissions";
 import {
   MovimientosFondosService,
@@ -13,8 +23,12 @@ import type { RegistroTucanRecord } from "../../types/firestore";
 import {
   calculateRegistroTucanTotal,
   formatRegistroTucanDateInput,
+  formatRegistroTucanTimeInput,
   parseRegistroTucanAmount,
 } from "../../utils/registroTucan";
+import { getAuthoritativeNow } from "../../utils/serverTime";
+
+type RegistroTucanSortOrder = "desc" | "asc";
 
 const formatCRC = (value: number) =>
   new Intl.NumberFormat("es-CR", {
@@ -32,18 +46,21 @@ const resolveTucanBalance = (ledger: MovementStorage | null): number => {
 
 export default function RegistroTucan() {
   const { user, loading } = useAuth();
+  const { showToast } = useToast();
   const [fecha, setFecha] = useState(() =>
     formatRegistroTucanDateInput(new Date()),
   );
+  const [hora, setHora] = useState(() => formatRegistroTucanTimeInput(new Date()));
   const [saldoPaginaTucanInput, setSaldoPaginaTucanInput] = useState("");
-  const [saldoSinpesInput, setSaldoSinpesInput] = useState("");
+  const [pagosHoyInput, setPagosHoyInput] = useState("");
   const [saldoFondoTucan, setSaldoFondoTucan] = useState(0);
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [recordsLoading, setRecordsLoading] = useState(false);
+  const [serverTimeLoading, setServerTimeLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [records, setRecords] = useState<RegistroTucanRecord[]>([]);
+  const [sortOrder, setSortOrder] = useState<RegistroTucanSortOrder>("desc");
 
   const resolvedPermissions = user
     ? user.permissions || getDefaultPermissions(user.role || "user")
@@ -55,18 +72,75 @@ export default function RegistroTucan() {
     () => parseRegistroTucanAmount(saldoPaginaTucanInput),
     [saldoPaginaTucanInput],
   );
-  const saldoSinpesRecibidos = useMemo(
-    () => parseRegistroTucanAmount(saldoSinpesInput),
-    [saldoSinpesInput],
+  const pagosHoy = useMemo(
+    () => parseRegistroTucanAmount(pagosHoyInput),
+    [pagosHoyInput],
   );
   const total = useMemo(
     () =>
       calculateRegistroTucanTotal({
         saldoPaginaTucan,
         saldoFondoTucan,
-        saldoSinpesRecibidos,
+        pagosHoy,
       }),
-    [saldoPaginaTucan, saldoFondoTucan, saldoSinpesRecibidos],
+    [saldoPaginaTucan, saldoFondoTucan, pagosHoy],
+  );
+  const sortedRecords = useMemo(
+    () =>
+      records.slice().sort((a, b) => {
+        const byDate =
+          sortOrder === "asc"
+            ? a.dateKey - b.dateKey
+            : b.dateKey - a.dateKey;
+        const byTime =
+          sortOrder === "asc"
+            ? String(a.hora || "").localeCompare(String(b.hora || ""))
+            : String(b.hora || "").localeCompare(String(a.hora || ""));
+        const byId = String(a.id || "").localeCompare(String(b.id || ""));
+        return byDate || byTime || byId;
+      }),
+    [records, sortOrder],
+  );
+
+  const inputFormatterCRC = useMemo(
+    () =>
+      new Intl.NumberFormat("es-CR", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      }),
+    [],
+  );
+
+  const sanitizeAmountInput = useCallback((value: string) => {
+    const stripped = value.replace(/\s/g, "").replace(/[^\d.,]/g, "");
+    const decimalIndex = Math.max(
+      stripped.lastIndexOf(","),
+      stripped.lastIndexOf("."),
+    );
+    if (decimalIndex === -1) return stripped.replace(/[.,]/g, "");
+    const integerPart = stripped.slice(0, decimalIndex).replace(/[.,]/g, "");
+    const fractionPart = stripped
+      .slice(decimalIndex + 1)
+      .replace(/[.,]/g, "")
+      .slice(0, 2);
+    return fractionPart.length > 0
+      ? `${integerPart}.${fractionPart}`
+      : `${integerPart}.`;
+  }, []);
+
+  const formatInputDisplay = useCallback(
+    (raw: string) => {
+      if (!raw || raw.trim().length === 0) return "";
+      const normalized = sanitizeAmountInput(raw);
+      const [integerPart, fractionPart] = normalized.split(".");
+      const integerValue = Number(integerPart || "0");
+      const formattedInteger = inputFormatterCRC.format(integerValue);
+      const suffix = normalized.includes(",") || normalized.includes(".")
+        ? `,${fractionPart ?? ""}`
+        : "";
+      return `₡ ${formattedInteger}${suffix}`;
+    },
+    [inputFormatterCRC, sanitizeAmountInput],
   );
 
   const loadRecentRecords = useCallback(async () => {
@@ -104,14 +178,44 @@ export default function RegistroTucan() {
     void loadRecentRecords();
   }, [loadTucanBalance, loadRecentRecords]);
 
+  const refreshServerDateTime = useCallback(async () => {
+    setServerTimeLoading(true);
+    setError("");
+    try {
+      const now = await getAuthoritativeNow();
+      setFecha(formatRegistroTucanDateInput(now));
+      setHora(formatRegistroTucanTimeInput(now));
+      return now;
+    } catch (err) {
+      console.error("Error loading server time:", err);
+      setError("No se pudo cargar la hora del servidor.");
+      return null;
+    } finally {
+      setServerTimeLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshServerDateTime();
+  }, [refreshServerDateTime]);
+
   const handleSave = async () => {
-    if (!user || !hasPermission || !empresa || !fecha || balanceLoading) return;
+    if (!user || !hasPermission || !empresa || balanceLoading || serverTimeLoading) return;
 
     setSaving(true);
     setError("");
-    setSuccess("");
     try {
-      const dateKey = new Date(`${fecha}T00:00:00`).getTime();
+      if (saldoPaginaTucan <= 0) {
+        setError("Saldo página Tucan debe ser mayor a 0.");
+        return;
+      }
+
+      const serverNow = await refreshServerDateTime();
+      if (!serverNow) return;
+
+      const serverFecha = formatRegistroTucanDateInput(serverNow);
+      const serverHora = formatRegistroTucanTimeInput(serverNow);
+      const dateKey = new Date(`${serverFecha}T00:00:00`).getTime();
       if (!Number.isFinite(dateKey)) {
         setError("Fecha inválida.");
         return;
@@ -120,18 +224,20 @@ export default function RegistroTucan() {
       await RegistroTucanService.createRecord({
         empresa,
         dateKey,
-        fecha,
+        fecha: serverFecha,
+        hora: serverHora,
         saldoPaginaTucan,
         saldoFondoTucan,
-        saldoSinpesRecibidos,
+        pagosHoy,
+        saldoSinpesRecibidos: pagosHoy,
         total,
         createdById: user.id,
         createdByName: user.name || user.email || "",
       });
 
       setSaldoPaginaTucanInput("");
-      setSaldoSinpesInput("");
-      setSuccess("Registro guardado.");
+      setPagosHoyInput("");
+      showToast("Registro guardado.", "success");
       await loadRecentRecords();
     } catch (err) {
       console.error("Error saving Registro Tucan record:", err);
@@ -176,95 +282,153 @@ export default function RegistroTucan() {
     );
   }
 
-  const saveDisabled = saving || balanceLoading || !fecha;
+  const saveDisabled = saving || balanceLoading || serverTimeLoading || !fecha || !hora;
+  const dateTimeValue = fecha && hora ? `${fecha.split("-").reverse().join("/")}  ${hora}` : "";
+  const metricCards = [
+    {
+      label: "Saldo página Tucan",
+      value: saldoPaginaTucan,
+      icon: FileText,
+      color: "text-[var(--primary)] bg-[var(--muted)] border-[var(--input-border)]",
+    },
+    {
+      label: "Saldo Fondo Tucan",
+      value: saldoFondoTucan,
+      icon: WalletCards,
+      color: "text-[var(--primary)] bg-[var(--muted)] border-[var(--input-border)]",
+    },
+    {
+      label: "Pagos hoy",
+      value: pagosHoy,
+      icon: TrendingUp,
+      color: "text-[var(--success)] bg-[var(--muted)] border-[var(--input-border)]",
+    },
+    {
+      label: "Total",
+      value: total,
+      icon: Clock3,
+      color: "text-[var(--accent)] bg-[var(--muted)] border-[var(--input-border)]",
+    },
+  ];
+  const fieldBase =
+    "h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 px-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)]";
+  const sectionClass =
+    "rounded-xl border border-cyan-700/25 bg-cyan-950/10 p-3 sm:p-4";
+  const labelClass =
+    "mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-cyan-100/70";
+  const iconBoxClass =
+    "flex h-7 w-7 items-center justify-center rounded border border-cyan-700/35 bg-cyan-900/25 text-cyan-100/80";
+  const saveButtonClass =
+    "inline-flex h-11 min-w-[148px] items-center justify-center gap-2 rounded border border-cyan-400/45 bg-cyan-500/20 px-5 text-sm font-semibold text-cyan-50 shadow-sm shadow-cyan-950/20 transition-all duration-150 hover:-translate-y-0.5 hover:border-cyan-300/70 hover:bg-cyan-500/30 hover:shadow-md hover:shadow-cyan-950/30 active:translate-y-0 active:scale-[0.99] disabled:cursor-not-allowed disabled:translate-y-0 disabled:border-[var(--input-border)] disabled:bg-cyan-950/15 disabled:text-[var(--muted-foreground)] disabled:opacity-60";
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--foreground)]">
+    <div className="mx-auto max-w-6xl space-y-4">
+      <div className="border-l-4 border-cyan-500/60 pl-5">
+        <h1 className="text-2xl font-bold tracking-tight text-[var(--foreground)]">
           Registro Tucan
         </h1>
-        <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+        <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
           {empresa}
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-        {[
-          ["Saldo página Tucan", saldoPaginaTucan],
-          ["Saldo Fondo Tucan", saldoFondoTucan],
-          ["SINPEs recibidos", saldoSinpesRecibidos],
-          ["Total", total],
-        ].map(([label, value]) => (
+        {metricCards.map(({ label, value, icon: Icon }) => (
           <div
-            key={String(label)}
-            className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-4"
+            key={label}
+            className={sectionClass}
           >
-            <p className="text-sm text-[var(--muted-foreground)]">{label}</p>
-            <p className="mt-2 text-xl font-semibold text-[var(--foreground)]">
-              {formatCRC(Number(value))}
-            </p>
+            <div className="flex items-center gap-3">
+            <div className={iconBoxClass}>
+              <Icon className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-[var(--muted-foreground)]">{label}</p>
+              <p className="mt-2 text-xl font-bold text-[var(--foreground)]">
+                {formatCRC(value)}
+              </p>
+            </div>
+            </div>
           </div>
         ))}
       </div>
 
-      <section className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-5">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-[var(--foreground)]">
-              Fecha
+      <form
+        className={sectionClass}
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!saveDisabled) void handleSave();
+        }}
+      >
+        <div className="mb-7 flex items-center gap-4">
+          <div className={iconBoxClass}>
+            <CalendarDays className="h-4 w-4" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-[var(--foreground)]">Nuevo registro</h2>
+            <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+              Complete la información para registrar el movimiento.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.15fr_1fr_1fr_1.15fr]">
+          <label>
+            <span className={labelClass}>
+              Fecha y hora
             </span>
-            <input
-              type="date"
-              value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
-              className="w-full rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-[var(--foreground)]"
-            />
+            <div className={`flex items-center ${fieldBase}`}>
+              {serverTimeLoading ? "Cargando hora servidor..." : dateTimeValue}
+            </div>
           </label>
 
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-[var(--foreground)]">
+          <label>
+            <span className={labelClass}>
               Saldo página Tucan
             </span>
             <input
               type="text"
               inputMode="decimal"
-              value={saldoPaginaTucanInput}
-              onChange={(e) => setSaldoPaginaTucanInput(e.target.value)}
-              placeholder="0"
-              className="w-full rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-[var(--foreground)]"
+              value={formatInputDisplay(saldoPaginaTucanInput)}
+              onChange={(e) =>
+                setSaldoPaginaTucanInput(sanitizeAmountInput(e.target.value))
+              }
+              placeholder={formatCRC(0)}
+              className={`${fieldBase} text-lg font-semibold`}
             />
           </label>
 
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-[var(--foreground)]">
-              SINPEs recibidos
+          <label>
+            <span className={labelClass}>
+              Pagos hoy
             </span>
             <input
               type="text"
               inputMode="decimal"
-              value={saldoSinpesInput}
-              onChange={(e) => setSaldoSinpesInput(e.target.value)}
-              placeholder="0"
-              className="w-full rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-[var(--foreground)]"
+              value={formatInputDisplay(pagosHoyInput)}
+              onChange={(e) =>
+                setPagosHoyInput(sanitizeAmountInput(e.target.value))
+              }
+              placeholder={formatCRC(0)}
+              className={`${fieldBase} text-lg font-semibold`}
             />
           </label>
 
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-[var(--foreground)]">
+          <label>
+            <span className={labelClass}>
               Fondo Tucan
             </span>
             <div className="flex gap-2">
               <input
                 value={balanceLoading ? "Cargando..." : formatCRC(saldoFondoTucan)}
                 readOnly
-                className="w-full rounded-md border border-[var(--input-border)] bg-[var(--muted)] px-3 py-2 text-[var(--foreground)]"
+                className={`${fieldBase} font-semibold`}
               />
               <button
                 type="button"
                 onClick={() => void loadTucanBalance()}
                 disabled={balanceLoading}
-                className="rounded-md border border-[var(--input-border)] px-3 text-[var(--foreground)] transition hover:bg-[var(--hover-bg)] disabled:opacity-50"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded border border-cyan-700/35 bg-cyan-950/25 text-cyan-100/80 transition-colors hover:border-cyan-500/45 hover:bg-cyan-900/25 disabled:opacity-50"
                 title="Actualizar saldo Fondo Tucan"
                 aria-label="Actualizar saldo Fondo Tucan"
               >
@@ -274,89 +438,134 @@ export default function RegistroTucan() {
           </label>
         </div>
 
-        {(error || success) && (
-          <p
-            className={`mt-4 text-sm ${error ? "text-red-500" : "text-emerald-500"}`}
-          >
-            {error || success}
+        {error && (
+          <p className="mt-4 text-sm text-[var(--error)]">
+            {error}
           </p>
         )}
 
-        <div className="mt-5 flex justify-end">
+        <div className="mt-7 flex justify-end">
           <button
-            type="button"
-            onClick={() => void handleSave()}
+            type="submit"
             disabled={saveDisabled}
-            className="inline-flex items-center gap-2 rounded-md bg-[var(--primary)] px-4 py-2 font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className={saveButtonClass}
           >
             <Save className="h-4 w-4" />
             {saving ? "Guardando..." : "Guardar"}
           </button>
         </div>
-      </section>
+      </form>
 
-      <section className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-[var(--foreground)]">
-            Registros recientes
-          </h2>
-          <button
-            type="button"
-            onClick={() => void loadRecentRecords()}
-            disabled={recordsLoading}
-            className="rounded-md border border-[var(--input-border)] px-3 py-2 text-sm text-[var(--foreground)] transition hover:bg-[var(--hover-bg)] disabled:opacity-50"
-          >
-            Actualizar
-          </button>
+      <section className={sectionClass}>
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className={iconBoxClass}>
+              <Clock3 className="h-4 w-4" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-[var(--foreground)]">
+                Registros recientes
+              </h2>
+              <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+                Aquí se mostrarán los registros guardados.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <div
+              className="inline-flex rounded-full border border-cyan-700/35 bg-cyan-950/25 p-1"
+              aria-label="Ordenar registros"
+            >
+              <button
+                type="button"
+                onClick={() => setSortOrder("asc")}
+                className={`rounded-full px-3 py-1 text-xs transition ${
+                  sortOrder === "asc"
+                    ? "bg-cyan-400 text-slate-950"
+                    : "text-cyan-100/60 hover:text-cyan-50"
+                }`}
+                aria-pressed={sortOrder === "asc"}
+              >
+                Más antiguo
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortOrder("desc")}
+                className={`rounded-full px-3 py-1 text-xs transition ${
+                  sortOrder === "desc"
+                    ? "bg-cyan-400 text-slate-950"
+                    : "text-cyan-100/60 hover:text-cyan-50"
+                }`}
+                aria-pressed={sortOrder === "desc"}
+              >
+                Más reciente
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => void loadRecentRecords()}
+              disabled={recordsLoading}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded border border-[var(--input-border)] px-4 text-sm font-semibold text-[var(--foreground)] transition-all duration-150 hover:border-cyan-500/45 hover:bg-cyan-950/25 active:scale-[0.99] disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${recordsLoading ? "animate-spin" : ""}`} />
+              Actualizar
+            </button>
+          </div>
         </div>
 
         {recordsLoading ? (
           <p className="text-sm text-[var(--muted-foreground)]">Cargando...</p>
-        ) : records.length === 0 ? (
-          <p className="text-sm text-[var(--muted-foreground)]">
+        ) : sortedRecords.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--card-bg)]/60 px-4 py-6 text-center text-sm text-[var(--muted-foreground)]">
             No hay registros guardados.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm">
-              <thead className="text-[var(--muted-foreground)]">
-                <tr className="border-b border-[var(--input-border)]">
+          <div className="relative overflow-hidden rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/80 text-white shadow-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] border-separate border-spacing-0 text-xs sm:text-sm">
+              <thead className="sticky top-0 z-10 bg-cyan-950/35 text-xs uppercase tracking-wide text-cyan-50/80">
+                <tr>
                   <th className="py-2 pr-3">Fecha</th>
+                  <th className="py-2 pr-3">Hora</th>
                   <th className="py-2 pr-3">Página Tucan</th>
                   <th className="py-2 pr-3">Fondo Tucan</th>
-                  <th className="py-2 pr-3">SINPEs</th>
+                  <th className="py-2 pr-3">pagosHoy</th>
                   <th className="py-2 pr-3">Total</th>
                   <th className="py-2 pr-3">Usuario</th>
                 </tr>
               </thead>
               <tbody>
-                {records.map((record) => (
+                {sortedRecords.map((record) => (
                   <tr
                     key={record.id}
-                    className="border-b border-[var(--input-border)] last:border-0"
+                    className="transition-colors hover:bg-[var(--muted)]/35 [&>td]:border-b [&>td]:border-cyan-900/35"
                   >
-                    <td className="py-3 pr-3 text-[var(--foreground)]">
+                    <td className="px-3 py-2 text-[var(--foreground)]">
                       {record.fecha}
                     </td>
-                    <td className="py-3 pr-3 text-[var(--foreground)]">
+                    <td className="px-3 py-2 text-[var(--foreground)]">
+                      {record.hora || "-"}
+                    </td>
+                    <td className="px-3 py-2 text-[var(--foreground)]">
                       {formatCRC(record.saldoPaginaTucan)}
                     </td>
-                    <td className="py-3 pr-3 text-[var(--foreground)]">
+                    <td className="px-3 py-2 text-[var(--foreground)]">
                       {formatCRC(record.saldoFondoTucan)}
                     </td>
-                    <td className="py-3 pr-3 text-[var(--foreground)]">
-                      {formatCRC(record.saldoSinpesRecibidos)}
+                    <td className="px-3 py-2 text-[var(--foreground)]">
+                      {formatCRC(record.pagosHoy ?? record.saldoSinpesRecibidos)}
                     </td>
-                    <td className="py-3 pr-3 font-semibold text-[var(--foreground)]">
+                    <td className="px-3 py-2 font-semibold text-[var(--foreground)]">
                       {formatCRC(record.total)}
                     </td>
-                    <td className="py-3 pr-3 text-[var(--muted-foreground)]">
+                    <td className="px-3 py-2 text-[var(--muted-foreground)]">
                       {record.createdByName || "-"}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </section>

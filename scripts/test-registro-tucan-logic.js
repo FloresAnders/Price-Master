@@ -25,6 +25,7 @@ const {
   parseRegistroTucanAmount,
   calculateRegistroTucanTotal,
   formatRegistroTucanDateInput,
+  formatRegistroTucanTimeInput,
   buildRegistroTucanEmpresaDocId,
 } = loadTsModule("src/utils/registroTucan.ts");
 
@@ -37,13 +38,14 @@ assert.strictEqual(
   calculateRegistroTucanTotal({
     saldoPaginaTucan: 100,
     saldoFondoTucan: 25.25,
-    saldoSinpesRecibidos: 10.1,
+    pagosHoy: 10.1,
   }),
   135.35,
 );
 
 assert.strictEqual(formatRegistroTucanDateInput(new Date("2026-07-13T18:30:00Z")), "2026-07-13");
 assert.strictEqual(formatRegistroTucanDateInput(new Date(2026, 6, 13, 23, 30)), "2026-07-13");
+assert.strictEqual(formatRegistroTucanTimeInput(new Date(2026, 6, 13, 9, 5)), "09:05");
 assert.strictEqual(buildRegistroTucanEmpresaDocId("Delikor / San José"), "DELIKOR_SAN_JOSE");
 
 console.log("Registro Tucan logic tests passed");

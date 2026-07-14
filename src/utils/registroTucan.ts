@@ -1,7 +1,8 @@
 export type RegistroTucanTotalInput = {
   saldoPaginaTucan: number;
   saldoFondoTucan: number;
-  saldoSinpesRecibidos: number;
+  pagosHoy?: number;
+  saldoSinpesRecibidos?: number;
 };
 
 export function roundRegistroTucanAmount(value: number): number {
@@ -42,7 +43,7 @@ export function calculateRegistroTucanTotal(
   return roundRegistroTucanAmount(
     Number(input.saldoPaginaTucan || 0) +
       Number(input.saldoFondoTucan || 0) +
-      Number(input.saldoSinpesRecibidos || 0),
+      Number(input.pagosHoy ?? input.saldoSinpesRecibidos ?? 0),
   );
 }
 
@@ -54,6 +55,15 @@ export function formatRegistroTucanDateInput(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+export function formatRegistroTucanTimeInput(date: Date): string {
+  if (!date || typeof date.getTime !== "function" || Number.isNaN(date.getTime())) {
+    return "";
+  }
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
 }
 
 export function buildRegistroTucanEmpresaDocId(empresa: string): string {

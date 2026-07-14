@@ -29,13 +29,22 @@ async function fromTimeApi(): Promise<Date | null> {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+async function fromAppServer(): Promise<Date | null> {
+  if (typeof window === "undefined") return null;
+  const data = await fetchJson<{ now?: string; ms?: number }>("/api/server-time", 5000);
+  const raw = data?.now ?? (typeof data?.ms === "number" ? data.ms : null);
+  if (!raw) return null;
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 export async function getAuthoritativeNow(): Promise<Date> {
   const now = cacheClockMs();
   if (cachedServerTime && now - cachedAt < CACHE_TTL_MS) {
     return new Date(cachedServerTime.getTime() + Math.max(0, now - cachedAt));
   }
 
-  const apiDate = await fromTimeApi();
+  const apiDate = await fromAppServer() ?? await fromTimeApi();
   if (apiDate) {
     cachedServerTime = apiDate;
     cachedAt = cacheClockMs();

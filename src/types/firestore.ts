@@ -242,8 +242,10 @@ export interface RegistroTucanRecord {
   empresa: string;
   dateKey: number;
   fecha: string;
+  hora?: string;
   saldoPaginaTucan: number;
   saldoFondoTucan: number;
+  pagosHoy?: number;
   saldoSinpesRecibidos: number;
   total: number;
   currency: "CRC";
