@@ -20,14 +20,9 @@
     "migrate:proveedores": "node scripts/migrate-proveedores-backup.js",
     "migrate:schedules": "node scripts/migrate-schedules.mjs",
     "convert:tiposEgresoXml": "node scripts/convert-egresos-csv-to-json.js",
-    "firebase:migrate": "curl -X POST http://localhost:3000/api/firebase-test",
-    "firebase:test": "curl http://localhost:3000/api/firebase-test",
-    "firebase:clear": "curl -X DELETE http://localhost:3000/api/firebase-test",
-    "test:users": "start test-users-functionality.html",
     "update": "node scripts/update-version.js",
     "update-versionstorage": "node scripts/update-versionstorage.js",
     "update-systemNotes": "node scripts/update-systemNotes.js",
-    "test:price-calculator": "node scripts/test-price-calculator-logic.mjs",
     "check": "node scripts/check-version.js"
   },
   "dependencies": {
