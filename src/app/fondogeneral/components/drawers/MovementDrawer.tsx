@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ComponentProps } from "react";
 import Box from "@mui/material/Box";
@@ -33,6 +33,8 @@ export function MovementDrawer({
   ...agregarMovimientoProps
 }: MovementDrawerProps) {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmSaveLocked, setConfirmSaveLocked] = useState(false);
+  const confirmSaveLockedRef = useRef(false);
   const {
     onSubmit,
     isSaving,
@@ -55,6 +57,7 @@ export function MovementDrawer({
       ? `$${Number(amountStr).toLocaleString("en-US")}`
       : `₡${Number(amountStr).toLocaleString("es-CR")}`;
   const openConfirmIfAllowed = async () => {
+    if (confirmSaveLockedRef.current || isSaving) return;
     const allowed = await beforeConfirmSubmit?.();
     if (allowed === false) return;
     setShowConfirmModal(true);
@@ -63,8 +66,14 @@ export function MovementDrawer({
     void openConfirmIfAllowed();
   };
   const handleConfirmSave = () => {
-    setShowConfirmModal(false);
-    onSubmit?.();
+    if (confirmSaveLockedRef.current || isSaving) return;
+    confirmSaveLockedRef.current = true;
+    setConfirmSaveLocked(true);
+    Promise.resolve(onSubmit?.()).finally(() => {
+      confirmSaveLockedRef.current = false;
+      setConfirmSaveLocked(false);
+      setShowConfirmModal(false);
+    });
   };
   const handleFieldKeyDown = (
     event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>,
@@ -189,9 +198,12 @@ export function MovementDrawer({
           confirmText="Guardar"
           cancelText="Cancelar"
           actionType="assign"
-          loading={isSaving}
+          loading={isSaving || confirmSaveLocked}
           onConfirm={handleConfirmSave}
-          onCancel={() => setShowConfirmModal(false)}
+          onCancel={() => {
+            if (confirmSaveLocked || isSaving) return;
+            setShowConfirmModal(false);
+          }}
         />,
         document.body,
       )}
