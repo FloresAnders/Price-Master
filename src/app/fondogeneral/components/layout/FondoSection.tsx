@@ -225,6 +225,22 @@ type ClosingTimeRequestState = {
   reason: string;
 } | null;
 
+type MovementDraftState = {
+  selectedProvider: string;
+  invoiceNumber: string;
+  invoiceDocType: "FCO" | "FCR";
+  paymentType: FondoEntry["paymentType"];
+  egreso: string;
+  ingreso: string;
+  manager: string;
+  manager2: string;
+  notes: string;
+  movementCurrency: MovementCurrencyKey;
+  selectedAppliedCreditNoteIds: string[];
+  selectedPendingCreditInvoiceIds: string[];
+  manualCreditNoteDrafts: ManualCreditNoteDraft[];
+};
+
 export function FondoSection({
   id,
   mode = "all",
@@ -770,6 +786,161 @@ export function FondoSection({
     handleManager2Change,
     cancelOpenCreateMovement,
   } = useMovementForm({ mode, fondoEntries });
+
+  const movementDraftWriteSuppressedRef = useRef(false);
+  const restoringMovementDraftRef = useRef(false);
+  const movementDraftStorageKey = useMemo(() => {
+    const draftCompany = (company || "").trim();
+    const draftUserKey = String(user?.id || user?.email || "anon").trim();
+    if (!draftCompany) return "";
+    return `fondogeneral-movement-draft:${draftCompany}:${accountKey}:${namespace}:${draftUserKey}`;
+  }, [accountKey, company, namespace, user?.email, user?.id]);
+
+  const buildMovementDraft = useCallback(
+    (): MovementDraftState => ({
+      selectedProvider,
+      invoiceNumber,
+      invoiceDocType,
+      paymentType,
+      egreso,
+      ingreso,
+      manager,
+      manager2,
+      notes,
+      movementCurrency,
+      selectedAppliedCreditNoteIds,
+      selectedPendingCreditInvoiceIds,
+      manualCreditNoteDrafts,
+    }),
+    [
+      selectedProvider,
+      invoiceNumber,
+      invoiceDocType,
+      paymentType,
+      egreso,
+      ingreso,
+      manager,
+      manager2,
+      notes,
+      movementCurrency,
+      selectedAppliedCreditNoteIds,
+      selectedPendingCreditInvoiceIds,
+      manualCreditNoteDrafts,
+    ],
+  );
+
+  const hasMovementDraftValue = useCallback((draft: MovementDraftState) => {
+    return (
+      draft.selectedProvider.trim().length > 0 ||
+      draft.invoiceNumber.trim().length > 0 ||
+      draft.egreso.trim().length > 0 ||
+      draft.ingreso.trim().length > 0 ||
+      draft.manager.trim().length > 0 ||
+      draft.manager2.trim().length > 0 ||
+      draft.notes.trim().length > 0 ||
+      draft.selectedAppliedCreditNoteIds.length > 0 ||
+      draft.selectedPendingCreditInvoiceIds.length > 0 ||
+      draft.manualCreditNoteDrafts.length > 0
+    );
+  }, []);
+
+  const clearMovementDraft = useCallback(() => {
+    movementDraftWriteSuppressedRef.current = true;
+    if (!movementDraftStorageKey || typeof window === "undefined") return;
+    try {
+      localStorage.removeItem(movementDraftStorageKey);
+    } catch {
+      // ignore draft cleanup failures
+    }
+  }, [movementDraftStorageKey]);
+
+  const restoreMovementDraft = useCallback(() => {
+    if (!movementDraftStorageKey || typeof window === "undefined") return false;
+    try {
+      const raw = localStorage.getItem(movementDraftStorageKey);
+      if (!raw) return false;
+      const draft = JSON.parse(raw) as Partial<MovementDraftState>;
+      restoringMovementDraftRef.current = true;
+      setSelectedProvider(String(draft.selectedProvider || ""));
+      setInvoiceNumber(String(draft.invoiceNumber || ""));
+      setInvoiceDocType(draft.invoiceDocType === "FCR" ? "FCR" : "FCO");
+      setPaymentType(
+        (draft.paymentType || "COMPRA INVENTARIO") as FondoEntry["paymentType"],
+      );
+      setEgreso(String(draft.egreso || ""));
+      setIngreso(String(draft.ingreso || ""));
+      setManager(String(draft.manager || ""));
+      setManager2(String(draft.manager2 || ""));
+      setNotes(String(draft.notes || ""));
+      setMovementCurrency(draft.movementCurrency === "USD" ? "USD" : "CRC");
+      setSelectedAppliedCreditNoteIds(
+        Array.isArray(draft.selectedAppliedCreditNoteIds)
+          ? draft.selectedAppliedCreditNoteIds.filter(
+              (id): id is string => typeof id === "string",
+            )
+          : [],
+      );
+      setSelectedPendingCreditInvoiceIds(
+        Array.isArray(draft.selectedPendingCreditInvoiceIds)
+          ? draft.selectedPendingCreditInvoiceIds.filter(
+              (id): id is string => typeof id === "string",
+            )
+          : [],
+      );
+      setManualCreditNoteDrafts(
+        Array.isArray(draft.manualCreditNoteDrafts)
+          ? (draft.manualCreditNoteDrafts as ManualCreditNoteDraft[])
+          : [],
+      );
+      movementDraftWriteSuppressedRef.current = false;
+      return true;
+    } catch {
+      return false;
+    }
+  }, [
+    movementDraftStorageKey,
+    setSelectedProvider,
+    setInvoiceNumber,
+    setInvoiceDocType,
+    setPaymentType,
+    setEgreso,
+    setIngreso,
+    setManager,
+    setManager2,
+    setNotes,
+    setMovementCurrency,
+    setSelectedAppliedCreditNoteIds,
+    setSelectedPendingCreditInvoiceIds,
+    setManualCreditNoteDrafts,
+  ]);
+
+  useEffect(() => {
+    if (!movementModalOpen || editingEntryId || !movementDraftStorageKey) return;
+    if (typeof window === "undefined") return;
+    const draft = buildMovementDraft();
+    if (movementDraftWriteSuppressedRef.current) {
+      if (!hasMovementDraftValue(draft)) return;
+      movementDraftWriteSuppressedRef.current = false;
+    }
+    const timeoutId = window.setTimeout(() => {
+      try {
+        localStorage.setItem(movementDraftStorageKey, JSON.stringify({
+          ...draft,
+          savedAt: Date.now(),
+        }));
+      } catch {
+        // ignore draft persistence failures
+      }
+    }, 250);
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    movementModalOpen,
+    editingEntryId,
+    movementDraftStorageKey,
+    buildMovementDraft,
+    hasMovementDraftValue,
+  ]);
+
   const { superAdminUsers, superAdminUsersLoading } = useSuperAdminUsers(
     Boolean(isSuperAdminUser),
     movementModalOpen || Boolean(editingEntryId),
@@ -1588,6 +1759,13 @@ export function FondoSection({
     editingInProgressRef.current = false;
   }, []);
 
+  const resetFondoFormAfterSuccessfulSave = useCallback(() => {
+    if (!editingEntryId) {
+      clearMovementDraft();
+    }
+    resetFondoForm();
+  }, [clearMovementDraft, editingEntryId, resetFondoForm]);
+
   /**
    * Envía un correo de notificación cuando se crea o edita un movimiento,
    * solo si el proveedor tiene configurado un correo de notificación.
@@ -1726,7 +1904,7 @@ export function FondoSection({
         accountKey,
         company,
         user,
-        resetFondoForm,
+        resetFondoForm: resetFondoFormAfterSuccessfulSave,
         movementAutoCloseLocked,
         isCajaNegra,
         setFondoEntries,
@@ -1744,7 +1922,7 @@ export function FondoSection({
       accountKey,
       company,
       user,
-      resetFondoForm,
+      resetFondoFormAfterSuccessfulSave,
       movementAutoCloseLocked,
       isCajaNegra,
       setFondoEntries,
@@ -1870,7 +2048,7 @@ export function FondoSection({
       setFondoEntries,
       setLedgerSnapshot,
       movementAutoCloseLocked,
-      resetFondoForm,
+      resetFondoForm: resetFondoFormAfterSuccessfulSave,
       setMovementModalOpen,
       ownerAdminEmail,
       activeOwnerId,
@@ -2567,6 +2745,10 @@ export function FondoSection({
     : undefined;
 
   useEffect(() => {
+    if (restoringMovementDraftRef.current) {
+      restoringMovementDraftRef.current = false;
+      return;
+    }
     setManualCreditNoteDrafts([]);
     setSelectedAppliedCreditNoteIds((prev) =>
       prev.filter((id) => !isManualCreditNoteDraftId(id)),
@@ -3606,6 +3788,7 @@ export function FondoSection({
     // If this FondoSection instance is scoped to ingresos/egresos, force that default
     if (mode === "ingreso") setPaymentType(FONDO_INGRESO_TYPES[0]);
     if (mode === "egreso") setPaymentType(FONDO_EGRESO_TYPES[0]);
+    restoreMovementDraft();
     setMovementModalOpen(true);
   }, [
     resetFondoForm,
@@ -3615,6 +3798,7 @@ export function FondoSection({
     mode,
     isCajaNegra,
     getTodayInvoiceMMDD,
+    restoreMovementDraft,
   ]);
 
   const confirmOpenCreateMovementNow = useCallback(() => {
