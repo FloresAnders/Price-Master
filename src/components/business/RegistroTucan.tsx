@@ -123,7 +123,8 @@ export default function RegistroTucan() {
     );
     return match ? match.label.split(" - ")[0] : empresa;
   }, [empresa, empresaOptions]);
-  const { resolveShiftManagerForNow } = useShiftScheduleResolver({
+  const { resolveShiftManagerForNow, resolvePreviousNightManagerForNow } =
+    useShiftScheduleResolver({
     company: empresa,
     empresa: empresaConfig,
     cierreFondoVentasMinutesAfterEnd:
@@ -418,13 +419,28 @@ export default function RegistroTucan() {
         setError("No se pudo resolver el usuario del turno.");
         return;
       }
+      const nightFallback =
+        shiftResolution.mode === "manual" &&
+        shiftResolution.reason === "outside_horario"
+          ? await resolvePreviousNightManagerForNow(serverNow.toISOString())
+          : null;
+      const effectiveManager =
+        shiftResolution.mode === "auto"
+          ? shiftResolution.manager
+          : nightFallback?.mode === "auto"
+            ? nightFallback.manager
+            : "";
       if (shiftResolution.mode === "missing") {
         setError(
           `No se encontro usuario asignado para el turno ${shiftResolution.expectedShift}.`,
         );
         return;
       }
-      if (shiftResolution.mode !== "auto") {
+      if (!effectiveManager) {
+        if (nightFallback?.mode === "missing") {
+          setError("No se encontro usuario asignado para el turno N.");
+          return;
+        }
         setError("No se pudo resolver el usuario segun el turno.");
         return;
       }
@@ -445,7 +461,7 @@ export default function RegistroTucan() {
         saldoSinpesRecibidos: pagosHoy,
         total,
         createdById: user.id,
-        createdByName: shiftResolution.manager,
+        createdByName: effectiveManager,
       });
 
       setSaldoPaginaTucanInput("");
