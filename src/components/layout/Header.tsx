@@ -108,6 +108,7 @@ export type ActiveTab =
   | "FC/NC"
   | "agregarproveedor"
   | "reportes"
+  | "cuentas"
   | "reportessinpe";
 
 interface HeaderProps {
@@ -660,6 +661,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       icon: Truck,
       description: "Gestión de órdenes de proveedores",
       permission: "supplierorders" as keyof UserPermissions,
+    },
+    {
+      id: "cuentas" as ActiveTab,
+      name: "Cuentas",
+      icon: ReceiptText,
+      description: "Cuentas por cobrar y pagar",
+      permission: "cuentas" as keyof UserPermissions,
     },
     {
       id: "edit" as ActiveTab,

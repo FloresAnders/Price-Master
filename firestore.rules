@@ -10,6 +10,194 @@ service cloud.firestore {
         (request.auth.token.role == 'admin' || request.auth.token.role == 'superadmin');
     }
 
+    // Accounting prototype: documents are isolated by Firebase Auth uid + empresaId.
+    function isAccountingCollection(name) {
+      return name in [
+        'facturas_clientes',
+        'pagos_clientes',
+        'facturas_proveedores',
+        'pagos_proveedores',
+        'clientes',
+        'accounting_alertas'
+      ];
+    }
+
+    function isAccountingRole() {
+      return isSignedIn() && request.auth.token.role in [
+          'admin', 'superadmin', 'administrador', 'contador', 'usuario', 'user'
+        ];
+    }
+
+    function canManageAccounting() {
+      return isSignedIn() && request.auth.token.role in [
+        'admin', 'superadmin', 'administrador', 'contador'
+      ];
+    }
+
+    function isAuthorizedAccountingEmpresa(empresaId) {
+      return isSignedIn() && empresaId is string && (
+        (request.auth.token.empresaId is string && request.auth.token.empresaId == empresaId) ||
+        (request.auth.token.empresaIds is list && request.auth.token.empresaIds.hasAny([empresaId]))
+      );
+    }
+
+    function ownsAccountingData(data) {
+      return isAccountingRole() &&
+        data.ownerId is string &&
+        data.ownerId == accountingOwnerId() &&
+        data.empresaId is string && data.empresaId.size() > 0 && data.empresaId.size() <= 128 &&
+        isAuthorizedAccountingEmpresa(data.empresaId);
+    }
+
+    function accountingOwnerId() {
+      return request.auth.token.ownerId is string && request.auth.token.ownerId.size() > 0
+        ? request.auth.token.ownerId
+        : request.auth.uid;
+    }
+
+    function validAccountingInvoice(data) {
+      return data.keys().hasOnly([
+          'tipo', 'ownerId', 'empresaId', 'createdBy', 'numero', 'terceroId',
+          'terceroNombre', 'ruta', 'departamento', 'fechaEmision',
+          'fechaVencimiento', 'monto', 'pagado', 'saldo', 'estado', 'moneda',
+          'notas', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasAll([
+          'tipo', 'ownerId', 'empresaId', 'createdBy', 'numero', 'terceroId',
+          'terceroNombre', 'fechaEmision', 'fechaVencimiento', 'monto', 'pagado',
+          'saldo', 'estado', 'moneda', 'createdAt', 'updatedAt'
+        ]) &&
+        ownsAccountingData(data) &&
+        data.createdBy is string && data.createdBy.size() > 0 && data.createdBy.size() <= 128 &&
+        data.tipo in ['cliente', 'proveedor'] &&
+        data.numero is string && data.numero.size() > 0 && data.numero.size() <= 80 &&
+        data.terceroId is string && data.terceroId.size() > 0 && data.terceroId.size() <= 120 &&
+        data.terceroNombre is string && data.terceroNombre.size() > 0 && data.terceroNombre.size() <= 200 &&
+        data.fechaEmision is timestamp && data.fechaVencimiento is timestamp &&
+        data.fechaVencimiento >= data.fechaEmision &&
+        data.monto is number && data.monto > 0 &&
+        data.pagado is number && data.pagado >= 0 && data.pagado <= data.monto + 0.001 &&
+        data.saldo is number && data.saldo >= 0 &&
+        data.saldo >= data.monto - data.pagado - 0.001 &&
+        data.saldo <= data.monto - data.pagado + 0.001 &&
+        data.estado in ['Pendiente', 'Parcial', 'Pagada', 'Vencida'] &&
+        data.moneda in ['CRC', 'USD'] &&
+        data.createdAt is timestamp && data.updatedAt is timestamp &&
+        (!data.keys().hasAny(['ruta']) || (data.ruta is string && data.ruta.size() <= 120)) &&
+        (!data.keys().hasAny(['departamento']) || (data.departamento is string && data.departamento.size() <= 120)) &&
+        (!data.keys().hasAny(['notas']) || (data.notas is string && data.notas.size() <= 2000));
+    }
+
+    function validAccountingPayment(data) {
+      return data.keys().hasOnly([
+          'tipo', 'facturaId', 'numeroFactura', 'terceroId', 'terceroNombre',
+          'ownerId', 'empresaId', 'createdBy', 'monto', 'moneda', 'metodo', 'fechaPago',
+          'notas', 'comprobantePath', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasAll([
+          'tipo', 'facturaId', 'numeroFactura', 'terceroId', 'terceroNombre',
+          'ownerId', 'empresaId', 'createdBy', 'monto', 'moneda', 'metodo', 'fechaPago',
+          'createdAt', 'updatedAt'
+        ]) &&
+        ownsAccountingData(data) &&
+        data.createdBy is string && data.createdBy.size() > 0 && data.createdBy.size() <= 128 &&
+        data.tipo in ['cliente', 'proveedor'] &&
+        data.facturaId is string && data.facturaId.size() > 0 && data.facturaId.size() <= 160 &&
+        data.numeroFactura is string && data.numeroFactura.size() > 0 && data.numeroFactura.size() <= 80 &&
+        data.terceroId is string && data.terceroId.size() > 0 && data.terceroId.size() <= 120 &&
+        data.terceroNombre is string && data.terceroNombre.size() > 0 && data.terceroNombre.size() <= 200 &&
+        data.monto is number && data.monto > 0 &&
+        data.moneda in ['CRC', 'USD'] &&
+        data.metodo in ['efectivo', 'transferencia', 'cheque'] &&
+        data.fechaPago is timestamp && data.createdAt is timestamp && data.updatedAt is timestamp &&
+        (!data.keys().hasAny(['notas']) || (data.notas is string && data.notas.size() <= 2000)) &&
+        (!data.keys().hasAny(['comprobantePath']) ||
+          (data.comprobantePath is string && data.comprobantePath.size() <= 500));
+    }
+
+    function validAccountingCustomer(data) {
+      return data.keys().hasOnly([
+          'ownerId', 'empresaId', 'createdBy', 'nombre', 'identificacion',
+          'correo', 'telefono', 'ruta', 'departamento', 'activo', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasAll([
+          'ownerId', 'empresaId', 'createdBy', 'nombre', 'activo', 'createdAt', 'updatedAt'
+        ]) &&
+        ownsAccountingData(data) &&
+        data.createdBy is string && data.createdBy.size() > 0 && data.createdBy.size() <= 128 &&
+        data.nombre is string && data.nombre.size() > 0 && data.nombre.size() <= 200 &&
+        data.activo is bool && data.createdAt is timestamp && data.updatedAt is timestamp &&
+        (!data.keys().hasAny(['identificacion']) || (data.identificacion is string && data.identificacion.size() <= 80)) &&
+        (!data.keys().hasAny(['correo']) || (data.correo is string && data.correo.size() <= 254)) &&
+        (!data.keys().hasAny(['telefono']) || (data.telefono is string && data.telefono.size() <= 40)) &&
+        (!data.keys().hasAny(['ruta']) || (data.ruta is string && data.ruta.size() <= 120)) &&
+        (!data.keys().hasAny(['departamento']) || (data.departamento is string && data.departamento.size() <= 120));
+    }
+
+    match /clientes/{customerId} {
+      allow read: if ownsAccountingData(resource.data);
+      allow create: if canManageAccounting() && validAccountingCustomer(request.resource.data) &&
+        request.resource.data.ownerId == accountingOwnerId() &&
+        request.resource.data.createdBy == request.auth.uid;
+      allow update: if canManageAccounting() && ownsAccountingData(resource.data) && validAccountingCustomer(request.resource.data) &&
+        request.resource.data.ownerId == resource.data.ownerId &&
+        request.resource.data.empresaId == resource.data.empresaId &&
+        request.resource.data.createdBy == resource.data.createdBy &&
+        request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if canManageAccounting() && ownsAccountingData(resource.data);
+    }
+
+    match /facturas_clientes/{invoiceId} {
+      allow read: if ownsAccountingData(resource.data);
+      allow create: if canManageAccounting() && validAccountingInvoice(request.resource.data) &&
+        request.resource.data.tipo == 'cliente' &&
+        request.resource.data.ownerId == accountingOwnerId() &&
+        request.resource.data.createdBy == request.auth.uid;
+      allow update: if canManageAccounting() && ownsAccountingData(resource.data) && validAccountingInvoice(request.resource.data) &&
+        request.resource.data.ownerId == resource.data.ownerId &&
+        request.resource.data.empresaId == resource.data.empresaId &&
+        request.resource.data.createdBy == resource.data.createdBy &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'numero', 'terceroId', 'terceroNombre', 'ruta', 'departamento',
+          'fechaEmision', 'fechaVencimiento', 'notas', 'updatedAt'
+        ]);
+      allow delete: if canManageAccounting() && ownsAccountingData(resource.data) && resource.data.pagado == 0;
+    }
+
+    match /facturas_proveedores/{invoiceId} {
+      allow read: if ownsAccountingData(resource.data);
+      allow create: if canManageAccounting() && validAccountingInvoice(request.resource.data) &&
+        request.resource.data.tipo == 'proveedor' &&
+        request.resource.data.ownerId == accountingOwnerId() &&
+        request.resource.data.createdBy == request.auth.uid;
+      allow update: if canManageAccounting() && ownsAccountingData(resource.data) && validAccountingInvoice(request.resource.data) &&
+        request.resource.data.ownerId == resource.data.ownerId &&
+        request.resource.data.empresaId == resource.data.empresaId &&
+        request.resource.data.createdBy == resource.data.createdBy &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'numero', 'terceroId', 'terceroNombre', 'ruta', 'departamento',
+          'fechaEmision', 'fechaVencimiento', 'notas', 'updatedAt'
+        ]);
+      allow delete: if canManageAccounting() && ownsAccountingData(resource.data) && resource.data.pagado == 0;
+    }
+
+    match /pagos_clientes/{paymentId} {
+      allow read: if ownsAccountingData(resource.data);
+      allow create, update, delete: if false;
+    }
+
+    match /pagos_proveedores/{paymentId} {
+      allow read: if ownsAccountingData(resource.data);
+      allow create, update, delete: if false;
+    }
+
+    match /accounting_alertas/{alertId} {
+      allow read: if ownsAccountingData(resource.data);
+      allow write: if false;
+    }
+
     // Colección de emails - solo escritura desde el cliente, lectura y actualización desde Functions
     match /emails/{emailId} {
       // Permitir crear documentos desde el cliente
@@ -127,7 +315,8 @@ service cloud.firestore {
     
     // Otras reglas existentes...
     match /{collection}/{document=**} {
-      allow read, write: if request.auth != null && collection != 'registrotucan';
+      allow read, write: if request.auth != null &&
+        collection != 'registrotucan' && !isAccountingCollection(collection);
     }
   }
 }

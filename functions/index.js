@@ -3,6 +3,7 @@ import { onRequest } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import admin from 'firebase-admin';
 import nodemailer from 'nodemailer';
+export { applyAccountingPayment, refreshAccountingDueStatuses } from './accounting.js';
 
 // Definir secretos
 const gmailUser = defineSecret("GMAIL_USER");

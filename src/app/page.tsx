@@ -142,6 +142,10 @@ const RegistroTucan = dynamic(
   () => import("@/components/business/RegistroTucan"),
   { ssr: false },
 );
+const AccountsModule = dynamic(
+  () => import("@/components/accounts/AccountsModule"),
+  { ssr: false },
+);
 
 // 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders", "edit", "scanhistory", "solicitud", "agregarproveedor", "reportes"
 type ActiveTab =
@@ -167,6 +171,7 @@ type ActiveTab =
   | "facturas"
   | "reportes"
   | "reportessinpe"
+  | "cuentas"
   | "pruebas";
 
 export default function HomePage() {
@@ -272,6 +277,7 @@ export default function HomePage() {
     ? user.permissions || getDefaultPermissions(user.role || "user")
     : null;
   const canAccessRegistroTucan = Boolean(resolvedPermissions?.registroTucan);
+  const canAccessCuentas = Boolean(resolvedPermissions?.cuentas);
 
   // 4) Al montar, leemos el hash de la URL y marcamos la pestaña correspondiente
   useEffect(() => {
@@ -288,6 +294,12 @@ export default function HomePage() {
         }
 
         if (hash === "registroTucan" && user && !canAccessRegistroTucan) {
+          safeWindow.location.hash("");
+          setActiveTab(null);
+          return;
+        }
+
+        if (hash === "cuentas" && user && !canAccessCuentas) {
           safeWindow.location.hash("");
           setActiveTab(null);
           return;
@@ -315,6 +327,7 @@ export default function HomePage() {
           "facturas",
           "reportes",
           "reportessinpe",
+          "cuentas",
           ...(isSuperAdmin ? ["pruebas"] : []),
         ];
         if (validTabs.includes(hash)) {
@@ -330,7 +343,7 @@ export default function HomePage() {
     checkAndSetTab();
     const timeout = setTimeout(checkAndSetTab, 100);
     return () => clearTimeout(timeout);
-  }, [isSuperAdmin, user, canAccessRegistroTucan]);
+  }, [isSuperAdmin, user, canAccessRegistroTucan, canAccessCuentas]);
 
   // 6) Escuchar cambios en el hash para actualizar la pestaña activa
   useEffect(() => {
@@ -347,6 +360,12 @@ export default function HomePage() {
         }
 
         if (hash === "registroTucan" && user && !canAccessRegistroTucan) {
+          safeWindow.location.hash("");
+          setActiveTab(null);
+          return;
+        }
+
+        if (hash === "cuentas" && user && !canAccessCuentas) {
           safeWindow.location.hash("");
           setActiveTab(null);
           return;
@@ -375,6 +394,7 @@ export default function HomePage() {
           "facturas",
           "reportes",
           "reportessinpe",
+          "cuentas",
           ...(isSuperAdmin ? ["pruebas"] : []),
         ];
         if (validTabs.includes(hash)) {
@@ -388,7 +408,7 @@ export default function HomePage() {
         window.removeEventListener("hashchange", handleHashChange);
       };
     }
-  }, [isSuperAdmin, user, canAccessRegistroTucan]);
+  }, [isSuperAdmin, user, canAccessRegistroTucan, canAccessCuentas]);
   return (
     <>
       <div className="flex-1 max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -475,6 +495,8 @@ export default function HomePage() {
 
               {/* REPORTES SINPE */}
               {activeTab === "reportessinpe" && <ReportesSinpePage />}
+
+              {activeTab === "cuentas" && canAccessCuentas && <AccountsModule />}
 
               {/* SOLICITUD */}
               {activeTab === "solicitud" && <SolicitudForm />}

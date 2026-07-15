@@ -43,6 +43,7 @@ import {
   BadgeDollarSign,
   ChartNoAxesCombined,
   ClipboardPenLine,
+  ReceiptText,
 } from "lucide-react";
 import AnimatedStickman from "../ui/AnimatedStickman";
 import { User, UserPermissions } from "../../types/firestore";
@@ -174,6 +175,13 @@ const menuItems = [
     icon: Truck,
     description: "Gestión de órdenes de proveedores",
     permission: "supplierorders" as keyof UserPermissions,
+  },
+  {
+    id: "cuentas",
+    name: "Cuentas",
+    icon: ReceiptText,
+    description: "Cuentas por cobrar y pagar",
+    permission: "cuentas" as keyof UserPermissions,
   },
   {
     id: "reportessinpe",

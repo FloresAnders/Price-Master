@@ -1,0 +1,40 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function accountingOwnerId() {
+      return request.auth.token.ownerId is string && request.auth.token.ownerId.size() > 0
+        ? request.auth.token.ownerId
+        : request.auth.uid;
+    }
+    function isAccountingRole() {
+      return request.auth != null && request.auth.token.role in [
+        'admin', 'superadmin', 'administrador', 'contador', 'usuario', 'user'
+      ];
+    }
+    function canManageAccounting() {
+      return request.auth != null && request.auth.token.role in [
+        'admin', 'superadmin', 'administrador', 'contador'
+      ];
+    }
+    function isAuthorizedEmpresa(empresaId) {
+      return request.auth != null && (
+        (request.auth.token.empresaId is string && request.auth.token.empresaId == empresaId) ||
+        (request.auth.token.empresaIds is list && request.auth.token.empresaIds.hasAny([empresaId]))
+      );
+    }
+    match /accounting/{ownerId}/{empresaId}/{tipo}/{facturaId}/{fileName} {
+      allow read: if isAccountingRole() && accountingOwnerId() == ownerId &&
+        isAuthorizedEmpresa(empresaId);
+      allow create, update: if canManageAccounting() && accountingOwnerId() == ownerId &&
+        isAuthorizedEmpresa(empresaId) &&
+        tipo in ['cliente', 'proveedor'] &&
+        request.resource.size < 10 * 1024 * 1024 &&
+        request.resource.contentType.matches('(application/pdf|image/.*)');
+      allow delete: if canManageAccounting() && accountingOwnerId() == ownerId &&
+        isAuthorizedEmpresa(empresaId);
+    }
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,6 +1,107 @@
 {
   "indexes": [
     {
+      "collectionGroup": "facturas_clientes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "saldo", "order": "ASCENDING" },
+        { "fieldPath": "fechaVencimiento", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "facturas_proveedores",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "saldo", "order": "ASCENDING" },
+        { "fieldPath": "fechaVencimiento", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "clientes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ownerId", "order": "ASCENDING" },
+        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "nombre", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "facturas_clientes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ownerId", "order": "ASCENDING" },
+        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "fechaVencimiento", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "facturas_clientes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ownerId", "order": "ASCENDING" },
+        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "estado", "order": "ASCENDING" },
+        { "fieldPath": "fechaVencimiento", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "facturas_proveedores",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ownerId", "order": "ASCENDING" },
+        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "fechaVencimiento", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "facturas_proveedores",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ownerId", "order": "ASCENDING" },
+        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "estado", "order": "ASCENDING" },
+        { "fieldPath": "fechaVencimiento", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pagos_clientes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ownerId", "order": "ASCENDING" },
+        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "fechaPago", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pagos_clientes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ownerId", "order": "ASCENDING" },
+        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "terceroId", "order": "ASCENDING" },
+        { "fieldPath": "fechaPago", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pagos_proveedores",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ownerId", "order": "ASCENDING" },
+        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "fechaPago", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pagos_proveedores",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ownerId", "order": "ASCENDING" },
+        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "terceroId", "order": "ASCENDING" },
+        { "fieldPath": "fechaPago", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "reportes_movimientos",
       "queryScope": "COLLECTION",
       "fields": [

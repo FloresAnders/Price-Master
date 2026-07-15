@@ -31,6 +31,7 @@ const PERMISSION_LABELS = {
   empleados: "Empleados",
   calculohorasprecios: "Calculo horas precios",
   supplierorders: "Órdenes Proveedor",
+  cuentas: "Cuentas por cobrar y pagar",
   reportessinpe: "Reportes SINPE",
   mantenimiento: "Mantenimiento",
   fondogeneral: "Fondo General",
@@ -58,6 +59,7 @@ const PERMISSION_DESCRIPTIONS = {
   empleados: "Acceso a la sección de Empleados",
   calculohorasprecios: "Cálculo de horas y precios (planilla)",
   supplierorders: "Gestión de órdenes de proveedores",
+  cuentas: "Facturas, pagos, saldos, vencimientos y reportes",
   reportessinpe: "Tarjeta y módulo de reportes SINPE",
   mantenimiento: "Acceso al panel de administración",
   fondogeneral:

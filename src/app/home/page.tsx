@@ -16,6 +16,7 @@ import {
   History,
   ClipboardPenLine,
   X,
+  ReceiptText,
 } from "lucide-react";
 import AnimatedStickman from "@/components/ui/AnimatedStickman";
 import { User, UserPermissions } from "@/types/firestore";
@@ -93,6 +94,13 @@ const menuItems = [
     icon: Truck,
     description: "Gestión de órdenes de proveedores",
     permission: "supplierorders" as keyof UserPermissions,
+  },
+  {
+    id: "cuentas",
+    name: "Cuentas",
+    icon: ReceiptText,
+    description: "Cuentas por cobrar y pagar",
+    permission: "cuentas" as keyof UserPermissions,
   },
   {
     id: "reportessinpe",
@@ -193,10 +201,12 @@ export default function HomePage() {
 
   const handleCardClick = (id: string, name: string) => {
     // Si es la tarjeta Fondo General, navegar a su página
-    if (id === "fondogeneral" || id === "reportessinpe" || id === "registroTucan") {
+    if (id === "fondogeneral" || id === "reportessinpe" || id === "registroTucan" || id === "cuentas") {
       // Use hash navigation so header/tab system picks it up
       safeWindow.location.hash(
-        id === "reportessinpe"
+        id === "cuentas"
+          ? "#cuentas"
+          : id === "reportessinpe"
           ? "#reportessinpe"
           : id === "registroTucan"
             ? "#registroTucan"

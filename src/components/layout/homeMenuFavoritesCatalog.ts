@@ -17,6 +17,7 @@ import {
   Type,
   UserPlus,
   Users,
+  ReceiptText,
 } from "lucide-react";
 import { CustomIcon } from "../../icons/icons";
 import type { User, UserPermissions } from "../../types/firestore";
@@ -218,6 +219,15 @@ export const HOME_MENU_FAVORITE_OPTIONS: HomeMenuFavoriteOption[] = [
     icon: Calculator,
     permission: "calculohorasprecios",
     hash: "calculohorasprecios",
+  },
+  {
+    id: "cuentas",
+    label: "Cuentas",
+    description: "Cuentas por cobrar y pagar",
+    group: "Herramientas",
+    icon: ReceiptText,
+    permission: "cuentas",
+    hash: "cuentas",
   },
   {
     id: "supplierorders",

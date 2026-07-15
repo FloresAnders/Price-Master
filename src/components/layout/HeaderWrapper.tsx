@@ -52,6 +52,7 @@ export default function HeaderWrapper() {
         "fondogeneral",
         "agregarproveedor",
         "reportes",
+        "cuentas",
         "reportessinpe",
       ];
       if (validTabs.includes(hash)) {
