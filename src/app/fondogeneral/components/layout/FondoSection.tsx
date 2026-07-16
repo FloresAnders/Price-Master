@@ -1851,6 +1851,7 @@ export function FondoSection({
     persistMovementToFirestore,
     setSelectedProvider,
     setMovementModalOpen,
+    clearMovementDraft,
   });
 
   const handleDeleteLatestDailyClosing = useCallback(

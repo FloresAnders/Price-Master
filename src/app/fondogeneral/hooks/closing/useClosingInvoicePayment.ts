@@ -47,6 +47,7 @@ interface UseClosingInvoicePaymentProps {
   persistMovementToFirestore?: ClosingInvoicePaymentDeps["persistMovementToFirestore"];
   setSelectedProvider: Dispatch<SetStateAction<string>>;
   setMovementModalOpen: Dispatch<SetStateAction<boolean>>;
+  clearMovementDraft?: () => void;
 }
 
 export function useClosingInvoicePayment({
@@ -67,6 +68,7 @@ export function useClosingInvoicePayment({
   persistMovementToFirestore,
   setSelectedProvider,
   setMovementModalOpen,
+  clearMovementDraft,
 }: UseClosingInvoicePaymentProps) {
   const [closingPaymentModalOpen, setClosingPaymentModalOpen] = useState(false);
   const [closingPaymentTarget, setClosingPaymentTarget] =
@@ -215,6 +217,7 @@ export function useClosingInvoicePayment({
         storageSnapshotRef,
         v2MovementsCacheRef,
         persistMovementToFirestore,
+        clearMovementDraft,
       }),
     [
       accountKey,
@@ -225,6 +228,7 @@ export function useClosingInvoicePayment({
       closingPaymentNotes,
       closingPaymentTarget,
       closeClosingInvoicePaymentModal,
+      clearMovementDraft,
       company,
       isCajaNegra,
       pendingCierreDeCaja,

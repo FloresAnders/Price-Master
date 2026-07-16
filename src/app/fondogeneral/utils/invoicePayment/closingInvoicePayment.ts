@@ -56,6 +56,7 @@ export interface ClosingInvoicePaymentDeps {
   storageSnapshotRef: MutableRefObject<MovementStorage<FondoEntry> | null>;
   v2MovementsCacheRef: MutableRefObject<Record<string, V2MovementsCacheEntry>>;
   persistMovementToFirestore?: (...args: any[]) => Promise<any>;
+  clearMovementDraft?: () => void;
 }
 
 export async function submitClosingInvoicePayment(
@@ -84,6 +85,7 @@ export async function submitClosingInvoicePayment(
     rebuildEntriesFromV2Cache,
     storageSnapshotRef,
     v2MovementsCacheRef,
+    clearMovementDraft,
   } = deps;
 
   if (!company || !closingPaymentTarget) return;
@@ -345,6 +347,7 @@ export async function submitClosingInvoicePayment(
     } catch (refreshErr) {
       console.error("[FONDO] Error refreshing UI after payment:", refreshErr);
     }
+    clearMovementDraft?.();
     closeClosingInvoicePaymentModal();
   } catch (error) {
     console.error("[FONDO] Error saving credit invoice payment:", error);
