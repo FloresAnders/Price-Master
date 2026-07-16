@@ -248,6 +248,7 @@ export interface RegistroTucanRecord {
   pagosHoy?: number;
   saldoSinpesRecibidos: number;
   total: number;
+  motivo?: string;
   currency: "CRC";
   createdById?: string;
   createdByName?: string;

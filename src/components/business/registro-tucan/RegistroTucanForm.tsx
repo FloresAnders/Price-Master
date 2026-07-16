@@ -1,4 +1,4 @@
-import { CalendarDays, RefreshCw, Save } from "lucide-react";
+import { CalendarDays, Plus, RefreshCw, Save } from "lucide-react";
 import {
   fieldBase,
   iconBoxClass,
@@ -12,6 +12,8 @@ type RegistroTucanFormProps = {
   serverTimeLoading: boolean;
   saldoPaginaTucanInput: string;
   pagosHoyInput: string;
+  motivoInput: string;
+  showMotivoInput: boolean;
   saldoFondoTucan: number;
   balanceLoading: boolean;
   saveDisabled: boolean;
@@ -22,6 +24,8 @@ type RegistroTucanFormProps = {
   sanitizeAmountInput: (value: string) => string;
   onSaldoPaginaChange: (value: string) => void;
   onPagosHoyChange: (value: string) => void;
+  onMotivoChange: (value: string) => void;
+  onToggleMotivoInput: () => void;
   onRefreshBalance: () => void;
   onSubmit: () => void;
 };
@@ -31,6 +35,8 @@ export function RegistroTucanForm({
   serverTimeLoading,
   saldoPaginaTucanInput,
   pagosHoyInput,
+  motivoInput,
+  showMotivoInput,
   saldoFondoTucan,
   balanceLoading,
   saveDisabled,
@@ -41,6 +47,8 @@ export function RegistroTucanForm({
   sanitizeAmountInput,
   onSaldoPaginaChange,
   onPagosHoyChange,
+  onMotivoChange,
+  onToggleMotivoInput,
   onRefreshBalance,
   onSubmit,
 }: RegistroTucanFormProps) {
@@ -112,6 +120,20 @@ export function RegistroTucanForm({
             />
             <button
               type="button"
+              onClick={onToggleMotivoInput}
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded border transition-colors ${
+                showMotivoInput
+                  ? "border-cyan-300/70 bg-cyan-500/25 text-cyan-50"
+                  : "border-cyan-700/35 bg-cyan-950/25 text-cyan-100/80 hover:border-cyan-500/45 hover:bg-cyan-900/25"
+              }`}
+              title="Agregar motivo"
+              aria-label="Agregar motivo"
+              aria-pressed={showMotivoInput}
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
               onClick={onRefreshBalance}
               disabled={balanceLoading}
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded border border-cyan-700/35 bg-cyan-950/25 text-cyan-100/80 transition-colors hover:border-cyan-500/45 hover:bg-cyan-900/25 disabled:opacity-50"
@@ -125,6 +147,19 @@ export function RegistroTucanForm({
           </div>
         </label>
       </div>
+
+      {showMotivoInput && (
+        <label className="mt-5 block">
+          <span className={labelClass}>Motivo</span>
+          <input
+            type="text"
+            value={motivoInput}
+            onChange={(event) => onMotivoChange(event.target.value)}
+            placeholder="Indique el motivo del registro"
+            className={fieldBase}
+          />
+        </label>
+      )}
 
       {error && <p className="mt-4 text-sm text-[var(--error)]">{error}</p>}
 

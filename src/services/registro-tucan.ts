@@ -1,6 +1,8 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
+  doc,
   getDocs,
   limit,
   orderBy,
@@ -29,6 +31,16 @@ export class RegistroTucanService {
       this.COLLECTION_NAME,
       this.buildEmpresaDocId(empresa),
       this.RECORDS_SUBCOLLECTION,
+    );
+  }
+
+  private static recordDocRef(empresa: string, recordId: string) {
+    return doc(
+      db,
+      this.COLLECTION_NAME,
+      this.buildEmpresaDocId(empresa),
+      this.RECORDS_SUBCOLLECTION,
+      recordId,
     );
   }
 
@@ -63,5 +75,13 @@ export class RegistroTucanService {
       id: doc.id,
       ...(doc.data() as Omit<RegistroTucanRecord, "id">),
     }));
+  }
+
+  static async deleteRecord(empresa: string, recordId: string): Promise<void> {
+    const normalizedEmpresa = String(empresa || "").trim();
+    const normalizedRecordId = String(recordId || "").trim();
+    if (!normalizedEmpresa || !normalizedRecordId) return;
+
+    await deleteDoc(this.recordDocRef(normalizedEmpresa, normalizedRecordId));
   }
 }

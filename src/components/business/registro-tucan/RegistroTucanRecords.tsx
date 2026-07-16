@@ -1,4 +1,4 @@
-import { Clock3, RefreshCw } from "lucide-react";
+import { Clock3, RefreshCw, Trash2 } from "lucide-react";
 import type { RegistroTucanRecord } from "../../../types/firestore";
 import { iconBoxClass, sectionClass } from "./styles";
 import type { RegistroTucanSortOrder } from "./types";
@@ -7,8 +7,10 @@ type RegistroTucanRecordsProps = {
   records: RegistroTucanRecord[];
   recordsLoading: boolean;
   sortOrder: RegistroTucanSortOrder;
+  canDeleteRecords: boolean;
   onSortOrderChange: (value: RegistroTucanSortOrder) => void;
   onRefresh: () => void;
+  onDelete: (record: RegistroTucanRecord) => void;
   formatCRC: (value: number) => string;
 };
 
@@ -16,8 +18,10 @@ export function RegistroTucanRecords({
   records,
   recordsLoading,
   sortOrder,
+  canDeleteRecords,
   onSortOrderChange,
   onRefresh,
+  onDelete,
   formatCRC,
 }: RegistroTucanRecordsProps) {
   return (
@@ -99,6 +103,7 @@ export function RegistroTucanRecords({
                   <th className="py-2 pr-3">pagosHoy</th>
                   <th className="py-2 pr-3">Total</th>
                   <th className="py-2 pr-3">Usuario</th>
+                  {canDeleteRecords && <th className="py-2 pr-3">Acciones</th>}
                 </tr>
               </thead>
               <tbody>
@@ -128,8 +133,30 @@ export function RegistroTucanRecords({
                       {formatCRC(record.total)}
                     </td>
                     <td className="px-3 py-2 text-[var(--muted-foreground)]">
-                      {record.createdByName || "-"}
+                      <div>{record.createdByName || "-"}</div>
+                      {record.motivo?.trim() && (
+                        <div className="mt-1 rounded border border-cyan-700/25 bg-cyan-950/25 px-2 py-1 text-xs text-cyan-50/85">
+                          <span className="font-semibold text-cyan-100/70">
+                            Motivo:
+                          </span>{" "}
+                          {record.motivo.trim()}
+                        </div>
+                      )}
                     </td>
+                    {canDeleteRecords && (
+                      <td className="px-3 py-2">
+                        <button
+                          type="button"
+                          onClick={() => onDelete(record)}
+                          disabled={recordsLoading}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded border border-red-500/40 bg-red-950/20 text-red-100 transition-colors hover:border-red-300/60 hover:bg-red-900/30 disabled:opacity-50"
+                          title="Eliminar registro"
+                          aria-label="Eliminar registro"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

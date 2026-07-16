@@ -84,6 +84,8 @@ export default function RegistroTucan() {
   const [hora, setHora] = useState(() => formatRegistroTucanTimeInput(new Date()));
   const [saldoPaginaTucanInput, setSaldoPaginaTucanInput] = useState("");
   const [pagosHoyInput, setPagosHoyInput] = useState("");
+  const [motivoInput, setMotivoInput] = useState("");
+  const [showMotivoInput, setShowMotivoInput] = useState(false);
   const [saldoFondoTucan, setSaldoFondoTucan] = useState(0);
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [recordsLoading, setRecordsLoading] = useState(false);
@@ -102,6 +104,7 @@ export default function RegistroTucan() {
   const hasPermission = Boolean(resolvedPermissions?.registroTucan);
   const assignedEmpresa = String(user?.ownercompanie || "").trim();
   const canSelectEmpresa = user?.role === "admin" || user?.role === "superadmin";
+  const canDeleteRecords = user?.role === "admin" || user?.role === "superadmin";
   const empresa = selectedEmpresa.trim();
   const empresaConfig = useMemo(() => {
     const selectedKey = normalizeKey(selectedEmpresa);
@@ -449,6 +452,7 @@ export default function RegistroTucan() {
         setError("Fecha inválida.");
         return;
       }
+      const motivo = motivoInput.trim();
 
       await RegistroTucanService.createRecord({
         empresa,
@@ -460,12 +464,15 @@ export default function RegistroTucan() {
         pagosHoy,
         saldoSinpesRecibidos: pagosHoy,
         total,
+        ...(motivo ? { motivo } : {}),
         createdById: user.id,
         createdByName: effectiveManager,
       });
 
       setSaldoPaginaTucanInput("");
       setPagosHoyInput("");
+      setMotivoInput("");
+      setShowMotivoInput(false);
       showToast("Registro guardado.", "success");
       await loadRecentRecords();
     } catch (err) {
@@ -473,6 +480,25 @@ export default function RegistroTucan() {
       setError("No se pudo guardar el registro.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeleteRecord = async (record: RegistroTucanRecord) => {
+    if (!canDeleteRecords || !empresa || !record.id) return;
+    const confirmed = window.confirm("Eliminar este registro de Tucan?");
+    if (!confirmed) return;
+
+    setRecordsLoading(true);
+    setError("");
+    try {
+      await RegistroTucanService.deleteRecord(empresa, record.id);
+      showToast("Registro eliminado.", "success");
+      await loadRecentRecords();
+    } catch (err) {
+      console.error("Error deleting Registro Tucan record:", err);
+      setError("No se pudo eliminar el registro.");
+    } finally {
+      setRecordsLoading(false);
     }
   };
 
@@ -533,6 +559,8 @@ export default function RegistroTucan() {
         serverTimeLoading={serverTimeLoading}
         saldoPaginaTucanInput={saldoPaginaTucanInput}
         pagosHoyInput={pagosHoyInput}
+        motivoInput={motivoInput}
+        showMotivoInput={showMotivoInput}
         saldoFondoTucan={saldoFondoTucan}
         balanceLoading={balanceLoading}
         saveDisabled={saveDisabled}
@@ -543,6 +571,8 @@ export default function RegistroTucan() {
         sanitizeAmountInput={sanitizeAmountInput}
         onSaldoPaginaChange={setSaldoPaginaTucanInput}
         onPagosHoyChange={setPagosHoyInput}
+        onMotivoChange={setMotivoInput}
+        onToggleMotivoInput={() => setShowMotivoInput((value) => !value)}
         onRefreshBalance={() => void loadTucanBalance()}
         onSubmit={() => void handleSave()}
       />
@@ -551,8 +581,10 @@ export default function RegistroTucan() {
         records={sortedRecords}
         recordsLoading={recordsLoading}
         sortOrder={sortOrder}
+        canDeleteRecords={canDeleteRecords}
         onSortOrderChange={setSortOrder}
         onRefresh={() => void loadRecentRecords()}
+        onDelete={(record) => void handleDeleteRecord(record)}
         formatCRC={formatCRC}
       />
     </div>
