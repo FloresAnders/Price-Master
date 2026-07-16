@@ -61,6 +61,10 @@ const buildFormState = (
 };
 
 const DAILY_CLOSING_MODAL_DRAFT_KEY = "fondogeneral-daily-closing-modal-draft";
+const DAILY_CLOSING_TUCAN_TURNO_D_KEY_PREFIX =
+  "fondogeneral-daily-closing-tucan-turno-d";
+const DAILY_CLOSING_TIEMPOS_TURNO_D_KEY_PREFIX =
+  "fondogeneral-daily-closing-tiempos-turno-d";
 
 type DailyClosingModalDraft = {
   manager?: string;
@@ -85,6 +89,80 @@ const readDailyClosingDraft = (): DailyClosingModalDraft | null => {
       : null;
   } catch {
     return null;
+  }
+};
+
+const buildTucanTurnoDKey = (closingDateISO: string) => {
+  const dateKey = closingDateISO.slice(0, 10);
+  return `${DAILY_CLOSING_TUCAN_TURNO_D_KEY_PREFIX}-${dateKey}`;
+};
+
+const buildTiemposTurnoDKey = (closingDateISO: string) => {
+  const dateKey = closingDateISO.slice(0, 10);
+  return `${DAILY_CLOSING_TIEMPOS_TURNO_D_KEY_PREFIX}-${dateKey}`;
+};
+
+const readTucanTurnoDValue = (closingDateISO: string): number | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(buildTucanTurnoDKey(closingDateISO));
+    if (!raw) return null;
+    const value = Number.parseFloat(raw);
+    return Number.isFinite(value) ? value : null;
+  } catch {
+    return null;
+  }
+};
+
+const readTiemposTurnoDValue = (closingDateISO: string): number | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(buildTiemposTurnoDKey(closingDateISO));
+    if (!raw) return null;
+    const value = Number.parseFloat(raw);
+    return Number.isFinite(value) ? value : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeTucanTurnoDValue = (closingDateISO: string, value: number) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    if (!Number.isFinite(value) || value <= 0) {
+      window.localStorage.removeItem(buildTucanTurnoDKey(closingDateISO));
+      return;
+    }
+    window.localStorage.setItem(buildTucanTurnoDKey(closingDateISO), String(value));
+  } catch {
+    // ignore storage errors
+  }
+};
+
+const writeTiemposTurnoDValue = (closingDateISO: string, value: number) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    if (!Number.isFinite(value) || value <= 0) {
+      window.localStorage.removeItem(buildTiemposTurnoDKey(closingDateISO));
+      return;
+    }
+    window.localStorage.setItem(buildTiemposTurnoDKey(closingDateISO), String(value));
+  } catch {
+    // ignore storage errors
+  }
+};
+
+const clearTurnoDSystemValues = (closingDateISO: string) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(buildTucanTurnoDKey(closingDateISO));
+    window.localStorage.removeItem(buildTiemposTurnoDKey(closingDateISO));
+  } catch {
+    // ignore storage errors
   }
 };
 
@@ -186,6 +264,10 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const [t11, setT11] = useState(() => savedDraft?.t11 ?? (initialValues?.t11 != null ? String(initialValues.t11) : ""));
   const [tucanCumulative, setTucanCumulative] = useState(() => savedDraft?.tucanCumulative ?? (initialValues?.tucanCumulative != null ? String(initialValues.tucanCumulative) : ""));
   const [tiemposCumulative, setTiemposCumulative] = useState(() => savedDraft?.tiemposCumulative ?? (initialValues?.tiemposCumulative != null ? String(initialValues.tiemposCumulative) : ""));
+  const storedTucanTurnoD = open ? readTucanTurnoDValue(closingDateISO) : null;
+  const storedTiemposTurnoD = open
+    ? readTiemposTurnoDValue(closingDateISO)
+    : null;
 
   const [confirmDiffOpen, setConfirmDiffOpen] = useState(false);
   const [pendingSubmitValues, setPendingSubmitValues] =
@@ -295,12 +377,24 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const t11Num = parseAmount(t11);
   const tucanNum = parseAmount(tucanCumulative);
   const tiemposNum = parseAmount(tiemposCumulative);
+  const tucanBelowTurnoD =
+    turno === "N" &&
+    storedTucanTurnoD !== null &&
+    tucanNum > 0 &&
+    tucanNum < storedTucanTurnoD;
+  const tiemposBelowTurnoD =
+    turno === "N" &&
+    storedTiemposTurnoD !== null &&
+    tiemposNum > 0 &&
+    tiemposNum < storedTiemposTurnoD;
   const hasZeroClosingReport =
     r08Num === 0 || t11Num === 0 || tucanNum === 0 || tiemposNum === 0;
   const submitDisabled =
     displayedManager.trim().length === 0 ||
     !hasAnyCash ||
     hasZeroClosingReport ||
+    tucanBelowTurnoD ||
+    tiemposBelowTurnoD ||
     (requireSingleClosingReason && singleClosingReason.trim().length === 0);
   const hasDifferences = diffCRC !== 0 || diffUSD !== 0;
 
@@ -357,6 +451,12 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     if (hasZeroClosingReport) {
       return "No se puede guardar debido a la falta de R08, T11, Tucan y Tiempos";
     }
+    if (tucanBelowTurnoD) {
+      return `No se puede guardar: Tucan nocturno no puede ser menor al turno D (${formatCurrency("CRC", storedTucanTurnoD ?? 0)}).`;
+    }
+    if (tiemposBelowTurnoD) {
+      return `No se puede guardar: Tiempos nocturno no puede ser menor al turno D (${formatCurrency("CRC", storedTiemposTurnoD ?? 0)}).`;
+    }
     if (requireSingleClosingReason && singleClosingReason.trim().length === 0) {
       return "Debes indicar el motivo de por qué solo hubo un cierre en el día.";
     }
@@ -365,6 +465,11 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     displayedManager,
     hasAnyCash,
     hasZeroClosingReport,
+    tucanBelowTurnoD,
+    storedTucanTurnoD,
+    tiemposBelowTurnoD,
+    storedTiemposTurnoD,
+    formatCurrency,
     requireSingleClosingReason,
     singleClosingReason,
   ]);
@@ -421,6 +526,12 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [open, onClose]);
+
+  useEffect(() => {
+    if (!open || turno !== "D") return;
+    writeTucanTurnoDValue(closingDateISO, tucanNum);
+    writeTiemposTurnoDValue(closingDateISO, tiemposNum);
+  }, [open, turno, closingDateISO, tucanNum, tiemposNum]);
 
   useEffect(() => {
     if (!open || editId) return;
@@ -563,6 +674,10 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const handleSubmit = () => {
     const trimmedManager = displayedManager.trim();
     if (submitDisabled) return;
+    if (turno === "D") {
+      writeTucanTurnoDValue(closingDateISO, tucanNum);
+      writeTiemposTurnoDValue(closingDateISO, tiemposNum);
+    }
 
     const values: DailyClosingFormValues = {
       closingDate: closingDateISO,
@@ -589,6 +704,9 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     }
 
     onConfirm(values);
+    if (turno === "N") {
+      clearTurnoDSystemValues(closingDateISO);
+    }
   };
 
   const handleConfirmDifferences = () => {
@@ -597,6 +715,9 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
       return;
     }
     onConfirm(pendingSubmitValues);
+    if (pendingSubmitValues.turno === "N") {
+      clearTurnoDSystemValues(pendingSubmitValues.closingDate);
+    }
     setConfirmDiffOpen(false);
     setPendingSubmitValues(null);
   };
@@ -904,6 +1025,16 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                     <label className="text-xs text-[var(--muted-foreground)]"><span className="md:hidden">Diferencia · </span>Diferencia<input value={(() => { const amount = difference as number; return amount > 0 ? `+${crcFormatter.format(amount)}` : crcFormatter.format(amount); })()} readOnly aria-label={`Diferencia ${conticaLabel as string}`} className="mt-1 h-10 w-full cursor-default rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm font-semibold text-[var(--foreground)]" /></label>
                   </div>
                 ))}
+                {tucanBelowTurnoD && (
+                  <div className="rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-300">
+                    Tucan del turno N no puede ser menor al turno D
+                  </div>
+                )}
+                {tiemposBelowTurnoD && (
+                  <div className="rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-300">
+                    Tiempos del turno N no puede ser menor al turno D
+                  </div>
+                )}
               </div>
               {reconciliationPreview && (
                 <div className="mt-4 rounded-lg border border-[var(--input-border)] bg-[var(--background)] p-3">
