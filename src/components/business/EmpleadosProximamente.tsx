@@ -39,6 +39,7 @@ type MergedEmpleadoEntry = {
 type DeleteTarget = {
   empresaId: string;
   empleado: Empleado;
+  empleadoKey: string;
 } | null;
 
 type SalaryByCcssType = {
@@ -447,11 +448,15 @@ export default function EmpleadosProximamente() {
     }));
   };
 
-  const openDeleteModal = (empresaId: string, empleado: Empleado) => {
-    const id = String(empleado?.id || "").trim();
+  const openDeleteModal = (
+    empresaId: string,
+    empleado: Empleado,
+    empleadoKey?: string,
+  ) => {
     const eid = String(empresaId || "").trim();
-    if (!id || !eid) return;
-    setDeleteTarget({ empresaId: eid, empleado });
+    const key = normalizeStr(empleadoKey || empleado?.Empleado);
+    if (!eid || !key) return;
+    setDeleteTarget({ empresaId: eid, empleado, empleadoKey: key });
     setDeleteModalOpen(true);
   };
 
@@ -464,34 +469,49 @@ export default function EmpleadosProximamente() {
   const performDeleteEmpleado = async (
     empresaId: string,
     empleado: Empleado,
+    empleadoKey: string,
   ) => {
+    if (!canManageEmployees) {
+      showToast("No tienes permisos para eliminar empleados.", "error");
+      return;
+    }
+
     const id = String(empleado?.id || "").trim();
-    const empName = String(empleado?.Empleado || "").trim();
+    const targetKey = normalizeStr(empleadoKey || empleado?.Empleado);
     const eid = String(empresaId || "").trim();
 
-    if (!id || !eid) return;
+    if (!targetKey || !eid) return;
 
     try {
       setDeleteModalLoading(true);
-      setDeletingKey(id);
+      setDeletingKey(id || `${eid}::${targetKey}`);
 
-      // Validación fuerte: solo permitir borrar si ya NO existe en la lista de la empresa
       const empresa = await EmpresasService.getEmpresaById(eid);
       const embedded = Array.isArray(empresa?.empleados)
         ? empresa!.empleados
         : [];
-      const existsInEmpresa = embedded.some(
-        (x) => normalizeStr(x?.Empleado) === normalizeStr(empName),
+      const nextEmbedded = embedded.filter(
+        (x) => normalizeStr(x?.Empleado) !== targetKey,
       );
-      if (existsInEmpresa) {
-        showToast(
-          "No se puede eliminar: el empleado aún existe en la empresa.",
-          "error",
-        );
-        return;
+      if (empresa && nextEmbedded.length !== embedded.length) {
+        await EmpresasService.updateEmpresa(eid, {
+          empleados: nextEmbedded,
+        });
       }
 
-      await EmpleadosService.deleteEmpleado(id, eid);
+      if (id) {
+        await EmpleadosService.deleteEmpleado(id, eid);
+      } else {
+        EmpleadosService.clearCache(eid);
+      }
+
+      setEmpresas((prev) =>
+        prev.map((item) =>
+          String(item.id || "").trim() === eid
+            ? { ...item, empleados: nextEmbedded }
+            : item,
+        ),
+      );
       await refreshEmpresaEmpleados(eid);
       showToast("Empleado eliminado correctamente.", "success");
       setDeleteModalOpen(false);
@@ -529,11 +549,7 @@ export default function EmpleadosProximamente() {
       <ConfirmModal
         open={deleteModalOpen}
         title="Eliminar empleado"
-        message={
-          `¿Eliminar a "${String(deleteTarget?.empleado?.Empleado || "").trim() || "Empleado"}"?\n\n` +
-          "Esto borrará su ficha de detalles (colección empleados). " +
-          "Solo se permite si ya no aparece en la empresa."
-        }
+        message={`¿Eliminar a "${String(deleteTarget?.empleado?.Empleado || "").trim() || "Empleado"}"?\n\nEsto quitará el colaborador de la empresa y borrará su ficha de detalles si existe.`}
         confirmText="Eliminar"
         cancelText="Cancelar"
         actionType="delete"
@@ -545,6 +561,7 @@ export default function EmpleadosProximamente() {
           void performDeleteEmpleado(
             deleteTarget.empresaId,
             deleteTarget.empleado,
+            deleteTarget.empleadoKey,
           );
         }}
       />
@@ -788,19 +805,24 @@ export default function EmpleadosProximamente() {
                                 <Pencil className="w-4 h-4" />
                               </button>
 
-                              {doc?.id && !emb && (
-                                <button
-                                  type="button"
-                                  disabled={deletingKey === doc.id}
-                                  className="p-2 rounded-md border border-[var(--input-border)] hover:bg-[var(--hover-bg)] disabled:opacity-50"
-                                  title="Eliminar empleado"
-                                  onClick={() =>
-                                    openDeleteModal(empresaId, doc)
-                                  }
-                                >
-                                  <Trash2 className="w-4 h-4 text-red-500" />
-                                </button>
-                              )}
+                              <button
+                                type="button"
+                                disabled={
+                                  deletingKey ===
+                                  (doc?.id || `${empresaId}::${entry.key}`)
+                                }
+                                className="p-2 rounded-md border border-[var(--input-border)] hover:bg-[var(--hover-bg)] disabled:opacity-50"
+                                title="Eliminar empleado"
+                                onClick={() =>
+                                  openDeleteModal(
+                                    empresaId,
+                                    modalEmp,
+                                    entry.key,
+                                  )
+                                }
+                              >
+                                <Trash2 className="w-4 h-4 text-red-500" />
+                              </button>
                             </div>
                           )}
                         </div>
