@@ -1,7 +1,7 @@
 {
-  "version": "1.8.62",
+  "version": "1.8.63",
   "versionstorage": "1.3.8",
-  "notasDeSistemas": "1.3.24",
+  "notasDeSistemas": "1.3.25",
   "releaseNotes": [
     {
       "date": "2026-07-04",
@@ -10,6 +10,12 @@
     }
   ],
   "systemNotes": [
+    {
+      "date": "2026-07-13",
+      "title": "VIDEO DE COMO USAR EL SISTEMA TUCAN/TIEMPOS CORRECTAMENTE",
+      "url": "https://firebasestorage.googleapis.com/v0/b/pricemaster-4a611.firebasestorage.app/o/videos%2FREPORTESS.mp4?alt=media&token=061293c6-186c-4f33-be62-b83f48505729",
+      "description": ""
+    },
     {
       "date": "2026-07-13",
       "title": "Solicitud de tiempo para cierre de Fondo Ventas",
