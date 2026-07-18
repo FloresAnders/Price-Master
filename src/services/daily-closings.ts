@@ -23,6 +23,7 @@ export type DailyClosingSchedule = {
   horarioApertura: string;
   horarioCierre: string;
   minutesAfterClose?: number | null;
+  authorizedOperationalDateKey?: string | null;
 };
 
 export const DAILY_CLOSING_DUPLICATE_ERROR =
@@ -154,6 +155,17 @@ export const getOperationalDateKey = (
     parts.day,
     parts.minuteOfDay < openMin ? -1 : 0,
   );
+};
+
+export const resolveOperationalDateKeyForSave = (
+  iso: string,
+  schedule: DailyClosingSchedule,
+  authorizedOperationalDateKey?: string | null,
+): string | null => {
+  const strictKey = getOperationalDateKey(iso, schedule);
+  if (strictKey) return strictKey;
+  const authorizedKey = String(authorizedOperationalDateKey || "").trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(authorizedKey) ? authorizedKey : null;
 };
 
 const resolveISOString = (value: unknown, fallback?: string): string => {
@@ -626,9 +638,10 @@ export class DailyClosingsService {
       ) {
         throw new Error("Turno D/N requerido para cierre de Fondo General.");
       }
-      const operationalDateKey = !isEditing ? getOperationalDateKey(
+      const operationalDateKey = !isEditing ? resolveOperationalDateKeyForSave(
         sanitizedRecord.closingDate,
         schedule,
+        schedule.authorizedOperationalDateKey,
       ) : null;
       if (!isEditing && !operationalDateKey) {
         throw new Error(

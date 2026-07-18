@@ -4266,6 +4266,7 @@ export function FondoSection({
       isRegularUser,
       lastDailyClosingSavedAtRef,
       minutesAfterClose: dailyClosingMinutesAfterClose,
+      authorizedOperationalDateKey: operationalDateKey,
       requireSingleClosingReason:
         dailyClosingSingleReasonRequired &&
         !editingDailyClosingId &&

@@ -65,6 +65,7 @@ export interface HandleConfirmDailyClosingDeps {
   isRegularUser: boolean;
   lastDailyClosingSavedAtRef: NumberRef;
   minutesAfterClose?: number | null;
+  authorizedOperationalDateKey?: string | null;
   requireSingleClosingReason: boolean;
   systemVerificationEnabled: boolean;
   solicitarApertura: boolean;
@@ -126,6 +127,7 @@ export async function handleConfirmDailyClosing(
     isRegularUser,
     lastDailyClosingSavedAtRef,
     minutesAfterClose,
+    authorizedOperationalDateKey,
     requireSingleClosingReason,
     systemVerificationEnabled,
     solicitarApertura,
@@ -161,6 +163,7 @@ export async function handleConfirmDailyClosing(
     horarioApertura,
     horarioCierre,
     minutesAfterClose,
+    authorizedOperationalDateKey,
   };
   if (!isValidDailyClosingSchedule(dailyClosingSchedule)) {
     showToast(DAILY_CLOSING_SCHEDULE_REQUIRED_ERROR, "warning", 6000);
