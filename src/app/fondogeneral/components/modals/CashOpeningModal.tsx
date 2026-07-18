@@ -2,6 +2,10 @@
 
 import { X } from "lucide-react";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  getBillCountKeyAction,
+  parseBillCountInput,
+} from "@/components/business/cash-counter-tabs/utils";
 
 const CRC_DENOMINATIONS: readonly number[] = [
   20000, 10000, 5000, 2000, 1000, 500, 100, 50, 25,
@@ -9,6 +13,38 @@ const CRC_DENOMINATIONS: readonly number[] = [
 const USD_DENOMINATIONS: readonly number[] = [100, 50, 20, 10, 5, 1];
 
 type CountState = Record<number, string>;
+
+const CASH_OPENING_MODAL_DRAFT_KEY = "fondogeneral-cash-opening-modal-draft";
+
+type CashOpeningModalDraft = {
+  manager?: string;
+  notes?: string;
+  crcCounts?: CountState;
+  usdCounts?: CountState;
+};
+
+const readCashOpeningDraft = (storageKey: string): CashOpeningModalDraft | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object"
+      ? (parsed as CashOpeningModalDraft)
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+const clearCashOpeningDraft = (storageKey: string) => {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(storageKey);
+  } catch {
+    // ignore storage errors
+  }
+};
 
 const buildInitialCounts = (denominations: readonly number[]): CountState =>
   denominations.reduce<CountState>((acc, denom) => {
@@ -60,13 +96,15 @@ export type CashOpeningFormValues = {
 type CashOpeningModalProps = {
   open: boolean;
   onClose: () => void;
-  onConfirm: (values: CashOpeningFormValues) => void;
+  onConfirm: (values: CashOpeningFormValues) => void | Promise<unknown>;
   initialValues?: CashOpeningFormValues | null;
   employees: string[];
   loadingEmployees: boolean;
   currentBalanceCRC: number;
   currentBalanceUSD: number;
   managerReadonly?: boolean;
+  persistDraft?: boolean;
+  draftStorageKey?: string;
 };
 
 const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
@@ -79,9 +117,13 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
   currentBalanceCRC,
   currentBalanceUSD,
   managerReadonly = false,
+  persistDraft = true,
+  draftStorageKey = CASH_OPENING_MODAL_DRAFT_KEY,
 }) => {
   const modalRef = useRef<HTMLDivElement | null>(null);
   const managerFieldRef = useRef<HTMLSelectElement | HTMLInputElement | null>(null);
+  const openingDraftLoadedRef = useRef(false);
+  const skipNextOpeningDraftWriteRef = useRef(false);
 
   const [openingDateISO] = useState(() => buildFormState(initialValues).openingDateISO);
   const [manager, setManager] = useState(() => buildFormState(initialValues).manager);
@@ -184,7 +226,7 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
     denom: number,
     value: string,
   ) => {
-    const sanitized = value.replace(/[^0-9]/g, "");
+    const sanitized = value.replace(/[^0-9+\-=.\s]/g, "");
     if (currency === "CRC") {
       setCrcCounts((prev) => ({ ...prev, [denom]: sanitized }));
     } else {
@@ -192,15 +234,47 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
     }
   };
 
+  const commitCount = (currency: "CRC" | "USD", denom: number) => {
+    if (currency === "CRC") {
+      setCrcCounts((prev) => {
+        const current = prev[denom] ?? "";
+        const parsed = parseBillCountInput(current);
+        return { ...prev, [denom]: parsed > 0 ? String(parsed) : "" };
+      });
+    } else {
+      setUsdCounts((prev) => {
+        const current = prev[denom] ?? "";
+        const parsed = parseBillCountInput(current);
+        return { ...prev, [denom]: parsed > 0 ? String(parsed) : "" };
+      });
+    }
+  };
+
+  const insertCountFormulaOperator = (
+    input: HTMLInputElement,
+    currency: "CRC" | "USD",
+    denom: number,
+    operator: "+" | "-",
+  ) => {
+    const start = input.selectionStart ?? input.value.length;
+    const end = input.selectionEnd ?? input.value.length;
+    const next = `${input.value.slice(0, start)}${operator}${input.value.slice(end)}`;
+    const cursor = start + operator.length;
+    handleCountChange(currency, denom, next);
+    window.requestAnimationFrame(() => {
+      input.setSelectionRange(cursor, cursor);
+    });
+  };
+
   const incrementCount = (currency: "CRC" | "USD", denom: number) => {
     if (currency === "CRC") {
       setCrcCounts((prev) => {
-        const curr = Number.parseInt(prev[denom] || "0", 10) || 0;
+        const curr = parseBillCountInput(prev[denom] || "0");
         return { ...prev, [denom]: String(curr + 1) };
       });
     } else {
       setUsdCounts((prev) => {
-        const curr = Number.parseInt(prev[denom] || "0", 10) || 0;
+        const curr = parseBillCountInput(prev[denom] || "0");
         return { ...prev, [denom]: String(curr + 1) };
       });
     }
@@ -209,13 +283,13 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
   const decrementCount = (currency: "CRC" | "USD", denom: number) => {
     if (currency === "CRC") {
       setCrcCounts((prev) => {
-        const curr = Number.parseInt(prev[denom] || "0", 10) || 0;
+        const curr = parseBillCountInput(prev[denom] || "0");
         const next = Math.max(0, curr - 1);
         return { ...prev, [denom]: String(next) };
       });
     } else {
       setUsdCounts((prev) => {
-        const curr = Number.parseInt(prev[denom] || "0", 10) || 0;
+        const curr = parseBillCountInput(prev[denom] || "0");
         const next = Math.max(0, curr - 1);
         return { ...prev, [denom]: String(next) };
       });
@@ -252,13 +326,46 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
     currency: "CRC" | "USD",
     denom: number,
   ) => {
+    if (
+      event.shiftKey &&
+      (event.key === "+" ||
+        event.key === "_" ||
+        event.code === "Equal" ||
+        event.code === "Minus" ||
+        event.code === "NumpadAdd" ||
+        event.code === "NumpadSubtract")
+    ) {
+      event.preventDefault();
+      insertCountFormulaOperator(
+        event.currentTarget,
+        currency,
+        denom,
+        event.code === "Minus" || event.code === "NumpadSubtract" ? "-" : "+",
+      );
+      return;
+    }
+
+    const keyAction = getBillCountKeyAction(event);
+    if (keyAction === "type") return;
+    if (keyAction === "increment") {
+      event.preventDefault();
+      incrementCount(currency, denom);
+      return;
+    }
+    if (keyAction === "decrement") {
+      event.preventDefault();
+      decrementCount(currency, denom);
+      return;
+    }
     if (event.key === "ArrowUp") {
       event.preventDefault();
+      commitCount(currency, denom);
       focusAdjacentCashInput(event.currentTarget, -1);
       return;
     }
     if (event.key === "ArrowDown") {
       event.preventDefault();
+      commitCount(currency, denom);
       focusAdjacentCashInput(event.currentTarget, 1);
       return;
     }
@@ -268,6 +375,10 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
     } else if (event.key === "ArrowLeft") {
       event.preventDefault();
       decrementCount(currency, denom);
+    } else if (event.key === "Enter" || event.key === "Tab") {
+      event.preventDefault();
+      commitCount(currency, denom);
+      focusAdjacentCashInput(event.currentTarget, event.shiftKey ? -1 : 1);
     }
   };
 
@@ -288,7 +399,7 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
       const trimmedManager = displayedManager.trim();
       if (!trimmedManager || !hasAnyCash) return;
 
-      onConfirm({
+      const result = await onConfirm({
         openingDate: openingDateISO,
         manager: trimmedManager,
         notes,
@@ -297,6 +408,9 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
         breakdownCRC: buildBreakdown(crcCounts, CRC_DENOMINATIONS),
         breakdownUSD: buildBreakdown(usdCounts, USD_DENOMINATIONS),
       });
+      if (result !== undefined && result !== null && result !== false) {
+        clearCashOpeningDraft(draftStorageKey);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -306,6 +420,50 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
     setCrcCounts(buildInitialCounts(CRC_DENOMINATIONS));
     setUsdCounts(buildInitialCounts(USD_DENOMINATIONS));
   };
+
+  useEffect(() => {
+    if (!open) {
+      openingDraftLoadedRef.current = false;
+      return;
+    }
+    if (!persistDraft || openingDraftLoadedRef.current) return;
+    const draft = readCashOpeningDraft(draftStorageKey);
+    openingDraftLoadedRef.current = true;
+    if (!draft) return;
+    skipNextOpeningDraftWriteRef.current = true;
+    setManager(draft.manager || "");
+    setNotes(draft.notes || "");
+    setCrcCounts({
+      ...buildInitialCounts(CRC_DENOMINATIONS),
+      ...(draft.crcCounts || {}),
+    });
+    setUsdCounts({
+      ...buildInitialCounts(USD_DENOMINATIONS),
+      ...(draft.usdCounts || {}),
+    });
+  }, [open, persistDraft, draftStorageKey]);
+
+  useEffect(() => {
+    if (!open || !persistDraft) return;
+    if (!openingDraftLoadedRef.current) return;
+    if (skipNextOpeningDraftWriteRef.current) {
+      skipNextOpeningDraftWriteRef.current = false;
+      return;
+    }
+    try {
+      window.localStorage.setItem(
+        draftStorageKey,
+        JSON.stringify({
+          manager,
+          notes,
+          crcCounts,
+          usdCounts,
+        } satisfies CashOpeningModalDraft),
+      );
+    } catch {
+      // ignore storage errors
+    }
+  }, [open, persistDraft, draftStorageKey, manager, notes, crcCounts, usdCounts]);
 
   useEffect(() => {
     if (!open) return;
@@ -384,12 +542,13 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
                             handleCountChange("CRC", denom, event.target.value)
                           }
                           onKeyDown={(e) => handleCountKeyDown(e, "CRC", denom)}
+                          onBlur={() => commitCount("CRC", denom)}
                           className="h-11 w-24 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-2 pr-8 text-center text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
                           style={{
                             backgroundColor: "var(--card-bg)",
                             color: "var(--foreground)",
                           }}
-                          inputMode="numeric"
+                          inputMode="text"
                           aria-label={`Cantidad ${denom} colones`}
                           data-cash-count-input="true"
                         />
@@ -458,12 +617,13 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
                             handleCountChange("USD", denom, event.target.value)
                           }
                           onKeyDown={(e) => handleCountKeyDown(e, "USD", denom)}
+                          onBlur={() => commitCount("USD", denom)}
                           className="h-11 w-24 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-2 pr-8 text-center text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
                           style={{
                             backgroundColor: "var(--card-bg)",
                             color: "var(--foreground)",
                           }}
-                          inputMode="numeric"
+                          inputMode="text"
                           aria-label={`Cantidad ${denom} dólares`}
                           data-cash-count-input="true"
                         />

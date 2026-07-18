@@ -4190,9 +4190,9 @@ export function FondoSection({
             "error",
             6000,
           );
-          return;
+          return null;
         }
-        if (!(await validateCashOpeningShiftWindow(nowISO))) return;
+        if (!(await validateCashOpeningShiftWindow(nowISO))) return null;
       }
 
       const apEntry = await handleConfirmCashOpeningFn(opening, {
@@ -4213,6 +4213,7 @@ export function FondoSection({
         existingEntry: cashOpeningEditingEntry,
       });
       if (apEntry) setLatestMovementOverall(apEntry);
+      return apEntry ?? null;
     },
     [
       accountKey,
@@ -6408,6 +6409,8 @@ export function FondoSection({
         currentBalanceCRC={currentBalanceCRC}
         currentBalanceUSD={currentBalanceUSD}
         managerReadonly={isRegularUser}
+        persistDraft={!cashOpeningEditingEntry}
+        draftStorageKey={`fondogeneral-cash-opening-modal-draft:${company || "default"}:${accountKey}`}
       />
 
       <ConfirmModal
