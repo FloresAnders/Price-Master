@@ -923,8 +923,12 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
           0,
         );
         const nextAmountPayment =
-          effectiveIsEgreso && nextAppliedCreditNotes.length > 0
-            ? Math.max(0, egresoValue - nextAppliedTotal)
+          effectiveIsEgreso && effectiveInvoiceDocType === "FCO"
+            ? roundCreditNotePaymentAmount(
+                Math.max(0, egresoValue - nextAppliedTotal),
+                effectiveCurrency,
+                accountKey,
+              )
             : undefined;
 
         // Crear registro simplificado con solo los campos que cambiaron
