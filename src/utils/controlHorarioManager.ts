@@ -235,8 +235,11 @@ const formatMinuteOfDay = (minute: number): string => {
 export const getCashOpeningAvailabilityAfterDailyClosing = (args: {
   nowISO: string;
   horarioApertura?: string | null;
+  horarioCierre?: string | null;
   latestDailyClosing?: DailyClosingLike | null;
   shiftChangeMin?: number | null;
+  cierreFondoVentasMinutesBeforeEnd?: number | null;
+  cierreFondoVentasMinutesAfterEnd?: number | null;
 }): CashOpeningAvailability => {
   const latest = args.latestDailyClosing;
   if (latest?.turno !== "D" && latest?.turno !== "N") {
@@ -248,6 +251,23 @@ export const getCashOpeningAvailabilityAfterDailyClosing = (args: {
 
   const nowInfo = getCostaRicaDateKeyAndMinute(args.nowISO);
   if (!nowInfo) return { allowed: true };
+
+  const isWithinClosingWindow = (referenceMin: number | null): boolean => {
+    if (referenceMin === null) return false;
+    const rawBefore = Number(args.cierreFondoVentasMinutesBeforeEnd);
+    const rawAfter = Number(args.cierreFondoVentasMinutesAfterEnd);
+    if (!Number.isFinite(rawBefore) || !Number.isFinite(rawAfter)) {
+      return false;
+    }
+    const before = Math.max(0, rawBefore);
+    const after = Math.max(0, rawAfter);
+    const startMin = normalizeMinuteOfDay(referenceMin - before);
+    const endMin = normalizeMinuteOfDay(referenceMin + after + 1);
+    const nowMin = nowInfo.minuteOfDay;
+    return startMin <= endMin
+      ? nowMin >= startMin && nowMin < endMin
+      : nowMin >= startMin || nowMin < endMin;
+  };
 
   const nowOperationalDateKey = getCostaRicaOperationalDateKey(
     args.nowISO,
@@ -267,6 +287,10 @@ export const getCashOpeningAvailabilityAfterDailyClosing = (args: {
   }
 
   if (latest.turno === "N") {
+    if (isWithinClosingWindow(parseHHMMToMinutes(args.horarioCierre))) {
+      return { allowed: true };
+    }
+
     return {
       allowed: false,
       closingTurno: "N",
@@ -281,6 +305,8 @@ export const getCashOpeningAvailabilityAfterDailyClosing = (args: {
   const currentElapsed = normalizeMinuteOfDay(nowInfo.minuteOfDay - openMin);
   const shiftChangeElapsed = normalizeMinuteOfDay(shiftChangeMin - openMin);
   if (shiftChangeElapsed > 0 && currentElapsed < shiftChangeElapsed) {
+    if (isWithinClosingWindow(shiftChangeMin)) return { allowed: true };
+
     return {
       allowed: false,
       closingTurno: "D",

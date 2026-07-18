@@ -1064,11 +1064,32 @@ export function FondoSection({
       try {
         const timing = await resolveShiftTimingForNow(nowISO);
         const latestClosing = await loadLatestDailyClosing();
+        const latestClosingTurno =
+          latestClosing?.turno === "D" || latestClosing?.turno === "N"
+            ? latestClosing.turno
+            : null;
+        const latestClosingISO = String(
+          latestClosing?.closingDate || latestClosing?.createdAt || nowISO,
+        );
+        const latestClosingOperationalDateKey = getCostaRicaOperationalDateKey(
+          latestClosingISO,
+          empresaForShiftResolution?.horarioApertura,
+        );
+        const effectiveMinutesAfterEnd = latestClosingTurno
+          ? await resolveEffectiveClosingMinutesAfterEnd(
+              nowISO,
+              latestClosingTurno,
+              latestClosingOperationalDateKey,
+            )
+          : cierreFondoVentasMinutesAfterEnd;
         const availability = getCashOpeningAvailabilityAfterDailyClosing({
           nowISO,
           horarioApertura: empresaForShiftResolution?.horarioApertura,
+          horarioCierre: empresaForShiftResolution?.horarioCierre,
           latestDailyClosing: latestClosing,
           shiftChangeMin: timing?.withinHorario ? timing.shiftChangeMin : null,
+          cierreFondoVentasMinutesBeforeEnd,
+          cierreFondoVentasMinutesAfterEnd: effectiveMinutesAfterEnd,
         });
         if (availability.allowed) return true;
 
@@ -1091,7 +1112,11 @@ export function FondoSection({
     },
     [
       empresaForShiftResolution?.horarioApertura,
+      empresaForShiftResolution?.horarioCierre,
+      cierreFondoVentasMinutesAfterEnd,
+      cierreFondoVentasMinutesBeforeEnd,
       loadLatestDailyClosing,
+      resolveEffectiveClosingMinutesAfterEnd,
       resolveShiftTimingForNow,
       showToast,
     ],
