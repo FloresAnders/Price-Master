@@ -66,6 +66,7 @@ export interface HandleConfirmDailyClosingDeps {
   lastDailyClosingSavedAtRef: NumberRef;
   minutesAfterClose?: number | null;
   requireSingleClosingReason: boolean;
+  systemVerificationEnabled: boolean;
   solicitarApertura: boolean;
   loadedDailyClosingKeysRef: StringSetRef;
   loadingDailyClosingKeysRef: StringSetRef;
@@ -126,6 +127,7 @@ export async function handleConfirmDailyClosing(
     lastDailyClosingSavedAtRef,
     minutesAfterClose,
     requireSingleClosingReason,
+    systemVerificationEnabled,
     solicitarApertura,
     loadedDailyClosingKeysRef,
     loadingDailyClosingKeysRef,
@@ -207,18 +209,20 @@ export async function handleConfirmDailyClosing(
     return;
   }
   let reconciliation;
-  try {
-    reconciliation = reconcileClosing({
-      r08: closing.r08, t11: closing.t11,
-      tucanCumulative: closing.tucanCumulative, tiemposCumulative: closing.tiemposCumulative,
-      previous: previousDayClosing?.reconciliation,
-      cumulativeR08: (previousDayClosing?.reconciliation?.calculated.cumulativeR08 ?? 0) + closing.r08,
-      cumulativeT11: (previousDayClosing?.reconciliation?.calculated.cumulativeT11 ?? 0) + closing.t11,
-      isFinalShift: closing.turno === "N",
-    });
-  } catch (error) {
-    showToast(error instanceof Error ? error.message : "Datos de conciliación inválidos.", "warning", 6000);
-    return;
+  if (systemVerificationEnabled) {
+    try {
+      reconciliation = reconcileClosing({
+        r08: closing.r08, t11: closing.t11,
+        tucanCumulative: closing.tucanCumulative, tiemposCumulative: closing.tiemposCumulative,
+        previous: previousDayClosing?.reconciliation,
+        cumulativeR08: (previousDayClosing?.reconciliation?.calculated.cumulativeR08 ?? 0) + closing.r08,
+        cumulativeT11: (previousDayClosing?.reconciliation?.calculated.cumulativeT11 ?? 0) + closing.t11,
+        isFinalShift: closing.turno === "N",
+      });
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Datos de conciliación inválidos.", "warning", 6000);
+      return;
+    }
   }
 
   if (requireSingleClosingReason && !singleClosingReason) {
@@ -260,7 +264,7 @@ export async function handleConfirmDailyClosing(
     ...(noMovements ? { noMovements: true, noMovementsReason } : {}),
     breakdownCRC: closing.breakdownCRC ?? {},
     breakdownUSD: closing.breakdownUSD ?? {},
-    reconciliation,
+    ...(reconciliation ? { reconciliation } : {}),
   };
 
   const normalizedCompany = (company || "").trim();

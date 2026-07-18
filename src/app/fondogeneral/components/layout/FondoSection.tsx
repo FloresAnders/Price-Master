@@ -4270,6 +4270,7 @@ export function FondoSection({
         dailyClosingSingleReasonRequired &&
         !editingDailyClosingId &&
         activeEmpresaForCompany?.unicoCierre !== true,
+      systemVerificationEnabled: activeEmpresaForCompany?.verificacionSistemas !== false,
       solicitarApertura: empresaSolicitaApertura,
       loadedDailyClosingKeysRef,
       loadingDailyClosingKeysRef,
@@ -6261,6 +6262,7 @@ export function FondoSection({
           r08: dailyClosingDayD?.reconciliation?.calculated.cumulativeR08 ?? 0,
           t11: dailyClosingDayD?.reconciliation?.calculated.cumulativeT11 ?? 0,
         } : { r08: 0, t11: 0 }}
+        systemVerificationEnabled={activeEmpresaForCompany?.verificacionSistemas !== false}
       />
 
       <FacturaPaymentModal

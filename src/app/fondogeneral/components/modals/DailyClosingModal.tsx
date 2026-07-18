@@ -212,6 +212,7 @@ type DailyClosingModalProps = {
   cierreFondoVentasMinutesAfterEnd: number;
   previousReconciliation?: ClosingReconciliation | null;
   cumulativeContica?: { r08: number; t11: number };
+  systemVerificationEnabled?: boolean;
 };
 
 const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
@@ -232,6 +233,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   cierreFondoVentasMinutesAfterEnd,
   previousReconciliation,
   cumulativeContica,
+  systemVerificationEnabled = true,
 }) => {
   const modalRef = useRef<HTMLDivElement | null>(null);
   const managerFieldRef = useRef<HTMLSelectElement | HTMLInputElement | null>(
@@ -388,19 +390,21 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     tiemposNum > 0 &&
     tiemposNum < storedTiemposTurnoD;
   const hasZeroClosingReport =
-    r08Num === 0 || t11Num === 0 || tucanNum === 0 || tiemposNum === 0;
+    systemVerificationEnabled &&
+    (r08Num === 0 || t11Num === 0 || tucanNum === 0 || tiemposNum === 0);
   const submitDisabled =
     displayedManager.trim().length === 0 ||
     !hasAnyCash ||
     hasZeroClosingReport ||
-    tucanBelowTurnoD ||
-    tiemposBelowTurnoD ||
+    (systemVerificationEnabled && tucanBelowTurnoD) ||
+    (systemVerificationEnabled && tiemposBelowTurnoD) ||
     (requireSingleClosingReason && singleClosingReason.trim().length === 0);
   const hasDifferences = diffCRC !== 0 || diffUSD !== 0;
 
   const reconciliationPreview = useMemo(() => {
+    if (!systemVerificationEnabled) return null;
     try { return reconcileClosing({ r08: r08Num, t11: t11Num, tucanCumulative: tucanNum, tiemposCumulative: tiemposNum, previous: previousReconciliation, cumulativeR08: (cumulativeContica?.r08 || 0) + r08Num, cumulativeT11: (cumulativeContica?.t11 || 0) + t11Num, isFinalShift: turno === "N" }); } catch { return null; }
-  }, [r08Num, t11Num, tucanNum, tiemposNum, previousReconciliation, cumulativeContica, turno]);
+  }, [systemVerificationEnabled, r08Num, t11Num, tucanNum, tiemposNum, previousReconciliation, cumulativeContica, turno]);
   const conticaTucanDiff =
     reconciliationPreview?.calculated.tucanDifference ?? r08Num - tucanNum;
   const conticaTiemposDiff =
@@ -451,10 +455,10 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     if (hasZeroClosingReport) {
       return "No se puede guardar debido a la falta de R08, T11, Tucan y Tiempos";
     }
-    if (tucanBelowTurnoD) {
+    if (systemVerificationEnabled && tucanBelowTurnoD) {
       return `No se puede guardar: Tucan nocturno no puede ser menor al turno D (${formatCurrency("CRC", storedTucanTurnoD ?? 0)}).`;
     }
-    if (tiemposBelowTurnoD) {
+    if (systemVerificationEnabled && tiemposBelowTurnoD) {
       return `No se puede guardar: Tiempos nocturno no puede ser menor al turno D (${formatCurrency("CRC", storedTiemposTurnoD ?? 0)}).`;
     }
     if (requireSingleClosingReason && singleClosingReason.trim().length === 0) {
@@ -674,7 +678,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const handleSubmit = () => {
     const trimmedManager = displayedManager.trim();
     if (submitDisabled) return;
-    if (turno === "D") {
+    if (systemVerificationEnabled && turno === "D") {
       writeTucanTurnoDValue(closingDateISO, tucanNum);
       writeTiemposTurnoDValue(closingDateISO, tiemposNum);
     }
@@ -704,7 +708,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     }
 
     onConfirm(values);
-    if (turno === "N") {
+    if (systemVerificationEnabled && turno === "N") {
       clearTurnoDSystemValues(closingDateISO);
     }
   };
@@ -715,7 +719,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
       return;
     }
     onConfirm(pendingSubmitValues);
-    if (pendingSubmitValues.turno === "N") {
+    if (systemVerificationEnabled && pendingSubmitValues.turno === "N") {
       clearTurnoDSystemValues(pendingSubmitValues.closingDate);
     }
     setConfirmDiffOpen(false);
@@ -975,9 +979,10 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                 </div>
               </section>
             </div>
-            <section className="rounded-lg border border-[var(--input-border)] p-4">
-              <h4 className="mb-3 text-sm font-semibold">Verificacion Contica / Tucán / Tiempos</h4>
-              <div className="space-y-3">
+            {systemVerificationEnabled && (
+              <section className="rounded-lg border border-[var(--input-border)] p-4">
+                <h4 className="mb-3 text-sm font-semibold">Verificacion Contica / Tucán / Tiempos</h4>
+                <div className="space-y-3">
                 <div className="hidden grid-cols-3 gap-3 text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)] md:grid"><span>Contica</span><span>Reporte acumulado</span><span>Diferencia turno</span></div>
                 {[
                   ["R08", r08, setR08, "Tucán", tucanCumulative, setTucanCumulative, conticaTucanDiff],
@@ -1069,7 +1074,8 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                   </div>
                 </div>
               )}
-            </section>
+              </section>
+            )}
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
