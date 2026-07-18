@@ -9,6 +9,10 @@ import React, {
 import ConfirmModal from "../../../../components/ui/ConfirmModal";
 import { isWithinCierreRange } from "../../utils/turnoRango";
 import { reconcileClosing, type ClosingReconciliation } from "@/domain/reconciliation";
+import {
+  getBillCountKeyAction,
+  parseBillCountInput,
+} from "@/components/business/cash-counter-tabs/utils";
 // Usar botones nativos con clases Tailwind en vez de un componente Button central
 
 const CRC_DENOMINATIONS: readonly number[] = [
@@ -576,7 +580,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     denom: number,
     value: string,
   ) => {
-    const sanitized = value.replace(/[^0-9]/g, "");
+    const sanitized = value.replace(/[^0-9+\-=.\s]/g, "");
     if (currency === "CRC") {
       setCrcCounts((prev) => ({ ...prev, [denom]: sanitized }));
     } else {
@@ -584,15 +588,49 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     }
   };
 
+  const commitCount = (currency: "CRC" | "USD", denom: number) => {
+    if (currency === "CRC") {
+      setCrcCounts((prev) => {
+        const current = prev[denom] ?? "";
+        const parsed = parseBillCountInput(current);
+        return { ...prev, [denom]: parsed > 0 ? String(parsed) : "" };
+      });
+    } else {
+      setUsdCounts((prev) => {
+        const current = prev[denom] ?? "";
+        const parsed = parseBillCountInput(current);
+        return { ...prev, [denom]: parsed > 0 ? String(parsed) : "" };
+      });
+    }
+  };
+
+  const insertCountFormulaOperator = (
+    input: HTMLInputElement,
+    operator: "+" | "-",
+  ) => {
+    const start = input.selectionStart ?? input.value.length;
+    const end = input.selectionEnd ?? input.value.length;
+    const next = `${input.value.slice(0, start)}${operator}${input.value.slice(end)}`;
+    const cursor = start + operator.length;
+    handleCountChange(
+      input.dataset.cashCurrency === "USD" ? "USD" : "CRC",
+      Number(input.dataset.cashDenom || 0),
+      next,
+    );
+    window.requestAnimationFrame(() => {
+      input.setSelectionRange(cursor, cursor);
+    });
+  };
+
   const incrementCount = (currency: "CRC" | "USD", denom: number) => {
     if (currency === "CRC") {
       setCrcCounts((prev) => {
-        const curr = Number.parseInt(prev[denom] || "0", 10) || 0;
+        const curr = parseBillCountInput(prev[denom] || "0");
         return { ...prev, [denom]: String(curr + 1) };
       });
     } else {
       setUsdCounts((prev) => {
-        const curr = Number.parseInt(prev[denom] || "0", 10) || 0;
+        const curr = parseBillCountInput(prev[denom] || "0");
         return { ...prev, [denom]: String(curr + 1) };
       });
     }
@@ -601,13 +639,13 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const decrementCount = (currency: "CRC" | "USD", denom: number) => {
     if (currency === "CRC") {
       setCrcCounts((prev) => {
-        const curr = Number.parseInt(prev[denom] || "0", 10) || 0;
+        const curr = parseBillCountInput(prev[denom] || "0");
         const next = Math.max(0, curr - 1);
         return { ...prev, [denom]: String(next) };
       });
     } else {
       setUsdCounts((prev) => {
-        const curr = Number.parseInt(prev[denom] || "0", 10) || 0;
+        const curr = parseBillCountInput(prev[denom] || "0");
         const next = Math.max(0, curr - 1);
         return { ...prev, [denom]: String(next) };
       });
@@ -646,13 +684,44 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     currency: "CRC" | "USD",
     denom: number,
   ) => {
+    if (
+      event.shiftKey &&
+      (event.key === "+" ||
+        event.key === "_" ||
+        event.code === "Equal" ||
+        event.code === "Minus" ||
+        event.code === "NumpadAdd" ||
+        event.code === "NumpadSubtract")
+    ) {
+      event.preventDefault();
+      insertCountFormulaOperator(
+        event.currentTarget,
+        event.code === "Minus" || event.code === "NumpadSubtract" ? "-" : "+",
+      );
+      return;
+    }
+
+    const keyAction = getBillCountKeyAction(event);
+    if (keyAction === "type") return;
+    if (keyAction === "increment") {
+      event.preventDefault();
+      incrementCount(currency, denom);
+      return;
+    }
+    if (keyAction === "decrement") {
+      event.preventDefault();
+      decrementCount(currency, denom);
+      return;
+    }
     if (event.key === "ArrowUp") {
       event.preventDefault();
+      commitCount(currency, denom);
       focusAdjacentCashInput(event.currentTarget, -1);
       return;
     }
     if (event.key === "ArrowDown") {
       event.preventDefault();
+      commitCount(currency, denom);
       focusAdjacentCashInput(event.currentTarget, 1);
       return;
     }
@@ -662,6 +731,10 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     } else if (event.key === "ArrowLeft") {
       event.preventDefault();
       decrementCount(currency, denom);
+    } else if (event.key === "Enter" || event.key === "Tab") {
+      event.preventDefault();
+      commitCount(currency, denom);
+      focusAdjacentCashInput(event.currentTarget, event.shiftKey ? -1 : 1);
     }
   };
 
@@ -858,14 +931,17 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                             onKeyDown={(e) =>
                               handleCountKeyDown(e, "CRC", denom)
                             }
+                            onBlur={() => commitCount("CRC", denom)}
                             className="w-24 h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-2 pr-8 text-sm text-center text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
                             style={{
                               backgroundColor: "var(--card-bg)",
                               color: "var(--foreground)",
                             }}
-                            inputMode="numeric"
+                            inputMode="text"
                             aria-label={`Cantidad ${denom} colones`}
                             data-cash-count-input="true"
+                            data-cash-currency="CRC"
+                            data-cash-denom={denom}
                           />
                           <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col items-center select-none">
                             <button
@@ -931,14 +1007,17 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                             onKeyDown={(e) =>
                               handleCountKeyDown(e, "USD", denom)
                             }
+                            onBlur={() => commitCount("USD", denom)}
                             className="w-24 h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-2 pr-8 text-sm text-center text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
                             style={{
                               backgroundColor: "var(--card-bg)",
                               color: "var(--foreground)",
                             }}
-                            inputMode="numeric"
+                            inputMode="text"
                             aria-label={`Cantidad ${denom} dólares`}
                             data-cash-count-input="true"
+                            data-cash-currency="USD"
+                            data-cash-denom={denom}
                           />
                           <div className="absolute right-1 top-1/2 -translate-y-1/2 flex flex-col items-center select-none">
                             <button
