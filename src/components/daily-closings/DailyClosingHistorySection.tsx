@@ -10,6 +10,9 @@ import {
   FileText,
   GitCompareArrows,
   CheckCircle,
+  AlertTriangle,
+  Clock3,
+  RefreshCw,
   User,
   Clock,
   CalendarDays,
@@ -74,6 +77,48 @@ export default function DailyClosingHistorySection({
     return value > 0
       ? `Sobra ${formatByCurrency("CRC", Math.abs(value))}`
       : `Falta ${formatByCurrency("CRC", Math.abs(value))}`;
+  };
+  const reconciliationTone = (reconciliation: any) => {
+    if (!reconciliation) return "neutral";
+    if (
+      reconciliation.calculated?.tucanDifference !== 0 ||
+      reconciliation.tiemposStatus === "REAL_DIFFERENCE" ||
+      reconciliation.tiemposStatus === "DAILY_UNRESOLVED"
+    ) {
+      return "danger";
+    }
+    if (
+      reconciliation.tiemposStatus === "TEMPORARY_PENDING" ||
+      reconciliation.tiemposStatus === "PARTIALLY_RESOLVED" ||
+      reconciliation.tiemposStatus === "RESOLVED"
+    ) {
+      return "warning";
+    }
+    return "success";
+  };
+  const reconciliationToneClass = (tone: string) => {
+    switch (tone) {
+      case "success":
+        return "border-emerald-500/25 bg-emerald-500/10 text-emerald-200";
+      case "warning":
+        return "border-amber-500/25 bg-amber-500/10 text-amber-100";
+      case "danger":
+        return "border-red-500/25 bg-red-500/10 text-red-100";
+      default:
+        return "border-[var(--input-border)] bg-[var(--muted)]/10 text-[var(--foreground)]";
+    }
+  };
+  const reconciliationHeadline = (reconciliation: any) => {
+    const tone = reconciliationTone(reconciliation);
+    if (tone === "success") return "Todo cuadra";
+    if (tone === "warning") return "Existe una diferencia compensable";
+    return "Revisar cierre";
+  };
+  const reconciliationAction = (reconciliation: any) => {
+    const tone = reconciliationTone(reconciliation);
+    if (tone === "success") return "No requiere accion.";
+    if (tone === "warning") return "Esperar al siguiente turno y validar compensacion.";
+    return "Revisar movimientos y validar reporte de Contica.";
   };
 
   return (
@@ -251,28 +296,70 @@ export default function DailyClosingHistorySection({
 
                   {record.reconciliation && (
                     <div className="mt-3 rounded border border-sky-700/20 bg-sky-950/10 p-3 text-xs text-[var(--muted-foreground)]">
-                      <div className="mb-2 font-semibold text-[var(--foreground)]">
-                        Verificación Contica / Tucán / Tiempos · {reconciliationStatusLabel(record.reconciliation.tiemposStatus)}
+                      <div className={`mb-3 rounded border px-3 py-2 ${reconciliationToneClass(reconciliationTone(record.reconciliation))}`}>
+                        <div className="flex items-start gap-2">
+                          {reconciliationTone(record.reconciliation) === "success" ? (
+                            <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.7} />
+                          ) : reconciliationTone(record.reconciliation) === "warning" ? (
+                            <Clock3 className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.7} />
+                          ) : (
+                            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.7} />
+                          )}
+                          <div>
+                            <div className="font-semibold uppercase tracking-wide">
+                              {reconciliationHeadline(record.reconciliation)}
+                            </div>
+                            <div className="mt-1">
+                              {reconciliationStatusLabel(record.reconciliation.tiemposStatus)}
+                            </div>
+                            <div className="mt-1 font-semibold">
+                              Accion: {reconciliationAction(record.reconciliation)}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div className="grid gap-1.5 sm:grid-cols-2">
-                        <span>
-                          Tucán vendido en el turno: {formatByCurrency("CRC", record.reconciliation.calculated.tucanForShift)}
-                        </span>
-                        <span>
-                          Diferencia con R08: {reconciliationDiffLabel(record.reconciliation.calculated.tucanDifference)}
-                        </span>
-                        <span>
-                          Tiempos vendido en el turno: {formatByCurrency("CRC", record.reconciliation.calculated.tiemposForShift)}
-                        </span>
-                        <span>
-                          Diferencia antes de ajustes: {reconciliationDiffLabel(record.reconciliation.calculated.tiemposRawDifference)}
-                        </span>
-                        <span>
-                          Pendiente usado para compensar: {formatByCurrency("CRC", record.reconciliation.calculated.compensatedTiemposAmount)}
-                        </span>
-                        <span>
-                          Pendiente para próximo turno: {reconciliationDiffLabel(record.reconciliation.calculated.tiemposPendingAfterClosing)}
-                        </span>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {[
+                          ["Tucan", "R08", record.reconciliation.calculated.tucanForShift, record.reconciliation.contica.r08, record.reconciliation.calculated.tucanDifference],
+                          ["Tiempos", "T11", record.reconciliation.calculated.tiemposForShift, record.reconciliation.contica.t11, record.reconciliation.calculated.tiemposDifference],
+                        ].map(([label, code, report, contica, diff]) => (
+                          <div key={String(label)} className="rounded border border-[var(--input-border)]/60 bg-[var(--background)]/60 p-2.5">
+                            <div className="mb-2 flex items-center gap-1.5 font-semibold text-[var(--foreground)]">
+                              <GitCompareArrows className="h-3.5 w-3.5 text-[var(--accent)]" strokeWidth={1.5} />
+                              {String(label)}
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex justify-between gap-2">
+                                <span>Reporte</span>
+                                <span className="font-semibold text-[var(--foreground)]">{formatByCurrency("CRC", Number(report))}</span>
+                              </div>
+                              <div className="flex justify-between gap-2">
+                                <span>Contica ({String(code)})</span>
+                                <span className="font-semibold text-[var(--foreground)]">{formatByCurrency("CRC", Number(contica))}</span>
+                              </div>
+                              <div className="font-semibold text-[var(--foreground)]">
+                                Estado: {reconciliationDiffLabel(Number(diff))}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-3 rounded border border-[var(--input-border)]/60 bg-[var(--background)]/60 p-2.5">
+                        <div className="mb-2 flex items-center gap-1.5 font-semibold text-[var(--foreground)]">
+                          <RefreshCw className="h-3.5 w-3.5 text-[var(--accent)]" strokeWidth={1.5} />
+                          Compensacion
+                        </div>
+                        {record.reconciliation.calculated.previousTiemposPending !== 0 ||
+                        record.reconciliation.calculated.compensatedTiemposAmount !== 0 ||
+                        record.reconciliation.calculated.tiemposPendingAfterClosing !== 0 ? (
+                          <div className="grid gap-1.5 sm:grid-cols-3">
+                            <span>Pendiente anterior: {reconciliationDiffLabel(record.reconciliation.calculated.previousTiemposPending)}</span>
+                            <span>Compensado: {formatByCurrency("CRC", record.reconciliation.calculated.compensatedTiemposAmount)}</span>
+                            <span>Pendiente siguiente: {reconciliationDiffLabel(record.reconciliation.calculated.tiemposPendingAfterClosing)}</span>
+                          </div>
+                        ) : (
+                          <span className="text-emerald-200">No existen pendientes entre turnos.</span>
+                        )}
                       </div>
                     </div>
                   )}

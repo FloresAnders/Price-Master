@@ -5,6 +5,13 @@ import React, {
   useRef,
   useState,
 } from "react";
+import {
+  AlertTriangle,
+  BarChart3,
+  CheckCircle2,
+  Clock3,
+  RefreshCw,
+} from "lucide-react";
 
 import ConfirmModal from "../../../../components/ui/ConfirmModal";
 import { isWithinCierreRange } from "../../utils/turnoRango";
@@ -449,6 +456,104 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     }
   }, [reconciliationPreview]);
 
+  const reconciliationTone = useMemo(() => {
+    if (!reconciliationPreview) return "neutral";
+    if (hasZeroClosingReport) return "neutral";
+    if (tucanBelowTurnoD || tiemposBelowTurnoD) return "danger";
+    if (
+      reconciliationPreview.calculated.tucanDifference !== 0 ||
+      reconciliationPreview.tiemposStatus === "REAL_DIFFERENCE" ||
+      reconciliationPreview.tiemposStatus === "DAILY_UNRESOLVED"
+    ) {
+      return "danger";
+    }
+    if (
+      reconciliationPreview.tiemposStatus === "TEMPORARY_PENDING" ||
+      reconciliationPreview.tiemposStatus === "PARTIALLY_RESOLVED" ||
+      reconciliationPreview.tiemposStatus === "RESOLVED"
+    ) {
+      return "warning";
+    }
+    return "success";
+  }, [reconciliationPreview, hasZeroClosingReport, tucanBelowTurnoD, tiemposBelowTurnoD]);
+
+  const reconciliationToneClass = useMemo(() => {
+    switch (reconciliationTone) {
+      case "success":
+        return "border-emerald-500/30 bg-emerald-500/10 text-emerald-200";
+      case "warning":
+        return "border-amber-500/35 bg-amber-500/10 text-amber-100";
+      case "danger":
+        return "border-red-500/35 bg-red-500/10 text-red-100";
+      default:
+        return "border-[var(--input-border)] bg-[var(--muted)]/10 text-[var(--foreground)]";
+    }
+  }, [reconciliationTone]);
+
+  const reconciliationHeadline = useMemo(() => {
+    if (!reconciliationPreview || hasZeroClosingReport) return "Complete los datos";
+    if (reconciliationTone === "success") return "Todo cuadra";
+    if (reconciliationTone === "warning") return "Existe una diferencia compensable";
+    return "Revisar cierre";
+  }, [reconciliationPreview, hasZeroClosingReport, reconciliationTone]);
+
+  const reconciliationSummaryText = useMemo(() => {
+    if (!reconciliationPreview || hasZeroClosingReport) return "Ingrese R08, T11, Tucan y Tiempos para verificar.";
+    if (reconciliationTone === "success") return "No existen diferencias pendientes.";
+    if (reconciliationTone === "warning") return reconciliationStatusLabel;
+    if (tucanBelowTurnoD || tiemposBelowTurnoD) return "El reporte nocturno no puede ser menor al turno diurno.";
+    if (reconciliationPreview.calculated.tucanDifference !== 0) {
+      return reconciliationPreview.calculated.tucanDifference > 0
+        ? `Contica registra ${formatCRCAmount(reconciliationPreview.calculated.tucanDifference)} mas que Tucan.`
+        : `Tucan posee ${formatCRCAmount(reconciliationPreview.calculated.tucanDifference)} mas que Contica.`;
+    }
+    return reconciliationStatusLabel;
+  }, [
+    reconciliationPreview,
+    hasZeroClosingReport,
+    reconciliationTone,
+    reconciliationStatusLabel,
+    tucanBelowTurnoD,
+    tiemposBelowTurnoD,
+    formatCRCAmount,
+  ]);
+
+  const reconciliationActionText = useMemo(() => {
+    if (!reconciliationPreview || hasZeroClosingReport) return "Completar datos para ver accion requerida.";
+    if (reconciliationTone === "success") return "No requiere accion.";
+    if (reconciliationTone === "warning") return "Esperar al siguiente turno y validar compensacion.";
+    if (tucanBelowTurnoD || tiemposBelowTurnoD) return "Corregir acumulados antes de guardar.";
+    return "Revisar movimientos y validar reporte de Contica.";
+  }, [reconciliationPreview, hasZeroClosingReport, reconciliationTone, tucanBelowTurnoD, tiemposBelowTurnoD]);
+
+  const buildVerificationStatus = useCallback(
+    (sourceLabel: string, diff: number, status?: ClosingReconciliation["tiemposStatus"]) => {
+      if (diff === 0 && (!status || status === "MATCHED")) {
+        return {
+          label: "Coincide",
+          text: "No requiere accion.",
+          className: "border-emerald-500/25 bg-emerald-500/10 text-emerald-200",
+        };
+      }
+      if (status === "TEMPORARY_PENDING" || status === "PARTIALLY_RESOLVED" || status === "RESOLVED") {
+        return {
+          label: formatReconciliationDifference(diff),
+          text: "Esperar al siguiente turno.",
+          className: "border-amber-500/25 bg-amber-500/10 text-amber-100",
+        };
+      }
+      return {
+        label: formatReconciliationDifference(diff),
+        text:
+          diff > 0
+            ? `Contica registra ${formatCRCAmount(diff)} mas que ${sourceLabel}.`
+            : `${sourceLabel} posee ${formatCRCAmount(diff)} mas que Contica.`,
+        className: "border-red-500/25 bg-red-500/10 text-red-100",
+      };
+    },
+    [formatCRCAmount, formatReconciliationDifference],
+  );
+
   const submitDisabledReason = useMemo(() => {
     if (displayedManager.trim().length === 0) {
       return "Selecciona un encargado para poder guardar.";
@@ -473,6 +578,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     displayedManager,
     hasAnyCash,
     hasZeroClosingReport,
+    systemVerificationEnabled,
     tucanBelowTurnoD,
     storedTucanTurnoD,
     tiemposBelowTurnoD,
@@ -1060,7 +1166,23 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
             </div>
             {systemVerificationEnabled && (
               <section className="rounded-lg border border-[var(--input-border)] p-4">
-                <h4 className="mb-3 text-sm font-semibold">Verificacion Contica / Tucán / Tiempos</h4>
+                <h4 className="mb-3 text-sm font-semibold">Verificacion Contica / Tucan / Tiempos</h4>
+                <div className={`mb-4 rounded border px-3 py-3 ${reconciliationToneClass}`}>
+                  <div className="flex items-start gap-2">
+                    {reconciliationTone === "success" ? (
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.8} />
+                    ) : reconciliationTone === "warning" ? (
+                      <Clock3 className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.8} />
+                    ) : (
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.8} />
+                    )}
+                    <div>
+                      <div className="text-sm font-semibold uppercase tracking-wide">{reconciliationHeadline}</div>
+                      <div className="mt-1 text-xs">{reconciliationSummaryText}</div>
+                      <div className="mt-2 text-xs font-semibold">Accion: {reconciliationActionText}</div>
+                    </div>
+                  </div>
+                </div>
                 <div className="space-y-3">
                 <div className="hidden grid-cols-3 gap-3 text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)] md:grid"><span>Contica</span><span>Reporte acumulado</span><span>Diferencia turno</span></div>
                 {[
@@ -1121,36 +1243,84 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                 )}
               </div>
               {reconciliationPreview && (
-                <div className="mt-4 rounded-lg border border-[var(--input-border)] bg-[var(--background)] p-3">
-                  <div className="mb-2 text-sm font-semibold text-[var(--foreground)]">
-                    Resultado de la verificación: {reconciliationStatusLabel}
+                <div className="mt-4 space-y-3">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {[
+                      {
+                        key: "tucan",
+                        title: "Tucan",
+                        report: reconciliationPreview.calculated.tucanForShift,
+                        contica: reconciliationPreview.contica.r08,
+                        code: "R08",
+                        status: buildVerificationStatus("Tucan", reconciliationPreview.calculated.tucanDifference),
+                      },
+                      {
+                        key: "tiempos",
+                        title: "Tiempos",
+                        report: reconciliationPreview.calculated.tiemposForShift,
+                        contica: reconciliationPreview.contica.t11,
+                        code: "T11",
+                        status: buildVerificationStatus(
+                          "Tiempos",
+                          reconciliationPreview.calculated.tiemposDifference,
+                          reconciliationPreview.tiemposStatus,
+                        ),
+                      },
+                    ].map((item) => (
+                      <div key={item.key} className="rounded border border-[var(--input-border)] bg-[var(--background)] p-3">
+                        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
+                          <BarChart3 className="h-4 w-4 text-[var(--accent)]" strokeWidth={1.7} />
+                          {item.title}
+                        </div>
+                        <div className="grid gap-2 text-xs text-[var(--muted-foreground)]">
+                          <div className="flex items-center justify-between gap-3">
+                            <span>Reporte</span>
+                            <span className="font-semibold text-[var(--foreground)]">{formatCRCAmount(item.report)}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <span>Contica ({item.code})</span>
+                            <span className="font-semibold text-[var(--foreground)]">{formatCRCAmount(item.contica)}</span>
+                          </div>
+                          <div className={`rounded border px-2.5 py-2 ${item.status.className}`}>
+                            <div className="font-semibold">Estado: {item.status.label}</div>
+                            <div className="mt-1">{item.status.text}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="grid gap-2 text-xs text-[var(--muted-foreground)] md:grid-cols-2">
-                    <div>
-                      <span className="font-semibold text-[var(--foreground)]">Tucán vendido en este turno:</span>{" "}
-                      {formatCRCAmount(reconciliationPreview.calculated.tucanForShift)}
+
+                  <div className="rounded border border-[var(--input-border)] bg-[var(--background)] p-3">
+                    <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
+                      <RefreshCw className="h-4 w-4 text-[var(--accent)]" strokeWidth={1.7} />
+                      Compensacion
                     </div>
-                    <div>
-                      <span className="font-semibold text-[var(--foreground)]">Diferencia con R08:</span>{" "}
-                      {formatReconciliationDifference(reconciliationPreview.calculated.tucanDifference)}
-                    </div>
-                    <div>
-                      <span className="font-semibold text-[var(--foreground)]">Tiempos vendido en este turno:</span>{" "}
-                      {formatCRCAmount(reconciliationPreview.calculated.tiemposForShift)}
-                    </div>
-                    <div>
-                      <span className="font-semibold text-[var(--foreground)]">Diferencia antes de ajustes:</span>{" "}
-                      {formatReconciliationDifference(reconciliationPreview.calculated.tiemposRawDifference)}
-                    </div>
-                    <div>
-                      <span className="font-semibold text-[var(--foreground)]">Pendiente usado para compensar:</span>{" "}
-                      {formatCRCAmount(reconciliationPreview.calculated.compensatedTiemposAmount)}
-                    </div>
-                    <div>
-                      <span className="font-semibold text-[var(--foreground)]">Pendiente para próximo turno:</span>{" "}
-                      {formatReconciliationDifference(reconciliationPreview.calculated.tiemposPendingAfterClosing)}
-                    </div>
+                    {reconciliationPreview.calculated.previousTiemposPending !== 0 ||
+                    reconciliationPreview.calculated.compensatedTiemposAmount !== 0 ||
+                    reconciliationPreview.calculated.tiemposPendingAfterClosing !== 0 ? (
+                      <div className="grid gap-2 text-xs text-[var(--muted-foreground)] md:grid-cols-3">
+                        <span>Pendiente anterior: {formatReconciliationDifference(reconciliationPreview.calculated.previousTiemposPending)}</span>
+                        <span>Compensado: {formatCRCAmount(reconciliationPreview.calculated.compensatedTiemposAmount)}</span>
+                        <span>Pendiente siguiente: {formatReconciliationDifference(reconciliationPreview.calculated.tiemposPendingAfterClosing)}</span>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-emerald-200">No existen pendientes entre turnos.</div>
+                    )}
                   </div>
+
+                  <details className="rounded border border-[var(--input-border)] bg-[var(--background)] p-3 text-xs text-[var(--muted-foreground)]">
+                    <summary className="cursor-pointer select-none font-semibold text-[var(--foreground)]">
+                      Ver detalle tecnico
+                    </summary>
+                    <div className="mt-3 grid gap-2 md:grid-cols-2">
+                      <span>Tucan vendido en el turno: {formatCRCAmount(reconciliationPreview.calculated.tucanForShift)}</span>
+                      <span>Diferencia con R08: {formatReconciliationDifference(reconciliationPreview.calculated.tucanDifference)}</span>
+                      <span>Tiempos vendido en el turno: {formatCRCAmount(reconciliationPreview.calculated.tiemposForShift)}</span>
+                      <span>Diferencia antes de ajustes: {formatReconciliationDifference(reconciliationPreview.calculated.tiemposRawDifference)}</span>
+                      <span>R08 acumulado: {formatCRCAmount(reconciliationPreview.calculated.cumulativeR08)}</span>
+                      <span>T11 acumulado: {formatCRCAmount(reconciliationPreview.calculated.cumulativeT11)}</span>
+                    </div>
+                  </details>
                 </div>
               )}
               </section>
