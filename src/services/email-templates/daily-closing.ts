@@ -25,23 +25,23 @@ type EmailTemplate = {
   html: string;
 };
 
-const crcFormatter = new Intl.NumberFormat("es-CR", {
-  style: "currency",
-  currency: "CRC",
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
-});
-
-const usdFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
-});
-
 const formatCurrency = (currency: "CRC" | "USD", value: number) => {
-  const formatter = currency === "USD" ? usdFormatter : crcFormatter;
-  return formatter.format(Math.trunc(value));
+  const rounded = Math.round((Number(value) || 0) * 100) / 100;
+  const formatter =
+    currency === "USD"
+      ? new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          minimumFractionDigits: Number.isInteger(rounded) ? 0 : 2,
+          maximumFractionDigits: 2,
+        })
+      : new Intl.NumberFormat("es-CR", {
+          style: "currency",
+          currency: "CRC",
+          minimumFractionDigits: Number.isInteger(rounded) ? 0 : 2,
+          maximumFractionDigits: 2,
+        });
+  return formatter.format(rounded);
 };
 
 const formatDiff = (currency: "CRC" | "USD", diff: number) => {

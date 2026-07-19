@@ -63,7 +63,7 @@ export default function DailyClosingHistorySection({
       case "PARTIALLY_RESOLVED":
         return "Compensado parcialmente";
       case "RESOLVED":
-        return "Compensado completo";
+        return "Diferencia anterior resuelta";
       case "REAL_DIFFERENCE":
         return "Diferencia real";
       case "DAILY_UNRESOLVED":
@@ -87,10 +87,12 @@ export default function DailyClosingHistorySection({
     ) {
       return "danger";
     }
+    if (reconciliation.tiemposStatus === "RESOLVED") {
+      return "success";
+    }
     if (
       reconciliation.tiemposStatus === "TEMPORARY_PENDING" ||
-      reconciliation.tiemposStatus === "PARTIALLY_RESOLVED" ||
-      reconciliation.tiemposStatus === "RESOLVED"
+      reconciliation.tiemposStatus === "PARTIALLY_RESOLVED"
     ) {
       return "warning";
     }
@@ -120,6 +122,14 @@ export default function DailyClosingHistorySection({
     if (tone === "warning") return "Esperar al siguiente turno y validar compensacion.";
     return "Revisar movimientos y validar reporte de Contica.";
   };
+  const compensationResultLabel = (reconciliation: any) =>
+    Number(reconciliation?.calculated?.tiemposRealShiftDifference ?? 0) !== 0
+      ? "Diferencia real"
+      : "Pendiente siguiente";
+  const compensationResultValue = (reconciliation: any) =>
+    Number(reconciliation?.calculated?.tiemposRealShiftDifference ?? 0) !== 0
+      ? Number(reconciliation?.calculated?.tiemposRealShiftDifference ?? 0)
+      : Number(reconciliation?.calculated?.tiemposPendingAfterClosing ?? 0);
 
   return (
     <>
@@ -355,7 +365,7 @@ export default function DailyClosingHistorySection({
                           <div className="grid gap-1.5 sm:grid-cols-3">
                             <span>Pendiente anterior: {reconciliationDiffLabel(record.reconciliation.calculated.previousTiemposPending)}</span>
                             <span>Compensado: {formatByCurrency("CRC", record.reconciliation.calculated.compensatedTiemposAmount)}</span>
-                            <span>Pendiente siguiente: {reconciliationDiffLabel(record.reconciliation.calculated.tiemposPendingAfterClosing)}</span>
+                            <span>{compensationResultLabel(record.reconciliation)}: {reconciliationDiffLabel(compensationResultValue(record.reconciliation))}</span>
                           </div>
                         ) : (
                           <span className="text-emerald-200">No existen pendientes entre turnos.</span>

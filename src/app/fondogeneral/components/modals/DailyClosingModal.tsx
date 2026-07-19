@@ -467,10 +467,12 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     ) {
       return "danger";
     }
+    if (reconciliationPreview.tiemposStatus === "RESOLVED") {
+      return "success";
+    }
     if (
       reconciliationPreview.tiemposStatus === "TEMPORARY_PENDING" ||
-      reconciliationPreview.tiemposStatus === "PARTIALLY_RESOLVED" ||
-      reconciliationPreview.tiemposStatus === "RESOLVED"
+      reconciliationPreview.tiemposStatus === "PARTIALLY_RESOLVED"
     ) {
       return "warning";
     }
@@ -535,7 +537,14 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
           className: "border-emerald-500/25 bg-emerald-500/10 text-emerald-200",
         };
       }
-      if (status === "TEMPORARY_PENDING" || status === "PARTIALLY_RESOLVED" || status === "RESOLVED") {
+      if (status === "RESOLVED") {
+        return {
+          label: "Coincide",
+          text: "Diferencia anterior resuelta. No requiere accion.",
+          className: "border-emerald-500/25 bg-emerald-500/10 text-emerald-200",
+        };
+      }
+      if (status === "TEMPORARY_PENDING" || status === "PARTIALLY_RESOLVED") {
         return {
           label: formatReconciliationDifference(diff),
           text: "Esperar al siguiente turno.",
@@ -553,6 +562,20 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     },
     [formatCRCAmount, formatReconciliationDifference],
   );
+
+  const compensationResultLabel = useMemo(() => {
+    if (!reconciliationPreview) return "Pendiente siguiente";
+    return reconciliationPreview.calculated.tiemposRealShiftDifference !== 0
+      ? "Diferencia real"
+      : "Pendiente siguiente";
+  }, [reconciliationPreview]);
+
+  const compensationResultValue = useMemo(() => {
+    if (!reconciliationPreview) return 0;
+    return reconciliationPreview.calculated.tiemposRealShiftDifference !== 0
+      ? reconciliationPreview.calculated.tiemposRealShiftDifference
+      : reconciliationPreview.calculated.tiemposPendingAfterClosing;
+  }, [reconciliationPreview]);
 
   const submitDisabledReason = useMemo(() => {
     if (displayedManager.trim().length === 0) {
@@ -1301,7 +1324,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                       <div className="grid gap-2 text-xs text-[var(--muted-foreground)] md:grid-cols-3">
                         <span>Pendiente anterior: {formatReconciliationDifference(reconciliationPreview.calculated.previousTiemposPending)}</span>
                         <span>Compensado: {formatCRCAmount(reconciliationPreview.calculated.compensatedTiemposAmount)}</span>
-                        <span>Pendiente siguiente: {formatReconciliationDifference(reconciliationPreview.calculated.tiemposPendingAfterClosing)}</span>
+                        <span>{compensationResultLabel}: {formatReconciliationDifference(compensationResultValue)}</span>
                       </div>
                     ) : (
                       <div className="text-xs text-emerald-200">No existen pendientes entre turnos.</div>
@@ -1312,13 +1335,57 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                     <summary className="cursor-pointer select-none font-semibold text-[var(--foreground)]">
                       Ver detalle tecnico
                     </summary>
-                    <div className="mt-3 grid gap-2 md:grid-cols-2">
-                      <span>Tucan vendido en el turno: {formatCRCAmount(reconciliationPreview.calculated.tucanForShift)}</span>
-                      <span>Diferencia con R08: {formatReconciliationDifference(reconciliationPreview.calculated.tucanDifference)}</span>
-                      <span>Tiempos vendido en el turno: {formatCRCAmount(reconciliationPreview.calculated.tiemposForShift)}</span>
-                      <span>Diferencia antes de ajustes: {formatReconciliationDifference(reconciliationPreview.calculated.tiemposRawDifference)}</span>
-                      <span>R08 acumulado: {formatCRCAmount(reconciliationPreview.calculated.cumulativeR08)}</span>
-                      <span>T11 acumulado: {formatCRCAmount(reconciliationPreview.calculated.cumulativeT11)}</span>
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                      <div className="rounded border border-[var(--input-border)]/60 bg-[var(--card-bg)]/40 p-3">
+                        <div className="mb-2 font-semibold text-[var(--foreground)]">Tucan</div>
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between gap-3">
+                            <span>Vendido en el turno</span>
+                            <span className="font-semibold text-[var(--foreground)]">{formatCRCAmount(reconciliationPreview.calculated.tucanForShift)}</span>
+                          </div>
+                          <div className="flex justify-between gap-3">
+                            <span>Total reportado por Tucan</span>
+                            <span className="font-semibold text-[var(--foreground)]">{formatCRCAmount(reconciliationPreview.externalSnapshots.tucanCumulative)}</span>
+                          </div>
+                          <div className="flex justify-between gap-3">
+                            <span>Turno actual R08</span>
+                            <span className="font-semibold text-[var(--foreground)]">{formatCRCAmount(reconciliationPreview.contica.r08)}</span>
+                          </div>
+                          <div className="flex justify-between gap-3">
+                            <span>Diferencia con R08</span>
+                            <span className="font-semibold text-[var(--foreground)]">{formatReconciliationDifference(reconciliationPreview.calculated.tucanDifference)}</span>
+                          </div>
+                          <div className="flex justify-between gap-3">
+                            <span>R08 acumulado</span>
+                            <span className="font-semibold text-[var(--foreground)]">{formatCRCAmount(reconciliationPreview.calculated.cumulativeR08)}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="rounded border border-[var(--input-border)]/60 bg-[var(--card-bg)]/40 p-3">
+                        <div className="mb-2 font-semibold text-[var(--foreground)]">Tiempos</div>
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between gap-3">
+                            <span>Vendido en el turno</span>
+                            <span className="font-semibold text-[var(--foreground)]">{formatCRCAmount(reconciliationPreview.calculated.tiemposForShift)}</span>
+                          </div>
+                          <div className="flex justify-between gap-3">
+                            <span>Total reportado por Tiempos</span>
+                            <span className="font-semibold text-[var(--foreground)]">{formatCRCAmount(reconciliationPreview.externalSnapshots.tiemposCumulative)}</span>
+                          </div>
+                          <div className="flex justify-between gap-3">
+                            <span>Turno actual T11</span>
+                            <span className="font-semibold text-[var(--foreground)]">{formatCRCAmount(reconciliationPreview.contica.t11)}</span>
+                          </div>
+                          <div className="flex justify-between gap-3">
+                            <span>Diferencia antes de ajustes</span>
+                            <span className="font-semibold text-[var(--foreground)]">{formatReconciliationDifference(reconciliationPreview.calculated.tiemposRawDifference)}</span>
+                          </div>
+                          <div className="flex justify-between gap-3">
+                            <span>T11 acumulado</span>
+                            <span className="font-semibold text-[var(--foreground)]">{formatCRCAmount(reconciliationPreview.calculated.cumulativeT11)}</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </details>
                 </div>

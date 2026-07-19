@@ -2,8 +2,11 @@ import type { DailyClosingRecord } from "@/services/daily-closings";
 
 const money = (currency: "CRC" | "USD", amount: number) =>
   new Intl.NumberFormat(currency === "CRC" ? "es-CR" : "en-US", {
-    style: "currency", currency, minimumFractionDigits: 0, maximumFractionDigits: 0,
-  }).format(Math.trunc(amount));
+    style: "currency",
+    currency,
+    minimumFractionDigits: Number.isInteger(Math.round((Number(amount) || 0) * 100) / 100) ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(Math.round((Number(amount) || 0) * 100) / 100);
 
 const diff = (currency: "CRC" | "USD", amount: number) =>
   amount === 0 ? "Sin diferencias" : `${amount > 0 ? "Sobrante" : "Faltante"} de ${money(currency, Math.abs(amount))}`;
@@ -49,20 +52,24 @@ export async function exportDailyClosingSuperAdminImage(
     ctx.font = "600 28px Arial";
     ctx.fillText("Conciliacion Contica / Tucan / Tiempos", 50, 510);
     row(ctx, 530, ["Contica", "Sistema", "Diferencia"], true);
-    row(ctx, 578, [`R08: ${r.contica.r08}`, `Tucan: ${r.calculated.tucanForShift}`, String(r.calculated.tucanDifference)]);
+    row(ctx, 578, [
+      `R08: ${money("CRC", r.contica.r08)}`,
+      `Tucan: ${money("CRC", r.calculated.tucanForShift)}`,
+      money("CRC", r.calculated.tucanDifference),
+    ]);
     const compensated = r.calculated.compensatedTiemposAmount;
     const tiemposSystem = compensated > 0
-      ? `Tiempos: ${r.calculated.tiemposForShift} - ${compensated} = ${r.contica.t11}`
-      : `Tiempos: ${r.calculated.tiemposForShift}`;
+      ? `Tiempos: ${money("CRC", r.calculated.tiemposForShift)} - ${money("CRC", compensated)} = ${money("CRC", r.contica.t11)}`
+      : `Tiempos: ${money("CRC", r.calculated.tiemposForShift)}`;
     const tiemposDifference = r.calculated.previousTiemposPending > 0
       ? r.calculated.tiemposRealShiftDifference
       : r.calculated.tiemposRawDifference;
-    row(ctx, 626, [`T11: ${r.contica.t11}`, tiemposSystem, String(tiemposDifference)]);
+    row(ctx, 626, [`T11: ${money("CRC", r.contica.t11)}`, tiemposSystem, money("CRC", tiemposDifference)]);
     ctx.font = "24px Arial";
-    ctx.fillText(`Tucan acumulado digitado: ${r.externalSnapshots.tucanCumulative} · Tiempos acumulado digitado: ${r.externalSnapshots.tiemposCumulative}`, 50, 715, 1100);
+    ctx.fillText(`Tucan acumulado digitado: ${money("CRC", r.externalSnapshots.tucanCumulative)} · Tiempos acumulado digitado: ${money("CRC", r.externalSnapshots.tiemposCumulative)}`, 50, 715, 1100);
     const resolution = r.calculated.previousTiemposPending > 0
       ? compensated > 0
-        ? `Resolucion turno anterior: se compensaron ${compensated}.`
+        ? `Resolucion turno anterior: se compensaron ${money("CRC", compensated)}.`
         : "Resolucion turno anterior: no hubo compensacion."
       : "Resolucion turno anterior: no aplica; se espera cierre nocturno.";
     ctx.fillText(resolution, 50, 755, 1100);

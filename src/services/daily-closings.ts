@@ -207,15 +207,25 @@ const resolveISOString = (value: unknown, fallback?: string): string => {
 
 const sanitizeMoney = (value: unknown): number => {
   if (typeof value === "number" && Number.isFinite(value)) {
-    return Math.trunc(value);
+    return Math.round(value * 100) / 100;
   }
   if (typeof value === "string") {
     const parsed = Number.parseFloat(value);
     if (Number.isFinite(parsed)) {
-      return Math.trunc(parsed);
+      return Math.round(parsed * 100) / 100;
     }
   }
   return 0;
+};
+
+const sanitizeCount = (value: unknown): number => {
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number.parseFloat(value)
+        : Number.NaN;
+  return Number.isFinite(parsed) ? Math.trunc(parsed) : 0;
 };
 
 const sanitizeBreakdown = (input: unknown): Record<number, number> => {
@@ -225,7 +235,7 @@ const sanitizeBreakdown = (input: unknown): Record<number, number> => {
   >((acc, [key, rawValue]) => {
     const denom = Number(key);
     if (!Number.isFinite(denom)) return acc;
-    const count = sanitizeMoney(rawValue);
+    const count = sanitizeCount(rawValue);
     if (count > 0) acc[Math.trunc(denom)] = count;
     return acc;
   }, {});

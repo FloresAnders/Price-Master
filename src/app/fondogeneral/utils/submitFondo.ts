@@ -287,6 +287,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
       CIERRE_FONDO_VENTAS_PROVIDER_NAME ||
     String(selectedProvider || "").trim().toUpperCase() ===
       CIERRE_FONDO_VENTAS_PROVIDER_NAME;
+  const canBypassClosingWindows = isAdminUser || isSuperAdminUser;
   const cierreFondoVentasBaseMinutesAfterEnd =
     activeEmpresaForCompany?.cierreFondoVentasMinutesAfterEnd ??
     CIERRE_FONDO_VENTAS_MINUTES_AFTER_END;
@@ -397,7 +398,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         });
 
         if (
-          !isSuperAdminUser &&
+          !canBypassClosingWindows &&
           isInNightClosingWindow &&
           !isPostCloseGraceOnNextDay &&
           !hasDayClosingForOperationalDate &&

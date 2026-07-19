@@ -260,6 +260,7 @@ export function FondoSection({
   const { ownerIds: actorOwnerIds, primaryOwnerId } = useActorOwnership(user);
   const isAdminUser = user?.role === "admin";
   const isSuperAdminUser = user?.role === "superadmin";
+  const canBypassClosingWindows = isAdminUser || isSuperAdminUser;
   const isRegularUser = user?.role === "user";
   const [superAdminTotalsOpen, setSuperAdminTotalsOpen] = useState(false);
   const [cashOpeningModalOpen, setCashOpeningModalOpen] = useState(false);
@@ -3500,7 +3501,7 @@ export function FondoSection({
             minutesRelativeToReferenceEnd <=
               referenceMinutesAfterEnd;
 
-          if (!isSuperAdminUser && !isInReferenceWindow) {
+          if (!canBypassClosingWindows && !isInReferenceWindow) {
             const suggestedExtraMinutes =
               minutesRelativeToReferenceEnd > referenceMinutesAfterEnd
                 ? Math.max(
@@ -3541,7 +3542,7 @@ export function FondoSection({
               const hasDCierre = occupiedClosingShifts.has("D");
               const hasNCierre = occupiedClosingShifts.has("N");
 
-              if (closingShift === "D" && hasDCierre) {
+              if (!canBypassClosingWindows && closingShift === "D" && hasDCierre) {
                 showToast(
                   `Ya existe un "CIERRE FONDO VENTAS" para el turno D (${formatMinuteOfDay(
                     shiftDEndMin,
@@ -3551,7 +3552,7 @@ export function FondoSection({
                 );
                 return;
               }
-              if (closingShift === "N" && hasNCierre) {
+              if (!canBypassClosingWindows && closingShift === "N" && hasNCierre) {
                 showToast(
                   `Ya existe un "CIERRE FONDO VENTAS" para el turno N (${formatMinuteOfDay(
                     shiftNEndMin,
@@ -3567,6 +3568,7 @@ export function FondoSection({
           }
 
           if (
+            !canBypassClosingWindows &&
             closingShift === "N" &&
             closingsToday.length === 0 &&
             activeEmpresaForCompany?.unicoCierre !== true &&
@@ -4088,7 +4090,7 @@ export function FondoSection({
       return;
     }
 
-    if (!(await validateCashOpeningShiftWindow(nowISO))) return;
+    if (!canBypassClosingWindows && !(await validateCashOpeningShiftWindow(nowISO))) return;
 
     if (isRegularUser) {
       try {
@@ -4137,6 +4139,7 @@ export function FondoSection({
     isRegularUser,
     resolveShiftManagerForNow,
     showToast,
+    canBypassClosingWindows,
     validateCashOpeningShiftWindow,
   ]);
 
@@ -4179,7 +4182,7 @@ export function FondoSection({
 
   const handleConfirmCashOpening = useCallback(
     async (opening: CashOpeningFormValues) => {
-      if (!cashOpeningEditingEntry) {
+      if (!cashOpeningEditingEntry && !canBypassClosingWindows) {
         let nowISO: string;
         try {
           nowISO = await getAuthoritativeNowISO();
@@ -4231,6 +4234,7 @@ export function FondoSection({
       setCashOpeningInitialValues,
       openingSubmitInProgressRef,
       cashOpeningEditingEntry,
+      canBypassClosingWindows,
       setLatestMovementOverall,
       validateCashOpeningShiftWindow,
     ],
@@ -4455,7 +4459,7 @@ export function FondoSection({
             : nowMin >= nightWindowStartMin || nowMin < nightWindowEndMin;
 
         if (
-          !isSuperAdminUser &&
+          !canBypassClosingWindows &&
           isWithinWindow &&
           !isPostCloseGraceOnNextDay &&
           !hasRecentDayClosing &&
@@ -4472,7 +4476,7 @@ export function FondoSection({
           }
         }
       } else if (
-        !isSuperAdminUser &&
+        !canBypassClosingWindows &&
         isInNightClosingWindow &&
         !isPostCloseGraceOnNextDay &&
         !hasRecentDayClosing &&
@@ -4501,7 +4505,7 @@ export function FondoSection({
     company,
     getFGMonthlySchedulesCached,
     fondoEntries,
-    isSuperAdminUser,
+    canBypassClosingWindows,
     notes,
     resolveEffectiveClosingMinutesAfterEnd,
     showToast,
