@@ -127,6 +127,14 @@ service cloud.firestore {
         request.resource.data.empresaId == empresaId;
       allow update, delete: if isAdmin();
     }
+
+    match /proveedores/{empresaId} {
+      allow read, write: if isSignedIn();
+
+      match /items/{providerCode} {
+        allow read, write: if isSignedIn();
+      }
+    }
     
     // Otras reglas existentes...
     match /{collection}/{document=**} {
