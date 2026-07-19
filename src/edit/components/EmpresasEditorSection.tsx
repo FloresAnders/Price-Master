@@ -42,6 +42,17 @@ export default function EmpresasEditorSection({
   const [correoPassword, setCorreoPassword] = React.useState("");
   const [showCorreoPassword, setShowCorreoPassword] = React.useState(false);
   const [correoSaving, setCorreoSaving] = React.useState(false);
+  const [empresaEditSnapshots, setEmpresaEditSnapshots] = React.useState<
+    Record<string, string>
+  >({});
+  const currentUserEditBy =
+    currentUser?.name || currentUser?.fullName || currentUser?.email || "";
+
+  const getEmpresaComparableSnapshot = (empresa: any) => {
+    const comparable = { ...(empresa || {}) };
+    delete comparable.editBy;
+    return JSON.stringify(comparable);
+  };
 
   const getEmpresaKey = (empresa: any, idx: number) => {
     return empresa?.id || `empresa-${idx}`;
@@ -76,11 +87,6 @@ export default function EmpresasEditorSection({
   ) => {
     const key = getColKey(empresa, idx, eIdx);
     setColaboradorOpenMap((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const toggleColaborador = (empresa: any, idx: number, eIdx: number) => {
-    const key = getColKey(empresa, idx, eIdx);
-    setColaboradorOpenMap((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   const setColChanged = (
@@ -146,6 +152,7 @@ export default function EmpresasEditorSection({
       const patch = {
         correoConfigEmail: email,
         correoConfigPassword: correoPassword,
+        editBy: currentUserEditBy,
       };
 
       await EmpresasService.updateEmpresa(empresa.id, patch);
@@ -293,6 +300,32 @@ export default function EmpresasEditorSection({
                           {empresa.solicitarApertura !== false ? "Activa" : "Omitida"}
                         </p>
                       </div>
+                      <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2.5 sm:px-4 sm:py-3">
+                        <p className="text-[10px] sm:text-xs font-medium text-[var(--muted-foreground)]">
+                          Unico cierre
+                        </p>
+                        <p className="text-sm sm:text-base font-semibold text-[var(--foreground)] break-words">
+                          {empresa.unicoCierre === true ? "Activo" : "Inactivo"}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2.5 sm:px-4 sm:py-3">
+                        <p className="text-[10px] sm:text-xs font-medium text-[var(--muted-foreground)]">
+                          Verificacion sistemas
+                        </p>
+                        <p className="text-sm sm:text-base font-semibold text-[var(--foreground)] break-words">
+                          {empresa.verificacionSistemas !== false ? "Activa" : "Inactiva"}
+                        </p>
+                      </div>
+                      {currentUser?.role === "superadmin" && (
+                        <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2.5 sm:px-4 sm:py-3">
+                          <p className="text-[10px] sm:text-xs font-medium text-[var(--muted-foreground)]">
+                            Editado por
+                          </p>
+                          <p className="text-sm sm:text-base font-semibold text-[var(--foreground)] break-words">
+                            {empresa.editBy || "Sin registro"}
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex flex-col sm:flex-row justify-end gap-2 mt-2">
@@ -308,6 +341,10 @@ export default function EmpresasEditorSection({
                         type="button"
                         onClick={() => {
                           if (!empresa.id) return;
+                          setEmpresaEditSnapshots((prev) => ({
+                            ...prev,
+                            [key]: getEmpresaComparableSnapshot(empresa),
+                          }));
                           setEditMode((prev) => ({ ...prev, [key]: true }));
                         }}
                         className="px-3 py-2 sm:px-4 rounded-md bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white transition-colors text-sm sm:text-base"
@@ -896,8 +933,23 @@ export default function EmpresasEditorSection({
                         onClick={async () => {
                           try {
                             const e = empresasData[idx];
+                            const empresaHasChanges =
+                              empresaEditSnapshots[key] !==
+                              getEmpresaComparableSnapshot(e);
+                            const empresaToSave = {
+                              ...e,
+                              editBy: empresaHasChanges ? currentUserEditBy : e.editBy,
+                            };
                             if (e.id) {
-                              await EmpresasService.updateEmpresa(e.id, e);
+                              await EmpresasService.updateEmpresa(
+                                e.id,
+                                empresaToSave,
+                              );
+                              setEmpresasData((prev) =>
+                                prev.map((item, itemIdx) =>
+                                  itemIdx === idx ? empresaToSave : item,
+                                ),
+                              );
                               showToast("Empresa actualizada", "success");
                               setEditMode((prev) => ({
                                 ...prev,
@@ -937,6 +989,7 @@ export default function EmpresasEditorSection({
                                       e.verificacionSistemas !== false,
                                     solicitarApertura:
                                       e.solicitarApertura !== false,
+                                    editBy: currentUserEditBy,
                                     empleados: e.empleados || [],
                                   });
                                   await loadData();

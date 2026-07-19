@@ -311,6 +311,7 @@ export class EmpresasService {
         solicitarApertura: EmpresasService.normalizeSolicitarApertura(
           empresa.solicitarApertura,
         ),
+        editBy: empresa.editBy || "",
         empleados: empleadosToSave,
       });
       return empresa.id;
@@ -342,6 +343,7 @@ export class EmpresasService {
       solicitarApertura: EmpresasService.normalizeSolicitarApertura(
         empresa.solicitarApertura,
       ),
+      editBy: empresa.editBy || "",
       empleados: empleadosToSave,
     });
   }

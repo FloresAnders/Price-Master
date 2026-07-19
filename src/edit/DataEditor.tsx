@@ -78,6 +78,15 @@ const getStoredMaintenanceTab = (): DataFile => {
 const normalizeUserId = (value?: string | null): string =>
   typeof value === "string" ? value.trim() : "";
 
+const getUserEditBy = (user: User | null): string =>
+  user?.name || user?.fullName || user?.email || "";
+
+const getEmpresaComparableSnapshotForEditBy = (empresa: any): string => {
+  const comparable = { ...(empresa || {}) };
+  delete comparable.editBy;
+  return JSON.stringify(comparable);
+};
+
 const getVisibleUsersForActor = (
   users: User[],
   currentUser: User,
@@ -155,7 +164,7 @@ export default function DataEditor() {
   const [fondoTypesData, setFondoTypesData] = useState<
     FondoMovementTypeConfig[]
   >([]);
-  const [, setOriginalEmpresasData] = useState<any[]>([]);
+  const [originalEmpresasData, setOriginalEmpresasData] = useState<any[]>([]);
   const [, setOriginalSorteosData] = useState<Sorteo[]>([]);
   const [originalUsersData, setOriginalUsersData] = useState<User[]>([]);
   const [originalCcssConfigsData, setOriginalCcssConfigsData] = useState<
@@ -784,12 +793,22 @@ export default function DataEditor() {
       // Guardar empresas
       try {
         const existingEmpresas = await EmpresasService.getAllEmpresas();
+        const currentUserEditBy = getUserEditBy(currentUser);
         for (const e of existingEmpresas) {
           if (!e.id) continue;
           if (normalizeUserId(e.ownerId) !== fondoTypesOwnerId) continue;
           await EmpresasService.deleteEmpresa(e.id);
         }
         for (const empresa of empresasData) {
+          const originalEmpresa = originalEmpresasData.find((item) =>
+            empresa.id
+              ? String(item.id || "") === String(empresa.id)
+              : String(item.name || "") === String(empresa.name || ""),
+          );
+          const empresaHasChanges =
+            !originalEmpresa ||
+            getEmpresaComparableSnapshotForEditBy(originalEmpresa) !==
+              getEmpresaComparableSnapshotForEditBy(empresa);
           const ownerIdToUse = fondoTypesOwnerId || resolveOwnerIdForActor(empresa.ownerId);
           const idToUse = empresa.name || undefined;
           await EmpresasService.addEmpresa({
@@ -809,6 +828,7 @@ export default function DataEditor() {
             unicoCierre: empresa.unicoCierre === true,
             verificacionSistemas: empresa.verificacionSistemas !== false,
             solicitarApertura: empresa.solicitarApertura !== false,
+            editBy: empresaHasChanges ? currentUserEditBy : empresa.editBy,
             empleados: empresa.empleados || [],
           });
         }
