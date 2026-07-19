@@ -33,11 +33,11 @@ const PROVIDER_ACCOUNT_IDS: MovementAccountKey[] = [
 
 const normalizeProviderAccountId = (
   raw: unknown,
-): MovementAccountKey => {
+): MovementAccountKey | undefined => {
   return typeof raw === "string" &&
     PROVIDER_ACCOUNT_IDS.includes(raw as MovementAccountKey)
     ? (raw as MovementAccountKey)
-    : "FondoGeneral";
+    : undefined;
 };
 
 const normalizeVisitDays = (raw: unknown): ProviderVisitDay[] => {
@@ -236,13 +236,13 @@ const serializeProviderEntry = (
     code: provider.code,
     name: provider.name,
     company: provider.company,
-    accountId: provider.accountId || "FondoGeneral",
     movementCount:
       typeof provider.movementCount === "number" &&
       Number.isFinite(provider.movementCount)
         ? provider.movementCount
         : 0,
   };
+  if (provider.accountId) out.accountId = provider.accountId;
   if (provider.type) out.type = provider.type;
   if (provider.category) out.category = provider.category;
   if (provider.createdAt) out.createdAt = provider.createdAt;

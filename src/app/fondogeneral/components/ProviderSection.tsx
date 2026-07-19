@@ -149,8 +149,6 @@ export function ProviderSection({ id }: { id?: string }) {
       ),
     [permissions],
   );
-  const fallbackProviderAccountId =
-    availableProviderAccounts[0]?.id || "FondoGeneral";
   const [ownerCompanies, setOwnerCompanies] = useState<Empresas[]>([]);
   const [ownerCompaniesLoading, setOwnerCompaniesLoading] = useState(false);
   const [ownerCompaniesError, setOwnerCompaniesError] = useState<string | null>(
@@ -364,8 +362,10 @@ export function ProviderSection({ id }: { id?: string }) {
 
   const [providerName, setProviderName] = useState("");
   const [providerType, setProviderType] = useState<FondoMovementType | "">("");
-  const [providerAccountId, setProviderAccountId] =
-    useState<MovementAccountKey>("FondoGeneral");
+  const [providerHasAccountScope, setProviderHasAccountScope] = useState(false);
+  const [providerAccountId, setProviderAccountId] = useState<
+    MovementAccountKey | ""
+  >("");
   const [providerAgentName, setProviderAgentName] = useState("");
   const [providerAgentPhone, setProviderAgentPhone] = useState("");
   const [showProviderAgentFields, setShowProviderAgentFields] = useState(false);
@@ -448,7 +448,8 @@ export function ProviderSection({ id }: { id?: string }) {
     setProviderTypeError("");
     setProviderName("");
     setProviderType("");
-    setProviderAccountId("FondoGeneral");
+    setProviderHasAccountScope(false);
+    setProviderAccountId("");
     setEditingProviderCode(null);
     setAddNotification(false);
     setSelectedAdminId("");
@@ -463,13 +464,14 @@ export function ProviderSection({ id }: { id?: string }) {
   }, []);
 
   useEffect(() => {
-    if (availableProviderAccounts.length === 0) return;
+    if (!providerAccountId) return;
     setProviderAccountId((current) =>
+      current &&
       availableProviderAccounts.some((account) => account.id === current)
         ? current
-        : fallbackProviderAccountId,
+        : "",
     );
-  }, [availableProviderAccounts, fallbackProviderAccountId]);
+  }, [availableProviderAccounts, providerAccountId]);
 
   const getProviderAgent = useCallback((): ProviderAgentConfig | undefined => {
     const name = providerAgentName.trim();
@@ -1084,11 +1086,12 @@ export function ProviderSection({ id }: { id?: string }) {
     setEditingProviderCode(prov.code);
     setProviderName(prov.name ?? "");
     setProviderType((prov.type as FondoMovementType) ?? "");
+    setProviderHasAccountScope(Boolean(prov.accountId));
     setProviderAccountId(
       prov.accountId &&
         availableProviderAccounts.some((account) => account.id === prov.accountId)
         ? prov.accountId
-        : fallbackProviderAccountId,
+        : "",
     );
     setProviderTypeError("");
     setProviderAgentName(prov.agent?.name ?? "");
@@ -1537,16 +1540,14 @@ export function ProviderSection({ id }: { id?: string }) {
                                 {p.company}
                               </span>
                             </span>
-                            <span className="inline-flex items-center rounded-full border border-[var(--input-border)] bg-[var(--card-bg)]/35 px-2 py-0.5">
-                              Cuenta:{" "}
-                              <span className="ml-1 text-[var(--foreground)]">
-                                {
-                                  PROVIDER_ACCOUNT_LABELS[
-                                    p.accountId || "FondoGeneral"
-                                  ]
-                                }
+                            {p.accountId && (
+                              <span className="inline-flex items-center rounded-full border border-[var(--input-border)] bg-[var(--card-bg)]/35 px-2 py-0.5">
+                                Cuenta:{" "}
+                                <span className="ml-1 text-[var(--foreground)]">
+                                  {PROVIDER_ACCOUNT_LABELS[p.accountId]}
+                                </span>
                               </span>
-                            </span>
+                            )}
                             {p.type && (
                               <span className="inline-flex items-center rounded-full border border-[var(--input-border)] bg-[var(--card-bg)]/35 px-2 py-0.5">
                                 Tipo:{" "}
@@ -1808,31 +1809,47 @@ export function ProviderSection({ id }: { id?: string }) {
                   ))}
                 </optgroup>
               </select>
-              <label className="flex flex-col gap-1">
-                <span className="text-xs text-[var(--muted-foreground)]">
-                  Cuenta
-                </span>
-                <select
-                  value={providerAccountId}
-                  onChange={(e) =>
-                    setProviderAccountId(e.target.value as MovementAccountKey)
-                  }
-                  className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
-                  style={{
-                    backgroundColor: "var(--card-bg)",
-                    color: "var(--foreground)",
+              <label className="flex items-center gap-2 mt-2">
+                <input
+                  type="checkbox"
+                  checked={providerHasAccountScope}
+                  onChange={(e) => {
+                    setProviderHasAccountScope(e.target.checked);
+                    if (!e.target.checked) setProviderAccountId("");
                   }}
-                  disabled={
-                    !company || saving || availableProviderAccounts.length <= 1
-                  }
-                >
-                  {availableProviderAccounts.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {account.label}
-                    </option>
-                  ))}
-                </select>
+                  disabled={!company || saving}
+                  className="w-4 h-4 cursor-pointer"
+                />
+                <span className="text-sm text-[var(--foreground)]">
+                  Limitar proveedor a una cuenta
+                </span>
               </label>
+              {providerHasAccountScope && (
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs text-[var(--muted-foreground)]">
+                    Cuenta
+                  </span>
+                  <select
+                    value={providerAccountId}
+                    onChange={(e) =>
+                      setProviderAccountId(e.target.value as MovementAccountKey)
+                    }
+                    className="w-full h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                    style={{
+                      backgroundColor: "var(--card-bg)",
+                      color: "var(--foreground)",
+                    }}
+                    disabled={!company || saving}
+                  >
+                    <option value="">Seleccione una cuenta</option>
+                    {availableProviderAccounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               {providerTypeError && (
                 <p className="text-xs text-red-500">{providerTypeError}</p>
               )}
@@ -2146,6 +2163,16 @@ export function ProviderSection({ id }: { id?: string }) {
                     setProviderTypeError("Debe seleccionar un tipo.");
                     return;
                   }
+                  if (
+                    providerHasAccountScope &&
+                    (!providerAccountId ||
+                      !availableProviderAccounts.some(
+                        (account) => account.id === providerAccountId,
+                      ))
+                  ) {
+                    setFormError("Debe seleccionar una cuenta.");
+                    return;
+                  }
                   if (providersLoading) {
                     setFormError("Espera a que carguen los proveedores.");
                     return;
@@ -2222,6 +2249,11 @@ export function ProviderSection({ id }: { id?: string }) {
                     setProviderTypeError("");
 
                     const normalizedProviderType = providerType || undefined;
+                    const scopedProviderAccountId:
+                      | MovementAccountKey
+                      | undefined = providerHasAccountScope
+                      ? (providerAccountId as MovementAccountKey)
+                      : undefined;
 
                     if (editingProviderCode) {
                       const otherProviders = providers.filter(
@@ -2252,7 +2284,7 @@ export function ProviderSection({ id }: { id?: string }) {
                           code: editingProviderCode,
                           name,
                           providerType: normalizedProviderType,
-                          accountId: providerAccountId,
+                          accountId: scopedProviderAccountId,
                           correonotifi,
                           agent,
                           visit,
@@ -2324,7 +2356,7 @@ export function ProviderSection({ id }: { id?: string }) {
                         correonotifi,
                         agent,
                         visit,
-                        providerAccountId,
+                        scopedProviderAccountId,
                         getCategoryForType(normalizedProviderType),
                       );
                     } else {
@@ -2350,7 +2382,7 @@ export function ProviderSection({ id }: { id?: string }) {
                           mode: "create",
                           name,
                           providerType: normalizedProviderType,
-                          accountId: providerAccountId,
+                          accountId: scopedProviderAccountId,
                           correonotifi,
                           agent,
                           visit,
@@ -2421,7 +2453,7 @@ export function ProviderSection({ id }: { id?: string }) {
                         correonotifi,
                         agent,
                         visit,
-                        providerAccountId,
+                        scopedProviderAccountId,
                         getCategoryForType(normalizedProviderType),
                       );
 

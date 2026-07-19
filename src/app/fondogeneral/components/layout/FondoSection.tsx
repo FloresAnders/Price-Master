@@ -328,52 +328,38 @@ export function FondoSection({
   );
 
   const isCajaNegra = accountKey === "CajaNegra" || accountKey === "Tucan";
-  const cajaNegraProviders: Array<{
-    code: string;
-    name: string;
-    type?: FondoMovementType;
-    category?: "Ingreso" | "Gasto" | "Egreso";
-    correonotifi?: string;
-  }> = useMemo(
-    () => [
-      {
-        code: "0000",
-        name: "INGRESO DESDE FG",
-        category: "Ingreso",
-        type: "OTROS",
-      },
-      {
-        code: "0001",
-        name: "RETIRO",
-        category: "Egreso",
-        type: "OTROS",
-      },
-      {
-        code: "0002",
-        name: "SALIDA A FONDO GENERAL",
-        category: "Egreso",
-        type: "OTROS",
-      },
-    ],
-    [],
+  const accountScopedProviders = useMemo(
+    () =>
+      (
+        providers as Array<{
+          code: string;
+          name: string;
+          accountId?: MovementAccountKey;
+          type?: FondoMovementType;
+          category?: "Ingreso" | "Gasto" | "Egreso";
+          correonotifi?: string;
+        }>
+      ).filter((provider) => {
+        if (accountKey === "CajaNegra" || accountKey === "Tucan") {
+          return provider.accountId === accountKey;
+        }
+        return !provider.accountId || provider.accountId === accountKey;
+      }),
+    [accountKey, providers],
   );
 
   const movementProviders: Array<{
-    code: string;
-    name: string;
-    type?: FondoMovementType;
-    category?: "Ingreso" | "Gasto" | "Egreso";
-    correonotifi?: string;
-  }> = isCajaNegra
-    ? cajaNegraProviders
-    : (providers as Array<{
-        code: string;
-        name: string;
-        type?: FondoMovementType;
-        category?: "Ingreso" | "Gasto" | "Egreso";
-        correonotifi?: string;
-      }>);
-  const movementProvidersLoading = isCajaNegra ? false : providersLoading;
+      code: string;
+      name: string;
+      accountId?: MovementAccountKey;
+      type?: FondoMovementType;
+      category?: "Ingreso" | "Gasto" | "Egreso";
+      correonotifi?: string;
+  }> = useMemo(
+    () => accountScopedProviders,
+    [accountScopedProviders],
+  );
+  const movementProvidersLoading = providersLoading;
 
   const [missingShiftModalOpen, setMissingShiftModalOpen] = useState(false);
   const [missingShiftExpectedShift, setMissingShiftExpectedShift] =
