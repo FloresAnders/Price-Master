@@ -21,6 +21,7 @@
     "svg-icon": "node .\\svg-to-custom-icon.js",
     "migrate:proveedores": "node scripts/migrate-proveedores-to-items.js",
     "migrate:proveedores:items": "node scripts/migrate-proveedores-to-items.js",
+    "migrate:proveedores:accountid": "node scripts/set-provider-items-accountid.js",
     "migrate:schedules": "node scripts/migrate-schedules.mjs",
     "convert:tiposEgresoXml": "node scripts/convert-egresos-csv-to-json.js",
     "update": "node scripts/update-version.js",

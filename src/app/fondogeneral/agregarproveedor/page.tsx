@@ -10,7 +10,14 @@ export default function AgregarProveedorPage() {
   const { user, loading } = useAuth();
   const permissions =
     user?.permissions || getDefaultPermissions(user?.role || "user");
-  const hasGeneralAccess = Boolean(permissions.fondogeneral);
+  const hasProviderAccountAccess = Boolean(
+    permissions.fondogeneral ||
+      permissions.fondogeneralBCR ||
+      permissions.fondogeneralBN ||
+      permissions.fondogeneralBAC ||
+      permissions.cajaNegra ||
+      permissions.tucan,
+  );
 
   if (loading) {
     return (
@@ -24,7 +31,7 @@ export default function AgregarProveedorPage() {
     );
   }
 
-  if (!hasGeneralAccess) {
+  if (!hasProviderAccountAccess) {
     return (
       <div className="max-w-6xl mx-auto py-8 px-4">
         <div className="flex flex-col items-center justify-center p-6 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] text-center">
@@ -33,7 +40,7 @@ export default function AgregarProveedorPage() {
             Acceso restringido
           </h3>
           <p className="text-sm sm:text-base text-[var(--muted-foreground)]">
-            No tienes permisos para agregar proveedores del Fondo General.
+            No tienes permisos para agregar proveedores.
           </p>
           <p className="text-xs sm:text-sm text-[var(--muted-foreground)] mt-2">
             Contacta a un administrador para obtener acceso.

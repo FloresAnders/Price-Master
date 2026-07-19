@@ -54,6 +54,7 @@ export function useProviders(company?: string) {
       correonotifi?: string,
       agent?: ProviderEntry["agent"],
       visit?: ProviderEntry["visit"],
+      accountId?: ProviderEntry["accountId"],
       explicitCategory?: "Ingreso" | "Gasto" | "Egreso",
     ) => {
       const trimmedCompany = (company || "").trim();
@@ -72,6 +73,7 @@ export function useProviders(company?: string) {
           correonotifi,
           agent,
           visit,
+          accountId,
           explicitCategory,
         );
         await fetchProviders();
@@ -122,6 +124,7 @@ export function useProviders(company?: string) {
       correonotifi?: string,
       agent?: ProviderEntry["agent"],
       visit?: ProviderEntry["visit"],
+      accountId?: ProviderEntry["accountId"],
       explicitCategory?: "Ingreso" | "Gasto" | "Egreso",
     ) => {
       const trimmedCompany = (company || "").trim();
@@ -141,6 +144,7 @@ export function useProviders(company?: string) {
           correonotifi,
           agent,
           visit,
+          accountId,
           explicitCategory,
         );
         await fetchProviders();

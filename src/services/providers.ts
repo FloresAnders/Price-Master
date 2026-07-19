@@ -10,6 +10,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/config/firebase";
 import type { ProviderEntry } from "../types/firestore";
+import type { MovementAccountKey } from "./movimientos-fondos";
 
 type ProviderVisitDay = "D" | "L" | "M" | "MI" | "J" | "V" | "S";
 type ProviderVisitFrequency = "SEMANAL" | "QUINCENAL" | "MENSUAL" | "22 DIAS";
@@ -21,6 +22,23 @@ const VISIT_FREQUENCIES: ProviderVisitFrequency[] = [
   "MENSUAL",
   "22 DIAS",
 ];
+const PROVIDER_ACCOUNT_IDS: MovementAccountKey[] = [
+  "FondoGeneral",
+  "BCR",
+  "BN",
+  "BAC",
+  "CajaNegra",
+  "Tucan",
+];
+
+const normalizeProviderAccountId = (
+  raw: unknown,
+): MovementAccountKey => {
+  return typeof raw === "string" &&
+    PROVIDER_ACCOUNT_IDS.includes(raw as MovementAccountKey)
+    ? (raw as MovementAccountKey)
+    : "FondoGeneral";
+};
 
 const normalizeVisitDays = (raw: unknown): ProviderVisitDay[] => {
   if (!Array.isArray(raw)) return [];
@@ -196,6 +214,7 @@ const normalizeProviderEntry = (
     code,
     name,
     company,
+    accountId: normalizeProviderAccountId(data.accountId),
     type,
     category,
     createdAt: typeof data.createdAt === "string" ? data.createdAt : undefined,
@@ -217,6 +236,7 @@ const serializeProviderEntry = (
     code: provider.code,
     name: provider.name,
     company: provider.company,
+    accountId: provider.accountId || "FondoGeneral",
     movementCount:
       typeof provider.movementCount === "number" &&
       Number.isFinite(provider.movementCount)
@@ -354,6 +374,7 @@ export class ProvidersService {
     correonotifi?: string,
     agent?: ProviderEntry["agent"],
     visit?: ProviderEntry["visit"],
+    accountId?: ProviderEntry["accountId"],
     explicitCategory?: "Ingreso" | "Gasto" | "Egreso",
   ): Promise<ProviderEntry> {
     const trimmedCompany = (company || "").trim();
@@ -411,6 +432,7 @@ export class ProvidersService {
         code: candidateCode,
         name: normalizedName,
         company: trimmedCompany,
+        accountId: normalizeProviderAccountId(accountId),
         type: normalizedType,
         category: explicitCategory || getCategoryFromType(normalizedType),
         createdAt: now,
@@ -513,6 +535,7 @@ export class ProvidersService {
     correonotifi?: string,
     agent?: ProviderEntry["agent"],
     visit?: ProviderEntry["visit"],
+    accountId?: ProviderEntry["accountId"],
     explicitCategory?: "Ingreso" | "Gasto" | "Egreso",
   ): Promise<ProviderEntry> {
     const trimmedCompany = (company || "").trim();
@@ -582,6 +605,7 @@ export class ProvidersService {
       const provider: ProviderEntry = {
         ...latest,
         name: normalizedName,
+        accountId: normalizeProviderAccountId(accountId),
         type: normalizedType,
         category: explicitCategory || getCategoryFromType(normalizedType),
         updatedAt: new Date().toISOString(),

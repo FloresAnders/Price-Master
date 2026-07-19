@@ -1,3 +1,5 @@
+import type { MovementAccountKey } from "@/services/movimientos-fondos";
+
 export interface EmpresaEmpleado {
   Empleado: string;
   hoursPerShift: number;
@@ -79,6 +81,7 @@ export interface ProviderEntry {
   code: string;
   name: string;
   company: string;
+  accountId?: MovementAccountKey;
   type?: string;
   category?: "Ingreso" | "Gasto" | "Egreso";
   createdAt?: string;
