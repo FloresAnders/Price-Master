@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "firebase:routes": "node scripts/lectorFirebase.mjs",
+    "firebase:read": "node scripts/firebase-read.mjs",
     "dev": "next dev",
     "build": "next build",
     "build:capacitor": "node build-capacitor.js && npx cap sync android",

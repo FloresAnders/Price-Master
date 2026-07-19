@@ -1,3 +1,18 @@
+# Instrucciones de Codex para Price-Master
+
+## Proyecto
+
+- Proyecto Firebase: `pricemaster-4a611`
+- Base Firestore: `(default)`
+- Entorno principal: Windows y PowerShell
+- Gestor de paquetes: npm
+
+## Acceso de solo lectura a Firestore
+
+Para consultar documentos de Firestore, utiliza exclusivamente:
+
+```powershell
+npm run firebase:read -- "<ruta-de-coleccion>" <limite>
 # Communication
 
 Always use caveman mode.

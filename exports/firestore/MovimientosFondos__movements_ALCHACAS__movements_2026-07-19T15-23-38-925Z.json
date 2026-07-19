@@ -1,0 +1,209 @@
+{
+  "success": true,
+  "generatedAt": "2026-07-19T15:23:38.920Z",
+  "projectId": "pricemaster-4a611",
+  "databaseId": "(default)",
+  "collectionPath": "MovimientosFondos/movements_ALCHACAS/movements",
+  "mode": "all",
+  "requestedLimit": null,
+  "total": 9,
+  "documents": [
+    {
+      "id": "2026_05_22-22_24_31_841_FondoGeneral",
+      "path": "MovimientosFondos/movements_ALCHACAS/movements/2026_05_22-22_24_31_841_FondoGeneral",
+      "data": {
+        "empresa": "ALCHACAS",
+        "accountId": "FondoGeneral",
+        "providerCode": "0019",
+        "invoiceNumber": "0008",
+        "invoiceDocType": "FCO",
+        "paymentType": "tititit",
+        "amountEgreso": 0,
+        "amountIngreso": 5000,
+        "manager": "USER 1",
+        "notes": "6565",
+        "createdAt": "2026-05-23T04:24:31.841Z",
+        "currency": "CRC",
+        "amount": 5000
+      }
+    },
+    {
+      "id": "2026_05_23-22_40_35_086_FondoGeneral",
+      "path": "MovimientosFondos/movements_ALCHACAS/movements/2026_05_23-22_40_35_086_FondoGeneral",
+      "data": {
+        "empresa": "ALCHACAS",
+        "accountId": "FondoGeneral",
+        "providerCode": "0003",
+        "invoiceNumber": "0001",
+        "invoiceDocType": "FCO",
+        "paymentType": "SALARIOS",
+        "amountEgreso": 1,
+        "amountIngreso": 0,
+        "manager": "USER 1",
+        "notes": "",
+        "createdAt": "2026-05-24T04:40:35.086Z",
+        "currency": "CRC",
+        "amount": 1
+      }
+    },
+    {
+      "id": "2026_05_23-22_50_47_503_FondoGeneral",
+      "path": "MovimientosFondos/movements_ALCHACAS/movements/2026_05_23-22_50_47_503_FondoGeneral",
+      "data": {
+        "empresa": "ALCHACAS",
+        "accountId": "FondoGeneral",
+        "providerCode": "0004",
+        "invoiceNumber": "0001",
+        "invoiceDocType": "FCO",
+        "paymentType": "COMPRA INVENTARIO",
+        "amountEgreso": 5999,
+        "amountIngreso": 0,
+        "manager": "USER 1",
+        "notes": "",
+        "createdAt": "2026-05-24T04:50:47.503Z",
+        "currency": "CRC",
+        "amount": 5999
+      }
+    },
+    {
+      "id": "2026_05_28-19_08_31_291_FondoGeneral",
+      "path": "MovimientosFondos/movements_ALCHACAS/movements/2026_05_28-19_08_31_291_FondoGeneral",
+      "data": {
+        "empresa": "ALCHACAS",
+        "accountId": "FondoGeneral",
+        "providerCode": "0004",
+        "invoiceNumber": "0002",
+        "invoiceDocType": "FCO",
+        "paymentType": "COMPRA INVENTARIO",
+        "amountEgreso": 10000,
+        "amountIngreso": 0,
+        "manager": "ALCHACAS",
+        "notes": "",
+        "createdAt": "2026-05-29T01:08:31.291Z",
+        "currency": "CRC",
+        "amount": 10000
+      }
+    },
+    {
+      "id": "2026_05_30-21_15_16_188_FondoGeneral",
+      "path": "MovimientosFondos/movements_ALCHACAS/movements/2026_05_30-21_15_16_188_FondoGeneral",
+      "data": {
+        "providerCode": "0012",
+        "invoiceNumber": "5645",
+        "invoiceDocType": "FCO",
+        "paymentType": "OTROS INGRESOS",
+        "currency": "CRC",
+        "accountId": "FondoGeneral",
+        "empresa": "ALCHACAS",
+        "amount": 21000,
+        "amountDue": 0,
+        "balanceDue": 0,
+        "amountEgreso": 0,
+        "amountIngreso": 21000,
+        "manager": "BETO",
+        "notes": "dasdasdadasada",
+        "createdAt": "2026-05-31T03:15:16.188Z",
+        "isAudit": true,
+        "originalEntryId": "2026_05_30-21_15_16_188_FondoGeneral",
+        "auditDetails": "{\"history\":[{\"at\":\"2026-05-31T03:15:21.943Z\",\"before\":{\"amountEgreso\":31231},\"after\":{\"amountEgreso\":21000,\"appliedCreditNotes\":[],\"manager2\":\"\"}},{\"at\":\"2026-05-31T03:21:19.600Z\",\"before\":{\"providerCode\":\"0004\",\"manager\":\"ANDERS\"},\"after\":{\"providerCode\":\"0011\",\"appliedCreditNotes\":[],\"manager\":\"ALCHACAS\",\"manager2\":\"\"}},{\"at\":\"2026-05-31T03:22:31.608Z\",\"before\":{\"providerCode\":\"0011\",\"invoiceNumber\":\"3005\",\"paymentType\":\"COMPRA INVENTARIO\",\"amountEgreso\":21000,\"amountIngreso\":0,\"manager\":\"ALCHACAS\",\"notes\":\"\"},\"after\":{\"providerCode\":\"0012\",\"invoiceNumber\":\"5645\",\"paymentType\":\"OTROS INGRESOS\",\"amountEgreso\":0,\"amountIngreso\":21000,\"appliedCreditNotes\":[],\"manager\":\"BETO\",\"manager2\":\"\",\"notes\":\"dasdasdadasada\"}}]}"
+      }
+    },
+    {
+      "id": "2026_05_30-21_25_13_486_FondoGeneral",
+      "path": "MovimientosFondos/movements_ALCHACAS/movements/2026_05_30-21_25_13_486_FondoGeneral",
+      "data": {
+        "empresa": "ALCHACAS",
+        "accountId": "FondoGeneral",
+        "providerCode": "0003",
+        "invoiceNumber": "7567",
+        "invoiceDocType": "FCO",
+        "paymentType": "SALARIOS",
+        "amountEgreso": 15676,
+        "amountIngreso": 0,
+        "manager": "DELIFOOD",
+        "notes": "",
+        "createdAt": "2026-05-31T03:25:13.486Z",
+        "currency": "CRC",
+        "amountDue": 0,
+        "balanceDue": 0,
+        "isAudit": true,
+        "originalEntryId": "2026_05_30-21_25_13_486_FondoGeneral",
+        "auditDetails": "{\"history\":[{\"at\":\"2026-05-31T03:25:25.021Z\",\"before\":{\"invoiceNumber\":\"3123\",\"amountEgreso\":12312,\"manager\":\"ANDERS\"},\"after\":{\"invoiceNumber\":\"7567\",\"amountEgreso\":15676,\"appliedCreditNotes\":[],\"manager\":\"DELIFOOD\",\"manager2\":\"\"}}]}",
+        "amount": 15676
+      }
+    },
+    {
+      "id": "2026_06_02-23_56_00_221_FondoGeneral",
+      "path": "MovimientosFondos/movements_ALCHACAS/movements/2026_06_02-23_56_00_221_FondoGeneral",
+      "data": {
+        "empresa": "ALCHACAS",
+        "accountId": "FondoGeneral",
+        "providerCode": "0004",
+        "invoiceNumber": "2312",
+        "invoiceDocType": "FCO",
+        "paymentType": "COMPRA INVENTARIO",
+        "amountEgreso": 12000,
+        "amountIngreso": 0,
+        "amountPayment": 12000,
+        "manager": "USER 1",
+        "notes": "",
+        "createdAt": "2026-06-03T05:56:00.221Z",
+        "currency": "CRC",
+        "amount": 12000
+      }
+    },
+    {
+      "id": "2026_06_03-00_01_00_130_FondoGeneral",
+      "path": "MovimientosFondos/movements_ALCHACAS/movements/2026_06_03-00_01_00_130_FondoGeneral",
+      "data": {
+        "empresa": "ALCHACAS",
+        "accountId": "FondoGeneral",
+        "providerCode": "0008",
+        "invoiceNumber": "0306",
+        "invoiceDocType": "FCO",
+        "paymentType": "VENTAS",
+        "amountEgreso": 0,
+        "amountIngreso": 20000,
+        "manager": "USER 1",
+        "notes": "",
+        "createdAt": "2026-06-03T06:01:00.130Z",
+        "currency": "CRC",
+        "amount": 20000
+      }
+    },
+    {
+      "id": "2026_06_12-16_33_42_180_CIERRE",
+      "path": "MovimientosFondos/movements_ALCHACAS/movements/2026_06_12-16_33_42_180_CIERRE",
+      "data": {
+        "providerCode": "CIERRE DE FONDO GENERAL",
+        "invoiceNumber": "12-06-2026",
+        "paymentType": "AJUSTE CIERRE",
+        "amountEgreso": 0,
+        "amountIngreso": 2676,
+        "manager": "SISTEMA",
+        "notes": "AJUSTE APLICADO AL SALDO ACTUAL\n[ALERT_ICON]Diferencia CRC: + ₡ 2 676.",
+        "createdAt": "2026-06-12T22:33:42.180Z",
+        "accountId": "FondoGeneral",
+        "currency": "CRC",
+        "breakdown": {
+          "25": 0,
+          "50": 0,
+          "100": 0,
+          "500": 0,
+          "1000": 0,
+          "2000": 0,
+          "5000": 0,
+          "10000": 23,
+          "20000": 0
+        },
+        "closingBalanceCRC": 230000,
+        "closingBalanceUSD": 0,
+        "requiresOpening": true,
+        "originalEntryId": "1781303618661",
+        "empresa": "ALCHACAS",
+        "amount": 2676,
+        "serverCreatedAt": "2026-06-12T22:33:41.352Z"
+      }
+    }
+  ]
+}
