@@ -28,6 +28,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useActorOwnership } from "@/hooks/useActorOwnership";
 import useToast from "@/hooks/useToast";
 import { FacturasService, type FacturaMovement } from "@/services/facturas";
+import { PendingInvoiceDeletionRequestsService } from "@/services/pending-invoice-deletion-requests";
 import {
   MovimientosFondosService,
   type MovementCurrencyKey,
@@ -291,6 +292,17 @@ export default function FacturasCreditoPage() {
   const [deleteTarget, setDeleteTarget] = useState<FacturaMovement | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [deletionRequestSubmittingId, setDeletionRequestSubmittingId] =
+    useState<string | null>(null);
+  const [pendingDeletionRequestIds, setPendingDeletionRequestIds] = useState<
+    Set<string>
+  >(new Set());
+  const [deletionRequestTarget, setDeletionRequestTarget] =
+    useState<FacturaMovement | null>(null);
+  const [deletionRequestReason, setDeletionRequestReason] = useState("");
+  const [deletionRequestError, setDeletionRequestError] = useState<string | null>(
+    null,
+  );
 
   // Filter state (mirrors Fondo toolbar names)
   const [providerFilter, setProviderFilter] = useState("");
@@ -665,6 +677,7 @@ export default function FacturasCreditoPage() {
     async (companyName: string) => {
       if (!companyName) {
         setMovements([]);
+        setPendingDeletionRequestIds(new Set());
         return;
       }
 
@@ -684,6 +697,17 @@ export default function FacturasCreditoPage() {
             })();
         setMovements(
           data.filter((movement) => !isFacturaPaymentRecord(movement)),
+        );
+        const pendingDeletionRequests =
+          await PendingInvoiceDeletionRequestsService.getPendingDeletionRequestsByCompany(
+            companyName,
+          );
+        setPendingDeletionRequestIds(
+          new Set(
+            pendingDeletionRequests
+              .map((request) => request.invoiceId)
+              .filter(Boolean),
+          ),
         );
       } finally {
         setMovementsLoading(false);
@@ -1230,6 +1254,88 @@ export default function FacturasCreditoPage() {
       setDeleteSubmitting(false);
     }
   }, [deleteTarget, selectedCompany, showToast]);
+
+  const handleRequestInvoiceDeletion = useCallback(
+    async (movement: FacturaMovement) => {
+      const companyName = String(selectedCompany || "").trim();
+      if (!companyName) {
+        showToast("Seleccione una empresa.", "error", 3500);
+        return;
+      }
+      if (resolveFacturaStatus(movement) !== "PENDIENTE") {
+        showToast("Solo se puede solicitar eliminacion de pendientes.", "warning", 4500);
+        return;
+      }
+      if (pendingDeletionRequestIds.has(movement.id)) {
+        showToast("Eliminacion solicitada.", "info", 3500);
+        return;
+      }
+
+      setDeletionRequestTarget(movement);
+      setDeletionRequestReason("");
+      setDeletionRequestError(null);
+    },
+    [pendingDeletionRequestIds, selectedCompany, showToast],
+  );
+
+  const submitInvoiceDeletionRequest = useCallback(async () => {
+    const movement = deletionRequestTarget;
+    if (!movement) return;
+    const reason = deletionRequestReason.trim();
+    if (!reason) {
+      setDeletionRequestError("Debe indicar el motivo de eliminacion.");
+      return;
+    }
+
+    const companyName = String(selectedCompany || "").trim();
+    if (!companyName) {
+      setDeletionRequestError("Seleccione una empresa.");
+      return;
+    }
+    if (pendingDeletionRequestIds.has(movement.id)) {
+      showToast("Eliminacion solicitada.", "info", 3500);
+      setDeletionRequestTarget(null);
+      setDeletionRequestReason("");
+      setDeletionRequestError(null);
+      return;
+    }
+
+    setDeletionRequestSubmittingId(movement.id);
+    try {
+      await PendingInvoiceDeletionRequestsService.requestDeletion({
+        company: companyName,
+        invoice: {
+          ...movement,
+          paymentStatus: resolveFacturaStatus(movement),
+        },
+        reason,
+        requestedBy: user?.email || user?.id || null,
+      });
+      setPendingDeletionRequestIds((prev) => new Set(prev).add(movement.id));
+      showToast("Solicitud de eliminacion enviada.", "success", 3500);
+      setDeletionRequestTarget(null);
+      setDeletionRequestReason("");
+      setDeletionRequestError(null);
+    } catch (error) {
+      console.error("[FACTURAS] Error requesting invoice deletion:", error);
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "No se pudo enviar la solicitud.";
+      setDeletionRequestError(message);
+    } finally {
+      setDeletionRequestSubmittingId(null);
+    }
+    },
+    [
+      deletionRequestReason,
+      deletionRequestTarget,
+      pendingDeletionRequestIds,
+      selectedCompany,
+      showToast,
+      user,
+    ],
+  );
 
   useEffect(() => {
     if (visibleCompanies.length === 0) {
@@ -3577,6 +3683,13 @@ export default function FacturasCreditoPage() {
                       resolveFacturaStatusLabel(movement);
                     const paymentBalance = resolveFacturaBalance(movement);
                     const isPaid = paymentBalance === 0;
+                    const isPendingDeletionCandidate =
+                      (movement.invoiceDocType === "FCO" ||
+                        movement.invoiceDocType === "FCR" ||
+                        movement.invoiceDocType === "NC") &&
+                      paymentStatus === "PENDIENTE";
+                    const hasPendingDeletionRequest =
+                      pendingDeletionRequestIds.has(movement.id);
                     const canEditZeroNC =
                       String(movement.invoiceDocType || "")
                         .trim()
@@ -3711,9 +3824,7 @@ export default function FacturasCreditoPage() {
                               </button>
                             ) : null}
                             {isAdminOrSuperAdmin &&
-                              (movement.invoiceDocType === "FCR" ||
-                                movement.invoiceDocType === "NC") &&
-                              paymentStatus === "PENDIENTE" && (
+                              isPendingDeletionCandidate && (
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -3727,13 +3838,31 @@ export default function FacturasCreditoPage() {
                                   Eliminar
                                 </button>
                               )}
+                            {!isAdminOrSuperAdmin &&
+                              isPendingDeletionCandidate && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    void handleRequestInvoiceDeletion(movement)
+                                  }
+                                  disabled={
+                                    hasPendingDeletionRequest ||
+                                    deletionRequestSubmittingId === movement.id
+                                  }
+                                  className="inline-flex items-center gap-2 rounded-xl border border-amber-400/45 bg-amber-500/10 px-3.5 py-2 text-xs font-semibold text-amber-200 transition-colors hover:bg-amber-500/20 disabled:opacity-60"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  {hasPendingDeletionRequest
+                                    ? "Eliminacion solicitada"
+                                    : deletionRequestSubmittingId === movement.id
+                                    ? "Enviando"
+                                    : "Solicitar eliminacion"}
+                                </button>
+                              )}
                             {!(
                               (movement.invoiceDocType === "FCR" && !isPaid) ||
                               canEditZeroNC ||
-                              (isAdminOrSuperAdmin &&
-                                (movement.invoiceDocType === "FCR" ||
-                                  movement.invoiceDocType === "NC") &&
-                                paymentStatus === "PENDIENTE")
+                              isPendingDeletionCandidate
                             ) && (
                               <span className="text-xs text-[var(--muted-foreground)]">
                                 -
@@ -4048,6 +4177,73 @@ export default function FacturasCreditoPage() {
             }}
             onConfirm={() => void executeDeleteMovement()}
           />
+        )}
+
+        {deletionRequestTarget && (
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 px-3 py-6 dark:bg-black/80">
+            <div className="w-full max-w-md rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-6 text-[var(--foreground)] shadow-lg">
+              <div className="mb-4">
+                <h2 className="text-lg font-semibold">
+                  Solicitar eliminacion
+                </h2>
+                <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+                  Factura {deletionRequestTarget.invoiceNumber} (
+                  {deletionRequestTarget.invoiceDocType})
+                </p>
+              </div>
+              <label className="block space-y-2 text-sm">
+                <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                  Motivo de eliminacion
+                </span>
+                <textarea
+                  value={deletionRequestReason}
+                  onChange={(event) => {
+                    setDeletionRequestReason(event.target.value);
+                    if (deletionRequestError) setDeletionRequestError(null);
+                  }}
+                  disabled={
+                    deletionRequestSubmittingId === deletionRequestTarget.id
+                  }
+                  rows={4}
+                  className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
+                  placeholder="Indica por que se debe eliminar"
+                />
+              </label>
+              {deletionRequestError ? (
+                <div className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                  {deletionRequestError}
+                </div>
+              ) : null}
+              <div className="mt-5 flex flex-col gap-2 sm:flex-row-reverse">
+                <button
+                  type="button"
+                  disabled={
+                    deletionRequestSubmittingId === deletionRequestTarget.id
+                  }
+                  onClick={() => void submitInvoiceDeletionRequest()}
+                  className="inline-flex items-center justify-center rounded-md bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-amber-700 disabled:opacity-60"
+                >
+                  {deletionRequestSubmittingId === deletionRequestTarget.id
+                    ? "Enviando..."
+                    : "Enviar solicitud"}
+                </button>
+                <button
+                  type="button"
+                  disabled={
+                    deletionRequestSubmittingId === deletionRequestTarget.id
+                  }
+                  onClick={() => {
+                    setDeletionRequestTarget(null);
+                    setDeletionRequestReason("");
+                    setDeletionRequestError(null);
+                  }}
+                  className="inline-flex items-center justify-center rounded-md border border-[var(--input-border)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--input-border)]/10 disabled:opacity-60"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         <ConfirmModal

@@ -162,6 +162,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const knownClosingExtensionsRef = useRef<Set<string>>(new Set());
   const initializedClosingExtensionResponsesRef = useRef(false);
   const knownClosingExtensionResponsesRef = useRef<Set<string>>(new Set());
+  const initializedInvoiceDeletionRequestsRef = useRef(false);
+  const knownInvoiceDeletionRequestsRef = useRef<Set<string>>(new Set());
+  const initializedInvoiceDeletionResponsesRef = useRef(false);
+  const knownInvoiceDeletionResponsesRef = useRef<Set<string>>(new Set());
   const [currentHash, setCurrentHash] = useState(() => {
     if (typeof window === "undefined") return "";
     return window.location.hash || "";
@@ -564,6 +568,179 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       return () => unsubscribe();
     } catch (err) {
       console.error("Error setting up closing extension responses listener:", err);
+      return;
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || (user.role !== "admin" && user.role !== "superadmin")) return;
+
+    const company =
+      (user as any)?.ownercompanie || (user as any)?.ownerCompanie || "";
+    const companyKey = normalizeClosingTimeExtensionCompanyKey(company);
+
+    knownInvoiceDeletionRequestsRef.current = new Set();
+    initializedInvoiceDeletionRequestsRef.current = false;
+
+    try {
+      const baseCollection = collection(db, "pendingInvoiceDeletionRequests");
+      const q = companyKey
+        ? fbQuery(
+            baseCollection,
+            fbWhere("companyKey", "==", companyKey),
+            fbWhere("status", "==", "pending"),
+            fbOrderBy("createdAt", "desc"),
+            fbLimit(50),
+          )
+        : fbQuery(
+            baseCollection,
+            fbWhere("status", "==", "pending"),
+            fbOrderBy("createdAt", "desc"),
+            fbLimit(50),
+          );
+
+      const unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const docs: any[] = snapshot.docs.map((d) => ({
+            id: d.id,
+            ...d.data(),
+          }));
+
+          if (initializedInvoiceDeletionRequestsRef.current) {
+            const previousIds = knownInvoiceDeletionRequestsRef.current;
+            const hasNewPending = docs.some((doc) => {
+              const id = doc?.id;
+              return typeof id === "string" && !previousIds.has(id);
+            });
+
+            if (hasNewPending) {
+              setHasNewClosingExtensions(true);
+              const player =
+                audioRef.current ??
+                (typeof Audio !== "undefined"
+                  ? new Audio("/arrival-sound.mp3")
+                  : null);
+              if (player) {
+                audioRef.current = player;
+                try {
+                  player.currentTime = 0;
+                  void player.play().catch((err) => {
+                    console.warn("Unable to play notification sound:", err);
+                  });
+                } catch (err) {
+                  console.warn("Unable to play notification sound:", err);
+                }
+              }
+            }
+          }
+
+          knownInvoiceDeletionRequestsRef.current = new Set(
+            docs
+              .map((doc) => doc?.id)
+              .filter((id): id is string => typeof id === "string"),
+          );
+          initializedInvoiceDeletionRequestsRef.current = true;
+        },
+        (err) => {
+          console.error(
+            "onSnapshot error for pendingInvoiceDeletionRequests:",
+            err,
+          );
+        },
+      );
+
+      return () => unsubscribe();
+    } catch (err) {
+      console.error(
+        "Error setting up pendingInvoiceDeletionRequests listener:",
+        err,
+      );
+      return;
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const requestedBy = String((user as any)?.email || user.id || "").trim();
+    if (!requestedBy) {
+      knownInvoiceDeletionResponsesRef.current = new Set();
+      initializedInvoiceDeletionResponsesRef.current = false;
+      return;
+    }
+
+    knownInvoiceDeletionResponsesRef.current = new Set();
+    initializedInvoiceDeletionResponsesRef.current = false;
+
+    try {
+      const q = fbQuery(
+        collection(db, "pendingInvoiceDeletionRequests"),
+        fbWhere("requestedBy", "==", requestedBy),
+        fbWhere("status", "in", ["approved", "rejected"]),
+        fbOrderBy("updatedAt", "desc"),
+        fbLimit(20),
+      );
+
+      const unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const docs: any[] = snapshot.docs.map((d) => ({
+            id: d.id,
+            ...d.data(),
+          }));
+          const unseenDocs = docs.filter((doc) => !doc?.responseSeenAt);
+
+          if (initializedInvoiceDeletionResponsesRef.current) {
+            const previousIds = knownInvoiceDeletionResponsesRef.current;
+            const hasNewResponse = unseenDocs.some((doc) => {
+              const id = doc?.id;
+              return typeof id === "string" && !previousIds.has(id);
+            });
+
+            if (hasNewResponse) {
+              setHasNewClosingExtensions(true);
+              const player =
+                audioRef.current ??
+                (typeof Audio !== "undefined"
+                  ? new Audio("/arrival-sound.mp3")
+                  : null);
+              if (player) {
+                audioRef.current = player;
+                try {
+                  player.currentTime = 0;
+                  void player.play().catch((err) => {
+                    console.warn("Unable to play notification sound:", err);
+                  });
+                } catch (err) {
+                  console.warn("Unable to play notification sound:", err);
+                }
+              }
+            }
+          } else if (unseenDocs.length > 0) {
+            setHasNewClosingExtensions(true);
+          }
+
+          knownInvoiceDeletionResponsesRef.current = new Set(
+            unseenDocs
+              .map((doc) => doc?.id)
+              .filter((id): id is string => typeof id === "string"),
+          );
+          initializedInvoiceDeletionResponsesRef.current = true;
+        },
+        (err) => {
+          console.error(
+            "onSnapshot error for pending invoice deletion responses:",
+            err,
+          );
+        },
+      );
+
+      return () => unsubscribe();
+    } catch (err) {
+      console.error(
+        "Error setting up pending invoice deletion responses listener:",
+        err,
+      );
       return;
     }
   }, [user]);

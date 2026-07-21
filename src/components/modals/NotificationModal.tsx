@@ -13,6 +13,10 @@ import {
   ClosingTimeExtensionsService,
   type ClosingTimeExtensionRecord,
 } from "@/services/closing-time-extensions";
+import {
+  PendingInvoiceDeletionRequestsService,
+  type PendingInvoiceDeletionRequestRecord,
+} from "@/services/pending-invoice-deletion-requests";
 
 interface NotificationModalProps {
   isOpen: boolean;
@@ -40,10 +44,22 @@ export default function NotificationModal({
   const [closingExtensionResponses, setClosingExtensionResponses] = useState<
     ClosingTimeExtensionRecord[]
   >([]);
+  const [invoiceDeletionRequests, setInvoiceDeletionRequests] = useState<
+    PendingInvoiceDeletionRequestRecord[]
+  >([]);
+  const [invoiceDeletionResponses, setInvoiceDeletionResponses] = useState<
+    PendingInvoiceDeletionRequestRecord[]
+  >([]);
   const [extensionDrafts, setExtensionDrafts] = useState<
     Record<string, { extraMinutes: string; expiresAt: string }>
   >({});
   const [extensionActionId, setExtensionActionId] = useState<string | null>(null);
+  const [invoiceDeletionActionId, setInvoiceDeletionActionId] = useState<
+    string | null
+  >(null);
+  const [invoiceDeletionError, setInvoiceDeletionError] = useState<string | null>(
+    null,
+  );
   const [loading, setLoading] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [selectedSolicitud, setSelectedSolicitud] = useState<any>(null);
@@ -95,7 +111,13 @@ export default function NotificationModal({
         const requestedBy = String(
           (user as any)?.email || user?.id || "",
         ).trim();
-        const [rows, extensionRows, responseRows] = await Promise.all([
+        const [
+          rows,
+          extensionRows,
+          responseRows,
+          deletionRows,
+          deletionResponseRows,
+        ] = await Promise.all([
           company
             ? SolicitudesService.getPendingSolicitudesByEmpresa(company, 200)
             : Promise.resolve([]),
@@ -111,13 +133,31 @@ export default function NotificationModal({
                 requestedBy,
               )
             : Promise.resolve([]),
+          canManageClosingExtensions
+            ? company
+              ? PendingInvoiceDeletionRequestsService.getPendingDeletionRequestsByCompany(
+                  company,
+                )
+              : PendingInvoiceDeletionRequestsService.getPendingDeletionRequests()
+            : Promise.resolve([]),
+          requestedBy
+            ? PendingInvoiceDeletionRequestsService.getAnsweredDeletionRequestsByRequester(
+                requestedBy,
+              )
+            : Promise.resolve([]),
         ]);
         const unseenResponses = responseRows.filter(
+          (item) => !item.responseSeenAt,
+        );
+        const unseenDeletionResponses = deletionResponseRows.filter(
           (item) => !item.responseSeenAt,
         );
         setSolicitudes(rows || []);
         setClosingExtensions(extensionRows);
         setClosingExtensionResponses(unseenResponses);
+        setInvoiceDeletionRequests(deletionRows);
+        setInvoiceDeletionResponses(unseenDeletionResponses);
+        setInvoiceDeletionError(null);
         onSolicitudesSeen?.();
         onClosingExtensionsSeen?.();
         setExtensionDrafts(
@@ -139,6 +179,8 @@ export default function NotificationModal({
         setSolicitudes([]);
         setClosingExtensions([]);
         setClosingExtensionResponses([]);
+        setInvoiceDeletionRequests([]);
+        setInvoiceDeletionResponses([]);
       } finally {
         setLoading(false);
       }
@@ -217,6 +259,84 @@ export default function NotificationModal({
       console.error("Error acknowledging closing extension response:", err);
     } finally {
       setExtensionActionId(null);
+    }
+  };
+
+  const handleApproveInvoiceDeletion = async (
+    item: PendingInvoiceDeletionRequestRecord,
+  ) => {
+    if (!item.id) return;
+    setInvoiceDeletionActionId(item.id);
+    setInvoiceDeletionError(null);
+    try {
+      await PendingInvoiceDeletionRequestsService.approveDeletion({
+        requestId: item.id,
+        approvedBy: user?.email || user?.id || null,
+      });
+      setInvoiceDeletionRequests((prev) =>
+        prev.filter((row) => row.id !== item.id),
+      );
+    } catch (err) {
+      console.error("Error approving invoice deletion request:", err);
+      setInvoiceDeletionError(
+        err instanceof Error && err.message
+          ? err.message
+          : "No se pudo confirmar la eliminacion.",
+      );
+    } finally {
+      setInvoiceDeletionActionId(null);
+    }
+  };
+
+  const handleRejectInvoiceDeletion = async (
+    item: PendingInvoiceDeletionRequestRecord,
+  ) => {
+    if (!item.id) return;
+    setInvoiceDeletionActionId(item.id);
+    setInvoiceDeletionError(null);
+    try {
+      await PendingInvoiceDeletionRequestsService.rejectDeletion({
+        requestId: item.id,
+        rejectedBy: user?.email || user?.id || null,
+        rejectionReason: "Rechazado desde campana",
+      });
+      setInvoiceDeletionRequests((prev) =>
+        prev.filter((row) => row.id !== item.id),
+      );
+    } catch (err) {
+      console.error("Error rejecting invoice deletion request:", err);
+      setInvoiceDeletionError(
+        err instanceof Error && err.message
+          ? err.message
+          : "No se pudo rechazar la solicitud.",
+      );
+    } finally {
+      setInvoiceDeletionActionId(null);
+    }
+  };
+
+  const handleAcknowledgeInvoiceDeletionResponse = async (
+    item: PendingInvoiceDeletionRequestRecord,
+  ) => {
+    if (!item.id) return;
+    setInvoiceDeletionActionId(item.id);
+    setInvoiceDeletionError(null);
+    try {
+      await PendingInvoiceDeletionRequestsService.markResponseSeen({
+        requestId: item.id,
+      });
+      setInvoiceDeletionResponses((prev) =>
+        prev.filter((row) => row.id !== item.id),
+      );
+    } catch (err) {
+      console.error("Error acknowledging invoice deletion response:", err);
+      setInvoiceDeletionError(
+        err instanceof Error && err.message
+          ? err.message
+          : "No se pudo marcar la respuesta.",
+      );
+    } finally {
+      setInvoiceDeletionActionId(null);
     }
   };
 
@@ -320,6 +440,19 @@ export default function NotificationModal({
       return d.toLocaleString();
     } catch {
       return "";
+    }
+  };
+
+  const formatMoney = (currency: string, amount: number) => {
+    try {
+      return amount.toLocaleString("es-CR", {
+        style: "currency",
+        currency: currency === "USD" ? "USD" : "CRC",
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      });
+    } catch {
+      return `${currency} ${amount}`;
     }
   };
 
@@ -558,12 +691,136 @@ export default function NotificationModal({
               </div>
             ) : solicitudes.length === 0 &&
               closingExtensions.length === 0 &&
-              closingExtensionResponses.length === 0 ? (
+              closingExtensionResponses.length === 0 &&
+              invoiceDeletionRequests.length === 0 &&
+              invoiceDeletionResponses.length === 0 ? (
               <div className="p-4 rounded-lg border border-white/10 bg-slate-900/50">
                 No hay solicitudes para {user.ownercompanie || "tu empresa"}.
               </div>
             ) : (
               <div className="space-y-5">
+                {invoiceDeletionError ? (
+                  <div className="rounded-lg border border-red-400/25 bg-red-500/10 px-3 py-2 text-sm text-red-100">
+                    {invoiceDeletionError}
+                  </div>
+                ) : null}
+
+                {invoiceDeletionResponses.length > 0 ? (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+                      Respuestas eliminacion FC/NC
+                    </h3>
+                    {invoiceDeletionResponses.map((item) => {
+                      const id = item.id || "";
+                      const approved = item.status === "approved";
+                      const busy = invoiceDeletionActionId === id;
+                      return (
+                        <div
+                          key={id}
+                          className={`p-3 rounded-lg border ${
+                            approved
+                              ? "border-emerald-400/20 bg-emerald-500/10"
+                              : "border-red-400/20 bg-red-500/10"
+                          }`}
+                        >
+                          <div className="space-y-2">
+                            <div
+                              className={`font-semibold ${
+                                approved ? "text-emerald-100" : "text-red-100"
+                              }`}
+                            >
+                              {approved
+                                ? "Solicitud de eliminacion realizada"
+                                : "Solicitud de eliminacion rechazada"}
+                            </div>
+                            <div className="text-xs text-slate-300">
+                              Factura: {item.invoiceNumber} ({item.invoiceDocType})
+                            </div>
+                            <div className="text-xs text-slate-300">
+                              Empresa: {item.company}
+                            </div>
+                            {!approved ? (
+                              <div className="text-xs text-slate-300">
+                                Motivo: {item.rejectionReason || "Rechazado"}
+                              </div>
+                            ) : null}
+                            <div className="flex justify-end pt-1">
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() =>
+                                  void handleAcknowledgeInvoiceDeletionResponse(
+                                    item,
+                                  )
+                                }
+                                className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-600 disabled:opacity-50"
+                              >
+                                OK
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+
+                {invoiceDeletionRequests.length > 0 ? (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
+                      Eliminacion solicitada FC/NC
+                    </h3>
+                    {invoiceDeletionRequests.map((item) => {
+                      const id = item.id || "";
+                      const busy = invoiceDeletionActionId === id;
+                      return (
+                        <div
+                          key={id}
+                          className="p-3 rounded-lg border border-red-400/20 bg-red-500/10"
+                        >
+                          <div className="space-y-2">
+                            <div className="font-semibold text-red-100">
+                              {item.company} - {item.invoiceNumber} (
+                              {item.invoiceDocType})
+                            </div>
+                            <div className="text-xs text-slate-300">
+                              Monto: {formatMoney(item.currency, item.amount)}
+                            </div>
+                            <div className="text-xs text-slate-300">
+                              Encargado: {item.manager || "Sin encargado"}
+                            </div>
+                            <div className="text-xs text-slate-300">
+                              Motivo: {item.reason || "Sin motivo"}
+                            </div>
+                            <div className="flex gap-2 pt-1">
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() =>
+                                  void handleApproveInvoiceDeletion(item)
+                                }
+                                className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                              >
+                                Eliminar / confirmar
+                              </button>
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() =>
+                                  void handleRejectInvoiceDeletion(item)
+                                }
+                                className="flex-1 rounded-lg bg-slate-700 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-600 disabled:opacity-50"
+                              >
+                                Rechazar
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+
                 {closingExtensionResponses.length > 0 ? (
                   <div className="space-y-3">
                     <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">

@@ -64,6 +64,57 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /pendingInvoiceDeletionRequests/{requestId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+        (request.resource.data.status == 'pending' || isAdmin());
+      allow update: if isAdmin() ||
+        (
+          isSignedIn() &&
+          resource.data.status == 'rejected' &&
+          request.resource.data.status == 'pending' &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly([
+              'company',
+              'companyKey',
+              'invoiceId',
+              'invoiceNumber',
+              'invoiceDocType',
+              'paymentStatus',
+              'amount',
+              'currency',
+              'providerCode',
+              'manager',
+              'status',
+              'reason',
+              'requestedBy',
+              'createdAt',
+              'updatedAt',
+              'approvedBy',
+              'approvedAt',
+              'rejectedBy',
+              'rejectedAt',
+              'rejectionReason',
+              'responseSeenAt'
+            ])
+        ) ||
+        (
+          isSignedIn() &&
+          (resource.data.status == 'approved' ||
+            resource.data.status == 'rejected') &&
+          (resource.data.requestedBy == request.auth.token.email ||
+            resource.data.requestedBy == request.auth.uid) &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['responseSeenAt'])
+        );
+      allow delete: if isAdmin();
+    }
+
+    match /Facturas/{empresaId}/movements/{movementId} {
+      allow read, create, update: if isSignedIn();
+      allow delete: if isAdmin();
+    }
+
     function isRegistroTucanRecord() {
       return request.resource.data.keys().hasOnly([
           'empresaId',
@@ -138,7 +189,10 @@ service cloud.firestore {
     
     // Otras reglas existentes...
     match /{collection}/{document=**} {
-      allow read, write: if request.auth != null && collection != 'registrotucan';
+      allow read, write: if request.auth != null &&
+        collection != 'registrotucan' &&
+        collection != 'pendingInvoiceDeletionRequests' &&
+        collection != 'Facturas';
     }
   }
 }
