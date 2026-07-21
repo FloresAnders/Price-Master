@@ -78,6 +78,18 @@ export default function DailyClosingHistorySection({
       ? `Sobra ${formatByCurrency("CRC", Math.abs(value))}`
       : `Falta ${formatByCurrency("CRC", Math.abs(value))}`;
   };
+  const formatOptionalCRC = (value: unknown) => {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue)
+      ? formatByCurrency("CRC", numericValue)
+      : "—";
+  };
+  const reconciliationOptionalDiffLabel = (value: unknown) => {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue)
+      ? reconciliationDiffLabel(numericValue)
+      : "—";
+  };
   const reconciliationTone = (reconciliation: any) => {
     if (!reconciliation) return "neutral";
     if (
@@ -328,27 +340,56 @@ export default function DailyClosingHistorySection({
                           </div>
                         </div>
                       </div>
+                      <div className="mb-2 font-semibold uppercase tracking-wide text-[var(--foreground)]">
+                        Valores digitados
+                      </div>
                       <div className="grid gap-2 sm:grid-cols-2">
                         {[
-                          ["Tucan", "R08", record.reconciliation.calculated.tucanForShift, record.reconciliation.contica.r08, record.reconciliation.calculated.tucanDifference],
-                          ["Tiempos", "T11", record.reconciliation.calculated.tiemposForShift, record.reconciliation.contica.t11, record.reconciliation.calculated.tiemposDifference],
-                        ].map(([label, code, report, contica, diff]) => (
-                          <div key={String(label)} className="rounded border border-[var(--input-border)]/60 bg-[var(--background)]/60 p-2.5">
+                          {
+                            label: "Tucan",
+                            code: "R08",
+                            typedReport:
+                              record.reconciliation.externalSnapshots
+                                ?.tucanCumulative,
+                            shiftReport:
+                              record.reconciliation.calculated?.tucanForShift,
+                            contica: record.reconciliation.contica?.r08,
+                            diff:
+                              record.reconciliation.calculated?.tucanDifference,
+                          },
+                          {
+                            label: "Tiempos",
+                            code: "T11",
+                            typedReport:
+                              record.reconciliation.externalSnapshots
+                                ?.tiemposCumulative,
+                            shiftReport:
+                              record.reconciliation.calculated?.tiemposForShift,
+                            contica: record.reconciliation.contica?.t11,
+                            diff:
+                              record.reconciliation.calculated?.tiemposDifference,
+                          },
+                        ].map(({ label, code, typedReport, shiftReport, contica, diff }) => (
+                          <div key={label} className="rounded border border-[var(--input-border)]/60 bg-[var(--background)]/60 p-2.5">
                             <div className="mb-2 flex items-center gap-1.5 font-semibold text-[var(--foreground)]">
                               <GitCompareArrows className="h-3.5 w-3.5 text-[var(--accent)]" strokeWidth={1.5} />
-                              {String(label)}
+                              {label}
                             </div>
                             <div className="space-y-1">
                               <div className="flex justify-between gap-2">
-                                <span>Reporte</span>
-                                <span className="font-semibold text-[var(--foreground)]">{formatByCurrency("CRC", Number(report))}</span>
+                                <span>Reporte digitado</span>
+                                <span className="font-semibold text-[var(--foreground)]">{formatOptionalCRC(typedReport)}</span>
                               </div>
                               <div className="flex justify-between gap-2">
-                                <span>Contica ({String(code)})</span>
-                                <span className="font-semibold text-[var(--foreground)]">{formatByCurrency("CRC", Number(contica))}</span>
+                                <span>Vendido turno</span>
+                                <span className="font-semibold text-[var(--foreground)]">{formatOptionalCRC(shiftReport)}</span>
+                              </div>
+                              <div className="flex justify-between gap-2">
+                                <span>Contica ({code})</span>
+                                <span className="font-semibold text-[var(--foreground)]">{formatOptionalCRC(contica)}</span>
                               </div>
                               <div className="font-semibold text-[var(--foreground)]">
-                                Estado: {reconciliationDiffLabel(Number(diff))}
+                                Estado: {reconciliationOptionalDiffLabel(diff)}
                               </div>
                             </div>
                           </div>
