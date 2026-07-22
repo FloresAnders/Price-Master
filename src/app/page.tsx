@@ -117,6 +117,10 @@ const FacturasPage = dynamic(
   () => import("@/app/fondogeneral/facturas/FacturasPage"),
   { ssr: false },
 );
+const InternalDebtsPage = dynamic(
+  () => import("@/app/fondogeneral/deudasinternas/page"),
+  { ssr: false },
+);
 const SolicitudForm = dynamic(
   () => import("@/components/solicitud/SolicitudForm"),
   { ssr: false },
@@ -167,6 +171,7 @@ type ActiveTab =
   | "facturas"
   | "reportes"
   | "reportessinpe"
+  | "deudasinternas"
   | "pruebas";
 
 export default function HomePage() {
@@ -315,6 +320,7 @@ export default function HomePage() {
           "facturas",
           "reportes",
           "reportessinpe",
+          "deudasinternas",
           ...(isSuperAdmin ? ["pruebas"] : []),
         ];
         if (validTabs.includes(hash)) {
@@ -375,6 +381,7 @@ export default function HomePage() {
           "facturas",
           "reportes",
           "reportessinpe",
+          "deudasinternas",
           ...(isSuperAdmin ? ["pruebas"] : []),
         ];
         if (validTabs.includes(hash)) {
@@ -475,6 +482,9 @@ export default function HomePage() {
 
               {/* REPORTES SINPE */}
               {activeTab === "reportessinpe" && <ReportesSinpePage />}
+
+              {/* DEUDAS INTERNAS */}
+              {activeTab === "deudasinternas" && <InternalDebtsPage />}
 
               {/* SOLICITUD */}
               {activeTab === "solicitud" && <SolicitudForm />}

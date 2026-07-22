@@ -51,8 +51,10 @@ export default function HeaderWrapper() {
         "registroTucan",
         "fondogeneral",
         "agregarproveedor",
+        "facturas",
         "reportes",
         "reportessinpe",
+        "deudasinternas",
       ];
       if (validTabs.includes(hash)) {
         // Map scanhistory hash to histoscans tab for header highlighting

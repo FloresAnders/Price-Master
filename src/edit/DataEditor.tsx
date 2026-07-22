@@ -1303,6 +1303,7 @@ export default function DataEditor() {
           "mantenimiento",
           "cajaNegra",
           "tucan",
+          "deudasInternas",
           "registroTucan",
           "solicitud",
           "scanhistory",
@@ -1373,6 +1374,7 @@ export default function DataEditor() {
       mantenimiento: "Mantenimiento",
       cajaNegra: "Caja Negra",
       tucan: "Tucan",
+      deudasInternas: "Deudas internas",
       registroTucan: "Registro Tucan",
       solicitud: "Solicitud",
       scanhistory: "Historial de Escaneos",
@@ -1395,6 +1397,7 @@ export default function DataEditor() {
       mantenimiento: "Acceso al panel de administración",
       cajaNegra: "Manejar dineros extra del Fondo General",
       tucan: "Manejar dineros extra del Fondo General",
+      deudasInternas: "Gestionar deudas internas entre empresas y personas",
       registroTucan: "Acceso a Registro Tucan",
       solicitud:
         "Permite gestionar solicitudes dentro del módulo de mantenimiento",

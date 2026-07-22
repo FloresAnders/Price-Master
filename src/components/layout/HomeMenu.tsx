@@ -42,6 +42,7 @@ import {
   CookingPot,
   BadgeDollarSign,
   ChartNoAxesCombined,
+  CircleDollarSign,
   ClipboardPenLine,
 } from "lucide-react";
 import AnimatedStickman from "../ui/AnimatedStickman";
@@ -181,6 +182,13 @@ const menuItems = [
     icon: ChartNoAxesCombined,
     description: "Generar reportes de transacciones SINPE",
     permission: "reportessinpe" as keyof UserPermissions,
+  },
+  {
+    id: "deudasinternas",
+    name: "Deudas internas",
+    icon: CircleDollarSign,
+    description: "Administrar deudas entre empresas y personas",
+    permission: "deudasInternas" as keyof UserPermissions,
   },
   {
     id: "scanhistory",

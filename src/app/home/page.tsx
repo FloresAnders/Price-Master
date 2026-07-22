@@ -14,6 +14,7 @@ import {
   Truck,
   Settings,
   History,
+  CircleDollarSign,
   ClipboardPenLine,
   X,
 } from "lucide-react";
@@ -100,6 +101,13 @@ const menuItems = [
     icon: Smartphone,
     description: "Generar reportes de transacciones SINPE",
     permission: "reportessinpe" as keyof UserPermissions,
+  },
+  {
+    id: "deudasinternas",
+    name: "Deudas internas",
+    icon: CircleDollarSign,
+    description: "Administrar deudas entre empresas y personas",
+    permission: "deudasInternas" as keyof UserPermissions,
   },
   {
     id: "scanhistory",
@@ -193,11 +201,18 @@ export default function HomePage() {
 
   const handleCardClick = (id: string, name: string) => {
     // Si es la tarjeta Fondo General, navegar a su página
-    if (id === "fondogeneral" || id === "reportessinpe" || id === "registroTucan") {
+    if (
+      id === "fondogeneral" ||
+      id === "reportessinpe" ||
+      id === "deudasinternas" ||
+      id === "registroTucan"
+    ) {
       // Use hash navigation so header/tab system picks it up
       safeWindow.location.hash(
         id === "reportessinpe"
           ? "#reportessinpe"
+          : id === "deudasinternas"
+            ? "#deudasinternas"
           : id === "registroTucan"
             ? "#registroTucan"
             : "#fondogeneral",

@@ -186,13 +186,89 @@ service cloud.firestore {
         allow read, write: if isSignedIn();
       }
     }
+
+    function internalDebtUserPartyKey() {
+      return 'user:' + request.auth.uid;
+    }
+
+    function isInternalDebtParticipant(data) {
+      return isSignedIn() &&
+        data.participantIds is list &&
+        internalDebtUserPartyKey() in data.participantIds;
+    }
+
+    function hasInternalDebtsPermission() {
+      return isSignedIn() &&
+        (
+          isAdmin() ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid))
+            .data.permissions.deudasInternas == true ||
+          request.auth.token.deudasInternas == true ||
+          (
+            request.auth.token.permissions is map &&
+            request.auth.token.permissions.deudasInternas == true
+          )
+        );
+    }
+
+    function hasInternalDebtBaseShape(data) {
+      return data.keys().hasAll([
+          'ownerId',
+          'debtor',
+          'creditor',
+          'participantIds',
+          'amountOriginal',
+          'balance',
+          'reason',
+          'date',
+          'status',
+          'movements',
+          'createdAt',
+          'updatedAt',
+          'createdById',
+          'createdByName'
+        ]) &&
+        data.ownerId is string &&
+        data.debtor is map &&
+        data.creditor is map &&
+        data.participantIds is list &&
+        data.amountOriginal is number &&
+        data.balance is number &&
+        data.reason is string &&
+        data.date is string &&
+        (data.status == 'open' || data.status == 'paid') &&
+        data.movements is list &&
+        data.createdById == request.auth.uid;
+    }
+
+    match /internalDebts/{debtId} {
+      allow read: if hasInternalDebtsPermission() &&
+        isInternalDebtParticipant(resource.data);
+      allow create: if hasInternalDebtsPermission() &&
+        hasInternalDebtBaseShape(request.resource.data) &&
+        isInternalDebtParticipant(request.resource.data);
+      allow update: if hasInternalDebtsPermission() &&
+        isInternalDebtParticipant(resource.data) &&
+        request.resource.data.ownerId == resource.data.ownerId &&
+        request.resource.data.debtor == resource.data.debtor &&
+        request.resource.data.creditor == resource.data.creditor &&
+        request.resource.data.participantIds == resource.data.participantIds &&
+        request.resource.data.amountOriginal == resource.data.amountOriginal &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.createdById == resource.data.createdById &&
+        request.resource.data.movements.size() == resource.data.movements.size() + 1 &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['balance', 'status', 'movements', 'updatedAt']);
+      allow delete: if isAdmin();
+    }
     
     // Otras reglas existentes...
     match /{collection}/{document=**} {
       allow read, write: if request.auth != null &&
         collection != 'registrotucan' &&
         collection != 'pendingInvoiceDeletionRequests' &&
-        collection != 'Facturas';
+        collection != 'Facturas' &&
+        collection != 'internalDebts';
     }
   }
 }

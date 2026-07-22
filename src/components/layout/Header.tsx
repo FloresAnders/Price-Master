@@ -35,6 +35,7 @@ import {
   BadgeDollarSign,
   ChartNoAxesCombined,
   ClipboardPenLine,
+  CircleDollarSign,
   ReceiptText,
 } from "lucide-react";
 import { CustomIcon } from "@/icons/icons";
@@ -105,10 +106,11 @@ export type ActiveTab =
   | "solicitud"
   | "registroTucan"
   | "fondogeneral"
-  | "FC/NC"
+  | "facturas"
   | "agregarproveedor"
   | "reportes"
-  | "reportessinpe";
+  | "reportessinpe"
+  | "deudasinternas";
 
 interface HeaderProps {
   activeTab?: ActiveTab | null;
@@ -872,6 +874,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const userPermissions =
     user?.permissions || getDefaultPermissions(user?.role || "user");
   const canManageFondoGeneral = Boolean(userPermissions.fondogeneral);
+  const canUseInternalDebts = Boolean(userPermissions.deudasInternas);
   const canUseRecetas = Boolean(userPermissions.recetas);
   const canAgregarProducto = Boolean(userPermissions.agregarproductosdeli);
   const isFondoPrivileged =
@@ -883,7 +886,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     currentHash === "#agregarproveedor" ||
     currentHash === "#facturas" ||
     currentHash === "#reportes" ||
-    currentHash === "#reportessinpe";
+    currentHash === "#reportessinpe" ||
+    currentHash === "#deudasinternas";
 
   const isRecetasSection =
     currentHash === "#recetas" || currentHash === "#agregarproducto";
@@ -895,6 +899,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   });
 
   const isHomeRoute = pathname === "/" || pathname === "/home";
+  const canShowFondoActions = Boolean(
+    isFondoSection &&
+      (canManageFondoGeneral || canUseInternalDebts || userPermissions.reportessinpe),
+  );
 
   const canShowAdminSidebar = Boolean(
     isHomeRoute ||
@@ -903,6 +911,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       activeTab !== "agregarproveedor" &&
       activeTab !== "reportes" &&
       activeTab !== "reportessinpe" &&
+      activeTab !== "deudasinternas" &&
       activeTab !== "recetas" &&
       activeTab !== "agregarproducto" &&
       visibleTabs.length > 0),
@@ -1076,63 +1085,69 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           </div>
 
           {/* If we're on fondo-related sections, show quick actions in the header */}
-          {pathname !== "/home" && isFondoSection && canManageFondoGeneral && (
+          {pathname !== "/home" && canShowFondoActions && (
             <nav className="hidden lg:flex items-center gap-1">
               {/* Agregar proveedor */}
-              <button
-                onClick={() => {
-                  safeWindow.location.hash("#agregarproveedor");
-                }}
-                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
-                  currentHash === "#agregarproveedor"
-                    ? "text-[var(--tab-text-active)] font-semibold"
-                    : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
-                }`}
-                title="Agregar proveedor"
-              >
-                <UserPlus className="w-4 h-4" />
-                <span className="hidden xl:inline">Agregar proveedor</span>
-                {currentHash === "#agregarproveedor" && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
-                )}
-              </button>
+              {canManageFondoGeneral && (
+                <button
+                  onClick={() => {
+                    safeWindow.location.hash("#agregarproveedor");
+                  }}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
+                    currentHash === "#agregarproveedor"
+                      ? "text-[var(--tab-text-active)] font-semibold"
+                      : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
+                  }`}
+                  title="Agregar proveedor"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span className="hidden xl:inline">Agregar proveedor</span>
+                  {currentHash === "#agregarproveedor" && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
+                  )}
+                </button>
+              )}
 
               {/* Fondo */}
-              <button
-                onClick={() => {
-                  safeWindow.location.hash("#fondogeneral");
-                }}
-                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
-                  currentHash === "#fondogeneral"
-                    ? "text-[var(--tab-text-active)] font-semibold"
-                    : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
-                }`}
-                title={fondoMenuLabel}
-              >
-                <Landmark className="w-4 h-4" />
-                <span className="hidden xl:inline">{fondoMenuLabel}</span>
-                {currentHash === "#fondogeneral" && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
-                )}
-              </button>
+              {canManageFondoGeneral && (
+                <button
+                  onClick={() => {
+                    safeWindow.location.hash("#fondogeneral");
+                  }}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
+                    currentHash === "#fondogeneral"
+                      ? "text-[var(--tab-text-active)] font-semibold"
+                      : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
+                  }`}
+                  title={fondoMenuLabel}
+                >
+                  <Landmark className="w-4 h-4" />
+                  <span className="hidden xl:inline">{fondoMenuLabel}</span>
+                  {currentHash === "#fondogeneral" && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
+                  )}
+                </button>
+              )}
               {/* Facturas */}
-              <button
-                onClick={() => {
-                  safeWindow.location.hash("#facturas");
-                }}
-                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
-                  currentHash === "#facturas"
-                    ? "text-[var(--tab-text-active)] font-semibold"
-                    : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
-                }`}
-                title="FC/NC"
-              >
-                <ReceiptText className="w-4 h-4" />
-                <span className="hidden xl:inline">FC/NC</span>
-                {currentHash === "#facturas" && (
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
-                )}
-              </button>
+              {canManageFondoGeneral && (
+                <button
+                  onClick={() => {
+                    safeWindow.location.hash("#facturas");
+                  }}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
+                    currentHash === "#facturas"
+                      ? "text-[var(--tab-text-active)] font-semibold"
+                      : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
+                  }`}
+                  title="FC/NC"
+                >
+                  <ReceiptText className="w-4 h-4" />
+                  <span className="hidden xl:inline">FC/NC</span>
+                  {currentHash === "#facturas" && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
+                  )}
+                </button>
+              )}
               {/* Reportes */}
               {isFondoPrivileged && (
                 <button
@@ -1170,6 +1185,25 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   <ChartNoAxesCombined className="w-4 h-4" />
                   <span className="hidden xl:inline">Reportes SINPE</span>
                   {currentHash === "#reportessinpe" && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
+                  )}
+                </button>
+              )}
+              {canUseInternalDebts && (
+                <button
+                  onClick={() => {
+                    safeWindow.location.hash("#deudasinternas");
+                  }}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
+                    currentHash === "#deudasinternas"
+                      ? "text-[var(--tab-text-active)] font-semibold"
+                      : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
+                  }`}
+                  title="Deudas internas"
+                >
+                  <CircleDollarSign className="w-4 h-4" />
+                  <span className="hidden xl:inline">Deudas internas</span>
+                  {currentHash === "#deudasinternas" && (
                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
                   )}
                 </button>
@@ -1458,58 +1492,64 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             )}
 
             {/* Mobile fondo general navigation */}
-            {isFondoSection && canManageFondoGeneral && (
+            {canShowFondoActions && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {/* Agregar proveedor */}
-                <button
-                  onClick={() => {
-                    safeWindow.location.hash("#agregarproveedor");
-                    setShowMobileMenu(false);
-                  }}
-                  className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${
-                    currentHash === "#agregarproveedor"
-                      ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                      : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
-                  }`}
-                  title="Agregar proveedor"
-                >
-                  <UserPlus className="w-4 h-4" />
-                  <span>Agregar proveedor</span>
-                </button>
+                {canManageFondoGeneral && (
+                  <button
+                    onClick={() => {
+                      safeWindow.location.hash("#agregarproveedor");
+                      setShowMobileMenu(false);
+                    }}
+                    className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${
+                      currentHash === "#agregarproveedor"
+                        ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                        : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                    }`}
+                    title="Agregar proveedor"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span>Agregar proveedor</span>
+                  </button>
+                )}
 
                 {/* Fondo */}
-                <button
-                  onClick={() => {
-                    safeWindow.location.hash("#fondogeneral");
-                    setShowMobileMenu(false);
-                  }}
-                  className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${
-                    currentHash === "#fondogeneral"
-                      ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                      : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
-                  }`}
-                  title={fondoMenuLabel}
-                >
-                  <Landmark className="w-4 h-4" />
-                  <span>{fondoMenuLabel}</span>
-                </button>
+                {canManageFondoGeneral && (
+                  <button
+                    onClick={() => {
+                      safeWindow.location.hash("#fondogeneral");
+                      setShowMobileMenu(false);
+                    }}
+                    className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${
+                      currentHash === "#fondogeneral"
+                        ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                        : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                    }`}
+                    title={fondoMenuLabel}
+                  >
+                    <Landmark className="w-4 h-4" />
+                    <span>{fondoMenuLabel}</span>
+                  </button>
+                )}
 
                 {/* FC/NC */}
-                <button
-                  onClick={() => {
-                    safeWindow.location.hash("#facturas");
-                    setShowMobileMenu(false);
-                  }}
-                  className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${
-                    currentHash === "#facturas"
-                      ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                      : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
-                  }`}
-                  title="FC/NC"
-                >
-                  <ReceiptText className="w-4 h-4" />
-                  <span>FC/NC</span>
-                </button>
+                {canManageFondoGeneral && (
+                  <button
+                    onClick={() => {
+                      safeWindow.location.hash("#facturas");
+                      setShowMobileMenu(false);
+                    }}
+                    className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${
+                      currentHash === "#facturas"
+                        ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                        : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                    }`}
+                    title="FC/NC"
+                  >
+                    <ReceiptText className="w-4 h-4" />
+                    <span>FC/NC</span>
+                  </button>
+                )}
 
                 {/* Reportes */}
                 {isFondoPrivileged && (
@@ -1546,6 +1586,23 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   >
                     <ChartNoAxesCombined className="w-4 h-4" />
                     <span>Reportes SINPE</span>
+                  </button>
+                )}
+                {canUseInternalDebts && (
+                  <button
+                    onClick={() => {
+                      safeWindow.location.hash("#deudasinternas");
+                      setShowMobileMenu(false);
+                    }}
+                    className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${
+                      currentHash === "#deudasinternas"
+                        ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                        : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                    }`}
+                    title="Deudas internas"
+                  >
+                    <CircleDollarSign className="w-4 h-4" />
+                    <span>Deudas internas</span>
                   </button>
                 )}
 

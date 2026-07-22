@@ -207,6 +207,7 @@ export interface UserPermissions {
   fondogeneralBAC?: boolean; // Fondo General - Acceso a la cuenta BAC
   cajaNegra?: boolean; // Caja Negra - Manejo de dineros extra del Fondo General
   tucan?: boolean; // Tucan - Manejo de dineros extra del Fondo General
+  deudasInternas?: boolean; // Deudas internas - Deudas entre empresas y personas
   registroTucan?: boolean; // Registro Tucan - Seccion independiente en mantenimiento
   solicitud?: boolean; // Solicitud - Permiso extra en sección de Mantenimiento
   scanhistory: boolean; // Historial General de Escaneos - Ver historial completo de escaneos

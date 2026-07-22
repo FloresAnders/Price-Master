@@ -9,6 +9,7 @@ import {
   History,
   Layers,
   List,
+  CircleDollarSign,
   Scan,
   Settings,
   Smartphone,
@@ -308,6 +309,15 @@ export const HOME_MENU_FAVORITE_OPTIONS: HomeMenuFavoriteOption[] = [
     icon: Smartphone,
     permission: "reportessinpe",
     hash: "reportessinpe",
+  },
+  {
+    id: "deudasinternas",
+    label: "Deudas internas",
+    description: "Administrar deudas entre empresas y personas",
+    group: "Fondo General",
+    icon: CircleDollarSign,
+    permission: "deudasInternas",
+    hash: "deudasinternas",
   },
   {
     id: "supplierweek",
