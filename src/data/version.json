@@ -1,7 +1,7 @@
 {
-  "version": "1.8.75",
+  "version": "1.8.76",
   "versionstorage": "1.3.15",
-  "notasDeSistemas": "1.3.28",
+  "notasDeSistemas": "1.3.29",
   "releaseNotes": [
     {
       "date": "2026-07-04",
@@ -11,11 +11,18 @@
   ],
   "systemNotes": [
     {
+      "date": "2026-07-24",
+      "title": "Agregado registro de deudas internas",
+      "url": "",
+      "description": "Se agrego una seccion para registrar deudas internas entre personas del mismo owner. Ahora se puede crear una deuda, registrar cargos o abonos, ver solo las deudas donde el usuario participa y consultar las deudas que ya fueron pagadas."
+    },
+    {
       "date": "2026-07-13",
       "title": "VIDEO DE COMO USAR EL SISTEMA TUCAN/TIEMPOS CORRECTAMENTE",
       "url": "https://firebasestorage.googleapis.com/v0/b/pricemaster-4a611.firebasestorage.app/o/videos%2FREPORTESS.mp4?alt=media&token=061293c6-186c-4f33-be62-b83f48505729",
       "description": ""
     },
+    {},
     {
       "date": "2026-07-21",
       "title": "Implementado la solicitud de borrado de FC/NC en caso de ser necesario, por diferecias de montos o extra de devoluciones",
