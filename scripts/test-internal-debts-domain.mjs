@@ -69,6 +69,18 @@ const {
   applyInternalDebtMovement,
 } = sandbox.module.exports;
 
+function assertNoUndefined(value, path = "value") {
+  assert.notEqual(value, undefined, `${path} must not be undefined`);
+  if (!value || typeof value !== "object") return;
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => assertNoUndefined(item, `${path}[${index}]`));
+    return;
+  }
+  Object.entries(value).forEach(([key, item]) =>
+    assertNoUndefined(item, `${path}.${key}`),
+  );
+}
+
 const debtor = { type: "empresa", id: "palmares", name: "Delikor Palmares" };
 const creditor = { type: "user", id: "diana", name: "Diana Aguilar" };
 
@@ -88,6 +100,7 @@ const draft = createInternalDebtDraft({
 
 assert.equal(draft.balance, 1000);
 assert.equal(draft.movements[0].type, "charge");
+assertNoUndefined(draft, "draft");
 assert.equal(
   JSON.stringify(draft.participantIds),
   JSON.stringify(["empresa:palmares", "user:diana", "user:admin-1"]),
@@ -146,6 +159,38 @@ const paid = applyInternalDebtMovement(
 );
 assert.equal(paid.balance, 750);
 assert.equal(paid.movements.at(-1).type, "payment");
+assertNoUndefined(paid, "paid");
+
+const fullyPaid = applyInternalDebtMovement(
+  { id: "debt-1", ...paid },
+  {
+    type: "payment",
+    amount: 750,
+    reason: "Cancelacion",
+    date: "2026-07-22",
+    createdById: "diana",
+    createdByName: "Diana",
+  },
+  ["user:diana"],
+);
+assert.equal(fullyPaid.balance, 0);
+assert.equal(fullyPaid.status, "paid");
+assert.throws(
+  () =>
+    applyInternalDebtMovement(
+      { id: "debt-1", ...fullyPaid },
+      {
+        type: "charge",
+        amount: 100,
+        reason: "Extra",
+        date: "2026-07-23",
+        createdById: "admin-1",
+        createdByName: "Admin",
+      },
+      ["empresa:palmares"],
+    ),
+  /pagada/,
+);
 
 const charged = applyInternalDebtMovement(
   { id: "debt-1", ...paid },

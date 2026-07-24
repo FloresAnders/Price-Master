@@ -13,10 +13,10 @@ import {
   ShieldAlert,
   UserRound,
   UsersRound,
-  X,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useActorOwnership } from "@/hooks/useActorOwnership";
+import useToast from "@/hooks/useToast";
 import { getDefaultPermissions } from "@/utils/permissions";
 import { EmpresasService } from "@/services/empresas";
 import { UsersService } from "@/services/users";
@@ -34,6 +34,8 @@ import type { Empleado, Empresas, User } from "@/types/firestore";
 type ActorOption = InternalDebtParty & {
   key: string;
   ownerId?: string;
+  empresaId?: string;
+  empresaName?: string;
   searchText: string;
 };
 
@@ -47,7 +49,6 @@ type DebtFormState = {
 };
 
 type MovementFormState = {
-  type: InternalDebtMovementType;
   amount: string;
   date: string;
   reason: string;
@@ -72,7 +73,6 @@ const EMPTY_DEBT_FORM: DebtFormState = {
 };
 
 const EMPTY_MOVEMENT_FORM: MovementFormState = {
-  type: "payment",
   amount: "",
   date: todayInputValue(),
   reason: "",
@@ -87,6 +87,24 @@ function getDateValue(value: unknown): string {
     return (value as { toDate: () => Date }).toDate().toLocaleDateString("es-CR");
   }
   return "";
+}
+
+function isDebtPaid(debt: InternalDebt): boolean {
+  return debt.status === "paid" || Number(debt.balance || 0) <= 0;
+}
+
+function parseMoneyInput(value: string): number {
+  const digits = String(value || "").replace(/[^\d]/g, "");
+  return digits ? Number(digits) : 0;
+}
+
+function formatMoneyInput(value: string): string {
+  const amount = parseMoneyInput(value);
+  return amount > 0 ? crcFormatter.format(amount) : "";
+}
+
+function sanitizeMoneyInput(value: string): string {
+  return String(value || "").replace(/[^\d]/g, "");
 }
 
 function normalizeSearch(value: string): string {
@@ -115,6 +133,19 @@ function createActor(
   };
 }
 
+function getActorSortRank(actor: ActorOption): number {
+  if (actor.roleLabel === "Admin") return 0;
+  if (actor.roleLabel === "Usuario") return 1;
+  if (actor.roleLabel === "Colaborador") return 2;
+  return 3;
+}
+
+function sortActors(a: ActorOption, b: ActorOption): number {
+  const rankDiff = getActorSortRank(a) - getActorSortRank(b);
+  if (rankDiff !== 0) return rankDiff;
+  return a.name.localeCompare(b.name, "es");
+}
+
 function getActorIcon(type: InternalDebtPartyType) {
   if (type === "empresa") return Building2;
   if (type === "empleado") return UsersRound;
@@ -124,18 +155,16 @@ function getActorIcon(type: InternalDebtPartyType) {
 function ModalShell({
   title,
   subtitle,
-  onClose,
   children,
 }: {
   title: string;
   subtitle?: string;
-  onClose: () => void;
   children: React.ReactNode;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 backdrop-blur-sm">
       <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-[var(--input-border)] bg-[#0b1118] p-4 shadow-2xl sm:p-5">
-        <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="mb-4">
           <div>
             <h2 className="text-lg font-semibold text-[var(--foreground)]">
               {title}
@@ -146,14 +175,6 @@ function ModalShell({
               </p>
             )}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md p-2 text-[var(--muted-foreground)] hover:bg-[var(--hover-bg)] hover:text-[var(--foreground)]"
-            aria-label="Cerrar"
-          >
-            <X className="h-4 w-4" />
-          </button>
         </div>
         {children}
       </div>
@@ -196,6 +217,7 @@ function ActorSelect({
 export default function DeudasInternasPage() {
   const { user, loading: authLoading } = useAuth();
   const { ownerIds, primaryOwnerId } = useActorOwnership(user);
+  const { showToast } = useToast();
   const permissions =
     user?.permissions || getDefaultPermissions(user?.role || "user");
   const canUse = Boolean(permissions.deudasInternas);
@@ -204,21 +226,22 @@ export default function DeudasInternasPage() {
   const [debts, setDebts] = useState<InternalDebt[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"all" | InternalDebtPartyType>(
-    "all",
-  );
   const [roleFilter, setRoleFilter] = useState<"all" | "debtor" | "creditor">(
     "all",
   );
   const [showCreate, setShowCreate] = useState(false);
+  const [showPaidDebts, setShowPaidDebts] = useState(false);
   const [selectedDebt, setSelectedDebt] = useState<InternalDebt | null>(null);
   const [debtForm, setDebtForm] = useState<DebtFormState>(EMPTY_DEBT_FORM);
   const [movementForm, setMovementForm] =
     useState<MovementFormState>(EMPTY_MOVEMENT_FORM);
 
   const ownerSet = useMemo(() => new Set(ownerIds), [ownerIds]);
+  const activeCompanyKey = useMemo(
+    () => normalizeSearch(user?.ownercompanie || ""),
+    [user?.ownercompanie],
+  );
   const actorPartyKeys = useMemo(() => {
     const keys = new Set<string>();
     if (user?.id) keys.add(`user:${user.id}`);
@@ -232,11 +255,50 @@ export default function DeudasInternasPage() {
     [user?.id],
   );
 
-  const actorByKey = useMemo(() => {
+  const activeCompanyEmpresaId = useMemo(() => {
+    if (!activeCompanyKey) return "";
+    const empresa = actors.find(
+      (actor) =>
+        actor.type === "empresa" &&
+        (normalizeSearch(actor.id) === activeCompanyKey ||
+          normalizeSearch(actor.name) === activeCompanyKey ||
+          actor.searchText.includes(activeCompanyKey)),
+    );
+    return empresa?.empresaId || empresa?.id || "";
+  }, [activeCompanyKey, actors]);
+
+  const debtorActors = useMemo(
+    () =>
+      actors
+        .filter((actor) => actor.type !== "empresa")
+        .filter((actor) => actor.type !== "user" || actor.id === user?.id)
+        .filter((actor) => {
+          if (actor.type === "user") return true;
+          if (!activeCompanyKey) return true;
+          if (actor.type === "empresa") {
+            return actor.empresaId === activeCompanyEmpresaId;
+          }
+          return actor.empresaId === activeCompanyEmpresaId;
+        }),
+    [activeCompanyEmpresaId, activeCompanyKey, actors, user?.id],
+  );
+  const creditorActors = useMemo(
+    () =>
+      actors.filter(
+        (actor) => actor.type === "empleado" || actor.type === "user",
+      ),
+    [actors],
+  );
+  const debtorByKey = useMemo(() => {
     const map = new Map<string, ActorOption>();
-    actors.forEach((actor) => map.set(actor.key, actor));
+    debtorActors.forEach((actor) => map.set(actor.key, actor));
     return map;
-  }, [actors]);
+  }, [debtorActors]);
+  const creditorByKey = useMemo(() => {
+    const map = new Map<string, ActorOption>();
+    creditorActors.forEach((actor) => map.set(actor.key, actor));
+    return map;
+  }, [creditorActors]);
 
   const loadActors = useCallback(async () => {
     if (!primaryOwnerId || !canUse) {
@@ -257,6 +319,17 @@ export default function DeudasInternasPage() {
       ),
     );
     const nextActors = new Map<string, ActorOption>();
+    const empresaById = new Map(
+      visibleEmpresas.map((empresa) => [String(empresa.id || ""), empresa]),
+    );
+    const currentUserActor = createActor(
+      "user",
+      String(user?.id || ""),
+      user?.fullName || user?.name || "",
+      user?.role === "admin" ? "Admin" : "Usuario",
+      user?.ownerId || primaryOwnerId,
+    );
+    if (currentUserActor) nextActors.set(currentUserActor.key, currentUserActor);
 
     visibleEmpresas.forEach((empresa) => {
       const actor = createActor(
@@ -266,40 +339,45 @@ export default function DeudasInternasPage() {
         "Empresa",
         empresa.ownerId,
       );
-      if (actor) nextActors.set(actor.key, actor);
+      if (actor) {
+        nextActors.set(actor.key, {
+          ...actor,
+          empresaId: String(empresa.id || empresa.name),
+          empresaName: empresa.name,
+          searchText: normalizeSearch(
+            `${actor.searchText} ${empresa.name} ${empresa.ubicacion} ${empresa.id || ""}`,
+          ),
+        });
+      }
     });
 
-    const ownerAdmins = (users as User[]).filter(
+    const ownerUsers = (users as User[]).filter(
       (candidate) =>
-        candidate.role === "admin" &&
+        Boolean(candidate.id) &&
         (ownerSet.has(String(candidate.ownerId || "")) ||
           ownerSet.has(String(candidate.id || ""))),
     );
     setOwnerAdminPartyKeys(
-      ownerAdmins
-        .map((candidate) => (candidate.id ? `user:${candidate.id}` : ""))
+      ownerUsers
+        .filter((candidate) => candidate.role === "admin")
+        .map((candidate) => `user:${candidate.id}`)
         .filter(Boolean),
     );
 
-    ownerAdmins
-      .filter(
-        (candidate) =>
-          candidate.role === "admin" &&
-          (ownerSet.has(String(candidate.ownerId || "")) ||
-            ownerSet.has(String(candidate.id || ""))),
-      )
-      .forEach((candidate) => {
-        const actor = createActor(
-          "user",
-          String(candidate.id || ""),
-          candidate.fullName || candidate.name,
-          "Admin",
-          candidate.ownerId,
-        );
-        if (actor) nextActors.set(actor.key, actor);
-      });
+    ownerUsers.forEach((candidate) => {
+      const actor = createActor(
+        "user",
+        String(candidate.id || ""),
+        candidate.fullName || candidate.name,
+        candidate.role === "admin" ? "Admin" : "Usuario",
+        candidate.ownerId,
+      );
+      if (actor) nextActors.set(actor.key, actor);
+    });
 
     empleadosByEmpresa.flat().forEach((empleado: Empleado) => {
+      const empresaId = String(empleado.empresaId || "");
+      const empresa = empresaById.get(empresaId);
       const actor = createActor(
         "empleado",
         String(empleado.id || `${empleado.empresaId}:${empleado.Empleado}`),
@@ -307,11 +385,17 @@ export default function DeudasInternasPage() {
         "Colaborador",
         empleado.ownerId || primaryOwnerId,
       );
-      if (actor) nextActors.set(actor.key, actor);
+      if (actor) {
+        nextActors.set(actor.key, {
+          ...actor,
+          empresaId,
+          empresaName: empresa?.name,
+        });
+      }
     });
 
     const list = Array.from(nextActors.values()).sort((a, b) =>
-      a.name.localeCompare(b.name, "es"),
+      sortActors(a, b),
     );
     setActors(list);
     return list;
@@ -335,33 +419,49 @@ export default function DeudasInternasPage() {
   const refresh = useCallback(async () => {
     if (authLoading) return;
     setLoading(true);
-    setError("");
     try {
       await loadActors();
       await loadDebts();
     } catch (err) {
       console.error("Error loading internal debts:", err);
-      setError("No se pudieron cargar las deudas internas.");
+      showToast("No se pudieron cargar las deudas internas.", "error", 5000);
     } finally {
       setLoading(false);
     }
-  }, [authLoading, loadActors, loadDebts]);
+  }, [authLoading, loadActors, loadDebts, showToast]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
+  const activeDebts = useMemo(
+    () => debts.filter((debt) => !isDebtPaid(debt)),
+    [debts],
+  );
+  const paidDebts = useMemo(
+    () => debts.filter((debt) => isDebtPaid(debt)),
+    [debts],
+  );
+  const selectedDebtRole = useMemo<"debtor" | "creditor" | null>(() => {
+    if (!selectedDebt) return null;
+    if (actorPartyKeys.includes(buildPartyKey(selectedDebt.creditor))) {
+      return "creditor";
+    }
+    if (actorPartyKeys.includes(buildPartyKey(selectedDebt.debtor))) {
+      return "debtor";
+    }
+    return null;
+  }, [actorPartyKeys, selectedDebt]);
+  const selectedMovementType: InternalDebtMovementType =
+    selectedDebtRole === "creditor" ? "payment" : "charge";
+
   const filteredDebts = useMemo(() => {
     const query = normalizeSearch(search);
-    return debts.filter((debt) => {
+    return activeDebts.filter((debt) => {
       const debtorKey = buildPartyKey(debt.debtor);
       const creditorKey = buildPartyKey(debt.creditor);
       const visibleParty =
         roleFilter === "creditor" ? debt.debtor : debt.creditor;
-      const typeMatch =
-        typeFilter === "all" ||
-        debt.debtor.type === typeFilter ||
-        debt.creditor.type === typeFilter;
       const roleMatch =
         roleFilter === "all" ||
         (roleFilter === "debtor" && actorPartyKeys.includes(debtorKey)) ||
@@ -369,28 +469,27 @@ export default function DeudasInternasPage() {
       const text = normalizeSearch(
         `${debt.debtor.name} ${debt.creditor.name} ${visibleParty.name} ${debt.reason}`,
       );
-      return typeMatch && roleMatch && (!query || text.includes(query));
+      return roleMatch && (!query || text.includes(query));
     });
-  }, [actorPartyKeys, debts, roleFilter, search, typeFilter]);
+  }, [activeDebts, actorPartyKeys, roleFilter, search]);
 
   const stats = useMemo(() => {
-    const payable = debts.filter((debt) =>
+    const payable = activeDebts.filter((debt) =>
       actorPartyKeys.includes(buildPartyKey(debt.creditor)),
     ).length;
     return {
-      visible: debts.length,
-      involved: debts.length,
+      visible: activeDebts.length,
+      involved: activeDebts.length,
       payable,
     };
-  }, [actorPartyKeys, debts]);
+  }, [activeDebts, actorPartyKeys]);
 
   const handleCreateDebt = async (event: React.FormEvent) => {
     event.preventDefault();
-    const debtor = actorByKey.get(debtForm.debtorKey);
-    const creditor = actorByKey.get(debtForm.creditorKey);
+    const debtor = debtorByKey.get(debtForm.debtorKey);
+    const creditor = creditorByKey.get(debtForm.creditorKey);
     if (!debtor || !creditor || !user || !primaryOwnerId) return;
     setSaving(true);
-    setError("");
     try {
       const visibilityKeys = new Set([`user:${user.id || ""}`, debtForm.debtorKey]);
       if (debtor.type === "empresa" || creditor.type === "empresa") {
@@ -403,7 +502,7 @@ export default function DeudasInternasPage() {
         ownerId: primaryOwnerId,
         debtor,
         creditor,
-        amount: Number(debtForm.amount),
+        amount: parseMoneyInput(debtForm.amount),
         reason: debtForm.reason,
         reference: debtForm.reference,
         date: debtForm.date,
@@ -413,9 +512,10 @@ export default function DeudasInternasPage() {
       });
       setDebtForm({ ...EMPTY_DEBT_FORM, date: todayInputValue() });
       setShowCreate(false);
+      showToast("Deuda guardada.", "success", 3000);
       await loadDebts();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo guardar.");
+      showToast(err instanceof Error ? err.message : "No se pudo guardar.", "error", 5000);
     } finally {
       setSaving(false);
     }
@@ -424,14 +524,17 @@ export default function DeudasInternasPage() {
   const handleAddMovement = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!selectedDebt || !user) return;
+    if (isDebtPaid(selectedDebt)) {
+      showToast("La deuda ya esta pagada y no se puede modificar.", "error", 5000);
+      return;
+    }
     setSaving(true);
-    setError("");
     try {
       await InternalDebtsService.addMovement(
         String(selectedDebt.id || ""),
         {
-          type: movementForm.type,
-          amount: Number(movementForm.amount),
+          type: selectedMovementType,
+          amount: parseMoneyInput(movementForm.amount),
           reason: movementForm.reason,
           reference: movementForm.reference,
           date: movementForm.date,
@@ -442,9 +545,10 @@ export default function DeudasInternasPage() {
       );
       setMovementForm({ ...EMPTY_MOVEMENT_FORM, date: todayInputValue() });
       setSelectedDebt(null);
+      showToast("Movimiento guardado.", "success", 3000);
       await loadDebts();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo guardar.");
+      showToast(err instanceof Error ? err.message : "No se pudo guardar.", "error", 5000);
     } finally {
       setSaving(false);
     }
@@ -471,6 +575,8 @@ export default function DeudasInternasPage() {
       </div>
     );
   }
+
+  const selectedDebtIsPaid = selectedDebt ? isDebtPaid(selectedDebt) : false;
 
   return (
     <div className="rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-3 shadow-sm sm:p-4">
@@ -521,10 +627,18 @@ export default function DeudasInternasPage() {
             <Plus className="h-4 w-4" />
             Agregar deuda
           </button>
+          <button
+            type="button"
+            onClick={() => setShowPaidDebts(true)}
+            className="col-span-3 inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--input-border)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--hover-bg)] sm:col-span-1"
+          >
+            <Eye className="h-4 w-4" />
+            Pagadas ({paidDebts.length})
+          </button>
         </div>
       </div>
 
-      <div className="mb-4 grid gap-2 rounded-lg border border-[var(--input-border)] bg-[#0b1118] p-3 md:grid-cols-[1fr_190px_190px_auto]">
+      <div className="mb-4 grid gap-2 rounded-lg border border-[var(--input-border)] bg-[#0b1118] p-3 md:grid-cols-[1fr_190px_auto]">
         <label className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted-foreground)]" />
           <input
@@ -534,18 +648,6 @@ export default function DeudasInternasPage() {
             className="w-full rounded-lg border border-[var(--input-border)] bg-[#0d141b] py-2 pl-9 pr-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
           />
         </label>
-        <select
-          value={typeFilter}
-          onChange={(event) =>
-            setTypeFilter(event.target.value as "all" | InternalDebtPartyType)
-          }
-          className="rounded-lg border border-[var(--input-border)] bg-[#0d141b] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
-        >
-          <option value="all">Empresa / Persona</option>
-          <option value="empresa">Empresa</option>
-          <option value="user">Admin</option>
-          <option value="empleado">Colaborador</option>
-        </select>
         <select
           value={roleFilter}
           onChange={(event) =>
@@ -561,7 +663,6 @@ export default function DeudasInternasPage() {
           type="button"
           onClick={() => {
             setSearch("");
-            setTypeFilter("all");
             setRoleFilter("all");
           }}
           className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--input-border)] px-3 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
@@ -570,12 +671,6 @@ export default function DeudasInternasPage() {
           Limpiar
         </button>
       </div>
-
-      {error && (
-        <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-          {error}
-        </div>
-      )}
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {filteredDebts.map((debt) => {
@@ -604,9 +699,11 @@ export default function DeudasInternasPage() {
                     </div>
                   </div>
                 </div>
-                <span className="rounded bg-[var(--muted)] px-2 py-1 text-[10px] font-bold uppercase text-[var(--muted-foreground)]">
-                  {displayParty.type === "empresa" ? "Empresa" : "Persona"}
-                </span>
+                {displayParty.type === "empresa" && (
+                  <span className="rounded bg-[var(--muted)] px-2 py-1 text-[10px] font-bold uppercase text-[var(--muted-foreground)]">
+                    Empresa
+                  </span>
+                )}
               </div>
               <div className="text-xs text-[var(--muted-foreground)]">
                 Monto total
@@ -639,14 +736,13 @@ export default function DeudasInternasPage() {
         <ModalShell
           title="Agregar deuda"
           subtitle="Registra una nueva deuda entre empresas o personas del mismo ownerId."
-          onClose={() => setShowCreate(false)}
         >
           <form onSubmit={handleCreateDebt} className="space-y-4">
             <div className="grid gap-3 md:grid-cols-2">
               <ActorSelect
                 label="Deudor"
                 value={debtForm.debtorKey}
-                actors={actors}
+                actors={debtorActors}
                 onChange={(value) =>
                   setDebtForm((prev) => ({ ...prev, debtorKey: value }))
                 }
@@ -654,7 +750,7 @@ export default function DeudasInternasPage() {
               <ActorSelect
                 label="Acreedor"
                 value={debtForm.creditorKey}
-                actors={actors}
+                actors={creditorActors}
                 onChange={(value) =>
                   setDebtForm((prev) => ({ ...prev, creditorKey: value }))
                 }
@@ -666,15 +762,16 @@ export default function DeudasInternasPage() {
                   Monto
                 </span>
                 <input
-                  type="number"
-                  min="1"
-                  value={debtForm.amount}
+                  type="text"
+                  inputMode="numeric"
+                  value={formatMoneyInput(debtForm.amount)}
                   onChange={(event) =>
                     setDebtForm((prev) => ({
                       ...prev,
-                      amount: event.target.value,
+                      amount: sanitizeMoneyInput(event.target.value),
                     }))
                   }
+                  placeholder="₡0"
                   className="w-full rounded-lg border border-[var(--input-border)] bg-[#0d141b] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
                 />
               </label>
@@ -744,11 +841,55 @@ export default function DeudasInternasPage() {
         </ModalShell>
       )}
 
+      {showPaidDebts && (
+        <ModalShell
+          title="Deudas pagadas"
+          subtitle="Solo visualizacion de deudas pagadas en su totalidad."
+        >
+          <div className="space-y-3">
+            {paidDebts.map((debt) => (
+              <button
+                type="button"
+                key={debt.id}
+                onClick={() => {
+                  setSelectedDebt(debt);
+                  setShowPaidDebts(false);
+                }}
+                className="w-full rounded-lg border border-[var(--input-border)] bg-[#0d141b] p-3 text-left hover:border-[var(--accent)]/70"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-[var(--foreground)]">
+                      {debt.debtor.name} debe a {debt.creditor.name}
+                    </div>
+                    <div className="mt-1 text-xs text-[var(--muted-foreground)]">
+                      Motivo: {debt.reason}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs font-semibold text-emerald-300">
+                      Pagada
+                    </div>
+                    <div className="mt-1 text-sm font-bold text-[var(--foreground)]">
+                      {crcFormatter.format(debt.amountOriginal || 0)}
+                    </div>
+                  </div>
+                </div>
+              </button>
+            ))}
+            {paidDebts.length === 0 && (
+              <div className="rounded-lg border border-dashed border-[var(--input-border)] p-6 text-center text-sm text-[var(--muted-foreground)]">
+                No hay deudas pagadas.
+              </div>
+            )}
+          </div>
+        </ModalShell>
+      )}
+
       {selectedDebt && (
         <ModalShell
           title="Detalle deuda"
           subtitle={`${selectedDebt.debtor.name} debe a ${selectedDebt.creditor.name}`}
-          onClose={() => setSelectedDebt(null)}
         >
           <div className="mb-4 grid gap-3 md:grid-cols-3">
             <div className="rounded-lg border border-[var(--input-border)] bg-[#0d141b] p-3">
@@ -767,11 +908,21 @@ export default function DeudasInternasPage() {
             </div>
             <div className="rounded-lg border border-[var(--input-border)] bg-[#0d141b] p-3">
               <div className="text-xs text-[var(--muted-foreground)]">Saldo</div>
-              <div className="mt-1 text-lg font-bold text-red-400">
+              <div
+                className={`mt-1 text-lg font-bold ${
+                  selectedDebtIsPaid ? "text-emerald-300" : "text-red-400"
+                }`}
+              >
                 {crcFormatter.format(selectedDebt.balance || 0)}
               </div>
             </div>
           </div>
+
+          {selectedDebtIsPaid && (
+            <div className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
+              Solo visualizacion. Esta deuda ya fue pagada en su totalidad.
+            </div>
+          )}
 
           <div className="mb-4 rounded-lg border border-[var(--input-border)]">
             {(selectedDebt.movements || []).map((movement) => (
@@ -803,63 +954,8 @@ export default function DeudasInternasPage() {
             ))}
           </div>
 
-          <form onSubmit={handleAddMovement} className="space-y-3">
-            <div className="grid gap-3 md:grid-cols-3">
-              <select
-                value={movementForm.type}
-                onChange={(event) =>
-                  setMovementForm((prev) => ({
-                    ...prev,
-                    type: event.target.value as InternalDebtMovementType,
-                  }))
-                }
-                className="rounded-lg border border-[var(--input-border)] bg-[#0d141b] px-3 py-2 text-sm text-[var(--foreground)]"
-              >
-                <option value="payment">Registrar abono</option>
-                <option value="charge">Agregar cargo</option>
-              </select>
-              <input
-                type="number"
-                min="1"
-                value={movementForm.amount}
-                onChange={(event) =>
-                  setMovementForm((prev) => ({
-                    ...prev,
-                    amount: event.target.value,
-                  }))
-                }
-                placeholder="Monto"
-                className="rounded-lg border border-[var(--input-border)] bg-[#0d141b] px-3 py-2 text-sm text-[var(--foreground)]"
-              />
-              <input
-                type="date"
-                value={movementForm.date}
-                onChange={(event) =>
-                  setMovementForm((prev) => ({ ...prev, date: event.target.value }))
-                }
-                className="rounded-lg border border-[var(--input-border)] bg-[#0d141b] px-3 py-2 text-sm text-[var(--foreground)]"
-              />
-            </div>
-            <input
-              value={movementForm.reason}
-              onChange={(event) =>
-                setMovementForm((prev) => ({ ...prev, reason: event.target.value }))
-              }
-              placeholder="Motivo del movimiento"
-              className="w-full rounded-lg border border-[var(--input-border)] bg-[#0d141b] px-3 py-2 text-sm text-[var(--foreground)]"
-            />
-            <input
-              value={movementForm.reference}
-              onChange={(event) =>
-                setMovementForm((prev) => ({
-                  ...prev,
-                  reference: event.target.value,
-                }))
-              }
-              placeholder="Referencia opcional"
-              className="w-full rounded-lg border border-[var(--input-border)] bg-[#0d141b] px-3 py-2 text-sm text-[var(--foreground)]"
-            />
-            <div className="flex justify-end gap-2">
+          {selectedDebtIsPaid ? (
+            <div className="flex justify-end">
               <button
                 type="button"
                 onClick={() => setSelectedDebt(null)}
@@ -867,16 +963,81 @@ export default function DeudasInternasPage() {
               >
                 Cerrar
               </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-              >
-                <Eye className="h-4 w-4" />
-                Guardar movimiento
-              </button>
             </div>
-          </form>
+          ) : (
+            <form onSubmit={handleAddMovement} className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="rounded-lg border border-[var(--input-border)] bg-[#0d141b] px-3 py-2 text-sm font-semibold text-[var(--foreground)]">
+                  {selectedMovementType === "payment"
+                    ? "Registrar abono"
+                    : "Agregar cargo"}
+                </div>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={formatMoneyInput(movementForm.amount)}
+                  onChange={(event) =>
+                    setMovementForm((prev) => ({
+                      ...prev,
+                      amount: sanitizeMoneyInput(event.target.value),
+                    }))
+                  }
+                  placeholder="₡0"
+                  className="rounded-lg border border-[var(--input-border)] bg-[#0d141b] px-3 py-2 text-sm text-[var(--foreground)]"
+                />
+                <input
+                  type="date"
+                  value={movementForm.date}
+                  onChange={(event) =>
+                    setMovementForm((prev) => ({
+                      ...prev,
+                      date: event.target.value,
+                    }))
+                  }
+                  className="rounded-lg border border-[var(--input-border)] bg-[#0d141b] px-3 py-2 text-sm text-[var(--foreground)]"
+                />
+              </div>
+              <input
+                value={movementForm.reason}
+                onChange={(event) =>
+                  setMovementForm((prev) => ({
+                    ...prev,
+                    reason: event.target.value,
+                  }))
+                }
+                placeholder="Motivo del movimiento"
+                className="w-full rounded-lg border border-[var(--input-border)] bg-[#0d141b] px-3 py-2 text-sm text-[var(--foreground)]"
+              />
+              <input
+                value={movementForm.reference}
+                onChange={(event) =>
+                  setMovementForm((prev) => ({
+                    ...prev,
+                    reference: event.target.value,
+                  }))
+                }
+                placeholder="Referencia opcional"
+                className="w-full rounded-lg border border-[var(--input-border)] bg-[#0d141b] px-3 py-2 text-sm text-[var(--foreground)]"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedDebt(null)}
+                  className="rounded-lg border border-[var(--input-border)] px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                >
+                  Cerrar
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  <Eye className="h-4 w-4" />
+                  Guardar movimiento
+                </button>
+              </div>
+            </form>
+          )}
         </ModalShell>
       )}
     </div>

@@ -23,6 +23,8 @@ assert.match(block, /deudasInternas/);
 assert.match(block, /documents\/users\/\$\(request\.auth\.uid\)/);
 assert.match(block, /allow create/);
 assert.match(block, /allow update/);
+assert.match(block, /resource\.data\.status != 'paid'/);
+assert.match(block, /resource\.data\.balance > 0/);
 assert.match(block, /diff\(resource\.data\)\.affectedKeys\(\)/);
 assert.match(block, /hasOnly\(\['balance', 'status', 'movements', 'updatedAt'\]\)/);
 assert.match(block, /allow delete: if isAdmin\(\)/);

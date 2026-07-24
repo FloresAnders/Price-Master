@@ -90,6 +90,11 @@ const normalizeAmount = (amount: number): number => {
   return Math.round(value * 100) / 100;
 };
 
+const optionalTextField = (key: string, value?: string): Record<string, string> => {
+  const normalized = String(value || "").trim();
+  return normalized ? { [key]: normalized } : {};
+};
+
 export function buildPartyKey(party: InternalDebtParty): string {
   const type = normalizeText(party.type, "Tipo de parte");
   const id = normalizeText(party.id, "Id de parte");
@@ -121,7 +126,7 @@ export function createInternalDebtDraft(
     type: "charge",
     amount,
     reason,
-    reference: input.reference?.trim() || undefined,
+    ...optionalTextField("reference", input.reference),
     date,
     createdAt: now,
     createdById,
@@ -134,13 +139,13 @@ export function createInternalDebtDraft(
       type: input.debtor.type,
       id: input.debtor.id,
       name: normalizeText(input.debtor.name, "Deudor"),
-      roleLabel: input.debtor.roleLabel,
+      ...optionalTextField("roleLabel", input.debtor.roleLabel),
     },
     creditor: {
       type: input.creditor.type,
       id: input.creditor.id,
       name: normalizeText(input.creditor.name, "Acreedor"),
-      roleLabel: input.creditor.roleLabel,
+      ...optionalTextField("roleLabel", input.creditor.roleLabel),
     },
     participantIds: Array.from(
       new Set([debtorKey, creditorKey, ...input.actorPartyKeys]),
@@ -148,7 +153,7 @@ export function createInternalDebtDraft(
     amountOriginal: amount,
     balance: amount,
     reason,
-    reference: input.reference?.trim() || undefined,
+    ...optionalTextField("reference", input.reference),
     date,
     status: "open",
     movements: [initialMovement],
@@ -168,6 +173,9 @@ export function applyInternalDebtMovement(
   const creditorKey = buildPartyKey(debt.creditor);
   const amount = normalizeAmount(movement.amount);
 
+  if (debt.status === "paid" || debt.balance <= 0) {
+    throw new Error("La deuda ya esta pagada y no se puede modificar.");
+  }
   if (movement.type === "charge" && !actorPartyKeys.includes(debtorKey)) {
     throw new Error("Solo el deudor puede agregar cargos.");
   }
@@ -189,7 +197,7 @@ export function applyInternalDebtMovement(
     type: movement.type,
     amount,
     reason,
-    reference: movement.reference?.trim() || undefined,
+    ...optionalTextField("reference", movement.reference),
     date,
     createdAt: new Date(),
     createdById,

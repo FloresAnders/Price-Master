@@ -249,6 +249,8 @@ service cloud.firestore {
         isInternalDebtParticipant(request.resource.data);
       allow update: if hasInternalDebtsPermission() &&
         isInternalDebtParticipant(resource.data) &&
+        resource.data.status != 'paid' &&
+        resource.data.balance > 0 &&
         request.resource.data.ownerId == resource.data.ownerId &&
         request.resource.data.debtor == resource.data.debtor &&
         request.resource.data.creditor == resource.data.creditor &&
