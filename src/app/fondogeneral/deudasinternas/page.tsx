@@ -48,6 +48,7 @@ type DebtFormState = {
 };
 
 type MovementFormState = {
+  type: InternalDebtMovementType;
   amount: string;
   date: string;
   reason: string;
@@ -72,6 +73,7 @@ const EMPTY_DEBT_FORM: DebtFormState = {
 };
 
 const EMPTY_MOVEMENT_FORM: MovementFormState = {
+  type: "payment",
   amount: "",
   date: todayInputValue(),
   reason: "",
@@ -90,6 +92,12 @@ function getDateValue(value: unknown): string {
 
 function isDebtPaid(debt: InternalDebt): boolean {
   return debt.status === "paid" || Number(debt.balance || 0) <= 0;
+}
+
+function isEmployeeUserDebt(debt: InternalDebt | null): debt is InternalDebt {
+  if (!debt) return false;
+  const types = new Set([debt.debtor.type, debt.creditor.type]);
+  return types.has("empleado") && types.has("user");
 }
 
 function parseMoneyInput(value: string): number {
@@ -492,8 +500,12 @@ export default function DeudasInternasPage() {
     }
     return null;
   }, [actorPartyKeys, selectedDebt]);
-  const selectedMovementType: InternalDebtMovementType =
+  const roleMovementType: InternalDebtMovementType =
     selectedDebtRole === "creditor" ? "payment" : "charge";
+  const canChooseMovementType = isEmployeeUserDebt(selectedDebt);
+  const selectedMovementType: InternalDebtMovementType = canChooseMovementType
+    ? movementForm.type
+    : roleMovementType;
 
   const filteredDebts = useMemo(() => {
     const query = normalizeSearch(search);
@@ -618,6 +630,17 @@ export default function DeudasInternasPage() {
     }
     setSaving(true);
     try {
+      const movementActorKeys = new Set(actorPartyKeys);
+      if (canChooseMovementType && selectedMovementType === "charge") {
+        const debtorKey = buildPartyKey(selectedDebt.debtor);
+        if (selectedDebt.debtor.type === "empleado") movementActorKeys.add(debtorKey);
+      }
+      if (canChooseMovementType && selectedMovementType === "payment") {
+        const creditorKey = buildPartyKey(selectedDebt.creditor);
+        if (selectedDebt.creditor.type === "empleado") {
+          movementActorKeys.add(creditorKey);
+        }
+      }
       await InternalDebtsService.addMovement(
         String(selectedDebt.id || ""),
         {
@@ -629,7 +652,7 @@ export default function DeudasInternasPage() {
           createdById: String(user.id || ""),
           createdByName: user.fullName || user.name,
         },
-        actorPartyKeys,
+        Array.from(movementActorKeys),
       );
       setMovementForm({ ...EMPTY_MOVEMENT_FORM, date: todayInputValue() });
       setSelectedDebt(null);
@@ -768,7 +791,16 @@ export default function DeudasInternasPage() {
             <button
               type="button"
               key={debt.id}
-              onClick={() => setSelectedDebt(debt)}
+              onClick={() => {
+                const debtRole = actorPartyKeys.includes(buildPartyKey(debt.creditor))
+                  ? "creditor"
+                  : "debtor";
+                setMovementForm((prev) => ({
+                  ...prev,
+                  type: debtRole === "creditor" ? "payment" : "charge",
+                }));
+                setSelectedDebt(debt);
+              }}
               className="group rounded-lg border border-[var(--input-border)] bg-[#0e161d] p-4 text-left transition hover:border-[var(--accent)]/70 hover:bg-[#111d26]"
             >
               <div className="mb-3 flex items-start justify-between gap-3">
@@ -1054,11 +1086,27 @@ export default function DeudasInternasPage() {
           ) : (
             <form onSubmit={handleAddMovement} className="space-y-3">
               <div className="grid gap-3 md:grid-cols-3">
-                <div className="rounded-lg border border-[var(--input-border)] bg-[#0d141b] px-3 py-2 text-sm font-semibold text-[var(--foreground)]">
-                  {selectedMovementType === "payment"
-                    ? "Registrar abono"
-                    : "Agregar cargo"}
-                </div>
+                {canChooseMovementType ? (
+                  <select
+                    value={movementForm.type}
+                    onChange={(event) =>
+                      setMovementForm((prev) => ({
+                        ...prev,
+                        type: event.target.value as InternalDebtMovementType,
+                      }))
+                    }
+                    className="rounded-lg border border-[var(--input-border)] bg-[#0d141b] px-3 py-2 text-sm font-semibold text-[var(--foreground)]"
+                  >
+                    <option value="charge">Agregar cargo</option>
+                    <option value="payment">Registrar abono</option>
+                  </select>
+                ) : (
+                  <div className="rounded-lg border border-[var(--input-border)] bg-[#0d141b] px-3 py-2 text-sm font-semibold text-[var(--foreground)]">
+                    {selectedMovementType === "payment"
+                      ? "Registrar abono"
+                      : "Agregar cargo"}
+                  </div>
+                )}
                 <input
                   type="text"
                   inputMode="numeric"
