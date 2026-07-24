@@ -221,6 +221,7 @@ export default function DeudasInternasPage() {
   const permissions =
     user?.permissions || getDefaultPermissions(user?.role || "user");
   const canUse = Boolean(permissions.deudasInternas);
+  const isSuperAdmin = user?.role === "superadmin";
   const [actors, setActors] = useState<ActorOption[]>([]);
   const [ownerAdminPartyKeys, setOwnerAdminPartyKeys] = useState<string[]>([]);
   const [debts, setDebts] = useState<InternalDebt[]>([]);
@@ -268,8 +269,13 @@ export default function DeudasInternasPage() {
   }, [activeCompanyKey, actors]);
 
   const debtorActors = useMemo(
-    () =>
-      actors
+    () => {
+      if (isSuperAdmin) {
+        return actors.filter(
+          (actor) => actor.type === "empleado" || actor.type === "user",
+        );
+      }
+      return actors
         .filter((actor) => actor.type !== "empresa")
         .filter((actor) => actor.type !== "user" || actor.id === user?.id)
         .filter((actor) => {
@@ -279,8 +285,9 @@ export default function DeudasInternasPage() {
             return actor.empresaId === activeCompanyEmpresaId;
           }
           return actor.empresaId === activeCompanyEmpresaId;
-        }),
-    [activeCompanyEmpresaId, activeCompanyKey, actors, user?.id],
+        });
+    },
+    [activeCompanyEmpresaId, activeCompanyKey, actors, isSuperAdmin, user?.id],
   );
   const creditorActors = useMemo(
     () =>
@@ -310,9 +317,11 @@ export default function DeudasInternasPage() {
       EmpresasService.getAllEmpresas(),
       UsersService.getAllUsersAs(user || null),
     ]);
-    const visibleEmpresas = (empresas as Empresas[]).filter((empresa) =>
-      ownerSet.has(String(empresa.ownerId || "")),
-    );
+    const visibleEmpresas = isSuperAdmin
+      ? (empresas as Empresas[])
+      : (empresas as Empresas[]).filter((empresa) =>
+          ownerSet.has(String(empresa.ownerId || "")),
+        );
     const empleadosByEmpresa = await Promise.all(
       visibleEmpresas.map((empresa) =>
         EmpleadosService.getByEmpresaId(String(empresa.id || "")),
@@ -326,7 +335,7 @@ export default function DeudasInternasPage() {
       "user",
       String(user?.id || ""),
       user?.fullName || user?.name || "",
-      user?.role === "admin" ? "Admin" : "Usuario",
+      user?.role === "admin" || user?.role === "superadmin" ? "Admin" : "Usuario",
       user?.ownerId || primaryOwnerId,
     );
     if (currentUserActor) nextActors.set(currentUserActor.key, currentUserActor);
@@ -351,12 +360,14 @@ export default function DeudasInternasPage() {
       }
     });
 
-    const ownerUsers = (users as User[]).filter(
-      (candidate) =>
-        Boolean(candidate.id) &&
-        (ownerSet.has(String(candidate.ownerId || "")) ||
-          ownerSet.has(String(candidate.id || ""))),
-    );
+    const ownerUsers = (users as User[]).filter((candidate) => {
+      if (!candidate.id) return false;
+      if (isSuperAdmin) return true;
+      return (
+        ownerSet.has(String(candidate.ownerId || "")) ||
+        ownerSet.has(String(candidate.id || ""))
+      );
+    });
     setOwnerAdminPartyKeys(
       ownerUsers
         .filter((candidate) => candidate.role === "admin")
@@ -369,7 +380,9 @@ export default function DeudasInternasPage() {
         "user",
         String(candidate.id || ""),
         candidate.fullName || candidate.name,
-        candidate.role === "admin" ? "Admin" : "Usuario",
+        candidate.role === "admin" || candidate.role === "superadmin"
+          ? "Admin"
+          : "Usuario",
         candidate.ownerId,
       );
       if (actor) nextActors.set(actor.key, actor);
@@ -399,7 +412,7 @@ export default function DeudasInternasPage() {
     );
     setActors(list);
     return list;
-  }, [canUse, ownerSet, primaryOwnerId, user]);
+  }, [canUse, isSuperAdmin, ownerSet, primaryOwnerId, user]);
 
   const loadDebts = useCallback(
     async (keys = readPartyKeys) => {
