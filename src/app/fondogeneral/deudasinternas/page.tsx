@@ -483,12 +483,56 @@ export default function DeudasInternasPage() {
       payable,
     };
   }, [activeDebts, actorPartyKeys]);
+  const selectedDebtIsPaid = selectedDebt ? isDebtPaid(selectedDebt) : false;
+  const canSubmitDebt = Boolean(
+    debtForm.debtorKey &&
+      debtForm.creditorKey &&
+      debtorByKey.has(debtForm.debtorKey) &&
+      creditorByKey.has(debtForm.creditorKey) &&
+      parseMoneyInput(debtForm.amount) > 0 &&
+      debtForm.date &&
+      debtForm.reason.trim() &&
+      user &&
+      primaryOwnerId,
+  );
+  const canSubmitMovement = Boolean(
+    selectedDebtRole &&
+      !selectedDebtIsPaid &&
+      parseMoneyInput(movementForm.amount) > 0 &&
+      movementForm.date &&
+      movementForm.reason.trim() &&
+      user &&
+      selectedDebt,
+  );
+  const debtMissingFields = [
+    !debtForm.debtorKey || !debtorByKey.has(debtForm.debtorKey) ? "deudor" : "",
+    !debtForm.creditorKey || !creditorByKey.has(debtForm.creditorKey)
+      ? "acreedor"
+      : "",
+    parseMoneyInput(debtForm.amount) <= 0 ? "monto" : "",
+    !debtForm.date ? "fecha" : "",
+    !debtForm.reason.trim() ? "motivo" : "",
+  ].filter(Boolean);
+  const movementMissingFields = [
+    parseMoneyInput(movementForm.amount) <= 0 ? "monto" : "",
+    !movementForm.date ? "fecha" : "",
+    !movementForm.reason.trim() ? "motivo" : "",
+  ].filter(Boolean);
+  const debtSubmitTooltip = debtMissingFields.length
+    ? `Falta: ${debtMissingFields.join(", ")}`
+    : "Guardar deuda";
+  const movementSubmitTooltip = movementMissingFields.length
+    ? `Falta: ${movementMissingFields.join(", ")}`
+    : "Guardar movimiento";
 
   const handleCreateDebt = async (event: React.FormEvent) => {
     event.preventDefault();
     const debtor = debtorByKey.get(debtForm.debtorKey);
     const creditor = creditorByKey.get(debtForm.creditorKey);
-    if (!debtor || !creditor || !user || !primaryOwnerId) return;
+    if (!canSubmitDebt || !debtor || !creditor || !user || !primaryOwnerId) {
+      showToast("Complete los datos requeridos.", "error", 3000);
+      return;
+    }
     setSaving(true);
     try {
       const visibilityKeys = new Set([`user:${user.id || ""}`, debtForm.debtorKey]);
@@ -526,6 +570,10 @@ export default function DeudasInternasPage() {
     if (!selectedDebt || !user) return;
     if (isDebtPaid(selectedDebt)) {
       showToast("La deuda ya esta pagada y no se puede modificar.", "error", 5000);
+      return;
+    }
+    if (!canSubmitMovement) {
+      showToast("Complete los datos requeridos.", "error", 3000);
       return;
     }
     setSaving(true);
@@ -576,8 +624,6 @@ export default function DeudasInternasPage() {
     );
   }
 
-  const selectedDebtIsPaid = selectedDebt ? isDebtPaid(selectedDebt) : false;
-
   return (
     <div className="rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-3 shadow-sm sm:p-4">
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -622,7 +668,7 @@ export default function DeudasInternasPage() {
           <button
             type="button"
             onClick={() => setShowCreate(true)}
-            className="col-span-3 inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 sm:col-span-1"
+            className="col-span-3 inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-blue-900/30 hover:bg-blue-500 sm:col-span-1"
           >
             <Plus className="h-4 w-4" />
             Agregar deuda
@@ -830,8 +876,9 @@ export default function DeudasInternasPage() {
               </button>
               <button
                 type="submit"
-                disabled={saving}
-                className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                disabled={saving || !canSubmitDebt}
+                title={saving ? "Guardando..." : debtSubmitTooltip}
+                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-blue-900/30 hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-900 disabled:text-blue-200 disabled:opacity-60 disabled:hover:bg-blue-900"
               >
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                 Guardar deuda
@@ -1029,8 +1076,9 @@ export default function DeudasInternasPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
-                  className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  disabled={saving || !canSubmitMovement}
+                  title={saving ? "Guardando..." : movementSubmitTooltip}
+                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-blue-900/30 hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-blue-900 disabled:text-blue-200 disabled:opacity-60 disabled:hover:bg-blue-900"
                 >
                   <Eye className="h-4 w-4" />
                   Guardar movimiento
