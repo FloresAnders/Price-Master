@@ -315,7 +315,7 @@ export default function DeudasInternasPage() {
 
     const [empresas, users] = await Promise.all([
       EmpresasService.getAllEmpresas(),
-      UsersService.getAllUsersAs(user || null),
+      isSuperAdmin ? UsersService.getAllUsers() : UsersService.getAllUsersAs(user || null),
     ]);
     const visibleEmpresas = isSuperAdmin
       ? (empresas as Empresas[])
