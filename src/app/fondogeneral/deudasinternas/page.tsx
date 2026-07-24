@@ -20,7 +20,6 @@ import useToast from "@/hooks/useToast";
 import { getDefaultPermissions } from "@/utils/permissions";
 import { EmpresasService } from "@/services/empresas";
 import { UsersService } from "@/services/users";
-import { EmpleadosService } from "@/services/empleados";
 import {
   buildPartyKey,
   InternalDebtsService,
@@ -29,7 +28,7 @@ import {
   type InternalDebtParty,
   type InternalDebtPartyType,
 } from "@/services/internal-debts";
-import type { Empleado, Empresas, User } from "@/types/firestore";
+import type { Empresas, User } from "@/types/firestore";
 
 type ActorOption = InternalDebtParty & {
   key: string;
@@ -112,6 +111,37 @@ function normalizeSearch(value: string): string {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
+}
+
+function buildEmbeddedEmpleadoId(
+  empresaId: string,
+  empleado: Empresas["empleados"][number],
+): string {
+  const safeEmpresa = String(empresaId || "").trim().replace(/\//g, "_");
+  const slug =
+    String(empleado?.Empleado || "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || "empleado";
+  const signature = [
+    empleado?.Empleado,
+    empleado?.ccssType,
+    empleado?.hoursPerShift,
+    empleado?.extraAmount,
+    empleado?.calculoprecios ? "cp" : "",
+    empleado?.amboshorarios ? "ah" : "",
+  ]
+    .map((value) => String(value ?? "").trim())
+    .join("|");
+  let hash = 0;
+  for (let index = 0; index < signature.length; index += 1) {
+    hash = (hash * 31 + signature.charCodeAt(index)) >>> 0;
+  }
+  return `${safeEmpresa}__${slug}__${hash.toString(36)}`;
 }
 
 function createActor(
@@ -222,6 +252,8 @@ export default function DeudasInternasPage() {
     user?.permissions || getDefaultPermissions(user?.role || "user");
   const canUse = Boolean(permissions.deudasInternas);
   const isSuperAdmin = user?.role === "superadmin";
+  const canSeeAllCollaborators =
+    user?.role === "admin" || user?.role === "superadmin";
   const [actors, setActors] = useState<ActorOption[]>([]);
   const [ownerAdminPartyKeys, setOwnerAdminPartyKeys] = useState<string[]>([]);
   const [debts, setDebts] = useState<InternalDebt[]>([]);
@@ -268,33 +300,31 @@ export default function DeudasInternasPage() {
     return empresa?.empresaId || empresa?.id || "";
   }, [activeCompanyKey, actors]);
 
+  const visibleDebtorActors = useMemo(() => {
+    return actors
+      .filter((actor) => actor.type === "empleado" || actor.type === "user")
+      .filter((actor) => {
+        if (canSeeAllCollaborators) return true;
+        if (actor.type === "user") return actor.id === user?.id;
+        return actor.empresaId === activeCompanyEmpresaId;
+      });
+  }, [activeCompanyEmpresaId, actors, canSeeAllCollaborators, user?.id]);
+  const visibleCreditorActors = useMemo(() => {
+    return actors
+      .filter((actor) => actor.type === "empleado" || actor.type === "user")
+      .filter((actor) => {
+        if (canSeeAllCollaborators) return true;
+        if (actor.type === "user") return true;
+        return actor.empresaId === activeCompanyEmpresaId;
+      });
+  }, [activeCompanyEmpresaId, actors, canSeeAllCollaborators]);
   const debtorActors = useMemo(
-    () => {
-      if (isSuperAdmin) {
-        return actors.filter(
-          (actor) => actor.type === "empleado" || actor.type === "user",
-        );
-      }
-      return actors
-        .filter((actor) => actor.type !== "empresa")
-        .filter((actor) => actor.type !== "user" || actor.id === user?.id)
-        .filter((actor) => {
-          if (actor.type === "user") return true;
-          if (!activeCompanyKey) return true;
-          if (actor.type === "empresa") {
-            return actor.empresaId === activeCompanyEmpresaId;
-          }
-          return actor.empresaId === activeCompanyEmpresaId;
-        });
-    },
-    [activeCompanyEmpresaId, activeCompanyKey, actors, isSuperAdmin, user?.id],
+    () => visibleDebtorActors,
+    [visibleDebtorActors],
   );
   const creditorActors = useMemo(
-    () =>
-      actors.filter(
-        (actor) => actor.type === "empleado" || actor.type === "user",
-      ),
-    [actors],
+    () => visibleCreditorActors,
+    [visibleCreditorActors],
   );
   const debtorByKey = useMemo(() => {
     const map = new Map<string, ActorOption>();
@@ -322,15 +352,7 @@ export default function DeudasInternasPage() {
       : (empresas as Empresas[]).filter((empresa) =>
           ownerSet.has(String(empresa.ownerId || "")),
         );
-    const empleadosByEmpresa = await Promise.all(
-      visibleEmpresas.map((empresa) =>
-        EmpleadosService.getByEmpresaId(String(empresa.id || "")),
-      ),
-    );
     const nextActors = new Map<string, ActorOption>();
-    const empresaById = new Map(
-      visibleEmpresas.map((empresa) => [String(empresa.id || ""), empresa]),
-    );
     const currentUserActor = createActor(
       "user",
       String(user?.id || ""),
@@ -388,23 +410,28 @@ export default function DeudasInternasPage() {
       if (actor) nextActors.set(actor.key, actor);
     });
 
-    empleadosByEmpresa.flat().forEach((empleado: Empleado) => {
-      const empresaId = String(empleado.empresaId || "");
-      const empresa = empresaById.get(empresaId);
-      const actor = createActor(
-        "empleado",
-        String(empleado.id || `${empleado.empresaId}:${empleado.Empleado}`),
-        empleado.Empleado,
-        "Colaborador",
-        empleado.ownerId || primaryOwnerId,
-      );
-      if (actor) {
-        nextActors.set(actor.key, {
-          ...actor,
-          empresaId,
-          empresaName: empresa?.name,
-        });
-      }
+    visibleEmpresas.forEach((empresa) => {
+      const empresaId = String(empresa.id || empresa.name || "");
+      const empleados = Array.isArray(empresa.empleados) ? empresa.empleados : [];
+      empleados.forEach((empleado) => {
+        const actor = createActor(
+          "empleado",
+          buildEmbeddedEmpleadoId(empresaId, empleado),
+          empleado.Empleado,
+          "Colaborador",
+          empresa.ownerId || primaryOwnerId,
+        );
+        if (actor) {
+          nextActors.set(actor.key, {
+            ...actor,
+            empresaId,
+            empresaName: empresa.name,
+            searchText: normalizeSearch(
+              `${actor.searchText} ${empresa.name} ${empresa.ubicacion} ${empresaId}`,
+            ),
+          });
+        }
+      });
     });
 
     const list = Array.from(nextActors.values()).sort((a, b) =>
