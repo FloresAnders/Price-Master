@@ -146,6 +146,13 @@ function isEmpleadoDetailsComplete(e: Partial<Empleado>) {
   return pagoOk && diaOk && horasOk && stringsOk && boolsOk;
 }
 
+function getMissingInsuranceLabels(e: Partial<Empleado>) {
+  const labels: string[] = [];
+  if (!Boolean(e.incluidoCCSS)) labels.push("Falta CCSS");
+  if (!Boolean(e.incluidoINS)) labels.push("Falta INS");
+  return labels;
+}
+
 function mergeEmpleadosForEmpresa(
   empresaId: string,
   embedded: EmpresaEmpleado[],
@@ -752,11 +759,18 @@ export default function EmpleadosProximamente() {
                     };
 
                     const modalEmp = doc || fallbackEmpleado;
+                    const missingInsuranceLabels =
+                      getMissingInsuranceLabels(modalEmp);
 
                     return (
                       <div
                         key={doc?.id || `${empresaId}::${entry.key}`}
-                        className="bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] p-4"
+                        className={[
+                          "rounded-lg border p-4 transition-colors",
+                          complete
+                            ? "border-emerald-500/45 bg-emerald-500/10"
+                            : "border-amber-500/45 bg-amber-500/10",
+                        ].join(" ")}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
@@ -790,6 +804,18 @@ export default function EmpleadosProximamente() {
                                   : "Ficha incompleta"}
                               </span>
                             </div>
+                            {complete && missingInsuranceLabels.length > 0 && (
+                              <div className="mt-2 flex flex-wrap gap-1.5">
+                                {missingInsuranceLabels.map((label) => (
+                                  <span
+                                    key={label}
+                                    className="rounded-md border border-red-500/35 bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-600"
+                                  >
+                                    {label}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
 
                           {canManageEmployees && (
