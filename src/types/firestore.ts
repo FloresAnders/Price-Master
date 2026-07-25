@@ -242,6 +242,29 @@ export interface User {
   updatedAt?: Date;
 }
 
+export type AnotacionStatus = "pending" | "done" | "archived";
+export type AnotacionPriority = "low" | "medium" | "high" | "urgent";
+
+export interface Anotacion {
+  id: string;
+  empresa: string;
+  empresaId: string;
+  ownerId?: string;
+  title: string;
+  description: string;
+  category: string;
+  color: string;
+  priority: AnotacionPriority;
+  status: AnotacionStatus;
+  creatorId: string;
+  creatorName: string;
+  createdAt: string;
+  updatedAt: string;
+  reminderAt?: string;
+  archivedAt?: string;
+  doneAt?: string;
+}
+
 export interface RegistroTucanRecord {
   id?: string;
   empresaId?: string;

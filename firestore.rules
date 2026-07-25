@@ -10,6 +10,34 @@ service cloud.firestore {
         (request.auth.token.role == 'admin' || request.auth.token.role == 'superadmin');
     }
 
+    function isSuperAdmin() {
+      return isSignedIn() && request.auth.token.role == 'superadmin';
+    }
+
+    function isRegularAdmin() {
+      return isSignedIn() && request.auth.token.role == 'admin';
+    }
+
+    function hasAnotacionesPermission() {
+      return isAdmin() ||
+        (isSignedIn() && request.auth.token.permissions.anotaciones == true);
+    }
+
+    function canAccessAnotacionScope(data) {
+      return isSuperAdmin() ||
+        (isRegularAdmin() &&
+          data.keys().hasAny(['ownerId']) &&
+          data.ownerId == request.auth.token.ownerId) ||
+        (!isAdmin() &&
+          data.keys().hasAny(['empresa']) &&
+          data.empresa == request.auth.token.ownercompanie);
+    }
+
+    function isAnotacionPathConsistent(data, empresaId) {
+      return data.keys().hasAny(['empresaId']) &&
+        data.empresaId == empresaId;
+    }
+
     // Colección de emails - solo escritura desde el cliente, lectura y actualización desde Functions
     match /emails/{emailId} {
       // Permitir crear documentos desde el cliente
@@ -113,6 +141,23 @@ service cloud.firestore {
     match /Facturas/{empresaId}/movements/{movementId} {
       allow read, create, update: if isSignedIn();
       allow delete: if isAdmin();
+    }
+
+    match /anotaciones/{empresaId}/movements/{noteId} {
+      allow read: if hasAnotacionesPermission() &&
+        isAnotacionPathConsistent(resource.data, empresaId) &&
+        canAccessAnotacionScope(resource.data);
+      allow create: if hasAnotacionesPermission() &&
+        isAnotacionPathConsistent(request.resource.data, empresaId) &&
+        canAccessAnotacionScope(request.resource.data);
+      allow update: if hasAnotacionesPermission() &&
+        isAnotacionPathConsistent(resource.data, empresaId) &&
+        isAnotacionPathConsistent(request.resource.data, empresaId) &&
+        canAccessAnotacionScope(resource.data) &&
+        canAccessAnotacionScope(request.resource.data);
+      allow delete: if hasAnotacionesPermission() &&
+        isAnotacionPathConsistent(resource.data, empresaId) &&
+        canAccessAnotacionScope(resource.data);
     }
 
     function isRegistroTucanRecord() {
@@ -270,6 +315,7 @@ service cloud.firestore {
         collection != 'registrotucan' &&
         collection != 'pendingInvoiceDeletionRequests' &&
         collection != 'Facturas' &&
+        collection != 'anotaciones' &&
         collection != 'internalDebts';
     }
   }
