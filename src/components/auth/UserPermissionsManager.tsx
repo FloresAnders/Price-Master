@@ -42,6 +42,7 @@ const PERMISSION_LABELS = {
   deudasInternas: "Deudas internas",
   registroTucan: "Registro Tucan",
   solicitud: "Solicitud",
+  anotaciones: "Anotaciones",
   scanhistory: "Historial de Escaneos",
 };
 
@@ -74,6 +75,7 @@ const PERMISSION_DESCRIPTIONS = {
   deudasInternas: "Gestionar deudas internas entre empresas y personas",
   registroTucan: "Acceso a Registro Tucan",
   solicitud: "Permite gestionar solicitudes dentro del módulo de mantenimiento",
+  anotaciones: "Acceso a la pagina de anotaciones",
   scanhistory: "Ver historial completo de escaneos realizados",
 };
 

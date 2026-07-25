@@ -1306,6 +1306,7 @@ export default function DataEditor() {
           "deudasInternas",
           "registroTucan",
           "solicitud",
+          "anotaciones",
           "scanhistory",
         ];
 
@@ -1377,6 +1378,7 @@ export default function DataEditor() {
       deudasInternas: "Deudas internas",
       registroTucan: "Registro Tucan",
       solicitud: "Solicitud",
+      anotaciones: "Anotaciones",
       scanhistory: "Historial de Escaneos",
     };
     return labels[permission] || permission;
@@ -1401,6 +1403,7 @@ export default function DataEditor() {
       registroTucan: "Acceso a Registro Tucan",
       solicitud:
         "Permite gestionar solicitudes dentro del módulo de mantenimiento",
+      anotaciones: "Acceso a la pagina de anotaciones",
       scanhistory: "Ver historial completo de escaneos realizados",
     };
     return descriptions[permission] || permission;

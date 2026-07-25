@@ -210,6 +210,7 @@ export interface UserPermissions {
   deudasInternas?: boolean; // Deudas internas - Deudas entre empresas y personas
   registroTucan?: boolean; // Registro Tucan - Seccion independiente en mantenimiento
   solicitud?: boolean; // Solicitud - Permiso extra en sección de Mantenimiento
+  anotaciones: boolean; // Anotaciones - Pagina en mantenimiento
   scanhistory: boolean; // Historial General de Escaneos - Ver historial completo de escaneos
   scanhistoryEmpresas?: string[]; // Empresas específicas para historial de escaneos (almacena company names)
 }

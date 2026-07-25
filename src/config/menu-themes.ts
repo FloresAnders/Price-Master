@@ -127,6 +127,13 @@ export const MENU_CARD_THEMES: Record<
     ring: "border-teal-400/25",
     arrow: "text-teal-100",
   },
+  anotaciones: {
+    glow: "from-indigo-500/15 via-transparent to-transparent",
+    iconBg: "bg-indigo-500/20",
+    iconText: "text-indigo-100",
+    ring: "border-indigo-400/25",
+    arrow: "text-indigo-100",
+  },
   edit: {
     glow: "from-emerald-500/15 via-transparent to-transparent",
     iconBg: "bg-emerald-500/20",

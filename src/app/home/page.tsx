@@ -16,6 +16,7 @@ import {
   History,
   CircleDollarSign,
   ClipboardPenLine,
+  NotebookPen,
   X,
 } from "lucide-react";
 import AnimatedStickman from "@/components/ui/AnimatedStickman";
@@ -124,6 +125,13 @@ const menuItems = [
     permission: "registroTucan" as keyof UserPermissions,
   },
   {
+    id: "anotaciones",
+    name: "Anotaciones",
+    icon: NotebookPen,
+    description: "En mantenimiento",
+    permission: "anotaciones" as keyof UserPermissions,
+  },
+  {
     id: "edit",
     name: "Mantenimiento",
     icon: Settings,
@@ -205,7 +213,8 @@ export default function HomePage() {
       id === "fondogeneral" ||
       id === "reportessinpe" ||
       id === "deudasinternas" ||
-      id === "registroTucan"
+      id === "registroTucan" ||
+      id === "anotaciones"
     ) {
       // Use hash navigation so header/tab system picks it up
       safeWindow.location.hash(
@@ -215,6 +224,8 @@ export default function HomePage() {
             ? "#deudasinternas"
           : id === "registroTucan"
             ? "#registroTucan"
+          : id === "anotaciones"
+            ? "#anotaciones"
             : "#fondogeneral",
       );
       return;

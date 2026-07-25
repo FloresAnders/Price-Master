@@ -36,6 +36,7 @@ import {
   ChartNoAxesCombined,
   ClipboardPenLine,
   CircleDollarSign,
+  NotebookPen,
   ReceiptText,
 } from "lucide-react";
 import { CustomIcon } from "@/icons/icons";
@@ -105,6 +106,7 @@ export type ActiveTab =
   | "edit"
   | "solicitud"
   | "registroTucan"
+  | "anotaciones"
   | "fondogeneral"
   | "facturas"
   | "agregarproveedor"
@@ -867,6 +869,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       icon: ClipboardPenLine,
       description: "Registro Tucan",
       permission: "registroTucan" as keyof UserPermissions,
+    },
+    {
+      id: "anotaciones" as ActiveTab,
+      name: "Anotaciones",
+      icon: NotebookPen,
+      description: "En mantenimiento",
+      permission: "anotaciones" as keyof UserPermissions,
     },
   ];
 

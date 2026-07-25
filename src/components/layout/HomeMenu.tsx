@@ -44,6 +44,7 @@ import {
   ChartNoAxesCombined,
   CircleDollarSign,
   ClipboardPenLine,
+  NotebookPen,
 } from "lucide-react";
 import AnimatedStickman from "../ui/AnimatedStickman";
 import { User, UserPermissions } from "../../types/firestore";
@@ -210,6 +211,13 @@ const menuItems = [
     icon: ClipboardPenLine,
     description: "Registro Tucan",
     permission: "registroTucan" as keyof UserPermissions,
+  },
+  {
+    id: "anotaciones",
+    name: "Anotaciones",
+    icon: NotebookPen,
+    description: "En mantenimiento",
+    permission: "anotaciones" as keyof UserPermissions,
   },
   {
     id: "edit",

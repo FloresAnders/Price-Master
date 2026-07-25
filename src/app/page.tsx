@@ -146,6 +146,10 @@ const RegistroTucan = dynamic(
   () => import("@/components/business/RegistroTucan"),
   { ssr: false },
 );
+const AnotacionesPage = dynamic(
+  () => import("@/components/anotaciones/AnotacionesPage"),
+  { ssr: false },
+);
 
 // 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders", "edit", "scanhistory", "solicitud", "agregarproveedor", "reportes"
 type ActiveTab =
@@ -166,6 +170,7 @@ type ActiveTab =
   | "edit"
   | "solicitud"
   | "registroTucan"
+  | "anotaciones"
   | "fondogeneral"
   | "agregarproveedor"
   | "facturas"
@@ -277,6 +282,7 @@ export default function HomePage() {
     ? user.permissions || getDefaultPermissions(user.role || "user")
     : null;
   const canAccessRegistroTucan = Boolean(resolvedPermissions?.registroTucan);
+  const canAccessAnotaciones = Boolean(resolvedPermissions?.anotaciones);
 
   // 4) Al montar, leemos el hash de la URL y marcamos la pestaña correspondiente
   useEffect(() => {
@@ -293,6 +299,12 @@ export default function HomePage() {
         }
 
         if (hash === "registroTucan" && user && !canAccessRegistroTucan) {
+          safeWindow.location.hash("");
+          setActiveTab(null);
+          return;
+        }
+
+        if (hash === "anotaciones" && user && !canAccessAnotaciones) {
           safeWindow.location.hash("");
           setActiveTab(null);
           return;
@@ -315,6 +327,7 @@ export default function HomePage() {
           "scanhistory",
           "solicitud",
           "registroTucan",
+          "anotaciones",
           "fondogeneral",
           "agregarproveedor",
           "facturas",
@@ -336,7 +349,7 @@ export default function HomePage() {
     checkAndSetTab();
     const timeout = setTimeout(checkAndSetTab, 100);
     return () => clearTimeout(timeout);
-  }, [isSuperAdmin, user, canAccessRegistroTucan]);
+  }, [isSuperAdmin, user, canAccessRegistroTucan, canAccessAnotaciones]);
 
   // 6) Escuchar cambios en el hash para actualizar la pestaña activa
   useEffect(() => {
@@ -353,6 +366,12 @@ export default function HomePage() {
         }
 
         if (hash === "registroTucan" && user && !canAccessRegistroTucan) {
+          safeWindow.location.hash("");
+          setActiveTab(null);
+          return;
+        }
+
+        if (hash === "anotaciones" && user && !canAccessAnotaciones) {
           safeWindow.location.hash("");
           setActiveTab(null);
           return;
@@ -376,6 +395,7 @@ export default function HomePage() {
           "edit",
           "solicitud",
           "registroTucan",
+          "anotaciones",
           "fondogeneral",
           "agregarproveedor",
           "facturas",
@@ -395,7 +415,7 @@ export default function HomePage() {
         window.removeEventListener("hashchange", handleHashChange);
       };
     }
-  }, [isSuperAdmin, user, canAccessRegistroTucan]);
+  }, [isSuperAdmin, user, canAccessRegistroTucan, canAccessAnotaciones]);
   return (
     <>
       <div className="flex-1 max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -492,6 +512,11 @@ export default function HomePage() {
               {/* REGISTRO TUCAN */}
               {activeTab === "registroTucan" && canAccessRegistroTucan && (
                 <RegistroTucan />
+              )}
+
+              {/* ANOTACIONES */}
+              {activeTab === "anotaciones" && canAccessAnotaciones && (
+                <AnotacionesPage />
               )}
 
               {/* EDIT / MANTENIMIENTO */}

@@ -9,6 +9,7 @@ import {
   History,
   Layers,
   List,
+  NotebookPen,
   CircleDollarSign,
   Scan,
   Settings,
@@ -255,6 +256,15 @@ export const HOME_MENU_FAVORITE_OPTIONS: HomeMenuFavoriteOption[] = [
     icon: FileText,
     permission: "registroTucan",
     hash: "registroTucan",
+  },
+  {
+    id: "anotaciones",
+    label: "Anotaciones",
+    description: "En mantenimiento",
+    group: "Herramientas",
+    icon: NotebookPen,
+    permission: "anotaciones",
+    hash: "anotaciones",
   },
   {
     id: "recetas",
