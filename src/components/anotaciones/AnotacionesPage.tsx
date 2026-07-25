@@ -71,6 +71,8 @@ const DEFAULT_LAYOUT: AnotacionLayout = {
 const BOARD_MIN_HEIGHT = 1800;
 const CARD_GAP = 1;
 const QUICK_NOTE_TITLE = "Nueva nota";
+const QUICK_EDIT_MIN_WIDTH = 330;
+const QUICK_EDIT_MIN_HEIGHT = 250;
 
 const PRIORITY_META: Record<
   AnotacionPriority,
@@ -312,6 +314,9 @@ export default function AnotacionesPage() {
   const [newNoteOpen, setNewNoteOpen] = useState(false);
   const [classicNoteOpen, setClassicNoteOpen] = useState(false);
   const [classicDraft, setClassicDraft] = useState(EMPTY_CLASSIC_DRAFT);
+  const [classicEditNoteId, setClassicEditNoteId] = useState<string | null>(
+    null,
+  );
   const [saving, setSaving] = useState(false);
   const [donePulseId, setDonePulseId] = useState<string | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
@@ -629,6 +634,24 @@ export default function AnotacionesPage() {
     };
   };
 
+  const openQuickEdit = (note: Anotacion, index = 0) => {
+    const layout = getLayout(note, index);
+    const nextZ =
+      Math.max(0, ...Object.values(layouts).map((item) => item.z)) + 1;
+    mergeLayout(
+      note.id,
+      {
+        width: Math.max(layout.width, QUICK_EDIT_MIN_WIDTH),
+        height: Math.max(layout.height, QUICK_EDIT_MIN_HEIGHT),
+        z: nextZ,
+      },
+      true,
+      layout,
+    );
+    setQuickEditId(note.id);
+    setMenuNoteId(null);
+  };
+
   const buildCreateInput = (overrides?: Partial<AnotacionInput>): AnotacionInput => ({
     empresa: selectedCompany,
     ownerId: selectedEmpresaMeta?.ownerId || primaryOwnerId,
@@ -656,6 +679,7 @@ export default function AnotacionesPage() {
     });
     setLayouts((prev) => ({ ...prev, [note.id]: layout }));
     await persistLayout(note.id, layout);
+    return layout;
   };
 
   const handleCreateQuick = async () => {
@@ -664,7 +688,14 @@ export default function AnotacionesPage() {
     try {
       const note = await AnotacionesService.create(buildCreateInput());
       setNotes((prev) => [note, ...prev]);
-      await placeNewNote(note);
+      const createdLayout = await placeNewNote(note);
+      const layout = {
+        ...createdLayout,
+        width: QUICK_EDIT_MIN_WIDTH,
+        height: QUICK_EDIT_MIN_HEIGHT,
+        z: Math.max(1, ...Object.values(layouts).map((l) => l.z)) + 2,
+      };
+      mergeLayout(note.id, layout, true, createdLayout);
       setQuickEditId(note.id);
       setNewNoteOpen(false);
     } catch (err) {
@@ -693,6 +724,7 @@ export default function AnotacionesPage() {
       await placeNewNote(note);
       setNewNoteOpen(false);
       setClassicNoteOpen(false);
+      setClassicEditNoteId(null);
       setClassicDraft(EMPTY_CLASSIC_DRAFT);
     } catch (err) {
       console.error("Error creating anotacion:", err);
@@ -700,6 +732,44 @@ export default function AnotacionesPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleOpenClassicEdit = (note: Anotacion) => {
+    setClassicDraft({
+      title: note.title === QUICK_NOTE_TITLE ? "" : note.title,
+      description: note.description,
+      category: note.category,
+      color: note.color,
+      priority: note.priority,
+      reminderAt: toDatetimeLocalValue(note.reminderAt),
+    });
+    setClassicEditNoteId(note.id);
+    setClassicNoteOpen(true);
+    setNewNoteOpen(true);
+    setMenuNoteId(null);
+  };
+
+  const handleSaveClassicEdit = async () => {
+    if (!classicEditNoteId || !classicDraft.title.trim()) return;
+    await handleUpdate(classicEditNoteId, {
+      title: classicDraft.title.trim(),
+      description: classicDraft.description.trim(),
+      category: classicDraft.category.trim() || "General",
+      color: classicDraft.color,
+      priority: classicDraft.priority,
+      reminderAt: fromDatetimeLocalValue(classicDraft.reminderAt) || "",
+    });
+    setNewNoteOpen(false);
+    setClassicNoteOpen(false);
+    setClassicEditNoteId(null);
+    setClassicDraft(EMPTY_CLASSIC_DRAFT);
+  };
+
+  const closeClassicModal = () => {
+    setNewNoteOpen(false);
+    setClassicNoteOpen(false);
+    setClassicEditNoteId(null);
+    setClassicDraft(EMPTY_CLASSIC_DRAFT);
   };
 
   const handleUpdate = async (noteId: string, updates: Partial<Anotacion>) => {
@@ -935,7 +1005,7 @@ export default function AnotacionesPage() {
               }}
               onDoubleClick={(event) => {
                 event.stopPropagation();
-                setQuickEditId(note.id);
+                openQuickEdit(note, index);
               }}
               className={`absolute rounded-lg border p-0 shadow-2xl transition-opacity ${
                 note.status === "done" ? "opacity-60" : "opacity-100"
@@ -1047,6 +1117,14 @@ export default function AnotacionesPage() {
                 >
                   <button
                     type="button"
+                    onClick={() => handleOpenClassicEdit(note)}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-white/10"
+                  >
+                    <NotebookPen className="h-4 w-4" />
+                    Editar
+                  </button>
+                  <button
+                    type="button"
                     onClick={() =>
                       mergeLayout(
                         note.id,
@@ -1106,16 +1184,15 @@ export default function AnotacionesPage() {
       </div>
 
       {newNoteOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-lg rounded-lg border border-white/15 bg-slate-950 p-5 text-white shadow-2xl">
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 p-4">
+          <div className="relative z-[10001] w-full max-w-lg rounded-lg border border-white/15 bg-slate-950 p-5 text-white shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Nueva nota</h3>
+              <h3 className="text-lg font-semibold">
+                {classicEditNoteId ? "Editar nota" : "Nueva nota"}
+              </h3>
               <button
                 type="button"
-                onClick={() => {
-                  setNewNoteOpen(false);
-                  setClassicNoteOpen(false);
-                }}
+                onClick={closeClassicModal}
                 className="rounded p-1 hover:bg-white/10"
               >
                 <X className="h-5 w-5" />
@@ -1153,8 +1230,15 @@ export default function AnotacionesPage() {
                 draft={classicDraft}
                 saving={saving}
                 onChange={setClassicDraft}
-                onBack={() => setClassicNoteOpen(false)}
-                onCreate={handleCreateClassic}
+                onBack={
+                  classicEditNoteId
+                    ? closeClassicModal
+                    : () => setClassicNoteOpen(false)
+                }
+                onSubmit={
+                  classicEditNoteId ? handleSaveClassicEdit : handleCreateClassic
+                }
+                submitLabel={classicEditNoteId ? "Guardar cambios" : "Crear nota"}
               />
             )}
           </div>
@@ -1175,18 +1259,27 @@ function QuickEditForm({
     note.title === QUICK_NOTE_TITLE ? "" : note.title,
   );
   const [description, setDescription] = useState(note.description);
+  const saveQuickNote = () => {
+    void onSave(note, title, description);
+  };
 
   return (
     <form
       className="space-y-2"
       onSubmit={(event) => {
         event.preventDefault();
-        void onSave(note, title, description);
+        saveQuickNote();
       }}
     >
       <input
         value={title}
         onChange={(event) => setTitle(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            saveQuickNote();
+          }
+        }}
         placeholder="Titulo de la anotacion"
         className="w-full rounded border border-white/15 bg-black/35 px-2 py-1 text-sm font-semibold text-white outline-none"
         autoFocus
@@ -1194,6 +1287,12 @@ function QuickEditForm({
       <textarea
         value={description}
         onChange={(event) => setDescription(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            saveQuickNote();
+          }
+        }}
         placeholder="Descripcion rapida..."
         className="h-16 w-full resize-none rounded border border-white/15 bg-black/35 px-2 py-1 text-sm text-white outline-none"
       />
@@ -1289,20 +1388,22 @@ function ClassicNoteForm({
   saving,
   onChange,
   onBack,
-  onCreate,
+  onSubmit,
+  submitLabel,
 }: {
   draft: typeof EMPTY_CLASSIC_DRAFT;
   saving: boolean;
   onChange: (draft: typeof EMPTY_CLASSIC_DRAFT) => void;
   onBack: () => void;
-  onCreate: () => Promise<void>;
+  onSubmit: () => Promise<void>;
+  submitLabel: string;
 }) {
   return (
     <form
       className="space-y-4"
       onSubmit={(event) => {
         event.preventDefault();
-        void onCreate();
+        void onSubmit();
       }}
     >
       <div className="rounded-lg border border-white/15 bg-white/[0.08] p-3 shadow-inner">
@@ -1383,7 +1484,7 @@ function ClassicNoteForm({
           disabled={saving || !draft.title.trim()}
           className="rounded-md bg-indigo-500 px-4 py-2 text-sm font-semibold hover:bg-indigo-400 disabled:opacity-60"
         >
-          Crear nota
+          {submitLabel}
         </button>
       </div>
     </form>
