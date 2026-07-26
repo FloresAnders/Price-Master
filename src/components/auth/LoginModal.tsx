@@ -35,7 +35,7 @@ export default function LoginModal({
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [keepSessionActive, setKeepSessionActive] = useState(false);
-  const [useTokenAuth, setUseTokenAuth] = useState(false); // Nueva opción para tokens
+  const [useTokenAuth, setUseTokenAuth] = useState(true); // Nueva opción para tokens
   const [showRecoveryModal, setShowRecoveryModal] = useState(false);
   const [failedAttempts, setFailedAttempts] = useState(0); // Contador de intentos fallidos
   const [usernameValid, setUsernameValid] = useState<boolean | null>(null);
@@ -169,7 +169,7 @@ export default function LoginModal({
         setUsername("");
         setPassword("");
         setKeepSessionActive(false);
-        setUseTokenAuth(false);
+        setUseTokenAuth(true);
         setFailedAttempts(0); // Resetear contador en login exitoso
       } else {
         setError("Credenciales invalidas");
