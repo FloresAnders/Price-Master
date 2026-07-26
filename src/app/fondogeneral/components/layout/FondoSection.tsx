@@ -64,6 +64,7 @@ import {
 
 
 import DailyClosingModal, { DailyClosingFormValues } from "../modals/DailyClosingModal";
+import DailyClosingSummaryModal from "../modals/DailyClosingSummaryModal";
 import CashOpeningModal, { CashOpeningFormValues } from "../modals/CashOpeningModal";
 import FacturaPaymentModal from "../modals/FacturaPaymentModal";
 import { FondoTotalsSummary } from "../FondoTotalsSummary";
@@ -656,6 +657,8 @@ export function FondoSection({
   const currentTurno: "D" | "N" = "D";
   const [dailyClosingTurno, setDailyClosingTurno] =
     useState<"D" | "N">(currentTurno);
+  const [dailyClosingSummaryRecord, setDailyClosingSummaryRecord] =
+    useState<DailyClosingRecord | null>(null);
   const [authoritativeCRDateKey, setAuthoritativeCRDateKey] = useState("");
   const [dailyClosingOperationalDateKey, setDailyClosingOperationalDateKey] =
     useState("");
@@ -4226,7 +4229,9 @@ export function FondoSection({
     ],
   );
 
-  const handleConfirmDailyClosing = async (closing: DailyClosingFormValues) => {
+  const handleConfirmDailyClosing = async (
+    closing: DailyClosingFormValues,
+  ): Promise<DailyClosingRecord | null> => {
     const operationalDateKey = getCostaRicaOperationalDateKey(
       closing.closingDate,
       empresaForShiftResolution?.horarioApertura,
@@ -4237,7 +4242,7 @@ export function FondoSection({
         "error",
         6000,
       );
-      return;
+      return null;
     }
     const cierreFondoVentasForDailyClosing =
       getCierreFondoVentasForDailyClosing(operationalDateKey, closing.turno);
@@ -4250,7 +4255,7 @@ export function FondoSection({
         "warning",
         6000,
       );
-      return;
+      return null;
     }
     const closingWithCierreManager: DailyClosingFormValues = {
       ...closing,
@@ -4263,7 +4268,7 @@ export function FondoSection({
         operationalDateKey,
       );
 
-    await handleConfirmDailyClosingFn(closingWithCierreManager, {
+    const savedRecord = await handleConfirmDailyClosingFn(closingWithCierreManager, {
       accountKey,
       activeOwnerId,
       beginDailyClosingsRequest,
@@ -4305,10 +4310,14 @@ export function FondoSection({
       storageSnapshotRef,
       user,
     });
-    setLatestMovementOverall({
-      requiresOpening: empresaSolicitaApertura,
-      accountId: "FondoGeneral",
-    } as FondoEntry);
+    if (savedRecord) {
+      setDailyClosingSummaryRecord(savedRecord);
+      setLatestMovementOverall({
+        requiresOpening: empresaSolicitaApertura,
+        accountId: "FondoGeneral",
+      } as FondoEntry);
+    }
+    return savedRecord;
   };
 
   const validateBeforeMovementSubmitConfirm = useCallback(async () => {
@@ -6280,6 +6289,12 @@ export function FondoSection({
           t11: dailyClosingDayD?.reconciliation?.calculated.cumulativeT11 ?? 0,
         } : { r08: 0, t11: 0 }}
         systemVerificationEnabled={activeEmpresaForCompany?.verificacionSistemas !== false}
+      />
+
+      <DailyClosingSummaryModal
+        open={Boolean(dailyClosingSummaryRecord)}
+        record={dailyClosingSummaryRecord}
+        onClose={() => setDailyClosingSummaryRecord(null)}
       />
 
       <FacturaPaymentModal

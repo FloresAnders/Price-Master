@@ -107,7 +107,7 @@ const formatDailyClosingDiff = (currency: "CRC" | "USD", diff: number) => {
 export async function handleConfirmDailyClosing(
   closing: DailyClosingFormValues,
   deps: HandleConfirmDailyClosingDeps,
-) {
+): Promise<DailyClosingRecord | null> {
   const {
     accountKey,
     activeOwnerId,
@@ -150,13 +150,13 @@ export async function handleConfirmDailyClosing(
 
   if (accountKey !== "FondoGeneral") {
     setDailyClosingModalOpen(false);
-    return;
+    return null;
   }
 
   const managerName = closing.manager.trim();
   if (!managerName) {
     setDailyClosingModalOpen(false);
-    return;
+    return null;
   }
 
   const dailyClosingSchedule = {
@@ -167,7 +167,7 @@ export async function handleConfirmDailyClosing(
   };
   if (!isValidDailyClosingSchedule(dailyClosingSchedule)) {
     showToast(DAILY_CLOSING_SCHEDULE_REQUIRED_ERROR, "warning", 6000);
-    return;
+    return null;
   }
 
   const createdAtISO = await getAuthoritativeNowISO();
@@ -209,7 +209,7 @@ export async function handleConfirmDailyClosing(
   const previousDayClosing = sameDayClosings.find((item) => item.turno === "D");
   if (closing.turno === "N" && !previousDayClosing) {
     showToast("Debe existir cierre diurno antes del nocturno.", "warning", 5000);
-    return;
+    return null;
   }
   let reconciliation;
   if (systemVerificationEnabled) {
@@ -224,7 +224,7 @@ export async function handleConfirmDailyClosing(
       });
     } catch (error) {
       showToast(error instanceof Error ? error.message : "Datos de conciliación inválidos.", "warning", 6000);
-      return;
+      return null;
     }
   }
 
@@ -234,7 +234,7 @@ export async function handleConfirmDailyClosing(
       "warning",
       5000,
     );
-    return;
+    return null;
   }
   if (noMovements && !noMovementsReason) {
     showToast(
@@ -242,7 +242,7 @@ export async function handleConfirmDailyClosing(
       "warning",
       5000,
     );
-    return;
+    return null;
   }
 
   const record: DailyClosingRecord = {
@@ -274,7 +274,7 @@ export async function handleConfirmDailyClosing(
   if (normalizedCompany.length === 0) {
     setDailyClosingModalOpen(false);
     showToast("Error: No se pudo identificar la empresa", "error");
-    return;
+    return null;
   }
 
   let closingGuard: { token: string; docId: string } | null = null;
@@ -296,7 +296,7 @@ export async function handleConfirmDailyClosing(
           "warning",
           6000,
         );
-        return;
+        return null;
       }
       closingGuard = { token: acquired.token, docId: acquired.docId };
     }
@@ -309,7 +309,7 @@ export async function handleConfirmDailyClosing(
   if (!isEditingClosing) {
     if (dailyClosingSubmitInProgressRef.current || dailyClosingsRequestCountRef.current > 0) {
       showToast("Ya hay un cierre guardándose. Espere un momento.", "warning", 4000);
-      return;
+      return null;
     }
 
     const nowMs = serverNowMs;
@@ -336,7 +336,7 @@ export async function handleConfirmDailyClosing(
           "warning",
           5000,
         );
-        return;
+        return null;
       }
     }
 
@@ -395,11 +395,11 @@ export async function handleConfirmDailyClosing(
         void releaseClosingGuard(normalizedCompany, closingGuard);
         closingGuard = null;
       }
-      return;
+      return null;
     }
     if (err instanceof Error && err.message === DAILY_CLOSING_SCHEDULE_REQUIRED_ERROR) {
       showToast(err.message, "warning", 6000);
-      return;
+      return null;
     }
 
     const errorReason =
@@ -463,7 +463,7 @@ export async function handleConfirmDailyClosing(
       }
       closingGuard = null;
     }
-    return;
+    return null;
   } finally {
     finishDailyClosingsRequest();
     if (!isEditingClosing) {
@@ -1059,4 +1059,5 @@ export async function handleConfirmDailyClosing(
 
   setEditingDailyClosingId(null);
   setDailyClosingInitialValues(null);
+  return record;
 }

@@ -20,12 +20,14 @@ import {
   getBillCountKeyAction,
   parseBillCountInput,
 } from "@/components/business/cash-counter-tabs/utils";
+import type { DailyClosingRecord } from "@/services/daily-closings";
 // Usar botones nativos con clases Tailwind en vez de un componente Button central
 
 const CRC_DENOMINATIONS: readonly number[] = [
   20000, 10000, 5000, 2000, 1000, 500, 100, 50, 25,
 ];
 const USD_DENOMINATIONS: readonly number[] = [100, 50, 20, 10, 5, 1];
+const RELEVANT_RECONCILIATION_DIFF_THRESHOLD = 500;
 
 type CountState = Record<number, string>;
 
@@ -207,7 +209,7 @@ export type DailyClosingFormValues = {
 type DailyClosingModalProps = {
   open: boolean;
   onClose: () => void;
-  onConfirm: (values: DailyClosingFormValues) => void;
+  onConfirm: (values: DailyClosingFormValues) => Promise<DailyClosingRecord | null>;
   initialValues?: DailyClosingFormValues | null;
   editId?: string | null;
   onShowHistory?: () => void;
@@ -285,12 +287,13 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const [confirmDiffOpen, setConfirmDiffOpen] = useState(false);
   const [pendingSubmitValues, setPendingSubmitValues] =
     useState<DailyClosingFormValues | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
 
   const secondaryButtonClass =
     "inline-flex h-11 items-center justify-center rounded-lg border border-[var(--input-border)] px-4 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20 disabled:cursor-not-allowed disabled:opacity-60";
   const primaryButtonClass =
-    "inline-flex h-11 items-center justify-center rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60";
+    "inline-flex h-11 min-w-[11rem] items-center justify-center gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-5 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-[var(--accent-hover)] hover:shadow-md active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card-bg)] disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none";
 
   const crcFormatter = useMemo(
     () =>
@@ -404,6 +407,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     systemVerificationEnabled &&
     (r08Num === 0 || t11Num === 0 || tucanNum === 0 || tiemposNum === 0);
   const submitDisabled =
+    submitting ||
     displayedManager.trim().length === 0 ||
     !hasAnyCash ||
     hasZeroClosingReport ||
@@ -436,6 +440,11 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     [formatCRCAmount],
   );
 
+  const isRelevantReconciliationDifference = useCallback(
+    (value: number) => Math.abs(value) > RELEVANT_RECONCILIATION_DIFF_THRESHOLD,
+    [],
+  );
+
   const reconciliationStatusLabel = useMemo(() => {
     if (!reconciliationPreview) return "";
     switch (reconciliationPreview.tiemposStatus) {
@@ -460,12 +469,21 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     if (!reconciliationPreview) return "neutral";
     if (hasZeroClosingReport) return "neutral";
     if (tucanBelowTurnoD || tiemposBelowTurnoD) return "danger";
+    const hasRelevantTucanDifference = isRelevantReconciliationDifference(
+      reconciliationPreview.calculated.tucanDifference,
+    );
     if (
-      reconciliationPreview.calculated.tucanDifference !== 0 ||
+      hasRelevantTucanDifference ||
       reconciliationPreview.tiemposStatus === "REAL_DIFFERENCE" ||
       reconciliationPreview.tiemposStatus === "DAILY_UNRESOLVED"
     ) {
       return "danger";
+    }
+    if (
+      reconciliationPreview.calculated.tucanDifference !== 0 ||
+      reconciliationPreview.calculated.tiemposDifference !== 0
+    ) {
+      return "warning";
     }
     if (reconciliationPreview.tiemposStatus === "RESOLVED") {
       return "success";
@@ -477,7 +495,13 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
       return "warning";
     }
     return "success";
-  }, [reconciliationPreview, hasZeroClosingReport, tucanBelowTurnoD, tiemposBelowTurnoD]);
+  }, [
+    reconciliationPreview,
+    hasZeroClosingReport,
+    tucanBelowTurnoD,
+    tiemposBelowTurnoD,
+    isRelevantReconciliationDifference,
+  ]);
 
   const reconciliationToneClass = useMemo(() => {
     switch (reconciliationTone) {
@@ -495,20 +519,34 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const reconciliationHeadline = useMemo(() => {
     if (!reconciliationPreview || hasZeroClosingReport) return "Complete los datos";
     if (reconciliationTone === "success") return "Todo cuadra";
+    if (
+      reconciliationPreview.calculated.tucanDifference !== 0 &&
+      !isRelevantReconciliationDifference(reconciliationPreview.calculated.tucanDifference)
+    ) {
+      return "Diferencia no relevante";
+    }
     if (reconciliationTone === "warning") return "Existe una diferencia compensable";
     return "Revisar cierre";
-  }, [reconciliationPreview, hasZeroClosingReport, reconciliationTone]);
+  }, [
+    reconciliationPreview,
+    hasZeroClosingReport,
+    reconciliationTone,
+    isRelevantReconciliationDifference,
+  ]);
 
   const reconciliationSummaryText = useMemo(() => {
     if (!reconciliationPreview || hasZeroClosingReport) return "Ingrese R08, T11, Tucan y Tiempos para verificar.";
     if (reconciliationTone === "success") return "No existen diferencias pendientes.";
-    if (reconciliationTone === "warning") return reconciliationStatusLabel;
     if (tucanBelowTurnoD || tiemposBelowTurnoD) return "El reporte nocturno no puede ser menor al turno diurno.";
     if (reconciliationPreview.calculated.tucanDifference !== 0) {
+      if (!isRelevantReconciliationDifference(reconciliationPreview.calculated.tucanDifference)) {
+        return `Diferencia menor o igual a ${formatCRCAmount(RELEVANT_RECONCILIATION_DIFF_THRESHOLD)}. No requiere revision.`;
+      }
       return reconciliationPreview.calculated.tucanDifference > 0
         ? `Contica registra ${formatCRCAmount(reconciliationPreview.calculated.tucanDifference)} mas que Tucan.`
         : `Tucan posee ${formatCRCAmount(reconciliationPreview.calculated.tucanDifference)} mas que Contica.`;
     }
+    if (reconciliationTone === "warning") return reconciliationStatusLabel;
     return reconciliationStatusLabel;
   }, [
     reconciliationPreview,
@@ -518,15 +556,29 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     tucanBelowTurnoD,
     tiemposBelowTurnoD,
     formatCRCAmount,
+    isRelevantReconciliationDifference,
   ]);
 
   const reconciliationActionText = useMemo(() => {
     if (!reconciliationPreview || hasZeroClosingReport) return "Completar datos para ver accion requerida.";
     if (reconciliationTone === "success") return "No requiere accion.";
-    if (reconciliationTone === "warning") return "Esperar al siguiente turno y validar compensacion.";
     if (tucanBelowTurnoD || tiemposBelowTurnoD) return "Corregir acumulados antes de guardar.";
+    if (
+      reconciliationPreview.calculated.tucanDifference !== 0 &&
+      !isRelevantReconciliationDifference(reconciliationPreview.calculated.tucanDifference)
+    ) {
+      return "No requiere revision.";
+    }
+    if (reconciliationTone === "warning") return "Esperar al siguiente turno y validar compensacion.";
     return "Revisar movimientos y validar reporte de Contica.";
-  }, [reconciliationPreview, hasZeroClosingReport, reconciliationTone, tucanBelowTurnoD, tiemposBelowTurnoD]);
+  }, [
+    reconciliationPreview,
+    hasZeroClosingReport,
+    reconciliationTone,
+    tucanBelowTurnoD,
+    tiemposBelowTurnoD,
+    isRelevantReconciliationDifference,
+  ]);
 
   const buildVerificationStatus = useCallback(
     (sourceLabel: string, diff: number, status?: ClosingReconciliation["tiemposStatus"]) => {
@@ -542,6 +594,13 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
           label: "Coincide",
           text: "Diferencia anterior resuelta. No requiere accion.",
           className: "border-emerald-500/25 bg-emerald-500/10 text-emerald-200",
+        };
+      }
+      if (sourceLabel === "Tucan" && diff !== 0 && !isRelevantReconciliationDifference(diff)) {
+        return {
+          label: "Diferencia no relevante",
+          text: `${formatReconciliationDifference(diff)}. No requiere revision.`,
+          className: "border-amber-500/25 bg-amber-500/10 text-amber-100",
         };
       }
       if (status === "TEMPORARY_PENDING" || status === "PARTIALLY_RESOLVED") {
@@ -560,7 +619,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
         className: "border-red-500/25 bg-red-500/10 text-red-100",
       };
     },
-    [formatCRCAmount, formatReconciliationDifference],
+    [formatCRCAmount, formatReconciliationDifference, isRelevantReconciliationDifference],
   );
 
   const compensationResultLabel = useMemo(() => {
@@ -578,6 +637,9 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   }, [reconciliationPreview]);
 
   const submitDisabledReason = useMemo(() => {
+    if (submitting) {
+      return "Guardando cierre. Espere un momento.";
+    }
     if (displayedManager.trim().length === 0) {
       return "Selecciona un encargado para poder guardar.";
     }
@@ -609,6 +671,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     formatCurrency,
     requireSingleClosingReason,
     singleClosingReason,
+    submitting,
   ]);
 
   const differenceLabel = useCallback(
@@ -877,6 +940,19 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     }, {});
   };
 
+  const submitClosingValues = async (values: DailyClosingFormValues) => {
+    setSubmitting(true);
+    try {
+      const savedRecord = await onConfirm(values);
+      if (savedRecord && systemVerificationEnabled && values.turno === "N") {
+        clearTurnoDSystemValues(values.closingDate);
+      }
+      return savedRecord;
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleSubmit = () => {
     const trimmedManager = displayedManager.trim();
     if (submitDisabled) return;
@@ -909,23 +985,19 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
       return;
     }
 
-    onConfirm(values);
-    if (systemVerificationEnabled && turno === "N") {
-      clearTurnoDSystemValues(closingDateISO);
-    }
+    void submitClosingValues(values);
   };
 
-  const handleConfirmDifferences = () => {
+  const handleConfirmDifferences = async () => {
     if (!pendingSubmitValues) {
       setConfirmDiffOpen(false);
       return;
     }
-    onConfirm(pendingSubmitValues);
-    if (systemVerificationEnabled && pendingSubmitValues.turno === "N") {
-      clearTurnoDSystemValues(pendingSubmitValues.closingDate);
+    const savedRecord = await submitClosingValues(pendingSubmitValues);
+    if (savedRecord) {
+      setConfirmDiffOpen(false);
+      setPendingSubmitValues(null);
     }
-    setConfirmDiffOpen(false);
-    setPendingSubmitValues(null);
   };
 
   const handleCancelDifferences = () => {
@@ -1457,7 +1529,12 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                 disabled={submitDisabled}
                 className={primaryButtonClass}
               >
-                {editId ? "Actualizar cierre" : "Guardar cierre"}
+                {submitting ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" strokeWidth={1.8} />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" strokeWidth={1.8} />
+                )}
+                {submitting ? "Guardando..." : editId ? "Actualizar cierre" : "Guardar cierre"}
               </button>
               {submitDisabled && submitDisabledReason ? (
                 <div
@@ -1481,6 +1558,8 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
         }
         cancelText="Revisar"
         actionType="change"
+        loading={submitting}
+        confirmDisabled={submitting}
         onConfirm={handleConfirmDifferences}
         onCancel={handleCancelDifferences}
       />
