@@ -8,12 +8,17 @@ import {
   Download,
   DollarSign,
   Loader2,
+  QrCode,
   RefreshCw,
+  Smartphone,
   User,
   X,
 } from "lucide-react";
+import QRCode from "qrcode";
+import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 
 import type { DailyClosingRecord } from "@/services/daily-closings";
+import { storage } from "@/config/firebase";
 
 type Currency = "CRC" | "USD";
 
@@ -244,15 +249,53 @@ const DailyClosingSummaryModal: React.FC<DailyClosingSummaryModalProps> = ({
 }) => {
   const summaryRef = React.useRef<HTMLDivElement | null>(null);
   const [downloading, setDownloading] = React.useState(false);
+  const [mobileDownloading, setMobileDownloading] = React.useState(false);
+  const [showQRModal, setShowQRModal] = React.useState(false);
+  const [qrCodeDataURL, setQrCodeDataURL] = React.useState("");
+  const [downloadURL, setDownloadURL] = React.useState("");
+  const [downloadFileName, setDownloadFileName] = React.useState("");
+  const [mobileDownloadError, setMobileDownloadError] = React.useState("");
+  const mobileDownloadRequestRef = React.useRef(0);
+  const openRef = React.useRef(open);
+
+  const resetMobileDownloadState = React.useCallback(() => {
+    setMobileDownloading(false);
+    setShowQRModal(false);
+    setQrCodeDataURL("");
+    setDownloadURL("");
+    setDownloadFileName("");
+    setMobileDownloadError("");
+  }, []);
+
+  const handleCloseQRModal = React.useCallback(() => {
+    mobileDownloadRequestRef.current += 1;
+    resetMobileDownloadState();
+    onClose();
+  }, [onClose, resetMobileDownloadState]);
+
+  const handleCloseSummary = React.useCallback(() => {
+    mobileDownloadRequestRef.current += 1;
+    resetMobileDownloadState();
+    onClose();
+  }, [onClose, resetMobileDownloadState]);
+
+  React.useEffect(() => {
+    openRef.current = open;
+  }, [open]);
 
   React.useEffect(() => {
     if (!open) return;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key !== "Escape") return;
+      if (showQRModal) {
+        handleCloseQRModal();
+        return;
+      }
+      handleCloseSummary();
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
+  }, [handleCloseQRModal, handleCloseSummary, open, showQRModal]);
 
   if (!open || !record) return null;
 
@@ -267,15 +310,15 @@ const DailyClosingSummaryModal: React.FC<DailyClosingSummaryModalProps> = ({
   const reconciliation = record.reconciliation;
   const tone = reconciliationTone(record);
   const tiemposCompensationSummary = buildTiemposCompensationSummary(record);
-  const handleDownloadImage = async () => {
-    if (!summaryRef.current || downloading) return;
-    setDownloading(true);
+  const captureSummaryImage = async () => {
+    if (!summaryRef.current) return null;
+    const html2canvas = (await import("html2canvas")).default;
+    const target = summaryRef.current;
+    const previousHeight = target.style.height;
+    const previousMaxHeight = target.style.maxHeight;
+    const previousOverflow = target.style.overflow;
+
     try {
-      const html2canvas = (await import("html2canvas")).default;
-      const target = summaryRef.current;
-      const previousHeight = target.style.height;
-      const previousMaxHeight = target.style.maxHeight;
-      const previousOverflow = target.style.overflow;
       target.style.height = `${target.scrollHeight}px`;
       target.style.maxHeight = "none";
       target.style.overflow = "visible";
@@ -304,35 +347,153 @@ const DailyClosingSummaryModal: React.FC<DailyClosingSummaryModalProps> = ({
         logging: boolean;
       };
       const canvas = await html2canvas(target, captureOptions);
-      target.style.height = previousHeight;
-      target.style.maxHeight = previousMaxHeight;
-      target.style.overflow = previousOverflow;
       const blob = await new Promise<Blob | null>((resolve) =>
         canvas.toBlob(resolve, "image/png"),
       );
-      if (!blob) return;
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
+      if (!blob) return null;
       const turnoPart = record.turno ?? "D";
       const managerPart = sanitizeFilenamePart(record.manager || "sin_encargado");
       const datePart = record.closingDate.slice(0, 10);
-      link.download = `CierreFG-${turnoPart}-${managerPart}-${datePart}.png`;
-      link.click();
-      URL.revokeObjectURL(url);
+      const fileName = `CierreFG-${turnoPart}-${managerPart}-${datePart}.png`;
+
+      return { blob, fileName };
     } finally {
-      const target = summaryRef.current;
-      if (target) {
-        target.style.height = "";
-        target.style.maxHeight = "";
-        target.style.overflow = "";
-      }
+      target.style.height = previousHeight;
+      target.style.maxHeight = previousMaxHeight;
+      target.style.overflow = previousOverflow;
+    }
+  };
+
+  const downloadBlob = (blob: Blob, fileName: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadImage = async () => {
+    if (downloading || mobileDownloading) return;
+    setDownloading(true);
+    try {
+      const image = await captureSummaryImage();
+      if (!image) return;
+      downloadBlob(image.blob, image.fileName);
+    } finally {
       setDownloading(false);
+    }
+  };
+
+  const handleMobileDownload = async () => {
+    if (downloading || mobileDownloading) return;
+    const requestId = mobileDownloadRequestRef.current + 1;
+    mobileDownloadRequestRef.current = requestId;
+    setMobileDownloading(true);
+    setMobileDownloadError("");
+    try {
+      const image = await captureSummaryImage();
+      if (!image) return;
+
+      const path = `exports/daily-closings/${Date.now()}_${image.fileName}`;
+      const imageRef = storageRef(storage, path);
+      await uploadBytes(imageRef, image.blob);
+      const url = await getDownloadURL(imageRef);
+      const qrDataUrl = await QRCode.toDataURL(url, {
+        width: 256,
+        margin: 2,
+        color: {
+          dark: "#000000",
+          light: "#FFFFFF",
+        },
+      });
+
+      if (mobileDownloadRequestRef.current !== requestId || !openRef.current) return;
+
+      setDownloadURL(url);
+      setDownloadFileName(image.fileName);
+      setQrCodeDataURL(qrDataUrl);
+      downloadBlob(image.blob, image.fileName);
+      setShowQRModal(true);
+    } catch (error) {
+      console.error("Error al generar descarga movil:", error);
+      if (mobileDownloadRequestRef.current === requestId && openRef.current) {
+        setMobileDownloadError("No se pudo generar la descarga movil.");
+      }
+    } finally {
+      if (mobileDownloadRequestRef.current === requestId) {
+        setMobileDownloading(false);
+      }
+    }
+  };
+
+  const handleDirectDownload = async () => {
+    if (!downloadURL) return;
+    try {
+      const response = await fetch(downloadURL);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      downloadBlob(blob, downloadFileName || "cierre-fondo-general.png");
+    } catch (error) {
+      console.error("Error al descargar imagen remota:", error);
+      window.open(downloadURL, "_blank", "noopener,noreferrer");
     }
   };
 
   return (
     <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 px-4">
+      {showQRModal ? (
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-[96vw] max-w-md rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-6 text-[var(--foreground)] shadow-2xl">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Smartphone className="h-5 w-5 text-[var(--accent)]" strokeWidth={1.8} />
+                <h3 className="text-lg font-semibold">Descarga movil</h3>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseQRModal}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--input-border)] hover:bg-[var(--muted)]/20"
+                aria-label="Cerrar modal QR"
+              >
+                <X className="h-4 w-4" strokeWidth={1.8} />
+              </button>
+            </div>
+            <p className="mb-4 text-sm text-[var(--muted-foreground)]">
+              Escanea este codigo QR con tu movil para descargar la imagen.
+            </p>
+            <div className="mb-4 flex justify-center">
+              <div className="rounded-lg bg-white p-4 shadow-md">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={qrCodeDataURL}
+                  alt="QR Code para descarga"
+                  className="h-48 w-48"
+                />
+              </div>
+            </div>
+            <div className="grid gap-3">
+              <button
+                type="button"
+                onClick={handleDirectDownload}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-semibold text-white hover:bg-[var(--accent-hover)]"
+              >
+                <Download className="h-4 w-4" strokeWidth={1.8} />
+                Descargar directamente
+              </button>
+              <button
+                type="button"
+                onClick={handleCloseQRModal}
+                className="inline-flex h-11 items-center justify-center rounded-lg border border-[var(--input-border)] px-4 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--muted)]/20"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] shadow-lg">
         <div className="flex items-start justify-between gap-4 border-b border-[var(--input-border)] px-5 py-4">
           <div>
@@ -343,7 +504,7 @@ const DailyClosingSummaryModal: React.FC<DailyClosingSummaryModalProps> = ({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleCloseSummary}
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--input-border)] text-[var(--foreground)] hover:bg-[var(--muted)]/20"
             aria-label="Cerrar resumen"
           >
@@ -494,10 +655,15 @@ const DailyClosingSummaryModal: React.FC<DailyClosingSummaryModalProps> = ({
         </div>
 
         <div className="flex flex-col justify-end gap-2 border-t border-[var(--input-border)] px-5 py-4 sm:flex-row">
+          {mobileDownloadError ? (
+            <div className="self-center text-sm text-red-300 sm:mr-auto">
+              {mobileDownloadError}
+            </div>
+          ) : null}
           <button
             type="button"
             onClick={handleDownloadImage}
-            disabled={downloading}
+            disabled={downloading || mobileDownloading}
             className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[var(--input-border)] px-4 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--muted)]/20 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {downloading ? (
@@ -509,7 +675,20 @@ const DailyClosingSummaryModal: React.FC<DailyClosingSummaryModalProps> = ({
           </button>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleMobileDownload}
+            disabled={downloading || mobileDownloading}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[var(--input-border)] px-4 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--muted)]/20 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {mobileDownloading ? (
+              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.8} />
+            ) : (
+              <QrCode className="h-4 w-4" strokeWidth={1.8} />
+            )}
+            {mobileDownloading ? "Generando..." : "Descarga movil"}
+          </button>
+          <button
+            type="button"
+            onClick={handleCloseSummary}
             className="inline-flex h-11 items-center justify-center rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-semibold text-white hover:bg-[var(--accent-hover)]"
           >
             Cerrar
