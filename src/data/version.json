@@ -11,6 +11,12 @@
   ],
   "systemNotes": [
     {
+      "date": "2026-07-30",
+      "title": "Agregado Chat Global",
+      "url": "",
+      "description": "Se agrego un chat global para que los usuarios puedan comunicarse entre ellos. El chat es visible para todos los usuarios del mismo owner y se puede acceder desde el menu lateral derecho."
+    },
+    {
       "date": "2026-07-24",
       "title": "Agregado registro de deudas internas",
       "url": "",

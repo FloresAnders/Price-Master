@@ -30,6 +30,14 @@ type OwnerOption = {
   label: string;
 };
 
+function deferStateUpdate(update: () => void): void {
+  if (typeof queueMicrotask === "function") {
+    queueMicrotask(update);
+    return;
+  }
+  void Promise.resolve().then(update);
+}
+
 function formatMessageTime(message: OwnerChatMessage): string {
   const date = message.createdAt?.toDate?.();
   if (!date) return "";
@@ -85,6 +93,7 @@ export default function OwnerChatWidget() {
   const userOwnerId = useMemo(() => getEffectiveOwnerChatId(user), [user]);
   const isSuperAdmin = user?.role === "superadmin";
   const activeOwnerId = isSuperAdmin ? selectedOwnerId : userOwnerId;
+  const currentUserId = user?.id || "";
   const activeOwnerLabel = buildOwnerLabel(
     user,
     ownerOptions.find((option) => option.id === selectedOwnerId)?.label || "",
@@ -96,13 +105,13 @@ export default function OwnerChatWidget() {
   }, [messages]);
 
   const unreadCount = useMemo(() => {
-    if (!user?.id) return 0;
+    if (!currentUserId) return 0;
     return messages.filter(
       (message) =>
-        message.senderId !== user.id &&
+        message.senderId !== currentUserId &&
         compareTimestamp(message.createdAt, readState.lastReadAt) > 0,
     ).length;
-  }, [messages, readState.lastReadAt, user?.id]);
+  }, [currentUserId, messages, readState.lastReadAt]);
 
   const playIncomingSound = useCallback(() => {
     if (readState.muted || typeof window === "undefined") return;
@@ -118,7 +127,9 @@ export default function OwnerChatWidget() {
     if (!isAuthenticated || !isSuperAdmin) return;
 
     let active = true;
-    setLoadingOwners(true);
+    deferStateUpdate(() => {
+      if (active) setLoadingOwners(true);
+    });
     UsersService.getAllUsers()
       .then((users) => {
         if (!active) return;
@@ -147,14 +158,23 @@ export default function OwnerChatWidget() {
   }, [isAuthenticated, isSuperAdmin]);
 
   useEffect(() => {
+    let active = true;
+
     if (!activeOwnerId) {
-      setMessages([]);
-      setResolvedSchedulesByMessageId({});
+      deferStateUpdate(() => {
+        if (!active) return;
+        setMessages([]);
+        setResolvedSchedulesByMessageId({});
+      });
       latestMessageIdRef.current = "";
-      return;
+      return () => {
+        active = false;
+      };
     }
 
-    setError("");
+    deferStateUpdate(() => {
+      if (active) setError("");
+    });
     const unsubscribe = subscribeOwnerChatMessages(
       activeOwnerId,
       (nextMessages) => {
@@ -186,12 +206,21 @@ export default function OwnerChatWidget() {
       },
     );
 
-    return () => unsubscribe();
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [activeOwnerId, playIncomingSound, user?.id]);
 
   useEffect(() => {
-    setResolvedSchedulesByMessageId({});
+    let active = true;
+    deferStateUpdate(() => {
+      if (active) setResolvedSchedulesByMessageId({});
+    });
     senderUserCacheRef.current.clear();
+    return () => {
+      active = false;
+    };
   }, [activeOwnerId]);
 
   useEffect(() => {
@@ -249,8 +278,13 @@ export default function OwnerChatWidget() {
 
   useEffect(() => {
     if (!activeOwnerId || !user?.id) {
-      setReadState({ lastReadAt: null, muted: false });
-      return;
+      let active = true;
+      deferStateUpdate(() => {
+        if (active) setReadState({ lastReadAt: null, muted: false });
+      });
+      return () => {
+        active = false;
+      };
     }
 
     const unsubscribe = subscribeOwnerChatReadState(
@@ -341,9 +375,14 @@ export default function OwnerChatWidget() {
                 <MessageCircle className="h-5 w-5" />
               </div>
               <div className="min-w-0 flex-1">
-                <h2 className="truncate text-sm font-semibold">
-                  Chat del equipo
-                </h2>
+                <div className="flex min-w-0 items-center gap-2">
+                  <h2 className="truncate text-sm font-semibold">
+                    Chat del equipo
+                  </h2>
+                  <span className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                    Beta
+                  </span>
+                </div>
                 <p className="truncate text-xs text-[var(--muted-foreground)]">
                   {activeOwnerLabel}
                 </p>
