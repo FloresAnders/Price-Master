@@ -186,7 +186,7 @@ const menuItems = [
   },
   {
     id: "deudasinternas",
-    name: "Deudas internas",
+    name: "Deudas Internas",
     icon: CircleDollarSign,
     description: "Administrar deudas entre empresas y personas",
     permission: "deudasInternas" as keyof UserPermissions,

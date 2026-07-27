@@ -39,7 +39,7 @@ const PERMISSION_LABELS = {
   fondogeneralBAC: "Fondo General - BAC",
   cajaNegra: "Caja Negra",
   tucan: "Tucan",
-  deudasInternas: "Deudas internas",
+  deudasInternas: "Deudas Internas",
   registroTucan: "Registro Tucan",
   solicitud: "Solicitud",
   anotaciones: "Anotaciones",

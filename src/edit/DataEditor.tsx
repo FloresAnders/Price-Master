@@ -1375,7 +1375,7 @@ export default function DataEditor() {
       mantenimiento: "Mantenimiento",
       cajaNegra: "Caja Negra",
       tucan: "Tucan",
-      deudasInternas: "Deudas internas",
+      deudasInternas: "Deudas Internas",
       registroTucan: "Registro Tucan",
       solicitud: "Solicitud",
       anotaciones: "Anotaciones",
