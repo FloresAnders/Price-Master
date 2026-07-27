@@ -322,7 +322,7 @@ export const HOME_MENU_FAVORITE_OPTIONS: HomeMenuFavoriteOption[] = [
   },
   {
     id: "deudasinternas",
-    label: "Deudas internas",
+    label: "Deudas Internas",
     description: "Administrar deudas entre empresas y personas",
     group: "Fondo General",
     icon: CircleDollarSign,

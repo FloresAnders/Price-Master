@@ -681,7 +681,7 @@ export default function DeudasInternasPage() {
           Acceso restringido
         </h1>
         <p className="mt-2 max-w-md text-sm text-[var(--muted-foreground)]">
-          Necesitas el permiso Deudas internas para usar esta sección.
+          Necesitas el permiso Deudas Internas para usar esta sección.
         </p>
       </div>
     );
@@ -693,7 +693,7 @@ export default function DeudasInternasPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-semibold text-[var(--foreground)]">
-              Deudas internas
+              Deudas Internas
             </h1>
             <span className="rounded bg-[var(--muted)] px-2 py-0.5 text-[10px] font-bold text-[var(--muted-foreground)]">
               BETA
