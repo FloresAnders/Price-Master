@@ -14,6 +14,7 @@ import SystemNotesInitializer from "../components/funciones/SystemNotesInitializ
 import { XmlEgresosProvider } from "../components/xml/XmlEgresosProvider";
 import BackToTop from "../components/ui/BackToTop";
 import SubscriptionNotice from "../components/subscription/SubscriptionNotice";
+import OwnerChatWidget from "../components/chat/OwnerChatWidget";
 
 export const metadata = {
   title: "Time Master",
@@ -138,6 +139,7 @@ export default function RootLayout({
                       {children}
                     </div>
                   </main>
+                  <OwnerChatWidget />
                   <BackToTop />
                   <Footer />
                 </XmlEgresosProvider>

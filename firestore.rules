@@ -426,10 +426,130 @@ service cloud.firestore {
           .hasOnly(['balance', 'status', 'movements', 'updatedAt']);
       allow delete: if isSuperAdmin();
     }
+
+    function isPrimaryAdminOwner(ownerId) {
+      return isRegularAdmin() &&
+        request.auth.token.eliminate == false &&
+        request.auth.uid == ownerId;
+    }
+
+    function isOwnerChatMember(ownerId) {
+      return isSignedIn() &&
+        (request.auth.token.role == 'admin' ||
+          request.auth.token.role == 'user') &&
+        (
+          isPrimaryAdminOwner(ownerId) ||
+          (
+            request.auth.token.ownerId is string &&
+            request.auth.token.ownerId == ownerId
+          )
+        );
+    }
+
+    function canReadOwnerChat(ownerId) {
+      return isSuperAdmin() || isOwnerChatMember(ownerId);
+    }
+
+    function hasOwnerChatMessageShape(ownerId) {
+      return request.resource.data.keys().hasOnly([
+          'ownerId',
+          'senderId',
+          'senderName',
+          'senderRole',
+          'senderScheduleCompany',
+          'senderScheduleManager',
+          'text',
+          'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'ownerId',
+          'senderId',
+          'senderName',
+          'senderRole',
+          'text',
+          'createdAt'
+        ]) &&
+        request.resource.data.ownerId == ownerId &&
+        request.resource.data.senderId == request.auth.uid &&
+        request.resource.data.senderName is string &&
+        request.resource.data.senderName.size() > 0 &&
+        request.resource.data.senderRole == request.auth.token.role &&
+        (
+          request.resource.data.senderRole == 'admin' ||
+          request.resource.data.senderRole == 'user' ||
+          request.resource.data.senderRole == 'superadmin'
+        ) &&
+        (!request.resource.data.keys().hasAny([
+            'senderScheduleCompany',
+            'senderScheduleManager'
+          ]) ||
+          (
+            request.resource.data.senderRole == 'user' &&
+            request.resource.data.keys().hasAll([
+              'senderScheduleCompany',
+              'senderScheduleManager'
+            ]) &&
+            request.resource.data.senderScheduleCompany is string &&
+            request.resource.data.senderScheduleCompany.size() > 0 &&
+            request.resource.data.senderScheduleCompany.size() <= 160 &&
+            request.resource.data.senderScheduleManager is string &&
+            request.resource.data.senderScheduleManager.size() > 0 &&
+            request.resource.data.senderScheduleManager.size() <= 120
+          )) &&
+        request.resource.data.text is string &&
+        request.resource.data.text.size() > 0 &&
+        request.resource.data.text.size() <= 2000 &&
+        request.resource.data.createdAt is timestamp;
+    }
+
+    function hasOwnerChatReadShape(ownerId, userId) {
+      return request.resource.data.keys().hasOnly([
+          'ownerId',
+          'userId',
+          'userName',
+          'muted',
+          'lastReadAt',
+          'updatedAt'
+        ]) &&
+        request.resource.data.ownerId == ownerId &&
+        request.resource.data.userId == userId &&
+        (!request.resource.data.keys().hasAny(['userName']) ||
+          request.resource.data.userName is string) &&
+        (!request.resource.data.keys().hasAny(['muted']) ||
+          request.resource.data.muted is bool) &&
+        (!request.resource.data.keys().hasAny(['lastReadAt']) ||
+          request.resource.data.lastReadAt is timestamp) &&
+        (!request.resource.data.keys().hasAny(['updatedAt']) ||
+          request.resource.data.updatedAt is timestamp);
+    }
+
+    match /ownerChats/{ownerId} {
+      allow read: if canReadOwnerChat(ownerId);
+      allow create, update: if false;
+      allow delete: if isSuperAdmin();
+
+      match /messages/{messageId} {
+        allow read: if canReadOwnerChat(ownerId);
+        allow create: if isOwnerChatMember(ownerId) &&
+          hasOwnerChatMessageShape(ownerId);
+        allow update, delete: if false;
+      }
+
+      match /reads/{userId} {
+        allow read: if canReadOwnerChat(ownerId) &&
+          (userId == request.auth.uid || isSuperAdmin());
+        allow create, update: if canReadOwnerChat(ownerId) &&
+          userId == request.auth.uid &&
+          hasOwnerChatReadShape(ownerId, userId);
+        allow delete: if canReadOwnerChat(ownerId) &&
+          (userId == request.auth.uid || isSuperAdmin());
+      }
+    }
     
     // Otras reglas existentes...
     match /{collection}/{document=**} {
       allow read, write: if request.auth != null &&
+        collection != 'ownerChats' &&
         collection != 'registrotucan' &&
         collection != 'pendingInvoiceDeletionRequests' &&
         collection != 'Facturas' &&
