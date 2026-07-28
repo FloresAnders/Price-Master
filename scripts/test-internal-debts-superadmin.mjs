@@ -10,7 +10,7 @@ const source = fs
 
 const compiled = ts.transpileModule(
   `${source}
-globalThis.__internalDebtTest = { applyInternalDebtMovement };`,
+globalThis.__internalDebtTest = { applyInternalDebtMovement, formatInternalDebtRoute };`,
   { compilerOptions: { module: ts.ModuleKind.ES2020, target: ts.ScriptTarget.ES2020 } },
 ).outputText;
 
@@ -20,7 +20,8 @@ const context = {
 vm.createContext(context);
 vm.runInContext(compiled, context);
 
-const { applyInternalDebtMovement } = context.__internalDebtTest;
+const { applyInternalDebtMovement, formatInternalDebtRoute } =
+  context.__internalDebtTest;
 
 const baseDebt = {
   id: "debt-1",
@@ -89,6 +90,11 @@ assert.throws(
       ["user:user-falso", "role:superadmin"],
     ),
   /Solo el acreedor puede registrar abonos/,
+);
+
+assert.equal(
+  formatInternalDebtRoute(baseDebt),
+  "User deudor -> Admin acreedor",
 );
 
 console.log("internal debts superadmin movement tests passed");

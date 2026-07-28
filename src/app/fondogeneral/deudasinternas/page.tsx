@@ -22,6 +22,7 @@ import { EmpresasService } from "@/services/empresas";
 import { UsersService } from "@/services/users";
 import {
   buildPartyKey,
+  formatInternalDebtRoute,
   InternalDebtsService,
   type InternalDebt,
   type InternalDebtMovementType,
@@ -804,7 +805,7 @@ export default function DeudasInternasPage() {
           const displayParty = actorPartyKeys.includes(buildPartyKey(debt.debtor))
             ? debt.creditor
             : debt.debtor;
-          const cardParty = isSuperAdmin ? debt.debtor : displayParty;
+          const cardParty = debt.debtor;
           const Icon = getActorIcon(cardParty.type);
           return (
             <button
@@ -831,9 +832,7 @@ export default function DeudasInternasPage() {
                   </div>
                   <div className="min-w-0">
                     <div className="truncate text-sm font-semibold text-[var(--foreground)]">
-                      {isSuperAdmin
-                        ? `${debt.debtor.name} -> ${debt.creditor.name}`
-                        : displayParty.name}
+                      {formatInternalDebtRoute(debt)}
                     </div>
                     <div className="text-xs text-[var(--muted-foreground)]">
                       {isSuperAdmin

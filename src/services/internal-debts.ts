@@ -101,6 +101,10 @@ export function buildPartyKey(party: InternalDebtParty): string {
   return `${type}:${id}`;
 }
 
+export function formatInternalDebtRoute(debt: Pick<InternalDebt, "debtor" | "creditor">): string {
+  return `${debt.debtor.name} -> ${debt.creditor.name}`;
+}
+
 export function createInternalDebtDraft(
   input: CreateInternalDebtInput,
 ): Omit<InternalDebt, "id"> {
