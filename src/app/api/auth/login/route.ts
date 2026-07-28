@@ -6,6 +6,11 @@ import {
   verifyPasswordServer,
   hashPasswordServer,
 } from "@/lib/auth/password.server";
+import {
+  AUTH_COOKIE_NAME,
+  createSessionCookieValue,
+  sessionCookieOptions,
+} from "@/lib/auth/session-cookie.server";
 
 export async function POST(request: Request) {
   try {
@@ -65,13 +70,21 @@ export async function POST(request: Request) {
 
     delete safeUser.password;
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         ok: true,
         user: safeUser,
       },
       { headers: { "Cache-Control": "no-store" } },
     );
+    if (safeUser.id) {
+      response.cookies.set(
+        AUTH_COOKIE_NAME,
+        createSessionCookieValue(safeUser.id),
+        sessionCookieOptions(),
+      );
+    }
+    return response;
   } catch (error) {
     console.error("Login error:", error);
     return NextResponse.json(

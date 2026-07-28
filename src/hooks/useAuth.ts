@@ -182,6 +182,11 @@ export function useAuth() {
 
   const logout = useCallback(
     (reason?: string) => {
+      fetch("/api/auth/logout", { method: "POST", keepalive: true }).catch(
+        () => {
+          // ignore
+        },
+      );
       // Limpiar datos de sesión según el tipo de autenticación
       if (useTokenAuth) {
         TokenService.revokeToken();

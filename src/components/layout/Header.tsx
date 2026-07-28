@@ -959,6 +959,11 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const handleLogoutClick = () => {
     // Si estamos en /home, limpiar TODAS las sesiones y redirigir
     if (isHomeRoute) {
+      fetch("/api/auth/logout", { method: "POST", keepalive: true }).catch(
+        () => {
+          // ignore
+        },
+      );
       // Limpiar sesión tradicional
       localStorage.removeItem("pricemaster_session");
       localStorage.removeItem("pricemaster_session_id");

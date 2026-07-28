@@ -8,6 +8,9 @@ import {
   GripVertical,
   MoreVertical,
   NotebookPen,
+  Eye,
+  EyeOff,
+  Lock,
   Pin,
   PinOff,
   Plus,
@@ -116,6 +119,15 @@ const EMPTY_CLASSIC_DRAFT = {
   priority: "medium" as AnotacionPriority,
   color: COLOR_OPTIONS[0],
   reminderAt: "",
+};
+
+type DeleteConfirmState = {
+  open: boolean;
+  note: Anotacion | null;
+  password: string;
+  showPassword: boolean;
+  submitting: boolean;
+  error: string;
 };
 
 type LayoutMap = Record<string, AnotacionLayout>;
@@ -259,7 +271,7 @@ const resolveMoveCollision = (
     0,
     Math.max(bounds?.height || 720, BOARD_MIN_HEIGHT) - candidate.height - CARD_GAP,
   );
-  let next = { ...candidate };
+  const next = { ...candidate };
 
   Object.entries(layouts).forEach(([id, layout]) => {
     if (id === noteId || !layoutsOverlap(next, layout)) return;
@@ -291,7 +303,6 @@ export default function AnotacionesPage() {
     ? user.permissions || getDefaultPermissions(user.role || "user")
     : null;
   const canUse = Boolean(permissions?.anotaciones);
-  const canDelete = user?.role === "admin" || user?.role === "superadmin";
   const canSelectCompany = user?.role === "admin" || user?.role === "superadmin";
   const userKey = String(user?.id || user?.email || "anonymous");
 
@@ -319,6 +330,14 @@ export default function AnotacionesPage() {
   );
   const [saving, setSaving] = useState(false);
   const [donePulseId, setDonePulseId] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState>({
+    open: false,
+    note: null,
+    password: "",
+    showPassword: false,
+    submitting: false,
+    error: "",
+  });
   const dragStateRef = useRef<DragState | null>(null);
   const layoutsRef = useRef<LayoutMap>({});
   const suppressNextClickRef = useRef(false);
@@ -819,21 +838,97 @@ export default function AnotacionesPage() {
   };
 
   const handleDelete = async (note: Anotacion) => {
-    if (!canDelete || !selectedCompany) {
-      await handleArchive(note);
-      return;
+    if (!selectedCompany) return;
+    setMenuNoteId(null);
+    setDeleteConfirm({
+      open: true,
+      note,
+      password: "",
+      showPassword: false,
+      submitting: false,
+      error: "",
+    });
+  };
+
+  const closeDeleteConfirm = () => {
+    if (deleteConfirm.submitting) return;
+    setDeleteConfirm({
+      open: false,
+      note: null,
+      password: "",
+      showPassword: false,
+      submitting: false,
+      error: "",
+    });
+  };
+
+  const confirmDeleteWithPassword = async () => {
+    const note = deleteConfirm.note;
+    const password = deleteConfirm.password;
+    if (!note || !selectedCompany || deleteConfirm.submitting) return;
+
+    setDeleteConfirm((prev) => ({ ...prev, submitting: true, error: "" }));
+    try {
+      try {
+        await deleteNotePermanently(note, password);
+      } catch {
+        setDeleteConfirm((prev) => ({
+          ...prev,
+          submitting: false,
+          error: "Contrasena incorrecta o sin permiso para eliminar.",
+        }));
+        return;
+      }
+      setDeleteConfirm({
+        open: false,
+        note: null,
+        password: "",
+        showPassword: false,
+        submitting: false,
+        error: "",
+      });
+    } catch (err) {
+      console.error("Error confirming anotacion deletion:", err);
+      setDeleteConfirm((prev) => ({
+        ...prev,
+        submitting: false,
+        error: "Error al validar la contrasena",
+      }));
     }
-    if (!window.confirm(`Eliminar "${note.title}" permanentemente?`)) return;
+  };
+
+  const deleteNotePermanently = async (
+    note: Anotacion,
+    password: string,
+  ) => {
+    if (!selectedCompany) return;
     const before = notes;
     setNotes((prev) => prev.filter((item) => item.id !== note.id));
-    setMenuNoteId(null);
     try {
-      await AnotacionesService.delete(selectedCompany, note.id);
-      await deleteAnotacionLayout(userKey, empresaId, note.id);
+      const response = await fetch("/api/anotaciones/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          password,
+          empresa: selectedCompany,
+          noteId: note.id,
+        }),
+      });
+      const result = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+      };
+      if (!response.ok || result.ok !== true) {
+        throw new Error("Delete rejected");
+      }
+      deleteAnotacionLayout(userKey, empresaId, note.id).catch((err) => {
+        console.warn("Error deleting anotacion layout:", err);
+      });
+      showToast("Anotacion eliminada.", "success", 3000);
     } catch (err) {
       setNotes(before);
       console.error("Error deleting anotacion:", err);
       showToast("No se pudo eliminar la anotacion.", "error", 4000);
+      throw err;
     }
   };
 
@@ -1164,7 +1259,7 @@ export default function AnotacionesPage() {
                     className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-200 hover:bg-red-500/15"
                   >
                     <Trash2 className="h-4 w-4" />
-                    {canDelete ? "Eliminar" : "Archivar"}
+                    Eliminar
                   </button>
                 </div>
               )}
@@ -1241,6 +1336,95 @@ export default function AnotacionesPage() {
                 submitLabel={classicEditNoteId ? "Guardar cambios" : "Crear nota"}
               />
             )}
+          </div>
+        </div>
+      )}
+
+      {deleteConfirm.open && deleteConfirm.note && (
+        <div
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 p-4"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div
+            className="relative z-[10001] w-full max-w-sm rounded-lg border border-white/15 bg-slate-950 p-5 text-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center gap-2">
+              <Lock className="h-5 w-5 text-red-200" />
+              <h3 className="text-lg font-semibold">Confirmar eliminacion</h3>
+            </div>
+            <p className="mb-3 text-sm text-slate-300">
+              Ingresa tu contrasena para eliminar {deleteConfirm.note.title}.
+            </p>
+            <div className="relative mb-3">
+              <input
+                type={deleteConfirm.showPassword ? "text" : "password"}
+                value={deleteConfirm.password}
+                onChange={(event) =>
+                  setDeleteConfirm((prev) => ({
+                    ...prev,
+                    password: event.target.value,
+                    error: "",
+                  }))
+                }
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void confirmDeleteWithPassword();
+                  }
+                }}
+                placeholder="Contrasena"
+                className="w-full rounded-md border border-white/15 bg-black/35 px-3 py-2 pr-10 text-sm text-white outline-none focus:border-red-300"
+                autoFocus
+                disabled={deleteConfirm.submitting}
+              />
+              <button
+                type="button"
+                onClick={() =>
+                  setDeleteConfirm((prev) => ({
+                    ...prev,
+                    showPassword: !prev.showPassword,
+                  }))
+                }
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 hover:text-white"
+                disabled={deleteConfirm.submitting}
+                aria-label={
+                  deleteConfirm.showPassword
+                    ? "Ocultar contrasena"
+                    : "Mostrar contrasena"
+                }
+              >
+                {deleteConfirm.showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+            {deleteConfirm.error ? (
+              <p className="mb-3 text-sm text-red-300">{deleteConfirm.error}</p>
+            ) : null}
+            <div className="flex flex-col gap-2 sm:flex-row-reverse">
+              <button
+                type="button"
+                onClick={() => void confirmDeleteWithPassword()}
+                disabled={
+                  deleteConfirm.submitting ||
+                  deleteConfirm.password.trim().length === 0
+                }
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-500 disabled:opacity-60"
+              >
+                {deleteConfirm.submitting ? "Eliminando..." : "Eliminar"}
+              </button>
+              <button
+                type="button"
+                onClick={closeDeleteConfirm}
+                disabled={deleteConfirm.submitting}
+                className="rounded-md border border-white/15 px-4 py-2 text-sm text-slate-100 transition hover:bg-white/10 disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1493,14 +1677,12 @@ function ClassicNoteForm({
 
 function EditDrawer({
   note,
-  canDelete,
   onClose,
   onUpdate,
   onArchive,
   onDelete,
 }: {
   note: Anotacion;
-  canDelete: boolean;
   onClose: () => void;
   onUpdate: (noteId: string, updates: Partial<Anotacion>) => Promise<void>;
   onArchive: (note: Anotacion) => Promise<void>;
@@ -1647,7 +1829,7 @@ function EditDrawer({
           className="flex items-center gap-2 rounded-md border border-red-400/30 px-4 py-2 text-sm text-red-200 hover:bg-red-500/15"
         >
           <Trash2 className="h-4 w-4" />
-          {canDelete ? "Eliminar" : "Archivar"}
+          Eliminar
         </button>
       </div>
     </aside>

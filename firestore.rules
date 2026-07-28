@@ -155,9 +155,7 @@ service cloud.firestore {
         isAnotacionPathConsistent(request.resource.data, empresaId) &&
         canAccessAnotacionScope(resource.data) &&
         canAccessAnotacionScope(request.resource.data);
-      allow delete: if hasAnotacionesPermission() &&
-        isAnotacionPathConsistent(resource.data, empresaId) &&
-        canAccessAnotacionScope(resource.data);
+      allow delete: if false;
     }
 
     function isRegistroTucanRecord() {
