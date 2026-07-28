@@ -168,6 +168,7 @@ export function applyInternalDebtMovement(
   debt: InternalDebt,
   movement: AddInternalDebtMovementInput,
   actorPartyKeys: string[],
+  canOverrideRole = false,
 ): InternalDebt {
   const debtorKey = buildPartyKey(debt.debtor);
   const creditorKey = buildPartyKey(debt.creditor);
@@ -176,10 +177,18 @@ export function applyInternalDebtMovement(
   if (debt.status === "paid" || debt.balance <= 0) {
     throw new Error("La deuda ya esta pagada y no se puede modificar.");
   }
-  if (movement.type === "charge" && !actorPartyKeys.includes(debtorKey)) {
+  if (
+    movement.type === "charge" &&
+    !canOverrideRole &&
+    !actorPartyKeys.includes(debtorKey)
+  ) {
     throw new Error("Solo el deudor puede agregar cargos.");
   }
-  if (movement.type === "payment" && !actorPartyKeys.includes(creditorKey)) {
+  if (
+    movement.type === "payment" &&
+    !canOverrideRole &&
+    !actorPartyKeys.includes(creditorKey)
+  ) {
     throw new Error("Solo el acreedor puede registrar abonos.");
   }
   if (movement.type === "payment" && amount > debt.balance) {
@@ -257,6 +266,17 @@ export class InternalDebtsService {
     );
   }
 
+  static async getActiveDebtsForSuperAdmin(): Promise<InternalDebt[]> {
+    const debts = (await FirestoreService.query(COLLECTION_NAME, [
+      { field: "status", operator: "==", value: "open" },
+    ])) as InternalDebt[];
+    return debts.sort(
+      (a, b) =>
+        new Date((b.updatedAt as unknown as string) || 0).getTime() -
+        new Date((a.updatedAt as unknown as string) || 0).getTime(),
+    );
+  }
+
   static async createDebt(input: CreateInternalDebtInput): Promise<string> {
     const draft = createInternalDebtDraft(input);
     return FirestoreService.add(COLLECTION_NAME, draft);
@@ -266,6 +286,7 @@ export class InternalDebtsService {
     debtId: string,
     movement: AddInternalDebtMovementInput,
     actorPartyKeys: string[],
+    canOverrideRole = false,
   ): Promise<void> {
     const id = normalizeText(debtId, "Id de deuda");
     const debtRef = doc(db, COLLECTION_NAME, id);
@@ -277,6 +298,7 @@ export class InternalDebtsService {
         current,
         movement,
         actorPartyKeys,
+        canOverrideRole,
       );
       transaction.update(debtRef, {
         balance: updated.balance,

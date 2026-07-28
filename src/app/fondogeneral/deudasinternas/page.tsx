@@ -268,9 +268,9 @@ export default function DeudasInternasPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<"all" | "debtor" | "creditor">(
-    "all",
-  );
+  const [roleFilter, setRoleFilter] = useState<
+    "all" | "debtor" | "creditor" | "admin" | "user"
+  >("all");
   const [showCreate, setShowCreate] = useState(false);
   const [showPaidDebts, setShowPaidDebts] = useState(false);
   const [selectedDebt, setSelectedDebt] = useState<InternalDebt | null>(null);
@@ -451,17 +451,16 @@ export default function DeudasInternasPage() {
 
   const loadDebts = useCallback(
     async (keys = readPartyKeys) => {
-      if (!primaryOwnerId || !canUse || keys.length === 0) {
+      if (!canUse || (!isSuperAdmin && (!primaryOwnerId || keys.length === 0))) {
         setDebts([]);
         return;
       }
-      const list = await InternalDebtsService.getVisibleDebts(
-        primaryOwnerId,
-        keys,
-      );
+      const list = isSuperAdmin
+        ? await InternalDebtsService.getActiveDebtsForSuperAdmin()
+        : await InternalDebtsService.getVisibleDebts(primaryOwnerId, keys);
       setDebts(list);
     },
-    [canUse, primaryOwnerId, readPartyKeys],
+    [canUse, isSuperAdmin, primaryOwnerId, readPartyKeys],
   );
 
   const refresh = useCallback(async () => {
@@ -492,6 +491,7 @@ export default function DeudasInternasPage() {
   );
   const selectedDebtRole = useMemo<"debtor" | "creditor" | null>(() => {
     if (!selectedDebt) return null;
+    if (isSuperAdmin) return "creditor";
     if (actorPartyKeys.includes(buildPartyKey(selectedDebt.creditor))) {
       return "creditor";
     }
@@ -499,10 +499,10 @@ export default function DeudasInternasPage() {
       return "debtor";
     }
     return null;
-  }, [actorPartyKeys, selectedDebt]);
+  }, [actorPartyKeys, isSuperAdmin, selectedDebt]);
   const roleMovementType: InternalDebtMovementType =
     selectedDebtRole === "creditor" ? "payment" : "charge";
-  const canChooseMovementType = isEmployeeUserDebt(selectedDebt);
+  const canChooseMovementType = isSuperAdmin || isEmployeeUserDebt(selectedDebt);
   const selectedMovementType: InternalDebtMovementType = canChooseMovementType
     ? movementForm.type
     : roleMovementType;
@@ -517,7 +517,15 @@ export default function DeudasInternasPage() {
       const roleMatch =
         roleFilter === "all" ||
         (roleFilter === "debtor" && actorPartyKeys.includes(debtorKey)) ||
-        (roleFilter === "creditor" && actorPartyKeys.includes(creditorKey));
+        (roleFilter === "creditor" && actorPartyKeys.includes(creditorKey)) ||
+        (roleFilter === "admin" &&
+          [debt.debtor, debt.creditor].some(
+            (party) => party.type === "user" && party.roleLabel === "Admin",
+          )) ||
+        (roleFilter === "user" &&
+          [debt.debtor, debt.creditor].some(
+            (party) => party.type === "user" && party.roleLabel === "Usuario",
+          ));
       const text = normalizeSearch(
         `${debt.debtor.name} ${debt.creditor.name} ${visibleParty.name} ${debt.reason}`,
       );
@@ -532,9 +540,9 @@ export default function DeudasInternasPage() {
     return {
       visible: activeDebts.length,
       involved: activeDebts.length,
-      payable,
+      payable: isSuperAdmin ? activeDebts.length : payable,
     };
-  }, [activeDebts, actorPartyKeys]);
+  }, [activeDebts, actorPartyKeys, isSuperAdmin]);
   const selectedDebtIsPaid = selectedDebt ? isDebtPaid(selectedDebt) : false;
   const canSubmitDebt = Boolean(
     debtForm.debtorKey &&
@@ -653,6 +661,7 @@ export default function DeudasInternasPage() {
           createdByName: user.fullName || user.name,
         },
         Array.from(movementActorKeys),
+        isSuperAdmin,
       );
       setMovementForm({ ...EMPTY_MOVEMENT_FORM, date: todayInputValue() });
       setSelectedDebt(null);
@@ -760,13 +769,22 @@ export default function DeudasInternasPage() {
         <select
           value={roleFilter}
           onChange={(event) =>
-            setRoleFilter(event.target.value as "all" | "debtor" | "creditor")
+            setRoleFilter(
+              event.target.value as
+                | "all"
+                | "debtor"
+                | "creditor"
+                | "admin"
+                | "user",
+            )
           }
           className="rounded-lg border border-[var(--input-border)] bg-[#0d141b] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
         >
           <option value="all">Deudor / Acreedor</option>
           <option value="debtor">Soy deudor</option>
           <option value="creditor">Soy acreedor</option>
+          {isSuperAdmin && <option value="admin">Con admin</option>}
+          {isSuperAdmin && <option value="user">Con usuario</option>}
         </select>
         <button
           type="button"
@@ -786,15 +804,18 @@ export default function DeudasInternasPage() {
           const displayParty = actorPartyKeys.includes(buildPartyKey(debt.debtor))
             ? debt.creditor
             : debt.debtor;
-          const Icon = getActorIcon(displayParty.type);
+          const cardParty = isSuperAdmin ? debt.debtor : displayParty;
+          const Icon = getActorIcon(cardParty.type);
           return (
             <button
               type="button"
               key={debt.id}
               onClick={() => {
-                const debtRole = actorPartyKeys.includes(buildPartyKey(debt.creditor))
+                const debtRole = isSuperAdmin
                   ? "creditor"
-                  : "debtor";
+                  : actorPartyKeys.includes(buildPartyKey(debt.creditor))
+                    ? "creditor"
+                    : "debtor";
                 setMovementForm((prev) => ({
                   ...prev,
                   type: debtRole === "creditor" ? "payment" : "charge",
@@ -810,14 +831,20 @@ export default function DeudasInternasPage() {
                   </div>
                   <div className="min-w-0">
                     <div className="truncate text-sm font-semibold text-[var(--foreground)]">
-                      {displayParty.name}
+                      {isSuperAdmin
+                        ? `${debt.debtor.name} -> ${debt.creditor.name}`
+                        : displayParty.name}
                     </div>
                     <div className="text-xs text-[var(--muted-foreground)]">
-                      {displayParty.roleLabel}
+                      {isSuperAdmin
+                        ? `${debt.debtor.roleLabel || debt.debtor.type} debe a ${
+                            debt.creditor.roleLabel || debt.creditor.type
+                          }`
+                        : displayParty.roleLabel}
                     </div>
                   </div>
                 </div>
-                {displayParty.type === "empresa" && (
+                {cardParty.type === "empresa" && (
                   <span className="rounded bg-[var(--muted)] px-2 py-1 text-[10px] font-bold uppercase text-[var(--muted-foreground)]">
                     Empresa
                   </span>

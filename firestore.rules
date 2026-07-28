@@ -286,14 +286,98 @@ service cloud.firestore {
         data.createdById == request.auth.uid;
     }
 
+    function nextInternalDebtMovement() {
+      return request.resource.data.movements[resource.data.movements.size()];
+    }
+
+    function hasInternalDebtMovementShape(movement) {
+      return movement.keys().hasOnly([
+          'id',
+          'type',
+          'amount',
+          'reason',
+          'reference',
+          'date',
+          'createdAt',
+          'createdById',
+          'createdByName'
+        ]) &&
+        movement.keys().hasAll([
+          'id',
+          'type',
+          'amount',
+          'reason',
+          'date',
+          'createdAt',
+          'createdById',
+          'createdByName'
+        ]) &&
+        movement.id is string &&
+        (movement.type == 'charge' || movement.type == 'payment') &&
+        movement.amount is number &&
+        movement.amount > 0 &&
+        movement.reason is string &&
+        movement.date is string &&
+        movement.createdAt is timestamp &&
+        movement.createdById == request.auth.uid &&
+        movement.createdByName is string &&
+        (!movement.keys().hasAny(['reference']) || movement.reference is string);
+    }
+
+    function hasValidInternalDebtMovementAppend() {
+      return request.resource.data.movements.size() == resource.data.movements.size() + 1 &&
+        hasInternalDebtMovementShape(nextInternalDebtMovement()) &&
+        isInternalDebtMovementRoleAllowed() &&
+        (
+          (
+            nextInternalDebtMovement().type == 'payment' &&
+            nextInternalDebtMovement().amount <= resource.data.balance &&
+            request.resource.data.balance == resource.data.balance - nextInternalDebtMovement().amount &&
+            (
+              (nextInternalDebtMovement().amount == resource.data.balance &&
+                request.resource.data.status == 'paid') ||
+              (nextInternalDebtMovement().amount < resource.data.balance &&
+                request.resource.data.status == 'open')
+            )
+          ) ||
+          (
+            nextInternalDebtMovement().type == 'charge' &&
+            request.resource.data.balance == resource.data.balance + nextInternalDebtMovement().amount &&
+            request.resource.data.status == 'open'
+          )
+        );
+    }
+
+    function isInternalDebtMovementRoleAllowed() {
+      return isSuperAdmin() ||
+        (
+          nextInternalDebtMovement().type == 'payment' &&
+          (
+            (resource.data.creditor.type == 'user' &&
+              resource.data.creditor.id == request.auth.uid) ||
+            (resource.data.creditor.type != 'user' &&
+              isInternalDebtParticipant(resource.data))
+          )
+        ) ||
+        (
+          nextInternalDebtMovement().type == 'charge' &&
+          (
+            (resource.data.debtor.type == 'user' &&
+              resource.data.debtor.id == request.auth.uid) ||
+            (resource.data.debtor.type != 'user' &&
+              isInternalDebtParticipant(resource.data))
+          )
+        );
+    }
+
     match /internalDebts/{debtId} {
       allow read: if hasInternalDebtsPermission() &&
-        isInternalDebtParticipant(resource.data);
+        (isInternalDebtParticipant(resource.data) || isSuperAdmin());
       allow create: if hasInternalDebtsPermission() &&
         hasInternalDebtBaseShape(request.resource.data) &&
         isInternalDebtParticipant(request.resource.data);
       allow update: if hasInternalDebtsPermission() &&
-        isInternalDebtParticipant(resource.data) &&
+        (isInternalDebtParticipant(resource.data) || isSuperAdmin()) &&
         resource.data.status != 'paid' &&
         resource.data.balance > 0 &&
         request.resource.data.ownerId == resource.data.ownerId &&
@@ -303,7 +387,8 @@ service cloud.firestore {
         request.resource.data.amountOriginal == resource.data.amountOriginal &&
         request.resource.data.createdAt == resource.data.createdAt &&
         request.resource.data.createdById == resource.data.createdById &&
-        request.resource.data.movements.size() == resource.data.movements.size() + 1 &&
+        request.resource.data.updatedAt is timestamp &&
+        hasValidInternalDebtMovementAppend() &&
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['balance', 'status', 'movements', 'updatedAt']);
       allow delete: if isAdmin();
