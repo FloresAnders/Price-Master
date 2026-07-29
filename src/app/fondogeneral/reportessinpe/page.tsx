@@ -19,6 +19,7 @@ import { EmpresasService } from "@/services/empresas";
 import { SchedulesService, type ScheduleEntry } from "@/services/schedules";
 import type { Empresas } from "@/types/firestore";
 import { getDefaultPermissions } from "@/utils/permissions";
+import { getAuthoritativeNow } from "@/utils/serverTime";
 
 type SinpeSortOrder = "desc" | "asc";
 
@@ -179,6 +180,40 @@ const getDateKeyParts = (value: string) => {
   return { year, month0: month - 1, day };
 };
 
+const getCostaRicaDateKeyAndMinute = (date: Date) => {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Costa_Rica",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const getPart = (type: string) => parts.find((part) => part.type === type)?.value;
+  const year = Number(getPart("year"));
+  const month = Number(getPart("month"));
+  const day = Number(getPart("day"));
+  const rawHour = Number(getPart("hour"));
+  const minute = Number(getPart("minute"));
+  const hour = rawHour === 24 ? 0 : rawHour;
+
+  if (
+    !Number.isFinite(year) ||
+    !Number.isFinite(month) ||
+    !Number.isFinite(day) ||
+    !Number.isFinite(hour) ||
+    !Number.isFinite(minute)
+  ) {
+    return null;
+  }
+
+  return {
+    dateKey: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
+    minuteOfDay: hour * 60 + minute,
+  };
+};
+
 const getCompanyKeysToTry = (empresa: Empresas | undefined) => {
   const keys = new Set<string>();
   [empresa?.ubicacion, empresa?.name, empresa?.id]
@@ -268,6 +303,42 @@ const getEmpresaShiftRanges = (
   } satisfies Record<Exclude<QueryShift, "custom">, ShiftRange>;
 };
 
+const getAutoShiftForServerTime = (
+  empresa: Empresas | undefined,
+  shiftRanges: Record<Exclude<QueryShift, "custom">, ShiftRange>,
+  serverNow: Date,
+) => {
+  const nowInfo = getCostaRicaDateKeyAndMinute(serverNow);
+  if (!nowInfo) return null;
+
+  const openMin = parseHHMMToMinutes(empresa?.horarioApertura);
+  const closeMin = parseHHMMToMinutes(empresa?.horarioCierre);
+  const isOvernight = openMin !== null && closeMin !== null && closeMin <= openMin;
+  const operationalDateKey =
+    isOvernight && nowInfo.minuteOfDay < closeMin
+      ? addDaysToDateKey(nowInfo.dateKey, -1)
+      : nowInfo.dateKey;
+  const currentOffset = operationalDateKey === nowInfo.dateKey ? 0 : 1;
+  const currentAbsoluteMin = nowInfo.minuteOfDay + currentOffset * 1440;
+
+  const includesNow = (range: ShiftRange) => {
+    const startMin = parseHHMMToMinutes(range.start);
+    const endMin = parseHHMMToMinutes(range.end);
+    if (startMin === null || endMin === null) return false;
+    const start = startMin + range.startDayOffset * 1440;
+    const end = endMin + range.endDayOffset * 1440;
+    return currentAbsoluteMin >= start && currentAbsoluteMin <= end;
+  };
+
+  const shift: Exclude<QueryShift, "custom"> = includesNow(shiftRanges.D)
+    ? "D"
+    : includesNow(shiftRanges.N)
+      ? "N"
+      : "full";
+
+  return { shift, operationalDateKey };
+};
+
 export default function ReportesSinpePage() {
   const { user, loading } = useAuth();
   const { ownerIds } = useActorOwnership(user);
@@ -285,6 +356,7 @@ export default function ReportesSinpePage() {
   const [startTime, setStartTime] = useState("06:00");
   const [endTime, setEndTime] = useState("23:59");
   const [queryShift, setQueryShift] = useState<QueryShift>("full");
+  const [serverNow, setServerNow] = useState<Date | null>(null);
   const [report, setReport] = useState<{
     processedEmails: number;
     validTransactions: number;
@@ -314,6 +386,7 @@ export default function ReportesSinpePage() {
   const endCalRef = useRef<HTMLDivElement | null>(null);
   const startBtnRef = useRef<HTMLButtonElement | null>(null);
   const endBtnRef = useRef<HTMLButtonElement | null>(null);
+  const rangeTouchedRef = useRef(false);
   const selectedEmpresa = useMemo(
     () => empresas.find((empresa) => empresa.id === empresaId),
     [empresas, empresaId],
@@ -326,6 +399,24 @@ export default function ReportesSinpePage() {
   useEffect(() => {
     localStorage.setItem(REPORTES_SINPE_SORT_ORDER_KEY, sortOrder);
   }, [sortOrder]);
+
+  useEffect(() => {
+    if (!canUse || !user) return;
+    let mounted = true;
+    getAuthoritativeNow()
+      .then((now) => {
+        if (mounted) setServerNow(now);
+      })
+      .catch(() => {
+        if (mounted) {
+          setError("No se pudo validar la hora del servidor para seleccionar turno automático.");
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [canUse, user]);
 
   useEffect(() => {
     if (!canUse || !user) return;
@@ -425,6 +516,26 @@ export default function ReportesSinpePage() {
     setStartDate(addDaysToDateKey(shiftDate, range.startDayOffset));
     setEndDate(addDaysToDateKey(shiftDate, range.endDayOffset));
   }, [queryShift, shiftRanges, shiftDate]);
+
+  useEffect(() => {
+    if (!serverNow || !selectedEmpresa || schedulesLoading || rangeTouchedRef.current) {
+      return;
+    }
+
+    const auto = getAutoShiftForServerTime(selectedEmpresa, shiftRanges, serverNow);
+    if (!auto) return;
+    if (shiftDate !== auto.operationalDateKey) {
+      setShiftDate(auto.operationalDateKey);
+      return;
+    }
+
+    const range = shiftRanges[auto.shift];
+    setQueryShift(auto.shift);
+    setStartTime(range.start);
+    setEndTime(range.end);
+    setStartDate(addDaysToDateKey(auto.operationalDateKey, range.startDayOffset));
+    setEndDate(addDaysToDateKey(auto.operationalDateKey, range.endDayOffset));
+  }, [schedulesLoading, selectedEmpresa, serverNow, shiftDate, shiftRanges]);
 
   const renderMonthCells = (
     monthDate: Date,
@@ -584,7 +695,8 @@ export default function ReportesSinpePage() {
     });
   }, [report?.transactions, sortOrder]);
 
-  const applyQueryShift = (shift: QueryShift) => {
+  const applyQueryShift = (shift: QueryShift, markManual = true) => {
+    if (markManual) rangeTouchedRef.current = true;
     setQueryShift(shift);
     if (shift === "custom") return;
     const range = shiftRanges[shift];
@@ -595,6 +707,7 @@ export default function ReportesSinpePage() {
   };
 
   const setQueryStartDate = (dateKey: string) => {
+    rangeTouchedRef.current = true;
     if (queryShift === "custom") {
       setStartDate(dateKey);
       return;
@@ -782,6 +895,7 @@ export default function ReportesSinpePage() {
                 <Time12Select
                   value={startTime}
                   onChange={(value) => {
+                    rangeTouchedRef.current = true;
                     setStartTime(value);
                     setQueryShift("custom");
                   }}
@@ -811,6 +925,7 @@ export default function ReportesSinpePage() {
                 month={endCalMonth}
                 selected={endDate}
                 onSelect={(dateKey) => {
+                  rangeTouchedRef.current = true;
                   setEndDate(dateKey);
                   setQueryShift("custom");
                 }}
@@ -826,6 +941,7 @@ export default function ReportesSinpePage() {
                 <Time12Select
                   value={endTime}
                   onChange={(value) => {
+                    rangeTouchedRef.current = true;
                     setEndTime(value);
                     setQueryShift("custom");
                   }}
