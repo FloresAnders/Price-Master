@@ -125,24 +125,29 @@ export function getInternalDebtActorRole(
   return null;
 }
 
-export function isOwnerCompanyDebt(
-  debt: Pick<InternalDebt, "ownerId" | "debtor" | "creditor">,
+export function isOwnerDebt(
+  debt: Pick<InternalDebt, "ownerId">,
   ownerId: string,
 ): boolean {
   const normalizedOwnerId = String(ownerId || "").trim();
   return Boolean(
     normalizedOwnerId &&
-      String(debt.ownerId || "").trim() === normalizedOwnerId &&
-      debt.debtor.type === "empresa" &&
-      debt.creditor.type === "empresa",
+      String(debt.ownerId || "").trim() === normalizedOwnerId,
   );
+}
+
+export function isCompanyUserOrCompanyDebt(
+  debt: Pick<InternalDebt, "debtor" | "creditor">,
+): boolean {
+  const types = new Set([debt.debtor.type, debt.creditor.type]);
+  return types.has("empresa") && (types.has("user") || types.size === 1);
 }
 
 export function filterVisibleInternalDebts(
   debts: InternalDebt[],
   ownerId: string,
   actorPartyKeys: string[],
-  includeOwnerCompanyDebts = false,
+  includeOwnerDebts = false,
 ): InternalDebt[] {
   const normalizedOwnerId = String(ownerId || "").trim();
   const readableKeys = new Set(
@@ -157,9 +162,11 @@ export function filterVisibleInternalDebts(
     const participantMatch = participantIds.some((key) =>
       readableKeys.has(String(key || "").trim()),
     );
-    const ownerCompanyMatch =
-      includeOwnerCompanyDebts && isOwnerCompanyDebt(debt, normalizedOwnerId);
-    if (participantMatch || ownerCompanyMatch) byId.set(debt.id, debt);
+    const ownerMatch =
+      includeOwnerDebts &&
+      isOwnerDebt(debt, normalizedOwnerId) &&
+      isCompanyUserOrCompanyDebt(debt);
+    if (participantMatch || ownerMatch) byId.set(debt.id, debt);
   }
   return sortInternalDebtsByUpdatedAt(Array.from(byId.values()));
 }
@@ -305,7 +312,7 @@ export class InternalDebtsService {
   static async getVisibleDebts(
     ownerId: string,
     actorPartyKeys: string[],
-    includeOwnerCompanyDebts = false,
+    includeOwnerDebts = false,
   ): Promise<InternalDebt[]> {
     const normalizedOwnerId = String(ownerId || "").trim();
     if (!normalizedOwnerId || actorPartyKeys.length === 0) return [];
@@ -313,12 +320,10 @@ export class InternalDebtsService {
       String(key || "").startsWith("user:"),
     );
     if (readablePartyKeys.length === 0) return [];
-    if (includeOwnerCompanyDebts) {
-      const [ownerCompanyDebts, participantBatches] = await Promise.all([
+    if (includeOwnerDebts) {
+      const [ownerDebts, participantBatches] = await Promise.all([
         FirestoreService.query(COLLECTION_NAME, [
           { field: "ownerId", operator: "==", value: normalizedOwnerId },
-          { field: "debtor.type", operator: "==", value: "empresa" },
-          { field: "creditor.type", operator: "==", value: "empresa" },
         ]) as Promise<InternalDebt[]>,
         Promise.all(
           readablePartyKeys.map((key) =>
@@ -327,7 +332,7 @@ export class InternalDebtsService {
         ),
       ]);
       return filterVisibleInternalDebts(
-        [...ownerCompanyDebts, ...participantBatches.flat()],
+        [...ownerDebts, ...participantBatches.flat()],
         normalizedOwnerId,
         readablePartyKeys,
         true,

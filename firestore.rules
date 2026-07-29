@@ -251,18 +251,21 @@ service cloud.firestore {
         );
     }
 
-    function isInternalDebtOwnerCompanyDebt(data) {
-      return data.debtor is map &&
-        data.creditor is map &&
-        data.debtor.type == 'empresa' &&
-        data.creditor.type == 'empresa';
-    }
-
     function isInternalDebtEmpresaPartyForActor(party) {
       return party.type == 'empresa' &&
         request.auth.token.ownercompanie is string &&
         (party.id == request.auth.token.ownercompanie ||
           party.name == request.auth.token.ownercompanie);
+    }
+
+    function isInternalDebtCompanyUserOrCompanyDebt(data) {
+      return data.debtor is map &&
+        data.creditor is map &&
+        (
+          (data.debtor.type == 'empresa' && data.creditor.type == 'user') ||
+          (data.debtor.type == 'user' && data.creditor.type == 'empresa') ||
+          (data.debtor.type == 'empresa' && data.creditor.type == 'empresa')
+        );
     }
 
     function canActAsInternalDebtParty(party, data) {
@@ -398,7 +401,7 @@ service cloud.firestore {
           isSuperAdmin() ||
           (
             isInternalDebtOwnerScopedAdmin(resource.data) &&
-            isInternalDebtOwnerCompanyDebt(resource.data)
+            isInternalDebtCompanyUserOrCompanyDebt(resource.data)
           )
         );
       allow create: if hasInternalDebtsPermission() &&
@@ -424,7 +427,7 @@ service cloud.firestore {
         hasValidInternalDebtMovementAppend() &&
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['balance', 'status', 'movements', 'updatedAt']);
-      allow delete: if isAdmin();
+      allow delete: if isSuperAdmin();
     }
     
     // Otras reglas existentes...
