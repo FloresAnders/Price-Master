@@ -81,6 +81,10 @@ const MAX_ADMIN_SIDEBAR_EXPANDED_WIDTH = 520;
 const DEFAULT_ADMIN_SIDEBAR_COLLAPSED_WIDTH = 72;
 const MIN_ADMIN_SIDEBAR_COLLAPSED_WIDTH = 64;
 const MAX_ADMIN_SIDEBAR_COLLAPSED_WIDTH = 120;
+const defaultTruePreference = (key: string) => {
+  const saved = safeLocalStorage.getItem(key);
+  return saved === null ? true : saved === "true";
+};
 
 function clampNumber(value: number, min: number, max: number): number {
   if (Number.isNaN(value)) return min;
@@ -145,10 +149,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     return safeLocalStorage.getItem("show-session-timer") === "true";
   });
   const [showCalculator, setShowCalculator] = useState(() => {
-    return safeLocalStorage.getItem("show-calculator") === "true";
+    return defaultTruePreference("show-calculator");
   });
   const [showSupplierWeekInMenu, setShowSupplierWeekInMenu] = useState(() => {
-    return safeLocalStorage.getItem("show-supplier-week-menu") === "true";
+    return defaultTruePreference("show-supplier-week-menu");
   });
   const [enableHomeMenuSortMobile, setEnableHomeMenuSortMobile] = useState(
     () => {

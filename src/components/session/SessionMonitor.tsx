@@ -25,7 +25,7 @@ export default function SessionMonitor({
   const [timeLeft, setTimeLeft] = useState(0);
   const [showTokenInfo, setShowTokenInfo] = useState(false);
   const [showSessionTimer, setShowSessionTimer] = useState(false);
-  const [showCalculator, setShowCalculator] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(true);
 
   // Actualizar tiempo restante cada minuto
   useEffect(() => {
@@ -46,7 +46,10 @@ export default function SessionMonitor({
       setShowSessionTimer(
         localStorage.getItem("show-session-timer") === "true",
       );
-      setShowCalculator(localStorage.getItem("show-calculator") === "true");
+      const savedCalculator = localStorage.getItem("show-calculator");
+      setShowCalculator(
+        savedCalculator === null ? true : savedCalculator === "true",
+      );
     };
     readPrefs();
     const handleStorage = (e: StorageEvent) => {

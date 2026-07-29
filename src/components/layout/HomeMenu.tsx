@@ -295,7 +295,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const [hovered, setHovered] = useState(false);
   const [clickCount, setClickCount] = useState(0);
   const [showStickman, setShowStickman] = useState(false);
-  const [showSupplierWeekInMenu, setShowSupplierWeekInMenu] = useState(false);
+  const [showSupplierWeekInMenu, setShowSupplierWeekInMenu] = useState(true);
   const [enableHomeMenuSortMobile, setEnableHomeMenuSortMobile] =
     useState(false);
   const [showFavoritesView, setShowFavoritesView] = useState(false);
@@ -711,8 +711,9 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
 
     const readPreference = () => {
       const savedPreference = localStorage.getItem("show-supplier-week-menu");
-      // Por defecto está desactivado (false)
-      setShowSupplierWeekInMenu(savedPreference === "true");
+      setShowSupplierWeekInMenu(
+        savedPreference === null ? true : savedPreference === "true",
+      );
     };
 
     readPreference();
