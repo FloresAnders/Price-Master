@@ -9,8 +9,13 @@ const source = fs
   .replace(/\bexport\s+/g, "");
 
 const compiled = ts.transpileModule(
-  `${source}
-globalThis.__internalDebtTest = { applyInternalDebtMovement, formatInternalDebtRoute };`,
+`${source}
+globalThis.__internalDebtTest = {
+  applyInternalDebtMovement,
+  filterVisibleInternalDebts,
+  formatInternalDebtRoute,
+  getInternalDebtActorRole,
+};`,
   { compilerOptions: { module: ts.ModuleKind.ES2020, target: ts.ScriptTarget.ES2020 } },
 ).outputText;
 
@@ -20,8 +25,12 @@ const context = {
 vm.createContext(context);
 vm.runInContext(compiled, context);
 
-const { applyInternalDebtMovement, formatInternalDebtRoute } =
-  context.__internalDebtTest;
+const {
+  applyInternalDebtMovement,
+  filterVisibleInternalDebts,
+  formatInternalDebtRoute,
+  getInternalDebtActorRole,
+} = context.__internalDebtTest;
 
 const baseDebt = {
   id: "debt-1",
@@ -95,6 +104,40 @@ assert.throws(
 assert.equal(
   formatInternalDebtRoute(baseDebt),
   "User deudor -> Admin acreedor",
+);
+
+const companyDebt = {
+  ...baseDebt,
+  id: "company-debt-1",
+  debtor: { type: "empresa", id: "empresa-a", name: "Empresa A", roleLabel: "Empresa" },
+  creditor: { type: "empresa", id: "empresa-b", name: "Empresa B", roleLabel: "Empresa" },
+  participantIds: ["empresa:empresa-a", "empresa:empresa-b"],
+};
+
+const otherOwnerCompanyDebt = {
+  ...companyDebt,
+  id: "company-debt-2",
+  ownerId: "owner-2",
+};
+
+const visibleToOwnerAdmin = filterVisibleInternalDebts(
+  [baseDebt, companyDebt, otherOwnerCompanyDebt],
+  "owner-1",
+  ["user:admin-1"],
+  true,
+);
+
+assert.deepEqual(
+  visibleToOwnerAdmin.map((debt) => debt.id),
+  ["debt-1", "company-debt-1"],
+);
+assert.equal(
+  getInternalDebtActorRole(companyDebt, ["user:admin-1"]),
+  null,
+);
+assert.equal(
+  getInternalDebtActorRole(companyDebt, ["user:admin-1", "empresa:empresa-b"]),
+  "creditor",
 );
 
 console.log("internal debts superadmin movement tests passed");
