@@ -105,6 +105,65 @@ export function formatInternalDebtRoute(debt: Pick<InternalDebt, "debtor" | "cre
   return `${debt.debtor.name} -> ${debt.creditor.name}`;
 }
 
+function sortInternalDebtsByUpdatedAt(debts: InternalDebt[]): InternalDebt[] {
+  return debts.sort(
+    (a, b) =>
+      new Date((b.updatedAt as unknown as string) || 0).getTime() -
+      new Date((a.updatedAt as unknown as string) || 0).getTime(),
+  );
+}
+
+export function getInternalDebtActorRole(
+  debt: Pick<InternalDebt, "debtor" | "creditor">,
+  actorPartyKeys: string[],
+  canOverrideRole = false,
+): "debtor" | "creditor" | null {
+  if (canOverrideRole) return "creditor";
+  const keys = new Set(actorPartyKeys.map((key) => String(key || "").trim()));
+  if (keys.has(buildPartyKey(debt.creditor))) return "creditor";
+  if (keys.has(buildPartyKey(debt.debtor))) return "debtor";
+  return null;
+}
+
+export function isOwnerCompanyDebt(
+  debt: Pick<InternalDebt, "ownerId" | "debtor" | "creditor">,
+  ownerId: string,
+): boolean {
+  const normalizedOwnerId = String(ownerId || "").trim();
+  return Boolean(
+    normalizedOwnerId &&
+      String(debt.ownerId || "").trim() === normalizedOwnerId &&
+      debt.debtor.type === "empresa" &&
+      debt.creditor.type === "empresa",
+  );
+}
+
+export function filterVisibleInternalDebts(
+  debts: InternalDebt[],
+  ownerId: string,
+  actorPartyKeys: string[],
+  includeOwnerCompanyDebts = false,
+): InternalDebt[] {
+  const normalizedOwnerId = String(ownerId || "").trim();
+  const readableKeys = new Set(
+    actorPartyKeys.map((key) => String(key || "").trim()).filter(Boolean),
+  );
+  const byId = new Map<string, InternalDebt>();
+  for (const debt of debts) {
+    if (!debt.id) continue;
+    const participantIds = Array.isArray(debt.participantIds)
+      ? debt.participantIds
+      : [];
+    const participantMatch = participantIds.some((key) =>
+      readableKeys.has(String(key || "").trim()),
+    );
+    const ownerCompanyMatch =
+      includeOwnerCompanyDebts && isOwnerCompanyDebt(debt, normalizedOwnerId);
+    if (participantMatch || ownerCompanyMatch) byId.set(debt.id, debt);
+  }
+  return sortInternalDebtsByUpdatedAt(Array.from(byId.values()));
+}
+
 export function createInternalDebtDraft(
   input: CreateInternalDebtInput,
 ): Omit<InternalDebt, "id"> {
@@ -246,6 +305,7 @@ export class InternalDebtsService {
   static async getVisibleDebts(
     ownerId: string,
     actorPartyKeys: string[],
+    includeOwnerCompanyDebts = false,
   ): Promise<InternalDebt[]> {
     const normalizedOwnerId = String(ownerId || "").trim();
     if (!normalizedOwnerId || actorPartyKeys.length === 0) return [];
@@ -253,6 +313,26 @@ export class InternalDebtsService {
       String(key || "").startsWith("user:"),
     );
     if (readablePartyKeys.length === 0) return [];
+    if (includeOwnerCompanyDebts) {
+      const [ownerCompanyDebts, participantBatches] = await Promise.all([
+        FirestoreService.query(COLLECTION_NAME, [
+          { field: "ownerId", operator: "==", value: normalizedOwnerId },
+          { field: "debtor.type", operator: "==", value: "empresa" },
+          { field: "creditor.type", operator: "==", value: "empresa" },
+        ]) as Promise<InternalDebt[]>,
+        Promise.all(
+          readablePartyKeys.map((key) =>
+            this.getByOwnerAndParticipant(normalizedOwnerId, key),
+          ),
+        ),
+      ]);
+      return filterVisibleInternalDebts(
+        [...ownerCompanyDebts, ...participantBatches.flat()],
+        normalizedOwnerId,
+        readablePartyKeys,
+        true,
+      );
+    }
     const batches = await Promise.all(
       readablePartyKeys.map((key) =>
         this.getByOwnerAndParticipant(normalizedOwnerId, key),
@@ -263,22 +343,14 @@ export class InternalDebtsService {
       if (!debt.id) continue;
       byId.set(debt.id, debt);
     }
-    return Array.from(byId.values()).sort(
-      (a, b) =>
-        new Date((b.updatedAt as unknown as string) || 0).getTime() -
-        new Date((a.updatedAt as unknown as string) || 0).getTime(),
-    );
+    return sortInternalDebtsByUpdatedAt(Array.from(byId.values()));
   }
 
   static async getActiveDebtsForSuperAdmin(): Promise<InternalDebt[]> {
     const debts = (await FirestoreService.query(COLLECTION_NAME, [
       { field: "status", operator: "==", value: "open" },
     ])) as InternalDebt[];
-    return debts.sort(
-      (a, b) =>
-        new Date((b.updatedAt as unknown as string) || 0).getTime() -
-        new Date((a.updatedAt as unknown as string) || 0).getTime(),
-    );
+    return sortInternalDebtsByUpdatedAt(debts);
   }
 
   static async createDebt(input: CreateInternalDebtInput): Promise<string> {

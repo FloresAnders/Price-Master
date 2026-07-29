@@ -240,6 +240,39 @@ service cloud.firestore {
         internalDebtUserPartyKey() in data.participantIds;
     }
 
+    function isInternalDebtOwnerScopedAdmin(data) {
+      return isRegularAdmin() &&
+        data.ownerId is string &&
+        (
+          (request.auth.token.ownerId is string &&
+            data.ownerId == request.auth.token.ownerId) ||
+          (request.auth.token.eliminate == false &&
+            data.ownerId == request.auth.uid)
+        );
+    }
+
+    function isInternalDebtOwnerCompanyDebt(data) {
+      return data.debtor is map &&
+        data.creditor is map &&
+        data.debtor.type == 'empresa' &&
+        data.creditor.type == 'empresa';
+    }
+
+    function isInternalDebtEmpresaPartyForActor(party) {
+      return party.type == 'empresa' &&
+        request.auth.token.ownercompanie is string &&
+        (party.id == request.auth.token.ownercompanie ||
+          party.name == request.auth.token.ownercompanie);
+    }
+
+    function canActAsInternalDebtParty(party, data) {
+      return (party.type == 'user' && party.id == request.auth.uid) ||
+        isInternalDebtEmpresaPartyForActor(party) ||
+        (party.type != 'user' &&
+          party.type != 'empresa' &&
+          isInternalDebtParticipant(data));
+    }
+
     function hasInternalDebtsPermission() {
       return isSignedIn() &&
         (
@@ -350,32 +383,34 @@ service cloud.firestore {
       return isSuperAdmin() ||
         (
           nextInternalDebtMovement().type == 'payment' &&
-          (
-            (resource.data.creditor.type == 'user' &&
-              resource.data.creditor.id == request.auth.uid) ||
-            (resource.data.creditor.type != 'user' &&
-              isInternalDebtParticipant(resource.data))
-          )
+          canActAsInternalDebtParty(resource.data.creditor, resource.data)
         ) ||
         (
           nextInternalDebtMovement().type == 'charge' &&
-          (
-            (resource.data.debtor.type == 'user' &&
-              resource.data.debtor.id == request.auth.uid) ||
-            (resource.data.debtor.type != 'user' &&
-              isInternalDebtParticipant(resource.data))
-          )
+          canActAsInternalDebtParty(resource.data.debtor, resource.data)
         );
     }
 
     match /internalDebts/{debtId} {
       allow read: if hasInternalDebtsPermission() &&
-        (isInternalDebtParticipant(resource.data) || isSuperAdmin());
+        (
+          isInternalDebtParticipant(resource.data) ||
+          isSuperAdmin() ||
+          (
+            isInternalDebtOwnerScopedAdmin(resource.data) &&
+            isInternalDebtOwnerCompanyDebt(resource.data)
+          )
+        );
       allow create: if hasInternalDebtsPermission() &&
         hasInternalDebtBaseShape(request.resource.data) &&
         isInternalDebtParticipant(request.resource.data);
       allow update: if hasInternalDebtsPermission() &&
-        (isInternalDebtParticipant(resource.data) || isSuperAdmin()) &&
+        (
+          isInternalDebtParticipant(resource.data) ||
+          isSuperAdmin() ||
+          canActAsInternalDebtParty(resource.data.debtor, resource.data) ||
+          canActAsInternalDebtParty(resource.data.creditor, resource.data)
+        ) &&
         resource.data.status != 'paid' &&
         resource.data.balance > 0 &&
         request.resource.data.ownerId == resource.data.ownerId &&

@@ -23,6 +23,7 @@ import { UsersService } from "@/services/users";
 import {
   buildPartyKey,
   formatInternalDebtRoute,
+  getInternalDebtActorRole,
   InternalDebtsService,
   type InternalDebt,
   type InternalDebtMovementType,
@@ -284,14 +285,6 @@ export default function DeudasInternasPage() {
     () => normalizeSearch(user?.ownercompanie || ""),
     [user?.ownercompanie],
   );
-  const actorPartyKeys = useMemo(() => {
-    const keys = new Set<string>();
-    if (user?.id) keys.add(`user:${user.id}`);
-    actors
-      .filter((actor) => actor.type === "empresa")
-      .forEach((actor) => keys.add(actor.key));
-    return Array.from(keys);
-  }, [actors, user?.id]);
   const readPartyKeys = useMemo(
     () => (user?.id ? [`user:${user.id}`] : []),
     [user?.id],
@@ -308,6 +301,13 @@ export default function DeudasInternasPage() {
     );
     return empresa?.empresaId || empresa?.id || "";
   }, [activeCompanyKey, actors]);
+
+  const editPartyKeys = useMemo(() => {
+    const keys = new Set<string>();
+    if (user?.id) keys.add(`user:${user.id}`);
+    if (activeCompanyEmpresaId) keys.add(`empresa:${activeCompanyEmpresaId}`);
+    return Array.from(keys);
+  }, [activeCompanyEmpresaId, user?.id]);
 
   const visibleDebtorActors = useMemo(() => {
     return actors
@@ -458,10 +458,14 @@ export default function DeudasInternasPage() {
       }
       const list = isSuperAdmin
         ? await InternalDebtsService.getActiveDebtsForSuperAdmin()
-        : await InternalDebtsService.getVisibleDebts(primaryOwnerId, keys);
+        : await InternalDebtsService.getVisibleDebts(
+            primaryOwnerId,
+            keys,
+            user?.role === "admin",
+          );
       setDebts(list);
     },
-    [canUse, isSuperAdmin, primaryOwnerId, readPartyKeys],
+    [canUse, isSuperAdmin, primaryOwnerId, readPartyKeys, user?.role],
   );
 
   const refresh = useCallback(async () => {
@@ -492,18 +496,12 @@ export default function DeudasInternasPage() {
   );
   const selectedDebtRole = useMemo<"debtor" | "creditor" | null>(() => {
     if (!selectedDebt) return null;
-    if (isSuperAdmin) return "creditor";
-    if (actorPartyKeys.includes(buildPartyKey(selectedDebt.creditor))) {
-      return "creditor";
-    }
-    if (actorPartyKeys.includes(buildPartyKey(selectedDebt.debtor))) {
-      return "debtor";
-    }
-    return null;
-  }, [actorPartyKeys, isSuperAdmin, selectedDebt]);
+    return getInternalDebtActorRole(selectedDebt, editPartyKeys, isSuperAdmin);
+  }, [editPartyKeys, isSuperAdmin, selectedDebt]);
   const roleMovementType: InternalDebtMovementType =
     selectedDebtRole === "creditor" ? "payment" : "charge";
-  const canChooseMovementType = isSuperAdmin || isEmployeeUserDebt(selectedDebt);
+  const canChooseMovementType =
+    Boolean(selectedDebtRole) && (isSuperAdmin || isEmployeeUserDebt(selectedDebt));
   const selectedMovementType: InternalDebtMovementType = canChooseMovementType
     ? movementForm.type
     : roleMovementType;
@@ -517,8 +515,8 @@ export default function DeudasInternasPage() {
         roleFilter === "creditor" ? debt.debtor : debt.creditor;
       const roleMatch =
         roleFilter === "all" ||
-        (roleFilter === "debtor" && actorPartyKeys.includes(debtorKey)) ||
-        (roleFilter === "creditor" && actorPartyKeys.includes(creditorKey)) ||
+        (roleFilter === "debtor" && editPartyKeys.includes(debtorKey)) ||
+        (roleFilter === "creditor" && editPartyKeys.includes(creditorKey)) ||
         (roleFilter === "admin" &&
           [debt.debtor, debt.creditor].some(
             (party) => party.type === "user" && party.roleLabel === "Admin",
@@ -532,18 +530,21 @@ export default function DeudasInternasPage() {
       );
       return roleMatch && (!query || text.includes(query));
     });
-  }, [activeDebts, actorPartyKeys, roleFilter, search]);
+  }, [activeDebts, editPartyKeys, roleFilter, search]);
 
   const stats = useMemo(() => {
     const payable = activeDebts.filter((debt) =>
-      actorPartyKeys.includes(buildPartyKey(debt.creditor)),
+      editPartyKeys.includes(buildPartyKey(debt.creditor)),
+    ).length;
+    const involved = activeDebts.filter((debt) =>
+      getInternalDebtActorRole(debt, editPartyKeys, isSuperAdmin),
     ).length;
     return {
       visible: activeDebts.length,
-      involved: activeDebts.length,
+      involved,
       payable: isSuperAdmin ? activeDebts.length : payable,
     };
-  }, [activeDebts, actorPartyKeys, isSuperAdmin]);
+  }, [activeDebts, editPartyKeys, isSuperAdmin]);
   const selectedDebtIsPaid = selectedDebt ? isDebtPaid(selectedDebt) : false;
   const canSubmitDebt = Boolean(
     debtForm.debtorKey &&
@@ -639,7 +640,7 @@ export default function DeudasInternasPage() {
     }
     setSaving(true);
     try {
-      const movementActorKeys = new Set(actorPartyKeys);
+      const movementActorKeys = new Set(editPartyKeys);
       if (canChooseMovementType && selectedMovementType === "charge") {
         const debtorKey = buildPartyKey(selectedDebt.debtor);
         if (selectedDebt.debtor.type === "empleado") movementActorKeys.add(debtorKey);
@@ -802,7 +803,7 @@ export default function DeudasInternasPage() {
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {filteredDebts.map((debt) => {
-          const displayParty = actorPartyKeys.includes(buildPartyKey(debt.debtor))
+          const displayParty = editPartyKeys.includes(buildPartyKey(debt.debtor))
             ? debt.creditor
             : debt.debtor;
           const cardParty = debt.debtor;
@@ -812,11 +813,11 @@ export default function DeudasInternasPage() {
               type="button"
               key={debt.id}
               onClick={() => {
-                const debtRole = isSuperAdmin
-                  ? "creditor"
-                  : actorPartyKeys.includes(buildPartyKey(debt.creditor))
-                    ? "creditor"
-                    : "debtor";
+                const debtRole = getInternalDebtActorRole(
+                  debt,
+                  editPartyKeys,
+                  isSuperAdmin,
+                );
                 setMovementForm((prev) => ({
                   ...prev,
                   type: debtRole === "creditor" ? "payment" : "charge",
@@ -1068,6 +1069,12 @@ export default function DeudasInternasPage() {
               Solo visualizacion. Esta deuda ya fue pagada en su totalidad.
             </div>
           )}
+          {!selectedDebtIsPaid && !selectedDebtRole && (
+            <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+              Solo visualizacion. Puedes ver esta deuda por ownerId, pero solo
+              una parte involucrada puede agregar movimientos.
+            </div>
+          )}
 
           <div className="mb-4 rounded-lg border border-[var(--input-border)]">
             {(selectedDebt.movements || []).map((movement) => (
@@ -1099,7 +1106,7 @@ export default function DeudasInternasPage() {
             ))}
           </div>
 
-          {selectedDebtIsPaid ? (
+          {selectedDebtIsPaid || !selectedDebtRole ? (
             <div className="flex justify-end">
               <button
                 type="button"

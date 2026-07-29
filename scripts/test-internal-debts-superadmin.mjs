@@ -127,9 +127,9 @@ const visibleToOwnerAdmin = filterVisibleInternalDebts(
   true,
 );
 
-assert.deepEqual(
-  visibleToOwnerAdmin.map((debt) => debt.id),
-  ["debt-1", "company-debt-1"],
+assert.equal(
+  JSON.stringify(visibleToOwnerAdmin.map((debt) => debt.id)),
+  JSON.stringify(["debt-1", "company-debt-1"]),
 );
 assert.equal(
   getInternalDebtActorRole(companyDebt, ["user:admin-1"]),
