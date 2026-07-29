@@ -258,14 +258,11 @@ service cloud.firestore {
           party.name == request.auth.token.ownercompanie);
     }
 
-    function isInternalDebtCompanyUserOrCompanyDebt(data) {
+    function isInternalDebtUserOrCompanyDebt(data) {
       return data.debtor is map &&
         data.creditor is map &&
-        (
-          (data.debtor.type == 'empresa' && data.creditor.type == 'user') ||
-          (data.debtor.type == 'user' && data.creditor.type == 'empresa') ||
-          (data.debtor.type == 'empresa' && data.creditor.type == 'empresa')
-        );
+        (data.debtor.type == 'empresa' || data.debtor.type == 'user') &&
+        (data.creditor.type == 'empresa' || data.creditor.type == 'user');
     }
 
     function canActAsInternalDebtParty(party, data) {
@@ -401,7 +398,7 @@ service cloud.firestore {
           isSuperAdmin() ||
           (
             isInternalDebtOwnerScopedAdmin(resource.data) &&
-            isInternalDebtCompanyUserOrCompanyDebt(resource.data)
+            isInternalDebtUserOrCompanyDebt(resource.data)
           )
         );
       allow create: if hasInternalDebtsPermission() &&

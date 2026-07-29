@@ -265,7 +265,6 @@ export default function DeudasInternasPage() {
   const canSeeAllCollaborators =
     user?.role === "admin" || user?.role === "superadmin";
   const [actors, setActors] = useState<ActorOption[]>([]);
-  const [ownerAdminPartyKeys, setOwnerAdminPartyKeys] = useState<string[]>([]);
   const [debts, setDebts] = useState<InternalDebt[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -399,13 +398,6 @@ export default function DeudasInternasPage() {
         ownerSet.has(String(candidate.id || ""))
       );
     });
-    setOwnerAdminPartyKeys(
-      ownerUsers
-        .filter((candidate) => candidate.role === "admin")
-        .map((candidate) => `user:${candidate.id}`)
-        .filter(Boolean),
-    );
-
     ownerUsers.forEach((candidate) => {
       const actor = createActor(
         "user",
@@ -598,12 +590,6 @@ export default function DeudasInternasPage() {
     setSaving(true);
     try {
       const visibilityKeys = new Set([`user:${user.id || ""}`, debtForm.debtorKey]);
-      if (debtor.type === "empresa" || creditor.type === "empresa") {
-        ownerAdminPartyKeys.forEach((key) => visibilityKeys.add(key));
-      }
-      if (debtor.type === "empleado" || creditor.type === "empleado") {
-        ownerAdminPartyKeys.forEach((key) => visibilityKeys.add(key));
-      }
       await InternalDebtsService.createDebt({
         ownerId: primaryOwnerId,
         debtor,

@@ -136,11 +136,11 @@ export function isOwnerDebt(
   );
 }
 
-export function isCompanyUserOrCompanyDebt(
+export function isUserOrCompanyDebt(
   debt: Pick<InternalDebt, "debtor" | "creditor">,
 ): boolean {
   const types = new Set([debt.debtor.type, debt.creditor.type]);
-  return types.has("empresa") && (types.has("user") || types.size === 1);
+  return !types.has("empleado");
 }
 
 export function filterVisibleInternalDebts(
@@ -165,7 +165,7 @@ export function filterVisibleInternalDebts(
     const ownerMatch =
       includeOwnerDebts &&
       isOwnerDebt(debt, normalizedOwnerId) &&
-      isCompanyUserOrCompanyDebt(debt);
+      isUserOrCompanyDebt(debt);
     if (participantMatch || ownerMatch) byId.set(debt.id, debt);
   }
   return sortInternalDebtsByUpdatedAt(Array.from(byId.values()));
@@ -321,10 +321,22 @@ export class InternalDebtsService {
     );
     if (readablePartyKeys.length === 0) return [];
     if (includeOwnerDebts) {
-      const [ownerDebts, participantBatches] = await Promise.all([
-        FirestoreService.query(COLLECTION_NAME, [
-          { field: "ownerId", operator: "==", value: normalizedOwnerId },
-        ]) as Promise<InternalDebt[]>,
+      const readableTypePairs: Array<[InternalDebtPartyType, InternalDebtPartyType]> = [
+        ["empresa", "empresa"],
+        ["empresa", "user"],
+        ["user", "empresa"],
+        ["user", "user"],
+      ];
+      const [ownerDebtBatches, participantBatches] = await Promise.all([
+        Promise.all(
+          readableTypePairs.map(([debtorType, creditorType]) =>
+            FirestoreService.query(COLLECTION_NAME, [
+              { field: "ownerId", operator: "==", value: normalizedOwnerId },
+              { field: "debtor.type", operator: "==", value: debtorType },
+              { field: "creditor.type", operator: "==", value: creditorType },
+            ]) as Promise<InternalDebt[]>,
+          ),
+        ),
         Promise.all(
           readablePartyKeys.map((key) =>
             this.getByOwnerAndParticipant(normalizedOwnerId, key),
@@ -332,7 +344,7 @@ export class InternalDebtsService {
         ),
       ]);
       return filterVisibleInternalDebts(
-        [...ownerDebts, ...participantBatches.flat()],
+        [...ownerDebtBatches.flat(), ...participantBatches.flat()],
         normalizedOwnerId,
         readablePartyKeys,
         true,
