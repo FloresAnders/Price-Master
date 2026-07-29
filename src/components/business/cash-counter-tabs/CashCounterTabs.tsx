@@ -16,7 +16,7 @@ import { SinpeModal } from "./components/SinpeModal";
 import { RenameModal } from "./components/RenameModal";
 import { CurrencyModal } from "./components/CurrencyModal";
 import { MenuModal } from "./components/MenuModal";
-import { CalculatorModal } from "../../modals";
+import CalculatorModal from "../../modals/CalculatorModal";
 
 export default function CashCounterTabs() {
   const { user } = useAuth();

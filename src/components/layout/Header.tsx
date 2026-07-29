@@ -66,6 +66,7 @@ import { normalizeClosingTimeExtensionCompanyKey } from "@/services/closing-time
 import {
   ConfigurationModal,
   CalculatorModal,
+  CashCounterModal,
   NotificationModal,
   MobileScanQrModal,
 } from "../modals";
@@ -151,6 +152,9 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const [showCalculator, setShowCalculator] = useState(() => {
     return defaultTruePreference("show-calculator");
   });
+  const [showCashCounterFloating, setShowCashCounterFloating] = useState(() => {
+    return defaultTruePreference("show-cash-counter");
+  });
   const [showSupplierWeekInMenu, setShowSupplierWeekInMenu] = useState(() => {
     return defaultTruePreference("show-supplier-week-menu");
   });
@@ -162,6 +166,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     },
   );
   const [showCalculatorModal, setShowCalculatorModal] = useState(false);
+  const [showCashCounterModal, setShowCashCounterModal] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const initializedSolicitudesRef = useRef(false);
   const knownSolicitudesRef = useRef<Set<string>>(new Set());
@@ -254,8 +259,28 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem("show-calculator", showCalculator.toString());
+      window.dispatchEvent(
+        new CustomEvent("pricemaster:preference-change", {
+          detail: { key: "show-calculator" },
+        }),
+      );
     }
   }, [showCalculator]);
+
+  // Guardar preferencia del contador de efectivo flotante cuando cambie
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "show-cash-counter",
+        showCashCounterFloating.toString(),
+      );
+      window.dispatchEvent(
+        new CustomEvent("pricemaster:preference-change", {
+          detail: { key: "show-cash-counter" },
+        }),
+      );
+    }
+  }, [showCashCounterFloating]);
 
   // Guardar preferencia de la tarjeta semanal de proveedores cuando cambie
   useEffect(() => {
@@ -1795,6 +1820,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         onToggleSessionTimer={setShowSessionTimer}
         showCalculator={showCalculator}
         onToggleCalculator={setShowCalculator}
+        showCashCounterFloating={showCashCounterFloating}
+        onToggleCashCounterFloating={setShowCashCounterFloating}
         showSupplierWeekInMenu={showSupplierWeekInMenu}
         onToggleSupplierWeekInMenu={setShowSupplierWeekInMenu}
         enableHomeMenuSortMobile={enableHomeMenuSortMobile}
@@ -2031,7 +2058,11 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         onToggleVisibility={() => setShowSessionTimer(false)}
         // Evitar solape vertical si la calculadora global está activa
         // y dejar más aire en CashCounter por sus propios FABs
-        avoidOverlap={showCalculator || activeTab === "cashcounter"}
+        avoidOverlap={
+          showCalculator ||
+          showCashCounterFloating ||
+          activeTab === "cashcounter"
+        }
         sideOffsetClass={activeTab === "cashcounter" ? "right-6" : undefined}
         bottomOffsetClass={
           activeTab === "cashcounter" ? "bottom-10 md:bottom-12" : undefined
@@ -2049,10 +2080,29 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         </button>
       )}
 
+      {/* Global Cash Counter Button */}
+      {showCashCounterFloating && activeTab !== "cashcounter" && (
+        <button
+          onClick={() => setShowCashCounterModal(true)}
+          className={`fixed right-6 ${
+            showCalculator ? "bottom-24" : "bottom-6"
+          } z-40 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-600 text-white shadow-xl transition-colors hover:bg-emerald-700`}
+          aria-label="Abrir contador de efectivo"
+        >
+          <Banknote className="w-6 h-6" />
+        </button>
+      )}
+
       {/* Global Calculator Modal */}
       <CalculatorModal
         isOpen={showCalculatorModal}
         onClose={() => setShowCalculatorModal(false)}
+      />
+
+      {/* Global Cash Counter Modal */}
+      <CashCounterModal
+        isOpen={showCashCounterModal}
+        onClose={() => setShowCashCounterModal(false)}
       />
 
       <MobileScanQrModal

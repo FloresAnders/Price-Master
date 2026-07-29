@@ -26,6 +26,7 @@ export default function SessionMonitor({
   const [showTokenInfo, setShowTokenInfo] = useState(false);
   const [showSessionTimer, setShowSessionTimer] = useState(false);
   const [showCalculator, setShowCalculator] = useState(true);
+  const [showCashCounterFloating, setShowCashCounterFloating] = useState(true);
 
   // Actualizar tiempo restante cada minuto
   useEffect(() => {
@@ -50,15 +51,40 @@ export default function SessionMonitor({
       setShowCalculator(
         savedCalculator === null ? true : savedCalculator === "true",
       );
+      const savedCashCounter = localStorage.getItem("show-cash-counter");
+      setShowCashCounterFloating(
+        savedCashCounter === null ? true : savedCashCounter === "true",
+      );
     };
     readPrefs();
     const handleStorage = (e: StorageEvent) => {
-      if (e.key === "show-session-timer" || e.key === "show-calculator") {
+      if (
+        e.key === "show-session-timer" ||
+        e.key === "show-calculator" ||
+        e.key === "show-cash-counter"
+      ) {
+        readPrefs();
+      }
+    };
+    const handlePrefChange = (event: Event) => {
+      const key = (event as CustomEvent)?.detail?.key;
+      if (
+        key === "show-session-timer" ||
+        key === "show-calculator" ||
+        key === "show-cash-counter"
+      ) {
         readPrefs();
       }
     };
     window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+    window.addEventListener("pricemaster:preference-change", handlePrefChange);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(
+        "pricemaster:preference-change",
+        handlePrefChange,
+      );
+    };
   }, []);
 
   const formatTimeLeft = (hours: number) => {
@@ -114,7 +140,7 @@ export default function SessionMonitor({
           className={`fixed right-4 z-40 bg-red-900 text-white p-3 rounded-lg shadow-lg border-2 border-red-600 ${
             showSessionTimer
               ? "bottom-28 md:bottom-24"
-              : showCalculator
+              : showCalculator || showCashCounterFloating
                 ? "bottom-24"
                 : "bottom-4"
           }`}
@@ -193,7 +219,7 @@ export default function SessionMonitor({
       {/* Indicador de estado de sesión para todos los usuarios */}
       {user && user.role !== "superadmin" && !showSessionTimer && (
         <div
-          className={`fixed right-4 z-40 bg-gray-800 text-white p-2 rounded-lg shadow-lg text-xs ${showCalculator ? "bottom-24" : "bottom-4"}`}
+          className={`fixed right-4 z-40 bg-gray-800 text-white p-2 rounded-lg shadow-lg text-xs ${showCalculator || showCashCounterFloating ? "bottom-24" : "bottom-4"}`}
         >
           <div className="flex items-center gap-2">
             <div

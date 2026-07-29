@@ -10,6 +10,7 @@ import {
   LogOut,
   Calculator,
   GripVertical,
+  Banknote,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import TokenInfo from "../session/TokenInfo";
@@ -21,6 +22,8 @@ interface ConfigurationModalProps {
   onToggleSessionTimer: (show: boolean) => void;
   showCalculator: boolean;
   onToggleCalculator: (show: boolean) => void;
+  showCashCounterFloating: boolean;
+  onToggleCashCounterFloating: (show: boolean) => void;
   showSupplierWeekInMenu: boolean;
   onToggleSupplierWeekInMenu: (show: boolean) => void;
   enableHomeMenuSortMobile: boolean;
@@ -35,6 +38,8 @@ export default function ConfigurationModal({
   onToggleSessionTimer,
   showCalculator,
   onToggleCalculator,
+  showCashCounterFloating,
+  onToggleCashCounterFloating,
   showSupplierWeekInMenu,
   onToggleSupplierWeekInMenu,
   enableHomeMenuSortMobile,
@@ -185,6 +190,58 @@ export default function ConfigurationModal({
                   {showCalculator
                     ? "La calculadora estará disponible en todas las páginas como botón flotante"
                     : "Activa para mostrar la calculadora flotante en toda la aplicación"}
+                </div>
+              </div>
+
+              {/* Toggle para Contador de Efectivo Siempre Visible */}
+              <div className="rounded-lg border border-white/10 bg-slate-900/50 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Banknote
+                      className={`w-5 h-5 ${showCashCounterFloating ? "text-cyan-400" : "text-slate-500"}`}
+                    />
+                    <div>
+                      <div className="font-medium text-slate-200">
+                        Mostrar Siempre el Contador de Efectivo
+                      </div>
+                      <div className="text-sm text-slate-400">
+                        {showCashCounterFloating
+                          ? "Contador disponible como botÃ³n flotante"
+                          : "Contador flotante oculto"}
+                      </div>
+                    </div>
+                  </div>
+                  <label className="flex items-center cursor-pointer">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        checked={showCashCounterFloating}
+                        onChange={(e) =>
+                          onToggleCashCounterFloating(e.target.checked)
+                        }
+                        className="sr-only"
+                      />
+                      <div
+                        className={`block w-12 h-6 rounded-full transition-colors duration-200 ease-in-out ${
+                          showCashCounterFloating
+                            ? "bg-cyan-600 shadow-lg"
+                            : "bg-slate-600"
+                        }`}
+                      />
+                      <div
+                        className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ease-in-out shadow-sm ${
+                          showCashCounterFloating
+                            ? "translate-x-6"
+                            : "translate-x-0"
+                        }`}
+                      />
+                    </div>
+                  </label>
+                </div>
+                <div className="mt-3 text-xs text-slate-400">
+                  {showCashCounterFloating
+                    ? "Abre el contador de efectivo en un modal desde cualquier secciÃ³n"
+                    : "Activa para mostrar el contador flotante en toda la aplicaciÃ³n"}
                 </div>
               </div>
 
