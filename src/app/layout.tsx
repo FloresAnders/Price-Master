@@ -15,6 +15,10 @@ import { XmlEgresosProvider } from "../components/xml/XmlEgresosProvider";
 import BackToTop from "../components/ui/BackToTop";
 import SubscriptionNotice from "../components/subscription/SubscriptionNotice";
 import OwnerChatWidget from "../components/chat/OwnerChatWidget";
+import {
+  FloatingActionsDock,
+  FloatingActionsProvider,
+} from "../components/ui/FloatingActionsDock";
 
 export const metadata = {
   title: "Time Master",
@@ -129,6 +133,7 @@ export default function RootLayout({
           <AuthWrapper>
             <PermissionsManager>
               <XmlEgresosProvider>
+                <FloatingActionsProvider>
                   <VersionCheckInitializer />
                   <ReminderNotificationsInitializer />
                   <SystemNotesInitializer />
@@ -140,8 +145,10 @@ export default function RootLayout({
                     </div>
                   </main>
                   <OwnerChatWidget />
+                  <FloatingActionsDock />
                   <BackToTop />
                   <Footer />
+                </FloatingActionsProvider>
                 </XmlEgresosProvider>
               <Toaster
                 position="top-right"

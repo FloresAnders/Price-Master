@@ -8,8 +8,10 @@ type BackToTopProps = {
   showAfterProgress?: number;
   /** Pixels from bottom/right edges. Default: 20 */
   offsetPx?: number;
-  /** Bottom/right offset on small screens. Default: 80 */
+  /** Bottom/right offset on small screens. Default: 20 */
   mobileOffsetPx?: number;
+  /** Keep button visible even before scroll threshold. Default: true */
+  alwaysVisible?: boolean;
 };
 
 function clamp01(value: number): number {
@@ -20,11 +22,11 @@ function clamp01(value: number): number {
 export default function BackToTop({
   showAfterProgress = 0.5,
   offsetPx = 20,
-  mobileOffsetPx = 80,
+  mobileOffsetPx = 20,
+  alwaysVisible = true,
 }: BackToTopProps) {
   const [visible, setVisible] = useState(false);
   const [isSmallScreen, setIsSmallScreen] = useState(false);
-  const [isCashCounterView, setIsCashCounterView] = useState(false);
 
   const threshold = useMemo(
     () => clamp01(showAfterProgress),
@@ -45,18 +47,6 @@ export default function BackToTop({
     // Safari < 14
     media.addListener(update);
     return () => media.removeListener(update);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const updateRouteState = () => {
-      setIsCashCounterView(window.location.hash === "#cashcounter");
-    };
-
-    updateRouteState();
-    window.addEventListener("hashchange", updateRouteState);
-    return () => window.removeEventListener("hashchange", updateRouteState);
   }, []);
 
   useEffect(() => {
@@ -104,17 +94,8 @@ export default function BackToTop({
     });
   };
 
-  const effectiveRightOffset = isCashCounterView
-    ? 80
-    : isSmallScreen
-      ? mobileOffsetPx
-      : offsetPx;
-
-  const effectiveBottomOffset = isCashCounterView
-    ? 24
-    : isSmallScreen
-      ? mobileOffsetPx
-      : offsetPx;
+  const effectiveOffset = isSmallScreen ? mobileOffsetPx : offsetPx;
+  const shouldShow = alwaysVisible || visible;
 
   return (
     <button
@@ -123,22 +104,20 @@ export default function BackToTop({
       aria-label="Volver arriba"
       title="Volver arriba"
       className={
-        "fixed z-40 inline-flex items-center justify-center rounded-full shadow-lg touch-manipulation " +
+        "fixed z-[99980] inline-flex h-14 w-14 items-center justify-center rounded-full shadow-xl touch-manipulation " +
         "bg-[var(--primary)] text-white hover:opacity-95 active:opacity-90 " +
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black/10 " +
         "transition-all duration-200 " +
-        (visible
+        (shouldShow
           ? "opacity-100 translate-y-0"
           : "opacity-0 pointer-events-none translate-y-2")
       }
       style={{
-        right: `calc(${effectiveRightOffset}px + env(safe-area-inset-right, 0px))`,
-        bottom: `calc(${effectiveBottomOffset}px + env(safe-area-inset-bottom, 0px))`,
+        right: `calc(${effectiveOffset}px + env(safe-area-inset-right, 0px))`,
+        bottom: `calc(${effectiveOffset}px + env(safe-area-inset-bottom, 0px))`,
       }}
     >
-      <span className="h-11 w-11 inline-flex items-center justify-center">
-        <ArrowUp className="h-5 w-5" aria-hidden="true" />
-      </span>
+      <ArrowUp className="h-6 w-6" aria-hidden="true" />
     </button>
   );
 }

@@ -63,6 +63,7 @@ import FloatingSessionTimer from "../session/FloatingSessionTimer";
 import EditProfileModal from "../edicionPerfil/EditProfileModal";
 import { getLayoutPref, setLayoutPref } from "@/services/layoutPrefsDb";
 import { normalizeClosingTimeExtensionCompanyKey } from "@/services/closing-time-extensions";
+import { useFloatingAction } from "@/components/ui/FloatingActionsDock";
 import {
   ConfigurationModal,
   CalculatorModal,
@@ -192,6 +193,36 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   }, []);
 
   const isClient = typeof window !== "undefined";
+  const showCalculatorFloatingAction =
+    showCalculator && activeTab !== "cashcounter";
+  const showCashCounterFloatingAction =
+    showCashCounterFloating && activeTab !== "cashcounter";
+  const openCalculatorFloating = useCallback(() => {
+    setShowCalculatorModal(true);
+  }, []);
+  const openCashCounterFloating = useCallback(() => {
+    setShowCashCounterModal(true);
+  }, []);
+
+  useFloatingAction({
+    id: "calculator",
+    label: "Abrir calculadora",
+    Icon: Calculator,
+    onClick: openCalculatorFloating,
+    order: 30,
+    variant: "blue",
+    visible: showCalculatorFloatingAction,
+  });
+
+  useFloatingAction({
+    id: "cash-counter",
+    label: "Abrir contador de efectivo",
+    Icon: Banknote,
+    onClick: openCashCounterFloating,
+    order: 20,
+    variant: "emerald",
+    visible: showCashCounterFloatingAction,
+  });
 
   useEffect(() => {
     if (!isClient) return;
@@ -2056,42 +2087,12 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       <FloatingSessionTimer
         visible={showSessionTimer}
         onToggleVisibility={() => setShowSessionTimer(false)}
-        // Evitar solape vertical si la calculadora global está activa
-        // y dejar más aire en CashCounter por sus propios FABs
-        avoidOverlap={
-          showCalculator ||
-          showCashCounterFloating ||
-          activeTab === "cashcounter"
-        }
+        avoidOverlap={activeTab === "cashcounter"}
         sideOffsetClass={activeTab === "cashcounter" ? "right-6" : undefined}
         bottomOffsetClass={
           activeTab === "cashcounter" ? "bottom-10 md:bottom-12" : undefined
         }
       />
-
-      {/* Global Calculator Button */}
-      {showCalculator && activeTab !== "cashcounter" && (
-        <button
-          onClick={() => setShowCalculatorModal(true)}
-          className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-xl z-40 transition-colors"
-          aria-label="Abrir calculadora"
-        >
-          <Calculator className="w-6 h-6" />
-        </button>
-      )}
-
-      {/* Global Cash Counter Button */}
-      {showCashCounterFloating && activeTab !== "cashcounter" && (
-        <button
-          onClick={() => setShowCashCounterModal(true)}
-          className={`fixed right-6 ${
-            showCalculator ? "bottom-24" : "bottom-6"
-          } z-40 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-600 text-white shadow-xl transition-colors hover:bg-emerald-700`}
-          aria-label="Abrir contador de efectivo"
-        >
-          <Banknote className="w-6 h-6" />
-        </button>
-      )}
 
       {/* Global Calculator Modal */}
       <CalculatorModal

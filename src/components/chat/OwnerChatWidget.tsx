@@ -23,6 +23,7 @@ import {
   type OwnerChatScheduleInfo,
 } from "@/services/owner-chat";
 import { UsersService } from "@/services/users";
+import { useFloatingAction } from "@/components/ui/FloatingActionsDock";
 import type { User } from "@/types/firestore";
 
 type OwnerOption = {
@@ -112,6 +113,23 @@ export default function OwnerChatWidget() {
         compareTimestamp(message.createdAt, readState.lastReadAt) > 0,
     ).length;
   }, [currentUserId, messages, readState.lastReadAt]);
+  const unreadBadge =
+    unreadCount > 0 ? (unreadCount > 99 ? "99+" : unreadCount) : undefined;
+  const canShowFloatingAction = isAuthenticated && Boolean(user);
+  const openChatFloating = useCallback(() => {
+    setOpen(true);
+  }, []);
+
+  useFloatingAction({
+    id: "owner-chat",
+    label: "Abrir chat",
+    Icon: MessageCircle,
+    onClick: openChatFloating,
+    order: 10,
+    badge: unreadBadge,
+    variant: "primary",
+    visible: canShowFloatingAction,
+  });
 
   const playIncomingSound = useCallback(() => {
     if (readState.muted || typeof window === "undefined") return;
@@ -346,20 +364,6 @@ export default function OwnerChatWidget() {
 
   return (
     <>
-      <button
-        type="button"
-        aria-label="Abrir chat"
-        onClick={() => setOpen(true)}
-        className="fixed bottom-44 right-5 z-[99980] flex h-14 w-14 items-center justify-center rounded-full border border-white/20 bg-[var(--primary)] text-white shadow-xl transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-white/70"
-      >
-        <MessageCircle className="h-6 w-6" />
-        {unreadCount > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-red-600 px-1 text-xs font-bold text-white">
-            {unreadCount > 99 ? "99+" : unreadCount}
-          </span>
-        )}
-      </button>
-
       {open && (
         <div className="fixed inset-0 z-[99990] pointer-events-none">
           <button
