@@ -6,6 +6,7 @@ import {
   Check,
   Circle,
   GripVertical,
+  Minus,
   MoreVertical,
   NotebookPen,
   Eye,
@@ -76,6 +77,9 @@ const CARD_GAP = 1;
 const QUICK_NOTE_TITLE = "Nueva nota";
 const QUICK_EDIT_MIN_WIDTH = 330;
 const QUICK_EDIT_MIN_HEIGHT = 250;
+const MIN_BOARD_ZOOM = 0.3;
+const MAX_BOARD_ZOOM = 2.0;
+const BOARD_ZOOM_STEP = 0.1;
 
 const PRIORITY_META: Record<
   AnotacionPriority,
@@ -329,6 +333,7 @@ export default function AnotacionesPage() {
     null,
   );
   const [saving, setSaving] = useState(false);
+  const [boardZoom, setBoardZoom] = useState(1);
   const [donePulseId, setDonePulseId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState>({
     open: false,
@@ -342,6 +347,7 @@ export default function AnotacionesPage() {
   const layoutsRef = useRef<LayoutMap>({});
   const suppressNextClickRef = useRef(false);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const boardZoomRef = useRef(1);
 
   const selectedEmpresaMeta = useMemo(
     () =>
@@ -381,6 +387,23 @@ export default function AnotacionesPage() {
     layoutsRef.current = layouts;
   }, [layouts]);
 
+  useEffect(() => {
+    boardZoomRef.current = boardZoom;
+  }, [boardZoom]);
+
+  const getBoardBounds = useCallback(() => {
+    const canvas = canvasRef.current;
+    const zoom = boardZoomRef.current || 1;
+    const viewportWidth = canvas?.clientWidth || 1400;
+    return {
+      width: viewportWidth * Math.max(1, zoom) / zoom,
+      height: Math.max(
+        ((canvas?.scrollHeight || BOARD_MIN_HEIGHT) / zoom) || BOARD_MIN_HEIGHT,
+        BOARD_MIN_HEIGHT,
+      ),
+    };
+  }, []);
+
   const categories = useMemo(
     () => Array.from(new Set(notes.map((note) => note.category))).slice(0, 8),
     [notes],
@@ -396,11 +419,11 @@ export default function AnotacionesPage() {
         z: index + 1,
       };
       return findAvailableLayout(note.id, fallback, layouts, {
-        width: canvasRef.current?.clientWidth || 1400,
-        height: canvasRef.current?.scrollHeight || BOARD_MIN_HEIGHT,
+        width: getBoardBounds().width,
+        height: getBoardBounds().height,
       });
     },
-    [layouts],
+    [getBoardBounds, layouts],
   );
 
   const persistLayout = useCallback(
@@ -527,25 +550,57 @@ export default function AnotacionesPage() {
     void loadNotes();
   }, [loadNotes]);
 
+  const adjustBoardZoom = useCallback((direction: "in" | "out") => {
+    setBoardZoom((current) => {
+      const next =
+        current + (direction === "in" ? BOARD_ZOOM_STEP : -BOARD_ZOOM_STEP);
+      return clamp(Number(next.toFixed(2)), MIN_BOARD_ZOOM, MAX_BOARD_ZOOM);
+    });
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey || dragStateRef.current || event.deltaY === 0) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const isInside =
+        event.clientX >= rect.left &&
+        event.clientX <= rect.right &&
+        event.clientY >= rect.top &&
+        event.clientY <= rect.bottom;
+      if (!isInside) return;
+
+      event.preventDefault();
+      adjustBoardZoom(event.deltaY < 0 ? "in" : "out");
+    };
+
+    canvas.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      canvas.removeEventListener("wheel", onWheel);
+    };
+  });
+
   useEffect(() => {
     const onPointerMove = (event: PointerEvent) => {
       const state = dragStateRef.current;
       if (!state) return;
-      const dx = event.clientX - state.startX;
-      const dy = event.clientY - state.startY;
+      const zoom = boardZoomRef.current || 1;
+      const dx = (event.clientX - state.startX) / zoom;
+      const dy = (event.clientY - state.startY) / zoom;
       const moved = Math.abs(dx) > 2 || Math.abs(dy) > 2;
-      const canvas = canvasRef.current;
+      const bounds = getBoardBounds();
 
       if (state.type === "move") {
         const maxX = Math.max(
           0,
-          (canvas?.clientWidth || 1400) - state.origin.width - CARD_GAP,
+          bounds.width - state.origin.width - CARD_GAP,
         );
         const maxY = Math.max(
           0,
-          Math.max(canvas?.scrollHeight || 720, BOARD_MIN_HEIGHT) -
-            state.origin.height -
-            CARD_GAP,
+          bounds.height - state.origin.height - CARD_GAP,
         );
         const candidate = {
           ...state.origin,
@@ -558,8 +613,8 @@ export default function AnotacionesPage() {
           candidate,
           layoutsRef.current,
           {
-            width: canvas?.clientWidth || 1400,
-            height: canvas?.scrollHeight || BOARD_MIN_HEIGHT,
+            width: bounds.width,
+            height: bounds.height,
           },
         );
         dragStateRef.current = { ...state, moved };
@@ -604,7 +659,7 @@ export default function AnotacionesPage() {
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
     };
-  }, [persistLayout]);
+  }, [getBoardBounds, persistLayout]);
 
   const bringToFront = useCallback(
     (noteId: string, baseLayout?: AnotacionLayout) => {
@@ -1058,9 +1113,39 @@ export default function AnotacionesPage() {
 
       <div
         ref={canvasRef}
-        className="relative h-[680px] overflow-auto bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.12)_1px,transparent_0)] [background-size:18px_18px]"
+        className="relative h-[680px] overflow-auto overscroll-contain bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.12)_1px,transparent_0)] [background-size:18px_18px]"
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-cyan-950/35 via-transparent to-purple-700/35" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-cyan-950/35 via-transparent to-purple-700/35" />
+
+        <div
+          data-note-action
+          className="pointer-events-none absolute right-3 top-3 z-30 flex items-center overflow-hidden rounded-md border border-white/15 bg-slate-950/90 text-xs font-semibold text-white shadow-xl backdrop-blur"
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={() => adjustBoardZoom("out")}
+            disabled={boardZoom <= MIN_BOARD_ZOOM}
+            className="pointer-events-auto flex h-8 w-8 items-center justify-center hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
+            aria-label="Alejar anotaciones"
+            title="Alejar"
+          >
+            <Minus className="h-4 w-4" />
+          </button>
+          <span className="min-w-12 border-x border-white/10 px-2 text-center">
+            {Math.round(boardZoom * 100)}%
+          </span>
+          <button
+            type="button"
+            onClick={() => adjustBoardZoom("in")}
+            disabled={boardZoom >= MAX_BOARD_ZOOM}
+            className="pointer-events-auto flex h-8 w-8 items-center justify-center hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
+            aria-label="Acercar anotaciones"
+            title="Acercar"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        </div>
 
         {loading && (
           <div className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 rounded-lg border border-white/15 bg-black/45 px-5 py-3 text-sm text-slate-200">
@@ -1084,38 +1169,54 @@ export default function AnotacionesPage() {
           </div>
         )}
 
-        {visibleNotes.map((note, index) => {
-          const layout = getLayout(note, index);
-          const isQuickEdit = quickEditId === note.id;
-          const textColor = contrastText(note.color);
-          return (
-            <article
-              key={note.id}
-              onPointerDown={() => bringToFront(note.id, layout)}
-              onClick={(event) => {
-                if ((event.target as HTMLElement).closest("[data-note-action]"))
-                  return;
-                if (suppressNextClickRef.current) return;
-                setMenuNoteId(null);
-              }}
-              onDoubleClick={(event) => {
-                event.stopPropagation();
-                openQuickEdit(note, index);
-              }}
-              className={`absolute rounded-lg border p-0 shadow-2xl transition-opacity ${
-                note.status === "done" ? "opacity-60" : "opacity-100"
-              } ${donePulseId === note.id ? "scale-[1.03]" : "scale-100"}`}
-              style={{
-                left: layout.x,
-                top: layout.y,
-                width: layout.width,
-                height: layout.height,
-                zIndex: layout.z,
-                borderColor: `${note.color}99`,
-                background: `linear-gradient(145deg, ${note.color}33, rgba(15,23,42,0.92))`,
-                boxShadow: `0 18px 48px ${note.color}33`,
-              }}
-            >
+        <div
+          className="relative z-[1]"
+          style={{
+            width: boardZoom >= 1 ? `${boardZoom * 100}%` : "100%",
+            height: BOARD_MIN_HEIGHT * boardZoom,
+          }}
+        >
+          <div
+            className="relative"
+            style={{
+              width: `${100 / boardZoom}%`,
+              height: BOARD_MIN_HEIGHT,
+              transform: `scale(${boardZoom})`,
+              transformOrigin: "top left",
+            }}
+          >
+            {visibleNotes.map((note, index) => {
+              const layout = getLayout(note, index);
+              const isQuickEdit = quickEditId === note.id;
+              const textColor = contrastText(note.color);
+              return (
+                <article
+                  key={note.id}
+                  onPointerDown={() => bringToFront(note.id, layout)}
+                  onClick={(event) => {
+                    if ((event.target as HTMLElement).closest("[data-note-action]"))
+                      return;
+                    if (suppressNextClickRef.current) return;
+                    setMenuNoteId(null);
+                  }}
+                  onDoubleClick={(event) => {
+                    event.stopPropagation();
+                    openQuickEdit(note, index);
+                  }}
+                  className={`absolute rounded-lg border p-0 shadow-2xl transition-opacity ${
+                    note.status === "done" ? "opacity-60" : "opacity-100"
+                  } ${donePulseId === note.id ? "scale-[1.03]" : "scale-100"}`}
+                  style={{
+                    left: layout.x,
+                    top: layout.y,
+                    width: layout.width,
+                    height: layout.height,
+                    zIndex: layout.z,
+                    borderColor: `${note.color}99`,
+                    background: `linear-gradient(145deg, ${note.color}33, rgba(15,23,42,0.92))`,
+                    boxShadow: `0 18px 48px ${note.color}33`,
+                  }}
+                >
               <div
                 onPointerDown={(event) => startMove(event, note, index)}
                 className="flex cursor-grab items-center gap-2 rounded-t-lg border-b border-white/10 px-3 py-2 active:cursor-grabbing"
@@ -1274,8 +1375,10 @@ export default function AnotacionesPage() {
                 />
               )}
             </article>
-          );
-        })}
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {newNoteOpen && (
