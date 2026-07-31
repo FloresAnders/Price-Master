@@ -370,6 +370,22 @@ export class InternalDebtsService {
     return sortInternalDebtsByUpdatedAt(debts);
   }
 
+  static async getVisibleDebtsForSuperAdmin(): Promise<InternalDebt[]> {
+    const batches = await Promise.all(
+      (["open", "paid"] as InternalDebtStatus[]).map((status) =>
+        FirestoreService.query(COLLECTION_NAME, [
+          { field: "status", operator: "==", value: status },
+        ]) as Promise<InternalDebt[]>,
+      ),
+    );
+    const byId = new Map<string, InternalDebt>();
+    for (const debt of batches.flat()) {
+      if (!debt.id) continue;
+      byId.set(debt.id, debt);
+    }
+    return sortInternalDebtsByUpdatedAt(Array.from(byId.values()));
+  }
+
   static async createDebt(input: CreateInternalDebtInput): Promise<string> {
     const draft = createInternalDebtDraft(input);
     return FirestoreService.add(COLLECTION_NAME, draft);

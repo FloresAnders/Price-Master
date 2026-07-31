@@ -15,12 +15,33 @@ globalThis.__internalDebtTest = {
   filterVisibleInternalDebts,
   formatInternalDebtRoute,
   getInternalDebtActorRole,
+  InternalDebtsService,
 };`,
   { compilerOptions: { module: ts.ModuleKind.ES2020, target: ts.ScriptTarget.ES2020 } },
 ).outputText;
 
 const context = {
   crypto: { randomUUID: () => "movement-test-id" },
+  FirestoreService: {
+    queries: [],
+    async query(_collection, conditions) {
+      this.queries.push(conditions);
+      const status = conditions.find((condition) => condition.field === "status")?.value;
+      if (status === "open") return [baseDebt];
+      if (status === "paid") {
+        return [
+          {
+            ...baseDebt,
+            id: "paid-debt-1",
+            balance: 0,
+            status: "paid",
+            updatedAt: new Date("2026-07-28T00:00:00Z"),
+          },
+        ];
+      }
+      return [];
+    },
+  },
 };
 vm.createContext(context);
 vm.runInContext(compiled, context);
@@ -30,6 +51,7 @@ const {
   filterVisibleInternalDebts,
   formatInternalDebtRoute,
   getInternalDebtActorRole,
+  InternalDebtsService,
 } = context.__internalDebtTest;
 
 const baseDebt = {
@@ -138,6 +160,19 @@ assert.equal(
 assert.equal(
   getInternalDebtActorRole(companyDebt, ["user:admin-1", "empresa:empresa-b"]),
   "creditor",
+);
+
+const visibleToSuperAdmin = await InternalDebtsService.getVisibleDebtsForSuperAdmin();
+
+assert.deepEqual(
+  context.FirestoreService.queries.map((conditions) =>
+    conditions.find((condition) => condition.field === "status")?.value,
+  ),
+  ["open", "paid"],
+);
+assert.equal(
+  JSON.stringify(visibleToSuperAdmin.map((debt) => debt.id)),
+  JSON.stringify(["paid-debt-1", "debt-1"]),
 );
 
 console.log("internal debts superadmin movement tests passed");

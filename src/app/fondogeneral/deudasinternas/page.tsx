@@ -1,19 +1,26 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   Building2,
   CircleDollarSign,
+  Download,
   Eye,
   Loader2,
   Plus,
+  QrCode,
   RotateCcw,
   Search,
   ShieldAlert,
+  Smartphone,
   UserRound,
   UsersRound,
+  X,
 } from "lucide-react";
+import QRCode from "qrcode";
+import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
+import { storage } from "@/config/firebase";
 import { useAuth } from "@/hooks/useAuth";
 import { useActorOwnership } from "@/hooks/useActorOwnership";
 import useToast from "@/hooks/useToast";
@@ -31,6 +38,11 @@ import {
   type InternalDebtPartyType,
 } from "@/services/internal-debts";
 import type { Empresas, User } from "@/types/firestore";
+import {
+  buildPaidInternalDebtReceiptData,
+  buildPaidInternalDebtReceiptFileName,
+  buildPaidInternalDebtReceiptStoragePath,
+} from "./paidDebtReceipt";
 
 type ActorOption = InternalDebtParty & {
   key: string;
@@ -278,6 +290,16 @@ export default function DeudasInternasPage() {
   const [debtForm, setDebtForm] = useState<DebtFormState>(EMPTY_DEBT_FORM);
   const [movementForm, setMovementForm] =
     useState<MovementFormState>(EMPTY_MOVEMENT_FORM);
+  const paidDebtReceiptRef = useRef<HTMLDivElement | null>(null);
+  const paidDebtDownloadRequestRef = useRef(0);
+  const [receiptDownloading, setReceiptDownloading] = useState(false);
+  const [receiptMobileDownloading, setReceiptMobileDownloading] =
+    useState(false);
+  const [showReceiptQrModal, setShowReceiptQrModal] = useState(false);
+  const [receiptQrCodeDataUrl, setReceiptQrCodeDataUrl] = useState("");
+  const [receiptDownloadUrl, setReceiptDownloadUrl] = useState("");
+  const [receiptDownloadFileName, setReceiptDownloadFileName] = useState("");
+  const [receiptDownloadError, setReceiptDownloadError] = useState("");
 
   const ownerSet = useMemo(() => new Set(ownerIds), [ownerIds]);
   const activeCompanyKey = useMemo(
@@ -449,7 +471,7 @@ export default function DeudasInternasPage() {
         return;
       }
       const list = isSuperAdmin
-        ? await InternalDebtsService.getActiveDebtsForSuperAdmin()
+        ? await InternalDebtsService.getVisibleDebtsForSuperAdmin()
         : await InternalDebtsService.getVisibleDebts(
             primaryOwnerId,
             keys,
@@ -538,6 +560,13 @@ export default function DeudasInternasPage() {
     };
   }, [activeDebts, editPartyKeys, isSuperAdmin]);
   const selectedDebtIsPaid = selectedDebt ? isDebtPaid(selectedDebt) : false;
+  const selectedPaidDebtReceipt = useMemo(
+    () =>
+      selectedDebt && selectedDebtIsPaid
+        ? buildPaidInternalDebtReceiptData(selectedDebt)
+        : null,
+    [selectedDebt, selectedDebtIsPaid],
+  );
   const canSubmitDebt = Boolean(
     debtForm.debtorKey &&
       debtForm.creditorKey &&
@@ -661,6 +690,192 @@ export default function DeudasInternasPage() {
       setSaving(false);
     }
   };
+
+  const resetPaidDebtReceiptDownload = useCallback(() => {
+    setReceiptDownloading(false);
+    setReceiptMobileDownloading(false);
+    setShowReceiptQrModal(false);
+    setReceiptQrCodeDataUrl("");
+    setReceiptDownloadUrl("");
+    setReceiptDownloadFileName("");
+    setReceiptDownloadError("");
+  }, []);
+
+  const closeSelectedDebt = useCallback(() => {
+    paidDebtDownloadRequestRef.current += 1;
+    resetPaidDebtReceiptDownload();
+    setSelectedDebt(null);
+  }, [resetPaidDebtReceiptDownload]);
+
+  const downloadBlob = useCallback((blob: Blob, fileName: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, []);
+
+  const capturePaidDebtReceiptImage = useCallback(async () => {
+    if (!paidDebtReceiptRef.current || !selectedPaidDebtReceipt) return null;
+
+    const html2canvas = (await import("html2canvas")).default;
+    const target = paidDebtReceiptRef.current;
+    const previousHeight = target.style.height;
+    const previousMaxHeight = target.style.maxHeight;
+    const previousOverflow = target.style.overflow;
+
+    try {
+      target.style.height = `${target.scrollHeight}px`;
+      target.style.maxHeight = "none";
+      target.style.overflow = "visible";
+      await new Promise<void>((resolve) =>
+        window.requestAnimationFrame(() => resolve()),
+      );
+
+      const captureOptions = {
+        background: "#ffffff",
+        height: target.scrollHeight,
+        scale: 2,
+        scrollX: 0,
+        scrollY: 0,
+        useCORS: true,
+        windowHeight: target.scrollHeight,
+        windowWidth: target.scrollWidth,
+        width: target.scrollWidth,
+        logging: false,
+      } as Parameters<typeof html2canvas>[1] & {
+        background: string;
+        height: number;
+        scale: number;
+        scrollX: number;
+        scrollY: number;
+        useCORS: boolean;
+        windowHeight: number;
+        windowWidth: number;
+        width: number;
+        logging: boolean;
+      };
+      const canvas = await html2canvas(target, captureOptions);
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/png"),
+      );
+      if (!blob) throw new Error("No se pudo generar la imagen.");
+
+      return {
+        blob,
+        fileName: buildPaidInternalDebtReceiptFileName(selectedPaidDebtReceipt),
+      };
+    } finally {
+      target.style.height = previousHeight;
+      target.style.maxHeight = previousMaxHeight;
+      target.style.overflow = previousOverflow;
+    }
+  }, [selectedPaidDebtReceipt]);
+
+  const handlePaidDebtImageDownload = useCallback(async () => {
+    if (receiptDownloading || receiptMobileDownloading) return;
+    setReceiptDownloading(true);
+    setReceiptDownloadError("");
+
+    try {
+      const image = await capturePaidDebtReceiptImage();
+      if (!image) throw new Error("No se pudo preparar el recibo.");
+      downloadBlob(image.blob, image.fileName);
+      showToast("Imagen descargada.", "success", 3000);
+    } catch (error) {
+      console.error("Error al generar recibo de deuda pagada:", error);
+      showToast("No se pudo generar la imagen.", "error", 5000);
+    } finally {
+      setReceiptDownloading(false);
+    }
+  }, [
+    capturePaidDebtReceiptImage,
+    downloadBlob,
+    receiptDownloading,
+    receiptMobileDownloading,
+    showToast,
+  ]);
+
+  const handlePaidDebtMobileDownload = useCallback(async () => {
+    if (receiptDownloading || receiptMobileDownloading) return;
+    const requestId = paidDebtDownloadRequestRef.current + 1;
+    paidDebtDownloadRequestRef.current = requestId;
+    setReceiptMobileDownloading(true);
+    setReceiptDownloadError("");
+
+    try {
+      const image = await capturePaidDebtReceiptImage();
+      if (!image) throw new Error("No se pudo preparar el recibo.");
+
+      downloadBlob(image.blob, image.fileName);
+      const path = buildPaidInternalDebtReceiptStoragePath(image.fileName);
+      const imageRef = storageRef(storage, path);
+      await uploadBytes(imageRef, image.blob);
+      const downloadUrl = await getDownloadURL(imageRef);
+      const qrDataUrl = await QRCode.toDataURL(downloadUrl, {
+        width: 256,
+        margin: 2,
+        color: {
+          dark: "#000000",
+          light: "#FFFFFF",
+        },
+      });
+
+      if (paidDebtDownloadRequestRef.current !== requestId) return;
+
+      setReceiptDownloadUrl(downloadUrl);
+      setReceiptDownloadFileName(image.fileName);
+      setReceiptQrCodeDataUrl(qrDataUrl);
+      setShowReceiptQrModal(true);
+      showToast("QR de descarga generado.", "success", 3000);
+    } catch (error) {
+      console.error("Error al generar descarga movil de deuda pagada:", error);
+      if (paidDebtDownloadRequestRef.current === requestId) {
+        const message = "No se pudo generar la descarga movil.";
+        setReceiptDownloadError(message);
+        showToast(message, "error", 5000);
+      }
+    } finally {
+      if (paidDebtDownloadRequestRef.current === requestId) {
+        setReceiptMobileDownloading(false);
+      }
+    }
+  }, [
+    capturePaidDebtReceiptImage,
+    downloadBlob,
+    receiptDownloading,
+    receiptMobileDownloading,
+    showToast,
+  ]);
+
+  const handlePaidDebtDirectDownload = useCallback(async () => {
+    if (!receiptDownloadUrl) return;
+    try {
+      const response = await fetch(receiptDownloadUrl);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      downloadBlob(
+        blob,
+        receiptDownloadFileName || "DeudaInternaPagada.png",
+      );
+    } catch (error) {
+      console.error("Error al descargar recibo remoto:", error);
+      window.open(receiptDownloadUrl, "_blank", "noopener,noreferrer");
+    }
+  }, [downloadBlob, receiptDownloadFileName, receiptDownloadUrl]);
+
+  const handleClosePaidDebtQrModal = useCallback(() => {
+    paidDebtDownloadRequestRef.current += 1;
+    setShowReceiptQrModal(false);
+    setReceiptQrCodeDataUrl("");
+    setReceiptDownloadUrl("");
+    setReceiptDownloadFileName("");
+    setReceiptDownloadError("");
+    setReceiptMobileDownloading(false);
+  }, []);
 
   if (authLoading || loading) {
     return (
@@ -1019,10 +1234,192 @@ export default function DeudasInternasPage() {
       )}
 
       {selectedDebt && (
-        <ModalShell
-          title="Detalle deuda"
-          subtitle={`${selectedDebt.debtor.name} debe a ${selectedDebt.creditor.name}`}
-        >
+        <>
+          {selectedPaidDebtReceipt && (
+            <div
+              className="fixed left-[-10000px] top-0 w-[760px]"
+              aria-hidden="true"
+            >
+              <div
+                ref={paidDebtReceiptRef}
+                className="w-[760px] bg-white p-8 font-sans text-slate-950"
+              >
+                <div className="mb-6 flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
+                  <div>
+                    <div className="text-sm font-semibold uppercase tracking-wide text-emerald-700">
+                      Deudas internas
+                    </div>
+                    <h1 className="mt-1 text-3xl font-bold text-slate-950">
+                      {selectedPaidDebtReceipt.title}
+                    </h1>
+                    <p className="mt-2 text-base text-slate-600">
+                      {selectedPaidDebtReceipt.routeLabel}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold uppercase text-emerald-700">
+                    {selectedPaidDebtReceipt.statusLabel}
+                  </div>
+                </div>
+
+                <div className="mb-6 grid grid-cols-2 gap-4">
+                  <div className="rounded-lg border border-slate-200 p-4">
+                    <div className="text-xs font-semibold uppercase text-slate-500">
+                      Deudor
+                    </div>
+                    <div className="mt-1 text-lg font-bold">
+                      {selectedPaidDebtReceipt.debtorName}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 p-4">
+                    <div className="text-xs font-semibold uppercase text-slate-500">
+                      Acreedor
+                    </div>
+                    <div className="mt-1 text-lg font-bold">
+                      {selectedPaidDebtReceipt.creditorName}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 p-4">
+                    <div className="text-xs font-semibold uppercase text-slate-500">
+                      Monto original
+                    </div>
+                    <div className="mt-1 text-2xl font-bold text-slate-950">
+                      {crcFormatter.format(selectedPaidDebtReceipt.amountOriginal)}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 p-4">
+                    <div className="text-xs font-semibold uppercase text-slate-500">
+                      Saldo
+                    </div>
+                    <div className="mt-1 text-2xl font-bold text-emerald-700">
+                      {crcFormatter.format(selectedPaidDebtReceipt.balance)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mb-6 rounded-lg border border-slate-200 p-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <div className="font-semibold text-slate-500">Fecha</div>
+                      <div className="mt-1 text-slate-950">
+                        {selectedPaidDebtReceipt.debtDate || "Sin fecha"}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="font-semibold text-slate-500">
+                        Referencia
+                      </div>
+                      <div className="mt-1 text-slate-950">
+                        {selectedPaidDebtReceipt.reference || "Sin referencia"}
+                      </div>
+                    </div>
+                    <div className="col-span-2">
+                      <div className="font-semibold text-slate-500">Motivo</div>
+                      <div className="mt-1 text-slate-950">
+                        {selectedPaidDebtReceipt.reason}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mb-6">
+                  <h2 className="mb-3 text-lg font-bold text-slate-950">
+                    Movimientos
+                  </h2>
+                  <div className="overflow-hidden rounded-lg border border-slate-200">
+                    {selectedPaidDebtReceipt.movements.map((movement) => (
+                      <div
+                        key={movement.id}
+                        className="grid grid-cols-[1fr_auto] gap-4 border-b border-slate-200 p-3 last:border-b-0"
+                      >
+                        <div>
+                          <div className="font-semibold text-slate-950">
+                            {movement.typeLabel}: {movement.reason}
+                          </div>
+                          <div className="mt-1 text-xs text-slate-600">
+                            {movement.date} - {movement.createdByName}
+                            {movement.reference
+                              ? ` - Ref. ${movement.reference}`
+                              : ""}
+                          </div>
+                        </div>
+                        <div className="text-right font-bold text-slate-950">
+                          {movement.signedAmountPrefix}
+                          {crcFormatter.format(movement.amount)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-200 pt-4 text-right text-xs text-slate-500">
+                  Exportado:{" "}
+                  {new Date(
+                    selectedPaidDebtReceipt.exportedAtISO,
+                  ).toLocaleString("es-CR")}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showReceiptQrModal && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+              <div className="w-full max-w-md rounded-xl border border-[var(--input-border)] bg-[#0b1118] p-5 text-[var(--foreground)] shadow-2xl">
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Smartphone className="h-5 w-5 text-[var(--accent)]" />
+                    <h3 className="text-lg font-semibold">Descarga movil</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleClosePaidDebtQrModal}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--input-border)] hover:bg-[var(--muted)]/20"
+                    aria-label="Cerrar modal QR"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <p className="mb-4 text-sm text-[var(--muted-foreground)]">
+                  Escanea este codigo QR con tu movil para descargar la imagen.
+                </p>
+                <div className="mb-4 flex justify-center">
+                  <div className="flex h-56 w-56 items-center justify-center rounded-lg bg-white p-4 shadow-md">
+                    {receiptQrCodeDataUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={receiptQrCodeDataUrl}
+                        alt="QR Code para descarga"
+                        className="h-48 w-48"
+                      />
+                    ) : (
+                      <QrCode className="h-12 w-12 text-slate-400" />
+                    )}
+                  </div>
+                </div>
+                <div className="grid gap-3">
+                  <button
+                    type="button"
+                    onClick={handlePaidDebtDirectDownload}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-semibold text-white hover:bg-[var(--accent-hover)]"
+                  >
+                    <Download className="h-4 w-4" />
+                    Descargar directamente
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClosePaidDebtQrModal}
+                    className="inline-flex h-11 items-center justify-center rounded-lg border border-[var(--input-border)] px-4 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--muted)]/20"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <ModalShell
+            title="Detalle deuda"
+            subtitle={`${selectedDebt.debtor.name} debe a ${selectedDebt.creditor.name}`}
+          >
           <div className="mb-4 grid gap-3 md:grid-cols-3">
             <div className="rounded-lg border border-[var(--input-border)] bg-[#0d141b] p-3">
               <div className="text-xs text-[var(--muted-foreground)]">Deudor</div>
@@ -1093,15 +1490,60 @@ export default function DeudasInternasPage() {
           </div>
 
           {selectedDebtIsPaid || !selectedDebtRole ? (
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => setSelectedDebt(null)}
-                className="rounded-lg border border-[var(--input-border)] px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
-              >
-                Cerrar
-              </button>
-            </div>
+            selectedDebtIsPaid ? (
+              <div className="space-y-3">
+                {receiptDownloadError ? (
+                  <div className="text-sm text-red-300">
+                    {receiptDownloadError}
+                  </div>
+                ) : null}
+                <div className="flex flex-col justify-end gap-2 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={handlePaidDebtImageDownload}
+                    disabled={receiptDownloading || receiptMobileDownloading}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--input-border)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--hover-bg)] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {receiptDownloading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                    {receiptDownloading ? "Generando..." : "Descargar imagen"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handlePaidDebtMobileDownload}
+                    disabled={receiptDownloading || receiptMobileDownloading}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--input-border)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--hover-bg)] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {receiptMobileDownloading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <QrCode className="h-4 w-4" />
+                    )}
+                    {receiptMobileDownloading ? "Generando..." : "Descarga movil"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={closeSelectedDebt}
+                    className="rounded-lg border border-[var(--input-border)] px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={closeSelectedDebt}
+                  className="rounded-lg border border-[var(--input-border)] px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                >
+                  Cerrar
+                </button>
+              </div>
+            )
           ) : (
             <form onSubmit={handleAddMovement} className="space-y-3">
               <div className="grid gap-3 md:grid-cols-3">
@@ -1176,7 +1618,7 @@ export default function DeudasInternasPage() {
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setSelectedDebt(null)}
+                  onClick={closeSelectedDebt}
                   className="rounded-lg border border-[var(--input-border)] px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
                 >
                   Cerrar
@@ -1193,7 +1635,8 @@ export default function DeudasInternasPage() {
               </div>
             </form>
           )}
-        </ModalShell>
+          </ModalShell>
+        </>
       )}
     </div>
   );
