@@ -1,3 +1,15 @@
+# TODO
+   - [ ] Hacer una seleccion de comandos iniciados por ! tipo !ayuda, 
+   - [ ]  Si el comando es !AyudaSuper se debe enviar un correo a los superadmins o mensaje de alguna forma en el futuro
+   - [ ]  Permitir archivos imagen
+   - [ ]  Permitir audios de no mas de 1 minutos
+   - [ ]  Intentar info de leidos
+   - [ ]  Intentar hacer "escribiendo"
+   - [ ]  Agregar division de por dia al chat
+   - [ ]  
+
+
+
 # general
 
 - [ ] Google analitics
