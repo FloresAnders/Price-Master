@@ -59,6 +59,7 @@ const PROVIDER_ACCOUNT_OPTIONS: Array<{
   { id: "BAC", label: "BAC", permission: "fondogeneralBAC" },
   { id: "CajaNegra", label: "Caja Negra", permission: "cajaNegra" },
   { id: "Tucan", label: "Tucan", permission: "tucan" },
+  { id: "Tiempos", label: "Tiempos", permission: "tiempos" },
 ];
 const PROVIDER_ACCOUNT_LABELS = PROVIDER_ACCOUNT_OPTIONS.reduce(
   (acc, option) => {
@@ -140,7 +141,8 @@ export function ProviderSection({ id }: { id?: string }) {
       permissions.fondogeneralBN ||
       permissions.fondogeneralBAC ||
       permissions.cajaNegra ||
-      permissions.tucan,
+      permissions.tucan ||
+      permissions.tiempos,
   );
   const availableProviderAccounts = useMemo(
     () =>

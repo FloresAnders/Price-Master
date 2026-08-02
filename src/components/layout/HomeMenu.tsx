@@ -213,6 +213,13 @@ const menuItems = [
     permission: "registroTucan" as keyof UserPermissions,
   },
   {
+    id: "registroTiempos",
+    name: "Registro Tiempos",
+    icon: ClipboardPenLine,
+    description: "Registro Tiempos",
+    permission: "registroTiempos" as keyof UserPermissions,
+  },
+  {
     id: "anotaciones",
     name: "Anotaciones",
     icon: NotebookPen,
@@ -336,6 +343,15 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
       ? currentUser.permissions
       : getDefaultPermissions(currentUser.role || "user");
   })();
+  const hasAnyFondoAccountAccess = Boolean(
+    resolvedPermissions?.fondogeneral ||
+      resolvedPermissions?.fondogeneralBCR ||
+      resolvedPermissions?.fondogeneralBN ||
+      resolvedPermissions?.fondogeneralBAC ||
+      resolvedPermissions?.cajaNegra ||
+      resolvedPermissions?.tucan ||
+      resolvedPermissions?.tiempos,
+  );
 
   // Filter menu items based on user permissions
   const getVisibleMenuItems = () => {
@@ -355,6 +371,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
 
     // Filter items based on user permissions
     return menuItems.filter((item) => {
+      if (item.id === "fondogeneral") return hasAnyFondoAccountAccess;
       const hasPermission = userPermissions[item.permission];
       return hasPermission === true;
     });

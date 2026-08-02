@@ -70,6 +70,7 @@ const ACCOUNT_LABELS: Record<MovementAccountKey, string> = {
   BAC: "Cuenta BAC",
   CajaNegra: "Caja Negra",
   Tucan: "Tucan",
+  Tiempos: "Tiempos",
 };
 
 const ACCOUNT_ORDER: MovementAccountKey[] = [
@@ -79,6 +80,7 @@ const ACCOUNT_ORDER: MovementAccountKey[] = [
   "BAC",
   "CajaNegra",
   "Tucan",
+  "Tiempos",
 ];
 const MOVEMENT_ACCOUNT_SET = new Set<MovementAccountKey>(ACCOUNT_ORDER);
 const ALL_COMPANIES_VALUE = "__all_companies__";
@@ -207,6 +209,7 @@ export default function ReporteMovimientosPage() {
     if (permissions.fondogeneralBAC) list.push("BAC");
     if (permissions.cajaNegra) list.push("CajaNegra");
     if (permissions.tucan) list.push("Tucan");
+    if (permissions.tiempos) list.push("Tiempos");
     return list;
   }, [permissions]);
 

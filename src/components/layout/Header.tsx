@@ -112,6 +112,7 @@ export type ActiveTab =
   | "edit"
   | "solicitud"
   | "registroTucan"
+  | "registroTiempos"
   | "anotaciones"
   | "fondogeneral"
   | "facturas"
@@ -931,6 +932,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       permission: "registroTucan" as keyof UserPermissions,
     },
     {
+      id: "registroTiempos" as ActiveTab,
+      name: "Registro Tiempos",
+      icon: ClipboardPenLine,
+      description: "Registro Tiempos",
+      permission: "registroTiempos" as keyof UserPermissions,
+    },
+    {
       id: "anotaciones" as ActiveTab,
       name: "Anotaciones",
       icon: NotebookPen,
@@ -943,6 +951,15 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const userPermissions =
     user?.permissions || getDefaultPermissions(user?.role || "user");
   const canManageFondoGeneral = Boolean(userPermissions.fondogeneral);
+  const canUseFondoAccounts = Boolean(
+    userPermissions.fondogeneral ||
+      userPermissions.fondogeneralBCR ||
+      userPermissions.fondogeneralBN ||
+      userPermissions.fondogeneralBAC ||
+      userPermissions.cajaNegra ||
+      userPermissions.tucan ||
+      userPermissions.tiempos,
+  );
   const canUseInternalDebts = Boolean(userPermissions.deudasInternas);
   const canUseRecetas = Boolean(userPermissions.recetas);
   const canAgregarProducto = Boolean(userPermissions.agregarproductosdeli);
@@ -963,6 +980,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
   // Filter tabs based on user permissions
   const visibleTabs = allTabs.filter((tab) => {
+    if (tab.id === "fondogeneral") return canUseFondoAccounts;
     const hasPermission = userPermissions[tab.permission];
     return hasPermission;
   });
@@ -970,7 +988,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const isHomeRoute = pathname === "/" || pathname === "/home";
   const canShowFondoActions = Boolean(
     isFondoSection &&
-      (canManageFondoGeneral || canUseInternalDebts || userPermissions.reportessinpe),
+      (canUseFondoAccounts || canUseInternalDebts || userPermissions.reportessinpe),
   );
 
   const canShowAdminSidebar = Boolean(
@@ -1162,7 +1180,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           {pathname !== "/home" && canShowFondoActions && (
             <nav className="hidden lg:flex items-center gap-1">
               {/* Agregar proveedor */}
-              {canManageFondoGeneral && (
+              {canUseFondoAccounts && (
                 <button
                   onClick={() => {
                     safeWindow.location.hash("#agregarproveedor");
@@ -1183,7 +1201,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               )}
 
               {/* Fondo */}
-              {canManageFondoGeneral && (
+              {canUseFondoAccounts && (
                 <button
                   onClick={() => {
                     safeWindow.location.hash("#fondogeneral");
@@ -1569,7 +1587,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             {canShowFondoActions && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {/* Agregar proveedor */}
-                {canManageFondoGeneral && (
+                {canUseFondoAccounts && (
                   <button
                     onClick={() => {
                       safeWindow.location.hash("#agregarproveedor");
@@ -1588,7 +1606,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 )}
 
                 {/* Fondo */}
-                {canManageFondoGeneral && (
+                {canUseFondoAccounts && (
                   <button
                     onClick={() => {
                       safeWindow.location.hash("#fondogeneral");

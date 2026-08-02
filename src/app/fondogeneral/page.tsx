@@ -8,17 +8,25 @@ import {
   ShieldAlert,
   Coins,
   Bird,
+  Timer,
   type LucideIcon,
 } from "lucide-react";
 import { FondoSection } from "./components";
 import { useAuth } from "@/hooks/useAuth";
 import { getDefaultPermissions } from "@/utils/permissions";
 
-type TabId = "fondo" | "bcr" | "bn" | "bac" | "cajanegra" | "tucan";
+type TabId =
+  | "fondo"
+  | "bcr"
+  | "bn"
+  | "bac"
+  | "cajanegra"
+  | "tucan"
+  | "tiempos";
 type FondoTab = {
   id: TabId;
   label: string;
-  namespace: "fg" | "bcr" | "bn" | "bac" | "cn" | "tc";
+  namespace: "fg" | "bcr" | "bn" | "bac" | "cn" | "tc" | "ti";
 };
 
 const TAB_VISUALS: Record<
@@ -80,6 +88,14 @@ const TAB_VISUALS: Record<
     activeTone:
       "bg-gradient-to-br from-blue-500/25 to-blue-700/20 border-blue-300/70 shadow-xl shadow-blue-400/30",
   },
+  tiempos: {
+    icon: Timer,
+    shortLabel: "Tiempos",
+    helper: "Dineros extra",
+    tone: "bg-gradient-to-br from-blue-500/15 to-blue-700/10 border-blue-400/35 shadow-lg shadow-blue-500/20",
+    activeTone:
+      "bg-gradient-to-br from-blue-500/25 to-blue-700/20 border-blue-300/70 shadow-xl shadow-blue-400/30",
+  },
 };
 
 const ACCOUNT_TAB_STORAGE_KEY = "fg_selected_account_tab";
@@ -89,13 +105,21 @@ export default function FondoPage() {
   const [accountsSectionVisible, setAccountsSectionVisible] = useState(false);
   const permissions =
     user?.permissions || getDefaultPermissions(user?.role || "user");
-  const hasGeneralAccess = Boolean(permissions.fondogeneral);
+  const hasAnyFondoAccountAccess = Boolean(
+    permissions.fondogeneral ||
+      permissions.fondogeneralBCR ||
+      permissions.fondogeneralBN ||
+      permissions.fondogeneralBAC ||
+      permissions.cajaNegra ||
+      permissions.tucan ||
+      permissions.tiempos,
+  );
   const availableTabs = useMemo<FondoTab[]>(() => {
-    if (!hasGeneralAccess) return [];
+    if (!hasAnyFondoAccountAccess) return [];
 
-    const list: FondoTab[] = [
-      { id: "fondo", label: "Fondo General", namespace: "fg" },
-    ];
+    const list: FondoTab[] = [];
+    if (permissions.fondogeneral)
+      list.push({ id: "fondo", label: "Fondo General", namespace: "fg" });
     if (permissions.fondogeneralBCR)
       list.push({ id: "bcr", label: "Cuenta BCR", namespace: "bcr" });
     if (permissions.fondogeneralBN)
@@ -106,14 +130,18 @@ export default function FondoPage() {
       list.push({ id: "cajanegra", label: "Caja Negra", namespace: "cn" });
     if (permissions.tucan)
       list.push({ id: "tucan", label: "Tucan", namespace: "tc" });
+    if (permissions.tiempos)
+      list.push({ id: "tiempos", label: "Tiempos", namespace: "ti" });
     return list;
   }, [
-    hasGeneralAccess,
+    hasAnyFondoAccountAccess,
+    permissions.fondogeneral,
     permissions.fondogeneralBCR,
     permissions.fondogeneralBN,
     permissions.fondogeneralBAC,
     permissions.cajaNegra,
     permissions.tucan,
+    permissions.tiempos,
   ]);
 
   const [active, setActiveState] = useState<TabId | "">(() => {
@@ -122,7 +150,15 @@ export default function FondoPage() {
       const stored = localStorage.getItem(ACCOUNT_TAB_STORAGE_KEY);
       if (
         stored &&
-        ["fondo", "bcr", "bn", "bac", "cajanegra", "tucan"].includes(stored)
+        [
+          "fondo",
+          "bcr",
+          "bn",
+          "bac",
+          "cajanegra",
+          "tucan",
+          "tiempos",
+        ].includes(stored)
       ) {
         return stored as TabId;
       }
@@ -237,7 +273,7 @@ export default function FondoPage() {
     );
   }
 
-  if (!hasGeneralAccess) {
+  if (!hasAnyFondoAccountAccess) {
     return (
       <div className="w-full max-w-7xl mx-auto px-2 py-3 sm:px-4 sm:py-6 lg:py-8">
         <div className="flex min-h-[260px] flex-col items-center justify-center rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-6 text-center shadow-sm sm:p-8">

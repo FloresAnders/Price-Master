@@ -146,6 +146,10 @@ const RegistroTucan = dynamic(
   () => import("@/components/business/RegistroTucan"),
   { ssr: false },
 );
+const RegistroTiempos = dynamic(
+  () => import("@/components/business/RegistroTiempos"),
+  { ssr: false },
+);
 const AnotacionesPage = dynamic(
   () => import("@/components/anotaciones/AnotacionesPage"),
   { ssr: false },
@@ -170,6 +174,7 @@ type ActiveTab =
   | "edit"
   | "solicitud"
   | "registroTucan"
+  | "registroTiempos"
   | "anotaciones"
   | "fondogeneral"
   | "agregarproveedor"
@@ -282,6 +287,9 @@ export default function HomePage() {
     ? user.permissions || getDefaultPermissions(user.role || "user")
     : null;
   const canAccessRegistroTucan = Boolean(resolvedPermissions?.registroTucan);
+  const canAccessRegistroTiempos = Boolean(
+    resolvedPermissions?.registroTiempos,
+  );
   const canAccessAnotaciones = Boolean(resolvedPermissions?.anotaciones);
 
   // 4) Al montar, leemos el hash de la URL y marcamos la pestaña correspondiente
@@ -299,6 +307,16 @@ export default function HomePage() {
         }
 
         if (hash === "registroTucan" && user && !canAccessRegistroTucan) {
+          safeWindow.location.hash("");
+          setActiveTab(null);
+          return;
+        }
+
+        if (
+          hash === "registroTiempos" &&
+          user &&
+          !canAccessRegistroTiempos
+        ) {
           safeWindow.location.hash("");
           setActiveTab(null);
           return;
@@ -327,6 +345,7 @@ export default function HomePage() {
           "scanhistory",
           "solicitud",
           "registroTucan",
+          "registroTiempos",
           "anotaciones",
           "fondogeneral",
           "agregarproveedor",
@@ -349,7 +368,13 @@ export default function HomePage() {
     checkAndSetTab();
     const timeout = setTimeout(checkAndSetTab, 100);
     return () => clearTimeout(timeout);
-  }, [isSuperAdmin, user, canAccessRegistroTucan, canAccessAnotaciones]);
+  }, [
+    isSuperAdmin,
+    user,
+    canAccessRegistroTucan,
+    canAccessRegistroTiempos,
+    canAccessAnotaciones,
+  ]);
 
   // 6) Escuchar cambios en el hash para actualizar la pestaña activa
   useEffect(() => {
@@ -366,6 +391,16 @@ export default function HomePage() {
         }
 
         if (hash === "registroTucan" && user && !canAccessRegistroTucan) {
+          safeWindow.location.hash("");
+          setActiveTab(null);
+          return;
+        }
+
+        if (
+          hash === "registroTiempos" &&
+          user &&
+          !canAccessRegistroTiempos
+        ) {
           safeWindow.location.hash("");
           setActiveTab(null);
           return;
@@ -395,6 +430,7 @@ export default function HomePage() {
           "edit",
           "solicitud",
           "registroTucan",
+          "registroTiempos",
           "anotaciones",
           "fondogeneral",
           "agregarproveedor",
@@ -415,7 +451,13 @@ export default function HomePage() {
         window.removeEventListener("hashchange", handleHashChange);
       };
     }
-  }, [isSuperAdmin, user, canAccessRegistroTucan, canAccessAnotaciones]);
+  }, [
+    isSuperAdmin,
+    user,
+    canAccessRegistroTucan,
+    canAccessRegistroTiempos,
+    canAccessAnotaciones,
+  ]);
   return (
     <>
       <div className="flex-1 max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -513,6 +555,10 @@ export default function HomePage() {
               {activeTab === "registroTucan" && canAccessRegistroTucan && (
                 <RegistroTucan />
               )}
+
+              {/* REGISTRO TIEMPOS */}
+              {activeTab === "registroTiempos" &&
+                canAccessRegistroTiempos && <RegistroTiempos />}
 
               {/* ANOTACIONES */}
               {activeTab === "anotaciones" && canAccessAnotaciones && (

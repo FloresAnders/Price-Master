@@ -31,7 +31,8 @@ export type MovementAccountKey =
   | "BN"
   | "BAC"
   | "CajaNegra"
-  | "Tucan";
+  | "Tucan"
+  | "Tiempos";
 
 export type MovementRecordBase = {
   id: string;
@@ -54,6 +55,7 @@ const ACCOUNT_KEYS: MovementAccountKey[] = [
   "BAC",
   "CajaNegra",
   "Tucan",
+  "Tiempos",
 ];
 const CURRENCY_KEYS: MovementCurrencyKey[] = ["CRC", "USD"];
 
@@ -176,6 +178,7 @@ const DEFAULT_ACCOUNT_LABELS: Record<MovementAccountKey, string> = {
   BAC: "BAC",
   CajaNegra: "Caja Negra",
   Tucan: "Tucan",
+  Tiempos: "Tiempos",
 };
 
 export class MovimientosFondosService {
@@ -183,11 +186,16 @@ export class MovimientosFondosService {
   static readonly MOVEMENTS_SUBCOLLECTION = "movements";
   static readonly CAJA_NEGRA_SUBCOLLECTION = "cajanegra";
   static readonly TUCAN_SUBCOLLECTION = "tucan";
+  static readonly TIEMPOS_SUBCOLLECTION = "tiempos";
 
   private static isStandaloneSubcollectionAccount(
     accountId?: MovementAccountKey,
   ): boolean {
-    return accountId === "CajaNegra" || accountId === "Tucan";
+    return (
+      accountId === "CajaNegra" ||
+      accountId === "Tucan" ||
+      accountId === "Tiempos"
+    );
   }
 
   private static resolveMovementsSubcollection(
@@ -195,6 +203,7 @@ export class MovimientosFondosService {
   ): string {
     if (accountId === "CajaNegra") return this.CAJA_NEGRA_SUBCOLLECTION;
     if (accountId === "Tucan") return this.TUCAN_SUBCOLLECTION;
+    if (accountId === "Tiempos") return this.TIEMPOS_SUBCOLLECTION;
     return this.MOVEMENTS_SUBCOLLECTION;
   }
 

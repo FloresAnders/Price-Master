@@ -8,7 +8,7 @@
    - [ ]  Agregar division de por dia al chat
    - [ ]  
 
-
+ - [ ] revisar que en reportes hay un reporte de "pendientes" acumulado de 12M, eso no debe ser, investigar y corregir
 
 # general
 

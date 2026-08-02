@@ -49,6 +49,7 @@ export default function HeaderWrapper() {
         "edit",
         "solicitud",
         "registroTucan",
+        "registroTiempos",
         "anotaciones",
         "fondogeneral",
         "agregarproveedor",

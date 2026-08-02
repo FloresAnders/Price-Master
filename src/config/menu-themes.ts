@@ -127,6 +127,13 @@ export const MENU_CARD_THEMES: Record<
     ring: "border-teal-400/25",
     arrow: "text-teal-100",
   },
+  registroTiempos: {
+    glow: "from-cyan-500/15 via-transparent to-transparent",
+    iconBg: "bg-cyan-500/20",
+    iconText: "text-cyan-100",
+    ring: "border-cyan-400/25",
+    arrow: "text-cyan-100",
+  },
   anotaciones: {
     glow: "from-indigo-500/15 via-transparent to-transparent",
     iconBg: "bg-indigo-500/20",

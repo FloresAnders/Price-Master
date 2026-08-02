@@ -118,12 +118,7 @@ const safeDocIdPart = (value) => String(value || '').trim();
  * - Cachea categorías de tipos de movimiento
  * - Usa "empresa" desde el movimiento si viene; si no, lee el ledger 1 vez (fallback)
  */
-export const onMovementWrite = onDocumentWritten(
-  {
-    document: 'MovimientosFondos/{docId}/movements/{movementId}',
-    database: 'restauracion',
-  },
-  async (event) => {
+const handleMovementWrite = async (event) => {
     const docId = safeDocIdPart(event.params.docId);
     const movementId = safeDocIdPart(event.params.movementId);
 
@@ -297,7 +292,30 @@ export const onMovementWrite = onDocumentWritten(
     );
 
     await Promise.all(promises);
-  }
+};
+
+export const onMovementWrite = onDocumentWritten(
+  {
+    document: 'MovimientosFondos/{docId}/movements/{movementId}',
+    database: 'restauracion',
+  },
+  handleMovementWrite
+);
+
+export const onTucanMovementWrite = onDocumentWritten(
+  {
+    document: 'MovimientosFondos/{docId}/tucan/{movementId}',
+    database: 'restauracion',
+  },
+  handleMovementWrite
+);
+
+export const onTiemposMovementWrite = onDocumentWritten(
+  {
+    document: 'MovimientosFondos/{docId}/tiempos/{movementId}',
+    database: 'restauracion',
+  },
+  handleMovementWrite
 );
 
 /**

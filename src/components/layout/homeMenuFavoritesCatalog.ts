@@ -258,6 +258,15 @@ export const HOME_MENU_FAVORITE_OPTIONS: HomeMenuFavoriteOption[] = [
     hash: "registroTucan",
   },
   {
+    id: "registroTiempos",
+    label: "Registro Tiempos",
+    description: "Registro Tiempos",
+    group: "Herramientas",
+    icon: FileText,
+    permission: "registroTiempos",
+    hash: "registroTiempos",
+  },
+  {
     id: "anotaciones",
     label: "Anotaciones",
     description: "En mantenimiento",
@@ -359,13 +368,23 @@ export function getAccessibleHomeMenuFavoriteOptions(
     getDefaultPermissions(currentUser.role || "user");
   const isFondoPrivileged =
     currentUser.role === "admin" || currentUser.role === "superadmin";
+  const hasAnyFondoAccountAccess = Boolean(
+    userPermissions.fondogeneral ||
+      userPermissions.fondogeneralBCR ||
+      userPermissions.fondogeneralBN ||
+      userPermissions.fondogeneralBAC ||
+      userPermissions.cajaNegra ||
+      userPermissions.tucan ||
+      userPermissions.tiempos,
+  );
 
   return HOME_MENU_FAVORITE_OPTIONS.filter((option) => {
-    if (
-      option.id === "reportes" &&
-      !isFondoPrivileged
-    ) {
-      return false;
+    if (option.id === "fondogeneral" || option.id === "agregarproveedor") {
+      return hasAnyFondoAccountAccess;
+    }
+
+    if (option.id === "reportes") {
+      return isFondoPrivileged && hasAnyFondoAccountAccess;
     }
 
     if (option.permission === "supplierweek") {
@@ -379,7 +398,7 @@ export function getAccessibleHomeMenuFavoriteOptions(
     }
 
     if (option.permission === "fondogeneralCluster") {
-      return Boolean(userPermissions.fondogeneral);
+      return hasAnyFondoAccountAccess;
     }
 
     return Boolean(userPermissions[option.permission as keyof UserPermissions]);

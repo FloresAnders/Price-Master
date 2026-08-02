@@ -199,7 +199,7 @@ export class ReportesMovimientosService {
 
     constraints.push(orderBy("createdAt", "asc"));
 
-    const q = query(collectionGroup(db, "movements"), ...constraints);
+    const q = query(collectionGroup(db, "items"), ...constraints);
     const snap = await getDocs(q);
 
     return snap.docs.map((d) => {

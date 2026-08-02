@@ -328,7 +328,10 @@ export function FondoSection({
     [namespace],
   );
 
-  const isCajaNegra = accountKey === "CajaNegra" || accountKey === "Tucan";
+  const isCajaNegra =
+    accountKey === "CajaNegra" ||
+    accountKey === "Tucan" ||
+    accountKey === "Tiempos";
   const accountScopedProviders = useMemo(
     () =>
       (
@@ -341,7 +344,11 @@ export function FondoSection({
           correonotifi?: string;
         }>
       ).filter((provider) => {
-        if (accountKey === "CajaNegra" || accountKey === "Tucan") {
+        if (
+          accountKey === "CajaNegra" ||
+          accountKey === "Tucan" ||
+          accountKey === "Tiempos"
+        ) {
           return provider.accountId === accountKey;
         }
         return !provider.accountId || provider.accountId === accountKey;
@@ -3825,7 +3832,7 @@ export function FondoSection({
 
   const handleOpenCreateMovement = async () => {
     // Confirmación solo para cuentas (BCR/BN/BAC), para evitar confusiones.
-    // Skip confirmation for Caja Negra (no company/account confirmation needed)
+    // Skip confirmation for standalone extra accounts.
     if (accountKey !== "FondoGeneral" && !isCajaNegra) {
       setConfirmOpenCreateMovement(true);
       return;

@@ -29,6 +29,7 @@ const PROVIDER_ACCOUNT_IDS: MovementAccountKey[] = [
   "BAC",
   "CajaNegra",
   "Tucan",
+  "Tiempos",
 ];
 
 const normalizeProviderAccountId = (

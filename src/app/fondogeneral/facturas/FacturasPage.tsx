@@ -1589,7 +1589,11 @@ export default function FacturasCreditoPage() {
         });
       const paymentMovementId = String((paymentMovement as any).id || "");
       const targetAccountKey = updatedMovement.accountId;
-      if (targetAccountKey === "CajaNegra" || targetAccountKey === "Tucan") {
+      if (
+        targetAccountKey === "CajaNegra" ||
+        targetAccountKey === "Tucan" ||
+        targetAccountKey === "Tiempos"
+      ) {
         showToast(
           "Desde esta cuenta no se debe gestionar facturas a crédito.",
           "error",

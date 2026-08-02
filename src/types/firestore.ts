@@ -207,8 +207,10 @@ export interface UserPermissions {
   fondogeneralBAC?: boolean; // Fondo General - Acceso a la cuenta BAC
   cajaNegra?: boolean; // Caja Negra - Manejo de dineros extra del Fondo General
   tucan?: boolean; // Tucan - Manejo de dineros extra del Fondo General
+  tiempos?: boolean; // Tiempos - Manejo de dineros extra del Fondo General
   deudasInternas?: boolean; // Deudas Internas - Deudas entre empresas y personas
   registroTucan?: boolean; // Registro Tucan - Seccion independiente en mantenimiento
+  registroTiempos?: boolean; // Registro Tiempos - Seccion independiente en mantenimiento
   solicitud?: boolean; // Solicitud - Permiso extra en sección de Mantenimiento
   anotaciones: boolean; // Anotaciones - Pagina en mantenimiento
   scanhistory: boolean; // Historial General de Escaneos - Ver historial completo de escaneos
@@ -274,6 +276,26 @@ export interface RegistroTucanRecord {
   hora?: string;
   saldoPaginaTucan: number;
   saldoFondoTucan: number;
+  pagosHoy?: number;
+  saldoSinpesRecibidos: number;
+  total: number;
+  motivo?: string;
+  currency: "CRC";
+  createdById?: string;
+  createdByName?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface RegistroTiemposRecord {
+  id?: string;
+  empresaId?: string;
+  empresa: string;
+  dateKey: number;
+  fecha: string;
+  hora?: string;
+  saldoPaginaTiempos: number;
+  saldoFondoTiempos: number;
   pagosHoy?: number;
   saldoSinpesRecibidos: number;
   total: number;

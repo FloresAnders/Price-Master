@@ -11,9 +11,10 @@ const ACCOUNT_LABELS = {
   FondoGeneral: "FONDO GENERAL",
   CajaNegra: "CAJA NEGRA",
   Tucan: "TUCAN",
+  Tiempos: "TIEMPOS",
 };
 
-const TRANSFER_ACCOUNTS = ["FondoGeneral", "CajaNegra", "Tucan"];
+const TRANSFER_ACCOUNTS = ["FondoGeneral", "CajaNegra", "Tucan", "Tiempos"];
 const INCOME_TYPE = "OTROS INGRESOS";
 const OUTGOING_TYPE = "GASTOS VARIOS";
 

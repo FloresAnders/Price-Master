@@ -16,7 +16,8 @@ export default function AgregarProveedorPage() {
       permissions.fondogeneralBN ||
       permissions.fondogeneralBAC ||
       permissions.cajaNegra ||
-      permissions.tucan,
+      permissions.tucan ||
+      permissions.tiempos,
   );
 
   if (loading) {

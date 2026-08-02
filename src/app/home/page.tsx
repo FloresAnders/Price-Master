@@ -125,6 +125,13 @@ const menuItems = [
     permission: "registroTucan" as keyof UserPermissions,
   },
   {
+    id: "registroTiempos",
+    name: "Registro Tiempos",
+    icon: ClipboardPenLine,
+    description: "Registro Tiempos",
+    permission: "registroTiempos" as keyof UserPermissions,
+  },
+  {
     id: "anotaciones",
     name: "Anotaciones",
     icon: NotebookPen,
@@ -197,9 +204,19 @@ export default function HomePage() {
     const userPermissions: UserPermissions =
       currentUser.permissions ||
       getDefaultPermissions(currentUser.role || "user");
+    const hasAnyFondoAccountAccess = Boolean(
+      userPermissions.fondogeneral ||
+        userPermissions.fondogeneralBCR ||
+        userPermissions.fondogeneralBN ||
+        userPermissions.fondogeneralBAC ||
+        userPermissions.cajaNegra ||
+        userPermissions.tucan ||
+        userPermissions.tiempos,
+    );
 
     // Filter items based on user permissions
     return menuItems.filter((item) => {
+      if (item.id === "fondogeneral") return hasAnyFondoAccountAccess;
       const hasPermission = userPermissions[item.permission];
       return hasPermission === true;
     });
@@ -214,6 +231,7 @@ export default function HomePage() {
       id === "reportessinpe" ||
       id === "deudasinternas" ||
       id === "registroTucan" ||
+      id === "registroTiempos" ||
       id === "anotaciones"
     ) {
       // Use hash navigation so header/tab system picks it up
@@ -224,6 +242,8 @@ export default function HomePage() {
             ? "#deudasinternas"
           : id === "registroTucan"
             ? "#registroTucan"
+          : id === "registroTiempos"
+            ? "#registroTiempos"
           : id === "anotaciones"
             ? "#anotaciones"
             : "#fondogeneral",
