@@ -1,0 +1,474 @@
+{
+  "success": true,
+  "generatedAt": "2026-08-02T18:13:38.822Z",
+  "projectId": "pricemaster-4a611",
+  "databaseId": "(default)",
+  "collectionPath": "cierres",
+  "mode": "all",
+  "requestedLimit": null,
+  "total": 2,
+  "documents": [
+    {
+      "id": "DELIKOR PALMARES",
+      "path": "cierres/DELIKOR PALMARES",
+      "data": {
+        "company": "DELIKOR PALMARES",
+        "updatedAt": "2026-07-26T18:21:32.901Z",
+        "closingsByDate": {
+          "2026-07-26": [
+            {
+              "id": "1785090091224",
+              "createdAt": "2026-07-26T18:21:31.224Z",
+              "closingDate": "2026-07-26T18:20:59.032Z",
+              "manager": "ANGEL",
+              "totalCRC": 20000,
+              "totalUSD": 200,
+              "recordedBalanceCRC": 20000,
+              "recordedBalanceUSD": 186,
+              "diffCRC": 0,
+              "diffUSD": 14,
+              "notes": "",
+              "turno": "D",
+              "breakdownCRC": {
+                "10000": 2
+              },
+              "breakdownUSD": {
+                "100": 2
+              },
+              "reconciliation": {
+                "contica": {
+                  "r08": 15500,
+                  "t11": 32500
+                },
+                "externalSnapshots": {
+                  "tucanCumulative": 15500.25,
+                  "tiemposCumulative": 30000
+                },
+                "calculated": {
+                  "previousTucanCumulative": 0,
+                  "previousTiemposCumulative": 0,
+                  "tucanForShift": 15500.25,
+                  "tiemposForShift": 30000,
+                  "tucanDifference": -0.25,
+                  "tiemposRawDifference": 2500,
+                  "tiemposDifference": 2500,
+                  "previousTiemposPending": 0,
+                  "compensatedTiemposAmount": 0,
+                  "tiemposRealShiftDifference": 0,
+                  "tiemposPendingAfterClosing": 2500,
+                  "cumulativeR08": 15500,
+                  "cumulativeT11": 32500,
+                  "cumulativeTucanDifference": -0.25,
+                  "cumulativeTiemposDifference": 2500
+                },
+                "tiemposStatus": "TEMPORARY_PENDING"
+              },
+              "adjustmentResolution": {
+                "note": "Ajustes aplicados: USD + $ 14",
+                "postAdjustmentBalanceUSD": 200
+              }
+            }
+          ],
+          "2026-07-20": [
+            {
+              "id": "1784597688949",
+              "createdAt": "2026-07-21T01:34:48.948Z",
+              "closingDate": "2026-07-21T01:33:57.608Z",
+              "manager": "ALCHACAS",
+              "totalCRC": 12000,
+              "totalUSD": 186,
+              "recordedBalanceCRC": 12000,
+              "recordedBalanceUSD": 186,
+              "diffCRC": 0,
+              "diffUSD": 0,
+              "notes": "",
+              "turno": "D",
+              "breakdownCRC": {
+                "2000": 6
+              },
+              "breakdownUSD": {
+                "1": 1,
+                "5": 1,
+                "10": 1,
+                "20": 1,
+                "50": 1,
+                "100": 1
+              },
+              "reconciliation": {
+                "externalSnapshots": {
+                  "tucanCumulative": 35000.12,
+                  "tiemposCumulative": 11001
+                },
+                "tiemposStatus": "TEMPORARY_PENDING",
+                "calculated": {
+                  "tucanDifference": -10000.120000000003,
+                  "tucanForShift": 35000.12,
+                  "previousTiemposPending": 0,
+                  "compensatedTiemposAmount": 0,
+                  "tiemposRawDifference": -1,
+                  "tiemposForShift": 11001,
+                  "tiemposPendingAfterClosing": -1,
+                  "cumulativeTucanDifference": -10000.120000000003,
+                  "cumulativeR08": 25000,
+                  "tiemposDifference": -1,
+                  "previousTucanCumulative": 0,
+                  "cumulativeTiemposDifference": -1,
+                  "tiemposRealShiftDifference": 0,
+                  "cumulativeT11": 11000,
+                  "previousTiemposCumulative": 0
+                },
+                "contica": {
+                  "t11": 11000,
+                  "r08": 25000
+                }
+              },
+              "adjustmentResolution": {
+                "note": "Ajustes aplicados: CRC + ₡ 0"
+              }
+            }
+          ],
+          "2026-07-01": [
+            {
+              "id": "1782891291998",
+              "createdAt": "2026-07-01T07:34:51.988Z",
+              "closingDate": "2026-07-01T07:34:16.564Z",
+              "manager": "ALCHACAS",
+              "totalCRC": 38675,
+              "totalUSD": 186,
+              "recordedBalanceCRC": 440000,
+              "recordedBalanceUSD": 0,
+              "diffCRC": -401325,
+              "diffUSD": 186,
+              "notes": "222222",
+              "turno": "D",
+              "singleClosingReason": "222222",
+              "breakdownCRC": {
+                "25": 1,
+                "50": 1,
+                "100": 1,
+                "500": 1,
+                "1000": 1,
+                "2000": 1,
+                "5000": 1,
+                "10000": 1,
+                "20000": 1
+              },
+              "breakdownUSD": {
+                "1": 1,
+                "5": 1,
+                "10": 1,
+                "20": 1,
+                "50": 1,
+                "100": 1
+              },
+              "reconciliation": {
+                "contica": {
+                  "r08": 12,
+                  "t11": 12
+                },
+                "externalSnapshots": {
+                  "tiemposCumulative": 23,
+                  "tucanCumulative": 12
+                },
+                "tiemposStatus": "REAL_DIFFERENCE",
+                "calculated": {
+                  "cumulativeR08": 12,
+                  "cumulativeTiemposDifference": -11,
+                  "previousTucanCumulative": 0,
+                  "tiemposRealShiftDifference": -11,
+                  "previousTiemposCumulative": 0,
+                  "cumulativeT11": 12,
+                  "tucanDifference": 0,
+                  "previousTiemposPending": 0,
+                  "tucanForShift": 12,
+                  "tiemposForShift": 23,
+                  "compensatedTiemposAmount": 0,
+                  "tiemposRawDifference": -11,
+                  "tiemposPendingAfterClosing": 0,
+                  "cumulativeTucanDifference": 0
+                }
+              },
+              "adjustmentResolution": {
+                "note": "Ajustes aplicados: CRC - ₡ 401 325 / USD + $ 186",
+                "postAdjustmentBalanceCRC": 38675,
+                "postAdjustmentBalanceUSD": 186
+              }
+            }
+          ],
+          "2026-06-30": [
+            {
+              "id": "1782803894122",
+              "createdAt": "2026-06-30T07:18:14.122Z",
+              "closingDate": "2026-06-30T07:17:51.706Z",
+              "manager": "ALVARO",
+              "totalCRC": 425000,
+              "totalUSD": 0,
+              "recordedBalanceCRC": 425000,
+              "recordedBalanceUSD": 0,
+              "diffCRC": 0,
+              "diffUSD": 0,
+              "notes": "11",
+              "turno": "D",
+              "singleClosingReason": "1",
+              "breakdownCRC": {
+                "5000": 1,
+                "20000": 21
+              },
+              "breakdownUSD": {},
+              "reconciliation": {
+                "calculated": {
+                  "cumulativeTucanDifference": 0,
+                  "tiemposPendingAfterClosing": 0,
+                  "tiemposRawDifference": 0,
+                  "compensatedTiemposAmount": 0,
+                  "tiemposForShift": 1,
+                  "tucanDifference": 0,
+                  "tucanForShift": 1,
+                  "previousTiemposPending": 0,
+                  "tiemposRealShiftDifference": 0,
+                  "cumulativeT11": 1,
+                  "previousTiemposCumulative": 0,
+                  "cumulativeTiemposDifference": 0,
+                  "previousTucanCumulative": 0,
+                  "cumulativeR08": 1
+                },
+                "tiemposStatus": "MATCHED",
+                "externalSnapshots": {
+                  "tiemposCumulative": 1,
+                  "tucanCumulative": 1
+                },
+                "contica": {
+                  "r08": 1,
+                  "t11": 1
+                }
+              },
+              "adjustmentResolution": {
+                "note": "Ajustes aplicados: CRC + ₡ 0"
+              }
+            }
+          ],
+          "2026-06-27": [
+            {
+              "id": "1782606688767",
+              "createdAt": "2026-06-28T00:31:28.762Z",
+              "closingDate": "2026-06-28T00:17:28.457Z",
+              "manager": "ALCHACAS",
+              "totalCRC": 610000,
+              "totalUSD": 100,
+              "recordedBalanceCRC": 610000,
+              "recordedBalanceUSD": 100,
+              "diffCRC": 0,
+              "diffUSD": 0,
+              "notes": "",
+              "turno": "D",
+              "breakdownCRC": {
+                "10000": 1,
+                "20000": 30
+              },
+              "breakdownUSD": {
+                "100": 1
+              },
+              "reconciliation": {
+                "externalSnapshots": {
+                  "tiemposCumulative": 1,
+                  "tucanCumulative": 1
+                },
+                "calculated": {
+                  "cumulativeTiemposDifference": 0,
+                  "previousTucanCumulative": 0,
+                  "tiemposRealShiftDifference": 0,
+                  "cumulativeT11": 1,
+                  "previousTiemposCumulative": 0,
+                  "cumulativeR08": 1,
+                  "tiemposPendingAfterClosing": 0,
+                  "cumulativeTucanDifference": 0,
+                  "tucanDifference": 0,
+                  "tucanForShift": 1,
+                  "previousTiemposPending": 0,
+                  "tiemposRawDifference": 0,
+                  "compensatedTiemposAmount": 0,
+                  "tiemposForShift": 1
+                },
+                "tiemposStatus": "MATCHED",
+                "contica": {
+                  "r08": 1,
+                  "t11": 1
+                }
+              },
+              "adjustmentResolution": {
+                "note": "Ajustes aplicados: CRC + ₡ 0"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "PRUEBAS",
+      "path": "cierres/PRUEBAS",
+      "data": {
+        "company": "PRUEBAS",
+        "updatedAt": "2026-07-19T04:30:04.552Z",
+        "closingsByDate": {
+          "2026-07-18": [
+            {
+              "id": "1784435402442",
+              "createdAt": "2026-07-19T04:30:02.440Z",
+              "closingDate": "2026-07-19T04:29:42.273Z",
+              "manager": "ALCHACAS",
+              "totalCRC": 261000,
+              "totalUSD": 0,
+              "recordedBalanceCRC": 261000,
+              "recordedBalanceUSD": 0,
+              "diffCRC": 0,
+              "diffUSD": 0,
+              "notes": "",
+              "turno": "D",
+              "breakdownCRC": {
+                "1000": 6,
+                "5000": 1,
+                "10000": 21,
+                "20000": 2
+              },
+              "breakdownUSD": {},
+              "reconciliation": {
+                "contica": {
+                  "r08": 10000,
+                  "t11": 18500
+                },
+                "externalSnapshots": {
+                  "tucanCumulative": 10000.12,
+                  "tiemposCumulative": 15000
+                },
+                "calculated": {
+                  "previousTucanCumulative": 0,
+                  "previousTiemposCumulative": 0,
+                  "tucanForShift": 10000.12,
+                  "tiemposForShift": 15000,
+                  "tucanDifference": -0.12000000000080036,
+                  "tiemposRawDifference": 3500,
+                  "tiemposDifference": 3500,
+                  "previousTiemposPending": 0,
+                  "compensatedTiemposAmount": 0,
+                  "tiemposRealShiftDifference": 0,
+                  "tiemposPendingAfterClosing": 3500,
+                  "cumulativeR08": 10000,
+                  "cumulativeT11": 18500,
+                  "cumulativeTucanDifference": -0.12000000000080036,
+                  "cumulativeTiemposDifference": 3500
+                },
+                "tiemposStatus": "TEMPORARY_PENDING"
+              },
+              "adjustmentResolution": {
+                "note": "Ajustes aplicados: CRC + ₡ 0"
+              }
+            }
+          ],
+          "2026-07-17": [
+            {
+              "id": "1784314190607",
+              "createdAt": "2026-07-17T18:49:50.607Z",
+              "closingDate": "2026-07-17T18:36:34.968Z",
+              "manager": "PRUEBA 2",
+              "totalCRC": 250000,
+              "totalUSD": 0,
+              "recordedBalanceCRC": 250000,
+              "recordedBalanceUSD": 0,
+              "diffCRC": 0,
+              "diffUSD": 0,
+              "notes": "",
+              "turno": "D",
+              "breakdownCRC": {
+                "10000": 5,
+                "20000": 10
+              },
+              "breakdownUSD": {},
+              "reconciliation": {
+                "externalSnapshots": {
+                  "tucanCumulative": 50000,
+                  "tiemposCumulative": 10000
+                },
+                "contica": {
+                  "t11": 15000,
+                  "r08": 50000
+                },
+                "tiemposStatus": "TEMPORARY_PENDING",
+                "calculated": {
+                  "previousTucanCumulative": 0,
+                  "tiemposForShift": 10000,
+                  "previousTiemposCumulative": 0,
+                  "cumulativeR08": 50000,
+                  "previousTiemposPending": 0,
+                  "compensatedTiemposAmount": 0,
+                  "tiemposRawDifference": 5000,
+                  "cumulativeTiemposDifference": 5000,
+                  "cumulativeTucanDifference": 0,
+                  "cumulativeT11": 15000,
+                  "tucanDifference": 0,
+                  "tiemposRealShiftDifference": 0,
+                  "tiemposPendingAfterClosing": 5000,
+                  "tucanForShift": 50000,
+                  "tiemposDifference": 5000
+                }
+              },
+              "adjustmentResolution": {
+                "note": "Ajustes aplicados: CRC + ₡ 0"
+              }
+            }
+          ],
+          "2026-07-16": [
+            {
+              "id": "1784225748747",
+              "createdAt": "2026-07-16T18:15:48.747Z",
+              "closingDate": "2026-07-16T18:15:12.481Z",
+              "manager": "PRUEBA 1",
+              "totalCRC": 190000,
+              "totalUSD": 0,
+              "recordedBalanceCRC": 190000,
+              "recordedBalanceUSD": 0,
+              "diffCRC": 0,
+              "diffUSD": 0,
+              "notes": "",
+              "turno": "D",
+              "breakdownCRC": {
+                "10000": 19
+              },
+              "breakdownUSD": {},
+              "reconciliation": {
+                "contica": {
+                  "r08": 499999,
+                  "t11": 1
+                },
+                "externalSnapshots": {
+                  "tucanCumulative": 500000,
+                  "tiemposCumulative": 1
+                },
+                "calculated": {
+                  "tiemposDifference": 0,
+                  "tiemposPendingAfterClosing": 0,
+                  "tucanForShift": 500000,
+                  "tiemposRealShiftDifference": 0,
+                  "tucanDifference": -1,
+                  "tiemposRawDifference": 0,
+                  "compensatedTiemposAmount": 0,
+                  "previousTiemposPending": 0,
+                  "tiemposForShift": 1,
+                  "cumulativeR08": 499999,
+                  "previousTiemposCumulative": 0,
+                  "previousTucanCumulative": 0,
+                  "cumulativeT11": 1,
+                  "cumulativeTucanDifference": -1,
+                  "cumulativeTiemposDifference": 0
+                },
+                "tiemposStatus": "MATCHED"
+              },
+              "adjustmentResolution": {
+                "note": "Ajustes aplicados: CRC + ₡ 0"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
