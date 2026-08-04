@@ -46,6 +46,7 @@ import {
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
 import { CIERRE_FONDO_VENTAS_MINUTES_AFTER_END } from "../constants";
 import { resolveFacturaPaymentType } from "./facturaPaymentType";
+import { validateFondoGeneralOpeningRequirement } from "../utils/fondo/openingRequirement";
 
 import type { Empresas } from "../../../types/firestore";
 
@@ -1602,6 +1603,20 @@ export default function FacturasCreditoPage() {
         return;
       }
 
+      const openingValidation = await validateFondoGeneralOpeningRequirement({
+        company: selectedCompany,
+        accountKey: targetAccountKey,
+        solicitarApertura: selectedEmpresaMeta?.solicitarApertura !== false,
+      });
+      if (!openingValidation.allowed) {
+        showToast(
+          openingValidation.message,
+          openingValidation.reason === "validation_failed" ? "error" : "warning",
+          7000,
+        );
+        return;
+      }
+
       setPaymentSubmitting(true);
       try {
         const docId = movementDocId; // MovimientosFondos document id
@@ -1702,6 +1717,7 @@ export default function FacturasCreditoPage() {
       paymentTarget,
       pendingCierreDeCaja,
       selectedCompany,
+      selectedEmpresaMeta?.solicitarApertura,
       selectedPaymentPaid,
       showToast,
     ],

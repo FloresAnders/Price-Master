@@ -84,6 +84,7 @@ import {
   type ManualCreditNoteDraft,
 } from "../../utils/fondo/manualCreditNoteDrafts";
 import { handleSubmitFondo as handleSubmitFondoFn } from "../../utils/submitFondo";
+import { validateFondoGeneralOpeningRequirement } from "../../utils/fondo/openingRequirement";
 import { useActorOwnership } from "../../../../hooks/useActorOwnership";
 import type { FondoEntry, FondoMovementType } from "../../types";
 import { persistMovementToFirestore as persistMovementToFirestoreFn } from "../../utils/fondo/persistence";
@@ -1866,6 +1867,7 @@ export function FondoSection({
     pendingCierreDeCaja,
     pendingClosingCreditInvoices,
     selectedProviderPendingCreditNotes,
+    solicitarApertura: empresaSolicitaApertura,
     showToast,
     setPendingCierreModalOpen,
     setPendingClosingCreditInvoices,
@@ -2095,6 +2097,7 @@ export function FondoSection({
       setNegativeBalanceModal,
       providers,
       movementCurrency,
+      solicitarApertura: empresaSolicitaApertura,
       cierreFondoVentasTurnoSelection,
     });
   };
@@ -3893,7 +3896,30 @@ export function FondoSection({
     };
 
     // El conteo físico no puede continuar hasta confirmar que existe turno.
-    if (shouldPromptPhysicalCount()) {
+    let promptPhysicalCount = shouldPromptPhysicalCount();
+    if (
+      accountKey === "FondoGeneral" &&
+      empresaSolicitaApertura
+    ) {
+      const openingValidation = await validateFondoGeneralOpeningRequirement({
+        company,
+        accountKey,
+        solicitarApertura: empresaSolicitaApertura,
+      });
+      if (validationId !== createMovementValidationIdRef.current) return;
+      if (!openingValidation.allowed) {
+        if (openingValidation.reason === "opening_required") {
+          promptPhysicalCount = true;
+        } else {
+          showToast(openingValidation.message, "error", 7000);
+          return;
+        }
+      } else {
+        promptPhysicalCount = false;
+      }
+    }
+
+    if (promptPhysicalCount) {
       const missingShift = shouldValidateShift
         ? await resolveMissingShift()
         : null;

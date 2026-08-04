@@ -36,6 +36,7 @@ interface UseClosingInvoicePaymentProps {
   pendingCierreDeCaja: boolean;
   pendingClosingCreditInvoices: FacturaMovement[];
   selectedProviderPendingCreditNotes: PendingCreditNoteOption[];
+  solicitarApertura?: boolean;
   showToast: ClosingInvoicePaymentDeps["showToast"];
   setPendingCierreModalOpen: Dispatch<SetStateAction<boolean>>;
   setPendingClosingCreditInvoices: ClosingInvoicePaymentDeps["setPendingClosingCreditInvoices"];
@@ -57,6 +58,7 @@ export function useClosingInvoicePayment({
   pendingCierreDeCaja,
   pendingClosingCreditInvoices,
   selectedProviderPendingCreditNotes,
+  solicitarApertura = true,
   showToast,
   setPendingCierreModalOpen,
   setPendingClosingCreditInvoices,
@@ -205,6 +207,7 @@ export function useClosingInvoicePayment({
         closingPaymentManager2,
         closingPaymentCreditNoteIds,
         selectedProviderPendingCreditNotes,
+        solicitarApertura,
         showToast,
         setPendingCierreModalOpen,
         setClosingPaymentSubmitting,
@@ -235,6 +238,7 @@ export function useClosingInvoicePayment({
       persistMovementToFirestore,
       rebuildEntriesFromV2Cache,
       selectedProviderPendingCreditNotes,
+      solicitarApertura,
       setPendingCierreModalOpen,
       setPendingClosingCreditInvoices,
       setSelectedProviderPendingCreditNotes,

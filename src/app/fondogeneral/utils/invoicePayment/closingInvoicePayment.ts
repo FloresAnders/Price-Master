@@ -19,6 +19,7 @@ import {
   stripUndefinedDeep,
   type PendingCreditNoteOption,
 } from "../helpers";
+import { validateFondoGeneralOpeningRequirement } from "../fondo/openingRequirement";
 import { buildV2MovementsCacheKey } from "../v2movements";
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
 
@@ -44,6 +45,7 @@ export interface ClosingInvoicePaymentDeps {
   closingPaymentManager2: string;
   closingPaymentCreditNoteIds: string[];
   selectedProviderPendingCreditNotes: PendingCreditNoteOption[];
+  solicitarApertura?: boolean;
   showToast: (message: string, type: "success" | "error" | "warning", timeoutMs?: number) => void;
   setPendingCierreModalOpen: Dispatch<SetStateAction<boolean>>;
   setClosingPaymentSubmitting: Dispatch<SetStateAction<boolean>>;
@@ -74,6 +76,7 @@ export async function submitClosingInvoicePayment(
     closingPaymentManager2,
     closingPaymentCreditNoteIds,
     selectedProviderPendingCreditNotes,
+    solicitarApertura = true,
     showToast,
     setPendingCierreModalOpen,
     setClosingPaymentSubmitting,
@@ -180,6 +183,20 @@ export async function submitClosingInvoicePayment(
 
   if (totalAppliedToInvoice > balance) {
     showToast("El total aplicado supera el saldo pendiente de la factura.", "error", 4000);
+    return;
+  }
+
+  const openingValidation = await validateFondoGeneralOpeningRequirement({
+    company,
+    accountKey,
+    solicitarApertura,
+  });
+  if (!openingValidation.allowed) {
+    showToast(
+      openingValidation.message,
+      openingValidation.reason === "validation_failed" ? "error" : "warning",
+      7000,
+    );
     return;
   }
 

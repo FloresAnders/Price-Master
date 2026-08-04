@@ -35,6 +35,7 @@ import {
   touchClosingGuard,
 } from "./closing/closingGuards";
 import { sendMovementNotification } from "./fondo/notifications";
+import { validateFondoGeneralOpeningRequirement } from "./fondo/openingRequirement";
 import { buildV2MovementsCacheKey } from "../utils/v2movements";
 import type { FondoEntry } from "../types";
 import {
@@ -140,6 +141,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     setNegativeBalanceModal,
     providers,
     movementCurrency,
+    solicitarApertura = true,
     cierreFondoVentasTurnoSelection = "",
   } = deps;
 
@@ -632,6 +634,26 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         currency: movementCurrency,
         resultingNegativeAmount: resultingBalance,
       });
+      return;
+    }
+  }
+
+  if (
+    !editingEntryId &&
+    accountKey === "FondoGeneral" &&
+    effectiveInvoiceDocType !== "FCR"
+  ) {
+    const openingValidation = await validateFondoGeneralOpeningRequirement({
+      company,
+      accountKey,
+      solicitarApertura,
+    });
+    if (!openingValidation.allowed) {
+      showToast(
+        openingValidation.message,
+        openingValidation.reason === "validation_failed" ? "error" : "warning",
+        7000,
+      );
       return;
     }
   }
