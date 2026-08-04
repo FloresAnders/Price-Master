@@ -199,17 +199,35 @@ export type DailyClosingFormValues = {
   totalUSD: number;
   breakdownCRC: Record<number, number>;
   breakdownUSD: Record<number, number>;
-  turno: "D" | "N";
+  turno?: "D" | "N";
+  sinTurno?: true;
   r08: number;
   t11: number;
   tucanCumulative: number;
   tiemposCumulative: number;
 };
 
+type DailyClosingTurnoSelection = "D" | "N" | "none";
+
+const resolveInitialTurnoSelection = (
+  initialValues: DailyClosingFormValues | null | undefined,
+  turno: "D" | "N" | undefined,
+  requireBlankSelection: boolean,
+): DailyClosingTurnoSelection | "" => {
+  if (initialValues?.sinTurno) return "none";
+  if (initialValues?.turno === "D" || initialValues?.turno === "N") {
+    return initialValues.turno;
+  }
+  if (requireBlankSelection) return "";
+  if (turno === "D" || turno === "N") return turno;
+  return "";
+};
+
 type DailyClosingModalProps = {
   open: boolean;
   onClose: () => void;
   onConfirm: (values: DailyClosingFormValues) => Promise<DailyClosingRecord | null>;
+  onTurnoChange?: (turno: "D" | "N" | undefined) => void;
   initialValues?: DailyClosingFormValues | null;
   editId?: string | null;
   onShowHistory?: () => void;
@@ -220,7 +238,8 @@ type DailyClosingModalProps = {
   requireSingleClosingReason?: boolean;
   managerReadonly?: boolean;
 
-  turno: "D" | "N";
+  turno?: "D" | "N";
+  requireTurnoSelection?: boolean;
   cierreFondoVentasMinutesBeforeEnd: number;
   cierreFondoVentasMinutesAfterEnd: number;
   previousReconciliation?: ClosingReconciliation | null;
@@ -232,6 +251,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   open,
   onClose,
   onConfirm,
+  onTurnoChange,
   initialValues,
   editId,
   onShowHistory,
@@ -242,6 +262,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   requireSingleClosingReason = false,
   managerReadonly = false,
   turno,
+  requireTurnoSelection = false,
   cierreFondoVentasMinutesBeforeEnd,
   cierreFondoVentasMinutesAfterEnd,
   previousReconciliation,
@@ -249,6 +270,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   systemVerificationEnabled = true,
 }) => {
   const modalRef = useRef<HTMLDivElement | null>(null);
+  const openTurnoResetRef = useRef(false);
   const managerFieldRef = useRef<HTMLSelectElement | HTMLInputElement | null>(
     null,
   );
@@ -279,6 +301,19 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const [t11, setT11] = useState(() => savedDraft?.t11 ?? (initialValues?.t11 != null ? String(initialValues.t11) : ""));
   const [tucanCumulative, setTucanCumulative] = useState(() => savedDraft?.tucanCumulative ?? (initialValues?.tucanCumulative != null ? String(initialValues.tucanCumulative) : ""));
   const [tiemposCumulative, setTiemposCumulative] = useState(() => savedDraft?.tiemposCumulative ?? (initialValues?.tiemposCumulative != null ? String(initialValues.tiemposCumulative) : ""));
+  const [turnoSelection, setTurnoSelection] = useState<
+    DailyClosingTurnoSelection | ""
+  >(() =>
+    resolveInitialTurnoSelection(
+      initialValues,
+      turno,
+      requireTurnoSelection && !editId,
+    ),
+  );
+  const selectedTurno =
+    turnoSelection === "D" || turnoSelection === "N" ? turnoSelection : undefined;
+  const selectedSinTurno = turnoSelection === "none";
+  const verificationActive = systemVerificationEnabled && !selectedSinTurno;
   const storedTucanTurnoD = open ? readTucanTurnoDValue(closingDateISO) : null;
   const storedTiemposTurnoD = open
     ? readTiemposTurnoDValue(closingDateISO)
@@ -394,32 +429,35 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const tucanNum = parseAmount(tucanCumulative);
   const tiemposNum = parseAmount(tiemposCumulative);
   const tucanBelowTurnoD =
-    turno === "N" &&
+    selectedTurno === "N" &&
     storedTucanTurnoD !== null &&
     tucanNum > 0 &&
     tucanNum < storedTucanTurnoD;
   const tiemposBelowTurnoD =
-    turno === "N" &&
+    selectedTurno === "N" &&
     storedTiemposTurnoD !== null &&
     tiemposNum > 0 &&
     tiemposNum < storedTiemposTurnoD;
   const hasZeroClosingReport =
-    systemVerificationEnabled &&
+    verificationActive &&
     (r08Num === 0 || t11Num === 0 || tucanNum === 0 || tiemposNum === 0);
   const submitDisabled =
     submitting ||
+    turnoSelection === "" ||
     displayedManager.trim().length === 0 ||
     !hasAnyCash ||
     hasZeroClosingReport ||
-    (systemVerificationEnabled && tucanBelowTurnoD) ||
-    (systemVerificationEnabled && tiemposBelowTurnoD) ||
-    (requireSingleClosingReason && singleClosingReason.trim().length === 0);
+    (verificationActive && tucanBelowTurnoD) ||
+    (verificationActive && tiemposBelowTurnoD) ||
+    (requireSingleClosingReason &&
+      !selectedSinTurno &&
+      singleClosingReason.trim().length === 0);
   const hasDifferences = diffCRC !== 0 || diffUSD !== 0;
 
   const reconciliationPreview = useMemo(() => {
-    if (!systemVerificationEnabled) return null;
-    try { return reconcileClosing({ r08: r08Num, t11: t11Num, tucanCumulative: tucanNum, tiemposCumulative: tiemposNum, previous: previousReconciliation, cumulativeR08: (cumulativeContica?.r08 || 0) + r08Num, cumulativeT11: (cumulativeContica?.t11 || 0) + t11Num, isFinalShift: turno === "N" }); } catch { return null; }
-  }, [systemVerificationEnabled, r08Num, t11Num, tucanNum, tiemposNum, previousReconciliation, cumulativeContica, turno]);
+    if (!verificationActive) return null;
+    try { return reconcileClosing({ r08: r08Num, t11: t11Num, tucanCumulative: tucanNum, tiemposCumulative: tiemposNum, previous: previousReconciliation, cumulativeR08: (cumulativeContica?.r08 || 0) + r08Num, cumulativeT11: (cumulativeContica?.t11 || 0) + t11Num, isFinalShift: selectedTurno === "N" }); } catch { return null; }
+  }, [verificationActive, r08Num, t11Num, tucanNum, tiemposNum, previousReconciliation, cumulativeContica, selectedTurno]);
   const conticaTucanDiff =
     reconciliationPreview?.calculated.tucanDifference ?? r08Num - tucanNum;
   const conticaTiemposDiff =
@@ -640,6 +678,9 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     if (submitting) {
       return "Guardando cierre. Espere un momento.";
     }
+    if (turnoSelection === "") {
+      return "Selecciona el turno para poder guardar.";
+    }
     if (displayedManager.trim().length === 0) {
       return "Selecciona un encargado para poder guardar.";
     }
@@ -649,13 +690,17 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     if (hasZeroClosingReport) {
       return "No se puede guardar debido a la falta de R08, T11, Tucan y Tiempos";
     }
-    if (systemVerificationEnabled && tucanBelowTurnoD) {
+    if (verificationActive && tucanBelowTurnoD) {
       return `No se puede guardar: Tucan nocturno no puede ser menor al turno D (${formatCurrency("CRC", storedTucanTurnoD ?? 0)}).`;
     }
-    if (systemVerificationEnabled && tiemposBelowTurnoD) {
+    if (verificationActive && tiemposBelowTurnoD) {
       return `No se puede guardar: Tiempos nocturno no puede ser menor al turno D (${formatCurrency("CRC", storedTiemposTurnoD ?? 0)}).`;
     }
-    if (requireSingleClosingReason && singleClosingReason.trim().length === 0) {
+    if (
+      requireSingleClosingReason &&
+      !selectedSinTurno &&
+      singleClosingReason.trim().length === 0
+    ) {
       return "Debes indicar el motivo de por qué solo hubo un cierre en el día.";
     }
     return "";
@@ -663,13 +708,15 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     displayedManager,
     hasAnyCash,
     hasZeroClosingReport,
-    systemVerificationEnabled,
+    turnoSelection,
+    verificationActive,
     tucanBelowTurnoD,
     storedTucanTurnoD,
     tiemposBelowTurnoD,
     storedTiemposTurnoD,
     formatCurrency,
     requireSingleClosingReason,
+    selectedSinTurno,
     singleClosingReason,
     submitting,
   ]);
@@ -718,6 +765,20 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
 
   useEffect(() => {
     if (!open) return;
+    if (!openTurnoResetRef.current) {
+      openTurnoResetRef.current = true;
+      const nextTurnoSelection = resolveInitialTurnoSelection(
+        initialValues,
+        turno,
+        requireTurnoSelection && !editId,
+      );
+      setTurnoSelection(nextTurnoSelection);
+      onTurnoChange?.(
+        nextTurnoSelection === "D" || nextTurnoSelection === "N"
+          ? nextTurnoSelection
+          : undefined,
+      );
+    }
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         onClose();
@@ -725,13 +786,26 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
+  }, [
+    editId,
+    initialValues,
+    onClose,
+    onTurnoChange,
+    open,
+    requireTurnoSelection,
+    turno,
+  ]);
 
   useEffect(() => {
-    if (!open || turno !== "D") return;
+    if (open) return;
+    openTurnoResetRef.current = false;
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || selectedTurno !== "D") return;
     writeTucanTurnoDValue(closingDateISO, tucanNum);
     writeTiemposTurnoDValue(closingDateISO, tiemposNum);
-  }, [open, turno, closingDateISO, tucanNum, tiemposNum]);
+  }, [open, selectedTurno, closingDateISO, tucanNum, tiemposNum]);
 
   useEffect(() => {
     if (!open || editId) return;
@@ -944,7 +1018,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     setSubmitting(true);
     try {
       const savedRecord = await onConfirm(values);
-      if (savedRecord && systemVerificationEnabled && values.turno === "N") {
+      if (savedRecord && verificationActive && values.turno === "N") {
         clearTurnoDSystemValues(values.closingDate);
       }
       return savedRecord;
@@ -956,7 +1030,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const handleSubmit = () => {
     const trimmedManager = displayedManager.trim();
     if (submitDisabled) return;
-    if (systemVerificationEnabled && turno === "D") {
+    if (verificationActive && selectedTurno === "D") {
       writeTucanTurnoDValue(closingDateISO, tucanNum);
       writeTiemposTurnoDValue(closingDateISO, tiemposNum);
     }
@@ -972,7 +1046,8 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
       totalUSD,
       breakdownCRC: buildBreakdown(crcCounts, CRC_DENOMINATIONS),
       breakdownUSD: buildBreakdown(usdCounts, USD_DENOMINATIONS),
-      turno,
+      ...(selectedTurno ? { turno: selectedTurno } : {}),
+      ...(selectedSinTurno ? { sinTurno: true } : {}),
       r08: r08Num,
       t11: t11Num,
       tucanCumulative: tucanNum,
@@ -1259,7 +1334,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                 </div>
               </section>
             </div>
-            {systemVerificationEnabled && (
+            {verificationActive && (
               <section className="rounded-lg border border-[var(--input-border)] p-4">
                 <h4 className="mb-3 text-sm font-semibold">Verificacion Contica / Tucan / Tiempos</h4>
                 <div className={`mb-4 rounded border px-3 py-3 ${reconciliationToneClass}`}>
@@ -1482,7 +1557,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
             />
           </div>
 
-          {requireSingleClosingReason && (
+          {requireSingleClosingReason && !selectedSinTurno && (
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
                 Motivo cierre único
@@ -1498,6 +1573,35 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                 maxLength={400}
                 placeholder="Explica por qué solo existe un cierre en el día"
               />
+            </div>
+          )}
+          {requireTurnoSelection && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                Turno
+              </label>
+              <select
+                value={turnoSelection}
+                onChange={(event) => {
+                  const next = event.target.value as
+                    | DailyClosingTurnoSelection
+                    | "";
+                  setTurnoSelection(next);
+                  onTurnoChange?.(
+                    next === "D" || next === "N" ? next : undefined,
+                  );
+                }}
+                className="h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
+                style={{
+                  backgroundColor: "var(--card-bg)",
+                  color: "var(--foreground)",
+                }}
+              >
+                <option value="">Seleccionar turno</option>
+                <option value="D">Turno D</option>
+                <option value="N">Turno N</option>
+                <option value="none">Sin turno</option>
+              </select>
             </div>
           )}
         </div>

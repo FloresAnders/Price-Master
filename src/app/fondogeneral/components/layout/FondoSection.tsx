@@ -185,7 +185,8 @@ const inferDailyClosingTurno = (
   target: DailyClosingRecord,
   closings: DailyClosingRecord[],
   horarioApertura?: string | null,
-): "D" | "N" => {
+): "D" | "N" | undefined => {
+  if (target.sinTurno) return undefined;
   if (target.turno === "D" || target.turno === "N") return target.turno;
   const operationalDateKey = getCostaRicaOperationalDateKey(
     target.closingDate,
@@ -203,7 +204,7 @@ const inferDailyClosingTurno = (
     }
   });
   const legacy = sameDay
-    .filter((closing) => !closing.turno)
+    .filter((closing) => !closing.sinTurno && !closing.turno)
     .slice()
     .sort(
       (a, b) =>
@@ -214,7 +215,7 @@ const inferDailyClosingTurno = (
     if (closing.id === target.id) return inferred;
     occupied.add(inferred);
   }
-  return "D";
+  return undefined;
 };
 
 // SHARED_COMPANY_STORAGE_KEY moved to constants.ts
@@ -663,7 +664,7 @@ export function FondoSection({
 
   const currentTurno: "D" | "N" = "D";
   const [dailyClosingTurno, setDailyClosingTurno] =
-    useState<"D" | "N">(currentTurno);
+    useState<"D" | "N" | undefined>(currentTurno);
   const [dailyClosingSummaryRecord, setDailyClosingSummaryRecord] =
     useState<DailyClosingRecord | null>(null);
   const [authoritativeCRDateKey, setAuthoritativeCRDateKey] = useState("");
@@ -783,6 +784,8 @@ export function FondoSection({
     handleManager2Change,
     cancelOpenCreateMovement,
   } = useMovementForm({ mode, fondoEntries });
+  const [cierreFondoVentasTurnoSelection, setCierreFondoVentasTurnoSelection] =
+    useState<"" | "D" | "N" | "none">("");
 
   const movementDraftWriteSuppressedRef = useRef(false);
   const restoringMovementDraftRef = useRef(false);
@@ -1778,6 +1781,7 @@ export function FondoSection({
     setAmountError("");
     setManagerError("");
     setManager2Error("");
+    setCierreFondoVentasTurnoSelection("");
     editingInProgressRef.current = false;
   }, []);
 
@@ -2091,6 +2095,7 @@ export function FondoSection({
       setNegativeBalanceModal,
       providers,
       movementCurrency,
+      cierreFondoVentasTurnoSelection,
     });
   };
 
@@ -2302,7 +2307,8 @@ export function FondoSection({
         totalUSD: record.totalUSD ?? 0,
         breakdownCRC: record.breakdownCRC ?? {},
         breakdownUSD: record.breakdownUSD ?? {},
-        turno: editingTurno,
+        ...(editingTurno ? { turno: editingTurno } : {}),
+        ...(record.sinTurno ? { sinTurno: true } : {}),
         r08: record.reconciliation?.contica.r08 ?? 0,
         t11: record.reconciliation?.contica.t11 ?? 0,
         tucanCumulative: record.reconciliation?.externalSnapshots.tucanCumulative ?? 0,
@@ -2494,7 +2500,8 @@ export function FondoSection({
 
       if (cierreEntries.length === 0) return null;
 
-      const resolveTurno = (entry: FondoEntry): "D" | "N" => {
+      const resolveTurno = (entry: FondoEntry): "D" | "N" | undefined => {
+        if (entry.sinTurno) return undefined;
         if (entry.turno === "D" || entry.turno === "N") return entry.turno;
         return isWithinFondoVentasNightClosingWindow({
           nowISO: String(entry.createdAt || ""),
@@ -2506,9 +2513,16 @@ export function FondoSection({
           : "D";
       };
 
+      const sameTurnoEntry = cierreEntries.find(
+        (entry) => resolveTurno(entry) === turno,
+      );
+      if (sameTurnoEntry) return sameTurnoEntry;
+
+      const sinTurnoEntry = cierreEntries.find((entry) => entry.sinTurno);
+      if (sinTurnoEntry) return sinTurnoEntry;
+
       return (
-        cierreEntries.find((entry) => resolveTurno(entry) === turno) ??
-        (cierreEntries.length === 1 ? cierreEntries[0] : cierreEntries[0])
+        cierreEntries.length === 1 ? cierreEntries[0] : cierreEntries[0]
       );
     },
     [
@@ -3039,6 +3053,25 @@ export function FondoSection({
     setLedgerSnapshot,
   ]);
 
+  const selectedProviderData = useMemo(() => {
+    if (!selectedProvider) return null;
+    return movementProviders.find((p) => p.code === selectedProvider) ?? null;
+  }, [movementProviders, selectedProvider]);
+  const isCierreFondoVentasSelected = useMemo(() => {
+    if (!selectedProvider) return false;
+    return (
+      String(selectedProvider).trim().toUpperCase() ===
+        CIERRE_FONDO_VENTAS_PROVIDER_NAME ||
+      selectedProviderData?.name?.toUpperCase() ===
+        CIERRE_FONDO_VENTAS_PROVIDER_NAME
+    );
+  }, [selectedProvider, selectedProviderData]);
+  const showCierreFondoVentasTurnoSelector =
+    canBypassClosingWindows &&
+    !editingEntryId &&
+    accountKey === "FondoGeneral" &&
+    isCierreFondoVentasSelected;
+
   const isSubmitDisabled =
     !company ||
     (!editingEntryId && isProviderSelectDisabled) ||
@@ -3047,6 +3080,8 @@ export function FondoSection({
     !egresoValid ||
     !ingresoValid ||
     (!isEditingPaidFcrMovement && !manager) ||
+    (showCierreFondoVentasTurnoSelector &&
+      cierreFondoVentasTurnoSelection === "") ||
     employeesLoading ||
     isSaving;
 
@@ -3325,11 +3360,6 @@ export function FondoSection({
     return `${mm}${dd}`;
   };
 
-  const selectedProviderData = useMemo(() => {
-    if (!selectedProvider) return null;
-    return movementProviders.find((p) => p.code === selectedProvider) ?? null;
-  }, [movementProviders, selectedProvider]);
-
   const isInvoiceDocTypeLockedToContado = useMemo(() => {
     // Solo aplica al crear; en edición se respeta el valor histórico.
     if (editingEntryId) return false;
@@ -3382,8 +3412,11 @@ export function FondoSection({
       accountKey === "FondoGeneral" &&
       (String(value || "").trim().toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME ||
         prov?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME);
+    setCierreFondoVentasTurnoSelection("");
 
-    if (isCierreFondoVentasValue) {
+    if (isCierreFondoVentasValue && canBypassClosingWindows) {
+      setClosingTimeRequest(null);
+    } else if (isCierreFondoVentasValue) {
       try {
         const nowISO = await getAuthoritativeNowISO();
         const nowTiming = await resolveShiftTimingForNow(nowISO);
@@ -4007,6 +4040,31 @@ export function FondoSection({
     }
 
     const dailyClosingTurnoForNow: "D" | "N" = hasRealD ? "N" : "D";
+    if (canBypassClosingWindows) {
+      const initialValues: DailyClosingFormValues = {
+        closingDate: nowISO,
+        manager: defaultManager,
+        notes: "",
+        singleClosingReason: "",
+        noMovements: false,
+        noMovementsReason: "",
+        totalCRC: currentBalanceCRC,
+        totalUSD: currentBalanceUSD,
+        breakdownCRC: {},
+        breakdownUSD: {},
+        r08: 0,
+        t11: 0,
+        tucanCumulative: 0,
+        tiemposCumulative: 0,
+      };
+
+      setDailyClosingTurno(undefined);
+      setDailyClosingSingleReasonRequired(requireSingleReason);
+      setDailyClosingInitialValues(initialValues);
+      setDailyClosingModalOpen(true);
+      return;
+    }
+
     const cierreFondoVentasForDailyClosing =
       getCierreFondoVentasForDailyClosing(
         operationalDateKey,
@@ -4251,29 +4309,49 @@ export function FondoSection({
       );
       return null;
     }
-    const cierreFondoVentasForDailyClosing =
-      getCierreFondoVentasForDailyClosing(operationalDateKey, closing.turno);
-    const cierreFondoVentasManager = String(
-      cierreFondoVentasForDailyClosing?.manager || "",
-    ).trim();
-    if (!cierreFondoVentasManager) {
+    const closingHasTurno = closing.turno === "D" || closing.turno === "N";
+    if (!closingHasTurno && !closing.sinTurno) {
+      showToast("Debe seleccionar el turno del cierre.", "warning", 5000);
+      return null;
+    }
+
+    let closingWithCierreManager: DailyClosingFormValues = closing;
+    if (closingHasTurno) {
+      const cierreFondoVentasForDailyClosing =
+        getCierreFondoVentasForDailyClosing(operationalDateKey, closing.turno!);
+      const cierreFondoVentasManager = String(
+        cierreFondoVentasForDailyClosing?.manager || "",
+      ).trim();
+      if (!cierreFondoVentasManager) {
+        showToast(
+          "Debe existir un cierre fondo ventas con encargado para guardar el cierre diario.",
+          "warning",
+          6000,
+        );
+        return null;
+      }
+      closingWithCierreManager = {
+        ...closing,
+        manager: cierreFondoVentasManager,
+      };
+    }
+
+    if (closing.sinTurno && !closing.manager.trim()) {
       showToast(
-        "Debe existir un cierre fondo ventas con encargado para guardar el cierre diario.",
+        "Debe indicar un encargado para guardar el cierre sin turno.",
         "warning",
-        6000,
+        5000,
       );
       return null;
     }
-    const closingWithCierreManager: DailyClosingFormValues = {
-      ...closing,
-      manager: cierreFondoVentasManager,
-    };
     const dailyClosingMinutesAfterClose =
-      await resolveEffectiveClosingMinutesAfterEnd(
-        closing.closingDate,
-        closing.turno,
-        operationalDateKey,
-      );
+      closingHasTurno
+        ? await resolveEffectiveClosingMinutesAfterEnd(
+            closing.closingDate,
+            closing.turno!,
+            operationalDateKey,
+          )
+        : cierreFondoVentasMinutesAfterEnd;
 
     const savedRecord = await handleConfirmDailyClosingFn(closingWithCierreManager, {
       accountKey,
@@ -4342,6 +4420,14 @@ export function FondoSection({
       editingEntryId ||
       !activeEmpresaForCompany
     ) {
+      return true;
+    }
+
+    if (canBypassClosingWindows && cierreFondoVentasTurnoSelection === "") {
+      showToast("Debe seleccionar Turno D, Turno N o Sin turno.", "warning", 5000);
+      return false;
+    }
+    if (canBypassClosingWindows) {
       return true;
     }
 
@@ -4508,6 +4594,7 @@ export function FondoSection({
     getFGMonthlySchedulesCached,
     fondoEntries,
     canBypassClosingWindows,
+    cierreFondoVentasTurnoSelection,
     notes,
     resolveEffectiveClosingMinutesAfterEnd,
     showToast,
@@ -4965,6 +5052,9 @@ export function FondoSection({
         amountError={amountError}
         managerError={managerError}
         manager2Error={manager2Error}
+        showClosingTurnoSelector={showCierreFondoVentasTurnoSelector}
+        closingTurnoSelection={cierreFondoVentasTurnoSelection}
+        onClosingTurnoSelectionChange={setCierreFondoVentasTurnoSelection}
         pendingCreditNotesCount={selectedProviderPendingNcCount}
         pendingCreditInvoicesCount={
           isEditingPaidFcrMovement
@@ -6271,6 +6361,7 @@ export function FondoSection({
         open={dailyClosingModalOpen}
         onClose={handleCloseDailyClosing}
         onConfirm={handleConfirmDailyClosing}
+        onTurnoChange={setDailyClosingTurno}
         initialValues={dailyClosingInitialValues}
         editId={editingDailyClosingId}
         onShowHistory={() => {
@@ -6288,6 +6379,9 @@ export function FondoSection({
         }
         managerReadonly={!editingDailyClosingId}
         turno={dailyClosingTurno}
+        requireTurnoSelection={
+          !editingDailyClosingId && canBypassClosingWindows
+        }
         cierreFondoVentasMinutesBeforeEnd={cierreFondoVentasMinutesBeforeEnd}
         cierreFondoVentasMinutesAfterEnd={cierreFondoVentasMinutesAfterEnd}
         previousReconciliation={dailyClosingTurno === "N" ? dailyClosingDayD?.reconciliation : null}

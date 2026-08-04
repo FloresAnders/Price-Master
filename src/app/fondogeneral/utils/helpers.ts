@@ -571,6 +571,7 @@ export const sanitizeDailyClosings = (raw: unknown): DailyClosingRecord[] => {
       ...(record.turno === "D" || record.turno === "N"
         ? { turno: record.turno }
         : {}),
+      ...(record.sinTurno ? { sinTurno: true } : {}),
       breakdownCRC: sanitizeBreakdown(record.breakdownCRC),
       breakdownUSD: sanitizeBreakdown(record.breakdownUSD),
       ...(record.reconciliation ? { reconciliation: record.reconciliation } : {}),
@@ -874,6 +875,7 @@ export const sanitizeFondoEntries = (
       openingBreakdownCRC: (entry as any).openingBreakdownCRC ?? undefined,
       openingBreakdownUSD: (entry as any).openingBreakdownUSD ?? undefined,
       turno: entry.turno === "D" || entry.turno === "N" ? entry.turno : undefined,
+      sinTurno: entry.sinTurno ? true : undefined,
       isAudit: !!entry.isAudit,
       originalEntryId:
         typeof entry.originalEntryId === "string"

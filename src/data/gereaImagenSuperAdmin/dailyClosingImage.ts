@@ -79,7 +79,7 @@ export async function exportDailyClosingSuperAdminImage(
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `cierre-${company}-${record.closingDate.slice(0, 10)}-${record.turno ?? "D"}.png`;
+  link.download = `cierre-${company}-${record.closingDate.slice(0, 10)}-${record.sinTurno ? "SinTurno" : record.turno ?? "D"}.png`;
   link.click();
   URL.revokeObjectURL(url);
 }

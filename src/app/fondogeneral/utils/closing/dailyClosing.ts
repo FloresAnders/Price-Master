@@ -206,13 +206,14 @@ export async function handleConfirmDailyClosing(
     item.id !== editingDailyClosingId &&
     (getCostaRicaOperationalDateKey(item.closingDate, horarioApertura) ?? item.closingDate.slice(0, 10)) === closingDateKey,
   );
+  const closingHasTurno = closing.turno === "D" || closing.turno === "N";
   const previousDayClosing = sameDayClosings.find((item) => item.turno === "D");
   if (closing.turno === "N" && !previousDayClosing) {
     showToast("Debe existir cierre diurno antes del nocturno.", "warning", 5000);
     return null;
   }
   let reconciliation;
-  if (systemVerificationEnabled) {
+  if (systemVerificationEnabled && closingHasTurno) {
     try {
       reconciliation = reconcileClosing({
         r08: closing.r08, t11: closing.t11,
@@ -228,7 +229,7 @@ export async function handleConfirmDailyClosing(
     }
   }
 
-  if (requireSingleClosingReason && !singleClosingReason) {
+  if (requireSingleClosingReason && !closing.sinTurno && !singleClosingReason) {
     showToast(
       "Debe indicar el motivo de por qué solo hubo un cierre en el día.",
       "warning",
@@ -259,10 +260,12 @@ export async function handleConfirmDailyClosing(
     diffCRC,
     diffUSD,
     notes: userNotes,
-    ...(!editingDailyClosingId ||
-    dailyClosings.find((d) => d.id === editingDailyClosingId)?.turno
+    ...(closingHasTurno &&
+    (!editingDailyClosingId ||
+      dailyClosings.find((d) => d.id === editingDailyClosingId)?.turno)
       ? { turno: closing.turno }
       : {}),
+    ...(closing.sinTurno ? { sinTurno: true } : {}),
     ...(singleClosingReason ? { singleClosingReason } : {}),
     ...(noMovements ? { noMovements: true, noMovementsReason } : {}),
     breakdownCRC: closing.breakdownCRC ?? {},

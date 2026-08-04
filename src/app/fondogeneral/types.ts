@@ -41,4 +41,5 @@ export type FondoEntry = {
   auditDetails?: string;
   requiresOpening?: boolean;
   turno?: "D" | "N";
+  sinTurno?: true;
 };

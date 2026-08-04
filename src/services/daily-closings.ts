@@ -44,6 +44,7 @@ export type DailyClosingRecord = {
   diffUSD: number;
   notes: string;
   turno?: "D" | "N";
+  sinTurno?: true;
   singleClosingReason?: string;
   noMovements?: boolean;
   noMovementsReason?: string;
@@ -329,6 +330,7 @@ const sanitizeRecord = (raw: unknown): DailyClosingRecord | null => {
     typeof candidate.noMovementsReason === "string"
       ? candidate.noMovementsReason.trim()
       : "";
+  const explicitSinTurno = candidate.sinTurno === true;
 
   const record: DailyClosingRecord = {
     id,
@@ -342,9 +344,11 @@ const sanitizeRecord = (raw: unknown): DailyClosingRecord | null => {
     diffCRC: sanitizeMoney(candidate.diffCRC),
     diffUSD: sanitizeMoney(candidate.diffUSD),
     notes,
-    ...(candidate.turno === "D" || candidate.turno === "N"
+    ...(!explicitSinTurno &&
+    (candidate.turno === "D" || candidate.turno === "N")
       ? { turno: candidate.turno }
       : {}),
+    ...(explicitSinTurno ? { sinTurno: true } : {}),
     ...(singleClosingReason ? { singleClosingReason } : {}),
     ...(candidate.noMovements ? { noMovements: true } : {}),
     ...(noMovementsReason ? { noMovementsReason } : {}),
@@ -454,7 +458,10 @@ const getOccupiedClosingShifts = (
     if (record.turno === "D" || record.turno === "N") occupied.add(record.turno);
   });
   records
-    .filter((record) => record.turno !== "D" && record.turno !== "N")
+    .filter(
+      (record) =>
+        !record.sinTurno && record.turno !== "D" && record.turno !== "N",
+    )
     .slice()
     .sort((a, b) => sortValueForRecord(a) - sortValueForRecord(b))
     .forEach(() => {
@@ -497,6 +504,7 @@ const recalculateReconciliations = (records: DailyClosingRecord[]) => {
   let cumulativeR08 = 0;
   let cumulativeT11 = 0;
   return records.slice().sort((a, b) => (a.turno === "D" ? -1 : b.turno === "D" ? 1 : sortValueForRecord(a) - sortValueForRecord(b))).map((record) => {
+    if (record.sinTurno) return record;
     if (!record.reconciliation) return record;
     const { contica, externalSnapshots } = record.reconciliation;
     cumulativeR08 += contica.r08;
@@ -640,9 +648,12 @@ export class DailyClosingsService {
         dateKey = buildDateKeyFromISO(originalRecord.closingDate);
         if (originalRecord.turno) sanitizedRecord.turno = originalRecord.turno;
         else delete sanitizedRecord.turno;
+        if (originalRecord.sinTurno) sanitizedRecord.sinTurno = true;
+        else delete sanitizedRecord.sinTurno;
       }
       if (
         !isEditing &&
+        !sanitizedRecord.sinTurno &&
         sanitizedRecord.turno !== "D" &&
         sanitizedRecord.turno !== "N"
       ) {

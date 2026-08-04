@@ -140,6 +140,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     setNegativeBalanceModal,
     providers,
     movementCurrency,
+    cierreFondoVentasTurnoSelection = "",
   } = deps;
 
   if (!company) return;
@@ -716,6 +717,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
           `ingreso=${Math.trunc(isIngreso ? ingresoValue : 0)}`,
           `manager=${(manager || "").trim()}`,
           `currency=${movementCurrency || "CRC"}`,
+          `cierreTurno=${String(cierreFondoVentasTurnoSelection || "")}`,
           `notes=${normalizedPersistedNotes}`,
         ];
         const fingerprint = fingerprintParts.join("|");
@@ -1198,8 +1200,26 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
       );
       const isCierreVentas =
         selectedProviderData?.name?.toUpperCase() ===
-        CIERRE_FONDO_VENTAS_PROVIDER_NAME;
-      const cierreTiming = isCierreVentas
+          CIERRE_FONDO_VENTAS_PROVIDER_NAME ||
+        String(selectedProvider || "").trim().toUpperCase() ===
+          CIERRE_FONDO_VENTAS_PROVIDER_NAME;
+      const privilegedCierreVentas = isCierreVentas && !isRegularUser;
+      const manualCierreVentasTurno =
+        cierreFondoVentasTurnoSelection === "D" ||
+        cierreFondoVentasTurnoSelection === "N"
+          ? cierreFondoVentasTurnoSelection
+          : undefined;
+      const cierreVentasSinTurno =
+        privilegedCierreVentas && cierreFondoVentasTurnoSelection === "none";
+      if (
+        privilegedCierreVentas &&
+        !manualCierreVentasTurno &&
+        !cierreVentasSinTurno
+      ) {
+        showToast("Debe seleccionar Turno D, Turno N o Sin turno.", "warning", 5000);
+        return;
+      }
+      const cierreTiming = isCierreVentas && !privilegedCierreVentas
         ? await resolveShiftTimingForNow(nowISO)
         : null;
       const cierreOperationalDateKey = isCierreVentas
@@ -1225,25 +1245,30 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
             })
           : [],
       );
-      const cierreVentasTurno = isCierreVentas
-        ? cierreTiming?.withinHorario
-          ? resolveFondoVentasClosingShift({
-              currentMin: cierreTiming.currentMin,
-              shiftDEndMin: cierreTiming.shiftChangeMin,
-              shiftNEndMin: cierreTiming.closeMin,
-              expectedShift: cierreTiming.expectedShift,
-              minutesBeforeEnd:
-                activeEmpresaForCompany?.cierreFondoVentasMinutesBeforeEnd ??
-                CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
-              minutesAfterEnd: cierreFondoVentasEffectiveDayMinutesAfterEnd,
-              minutesAfterEndByShift: {
-                D: cierreFondoVentasEffectiveDayMinutesAfterEnd,
-                N: cierreFondoVentasEffectiveNightMinutesAfterEnd,
-              },
-              occupiedShifts: occupiedClosingShifts,
-            })
-          : "N"
-        : undefined;
+      let cierreVentasTurno: "D" | "N" | undefined;
+      if (isCierreVentas) {
+        if (privilegedCierreVentas) {
+          cierreVentasTurno = manualCierreVentasTurno;
+        } else if (cierreTiming?.withinHorario) {
+          cierreVentasTurno = resolveFondoVentasClosingShift({
+            currentMin: cierreTiming.currentMin,
+            shiftDEndMin: cierreTiming.shiftChangeMin,
+            shiftNEndMin: cierreTiming.closeMin,
+            expectedShift: cierreTiming.expectedShift,
+            minutesBeforeEnd:
+              activeEmpresaForCompany?.cierreFondoVentasMinutesBeforeEnd ??
+              CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
+            minutesAfterEnd: cierreFondoVentasEffectiveDayMinutesAfterEnd,
+            minutesAfterEndByShift: {
+              D: cierreFondoVentasEffectiveDayMinutesAfterEnd,
+              N: cierreFondoVentasEffectiveNightMinutesAfterEnd,
+            },
+            occupiedShifts: occupiedClosingShifts,
+          });
+        } else {
+          cierreVentasTurno = "N";
+        }
+      }
       // Enforce cross-device guard ONLY for regular users.
       // Admin/superadmin are allowed to create a closing even during the lock window.
       if (normalizedCompany.length > 0 && isCierreVentas && isRegularUser) {
@@ -1317,7 +1342,8 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         invoiceNumber: paddedInvoice,
         invoiceDocType: effectiveInvoiceDocType,
         paymentType,
-        turno: cierreVentasTurno,
+        ...(cierreVentasTurno ? { turno: cierreVentasTurno } : {}),
+        ...(cierreVentasSinTurno ? { sinTurno: true } : {}),
         amountEgreso: isEgreso ? egresoValue : 0,
         amountIngreso: isIngreso ? ingresoValue : 0,
         amountPayment:

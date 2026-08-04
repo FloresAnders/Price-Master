@@ -126,6 +126,9 @@ type AgregarMovimientoProps = {
     disabled?: boolean;
     onClick: () => void;
   };
+  showClosingTurnoSelector?: boolean;
+  closingTurnoSelection?: "" | "D" | "N" | "none";
+  onClosingTurnoSelectionChange?: (value: "" | "D" | "N" | "none") => void;
 };
 
 const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
@@ -194,6 +197,9 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   balanceUSD = 0,
   isCompraInventarioProvider = true,
   closingTimeRequest,
+  showClosingTurnoSelector = false,
+  closingTurnoSelection = "",
+  onClosingTurnoSelectionChange,
 }) => {
   const invoiceBorderClass =
     invoiceValid || invoiceNumber.length === 0
@@ -1135,6 +1141,29 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
           </div>
         </div>
       </section>
+
+      {showClosingTurnoSelector && (
+        <section className={sectionClass}>
+          <label className={labelClass}>
+            <Clock className="h-3.5 w-3.5" />
+            Turno
+          </label>
+          <select
+            value={closingTurnoSelection}
+            onChange={(event) =>
+              onClosingTurnoSelectionChange?.(
+                event.target.value as "" | "D" | "N" | "none",
+              )
+            }
+            className={fieldBase}
+          >
+            <option value="">Seleccionar turno</option>
+            <option value="D">Turno D</option>
+            <option value="N">Turno N</option>
+            <option value="none">Sin turno</option>
+          </select>
+        </section>
+      )}
 
       <div className="sticky bottom-0 -mx-3 flex justify-center gap-2 border-t border-cyan-700/25 bg-[#0d1117]/95 px-3 py-3 backdrop-blur sm:-mx-0 sm:px-0">
         {editingEntryId && (

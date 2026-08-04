@@ -204,6 +204,11 @@ export default function DailyClosingHistorySection({
                 : dateTimeFormatter.format(createdAtDate);
               const crcLines = buildBreakdownLines("CRC", record.breakdownCRC);
               const usdLines = buildBreakdownLines("USD", record.breakdownUSD);
+              const turnoLabel = record.sinTurno
+                ? "Sin turno"
+                : record.turno
+                  ? `Turno ${record.turno}`
+                  : "";
               const showCRC =
                 record.totalCRC !== 0 ||
                 record.recordedBalanceCRC !== 0 ||
@@ -234,6 +239,7 @@ export default function DailyClosingHistorySection({
                             <Clock className="h-3 w-3" strokeWidth={1.5} />
                             {createdAtLabel}
                           </span>
+                          {turnoLabel && <span>{turnoLabel}</span>}
                         </div>
                       </div>
                     </div>

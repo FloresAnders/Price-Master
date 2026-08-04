@@ -351,7 +351,7 @@ const DailyClosingSummaryModal: React.FC<DailyClosingSummaryModalProps> = ({
         canvas.toBlob(resolve, "image/png"),
       );
       if (!blob) return null;
-      const turnoPart = record.turno ?? "D";
+      const turnoPart = record.sinTurno ? "SinTurno" : record.turno ?? "D";
       const managerPart = sanitizeFilenamePart(record.manager || "sin_encargado");
       const datePart = record.closingDate.slice(0, 10);
       const fileName = `CierreFG-${turnoPart}-${managerPart}-${datePart}.png`;
@@ -499,7 +499,12 @@ const DailyClosingSummaryModal: React.FC<DailyClosingSummaryModalProps> = ({
           <div>
             <h2 className="text-lg font-semibold">Resumen del cierre guardado</h2>
             <div className="mt-1 text-xs text-[var(--muted-foreground)]">
-              Fondo General {record.turno ? `- Turno ${record.turno}` : ""}
+              Fondo General{" "}
+              {record.sinTurno
+                ? "- Sin turno"
+                : record.turno
+                  ? `- Turno ${record.turno}`
+                  : ""}
             </div>
           </div>
           <button

@@ -37,12 +37,14 @@ type ClosingMovementLike = {
   createdAt?: string;
   providerCode?: string;
   turno?: ShiftCode;
+  sinTurno?: boolean;
 };
 
 type DailyClosingLike = {
   createdAt?: string;
   closingDate?: string;
   turno?: ShiftCode;
+  sinTurno?: boolean;
 };
 
 export type CashOpeningAvailability =
@@ -62,7 +64,10 @@ export const getOccupiedClosingShifts = (
     if (entry.turno === "D" || entry.turno === "N") occupied.add(entry.turno);
   });
   closings
-    .filter((entry) => entry.turno !== "D" && entry.turno !== "N")
+    .filter(
+      (entry) =>
+        !entry.sinTurno && entry.turno !== "D" && entry.turno !== "N",
+    )
     .slice()
     .sort(
       (a, b) =>
