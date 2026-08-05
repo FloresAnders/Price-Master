@@ -12,6 +12,7 @@ import { Lock, LockOpen, X } from "lucide-react";
 
 import AgregarMovimiento from "../AgregarMovimiento";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import { useFloatingActionsSuppression } from "@/components/ui/FloatingActionsDock";
 import type { FondoEntry } from "../../types";
 
 type MovementDrawerProps = ComponentProps<typeof AgregarMovimiento> & {
@@ -35,6 +36,7 @@ export function MovementDrawer({
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmSaveLocked, setConfirmSaveLocked] = useState(false);
   const confirmSaveLockedRef = useRef(false);
+  useFloatingActionsSuppression("movement-drawer", open);
   const {
     onSubmit,
     isSaving,

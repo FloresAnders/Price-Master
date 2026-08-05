@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -17,6 +18,11 @@ import {
   PinOff,
   type LucideIcon,
 } from "lucide-react";
+import {
+  getFloatingActionsDockBottomOffsetPx,
+  shouldRenderFloatingActionsDock,
+  sortVisibleFloatingActions,
+} from "./FloatingActionsDock.utils";
 
 export type FloatingActionVariant = "primary" | "blue" | "emerald" | "slate";
 
@@ -48,8 +54,18 @@ const FloatingActionsRegistryContext =
 const FloatingActionsStateContext = createContext<
   Record<string, RegisteredFloatingAction>
 >({});
+type FloatingActionsVisibilityContextValue = {
+  suppressed: boolean;
+  backToTopVisible: boolean;
+  setBackToTopVisible: (active: boolean) => void;
+  setSuppression: (id: string, active: boolean) => void;
+};
+const FloatingActionsVisibilityContext =
+  createContext<FloatingActionsVisibilityContextValue | null>(null);
 
 const PINNED_KEY = "pricemaster-floating-actions-pinned";
+const useIsomorphicLayoutEffect =
+  typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 function deferStateUpdate(update: () => void): void {
   if (typeof queueMicrotask === "function") {
@@ -78,16 +94,11 @@ function getVariantClass(variant: FloatingActionVariant): string {
   return "border border-white/20 bg-[var(--primary)] hover:opacity-95";
 }
 
-export function sortVisibleFloatingActions<T extends RegisteredFloatingAction>(
-  actionsById: Record<string, T>,
-): T[] {
-  return Object.values(actionsById)
-    .filter((action) => action.visible !== false)
-    .sort(
-      (left, right) =>
-        left.order - right.order || left.label.localeCompare(right.label, "es"),
-    );
-}
+export {
+  getFloatingActionsDockBottomOffsetPx,
+  shouldRenderFloatingActionsDock,
+  sortVisibleFloatingActions,
+} from "./FloatingActionsDock.utils";
 
 function FloatingCircleButton({
   label,
@@ -142,6 +153,10 @@ export function FloatingActionsProvider({ children }: { children: ReactNode }) {
   const [actionsById, setActionsById] = useState<
     Record<string, RegisteredFloatingAction>
   >({});
+  const [suppressionById, setSuppressionById] = useState<Record<string, true>>(
+    {},
+  );
+  const [backToTopVisible, setBackToTopVisible] = useState(false);
 
   const unregisterAction = useCallback((id: string) => {
     setActionsById((current) => {
@@ -177,18 +192,71 @@ export function FloatingActionsProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const setSuppression = useCallback((id: string, active: boolean) => {
+    setSuppressionById((current) => {
+      const currentlyActive = Boolean(current[id]);
+      if (currentlyActive === active) return current;
+
+      if (active) return { ...current, [id]: true };
+
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+  }, []);
+
   const registryValue = useMemo(
     () => ({ registerAction, unregisterAction }),
     [registerAction, unregisterAction],
+  );
+  const visibilityValue = useMemo(
+    () => ({
+      suppressed: Object.keys(suppressionById).length > 0,
+      backToTopVisible,
+      setBackToTopVisible,
+      setSuppression,
+    }),
+    [backToTopVisible, setSuppression, suppressionById],
   );
 
   return (
     <FloatingActionsRegistryContext.Provider value={registryValue}>
       <FloatingActionsStateContext.Provider value={actionsById}>
-        {children}
+        <FloatingActionsVisibilityContext.Provider value={visibilityValue}>
+          {children}
+        </FloatingActionsVisibilityContext.Provider>
       </FloatingActionsStateContext.Provider>
     </FloatingActionsRegistryContext.Provider>
   );
+}
+
+export function useFloatingActionsSuppression(
+  id: string,
+  active: boolean,
+): void {
+  const visibilityContext = useContext(FloatingActionsVisibilityContext);
+  const setSuppression = visibilityContext?.setSuppression;
+
+  useIsomorphicLayoutEffect(() => {
+    if (!setSuppression) return;
+    setSuppression(id, active);
+    return () => setSuppression(id, false);
+  }, [setSuppression, id, active]);
+}
+
+export function useFloatingActionsSuppressed(): boolean {
+  return useContext(FloatingActionsVisibilityContext)?.suppressed ?? false;
+}
+
+export function useBackToTopDockPosition(active: boolean): void {
+  const visibilityContext = useContext(FloatingActionsVisibilityContext);
+  const setBackToTopVisible = visibilityContext?.setBackToTopVisible;
+
+  useIsomorphicLayoutEffect(() => {
+    if (!setBackToTopVisible) return;
+    setBackToTopVisible(active);
+    return () => setBackToTopVisible(false);
+  }, [setBackToTopVisible, active]);
 }
 
 export function useFloatingAction(action: FloatingActionConfig): void {
@@ -217,6 +285,9 @@ export function useFloatingAction(action: FloatingActionConfig): void {
 
 export function FloatingActionsDock() {
   const actionsById = useContext(FloatingActionsStateContext);
+  const visibilityContext = useContext(FloatingActionsVisibilityContext);
+  const suppressed = visibilityContext?.suppressed ?? false;
+  const backToTopVisible = visibilityContext?.backToTopVisible ?? false;
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState<boolean | null>(null);
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -255,14 +326,16 @@ export function FloatingActionsDock() {
 
   const isPinned = pinned === true;
   const expanded = isPinned || open;
-  if (actions.length === 0) return null;
+  if (!shouldRenderFloatingActionsDock(actions, suppressed)) return null;
 
   return (
     <div
       ref={hostRef}
-      className="fixed z-[99980] flex flex-col items-center gap-3"
+      className="fixed z-[99980] flex flex-col items-center gap-3 transition-[bottom] duration-200 ease-out"
       style={{
-        bottom: "calc(92px + env(safe-area-inset-bottom, 0px))",
+        bottom: `calc(${getFloatingActionsDockBottomOffsetPx(
+          backToTopVisible,
+        )}px + env(safe-area-inset-bottom, 0px))`,
         right: "calc(20px + env(safe-area-inset-right, 0px))",
       }}
     >

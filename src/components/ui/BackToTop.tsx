@@ -2,31 +2,37 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { ArrowUp } from "lucide-react";
+import {
+  useBackToTopDockPosition,
+  useFloatingActionsSuppressed,
+} from "./FloatingActionsDock";
+import {
+  clamp01,
+  isScrollPastBackToTopThreshold,
+  shouldMountBackToTopButton,
+  shouldRenderBackToTop,
+} from "./BackToTop.utils";
 
 type BackToTopProps = {
-  /** Show button once scroll progress passes this value (0..1). Default: 0.5 */
+  /** Show button once scroll passes this share of visible viewport height (0..1). Default: 0.5 */
   showAfterProgress?: number;
   /** Pixels from bottom/right edges. Default: 20 */
   offsetPx?: number;
   /** Bottom/right offset on small screens. Default: 20 */
   mobileOffsetPx?: number;
-  /** Keep button visible even before scroll threshold. Default: true */
+  /** Keep button visible even before scroll threshold. Default: false */
   alwaysVisible?: boolean;
 };
-
-function clamp01(value: number): number {
-  if (Number.isNaN(value)) return 0;
-  return Math.min(1, Math.max(0, value));
-}
 
 export default function BackToTop({
   showAfterProgress = 0.5,
   offsetPx = 20,
   mobileOffsetPx = 20,
-  alwaysVisible = true,
+  alwaysVisible = false,
 }: BackToTopProps) {
-  const [visible, setVisible] = useState(false);
+  const [isPastScrollThreshold, setIsPastScrollThreshold] = useState(false);
   const [isSmallScreen, setIsSmallScreen] = useState(false);
+  const suppressed = useFloatingActionsSuppressed();
 
   const threshold = useMemo(
     () => clamp01(showAfterProgress),
@@ -55,12 +61,15 @@ export default function BackToTop({
     const computeProgress = () => {
       const doc = document.documentElement;
       const scrollTop = window.scrollY ?? doc.scrollTop ?? 0;
-      const scrollHeight = doc.scrollHeight ?? 0;
       const viewportHeight = window.innerHeight ?? doc.clientHeight ?? 0;
-      const scrollable = Math.max(0, scrollHeight - viewportHeight);
 
-      const progress = scrollable === 0 ? 0 : scrollTop / scrollable;
-      setVisible(progress >= threshold);
+      setIsPastScrollThreshold(
+        isScrollPastBackToTopThreshold({
+          scrollTop,
+          viewportHeight,
+          showAfterViewportRatio: threshold,
+        }),
+      );
     };
 
     const onScrollOrResize = () => {
@@ -95,7 +104,14 @@ export default function BackToTop({
   };
 
   const effectiveOffset = isSmallScreen ? mobileOffsetPx : offsetPx;
-  const shouldShow = alwaysVisible || visible;
+  const shouldShow = shouldRenderBackToTop({
+    alwaysVisible,
+    isPastScrollThreshold,
+    suppressed,
+  });
+  useBackToTopDockPosition(shouldShow);
+
+  if (!shouldMountBackToTopButton(shouldShow)) return null;
 
   return (
     <button

@@ -19,6 +19,7 @@ import Drawer from "@mui/material/Drawer";
 import IconButton from "@mui/material/IconButton";
 import Typography from "@mui/material/Typography";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import { useFloatingActionsSuppression } from "@/components/ui/FloatingActionsDock";
 import type { MovementCurrencyKey } from "@/services/movimientos-fondos";
 
 type ProviderOption = {
@@ -100,6 +101,7 @@ export default function CreateInvoiceDrawer({
   const [displayAmount, setDisplayAmount] = React.useState("");
   const [isManagerDropdownOpen, setIsManagerDropdownOpen] = React.useState(false);
   const [showConfirmModal, setShowConfirmModal] = React.useState(false);
+  useFloatingActionsSuppression("create-invoice-drawer", open);
 
   const providerName = React.useMemo(() => {
     if (!createProviderCode) return "—";
