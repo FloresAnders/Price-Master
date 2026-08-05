@@ -15,6 +15,11 @@ import {
 
 import ConfirmModal from "../../../../components/ui/ConfirmModal";
 import { isWithinCierreRange } from "../../utils/turnoRango";
+import {
+  hasMinimumSingleClosingReasonLength,
+  SINGLE_CLOSING_REASON_FORM_MIN_LENGTH_MESSAGE,
+  SINGLE_CLOSING_REASON_MIN_LENGTH,
+} from "../../utils/closing/singleClosingReason";
 import { reconcileClosing, type ClosingReconciliation } from "@/domain/reconciliation";
 import {
   getBillCountKeyAction,
@@ -451,7 +456,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     (verificationActive && tiemposBelowTurnoD) ||
     (requireSingleClosingReason &&
       !selectedSinTurno &&
-      singleClosingReason.trim().length === 0);
+      !hasMinimumSingleClosingReasonLength(singleClosingReason));
   const hasDifferences = diffCRC !== 0 || diffUSD !== 0;
 
   const reconciliationPreview = useMemo(() => {
@@ -699,9 +704,9 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     if (
       requireSingleClosingReason &&
       !selectedSinTurno &&
-      singleClosingReason.trim().length === 0
+      !hasMinimumSingleClosingReasonLength(singleClosingReason)
     ) {
-      return "Debes indicar el motivo de por qué solo hubo un cierre en el día.";
+      return SINGLE_CLOSING_REASON_FORM_MIN_LENGTH_MESSAGE;
     }
     return "";
   }, [
@@ -1570,8 +1575,9 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                   backgroundColor: "var(--card-bg)",
                   color: "var(--foreground)",
                 }}
+                minLength={SINGLE_CLOSING_REASON_MIN_LENGTH}
                 maxLength={400}
-                placeholder="Explica por qué solo existe un cierre en el día"
+                placeholder="Minimo 10 caracteres"
               />
             </div>
           )}

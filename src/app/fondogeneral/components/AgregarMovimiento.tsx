@@ -17,6 +17,7 @@ import {
 import type { FondoMovementType } from "../types";
 import {
   CIERRE_FONDO_VENTAS_PROVIDER_NAME,
+  SINGLE_CLOSING_REASON_MIN_LENGTH,
   SINGLE_CLOSING_REASON_PREFIX,
 } from "../constants";
 import {
@@ -925,7 +926,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     "
                 >
                   <input
-                    placeholder="especifique el motivo"
+                    placeholder="Motivo"
                     value={notes.slice(SINGLE_CLOSING_REASON_PREFIX.length)}
                     onChange={(event) =>
                       onNotesChange(
@@ -938,6 +939,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
         text-sm text-[var(--foreground)] outline-none
         placeholder:text-cyan-100/50
       "
+                    minLength={SINGLE_CLOSING_REASON_MIN_LENGTH}
                     maxLength={200 - SINGLE_CLOSING_REASON_PREFIX.length}
                   />
                 </div>

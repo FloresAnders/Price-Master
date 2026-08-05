@@ -89,6 +89,11 @@ import { useActorOwnership } from "../../../../hooks/useActorOwnership";
 import type { FondoEntry, FondoMovementType } from "../../types";
 import { persistMovementToFirestore as persistMovementToFirestoreFn } from "../../utils/fondo/persistence";
 import { handleConfirmDailyClosing as handleConfirmDailyClosingFn } from "../../utils/closing/dailyClosing";
+import {
+  getSingleClosingReasonFromNotes,
+  hasMinimumSingleClosingReasonLength,
+  SINGLE_CLOSING_REASON_OBSERVATIONS_MIN_LENGTH_MESSAGE,
+} from "../../utils/closing/singleClosingReason";
 import { handleConfirmCashOpening as handleConfirmCashOpeningFn } from "../../utils/fondo/cashOpening";
 import { resetStateForCompanyChange } from "../../utils/companyReset";
 import { useMovementsLoadingState } from "../../hooks/movements/useMovementsLoadingState";
@@ -4579,10 +4584,10 @@ export function FondoSection({
           !hasRecentDayClosing &&
           activeEmpresaForCompany.unicoCierre !== true
         ) {
-          const notesWithoutPrefix = notes.replace(SINGLE_CLOSING_REASON_PREFIX, "").trim();
-          if (notesWithoutPrefix.length === 0) {
+          const singleClosingReason = getSingleClosingReasonFromNotes(notes);
+          if (!hasMinimumSingleClosingReasonLength(singleClosingReason)) {
             showToast(
-              "Debe indicar en observaciones el motivo de por qué solo se realizó un cierre en el día.",
+              SINGLE_CLOSING_REASON_OBSERVATIONS_MIN_LENGTH_MESSAGE,
               "warning",
               6000,
             );
@@ -4596,10 +4601,10 @@ export function FondoSection({
         !hasRecentDayClosing &&
         activeEmpresaForCompany.unicoCierre !== true
       ) {
-        const notesWithoutPrefix = notes.replace(SINGLE_CLOSING_REASON_PREFIX, "").trim();
-        if (notesWithoutPrefix.length === 0) {
+        const singleClosingReason = getSingleClosingReasonFromNotes(notes);
+        if (!hasMinimumSingleClosingReasonLength(singleClosingReason)) {
           showToast(
-            "Debe indicar en observaciones el motivo de por qué solo se realizó un cierre en el día.",
+            SINGLE_CLOSING_REASON_OBSERVATIONS_MIN_LENGTH_MESSAGE,
             "warning",
             6000,
           );

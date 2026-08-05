@@ -33,6 +33,10 @@ import {
   AUTO_ADJUSTMENT_MANAGER,
   AUTO_ADJUSTMENT_PROVIDER_CODE,
 } from "../../constants";
+import {
+  hasMinimumSingleClosingReasonLength,
+  SINGLE_CLOSING_REASON_FORM_MIN_LENGTH_MESSAGE,
+} from "./singleClosingReason";
 import { acquireClosingGuard, releaseClosingGuard, touchClosingGuard } from "./closingGuards";
 
 type LedgerSnapshot = {
@@ -229,9 +233,13 @@ export async function handleConfirmDailyClosing(
     }
   }
 
-  if (requireSingleClosingReason && !closing.sinTurno && !singleClosingReason) {
+  if (
+    requireSingleClosingReason &&
+    !closing.sinTurno &&
+    !hasMinimumSingleClosingReasonLength(singleClosingReason)
+  ) {
     showToast(
-      "Debe indicar el motivo de por qué solo hubo un cierre en el día.",
+      SINGLE_CLOSING_REASON_FORM_MIN_LENGTH_MESSAGE,
       "warning",
       5000,
     );

@@ -34,6 +34,11 @@ import {
   releaseClosingGuard,
   touchClosingGuard,
 } from "./closing/closingGuards";
+import {
+  getSingleClosingReasonFromNotes,
+  hasMinimumSingleClosingReasonLength,
+  SINGLE_CLOSING_REASON_OBSERVATIONS_MIN_LENGTH_MESSAGE,
+} from "./closing/singleClosingReason";
 import { sendMovementNotification } from "./fondo/notifications";
 import { validateFondoGeneralOpeningRequirement } from "./fondo/openingRequirement";
 import { buildV2MovementsCacheKey } from "../utils/v2movements";
@@ -408,10 +413,10 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
           activeEmpresaForCompany.unicoCierre !== true
         ) {
           shouldPrefixSingleClosingReason = true;
-          const notesWithoutPrefix = trimmedNotes.replace(SINGLE_CLOSING_REASON_PREFIX, "").trim();
-          if (notesWithoutPrefix.length === 0) {
+          const singleClosingReason = getSingleClosingReasonFromNotes(trimmedNotes);
+          if (!hasMinimumSingleClosingReasonLength(singleClosingReason)) {
             showToast(
-              "Debe indicar en observaciones el motivo de por que solo se realizo un cierre en el dia.",
+              SINGLE_CLOSING_REASON_OBSERVATIONS_MIN_LENGTH_MESSAGE,
               "warning",
               6000,
             );
