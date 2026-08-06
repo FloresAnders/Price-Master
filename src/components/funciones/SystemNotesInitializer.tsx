@@ -2,9 +2,8 @@
 
 import React from "react";
 import { Maximize2, X } from "lucide-react";
-import { db } from "@/config/firebase";
-import { doc, onSnapshot } from "firebase/firestore";
 import versionData from "@/data/version.json";
+import { subscribeToVersionDoc } from "@/services/version-doc";
 
 type SystemNote = {
   date: string;
@@ -163,17 +162,14 @@ export default function SystemNotesInitializer() {
   }, []);
 
   React.useEffect(() => {
-    const versionRef = doc(db, "version", "current");
-
-    unsubscribeRef.current = onSnapshot(
-      versionRef,
-      (docSnap) => {
-        if (!docSnap.exists()) {
+    unsubscribeRef.current = subscribeToVersionDoc(
+      (snapshot) => {
+        if (!snapshot?.exists) {
           console.warn("No se encontró el documento de versión en Firestore");
           return;
         }
 
-        const firestoreData = docSnap.data();
+        const firestoreData = snapshot.data;
         const notasDeSistemasDb = String(
           firestoreData?.notasDeSistemas || "",
         ).trim();
@@ -188,15 +184,6 @@ export default function SystemNotesInitializer() {
 
         setLatestNote(currentNotes, notasDeSistemasDb, systemNotesVideoKey);
 
-        console.log(
-          "Sistema de Notas - Versión en Firestore:",
-          notasDeSistemasDb,
-        );
-        console.log(
-          "Sistema de Notas - Última versión notificada:",
-          lastNotifiedVersionRef.current,
-        );
-
         const previousVersion = lastNotifiedVersionRef.current;
         const seenKey = buildSystemNotesSeenKey(
           notasDeSistemasDb,
@@ -204,10 +191,6 @@ export default function SystemNotesInitializer() {
         );
 
         if (notasDeSistemasDb && seenKey !== previousVersion) {
-          console.log(
-            "Mostrando nota del sistema para versión:",
-            notasDeSistemasDb,
-          );
           showSystemNote(currentNotes, notasDeSistemasDb, systemNotesVideoKey);
           persistSeenVersion(seenKey);
         } else if (notasDeSistemasDb) {

@@ -293,7 +293,7 @@ export default function ReminderNotificationsInitializer() {
         if (cancelled) return;
         void load();
       },
-      5 * 60 * 1000,
+      15 * 60 * 1000,
     );
 
     return () => {

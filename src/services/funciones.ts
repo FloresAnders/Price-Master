@@ -181,6 +181,12 @@ const normalizeDocIdPart = (raw: string): string => {
 
 export class FuncionesService {
   private static readonly COLLECTION_NAME = SHARED_FUNCIONES_COLLECTION;
+  private static readonly CACHE_TTL_MS = 30_000;
+  private static funcionesGeneralCache: {
+    expiresAt: number;
+    data: Array<{ docId: string } & FuncionGeneralDoc>;
+  } | null = null;
+  private static funcionesEmpresaCache: Map<string, { expiresAt: number; data: ({ docId: string } & FuncionesEmpresaDoc) | null }> = new Map();
 
   private static async resolveOwnerCollectionId(ownerId: string): Promise<string> {
     const normalizedOwnerId = String(ownerId || "").trim();
@@ -259,6 +265,12 @@ export class FuncionesService {
     ownerIds: string[];
     role?: string;
   }): Promise<Array<{ docId: string } & FuncionGeneralDoc>> {
+    const cacheKey = `${(actor.role || "").trim().toLowerCase()}::${(actor.ownerIds || []).map((x) => String(x).trim()).filter(Boolean).sort().join("|")}`;
+    const cached = this.funcionesGeneralCache;
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.data.map((doc) => ({ ...doc }));
+    }
+
     const sharedAll = await FirestoreService.getAll(this.COLLECTION_NAME);
     const sharedDocs = (Array.isArray(sharedAll) ? sharedAll : []) as Array<any>;
 
@@ -299,22 +311,23 @@ export class FuncionesService {
     const role = String(actor.role || "")
       .trim()
       .toLowerCase();
-    if (role === "superadmin" || role === "admin") {
-      return general.map((d) => ({
-        docId: String(d.id),
-        ...(d as FuncionGeneralDoc),
-      }));
-    }
+    const resolved = (role === "superadmin" || role === "admin"
+      ? general
+      : general.filter((d) => {
+          const ownerId = String(d.ownerId || "");
+          const allowed = new Set((actor.ownerIds || []).map((x) => String(x)));
+          if (!ownerId) return false;
+          if (allowed.size === 0) return true;
+          return allowed.has(ownerId);
+        })
+    ).map((d) => ({ docId: String(d.id), ...(d as FuncionGeneralDoc) }));
 
-    const allowed = new Set((actor.ownerIds || []).map((x) => String(x)));
-    return general
-      .filter((d) => {
-        const ownerId = String(d.ownerId || "");
-        if (!ownerId) return false;
-        if (allowed.size === 0) return true;
-        return allowed.has(ownerId);
-      })
-      .map((d) => ({ docId: String(d.id), ...(d as FuncionGeneralDoc) }));
+    this.funcionesGeneralCache = {
+      expiresAt: Date.now() + this.CACHE_TTL_MS,
+      data: resolved,
+    };
+
+    return resolved.map((doc) => ({ ...doc }));
   }
 
   static async upsertFuncionGeneral(params: {
@@ -442,6 +455,11 @@ export class FuncionesService {
     const empresaId = String(params.empresaId || "").trim();
     if (!empresaId) return null;
 
+    const cached = this.funcionesEmpresaCache.get(empresaId);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.data ? { ...cached.data } : null;
+    }
+
     const doc = await FirestoreService.getById(this.COLLECTION_NAME, empresaId);
     if (!doc) return null;
 
@@ -458,12 +476,19 @@ export class FuncionesService {
           .filter(Boolean)
       : [];
 
-    return {
+    const result: ({ docId: string } & FuncionesEmpresaDoc) = {
       docId: empresaId,
       ...typed,
       mode: 0,
       funciones,
     };
+
+    this.funcionesEmpresaCache.set(empresaId, {
+      expiresAt: Date.now() + this.CACHE_TTL_MS,
+      data: result,
+    });
+
+    return result;
   }
 
   static async upsertEmpresaFunciones(params: {

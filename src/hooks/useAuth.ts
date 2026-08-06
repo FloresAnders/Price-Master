@@ -3,8 +3,9 @@ import type { User, UserPermissions } from "../types/firestore";
 import { TokenService } from "../services/tokenService";
 import { UsersService } from "../services/users";
 import { normalizeUserPermissions } from "../utils/permissions";
+import { subscribeToVersionDoc } from "@/services/version-doc";
+import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/config/firebase";
-import { doc, getDoc, onSnapshot } from "firebase/firestore";
 
 type StorageVersionChangeHandler = (newVersionstorage: string) => void;
 
@@ -30,14 +31,11 @@ const ensureStorageVersionListener = async () => {
   if (storageVersionStartPromise) return storageVersionStartPromise;
 
   storageVersionStartPromise = (async () => {
-    const versionRef = doc(db, "version", "current");
-
-    storageVersionUnsubscribe = onSnapshot(
-      versionRef,
-      (snap) => {
-        if (!snap.exists()) return;
+    storageVersionUnsubscribe = subscribeToVersionDoc(
+      (snapshot) => {
+        if (!snapshot?.exists) return;
         const serverVersionstorage = String(
-          (snap.data() as any)?.versionstorage || "",
+          (snapshot.data as any)?.versionstorage || "",
         ).trim();
         if (!serverVersionstorage) return;
 
