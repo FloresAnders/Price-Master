@@ -93,7 +93,7 @@ export async function ensureV2MovementsLoaded(
 
   const computeRemoteBatchSize = () => {
     // Hard cap for daily mode per requirement.
-    if (pageSize === "daily") return 100;
+    if (pageSize === "daily") return 50;
     // Never do unbounded reads; treat "all" as a capped batch.
     if (pageSize === "all") return 100;
     if (typeof pageSize === "number") {

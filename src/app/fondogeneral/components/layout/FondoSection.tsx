@@ -1696,6 +1696,11 @@ export function FondoSection({
   ]);
 
   useEffect(() => {
+    if (accountKey !== "FondoGeneral") {
+      setLatestMovementOverall(null);
+      setLatestMovementOverallLoaded(true);
+      return;
+    }
     const normalizedCompany = (company || "").trim();
     if (!normalizedCompany || !accountKey) return;
     let cancelled = false;
