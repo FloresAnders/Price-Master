@@ -1796,12 +1796,16 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                   );
                   const cached = v2MovementsCacheRef.current[cacheKey];
                   if (cached?.loaded) {
+                    const revision = (cached.revision ?? 0) + 1;
                     const paymentEntries = paymentMovements.map((movement) => ({
                       ...(movement as unknown as FondoEntry),
                       id: String((movement as any).id || ""),
                     }));
                     v2MovementsCacheRef.current[cacheKey] = {
                       ...cached,
+                      loaded: true,
+                      loading: false,
+                      revision,
                       movements: [...paymentEntries, ...cached.movements],
                     };
                     rebuildEntriesFromV2Cache(docId, acctKey);

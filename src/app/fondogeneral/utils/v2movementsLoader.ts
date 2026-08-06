@@ -16,6 +16,7 @@ type V2MovementsCacheEntry = {
   queryKey?: string;
   startIso?: string;
   endIsoExclusive?: string;
+  revision?: number;
 };
 
 export interface EnsureV2LoadedDeps {
@@ -70,7 +71,10 @@ export async function ensureV2MovementsLoaded(
     queryKey: undefined as string | undefined,
     startIso: undefined as string | undefined,
     endIsoExclusive: undefined as string | undefined,
+    revision: 0,
   };
+
+  const startRevision = cached.revision ?? 0;
 
   if (cached.loading) return;
 
@@ -151,17 +155,31 @@ export async function ensureV2MovementsLoaded(
       },
     );
 
+    const latestCache = v2MovementsCacheRef.current[cacheKey] ?? cached;
+    const latestRevision = latestCache.revision ?? 0;
+    const isStale = latestRevision !== startRevision;
+    const baseMovements = isStale && latestCache.loaded ? latestCache.movements : nextCache.movements;
+    const mergedById = new Map<string, FondoEntry>();
+
+    for (const movement of baseMovements) {
+      mergedById.set(movement.id, movement);
+    }
+    for (const movement of pageResult.items as FondoEntry[]) {
+      mergedById.set(movement.id, movement);
+    }
+
     const mergedMovements = shouldReset
-      ? (pageResult.items as FondoEntry[])
-      : [...nextCache.movements, ...(pageResult.items as FondoEntry[])];
+      ? Array.from(mergedById.values())
+      : Array.from(mergedById.values());
 
     v2MovementsCacheRef.current[cacheKey] = {
-      ...nextCache,
+      ...latestCache,
       loaded: true,
       movements: mergedMovements,
       cursor: pageResult.cursor,
       exhausted: pageResult.exhausted,
       loading: false,
+      revision: latestRevision,
     };
   } finally {
     const latest = v2MovementsCacheRef.current[cacheKey];

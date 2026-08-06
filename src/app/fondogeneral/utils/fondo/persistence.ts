@@ -33,6 +33,7 @@ type V2MovementsCacheEntry = {
   queryKey?: string;
   startIso?: string;
   endIsoExclusive?: string;
+  revision?: number;
 };
 
 export interface PersistMovementDeps {
@@ -320,13 +321,21 @@ export async function persistMovementToFirestore(
       cacheUpdater = () => {
         const cacheKey = buildV2MovementsCacheKey(companyKey, accountKey);
         const cached = v2MovementsCacheRef.current[cacheKey];
-        if (cached?.loaded) {
-          v2MovementsCacheRef.current[cacheKey] = {
-            ...cached,
+        const revision = (cached?.revision ?? 0) + 1;
+        const nextMovements = cached?.movements?.filter((m) => m.id !== deleteId) ?? [];
+        v2MovementsCacheRef.current[cacheKey] = {
+          ...(cached ?? {
             loaded: true,
-            movements: cached.movements.filter((m) => m.id !== deleteId),
-          };
-        }
+            movements: [],
+            cursor: null,
+            exhausted: false,
+            loading: false,
+          }),
+          loaded: true,
+          loading: false,
+          revision,
+          movements: nextMovements,
+        };
       };
     } else {
       const movement = change?.upsert;
@@ -351,17 +360,24 @@ export async function persistMovementToFirestore(
       cacheUpdater = () => {
         const cacheKey = buildV2MovementsCacheKey(companyKey, accountKey);
         const cached = v2MovementsCacheRef.current[cacheKey];
-        if (cached?.loaded) {
-          const next = [
-            storedMovement,
-            ...cached.movements.filter((m) => m.id !== storedMovement.id),
-          ];
-          v2MovementsCacheRef.current[cacheKey] = {
-            ...cached,
+        const revision = (cached?.revision ?? 0) + 1;
+        const next = [
+          storedMovement,
+          ...(cached?.movements ?? []).filter((m) => m.id !== storedMovement.id),
+        ];
+        v2MovementsCacheRef.current[cacheKey] = {
+          ...(cached ?? {
             loaded: true,
-            movements: next,
-          };
-        }
+            movements: [],
+            cursor: null,
+            exhausted: false,
+            loading: false,
+          }),
+          loaded: true,
+          loading: false,
+          revision,
+          movements: next,
+        };
       };
     }
 

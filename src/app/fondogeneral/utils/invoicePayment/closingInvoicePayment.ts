@@ -347,8 +347,12 @@ export async function submitClosingInvoicePayment(
       const cacheKey = buildV2MovementsCacheKey(docId, targetAccountKey);
       const cached = v2MovementsCacheRef.current[cacheKey];
       if (cached?.loaded) {
+        const revision = (cached.revision ?? 0) + 1;
         v2MovementsCacheRef.current[cacheKey] = {
           ...cached,
+          loaded: true,
+          loading: false,
+          revision,
           movements: [
             {
               ...(paymentMovement as unknown as FondoEntry),
