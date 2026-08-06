@@ -32,6 +32,7 @@ type V2MovementsCacheEntry = {
   queryKey?: string;
   startIso?: string;
   endIsoExclusive?: string;
+  revision?: number;
 };
 
 export interface ClosingInvoicePaymentDeps {
