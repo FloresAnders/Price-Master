@@ -19,6 +19,7 @@ export default function DeviceLinkModal({ isOpen, onClose }: DeviceLinkModalProp
   const [status, setStatus] = useState<string | null>(null);
   const [sessions, setSessions] = useState<any[]>([]);
   const pollRef = useRef<number | null>(null);
+  const [selectedDuration, setSelectedDuration] = useState<number>(60);
 
   useEffect(() => {
     if (!isOpen) {
@@ -94,6 +95,7 @@ export default function DeviceLinkModal({ isOpen, onClose }: DeviceLinkModalProp
           const sdata = await sres.json();
           if (sres.ok) {
             const st = (sdata.request && sdata.request.status) || null;
+          // refresh sessions list
             setStatus(st);
             if (st === 'scanned') {
               // keep polling so user can approve
@@ -176,102 +178,78 @@ export default function DeviceLinkModal({ isOpen, onClose }: DeviceLinkModalProp
   return isOpen ? (
     <div
       ref={overlayRef}
-      onClick={(e) => {
-        if (e.target === overlayRef.current) onClose();
-      }}
+      onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
       className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
     >
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-lg p-6 relative">
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          aria-label="Cerrar modal"
-        >
-          <X className="w-5 h-5 text-gray-500" />
-        </button>
+      <div className="w-full max-w-lg">
+        <div className="rounded-2xl overflow-hidden shadow-xl border border-[var(--input-border)] bg-[var(--card-bg)]">
+          <div className="p-4 border-b border-[var(--input-border)] flex items-center justify-between bg-[var(--card-bg)]">
+            <h3 className="text-lg font-semibold text-[var(--foreground)]">Vincular dispositivo móvil</h3>
+            <button onClick={onClose} className="p-1 rounded-md hover:bg-[var(--muted)]/10 transition-colors" aria-label="Cerrar modal">
+              <X className="w-5 h-5 text-[var(--muted-foreground)]" />
+            </button>
+          </div>
 
-        <h3 className="text-lg font-semibold text-center mb-4 text-gray-900 dark:text-gray-100">
-          Vincular dispositivo móvil
-        </h3>
-
-        <div className="flex flex-col items-center gap-4">
-          {!qrDataUrl && (
-            <div className="flex gap-2">
-              <button
-                onClick={() => createRequest(15)}
-                className="px-4 py-2 bg-gray-100 rounded"
-              >
-                15 min
-              </button>
-              <button
-                onClick={() => createRequest(60)}
-                className="px-4 py-2 bg-gray-100 rounded"
-              >
-                1 hora
-              </button>
-              <button
-                onClick={() => createRequest(120)}
-                className="px-4 py-2 bg-gray-100 rounded"
-              >
-                2 horas
-              </button>
-            </div>
-          )}
-
-          {loading && <div>Generando QR…</div>}
-
-          {qrDataUrl && (
-            <div className="flex flex-col items-center gap-2">
-              <img src={qrDataUrl} alt="QR" width={260} height={260} />
-              <div className="text-sm text-gray-600">Estado: {status}</div>
-              <div className="flex gap-2 mt-2">
-                <button
-                  onClick={approveRequest}
-                  className="px-4 py-2 bg-green-500 text-white rounded"
-                >
-                  Autorizar
-                </button>
-                <button
-                  onClick={rejectRequest}
-                  className="px-4 py-2 bg-red-500 text-white rounded"
-                >
-                  Rechazar
-                </button>
-                <button
-                  onClick={() => {
-                    // cancelar
-                    if (pollRef.current) {
-                      window.clearInterval(pollRef.current);
-                      pollRef.current = null;
-                    }
-                    setQrDataUrl("");
-                    setRequestId(null);
-                    setExpiresAt(null);
-                    setStatus(null);
-                  }}
-                  className="px-4 py-2 bg-gray-200 rounded"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          )}
-          {/* sessions list */}
-          {sessions.length > 0 && (
-            <div className="w-full mt-4">
-              <h4 className="text-sm font-medium mb-2">Dispositivos vinculados</h4>
-              <div className="flex flex-col gap-2 max-h-48 overflow-auto">
-                {sessions.map((s) => (
-                  <div key={s.id} className="p-2 rounded border bg-gray-50 dark:bg-gray-700">
-                    <div className="text-xs text-gray-700 dark:text-gray-200">ID: {s.id}</div>
-                    <div className="text-xs text-gray-600 dark:text-gray-300">Creado: {new Date(s.createdAt).toLocaleString()}</div>
-                    <div className="text-xs text-gray-600 dark:text-gray-300">Expira: {new Date(s.expiresAt).toLocaleString()}</div>
-                    <div className="text-xs text-gray-600 dark:text-gray-300">Permisos: {(s.permissions || []).join(', ') || '—'}</div>
+          <div className="p-6">
+            <div className="flex flex-col items-center gap-4">
+              {!qrDataUrl && (
+                <div className="w-full">
+                  <div className="text-sm text-gray-600 mb-3">Duración</div>
+                  <div className="flex gap-2">
+                    {[15, 60, 120].map((d) => {
+                      const selected = selectedDuration === d;
+                      return (
+                        <button
+                          key={d}
+                          onClick={() => { setSelectedDuration(d); createRequest(d); }}
+                          className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${selected ? 'bg-indigo-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-200'}`}
+                        >
+                          {d === 15 ? '15 min' : d === 60 ? '1 hora' : '2 horas'}
+                        </button>
+                      );
+                    })}
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
+
+              {loading && <div className="text-sm text-gray-600">Generando QR…</div>}
+
+              {qrDataUrl && (
+                <div className="flex flex-col items-center gap-3">
+                  <div className="p-3 rounded-md border bg-[var(--card-bg)]">
+                    <img src={qrDataUrl} alt="QR" width={260} height={260} />
+                  </div>
+                  <div className="text-sm text-[var(--muted-foreground)]">Estado: <span className="font-medium text-[var(--foreground)]">{status}</span></div>
+                  <div className="flex gap-2 mt-2">
+                    <button onClick={approveRequest} className="px-4 py-2 bg-[var(--accent)] text-white rounded-md shadow">Autorizar</button>
+                    <button onClick={rejectRequest} className="px-4 py-2 bg-[var(--error)] text-white rounded-md shadow">Rechazar</button>
+                    <button onClick={() => { if (pollRef.current) { window.clearInterval(pollRef.current); pollRef.current = null; } setQrDataUrl(''); setRequestId(null); setExpiresAt(null); setStatus(null); }} className="px-4 py-2 bg-[var(--card-bg)] border border-[var(--input-border)] rounded-md">Cancelar</button>
+                  </div>
+                </div>
+              )}
+
+              {sessions.length > 0 && (
+                <div className="w-full mt-4">
+                  <h4 className="text-sm font-medium mb-2">Dispositivos vinculados</h4>
+                  <div className="flex flex-col gap-2 max-h-48 overflow-auto">
+                    {sessions.map((s) => (
+                      <div key={s.id} className="p-3 rounded-lg border bg-gray-50 dark:bg-gray-800 flex items-center justify-between">
+                        <div>
+                          <div className="text-sm font-medium text-gray-800 dark:text-gray-100">{s.deviceName || 'Dispositivo móvil'}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-300">Creado: {new Date(s.createdAt).toLocaleString()}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-300">Expira: {new Date(s.expiresAt).toLocaleString()}</div>
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          <div className="text-xs text-gray-600 dark:text-gray-300">Permisos: {(s.permissions || []).join(', ') || '—'}</div>
+                          <button className="text-sm text-red-600 dark:text-red-400">Revocar</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

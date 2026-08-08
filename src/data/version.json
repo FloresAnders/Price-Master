@@ -11,6 +11,12 @@
   ],
   "systemNotes": [
     {
+      "date": "2026-08-06",
+      "title": "Agregada Vinculacion de dispositivos",
+      "url": "https://firebasestorage.googleapis.com/v0/b/pricemaster-4a611.firebasestorage.app/o/videos%2FVINCULACION%20DE%20SESION.mp4?alt=media&token=4021c1e8-5bad-4b0c-b8ca-b1b1bee502aa",
+      "description": "Se añadió la vinculación temporal de dispositivos mediante código QR. Desde Mi cuenta → Dispositivos el usuario genera un QR en su equipo, lo escanea con el móvil y autoriza el acceso sin contraseña. Las sesiones son temporales (duración configurable), pueden limitarse por permisos y revocarse desde la PC. Evento registrado para auditoría."
+    },
+    {
       "date": "2026-07-30",
       "title": "Agregado Chat Global",
       "url": "",
