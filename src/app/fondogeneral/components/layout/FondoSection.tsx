@@ -110,6 +110,7 @@ import {
   SINGLE_CLOSING_REASON_PREFIX,
   AUTO_ADJUSTMENT_OPENING_TYPE,
   APERTURA_FONDO_PROVIDER_CODE,
+  MOVEMENT_COOLDOWN_MS,
   FONDO_KEY_SUFFIX,
   SHARED_COMPANY_STORAGE_KEY,
   NAMESPACE_PERMISSIONS,
@@ -137,6 +138,10 @@ import {
   getPrimaryMovementDateISO,
   getPrimaryMovementTime,
   getPrimaryMovementManager,
+  getEffectiveLastCreatedAtMs,
+  isIngresoDesdeFondoVentasMovement,
+  isCierreFondoVentasMovement as isCierreFondoVentasMovementWithProvider,
+  parseLastCreatedCooldown,
 
   roundCreditNotePaymentAmount,
   roundMoney2,
@@ -3094,6 +3099,84 @@ export function FondoSection({
     accountKey === "FondoGeneral" &&
     isCierreFondoVentasSelected;
 
+  const movementCooldownExempt = useMemo(() => {
+    if (editingEntryId || isAdminUser || isSuperAdminUser || isCajaNegra) {
+      return true;
+    }
+    const providerForSelected = movementProviders.find(
+      (p: any) => p.code === selectedProvider,
+    );
+    const providerDisplayForSelected =
+      providerForSelected?.name || selectedProvider;
+    return (
+      isIngresoDesdeFondoVentasMovement(
+        {
+          providerCode: selectedProvider,
+          paymentType,
+          notes: (notes || "").trim(),
+        },
+        providerDisplayForSelected,
+      ) ||
+      isCierreFondoVentasMovementWithProvider(
+        { providerCode: selectedProvider },
+        providerDisplayForSelected,
+      )
+    );
+  }, [
+    editingEntryId,
+    isAdminUser,
+    isSuperAdminUser,
+    isCajaNegra,
+    movementProviders,
+    selectedProvider,
+    paymentType,
+    notes,
+  ]);
+
+  const [movementCooldownRemainingMs, setMovementCooldownRemainingMs] =
+    useState(0);
+
+  useEffect(() => {
+    if (!movementModalOpen || movementCooldownExempt) {
+      setMovementCooldownRemainingMs(0);
+      return;
+    }
+    const normalizedCompany = (company || "").trim();
+    const createdKey = `fondogeneral-lastMovementCreatedAt:${normalizedCompany}:${accountKey}`;
+    const computeRemaining = () => {
+      let lastCreatedAtMs = lastMovementCreatedAtRef.current;
+      if (typeof window !== "undefined") {
+        try {
+          const payload = parseLastCreatedCooldown(
+            localStorage.getItem(createdKey),
+          );
+          const effectiveAt = getEffectiveLastCreatedAtMs(payload);
+          if (effectiveAt > 0) {
+            lastCreatedAtMs = Math.max(lastCreatedAtMs, effectiveAt);
+          }
+        } catch {
+          // ignore
+        }
+      }
+      if (lastCreatedAtMs <= 0) return 0;
+      return Math.max(
+        0,
+        MOVEMENT_COOLDOWN_MS - (Date.now() - lastCreatedAtMs),
+      );
+    };
+    setMovementCooldownRemainingMs(computeRemaining());
+    const intervalId = window.setInterval(() => {
+      setMovementCooldownRemainingMs(computeRemaining());
+    }, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [
+    movementModalOpen,
+    movementCooldownExempt,
+    company,
+    accountKey,
+    lastMovementCreatedAtRef,
+  ]);
+
   const isSubmitDisabled =
     !company ||
     (!editingEntryId && isProviderSelectDisabled) ||
@@ -5087,6 +5170,7 @@ export function FondoSection({
         onSubmit={handleSubmitFondo}
         isSubmitDisabled={isSubmitDisabled}
         isSaving={isSaving}
+        movementCooldownRemainingMs={movementCooldownRemainingMs}
         onFieldKeyDown={handleFondoKeyDown}
         currency={movementCurrency}
         onCurrencyChange={(c) => setMovementCurrency(c)}

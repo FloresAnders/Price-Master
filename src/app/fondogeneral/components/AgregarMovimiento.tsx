@@ -19,6 +19,7 @@ import {
   CIERRE_FONDO_VENTAS_PROVIDER_NAME,
   SINGLE_CLOSING_REASON_MIN_LENGTH,
   SINGLE_CLOSING_REASON_PREFIX,
+  MOVEMENT_COOLDOWN_MS,
 } from "../constants";
 import {
   formatMovementType,
@@ -94,6 +95,7 @@ type AgregarMovimientoProps = {
   onSubmit: () => void;
   isSubmitDisabled: boolean;
   isSaving?: boolean;
+  movementCooldownRemainingMs?: number;
   onFieldKeyDown: (
     event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>,
   ) => void;
@@ -170,6 +172,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   onSubmit,
   isSubmitDisabled,
   isSaving = false,
+  movementCooldownRemainingMs = 0,
   onFieldKeyDown,
   currency = "CRC",
   onCurrencyChange,
@@ -415,6 +418,16 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     ? "Redondeo hacia arriba"
     : "Redondeo Aplicado";
   const adjustmentPrefix = effectiveRoundUpToThousand ? "+ " : "- ";
+
+  const movementCooldownMs = Math.max(0, Number(movementCooldownRemainingMs) || 0);
+  const cooldownActive = !editingEntryId && movementCooldownMs > 0;
+  const cooldownSec = Math.ceil(movementCooldownMs / 1000);
+  const cooldownFraction = Math.min(
+    1,
+    Math.max(0, movementCooldownMs / MOVEMENT_COOLDOWN_MS),
+  );
+  const cooldownRingRadius = 9;
+  const cooldownRingCircumference = 2 * Math.PI * cooldownRingRadius;
 
   return (
     <div className="space-y-4">
@@ -1225,12 +1238,43 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
           type="button"
           className="inline-flex h-11 min-w-[148px] items-center justify-center gap-2 rounded border border-cyan-400/45 bg-cyan-500/20 px-5 text-sm font-semibold text-cyan-50 shadow-sm shadow-cyan-950/20 transition-all duration-150 hover:-translate-y-0.5 hover:border-cyan-300/70 hover:bg-cyan-500/30 hover:shadow-md hover:shadow-cyan-950/30 active:translate-y-0 active:scale-[0.99] disabled:cursor-not-allowed disabled:translate-y-0 disabled:border-[var(--input-border)] disabled:bg-cyan-950/15 disabled:text-[var(--muted-foreground)] disabled:opacity-60"
           onClick={onSubmit}
-          disabled={isSubmitDisabled || isSaving}
+          disabled={isSubmitDisabled || isSaving || cooldownActive}
         >
           {isSaving ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
               Guardando...
+            </>
+          ) : cooldownActive ? (
+            <>
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4 -rotate-90 text-cyan-300"
+                aria-hidden="true"
+              >
+                <circle
+                  cx="12"
+                  cy="12"
+                  r={cooldownRingRadius}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeOpacity="0.3"
+                  strokeWidth="3"
+                />
+                <circle
+                  cx="12"
+                  cy="12"
+                  r={cooldownRingRadius}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeDasharray={cooldownRingCircumference}
+                  strokeDashoffset={cooldownRingCircumference * (1 - cooldownFraction)}
+                  className="transition-all duration-1000 ease-linear"
+                />
+              </svg>
+              <span>{cooldownSec}s</span>
             </>
           ) : (
             <>

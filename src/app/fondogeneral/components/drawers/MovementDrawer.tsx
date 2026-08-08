@@ -77,6 +77,7 @@ export function MovementDrawer({
   const confirmRoundingPrefix = confirmPaymentAmount >= confirmPaymentBeforeRound ? "+ " : "- ";
   const openConfirmIfAllowed = async () => {
     if (confirmSaveLockedRef.current || isSaving) return;
+    if ((agregarMovimientoProps.movementCooldownRemainingMs ?? 0) > 0) return;
     const allowed = await beforeConfirmSubmit?.();
     if (allowed === false) return;
     setShowConfirmModal(true);
