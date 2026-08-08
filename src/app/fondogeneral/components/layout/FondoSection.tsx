@@ -238,6 +238,7 @@ type MovementDraftState = {
   invoiceNumber: string;
   invoiceDocType: "FCO" | "FCR";
   paymentType: FondoEntry["paymentType"];
+  roundUpInvoicePayment: boolean;
   egreso: string;
   ingreso: string;
   manager: string;
@@ -783,6 +784,8 @@ export function FondoSection({
     editingEntry,
     editingProviderCode,
     isEditingPaidFcrMovement,
+    roundUpInvoicePayment,
+    setRoundUpInvoicePayment,
     handleEgresoChange,
     handleIngresoChange,
     handleNotesChange,
@@ -808,6 +811,7 @@ export function FondoSection({
       invoiceNumber,
       invoiceDocType,
       paymentType,
+      roundUpInvoicePayment,
       egreso,
       ingreso,
       manager,
@@ -823,6 +827,7 @@ export function FondoSection({
       invoiceNumber,
       invoiceDocType,
       paymentType,
+      roundUpInvoicePayment,
       egreso,
       ingreso,
       manager,
@@ -873,6 +878,7 @@ export function FondoSection({
       setPaymentType(
         (draft.paymentType || "COMPRA INVENTARIO") as FondoEntry["paymentType"],
       );
+      setRoundUpInvoicePayment(Boolean(draft.roundUpInvoicePayment));
       setEgreso(String(draft.egreso || ""));
       setIngreso(String(draft.ingreso || ""));
       setManager(String(draft.manager || ""));
@@ -909,6 +915,7 @@ export function FondoSection({
     setInvoiceNumber,
     setInvoiceDocType,
     setPaymentType,
+    setRoundUpInvoicePayment,
     setEgreso,
     setIngreso,
     setManager,
@@ -2067,6 +2074,7 @@ export function FondoSection({
       notes,
       movementProviders,
       paymentType,
+      roundUpInvoicePayment,
       setAmountError,
       showToast,
       selectedAppliedCreditNoteIds,
@@ -2791,6 +2799,7 @@ export function FondoSection({
         Math.max(0, roundMoney2(egreso) - creditNotesAppliedTotal),
         movementCurrency,
         accountKey,
+        roundUpInvoicePayment,
       )
     : undefined;
 
@@ -5140,6 +5149,8 @@ export function FondoSection({
         }}
         creditNotesAppliedTotal={creditNotesAppliedTotal}
         amountPayment={computedAmountPayment}
+        roundUpToThousand={roundUpInvoicePayment}
+        onRoundUpToThousandChange={setRoundUpInvoicePayment}
         onAddManualCreditNote={openManualCreditNoteModal}
         balanceCRC={currentBalanceCRC}
         balanceUSD={currentBalanceUSD}
@@ -5595,10 +5606,21 @@ export function FondoSection({
                               : 0;
                             const appliedCreditNotesAdjustment = Math.max(
                               0,
-                              invoiceEgresoAmount -
-                                appliedCreditNotesTotal -
-                                normalizedEgreso,
+                              Math.abs(
+                                invoiceEgresoAmount -
+                                  appliedCreditNotesTotal -
+                                  normalizedEgreso,
+                              ),
                             );
+                            const appliedCreditNotesAdjustmentIsPositive =
+                              normalizedEgreso >
+                              Math.max(0, invoiceEgresoAmount - appliedCreditNotesTotal);
+                            const appliedCreditNotesAdjustmentLabel = appliedCreditNotesAdjustmentIsPositive
+                              ? "Redondeo"
+                              : "Redondeo";
+                            const appliedCreditNotesAdjustmentPrefix = appliedCreditNotesAdjustmentIsPositive
+                              ? "+"
+                              : "-";
                             let isEntryEgreso =
                               isEgresoType(fe.paymentType) ||
                               isGastoType(fe.paymentType);
@@ -6216,10 +6238,10 @@ export function FondoSection({
                                                   <div className="flex w-full items-center gap-0 rounded border border-orange-500/15 bg-orange-500/10 px-2 py-1">
                                                     <span className="flex items-center justify-center gap-1 text-xs text-orange-200">
                                                       <RotateCcw className="h-3 w-3 shrink-0" />
-                                                      Redondeo
+                                                      {appliedCreditNotesAdjustmentLabel}
                                                     </span>
                                                     <span className="flex w-full items-center justify-end gap-1 pl-4 text-center text-sm font-semibold text-orange-200 whitespace-nowrap">
-                                                      -
+                                                      {appliedCreditNotesAdjustmentPrefix}
                                                       {formatByCurrency(
                                                         entryCurrency,
                                                         appliedCreditNotesAdjustment,

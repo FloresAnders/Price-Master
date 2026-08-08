@@ -31,6 +31,7 @@ export function useMovementForm({ mode, fondoEntries }: Props) {
   const [movementAutoCloseLocked, setMovementAutoCloseLocked] = useState(false);
   const [movementCurrency, setMovementCurrency] = useState<"CRC" | "USD">("CRC");
   const [invoiceDocType, setInvoiceDocType] = useState<"FCO" | "FCR">("FCO");
+  const [roundUpInvoicePayment, setRoundUpInvoicePayment] = useState(false);
   const [providerError, setProviderError] = useState("");
   const [invoiceError, setInvoiceError] = useState("");
   const [amountError, setAmountError] = useState("");
@@ -133,6 +134,7 @@ export function useMovementForm({ mode, fondoEntries }: Props) {
     setManager2("");
     setNotes("");
     setPaymentType(defaultPaymentType);
+    setRoundUpInvoicePayment(false);
     setEditingEntryId(null);
     setProviderError("");
     setInvoiceError("");
@@ -175,6 +177,8 @@ export function useMovementForm({ mode, fondoEntries }: Props) {
     setMovementCurrency,
     invoiceDocType,
     setInvoiceDocType,
+    roundUpInvoicePayment,
+    setRoundUpInvoicePayment,
     providerError,
     setProviderError,
     invoiceError,

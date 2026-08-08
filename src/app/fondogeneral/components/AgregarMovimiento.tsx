@@ -116,6 +116,8 @@ type AgregarMovimientoProps = {
   onToggleCreditNote?: (id: string) => void;
   creditNotesAppliedTotal?: number;
   amountPayment?: number;
+  roundUpToThousand?: boolean;
+  onRoundUpToThousandChange?: (value: boolean) => void;
   onAddManualCreditNote?: () => void;
   // En el type AgregarMovimientoProps agrega:
   balanceCRC?: number;
@@ -188,6 +190,8 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   onToggleCreditNote,
   creditNotesAppliedTotal = 0,
   amountPayment,
+  roundUpToThousand = false,
+  onRoundUpToThousandChange,
   onAddManualCreditNote,
   manager2 = "",
   onManager2Change,
@@ -382,9 +386,15 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     invoiceDocType === "FCO" &&
     currency === "CRC" &&
     (!accountKey || accountKey === "FondoGeneral")
-      ? Math.floor(totalAfterCreditNotes / 1000) * 1000
+      ? roundUpToThousand
+        ? Math.ceil(totalAfterCreditNotes / 1000) * 1000
+        : Math.floor(totalAfterCreditNotes / 1000) * 1000
       : totalAfterCreditNotes;
-  const adjustmentApplied = Math.max(0, totalAfterCreditNotes - totalToSave);
+  const adjustmentApplied = Math.abs(totalAfterCreditNotes - totalToSave);
+  const adjustmentLabel = roundUpToThousand
+    ? "Redondeo hacia arriba"
+    : "Redondeo Aplicado";
+  const adjustmentPrefix = roundUpToThousand ? "+ " : "- ";
 
   return (
     <div className="space-y-4">
@@ -1126,12 +1136,29 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
           )}
           {adjustmentApplied > 0 && (
             <div className="flex items-center justify-between">
-              <span className="text-cyan-100/70">Redondeo Aplicado</span>
+              <span className="text-cyan-100/70">{adjustmentLabel}</span>
               <span className="font-semibold text-amber-200">
-                - {formatCurrencyAmount(adjustmentApplied)}
+                {adjustmentPrefix}{formatCurrencyAmount(adjustmentApplied)}
               </span>
             </div>
           )}
+          {isEgreso &&
+            invoiceDocType === "FCO" &&
+            currency === "CRC" &&
+            (!accountKey || accountKey === "FondoGeneral") &&
+            onRoundUpToThousandChange && (
+              <label className="flex items-center justify-between gap-3 rounded border border-cyan-700/25 bg-cyan-950/10 px-3 py-2 text-xs text-cyan-100/80">
+                <span className="font-medium">Redondear hacia arriba</span>
+                <input
+                  type="checkbox"
+                  checked={roundUpToThousand}
+                  onChange={(event) =>
+                    onRoundUpToThousandChange(event.target.checked)
+                  }
+                  className="h-4 w-4 accent-cyan-400"
+                />
+              </label>
+            )}
           <div className="h-px bg-cyan-700/25" />
           <div className="flex items-center justify-between text-base">
             <span className="font-semibold text-[var(--foreground)]">

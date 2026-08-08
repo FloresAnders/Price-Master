@@ -103,6 +103,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     isIngreso,
     egreso,
     ingreso,
+    roundUpInvoicePayment = false,
     notes,
     movementProviders,
     paymentType,
@@ -516,6 +517,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         Math.max(0, roundMoney2(invoiceAmount) - total),
         movementCurrency,
         accountKey,
+        roundUpInvoicePayment,
       ),
     };
   };
@@ -584,6 +586,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     Math.max(0, egresoValue - totalCreditNotesAppliedAmount),
     movementCurrency,
     accountKey,
+    roundUpInvoicePayment,
   );
   const selectedCreditInvoiceIdSet = new Set(selectedPendingCreditInvoiceIds);
   const selectedCreditInvoicesTotal = isEgreso
@@ -1379,6 +1382,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                 Math.max(0, egresoValue - totalAppliedCreditNotes),
                 movementCurrency,
                 accountKey,
+                  roundUpInvoicePayment,
               )
             : undefined,
         appliedCreditNotes:

@@ -354,11 +354,14 @@ export const roundCreditNotePaymentAmount = (
   amount: number,
   currency: MovementCurrencyKey,
   accountKey?: string,
+  roundUpToThousand = false,
 ): number => {
   const normalized = Math.max(0, roundMoney2(amount));
   if (currency !== "CRC") return normalized;
   if (accountKey && accountKey !== "FondoGeneral") return normalized;
-  return Math.floor(normalized / 1000) * 1000;
+  return roundUpToThousand
+    ? Math.ceil(normalized / 1000) * 1000
+    : Math.floor(normalized / 1000) * 1000;
 };
 
 export const getChangedFields = (
