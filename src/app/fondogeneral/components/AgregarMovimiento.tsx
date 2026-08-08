@@ -381,20 +381,40 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     0,
     baseAmount - appliedCreditNotesTotal,
   );
+  const roundUpCheckboxVisible =
+    isEgreso &&
+    invoiceDocType === "FCO" &&
+    currency === "CRC" &&
+    (!accountKey || accountKey === "FondoGeneral") &&
+    totalAfterCreditNotes % 1000 > 500;
+  const effectiveRoundUpToThousand =
+    roundUpToThousand && roundUpCheckboxVisible;
+
+  useEffect(() => {
+    if (roundUpCheckboxVisible || !roundUpToThousand || !onRoundUpToThousandChange) {
+      return;
+    }
+    onRoundUpToThousandChange(false);
+  }, [
+    roundUpCheckboxVisible,
+    roundUpToThousand,
+    onRoundUpToThousandChange,
+  ]);
+
   const totalToSave =
     isEgreso &&
     invoiceDocType === "FCO" &&
     currency === "CRC" &&
     (!accountKey || accountKey === "FondoGeneral")
-      ? roundUpToThousand
+      ? effectiveRoundUpToThousand
         ? Math.ceil(totalAfterCreditNotes / 1000) * 1000
         : Math.floor(totalAfterCreditNotes / 1000) * 1000
       : totalAfterCreditNotes;
   const adjustmentApplied = Math.abs(totalAfterCreditNotes - totalToSave);
-  const adjustmentLabel = roundUpToThousand
+  const adjustmentLabel = effectiveRoundUpToThousand
     ? "Redondeo hacia arriba"
     : "Redondeo Aplicado";
-  const adjustmentPrefix = roundUpToThousand ? "+ " : "- ";
+  const adjustmentPrefix = effectiveRoundUpToThousand ? "+ " : "- ";
 
   return (
     <div className="space-y-4">
@@ -1142,16 +1162,12 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
               </span>
             </div>
           )}
-          {isEgreso &&
-            invoiceDocType === "FCO" &&
-            currency === "CRC" &&
-            (!accountKey || accountKey === "FondoGeneral") &&
-            onRoundUpToThousandChange && (
+          {roundUpCheckboxVisible && onRoundUpToThousandChange && (
               <label className="flex items-center justify-between gap-3 rounded border border-cyan-700/25 bg-cyan-950/10 px-3 py-2 text-xs text-cyan-100/80">
                 <span className="font-medium">Redondear hacia arriba</span>
                 <input
                   type="checkbox"
-                  checked={roundUpToThousand}
+                  checked={effectiveRoundUpToThousand}
                   onChange={(event) =>
                     onRoundUpToThousandChange(event.target.checked)
                   }

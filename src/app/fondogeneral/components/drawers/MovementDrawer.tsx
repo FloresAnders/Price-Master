@@ -54,10 +54,27 @@ export function MovementDrawer({
     return p?.name || selectedProvider;
   }, [selectedProvider, providers]);
   const amountStr = (isEgreso ? egreso : ingreso) || "0";
-  const formattedAmount =
+  const formatCurrencyValue = (value: number) =>
     currency === "USD"
-      ? `$${Number(amountStr).toLocaleString("en-US")}`
-      : `₡${Number(amountStr).toLocaleString("es-CR")}`;
+      ? `$${Number(value).toLocaleString("en-US")}`
+      : `₡${Number(value).toLocaleString("es-CR")}`;
+  const confirmBaseAmount = Math.max(0, Number(egreso || 0));
+  const confirmRebateAmount = Math.max(0, Number(agregarMovimientoProps.creditNotesAppliedTotal || 0));
+  const confirmPaymentAmount = Math.max(
+    0,
+    Number(
+      agregarMovimientoProps.amountPayment ??
+        (Number(amountStr) || 0),
+    ),
+  );
+  const confirmPaymentBeforeRound = Math.max(0, confirmBaseAmount - confirmRebateAmount);
+  const confirmRoundingAmount = Math.max(
+    0,
+    Math.abs(confirmPaymentBeforeRound - confirmPaymentAmount),
+  );
+  const showConfirmRebate = confirmRebateAmount > 0;
+  const showConfirmRounding = confirmRoundingAmount > 0;
+  const confirmRoundingPrefix = confirmPaymentAmount >= confirmPaymentBeforeRound ? "+ " : "- ";
   const openConfirmIfAllowed = async () => {
     if (confirmSaveLockedRef.current || isSaving) return;
     const allowed = await beforeConfirmSubmit?.();
@@ -191,9 +208,21 @@ export function MovementDrawer({
                   <span className="font-medium text-[var(--foreground)]">{invoiceNumber || "—"}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[var(--muted-foreground)]">Monto:</span>
-                  <span className="font-medium text-[var(--foreground)]">{formattedAmount}</span>
+                  <span className="text-[var(--muted-foreground)]">Monto real a pagar:</span>
+                  <span className="font-medium text-[var(--foreground)]">{formatCurrencyValue(confirmPaymentAmount)}</span>
                 </div>
+                {showConfirmRebate && (
+                  <div className="flex justify-between">
+                    <span className="text-[var(--muted-foreground)]">Rebajo:</span>
+                    <span className="font-medium text-amber-200">- {formatCurrencyValue(confirmRebateAmount)}</span>
+                  </div>
+                )}
+                {showConfirmRounding && (
+                  <div className="flex justify-between">
+                    <span className="text-[var(--muted-foreground)]">Desde caja:</span>
+                    <span className="font-medium text-amber-200">{confirmRoundingPrefix}{formatCurrencyValue(confirmRoundingAmount)}</span>
+                  </div>
+                )}
               </div>
             </>
           }
