@@ -74,7 +74,8 @@ export class TokenService {
       );
 
       if (signature !== expectedSignature) {
-        console.error("Token signature invalid");
+        // Signature mismatch — treat as invalid token (no loud error)
+        console.debug("Token signature invalid");
         return null;
       }
 
@@ -82,7 +83,8 @@ export class TokenService {
 
       // Verificar expiración
       if (Date.now() > payload.exp) {
-        console.error("Token expired");
+        // Token expired — handled silently
+        console.debug("Token expired");
         return null;
       }
 
@@ -413,6 +415,7 @@ export class TokenService {
     user: User | null;
     sessionId: string | null;
     expiresAt: Date | null;
+    token?: string | null;
   } {
     const sessionData = this.validateTokenSession();
 
@@ -432,6 +435,19 @@ export class TokenService {
       user: sessionData.user,
       sessionId: sessionData.sessionId,
       expiresAt: new Date(sessionData.expiresAt),
+      token: sessionData.token,
     };
+  }
+
+  /** Returns raw stored token string if available */
+  static getRawToken(): string | null {
+    const stored = localStorage.getItem(this.STORAGE_KEY);
+    if (!stored) return null;
+    try {
+      const parsed = JSON.parse(stored);
+      return parsed?.token ?? null;
+    } catch {
+      return null;
+    }
   }
 }

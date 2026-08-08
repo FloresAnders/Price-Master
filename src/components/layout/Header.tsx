@@ -70,6 +70,7 @@ import {
   CashCounterModal,
   NotificationModal,
   MobileScanQrModal,
+  DeviceLinkModal,
 } from "../modals";
 import type { UserPermissions } from "../../types/firestore";
 
@@ -134,6 +135,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [showDeviceLinkModal, setShowDeviceLinkModal] = useState(false);
   const [showAdminSidebar, setShowAdminSidebar] = useState(false);
   const [isAdminSidebarHovered, setIsAdminSidebarHovered] = useState(false);
   const [adminSidebarExpandedWidth, setAdminSidebarExpandedWidth] = useState(
@@ -1464,23 +1466,31 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                               <button
                                 onClick={() => {
                                   setShowUserDropdown(false);
-                                  const sessionKey = "pricemaster_session";
-                                  const sessionValue =
-                                    localStorage.getItem(sessionKey);
-                                  localStorage.clear();
-                                  if (sessionValue !== null) {
-                                    localStorage.setItem(
+                                    const sessionKey = "pricemaster_session";
+                                    const sessionValue = localStorage.getItem(
                                       sessionKey,
-                                      sessionValue,
                                     );
-                                  }
-                                  window.location.reload();
+                                    localStorage.clear();
+                                    if (sessionValue !== null) {
+                                      localStorage.setItem(sessionKey, sessionValue);
+                                    }
+                                    window.location.reload();
                                 }}
                                 className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
                               >
                                 <Trash2 className="w-4 h-4 text-[var(--muted-foreground)]" />
                                 <span className="truncate">Limpiar Cache</span>
                               </button>
+                                <button
+                                  onClick={() => {
+                                    setShowUserDropdown(false);
+                                    setShowDeviceLinkModal(true);
+                                  }}
+                                  className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
+                                >
+                                  <QrCode className="w-4 h-4 text-[var(--muted-foreground)]" />
+                                  <span className="truncate">Vincular dispositivo</span>
+                                </button>
                             </div>
                           </div>
                         </>,
@@ -1881,6 +1891,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       <EditProfileModal
         isOpen={showEditProfileModal}
         onClose={() => setShowEditProfileModal(false)}
+      />
+      <DeviceLinkModal
+        isOpen={showDeviceLinkModal}
+        onClose={() => setShowDeviceLinkModal(false)}
       />
 
       {canShowAdminSidebar && (

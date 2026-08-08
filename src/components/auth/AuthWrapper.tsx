@@ -20,7 +20,7 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
   const [hasStoredSession, setHasStoredSession] = useState<boolean>(false);
 
   // Rutas públicas que no requieren autenticación
-  const publicRoutes = ["/home", "/reset-password", "/pruebas"];
+  const publicRoutes = ["/home", "/reset-password", "/pruebas", "/device-link"];
   const isPublicRoute = publicRoutes.includes(pathname);
 
   useEffect(() => {

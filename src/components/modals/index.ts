@@ -5,3 +5,4 @@ export { default as NotificationModal } from "./NotificationModal";
 export { default as ReportMovementsDetailModal } from "./ReportMovementsDetailModal";
 export { default as ChangeEmailModal } from "./ChangeEmailModal";
 export { default as MobileScanQrModal } from "./MobileScanQrModal";
+export { default as DeviceLinkModal } from "./DeviceLinkModal";
