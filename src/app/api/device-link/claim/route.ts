@@ -36,6 +36,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ status: 'scanned' });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || String(err) }, { status: 500 });
+    console.error('device-link/claim error:', err);
+    return NextResponse.json({ error: 'internal_server_error' }, { status: 500 });
   }
 }

@@ -16,6 +16,11 @@ export default function DeviceLinkClient() {
   const pollRef = useRef<number | null>(null);
 
   useEffect(() => {
+    const mapServerError = (e?: string | null) =>
+      e === 'internal_server_error'
+        ? 'Error del servidor. Contacta al administrador.'
+        : e || 'Error reclamando QR';
+
     // parse search params on client
     const sp = new URLSearchParams(window.location.search);
     const r = sp.get("r") || sp.get("requestId");
@@ -41,7 +46,7 @@ export default function DeviceLinkClient() {
         });
         const data = await res.json();
         if (!res.ok) {
-          setError(data?.error || "Error reclamando QR");
+          setError(mapServerError(data?.error));
           setStatus(data?.status || null);
           setLoading(false);
           return;
@@ -111,9 +116,9 @@ export default function DeviceLinkClient() {
                   pollRef.current = null;
                 }
                 setError('No se pudo autenticar automáticamente. Pulsa Reintentar.');
-              } else {
+                } else {
                 const ed = await ex.json();
-                setError(ed?.error || "exchange_failed");
+                setError(mapServerError(ed?.error));
               }
             } catch (e) {
               setError(String(e));

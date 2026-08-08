@@ -52,6 +52,7 @@ export async function POST(req: Request) {
 
     return res;
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || String(err) }, { status: 500 });
+    console.error('device-link/exchange error:', err);
+    return NextResponse.json({ error: 'internal_server_error' }, { status: 500 });
   }
 }

@@ -32,6 +32,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ requestId, qrUrl, expiresAt: new Date(Date.now() + 2 * 60 * 1000).toISOString() });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || String(err) }, { status: 500 });
+    console.error('device-link/create error:', err);
+    return NextResponse.json({ error: 'internal_server_error' }, { status: 500 });
   }
 }

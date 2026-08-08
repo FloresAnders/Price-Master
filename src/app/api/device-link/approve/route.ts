@@ -50,6 +50,7 @@ export async function POST(req: Request) {
     // Do NOT return sessionToken in the response. The mobile will exchange the QR token for a session.
     return NextResponse.json({ ok: true, sessionId: sessionRef.id });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || String(err) }, { status: 500 });
+    console.error('device-link/approve error:', err);
+    return NextResponse.json({ error: 'internal_server_error' }, { status: 500 });
   }
 }

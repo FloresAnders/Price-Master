@@ -15,6 +15,7 @@ export async function GET(req: Request) {
     const data = snap.data();
     return NextResponse.json({ request: data });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || String(err) }, { status: 500 });
+    console.error('device-link/status error:', err);
+    return NextResponse.json({ error: 'internal_server_error' }, { status: 500 });
   }
 }

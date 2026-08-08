@@ -124,7 +124,7 @@ export default function DeviceLinkModal({ isOpen, onClose }: DeviceLinkModalProp
       }, 2000);
     } catch (err: any) {
       console.error("Error creating device link:", err);
-      alert(err?.message || String(err));
+      alert("Error al crear el enlace. Contacta al administrador.");
     } finally {
       setLoading(false);
     }
@@ -153,7 +153,8 @@ export default function DeviceLinkModal({ isOpen, onClose }: DeviceLinkModalProp
         // ignore
       }
     } catch (err: any) {
-      alert(err?.message || String(err));
+      console.error('Error approving device link:', err);
+      alert('Error al autorizar. Inténtalo de nuevo.');
     }
   };
 
@@ -171,7 +172,7 @@ export default function DeviceLinkModal({ isOpen, onClose }: DeviceLinkModalProp
       setStatus("rejected");
     } catch (err) {
       console.error(err);
-      alert("Error rejecting");
+      alert("Error al rechazar la solicitud. Inténtalo de nuevo.");
     }
   };
 

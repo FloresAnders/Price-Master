@@ -34,6 +34,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ ok: true, user: userData });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || String(err) }, { status: 500 });
+    console.error('device-link/whoami error:', err);
+    return NextResponse.json({ error: 'internal_server_error' }, { status: 500 });
   }
 }
