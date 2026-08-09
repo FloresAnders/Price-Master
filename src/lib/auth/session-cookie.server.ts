@@ -20,7 +20,6 @@ function getSecret() {
     process.env.PRICE_MASTER_SESSION_SECRET ||
     process.env.NEXTAUTH_SECRET ||
     process.env.FIREBASE_SERVICE_ACCOUNT_KEY ||
-    process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT ||
     process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ||
     "price-master-session"
   );

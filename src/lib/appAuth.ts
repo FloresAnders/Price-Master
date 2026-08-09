@@ -1,4 +1,4 @@
-import { auth as firebaseAuth } from './firebaseAdmin';
+import { getAdminAuth } from './firebase-admin';
 
 const SECRET_KEY = 'pricemaster_secret_2024';
 
@@ -36,7 +36,7 @@ export function verifySimpleAppToken(token: string) {
       if (Date.now() > payload.exp) return null;
     }
     return payload;
-  } catch (err) {
+  } catch {
     return null;
   }
 }
@@ -49,9 +49,9 @@ export async function getUserIdFromAuthorizationHeader(authHeader?: string) {
 
   // Try Firebase ID token first
   try {
-    const decoded = await firebaseAuth.verifyIdToken(token);
+    const decoded = await getAdminAuth().verifyIdToken(token);
     return decoded.uid;
-  } catch (err) {
+  } catch {
     // Fallback to app token
     const payload = verifySimpleAppToken(token);
     if (payload && payload.userId) return payload.userId;

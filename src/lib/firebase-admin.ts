@@ -1,39 +1,64 @@
-import { cert, getApps, initializeApp } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
+import {
+  cert,
+  getApps,
+  initializeApp,
+  type ServiceAccount,
+} from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
-function parseServiceAccount() {
-  const raw =
-    process.env.FIREBASE_SERVICE_ACCOUNT_KEY ||
-    process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT;
-  if (!raw) return undefined;
+export function readFirebaseServiceAccountFromEnv(
+  env: Record<string, string | undefined> = process.env,
+): ServiceAccount {
+  const raw = env.FIREBASE_SERVICE_ACCOUNT_KEY?.trim();
+  if (!raw) {
+    throw new Error(
+      "FIREBASE_SERVICE_ACCOUNT_KEY is required for Firebase Admin.",
+    );
+  }
 
   try {
     const parsed = JSON.parse(raw);
-    if (typeof parsed.private_key === "string") {
-      parsed.private_key = parsed.private_key.replace(/\\n/g, "\n");
+    const projectId = parsed.project_id || parsed.projectId;
+    const clientEmail = parsed.client_email || parsed.clientEmail;
+    const rawPrivateKey = parsed.private_key || parsed.privateKey;
+    const privateKey =
+      typeof rawPrivateKey === "string"
+        ? rawPrivateKey.replace(/\\n/g, "\n")
+        : undefined;
+
+    if (!projectId || !clientEmail || !privateKey) {
+      throw new Error(
+        "FIREBASE_SERVICE_ACCOUNT_KEY must contain project_id, client_email, and private_key.",
+      );
     }
-    return parsed;
-  } catch {
-    return undefined;
+
+    return {
+      projectId,
+      clientEmail,
+      privateKey,
+    };
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error("FIREBASE_SERVICE_ACCOUNT_KEY must be valid JSON.");
+    }
+    throw error;
   }
 }
 
-function getAdminApp() {
+export function getAdminApp() {
   const existing = getApps()[0];
   if (existing) return existing;
 
-  const serviceAccount = parseServiceAccount();
-  if (serviceAccount) {
-    return initializeApp({
-      credential: cert(serviceAccount),
-      projectId:
-        serviceAccount.project_id || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    });
-  }
-
+  const serviceAccount = readFirebaseServiceAccountFromEnv();
   return initializeApp({
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    credential: cert(serviceAccount),
+    projectId: serviceAccount.projectId || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
   });
+}
+
+export function getAdminAuth() {
+  return getAuth(getAdminApp());
 }
 
 export function getAdminDb() {
