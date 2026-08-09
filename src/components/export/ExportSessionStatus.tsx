@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { SessionSyncService } from "../../services/session-sync";
+import { SessionSyncService } from "../../shared/services/session-sync";
 
 export default function ExportSessionStatus() {
   const handleExport = async () => {

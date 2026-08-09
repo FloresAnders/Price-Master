@@ -18,16 +18,16 @@ import {
   Search,
   XCircle,
 } from "lucide-react";
-import { useAuth } from "../../hooks/useAuth";
-import useToast from "../../hooks/useToast";
-import { hasPermission } from "../../utils/permissions";
-import { useProviders } from "../../hooks/useProviders";
-import { EmpresasService } from "../../services/empresas";
+import { useAuth } from "../../shared/hooks/useAuth";
+import useToast from "../../shared/hooks/useToast";
+import { hasPermission } from "../../shared/utils/permissions";
+import { useProviders } from "../../shared/hooks/useProviders";
+import { EmpresasService } from "@/entities/empresa";
 import {
   SupplierOrdersService,
   SupplierOrderEntry,
   SupplierOrderProduct,
-} from "../../services/supplier-orders";
+} from "../../shared/services/supplier-orders";
 
 type Product = SupplierOrderProduct;
 

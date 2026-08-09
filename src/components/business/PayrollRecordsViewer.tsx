@@ -6,11 +6,11 @@ import { Calendar, Users, Trash2 } from "lucide-react";
 import {
   PayrollRecordsService,
   PayrollRecord,
-} from "../../services/payroll-records";
-import { EmpresasService } from "../../services/empresas";
-import useToast from "../../hooks/useToast";
-import { Empresas } from "../../types/firestore";
-import ConfirmModal from "../ui/ConfirmModal";
+} from "../../shared/services/payroll-records";
+import { EmpresasService } from "@/entities/empresa";
+import useToast from "../../shared/hooks/useToast";
+import { Empresas } from "../../shared/types/firestore";
+import ConfirmModal from "../../shared/components/ui/ConfirmModal";
 
 interface PayrollRecordsViewerProps {
   selectedLocation?: string;

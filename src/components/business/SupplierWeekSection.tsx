@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { ArrowRight, Truck } from "lucide-react";
-import ConfirmModal from "../ui/ConfirmModal";
+import ConfirmModal from "../../shared/components/ui/ConfirmModal";
 
 export type SupplierWeekVisitDay = "D" | "L" | "M" | "MI" | "J" | "V" | "S";
 

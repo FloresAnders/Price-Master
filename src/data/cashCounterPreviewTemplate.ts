@@ -1,4 +1,4 @@
-import type { buildCashCounterExportSummary } from "@/components/business/cash-counter-tabs/utils";
+import type { buildCashCounterExportSummary } from "@/features/cash-counter/utils";
 
 type CashCounterExportSummary = ReturnType<typeof buildCashCounterExportSummary>;
 

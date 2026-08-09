@@ -19,10 +19,10 @@ import {
   NotebookPen,
   X,
 } from "lucide-react";
-import AnimatedStickman from "@/components/ui/AnimatedStickman";
-import { User, UserPermissions } from "@/types/firestore";
-import { getDefaultPermissions } from "@/utils/permissions";
-import { safeLocalStorage, safeWindow } from "@/utils/client";
+import AnimatedStickman from "@/shared/components/ui/AnimatedStickman";
+import { User, UserPermissions } from "@/shared/types/firestore";
+import { getDefaultPermissions } from "@/shared/utils/permissions";
+import { safeLocalStorage, safeWindow } from "@/shared/utils/client";
 
 // Define the menu items with permissions (same as HomeMenu.tsx)
 const menuItems = [

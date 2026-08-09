@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { EmpresasService } from "@/services/empresas";
-import { readBcrSinpeReport } from "@/services/sinpe-imap.server";
+import { EmpresasService } from "@/entities/empresa";
+import { readBcrSinpeReport } from "@/shared/services/sinpe-imap.server";
 
 export const runtime = "nodejs";
 

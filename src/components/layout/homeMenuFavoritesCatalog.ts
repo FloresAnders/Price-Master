@@ -20,9 +20,9 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
-import { CustomIcon } from "../../icons/icons";
-import type { User, UserPermissions } from "../../types/firestore";
-import { getDefaultPermissions } from "../../utils/permissions";
+import { CustomIcon } from "../../shared/icons/icons";
+import type { User, UserPermissions } from "../../shared/types/firestore";
+import { getDefaultPermissions } from "../../shared/utils/permissions";
 
 const FoodAndSodaIcon: ComponentType<{ className?: string }> = (props) =>
   createElement(CustomIcon, { name: "FoodAndSoda", ...props });

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { getAdminDb } from "@/lib/firebase-admin";
+import { getAdminDb } from "@/shared/lib/firebase-admin";
 import {
   hashPasswordServer,
   verifyPasswordServer,
-} from "@/lib/auth/password.server";
-import { readUserIdFromSessionCookie } from "@/lib/auth/session-cookie.server";
+} from "@/shared/lib/auth/password.server";
+import { readUserIdFromSessionCookie } from "@/shared/lib/auth/session-cookie.server";
 
 export const runtime = "nodejs";
 

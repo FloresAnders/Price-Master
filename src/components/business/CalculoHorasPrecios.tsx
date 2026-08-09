@@ -8,14 +8,14 @@ import {
   Lock,
   User as UserIcon,
 } from "lucide-react";
-import { EmpresasService } from "../../services/empresas";
-import { CalculoHorasService } from "../../services/calculohoras";
-import { CcssConfigService } from "../../services/ccss-config";
-import CalculoHorasModal from "../ui/CalculoHorasModal";
-import TapTooltip, { TooltipLines } from "../ui/TapTooltip";
-import { useAuth } from "../../hooks/useAuth";
-import useToast from "../../hooks/useToast";
-import { getDefaultPermissions } from "../../utils/permissions";
+import { EmpresasService } from "@/entities/empresa";
+import { CalculoHorasService } from "../../shared/services/calculohoras";
+import { CcssConfigService } from "../../shared/services/ccss-config";
+import CalculoHorasModal from "../../shared/components/ui/CalculoHorasModal";
+import TapTooltip, { TooltipLines } from "../../shared/components/ui/TapTooltip";
+import { useAuth } from "../../shared/hooks/useAuth";
+import useToast from "../../shared/hooks/useToast";
+import { getDefaultPermissions } from "../../shared/utils/permissions";
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");

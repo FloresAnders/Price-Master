@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { RecoveryTokenService } from "@/services/recoveryTokenService";
-import { EmailService } from "@/services/email";
-import { db } from "@/config/firebase";
+import { RecoveryTokenService } from "@/shared/services/recoveryTokenService";
+import { EmailService } from "@/shared/services/email";
+import { db } from "@/shared/config/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 
 export const runtime = "nodejs";

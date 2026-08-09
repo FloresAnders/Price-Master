@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
-import { CcssConfigService } from "../../services/ccss-config";
-import { useAuth } from "../../hooks/useAuth";
+import { CcssConfigService } from "../../shared/services/ccss-config";
+import { useAuth } from "../../shared/hooks/useAuth";
 
 export default function ExportCcssConfig() {
   const { user } = useAuth();

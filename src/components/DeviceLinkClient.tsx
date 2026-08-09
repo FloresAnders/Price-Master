@@ -96,8 +96,8 @@ export default function DeviceLinkClient() {
 
                   if (whoData && whoData.user) {
                     // Create token session locally so AuthWrapper recognizes the user
-                    // eslint-disable-next-line @typescript-eslint/no-var-requires
-                    const { TokenService } = require('../services/tokenService');
+                     
+                    const { TokenService } = require('../shared/services/tokenService');
                     const u = whoData.user;
                     TokenService.createTokenSession(u);
                     setAuthUser(u);

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getAdminDb } from '../../../../lib/firebase-admin';
-import { getUserIdFromAuthorizationHeader } from '../../../../lib/appAuth';
-import { generateToken, hashToken } from '../../../../lib/devices/tokens';
+import { getAdminDb } from '../../../../shared/lib/firebase-admin';
+import { getUserIdFromAuthorizationHeader } from '../../../../shared/lib/appAuth';
+import { generateToken, hashToken } from '../../../../shared/lib/devices/tokens';
 
 export async function POST(req: Request) {
   try {

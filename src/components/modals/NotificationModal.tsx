@@ -2,21 +2,21 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
-import { useAuth } from "../../hooks/useAuth";
-import { SolicitudesService } from "@/services/solicitudes";
-import CameraScanner from "../scanner/CameraScanner";
-import { useBarcodeScanner } from "../../hooks/useBarcodeScanner";
-import { ScanningService } from "@/services/scanning";
-import { storage } from "@/config/firebase";
+import { useAuth } from "../../shared/hooks/useAuth";
+import { SolicitudesService } from "@/shared/services/solicitudes";
+import CameraScanner from "../../features/scanner/CameraScanner";
+import { useBarcodeScanner } from "../../shared/hooks/useBarcodeScanner";
+import { ScanningService } from "@/shared/services/scanning";
+import { storage } from "@/shared/config/firebase";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import {
   ClosingTimeExtensionsService,
   type ClosingTimeExtensionRecord,
-} from "@/services/closing-time-extensions";
+} from "@/shared/services/closing-time-extensions";
 import {
   PendingInvoiceDeletionRequestsService,
   type PendingInvoiceDeletionRequestRecord,
-} from "@/services/pending-invoice-deletion-requests";
+} from "@/shared/services/pending-invoice-deletion-requests";
 
 interface NotificationModalProps {
   isOpen: boolean;

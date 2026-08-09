@@ -39,7 +39,7 @@ import {
   NotebookPen,
   ReceiptText,
 } from "lucide-react";
-import { CustomIcon } from "@/icons/icons";
+import { CustomIcon } from "@/shared/icons/icons";
 import { useState, useEffect, useRef, useCallback } from "react";
 import QRCode from "qrcode";
 import {
@@ -50,20 +50,20 @@ import {
   limit as fbLimit,
   onSnapshot,
 } from "firebase/firestore";
-import { db } from "@/config/firebase";
+import { db } from "@/shared/config/firebase";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
-import { useAuth } from "../../hooks/useAuth";
-import { TokenService } from "../../services/tokenService";
-import { SolicitudesService } from "@/services/solicitudes";
+import { useAuth } from "../../shared/hooks/useAuth";
+import { TokenService } from "../../shared/services/tokenService";
+import { SolicitudesService } from "@/shared/services/solicitudes";
 //import { ThemeToggle } from "./ThemeToggle";
-import { safeLocalStorage, safeWindow } from "../../utils/client";
-import { getDefaultPermissions } from "../../utils/permissions";
-import FloatingSessionTimer from "../session/FloatingSessionTimer";
-import EditProfileModal from "../edicionPerfil/EditProfileModal";
-import { getLayoutPref, setLayoutPref } from "@/services/layoutPrefsDb";
-import { normalizeClosingTimeExtensionCompanyKey } from "@/services/closing-time-extensions";
-import { useFloatingAction } from "@/components/ui/FloatingActionsDock";
+import { safeLocalStorage, safeWindow } from "../../shared/utils/client";
+import { getDefaultPermissions } from "../../shared/utils/permissions";
+import FloatingSessionTimer from "../../features/session/FloatingSessionTimer";
+import EditProfileModal from "../../features/perfil/EditProfileModal";
+import { getLayoutPref, setLayoutPref } from "@/shared/services/layoutPrefsDb";
+import { normalizeClosingTimeExtensionCompanyKey } from "@/shared/services/closing-time-extensions";
+import { useFloatingAction } from "@/shared/components/ui/FloatingActionsDock";
 import {
   ConfigurationModal,
   CalculatorModal,
@@ -72,7 +72,7 @@ import {
   MobileScanQrModal,
   DeviceLinkModal,
 } from "../modals";
-import type { UserPermissions } from "../../types/firestore";
+import type { UserPermissions } from "../../shared/types/firestore";
 
 const ADMIN_SIDEBAR_EXPANDED_WIDTH_PREF_KEY = "adminSidebarWidth";
 const ADMIN_SIDEBAR_COLLAPSED_WIDTH_PREF_KEY = "adminSidebarCollapsedWidth";

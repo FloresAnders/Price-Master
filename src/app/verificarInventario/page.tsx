@@ -5,7 +5,7 @@ import AddEmpresaModal from "./AddEmpresaModal";
 import DeleteEmpresaModal from "./DeleteEmpresaModal";
 import VerificarInventarioHeader from "./VerificarInventarioHeader";
 import ScannerModal from "./ScannerModal";
-import useToast from "@/hooks/useToast";
+import useToast from "@/shared/hooks/useToast";
 import { useBarcodeScanner } from "./useBarcodeScanner";
 import type {
   CodigoPendiente,

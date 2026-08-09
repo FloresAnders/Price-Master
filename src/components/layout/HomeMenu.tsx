@@ -46,21 +46,21 @@ import {
   ClipboardPenLine,
   NotebookPen,
 } from "lucide-react";
-import AnimatedStickman from "../ui/AnimatedStickman";
-import { User, UserPermissions } from "../../types/firestore";
-import { getDefaultPermissions } from "../../utils/permissions";
-import { useProviders } from "../../hooks/useProviders";
-import { useControlPedido } from "../../hooks/useControlPedido";
-import { MovimientosFondosService } from "../../services/movimientos-fondos";
-import { EmpresasService } from "../../services/empresas";
-import { getMenuCardTheme } from "../../config/menu-themes";
-import type { ControlPedidoEntry } from "../../services/controlpedido";
+import AnimatedStickman from "../../shared/components/ui/AnimatedStickman";
+import { User, UserPermissions } from "../../shared/types/firestore";
+import { getDefaultPermissions } from "../../shared/utils/permissions";
+import { useProviders } from "../../shared/hooks/useProviders";
+import { useControlPedido } from "../../shared/hooks/useControlPedido";
+import { MovimientosFondosService } from "../../shared/services/movimientos-fondos";
+import { EmpresasService } from "@/entities/empresa";
+import { getMenuCardTheme } from "../../shared/config/menu-themes";
+import type { ControlPedidoEntry } from "../../shared/services/controlpedido";
 import {
   addDays,
   dateToKey,
   visitDayFromDate,
   weekStartKeyFromDateKey,
-} from "../../utils/dateKey";
+} from "../../shared/utils/dateKey";
 import { SupplierWeekSection } from "../business/SupplierWeekSection";
 import {
   getAccessibleHomeMenuFavoriteOptions,
@@ -71,7 +71,7 @@ import {
   addHomeMenuFavorite,
   getHomeMenuFavorites,
   removeHomeMenuFavorite,
-} from "../../services/homeMenuFavoritesDb";
+} from "../../shared/services/homeMenuFavoritesDb";
 
 const MAINTENANCE_TAB_STORAGE_KEY = "pricemaster:maintenance-active-tab";
 const MAINTENANCE_TAB_EVENT = "pricemaster:maintenance-tab-change";

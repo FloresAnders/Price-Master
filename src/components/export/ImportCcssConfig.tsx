@@ -1,8 +1,8 @@
 "use client";
 import React from "react";
-import { CcssConfig } from "../../types/firestore";
-import { CcssConfigService } from "../../services/ccss-config";
-import { useAuth } from "../../hooks/useAuth";
+import { CcssConfig } from "../../shared/types/firestore";
+import { CcssConfigService } from "../../shared/services/ccss-config";
+import { useAuth } from "../../shared/hooks/useAuth";
 
 export default function ImportCcssConfig() {
   const { user } = useAuth();

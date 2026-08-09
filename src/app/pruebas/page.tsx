@@ -1,9 +1,9 @@
 "use client";
 
-import ConfirmModal from "@/components/ui/ConfirmModal";
-import Pruebas from "@/components/xpruebas/Pruebas";
-import { useAuth } from "@/hooks/useAuth";
-import { usePruebasUnlock } from "@/hooks/usePruebasUnlock";
+import ConfirmModal from "@/shared/components/ui/ConfirmModal";
+import Pruebas from "@/features/diagnostics/Pruebas";
+import { useAuth } from "@/shared/hooks/useAuth";
+import { usePruebasUnlock } from "@/shared/hooks/usePruebasUnlock";
 import { useRouter } from "next/navigation";
 
 export default function PruebasPage() {

@@ -11,7 +11,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import DailyClosingHistorySection from "../daily-closings/DailyClosingHistorySection";
+import DailyClosingHistorySection from "../../features/daily-closings/DailyClosingHistorySection";
 
 type Currency = "CRC" | "USD";
 

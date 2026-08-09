@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getAdminDb } from '../../../../lib/firebase-admin';
-import { hashToken, generateToken } from '../../../../lib/devices/tokens';
+import { getAdminDb } from '../../../../shared/lib/firebase-admin';
+import { hashToken, generateToken } from '../../../../shared/lib/devices/tokens';
 
 export async function POST(req: Request) {
   try {

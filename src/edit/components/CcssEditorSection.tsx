@@ -12,8 +12,8 @@ import {
   Save,
 } from "lucide-react";
 
-import { CcssConfigService } from "../../services/ccss-config";
-import type { User } from "../../types/firestore";
+import { CcssConfigService } from "../../shared/services/ccss-config";
+import type { User } from "../../shared/types/firestore";
 
 type ToastType = "success" | "error" | "info" | "warning";
 

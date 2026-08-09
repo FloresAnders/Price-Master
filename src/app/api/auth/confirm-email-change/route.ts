@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { EmailChangeCodeService } from "@/services/emailChangeCodeService";
-import { db } from "@/config/firebase";
+import { EmailChangeCodeService } from "@/shared/services/emailChangeCodeService";
+import { db } from "@/shared/config/firebase";
 import {
   collection,
   doc,

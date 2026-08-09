@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useAuth } from "../../hooks/useAuth";
+import { useAuth } from "../../shared/hooks/useAuth";
 
 // Import HomeMenu dynamically with SSR disabled to prevent hydration errors
 const HomeMenu = dynamic(() => import("./HomeMenu"), {

@@ -12,8 +12,8 @@ import {
   GripVertical,
   Banknote,
 } from "lucide-react";
-import { useAuth } from "../../hooks/useAuth";
-import TokenInfo from "../session/TokenInfo";
+import { useAuth } from "../../shared/hooks/useAuth";
+import TokenInfo from "../../features/session/TokenInfo";
 
 interface ConfigurationModalProps {
   isOpen: boolean;

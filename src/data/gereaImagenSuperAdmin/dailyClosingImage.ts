@@ -1,4 +1,4 @@
-import type { DailyClosingRecord } from "@/services/daily-closings";
+import type { DailyClosingRecord } from "@/shared/services/daily-closings";
 
 const money = (currency: "CRC" | "USD", amount: number) =>
   new Intl.NumberFormat(currency === "CRC" ? "es-CR" : "en-US", {

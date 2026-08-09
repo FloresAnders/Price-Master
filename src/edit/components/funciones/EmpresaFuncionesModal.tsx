@@ -15,23 +15,23 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Trash2, X } from "lucide-react";
 
-import ConfirmModal from "@/components/ui/ConfirmModal";
-import { useAuth } from "@/hooks/useAuth";
-import { useActorOwnership } from "@/hooks/useActorOwnership";
+import ConfirmModal from "@/shared/components/ui/ConfirmModal";
+import { useAuth } from "@/shared/hooks/useAuth";
+import { useActorOwnership } from "@/shared/hooks/useActorOwnership";
 import {
   DELIFOOD_EMPRESA_ID,
   filterFuncionesGeneralesForEmpresa,
   FuncionesService,
   getFuncionIdLookupKeys,
   isDelifoodEmpresaId,
-} from "@/services/funciones";
+} from "@/shared/services/funciones";
 
 import type { FuncionListItem } from "./RecetasListItems";
 import {
   normalizeReminderTimesCr,
   validateBlockSeconds,
   validateReminderTimesCr,
-} from "@/components/funciones/reminderTimes";
+} from "@/features/funciones/reminderTimes";
 
 type EmpresaFuncionesModalProps = {
   open: boolean;

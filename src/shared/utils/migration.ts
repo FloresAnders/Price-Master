@@ -1,0 +1,118 @@
+import { SorteosService } from "../services/sorteos";
+import { UsersService } from "../services/users";
+import { CcssConfigService } from "../services/ccss-config";
+import fs from "fs";
+import path from "path";
+
+export class MigrationService {
+  /**
+   * Migrate sorteos from JSON to Firestore
+   */
+  static async migrateSorteos(): Promise<void> {
+    try {
+      // Load sorteos JSON at runtime if available to avoid build-time module resolution errors
+      const sorteosJsonPath = path.resolve(
+        process.cwd(),
+        "src",
+        "data",
+        "sorteos.json",
+      );
+      let sorteosData: string[] = [];
+      if (fs.existsSync(sorteosJsonPath)) {
+        try {
+          const raw = fs.readFileSync(sorteosJsonPath, "utf8");
+          sorteosData = JSON.parse(raw) as string[];
+        } catch (err) {
+          console.warn("Could not read or parse sorteos.json:", err);
+          sorteosData = [];
+        }
+      } else {
+        return;
+      }
+
+      // Check if sorteos already exist
+      const existingSorteos = await SorteosService.getAllSorteos();
+      if (existingSorteos.length > 0) {
+        return;
+      }
+
+      // Migrate each sorteo
+      for (const sorteoName of sorteosData as string[]) {
+        const sorteoId = await SorteosService.addSorteo({
+          name: sorteoName,
+        });
+        //(`Migrated sorteo: ${sorteoName} (ID: ${sorteoId})`);
+      }
+
+      //(`Successfully migrated ${sorteosData.length} sorteos to Firestore.`);
+    } catch (error) {
+      console.error("Error migrating sorteos:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Run all migrations
+   */
+  static async runAllMigrations(): Promise<void> {
+    //('Starting data migration from JSON to Firestore...');
+
+    try {
+      await this.migrateSorteos();
+      //('All migrations completed successfully!');
+    } catch (error) {
+      console.error("Migration failed:", error);
+      throw error;
+    }
+  }
+  /**
+   * Clear all Firestore data (use with caution!)
+   */
+  static async clearAllData(): Promise<void> {
+    //('WARNING: Clearing all Firestore data...');
+
+    try {
+      // Clear sorteos
+      const sorteos = await SorteosService.getAllSorteos();
+      for (const sorteo of sorteos) {
+        if (sorteo.id) {
+          await SorteosService.deleteSorteo(sorteo.id);
+        }
+      }
+      //(`Deleted ${sorteos.length} sorteos.`);      // Clear users
+      const users = await UsersService.getAllUsers();
+      for (const user of users) {
+        if (user.id) {
+          await UsersService.deleteUser(user.id);
+        }
+      }
+      //(`Deleted ${users.length} users.`);
+
+      // Clear CCSS configuration
+      try {
+        // We don't delete the CCSS config, just reset it to default values
+        await CcssConfigService.updateCcssConfig({
+          ownerId: "default",
+          companie: [
+            {
+              ownerCompanie: "default",
+              mt: 3672.46,
+              tc: 11017.39,
+              valorhora: 1441,
+              horabruta: 1529.62,
+            },
+          ],
+        });
+        //('CCSS configuration reset to default values.');
+      } catch (error) {
+         
+        //('CCSS configuration not found or already at defaults.');
+      }
+
+      //('All Firestore data cleared successfully!');
+    } catch (error) {
+      console.error("Error clearing Firestore data:", error);
+      throw error;
+    }
+  }
+}

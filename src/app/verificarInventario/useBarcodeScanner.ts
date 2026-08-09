@@ -7,12 +7,12 @@ import {
   sharpenImage,
   binarizeOtsu,
   enhanceContrast,
-} from "../../utils/barcodeUtils";
+} from "../../shared/utils/barcodeUtils";
 import ZBAR_PRIORITY_CONFIG, {
   createStableCodeDetector,
   isAcceptedBarcodeValue,
   logZbarPriority,
-} from "../../config/zbar-priority";
+} from "../../shared/config/zbar-priority";
 
 export function useBarcodeScanner(
   onDetect?: (code: string, productName?: string) => void,

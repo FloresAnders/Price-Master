@@ -3,7 +3,7 @@
 import React from "react";
 import { Check, Plus, Trash2 } from "lucide-react";
 
-import type { FondoMovementTypeConfig } from "../../types/firestore";
+import type { FondoMovementTypeConfig } from "../../shared/types/firestore";
 
 type Props = {
   fondoTypesData: FondoMovementTypeConfig[];

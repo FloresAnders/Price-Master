@@ -7,39 +7,39 @@ import {
   TrendingUp,
   WalletCards,
 } from "lucide-react";
-import { useAuth } from "../../hooks/useAuth";
-import { useActorOwnership } from "../../hooks/useActorOwnership";
-import useToast from "../../hooks/useToast";
-import { getDefaultPermissions } from "../../utils/permissions";
+import { useAuth } from "../../shared/hooks/useAuth";
+import { useActorOwnership } from "../../shared/hooks/useActorOwnership";
+import useToast from "../../shared/hooks/useToast";
+import { getDefaultPermissions } from "../../shared/utils/permissions";
 import {
   MovimientosFondosService,
   type MovementStorage,
-} from "../../services/movimientos-fondos";
-import { EmpresasService } from "../../services/empresas";
-import { RegistroTucanService } from "../../services/registro-tucan";
-import type { Empresas, RegistroTucanRecord } from "../../types/firestore";
-import { useShiftScheduleResolver } from "../../app/fondogeneral/hooks/useShiftScheduleResolver";
+} from "../../shared/services/movimientos-fondos";
+import { EmpresasService } from "@/entities/empresa";
+import { RegistroTucanService } from "../../shared/services/registro-tucan";
+import type { Empresas, RegistroTucanRecord } from "../../shared/types/firestore";
+import { useShiftScheduleResolver } from "../../features/fondogeneral/hooks/useShiftScheduleResolver";
 import {
   calculateRegistroTucanTotal,
   formatRegistroTucanDateInput,
   formatRegistroTucanTimeInput,
   parseRegistroTucanAmount,
-} from "../../utils/registroTucan";
-import { getAuthoritativeNow } from "../../utils/serverTime";
+} from "../../shared/utils/registroTucan";
+import { getAuthoritativeNow } from "../../shared/utils/serverTime";
 import {
   RegistroTucanAccessDeniedState,
   RegistroTucanLoadingState,
   RegistroTucanMissingEmpresaState,
-} from "./registro-tucan/RegistroTucanAccessStates";
-import { RegistroTucanForm } from "./registro-tucan/RegistroTucanForm";
-import { RegistroTucanHeader } from "./registro-tucan/RegistroTucanHeader";
-import { RegistroTucanMetrics } from "./registro-tucan/RegistroTucanMetrics";
-import { RegistroTucanRecords } from "./registro-tucan/RegistroTucanRecords";
+} from "../../features/registro-tucan/RegistroTucanAccessStates";
+import { RegistroTucanForm } from "../../features/registro-tucan/RegistroTucanForm";
+import { RegistroTucanHeader } from "../../features/registro-tucan/RegistroTucanHeader";
+import { RegistroTucanMetrics } from "../../features/registro-tucan/RegistroTucanMetrics";
+import { RegistroTucanRecords } from "../../features/registro-tucan/RegistroTucanRecords";
 import type {
   EmpresaOption,
   RegistroTucanMetricCard,
   RegistroTucanSortOrder,
-} from "./registro-tucan/types";
+} from "../../features/registro-tucan/types";
 
 const REGISTRO_TUCAN_COMPANY_STORAGE_KEY = "fg_selected_company_shared";
 

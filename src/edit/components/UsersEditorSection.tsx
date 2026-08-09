@@ -11,7 +11,7 @@ import {
   Mail,
 } from "lucide-react";
 
-import type { User } from "../../types/firestore";
+import type { User } from "../../shared/types/firestore";
 import ChangeEmailModal from "../../components/modals/ChangeEmailModal";
 
 const SUBSCRIPTION_PENDING_DAYS = 5;

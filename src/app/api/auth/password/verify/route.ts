@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 // Force Node runtime for this route to avoid running on Edge; reduces 'edge' requests metrics
 export const runtime = "nodejs";
-import { verifyPasswordServer } from "@/lib/auth/password.server";
+import { verifyPasswordServer } from "@/shared/lib/auth/password.server";
 
 export async function POST(request: Request) {
   try {

@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { SchedulesService } from "../../services/schedules";
+import { SchedulesService } from "../../shared/services/schedules";
 
 export default function ImportSchedules() {
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {

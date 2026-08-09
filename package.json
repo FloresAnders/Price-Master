@@ -18,7 +18,7 @@
     "migrate:fondoMovementTypesByOwner": "node scripts/migrate-fondoMovementTypes-by-owner.js",
     "migrate:funcionesByOwner": "node scripts/migrate-funciones-by-owner.js",
     "seed:tiposEgresoXml": "node scripts/seed-tiposEgresoXml.js",
-    "svg-icon": "node .\\svg-to-custom-icon.js",
+    "svg-icon": "node ./scripts/svg-to-custom-icon.js",
     "migrate:proveedores": "node scripts/migrate-proveedores-to-items.js",
     "migrate:proveedores:items": "node scripts/migrate-proveedores-to-items.js",
     "migrate:proveedores:accountid": "node scripts/set-provider-items-accountid.js",
@@ -29,7 +29,9 @@
     "update": "node scripts/update-version.js",
     "update-versionstorage": "node scripts/update-versionstorage.js",
     "update-systemNotes": "node scripts/update-systemNotes.js",
-    "check": "node scripts/check-version.js"
+    "check": "node scripts/check-version.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.3",
@@ -82,10 +84,13 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
     "@types/html2canvas": "^0.5.35",
     "@types/node": "^20",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "^6.0.5",
     "autoprefixer": "^10.4.21",
     "baseline-browser-mapping": "^2.10.43",
     "critters": "^0.0.23",
@@ -93,8 +98,10 @@
     "eslint": "^9",
     "eslint-config-next": "16.0.7",
     "firebase-admin": "^12.7.0",
+    "jsdom": "^30.0.1",
     "tailwindcss": "^3.4.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   },
   "overrides": {
     "@types/react": "19.2.7",

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import {
   AUTH_COOKIE_NAME,
   sessionCookieOptions,
-} from "@/lib/auth/session-cookie.server";
+} from "@/shared/lib/auth/session-cookie.server";
 
 export const runtime = "nodejs";
 

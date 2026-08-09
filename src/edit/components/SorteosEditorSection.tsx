@@ -3,7 +3,7 @@
 import React from "react";
 import { FileText } from "lucide-react";
 
-import type { Sorteo } from "../../types/firestore";
+import type { Sorteo } from "../../shared/types/firestore";
 
 type Props = {
   sorteosData: Sorteo[];

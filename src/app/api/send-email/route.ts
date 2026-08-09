@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { EmailService } from "../../../services/email";
+import { EmailService } from "../../../shared/services/email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

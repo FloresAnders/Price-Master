@@ -1,7 +1,7 @@
 export { default as SupplierOrders } from "./SupplierOrders";
-export { ControlHorario } from "./control-horario";
+export { ControlHorario } from "@/features/control-horario";
 export { default as TimingControl } from "./TimingControl";
-export { CashCounterTabs } from "./cash-counter-tabs";
+export { CashCounterTabs } from "@/features/cash-counter";
 export { default as PayrollExporter } from "./PayrollExporter";
 export { default as PayrollRecordsViewer } from "./PayrollRecordsViewer";
 export { default as ScheduleReportTab } from "./ScheduleReportTab";

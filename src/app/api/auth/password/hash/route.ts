@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 // Force Node runtime for hashing endpoint
 export const runtime = "nodejs";
-import { hashPasswordServer } from "@/lib/auth/password.server";
+import { hashPasswordServer } from "@/shared/lib/auth/password.server";
 
 export async function POST(request: Request) {
   try {

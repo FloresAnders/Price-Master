@@ -7,18 +7,18 @@ import {
   PermissionsManager,
 } from "../components/layout";
 import { Toaster } from "sonner"
-import { AuthWrapper } from "../components/auth";
+import { AuthWrapper } from "@/features/auth";
 import VersionCheckInitializer from "../components/VersionCheckInitializer";
-import ReminderNotificationsInitializer from "../components/funciones/ReminderNotificationsInitializer";
-import SystemNotesInitializer from "../components/funciones/SystemNotesInitializer";
-import { XmlEgresosProvider } from "../components/xml/XmlEgresosProvider";
-import BackToTop from "../components/ui/BackToTop";
+import ReminderNotificationsInitializer from "../features/funciones/ReminderNotificationsInitializer";
+import SystemNotesInitializer from "../features/funciones/SystemNotesInitializer";
+import { XmlEgresosProvider } from "../features/xml/XmlEgresosProvider";
+import BackToTop from "../shared/components/ui/BackToTop";
 import SubscriptionNotice from "../components/subscription/SubscriptionNotice";
-import OwnerChatWidget from "../components/chat/OwnerChatWidget";
+import OwnerChatWidget from "../features/chat/OwnerChatWidget";
 import {
   FloatingActionsDock,
   FloatingActionsProvider,
-} from "../components/ui/FloatingActionsDock";
+} from "../shared/components/ui/FloatingActionsDock";
 
 export const metadata = {
   title: "Time Master",

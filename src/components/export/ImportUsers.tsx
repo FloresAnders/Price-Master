@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
-import { useUsers } from "../../hooks/useFirebase";
-import { User } from "../../types/firestore";
+import { useUsers } from "../../shared/hooks/useFirebase";
+import { User } from "../../shared/types/firestore";
 
 export default function ImportUsers() {
   const { addUser, updateUser } = useUsers();

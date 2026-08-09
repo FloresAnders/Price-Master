@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { SorteosService } from "../../services/sorteos";
+import { SorteosService } from "../../shared/services/sorteos";
 
 export default function ImportSorteos() {
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {

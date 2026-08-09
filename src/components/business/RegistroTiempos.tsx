@@ -7,39 +7,39 @@ import {
   TrendingUp,
   WalletCards,
 } from "lucide-react";
-import { useAuth } from "../../hooks/useAuth";
-import { useActorOwnership } from "../../hooks/useActorOwnership";
-import useToast from "../../hooks/useToast";
-import { getDefaultPermissions } from "../../utils/permissions";
+import { useAuth } from "../../shared/hooks/useAuth";
+import { useActorOwnership } from "../../shared/hooks/useActorOwnership";
+import useToast from "../../shared/hooks/useToast";
+import { getDefaultPermissions } from "../../shared/utils/permissions";
 import {
   MovimientosFondosService,
   type MovementStorage,
-} from "../../services/movimientos-fondos";
-import { EmpresasService } from "../../services/empresas";
-import { RegistroTiemposService } from "../../services/registro-tiempos";
-import type { Empresas, RegistroTiemposRecord } from "../../types/firestore";
-import { useShiftScheduleResolver } from "../../app/fondogeneral/hooks/useShiftScheduleResolver";
+} from "../../shared/services/movimientos-fondos";
+import { EmpresasService } from "@/entities/empresa";
+import { RegistroTiemposService } from "../../shared/services/registro-tiempos";
+import type { Empresas, RegistroTiemposRecord } from "../../shared/types/firestore";
+import { useShiftScheduleResolver } from "../../features/fondogeneral/hooks/useShiftScheduleResolver";
 import {
   calculateRegistroTiemposTotal,
   formatRegistroTiemposDateInput,
   formatRegistroTiemposTimeInput,
   parseRegistroTiemposAmount,
-} from "../../utils/registroTiempos";
-import { getAuthoritativeNow } from "../../utils/serverTime";
+} from "../../shared/utils/registroTiempos";
+import { getAuthoritativeNow } from "../../shared/utils/serverTime";
 import {
   RegistroTiemposAccessDeniedState,
   RegistroTiemposLoadingState,
   RegistroTiemposMissingEmpresaState,
-} from "./registro-tiempos/RegistroTiemposAccessStates";
-import { RegistroTiemposForm } from "./registro-tiempos/RegistroTiemposForm";
-import { RegistroTiemposHeader } from "./registro-tiempos/RegistroTiemposHeader";
-import { RegistroTiemposMetrics } from "./registro-tiempos/RegistroTiemposMetrics";
-import { RegistroTiemposRecords } from "./registro-tiempos/RegistroTiemposRecords";
+} from "../../features/registro-tiempos/RegistroTiemposAccessStates";
+import { RegistroTiemposForm } from "../../features/registro-tiempos/RegistroTiemposForm";
+import { RegistroTiemposHeader } from "../../features/registro-tiempos/RegistroTiemposHeader";
+import { RegistroTiemposMetrics } from "../../features/registro-tiempos/RegistroTiemposMetrics";
+import { RegistroTiemposRecords } from "../../features/registro-tiempos/RegistroTiemposRecords";
 import type {
   EmpresaOption,
   RegistroTiemposMetricCard,
   RegistroTiemposSortOrder,
-} from "./registro-tiempos/types";
+} from "../../features/registro-tiempos/types";
 
 const REGISTRO_TIEMPOS_COMPANY_STORAGE_KEY = "fg_selected_company_shared";
 

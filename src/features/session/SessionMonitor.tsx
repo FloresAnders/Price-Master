@@ -1,0 +1,248 @@
+// src/components/SessionMonitor.tsx
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { Shield, Clock, AlertTriangle, Key } from "lucide-react";
+import { useAuth } from "../../shared/hooks/useAuth";
+import TokenInfo from "./TokenInfo";
+
+interface SessionMonitorProps {
+  inline?: boolean; // Nueva prop para mostrar inline sin posicionamiento fijo
+}
+
+export default function SessionMonitor({
+  inline = false,
+}: SessionMonitorProps) {
+  const {
+    user,
+    sessionWarning,
+    getSessionTimeLeft,
+    isSuperAdmin,
+    useTokenAuth,
+    getFormattedTimeLeft,
+  } = useAuth();
+
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [showTokenInfo, setShowTokenInfo] = useState(false);
+  const [showSessionTimer, setShowSessionTimer] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(true);
+  const [showCashCounterFloating, setShowCashCounterFloating] = useState(true);
+
+  // Actualizar tiempo restante cada minuto
+  useEffect(() => {
+    const updateTimer = () => {
+      setTimeLeft(getSessionTimeLeft());
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 60000); // Cada minuto
+
+    return () => clearInterval(interval);
+  }, [getSessionTimeLeft]);
+
+  // Leer preferencias de UI flotante para evitar superposición con el FAB (calculadora)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const readPrefs = () => {
+      setShowSessionTimer(
+        localStorage.getItem("show-session-timer") === "true",
+      );
+      const savedCalculator = localStorage.getItem("show-calculator");
+      setShowCalculator(
+        savedCalculator === null ? true : savedCalculator === "true",
+      );
+      const savedCashCounter = localStorage.getItem("show-cash-counter");
+      setShowCashCounterFloating(
+        savedCashCounter === null ? true : savedCashCounter === "true",
+      );
+    };
+    readPrefs();
+    const handleStorage = (e: StorageEvent) => {
+      if (
+        e.key === "show-session-timer" ||
+        e.key === "show-calculator" ||
+        e.key === "show-cash-counter"
+      ) {
+        readPrefs();
+      }
+    };
+    const handlePrefChange = (event: Event) => {
+      const key = (event as CustomEvent)?.detail?.key;
+      if (
+        key === "show-session-timer" ||
+        key === "show-calculator" ||
+        key === "show-cash-counter"
+      ) {
+        readPrefs();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("pricemaster:preference-change", handlePrefChange);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(
+        "pricemaster:preference-change",
+        handlePrefChange,
+      );
+    };
+  }, []);
+
+  const formatTimeLeft = (hours: number) => {
+    if (hours < 1) {
+      const minutes = Math.floor(hours * 60);
+      return `${minutes}m`;
+    }
+    if (hours < 24) {
+      return `${Math.floor(hours)}h ${Math.floor((hours % 1) * 60)}m`;
+    }
+    const days = Math.floor(hours / 24);
+    const remainingHours = Math.floor(hours % 24);
+    return `${days}d ${remainingHours}h`;
+  };
+
+  const getRoleColor = (role?: string) => {
+    switch (role) {
+      case "superadmin":
+        return "text-red-600 bg-red-100";
+      case "admin":
+        return "text-orange-600 bg-orange-100";
+      case "user":
+        return "text-blue-600 bg-blue-100";
+      default:
+        return "text-gray-600 bg-gray-100";
+    }
+  };
+
+  if (!user) return null;
+
+  return (
+    <>
+      {/* Advertencia de sesión */}
+      {sessionWarning && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-yellow-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-pulse">
+          <AlertTriangle className="w-5 h-5" />
+          <span className="font-medium">
+            Su token expirará pronto. Se renovará automáticamente.
+          </span>
+          <button
+            onClick={() => setShowTokenInfo(true)}
+            className="bg-white text-yellow-500 px-3 py-1 rounded text-sm font-medium hover:bg-gray-100 transition-colors flex items-center gap-1"
+          >
+            <Key className="w-3 h-3" />
+            Ver Token
+          </button>
+        </div>
+      )}
+
+      {/* Monitor de sesión para SuperAdmin */}
+      {isSuperAdmin() && !inline && (
+        <div
+          className={`fixed right-4 z-40 bg-red-900 text-white p-3 rounded-lg shadow-lg border-2 border-red-600 ${
+            showSessionTimer
+              ? "bottom-28 md:bottom-24"
+              : showCalculator || showCashCounterFloating
+                ? "bottom-24"
+                : "bottom-4"
+          }`}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <Shield className="w-4 h-4" />
+            <span className="text-xs font-bold">SUPERADMIN MONITOR</span>
+            {useTokenAuth && <Key className="w-3 h-3 text-green-400" />}
+          </div>
+          <div className="text-xs space-y-1">
+            <div className="flex items-center gap-2">
+              {useTokenAuth ? (
+                <Key className="w-3 h-3" />
+              ) : (
+                <Clock className="w-3 h-3" />
+              )}
+              <span>
+                {useTokenAuth ? "Token" : "Sesión"}: {getFormattedTimeLeft()}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span
+                className={`px-2 py-1 rounded text-xs font-medium ${getRoleColor(user.role)}`}
+              >
+                {user.role?.toUpperCase()}
+              </span>
+              {useTokenAuth && (
+                <button
+                  onClick={() => setShowTokenInfo(true)}
+                  className="px-2 py-1 bg-green-600 hover:bg-green-700 rounded text-xs font-medium transition-colors"
+                >
+                  Token Info
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Versión inline para integrar en modales */}
+      {inline && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Shield className="w-4 h-4 text-red-600" />
+            <span className="text-sm font-semibold text-red-700 dark:text-red-300">
+              Estado de Sesión
+            </span>
+            {useTokenAuth && <Key className="w-3 h-3 text-green-500" />}
+          </div>
+          <div className="space-y-2 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600 dark:text-gray-300">
+                {useTokenAuth ? "Token activo:" : "Sesión activa:"}
+              </span>
+              <span className="font-medium text-gray-900 dark:text-white">
+                {getFormattedTimeLeft()}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600 dark:text-gray-300">Rol:</span>
+              <span
+                className={`px-2 py-1 rounded text-xs font-medium ${getRoleColor(user.role)}`}
+              >
+                {user.role?.toUpperCase()}
+              </span>
+            </div>
+            {useTokenAuth && (
+              <div className="text-xs text-blue-600 dark:text-blue-400">
+                🔐 Autenticación con token seguro activa
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Indicador de estado de sesión para todos los usuarios */}
+      {user && user.role !== "superadmin" && !showSessionTimer && (
+        <div
+          className={`fixed right-4 z-40 bg-gray-800 text-white p-2 rounded-lg shadow-lg text-xs ${showCalculator || showCashCounterFloating ? "bottom-24" : "bottom-4"}`}
+        >
+          <div className="flex items-center gap-2">
+            <div
+              className={`w-2 h-2 rounded-full ${timeLeft > 1 ? "bg-green-400" : "bg-yellow-400"}`}
+            ></div>
+            <span>
+              {useTokenAuth ? getFormattedTimeLeft() : formatTimeLeft(timeLeft)}
+            </span>
+            {useTokenAuth && (
+              <Key
+                className="w-3 h-3 text-green-400 cursor-pointer hover:text-green-300"
+                onClick={() => setShowTokenInfo(true)}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de información del token */}
+      <TokenInfo
+        isOpen={showTokenInfo}
+        onClose={() => setShowTokenInfo(false)}
+      />
+    </>
+  );
+}

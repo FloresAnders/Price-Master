@@ -1,30 +1,30 @@
 "use client";
 
 import React from "react";
-import { EmpresasService } from "../../services/empresas";
+import { EmpresasService } from "@/entities/empresa";
 import {
   DELIFOOD_EMPRESA_ID,
   FuncionesService,
   getFuncionIdLookupKeys,
-} from "../../services/funciones";
-import { useAuth } from "../../hooks/useAuth";
-import { useActorOwnership } from "../../hooks/useActorOwnership";
-import useToast from "../../hooks/useToast";
-import type { Empresas } from "../../types/firestore";
+} from "../../shared/services/funciones";
+import { useAuth } from "../../shared/hooks/useAuth";
+import { useActorOwnership } from "../../shared/hooks/useActorOwnership";
+import useToast from "../../shared/hooks/useToast";
+import type { Empresas } from "../../shared/types/firestore";
 
-import { EmpresaSearchAddSection } from "@/components/recetas/component/EmpresaSearchAddSection";
-import { Paginacion } from "@/components/recetas/component/Paginacion";
+import { EmpresaSearchAddSection } from "@/features/recetas/component/EmpresaSearchAddSection";
+import { Paginacion } from "@/features/recetas/component/Paginacion";
 import { RecetasListContent } from "./funciones/RecetasListContent";
 import type { FuncionListItem } from "./funciones/RecetasListItems";
 import EmpresaFuncionesModal from "./funciones/EmpresaFuncionesModal";
-import { RightDrawer } from "@/components/ui/RightDrawer";
-import ConfirmModal from "@/components/ui/ConfirmModal";
+import { RightDrawer } from "@/shared/components/ui/RightDrawer";
+import ConfirmModal from "@/shared/components/ui/ConfirmModal";
 import { Loader2 } from "lucide-react";
 import {
   normalizeReminderTimesCr,
   validateBlockSeconds,
   validateReminderTimesCr,
-} from "@/components/funciones/reminderTimes";
+} from "@/features/funciones/reminderTimes";
 
 type FuncionesEditorSectionProps = {
   ownerId?: string;

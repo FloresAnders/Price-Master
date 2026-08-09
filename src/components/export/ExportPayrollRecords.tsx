@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { PayrollRecordsService } from "../../services/payroll-records";
+import { PayrollRecordsService } from "../../shared/services/payroll-records";
 
 export default function ExportPayrollRecords() {
   const handleExport = async () => {

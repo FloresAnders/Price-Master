@@ -12,15 +12,15 @@ import {
   Calculator,
   Eye,
 } from "lucide-react";
-import { EmpresasService } from "../../services/empresas";
-import { UsersService } from "../../services/users";
-import useToast from "../../hooks/useToast";
-import { useAuth } from "../../hooks/useAuth";
-import { useActorOwnership } from "../../hooks/useActorOwnership";
-import { SchedulesService, ScheduleEntry } from "../../services/schedules";
+import { EmpresasService } from "@/entities/empresa";
+import { UsersService } from "../../shared/services/users";
+import useToast from "../../shared/hooks/useToast";
+import { useAuth } from "../../shared/hooks/useAuth";
+import { useActorOwnership } from "../../shared/hooks/useActorOwnership";
+import { SchedulesService, ScheduleEntry } from "../../shared/services/schedules";
 import PayrollExporter from "./PayrollExporter";
 import PayrollRecordsViewer from "./PayrollRecordsViewer";
-import ConfirmModal from "../ui/ConfirmModal";
+import ConfirmModal from "../../shared/components/ui/ConfirmModal";
 
 interface MappedEmpresa {
   id?: string;

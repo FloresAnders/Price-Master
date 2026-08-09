@@ -9,10 +9,10 @@ import {
   TrendingUp,
   Minus,
 } from "lucide-react";
-import { CcssConfigService } from "../../services/ccss-config";
-import { SchedulesService, ScheduleEntry } from "../../services/schedules";
-import { EmpresasService } from "../../services/empresas";
-import { useAuth } from "../../hooks/useAuth";
+import { CcssConfigService } from "../../shared/services/ccss-config";
+import { SchedulesService, ScheduleEntry } from "../../shared/services/schedules";
+import { EmpresasService } from "@/entities/empresa";
+import { useAuth } from "../../shared/hooks/useAuth";
 
 interface EmployeeData {
   name: string;

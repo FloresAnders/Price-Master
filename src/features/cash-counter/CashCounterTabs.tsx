@@ -1,0 +1,167 @@
+"use client";
+
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Lock as LockIcon, Banknote, Layers, Smartphone, Calculator as CalculatorIcon,
+  Inbox,
+} from "lucide-react";
+import { useAuth } from "../../shared/hooks/useAuth";
+import { hasPermission } from "../../shared/utils/permissions";
+import { useCashCounter } from "./hooks/useCashCounter";
+import { CashCounter } from "./components/CashCounter";
+import { CounterSidebar } from "./components/CounterSidebar";
+import { RightPanel } from "./components/RightPanel";
+import { SinpeModal } from "./components/SinpeModal";
+import { RenameModal } from "./components/RenameModal";
+import { CurrencyModal } from "./components/CurrencyModal";
+import { MenuModal } from "./components/MenuModal";
+import CalculatorModal from "../../components/modals/CalculatorModal";
+
+export default function CashCounterTabs() {
+  const { user } = useAuth();
+  const {
+    data, active, setActive, lastSaved, saving,
+    add, del, upd,
+    dragIdx, overIdx, hDS, hDO, hDL, hDrop, hDE,
+    exp, imp, clear, storageInfo,
+  } = useCashCounter();
+
+  const [calcOpen, setCalcOpen] = useState(false);
+  const [sinpeOpen, setSinpeOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameIdx, setRenameIdx] = useState(0);
+  const [currencyOpen, setCurrencyOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [showExtra, setShowExtra] = useState(false);
+  const [showBD, setShowBD] = useState(false);
+  const activeCounter = data[active];
+  const activeCurrencyLabel = activeCounter?.currency === "CRC" ? "Colones" : "Dólares";
+
+  if (!hasPermission(user?.permissions, "cashcounter")) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh] p-8">
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center max-w-sm bg-[#0d1117] rounded-2xl border border-white/10 p-10">
+          <div className="w-12 h-12 rounded-xl bg-[#0d1117] border border-white/10 flex items-center justify-center mx-auto mb-4">
+            <LockIcon className="w-6 h-6 text-white/30" />
+          </div>
+          <h3 className="text-lg font-semibold text-white/80 mb-2">Acceso Restringido</h3>
+          <p className="text-sm text-white/30">No tienes permisos para acceder al Contador de Efectivo.</p>
+          <p className="text-xs text-white/20 mt-2">Contacta a un administrador.</p>
+        </motion.div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen overflow-x-hidden pb-24 sm:pb-28">
+      <div className="relative mb-5 p-4 sm:mb-7 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-5">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan-400/30 bg-gradient-to-br from-cyan-500/20 to-teal-500/15 shadow-[0_12px_35px_rgba(6,182,212,0.18)] sm:h-16 sm:w-16">
+              <Banknote className="h-6 w-6 text-cyan-300 sm:h-8 sm:w-8" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-end sm:gap-4">
+                <h1 className="text-2xl font-bold tracking-tight text-white sm:text-4xl">Cash Counter</h1>
+                {activeCounter ? (
+                  <div className="min-w-0 pb-0.5">
+                    <div className="truncate text-sm font-semibold tracking-tight text-white/90 sm:text-base">
+                      {activeCounter.name}
+                    </div>
+                    <div className="text-[11px] tracking-wide text-white/35">
+                      {activeCurrencyLabel}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+              <p className="mt-2 text-center text-xs font-medium tracking-wide text-white/45 sm:text-sm">
+                Administra y controla el efectivo por tipos de billetes
+              </p>
+            </div>
+          </div>
+          <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end sm:pt-1">
+            <AnimatePresence mode="wait">
+              {saving ? (
+                <motion.span key="s" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  className="flex min-w-0 items-center truncate rounded-lg border border-cyan-400/20 bg-cyan-500/10 px-3 py-1.5 text-[11px] text-cyan-300/90">
+                  <div className="animate-spin rounded-full h-2.5 w-2.5 border-b-2 border-cyan-200/70 mr-1.5" /> Guardando...
+                </motion.span>
+              ) : lastSaved ? (
+                <motion.span key="d" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  className="max-w-[calc(100vw-8rem)] truncate rounded-lg border border-cyan-400/20 bg-cyan-500/10 px-3 py-1.5 text-[11px] text-cyan-300/90 sm:max-w-none">
+                  Guardado {lastSaved}
+                </motion.span>
+              ) : null}
+            </AnimatePresence>
+            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+              onClick={() => setMenuOpen(true)}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-[#0d1117] text-cyan-200/70 transition-all hover:border-cyan-400/30 hover:text-cyan-200">
+              <Layers className="w-4.5 h-4.5" />
+            </motion.button>
+          </div>
+        </div>
+      </div>
+
+      <div className="mx-auto flex max-w-[1800px] flex-col gap-4 px-3 sm:gap-6 sm:px-6 lg:flex-row">
+        <CounterSidebar
+          data={data}
+          active={active}
+          onSelect={setActive}
+          onRename={(i) => { setRenameIdx(i); setRenameOpen(true); }}
+          onAdd={add}
+          dragIdx={dragIdx}
+          overIdx={overIdx}
+          onDragStart={hDS}
+          onDragOver={hDO}
+          onDragLeave={hDL}
+          onDrop={hDrop}
+          onDragEnd={hDE}
+        />
+
+        <div className="flex-1 min-w-0 order-1 lg:order-2">
+          {data.length > 0 ? (
+            <CashCounter id={active} data={data[active]} showBD={showBD} onUpdate={upd} />
+          ) : (
+            <div className="text-center text-white/15 flex flex-col items-center py-12">
+              <Inbox className="w-12 h-12 mb-3 opacity-30" />
+              <p className="text-sm">No hay contadores. Presiona &ldquo;+ Nuevo&rdquo;.</p>
+            </div>
+          )}
+        </div>
+
+        {data.length > 0 && (
+          <RightPanel
+            data={data[active]}
+            showExtra={showExtra}
+            setShowExtra={setShowExtra}
+            showBD={showBD}
+            setShowBD={setShowBD}
+            onUpdate={(d) => upd(active, d)}
+            onCurrencyOpen={() => setCurrencyOpen(true)}
+            onDelete={() => del(active)}
+          />
+        )}
+      </div>
+
+      <div className="fixed bottom-4 right-4 z-30 flex flex-col gap-2.5 sm:bottom-6 sm:right-6">
+        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+          onClick={() => setSinpeOpen(true)}
+          className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/15 border border-emerald-500/25 flex items-center justify-center shadow-lg text-emerald-400 hover:text-emerald-300 transition-all" aria-label="SINPE">
+          <Smartphone className="w-5 h-5" />
+        </motion.button>
+        <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+          onClick={() => setCalcOpen(true)}
+          className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/15 border border-cyan-500/25 flex items-center justify-center shadow-lg text-cyan-400 hover:text-cyan-300 transition-all" aria-label="Calculadora">
+          <CalculatorIcon className="w-5 h-5" />
+        </motion.button>
+      </div>
+
+      <AnimatePresence>{calcOpen && <CalculatorModal isOpen={calcOpen} onClose={() => setCalcOpen(false)} />}</AnimatePresence>
+      <AnimatePresence>{sinpeOpen && <SinpeModal isOpen={sinpeOpen} onClose={() => setSinpeOpen(false)} currency={data[active]?.currency || "CRC"} />}</AnimatePresence>
+      <AnimatePresence>{renameOpen && <RenameModal isOpen={renameOpen} currentName={data[renameIdx]?.name || ""} onSave={(n) => upd(renameIdx, { ...data[renameIdx], name: n })} onClose={() => setRenameOpen(false)} />}</AnimatePresence>
+      <AnimatePresence>{currencyOpen && <CurrencyModal isOpen={currencyOpen} currentCurrency={data[active]?.currency || "CRC"} onSave={(c) => upd(active, { ...data[active], currency: c, bills: {}, extraAmount: 0, aperturaCaja: 0, ventaActual: 0 })} onClose={() => setCurrencyOpen(false)} />}</AnimatePresence>
+      <AnimatePresence>{menuOpen && <MenuModal isOpen={menuOpen} onClose={() => setMenuOpen(false)} onExport={exp} onImport={imp} onClear={clear} storageInfo={storageInfo()} />}</AnimatePresence>
+    </div>
+  );
+}

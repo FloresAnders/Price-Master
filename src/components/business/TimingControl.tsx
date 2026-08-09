@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
-import { SorteosService } from "../../services/sorteos";
+import { SorteosService } from "../../shared/services/sorteos";
 import {
   Timer,
   Download,
@@ -8,16 +8,16 @@ import {
   Smartphone,
   Lock as LockIcon,
 } from "lucide-react";
-import type { Sorteo } from "../../types/firestore";
-import TicketCarousel from "../ui/TicketCarousel";
-import HelpTooltip from "../ui/HelpTooltip";
-import ConfirmModal from "../ui/ConfirmModal";
-import useToast from "../../hooks/useToast";
+import type { Sorteo } from "../../shared/types/firestore";
+import TicketCarousel from "../../shared/components/ui/TicketCarousel";
+import HelpTooltip from "../../shared/components/ui/HelpTooltip";
+import ConfirmModal from "../../shared/components/ui/ConfirmModal";
+import useToast from "../../shared/hooks/useToast";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage } from "@/config/firebase";
+import { storage } from "@/shared/config/firebase";
 import QRCode from "qrcode";
-import { useAuth } from "../../hooks/useAuth";
-import { hasPermission } from "../../utils/permissions";
+import { useAuth } from "../../shared/hooks/useAuth";
+import { hasPermission } from "../../shared/utils/permissions";
 
 function getNowTime() {
   const now = new Date();

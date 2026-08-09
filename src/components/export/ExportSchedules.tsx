@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { SchedulesService } from "../../services/schedules";
+import { SchedulesService } from "../../shared/services/schedules";
 
 export default function ExportSchedules() {
   const handleExport = async () => {

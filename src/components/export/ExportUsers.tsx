@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { UsersService } from "../../services/users";
+import { UsersService } from "../../shared/services/users";
 
 export default function ExportUsers() {
   const handleExport = async () => {

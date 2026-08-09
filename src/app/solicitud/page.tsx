@@ -1,6 +1,6 @@
 "use client";
 
-import SolicitudForm from "@/components/solicitud/SolicitudForm";
+import SolicitudForm from "@/features/solicitud/SolicitudForm";
 
 export default function SolicitudPage() {
   return (

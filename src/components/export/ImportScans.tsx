@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
-import { ScanningService } from "../../services/scanning";
-import type { ScanResult } from "../../types/firestore";
+import { ScanningService } from "../../shared/services/scanning";
+import type { ScanResult } from "../../shared/types/firestore";
 
 export default function ImportScans() {
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {

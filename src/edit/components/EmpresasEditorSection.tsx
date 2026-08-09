@@ -3,8 +3,8 @@
 import React from "react";
 import { Eye, EyeOff, Mail, Plus, Trash2 } from "lucide-react";
 
-import { EmpresasService } from "../../services/empresas";
-import type { User } from "../../types/firestore";
+import { EmpresasService } from "@/entities/empresa";
+import type { User } from "../../shared/types/firestore";
 
 type Props = {
   empresasData: any[];

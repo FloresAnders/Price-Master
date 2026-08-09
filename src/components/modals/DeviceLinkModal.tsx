@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import QRCode from "qrcode";
 import { X } from "lucide-react";
-import { TokenService } from "../../services/tokenService";
+import { TokenService } from "../../shared/services/tokenService";
 
 interface DeviceLinkModalProps {
   isOpen: boolean;

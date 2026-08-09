@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { usePermissions } from "@/hooks/usePermissions";
+import { usePermissions } from "@/shared/hooks/usePermissions";
 import { Capacitor } from "@capacitor/core";
 
 export function PermissionsManager({

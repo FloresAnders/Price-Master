@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { NotebookText } from "lucide-react";
-import { useVersion } from "../../hooks/useVersion";
+import { useVersion } from "../../shared/hooks/useVersion";
 import delikorLogo from "../../../public/Logos/delikor.png";
 import tmLogo from "../../../public/Logos/LogoBlanco2.png";
 

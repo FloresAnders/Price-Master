@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server";
 // Force Node runtime for login route (sensitive, do not run on Edge functions)
 export const runtime = "nodejs";
-import { UsersService } from "@/services/users";
+import { UsersService } from "@/shared/services/users";
 import {
   verifyPasswordServer,
   hashPasswordServer,
-} from "@/lib/auth/password.server";
+} from "@/shared/lib/auth/password.server";
 import {
   AUTH_COOKIE_NAME,
   createSessionCookieValue,
   sessionCookieOptions,
-} from "@/lib/auth/session-cookie.server";
+} from "@/shared/lib/auth/session-cookie.server";
 
 export async function POST(request: Request) {
   try {

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { Banknote, X } from "lucide-react";
-import CashCounterTabs from "@/components/business/cash-counter-tabs/CashCounterTabs";
+import CashCounterTabs from "@/features/cash-counter/CashCounterTabs";
 
 type CashCounterModalProps = {
   isOpen: boolean;

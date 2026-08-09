@@ -1,0 +1,59 @@
+"use client";
+
+import React from "react";
+import { Lock } from "lucide-react";
+import { ProviderSection } from "../components";
+import { useAuth } from "@/shared/hooks/useAuth";
+import { getDefaultPermissions } from "@/shared/utils/permissions";
+
+export default function AgregarProveedorPage() {
+  const { user, loading } = useAuth();
+  const permissions =
+    user?.permissions || getDefaultPermissions(user?.role || "user");
+  const hasProviderAccountAccess = Boolean(
+    permissions.fondogeneral ||
+      permissions.fondogeneralBCR ||
+      permissions.fondogeneralBN ||
+      permissions.fondogeneralBAC ||
+      permissions.cajaNegra ||
+      permissions.tucan ||
+      permissions.tiempos,
+  );
+
+  if (loading) {
+    return (
+      <div className="max-w-6xl mx-auto py-8 px-4">
+        <div className="flex items-center justify-center p-6 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)]">
+          <p className="text-sm sm:text-base text-[var(--muted-foreground)]">
+            Cargando permisos...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasProviderAccountAccess) {
+    return (
+      <div className="max-w-6xl mx-auto py-8 px-4">
+        <div className="flex flex-col items-center justify-center p-6 bg-[var(--card-bg)] rounded-lg border border-[var(--input-border)] text-center">
+          <Lock className="w-8 h-8 sm:w-10 sm:h-10 text-[var(--muted-foreground)] mb-3 sm:mb-4" />
+          <h3 className="text-base sm:text-lg font-semibold text-[var(--foreground)] mb-2">
+            Acceso restringido
+          </h3>
+          <p className="text-sm sm:text-base text-[var(--muted-foreground)]">
+            No tienes permisos para agregar proveedores.
+          </p>
+          <p className="text-xs sm:text-sm text-[var(--muted-foreground)] mt-2">
+            Contacta a un administrador para obtener acceso.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl p-6">
+      <ProviderSection />
+    </div>
+  );
+}

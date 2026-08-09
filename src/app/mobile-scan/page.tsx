@@ -14,11 +14,11 @@ import {
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { ScanningService } from "../../services/scanning";
-import { useAuth } from "../../hooks/useAuth";
-import { useBarcodeScanner } from "../../hooks/useBarcodeScanner";
-import { CameraScanner } from "../../components/scanner";
-import { storage } from "@/config/firebase";
+import { ScanningService } from "../../shared/services/scanning";
+import { useAuth } from "../../shared/hooks/useAuth";
+import { useBarcodeScanner } from "../../shared/hooks/useBarcodeScanner";
+import { CameraScanner } from "@/features/scanner";
+import { storage } from "@/shared/config/firebase";
 import { ref, uploadBytes, getDownloadURL, listAll } from "firebase/storage";
 
 // Force dynamic rendering for this page

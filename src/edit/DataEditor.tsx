@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import useToast from "../hooks/useToast";
+import useToast from "../shared/hooks/useToast";
 import {
   FileText,
   Users,
@@ -15,13 +15,13 @@ import {
   Smartphone,
   Clock,
 } from "lucide-react";
-import { EmpresasService } from "../services/empresas";
-import { SorteosService } from "../services/sorteos";
-import { UsersService } from "../services/users";
-import { useAuth } from "../hooks/useAuth";
-import { useActorOwnership } from "../hooks/useActorOwnership";
-import { CcssConfigService } from "../services/ccss-config";
-import { FondoMovementTypesService } from "../services/fondo-movement-types";
+import { EmpresasService } from "@/entities/empresa";
+import { SorteosService } from "../shared/services/sorteos";
+import { UsersService } from "../shared/services/users";
+import { useAuth } from "../shared/hooks/useAuth";
+import { useActorOwnership } from "../shared/hooks/useActorOwnership";
+import { CcssConfigService } from "../shared/services/ccss-config";
+import { FondoMovementTypesService } from "../shared/services/fondo-movement-types";
 import {
   Sorteo,
   User,
@@ -29,16 +29,16 @@ import {
   UserPermissions,
   companies,
   FondoMovementTypeConfig,
-} from "../types/firestore";
+} from "../shared/types/firestore";
 import {
   getDefaultPermissions,
   getNoPermissions,
   hasPermission,
   normalizeUserPermissions,
-} from "../utils/permissions";
+} from "../shared/utils/permissions";
 import ScheduleReportTab from "../components/business/ScheduleReportTab";
-import ConfirmModal from "../components/ui/ConfirmModal";
-import { resolveActorOwnerId } from "../utils/actorOwnership";
+import ConfirmModal from "../shared/components/ui/ConfirmModal";
+import { resolveActorOwnerId } from "../shared/utils/actorOwnership";
 
 import EmpresasEditorSection from "./components/EmpresasEditorSection";
 import SorteosEditorSection from "./components/SorteosEditorSection";

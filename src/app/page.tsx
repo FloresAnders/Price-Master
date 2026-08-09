@@ -3,34 +3,34 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/shared/hooks/useAuth";
 /*import { Calculator, Smartphone, Type, Banknote, Scan, Clock, Truck, Settings, History, } from lucide-react'*/
-import type { ScanHistoryEntry } from "@/types/barcode";
+import type { ScanHistoryEntry } from "@/shared/types/barcode";
 import { ClientOnlyHomeMenu } from "@/components/layout";
 import { ref, listAll } from "firebase/storage";
-import Pruebas from "@/components/xpruebas/Pruebas";
-import { storage } from "@/config/firebase";
-import { safeLocalStorage, safeWindow } from "@/utils/client";
-import { getDefaultPermissions } from "@/utils/permissions";
+import Pruebas from "@/features/diagnostics/Pruebas";
+import { storage } from "@/shared/config/firebase";
+import { safeLocalStorage, safeWindow } from "@/shared/utils/client";
+import { getDefaultPermissions } from "@/shared/utils/permissions";
 
 // Dynamic imports for code splitting
 const BarcodeScanner = dynamic(
   () =>
-    import("@/components/scanner").then((mod) => ({
+    import("@/features/scanner").then((mod) => ({
       default: mod.BarcodeScanner,
     })),
   { ssr: false },
 );
 const PriceCalculator = dynamic(
   () =>
-    import("@/components/calculator").then((mod) => ({
+    import("@/features/calculator").then((mod) => ({
       default: mod.PriceCalculator,
     })),
   { ssr: false },
 );
 const TextConversion = dynamic(
   () =>
-    import("@/components/calculator").then((mod) => ({
+    import("@/features/calculator").then((mod) => ({
       default: mod.TextConversion,
     })),
   { ssr: false },
@@ -79,65 +79,65 @@ const SupplierOrders = dynamic(
 );
 const Mantenimiento = dynamic(
   () =>
-    import("@/components/admin").then((mod) => ({
+    import("@/features/admin").then((mod) => ({
       default: mod.Mantenimiento,
     })),
   { ssr: false },
 );
 const ScanHistoryTable = dynamic(
   () =>
-    import("@/components/scanner").then((mod) => ({
+    import("@/features/scanner").then((mod) => ({
       default: mod.ScanHistoryTable,
     })),
   { ssr: false },
 );
 const FuncionesTab = dynamic(
   () =>
-    import("@/components/funciones/FuncionesTab").then((mod) => ({
+    import("@/features/funciones/FuncionesTab").then((mod) => ({
       default: mod.FuncionesTab,
     })),
   { ssr: false },
 );
 const FondoPage = dynamic(
-  () => import("@/app/fondogeneral/page"),
+  () => import("@/features/fondogeneral/page"),
   { ssr: false },
 );
 const AgregarProveedorPage = dynamic(
-  () => import("@/app/fondogeneral/agregarproveedor/page"),
+  () => import("@/features/fondogeneral/agregarproveedor/page"),
   { ssr: false },
 );
-const ReportesPage = dynamic(() => import("@/app/fondogeneral/reportes/PageReporteMovimientosOlap"), {
+const ReportesPage = dynamic(() => import("@/features/fondogeneral/reportes/PageReporteMovimientosOlap"), {
   ssr: false,
 });
 const ReportesSinpePage = dynamic(
-  () => import("@/app/fondogeneral/reportessinpe/page"),
+  () => import("@/features/fondogeneral/reportessinpe/page"),
   { ssr: false },
 );
 const FacturasPage = dynamic(
-  () => import("@/app/fondogeneral/facturas/FacturasPage"),
+  () => import("@/features/fondogeneral/facturas/FacturasPage"),
   { ssr: false },
 );
 const InternalDebtsPage = dynamic(
-  () => import("@/app/fondogeneral/deudasinternas/page"),
+  () => import("@/features/fondogeneral/deudasinternas/page"),
   { ssr: false },
 );
 const SolicitudForm = dynamic(
-  () => import("@/components/solicitud/SolicitudForm"),
+  () => import("@/features/solicitud/SolicitudForm"),
   { ssr: false },
 );
-const XmlPage = dynamic(() => import("@/components/xml/XmlPage"), {
+const XmlPage = dynamic(() => import("@/features/xml/XmlPage"), {
   ssr: false,
 });
 const RecetasTab = dynamic(
   () =>
-    import("../components/recetas/RecetasTab").then((mod) => ({
+    import("../features/recetas/RecetasTab").then((mod) => ({
       default: mod.RecetasTab,
     })),
   { ssr: false },
 );
 const AgregarProductoTab = dynamic(
   () =>
-    import("../components/recetas/AgregarProductoTab").then((mod) => ({
+    import("../features/recetas/AgregarProductoTab").then((mod) => ({
       default: mod.AgregarProductoTab,
     })),
   { ssr: false },
@@ -151,7 +151,7 @@ const RegistroTiempos = dynamic(
   { ssr: false },
 );
 const AnotacionesPage = dynamic(
-  () => import("@/components/anotaciones/AnotacionesPage"),
+  () => import("@/features/anotaciones/AnotacionesPage"),
   { ssr: false },
 );
 

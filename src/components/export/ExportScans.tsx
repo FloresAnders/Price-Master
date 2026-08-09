@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { ScanningService } from "../../services/scanning";
+import { ScanningService } from "../../shared/services/scanning";
 
 export default function ExportScans() {
   const handleExport = async () => {

@@ -2,9 +2,9 @@
 
 import { AlertTriangle, CalendarClock, LogOut, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { UsersService } from "@/services/users";
-import type { User, UserSubscription } from "@/types/firestore";
+import { useAuth } from "@/shared/hooks/useAuth";
+import { UsersService } from "@/shared/services/users";
+import type { User, UserSubscription } from "@/shared/types/firestore";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const NOTICE_DAYS = 5;

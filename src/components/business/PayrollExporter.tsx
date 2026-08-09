@@ -8,8 +8,8 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import { useAuth } from "../../hooks/useAuth";
-import { useActorOwnership } from "../../hooks/useActorOwnership";
+import { useAuth } from "../../shared/hooks/useAuth";
+import { useActorOwnership } from "../../shared/hooks/useActorOwnership";
 import {
   Calculator,
   DollarSign,
@@ -21,12 +21,12 @@ import {
   Users,
   Filter,
 } from "lucide-react";
-import { EmpresasService } from "../../services/empresas";
-import useToast from "../../hooks/useToast";
-import ConfirmModal from "../ui/ConfirmModal";
-import { SchedulesService, ScheduleEntry } from "../../services/schedules";
-import { PayrollRecordsService } from "../../services/payroll-records";
-import { CcssConfigService } from "../../services/ccss-config";
+import { EmpresasService } from "@/entities/empresa";
+import useToast from "../../shared/hooks/useToast";
+import ConfirmModal from "../../shared/components/ui/ConfirmModal";
+import { SchedulesService, ScheduleEntry } from "../../shared/services/schedules";
+import { PayrollRecordsService } from "../../shared/services/payroll-records";
+import { CcssConfigService } from "../../shared/services/ccss-config";
 
 interface MappedEmpresa {
   id?: string;

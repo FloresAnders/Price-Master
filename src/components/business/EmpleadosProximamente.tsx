@@ -9,20 +9,20 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
-import { useAuth } from "../../hooks/useAuth";
-import { useActorOwnership } from "../../hooks/useActorOwnership";
-import { hasPermission } from "../../utils/permissions";
-import { EmpresasService } from "../../services/empresas";
-import { EmpleadosService } from "../../services/empleados";
-import { CcssConfigService } from "../../services/ccss-config";
-import useToast from "../../hooks/useToast";
-import EmpleadoDetailsModal from "../ui/EmpleadoDetailsModal";
-import ConfirmModal from "../ui/ConfirmModal";
+import { useAuth } from "../../shared/hooks/useAuth";
+import { useActorOwnership } from "../../shared/hooks/useActorOwnership";
+import { hasPermission } from "../../shared/utils/permissions";
+import { EmpresasService } from "@/entities/empresa";
+import { EmpleadosService } from "@/entities/empleado";
+import { CcssConfigService } from "../../shared/services/ccss-config";
+import useToast from "../../shared/hooks/useToast";
+import EmpleadoDetailsModal from "../../shared/components/ui/EmpleadoDetailsModal";
+import ConfirmModal from "../../shared/components/ui/ConfirmModal";
 import type {
   Empresas,
   EmpresaEmpleado,
   Empleado,
-} from "../../types/firestore";
+} from "../../shared/types/firestore";
 
 type EmpresaOption = {
   key: string;

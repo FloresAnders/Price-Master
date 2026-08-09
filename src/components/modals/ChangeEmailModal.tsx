@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { Loader2, Mail, Send, X } from "lucide-react";
-import useToast from "@/hooks/useToast";
+import useToast from "@/shared/hooks/useToast";
 
 type Props = {
   isOpen: boolean;

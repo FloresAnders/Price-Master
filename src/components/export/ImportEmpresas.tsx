@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { EmpresasService } from "../../services/empresas";
+import { EmpresasService } from "@/entities/empresa";
 
 export default function ImportEmpresas() {
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {

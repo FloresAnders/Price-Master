@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { EmailService } from "@/services/email";
-import { EmailChangeCodeService } from "@/services/emailChangeCodeService";
-import { buildEmailChangeVerificationTemplate } from "@/services/email-templates/cambio-correo";
-import { db } from "@/config/firebase";
+import { EmailService } from "@/shared/services/email";
+import { EmailChangeCodeService } from "@/shared/services/emailChangeCodeService";
+import { buildEmailChangeVerificationTemplate } from "@/shared/services/email-templates/cambio-correo";
+import { db } from "@/shared/config/firebase";
 import { doc, getDoc } from "firebase/firestore";
 
 export const runtime = "nodejs";

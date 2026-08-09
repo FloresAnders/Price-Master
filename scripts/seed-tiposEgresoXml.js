@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+ 
 
 /**
  * Seed/Upsert Firestore collection: tiposEgresoXml

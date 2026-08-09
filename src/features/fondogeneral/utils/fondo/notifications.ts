@@ -1,0 +1,82 @@
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { db } from "@/shared/config/firebase";
+import { generateMovementNotificationEmail } from "../../../../shared/services/email-templates/notificacion-movimiento";
+import type { FondoEntry } from "../../types.ts";
+import type { ToastType } from "@/shared/hooks/useToast";
+import {
+  CIERRE_FONDO_VENTAS_PROVIDER_NAME,
+  SINGLE_CLOSING_REASON_PREFIX,
+} from "../../constants.ts";
+
+export async function sendMovementNotification(
+  entry: FondoEntry,
+  operationType: "create" | "edit",
+  company: string | null,
+  providers: { code: string; name?: string; correonotifi?: string }[],
+  showToast: (msg: string, type?: ToastType, duration?: number) => void,
+): Promise<void> {
+  try {
+    const provider = providers.find((p) => p.code === entry.providerCode);
+    if (!provider?.correonotifi || provider.correonotifi.trim().length === 0) {
+      return;
+    }
+
+    const providerName = provider.name || entry.providerCode;
+    const amount =
+      entry.amountEgreso > 0 ? entry.amountEgreso : entry.amountIngreso;
+    const amountType: "Egreso" | "Ingreso" =
+      entry.amountEgreso > 0 ? "Egreso" : "Ingreso";
+    const currency = (entry.currency as "CRC" | "USD") || "CRC";
+    const isCierreFondoVentas =
+      providerName.trim().toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME ||
+      entry.providerCode.trim().toUpperCase() ===
+        CIERRE_FONDO_VENTAS_PROVIDER_NAME;
+    const hasSingleClosingReason =
+      isCierreFondoVentas &&
+      entry.notes?.startsWith(SINGLE_CLOSING_REASON_PREFIX);
+    const singleClosingReason = hasSingleClosingReason
+      ? entry.notes?.slice(SINGLE_CLOSING_REASON_PREFIX.length).trim()
+      : undefined;
+
+    const emailContent = generateMovementNotificationEmail({
+      company: company || "",
+      providerName,
+      providerCode: entry.providerCode,
+      paymentType: entry.paymentType,
+      invoiceNumber: entry.invoiceNumber,
+      amount,
+      amountType,
+      currency,
+      manager: entry.manager,
+      notes: hasSingleClosingReason ? undefined : entry.notes,
+      singleClosingReason,
+      createdAt: entry.createdAt,
+      operationType,
+    });
+
+    try {
+      const docRef = await addDoc(collection(db, "mail"), {
+        to: provider.correonotifi,
+        subject: emailContent.subject,
+        text: emailContent.text,
+        html: emailContent.html,
+        createdAt: serverTimestamp(),
+      });
+      console.log(
+        `[MAIL-DOC] Documento creado en 'mail' para movimiento: ${docRef.id}`,
+      );
+      showToast("Correo de notificación enviado correctamente", "success");
+    } catch (err) {
+      console.error(
+        '[MAIL-DOC] Error creando documento en "mail" para movimiento:',
+        err,
+      );
+      showToast("Error al enviar correo de notificación", "error");
+    }
+  } catch (err) {
+    console.error(
+      "[EMAIL-NOTIFICATION] Error preparing notification:",
+      err,
+    );
+  }
+}
