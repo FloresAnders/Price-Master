@@ -1,6 +1,15 @@
-import { NextResponse } from 'next/server';
-import { getAdminDb } from '../../../../lib/firebase-admin';
-import { hashToken } from '../../../../lib/devices/tokens';
+import { NextResponse } from 'next/server.js';
+import { getAdminDb } from '../../../../lib/firebase-admin.ts';
+import { hashToken } from '../../../../lib/devices/tokens.ts';
+
+export function serializeDeviceLinkUser(
+  id: string,
+  data: Record<string, unknown> | undefined,
+): Record<string, unknown> | null {
+  if (!data) return null;
+  const { password, ...safeUser } = data;
+  return { id, ...safeUser };
+}
 
 export async function GET(req: Request) {
   try {
@@ -30,7 +39,10 @@ export async function GET(req: Request) {
     // Fetch user data
     const userRef = firestore.collection('users').doc(data.userId);
     const userSnap = await userRef.get();
-    const userData = userSnap.exists ? userSnap.data() : null;
+    const userData = serializeDeviceLinkUser(
+      userSnap.id,
+      userSnap.exists ? userSnap.data() : undefined,
+    );
 
     return NextResponse.json({ ok: true, user: userData });
   } catch (err: any) {
