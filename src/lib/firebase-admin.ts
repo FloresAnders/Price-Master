@@ -61,13 +61,22 @@ export function getAdminAuth() {
   return getAuth(getAdminApp());
 }
 
+export function resolveAdminFirestoreDatabaseId(
+  env: Record<string, string | undefined> = process.env,
+): string | undefined {
+  const explicitDatabaseId =
+    env.FIRESTORE_DATABASE_ID?.trim() ||
+    env.NEXT_PUBLIC_FIRESTORE_DATABASE_ID?.trim() ||
+    "";
+
+  if (explicitDatabaseId) return explicitDatabaseId;
+  if (env.NODE_ENV === "production") return "restauracion";
+  return undefined;
+}
+
 export function getAdminDb() {
-  const rawDatabaseId = (
-    process.env.FIRESTORE_DATABASE_ID ||
-    process.env.NEXT_PUBLIC_FIRESTORE_DATABASE_ID ||
-    ""
-  ).trim();
-  return rawDatabaseId
-    ? getFirestore(getAdminApp(), rawDatabaseId)
+  const databaseId = resolveAdminFirestoreDatabaseId(process.env);
+  return databaseId
+    ? getFirestore(getAdminApp(), databaseId)
     : getFirestore(getAdminApp());
 }

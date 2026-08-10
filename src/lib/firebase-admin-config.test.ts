@@ -1,6 +1,53 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFirebaseServiceAccountFromEnv } from "./firebase-admin.ts";
+import {
+  readFirebaseServiceAccountFromEnv,
+  resolveAdminFirestoreDatabaseId,
+} from "./firebase-admin.ts";
+
+test("resolveAdminFirestoreDatabaseId uses restauracion in production without overrides", () => {
+  assert.equal(
+    resolveAdminFirestoreDatabaseId({
+      NODE_ENV: "production",
+      FIRESTORE_DATABASE_ID: "",
+      NEXT_PUBLIC_FIRESTORE_DATABASE_ID: "",
+    }),
+    "restauracion",
+  );
+});
+
+test("resolveAdminFirestoreDatabaseId keeps default database in development without overrides", () => {
+  assert.equal(
+    resolveAdminFirestoreDatabaseId({
+      NODE_ENV: "development",
+      FIRESTORE_DATABASE_ID: "",
+      NEXT_PUBLIC_FIRESTORE_DATABASE_ID: "",
+    }),
+    undefined,
+  );
+});
+
+test("resolveAdminFirestoreDatabaseId prefers server override before public override", () => {
+  assert.equal(
+    resolveAdminFirestoreDatabaseId({
+      NODE_ENV: "production",
+      FIRESTORE_DATABASE_ID: "server-db",
+      NEXT_PUBLIC_FIRESTORE_DATABASE_ID: "public-db",
+    }),
+    "server-db",
+  );
+});
+
+test("resolveAdminFirestoreDatabaseId uses public override when server override is empty", () => {
+  assert.equal(
+    resolveAdminFirestoreDatabaseId({
+      NODE_ENV: "production",
+      FIRESTORE_DATABASE_ID: " ",
+      NEXT_PUBLIC_FIRESTORE_DATABASE_ID: "public-db",
+    }),
+    "public-db",
+  );
+});
 
 test("readFirebaseServiceAccountFromEnv reads only FIREBASE_SERVICE_ACCOUNT_KEY", () => {
   const legacyServiceAccount = JSON.stringify({
