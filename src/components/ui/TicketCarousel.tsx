@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Filter, Layers, LayoutList } from "lucide-react";
+import { getVisibleTicketComment } from "../business/timing-control/ticketEntry";
 
 interface Ticket {
   id: string;
@@ -7,12 +8,27 @@ interface Ticket {
   amount: number;
   time: string;
   code?: string;
+  comment?: string;
 }
 
 interface TicketCarouselProps {
   tickets: Ticket[];
   onDelete: (ticket: Ticket) => void;
   onEdit: (ticket: Ticket) => void;
+}
+
+function TicketComment({ comment }: { comment?: string }) {
+  const visibleComment = getVisibleTicketComment(comment);
+  if (!visibleComment) return null;
+
+  return (
+    <p
+      className="mt-1 max-w-full truncate text-center text-xs opacity-80"
+      title={visibleComment}
+    >
+      {visibleComment}
+    </p>
+  );
 }
 
 export default function TicketCarousel({
@@ -206,6 +222,7 @@ export default function TicketCarousel({
                       ₡ {ticket.amount.toLocaleString("es-CR")}
                     </span>
                   </div>
+                  <TicketComment comment={ticket.comment} />
                   <div
                     className="flex justify-end text-xs opacity-70 mt-1"
                     style={{ color: "var(--foreground)" }}
@@ -281,6 +298,7 @@ export default function TicketCarousel({
                     ₡ {ticket.amount.toLocaleString("es-CR")}
                   </span>
                 </div>
+                <TicketComment comment={ticket.comment} />
                 <div
                   className="flex justify-end text-xs opacity-70 mt-1"
                   style={{ color: "var(--foreground)" }}
