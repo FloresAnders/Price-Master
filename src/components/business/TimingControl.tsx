@@ -18,6 +18,11 @@ import { storage } from "@/config/firebase";
 import QRCode from "qrcode";
 import { useAuth } from "../../hooks/useAuth";
 import { hasPermission } from "../../utils/permissions";
+import {
+  createTimingTicket,
+  type TicketEntry,
+  type TimingMode,
+} from "./timing-control/ticketEntry";
 
 function getNowTime() {
   const now = new Date();
@@ -63,20 +68,10 @@ const VALID_CODES = {
   TTT: "TIEMPOS (TICA)",
 };
 
-type TimingMode = "mixto" | "individual";
-
 const TIMING_MODE_STORAGE_KEY = "timingControlTimingMode";
 
 const isTimingMode = (value: unknown): value is TimingMode =>
   value === "mixto" || value === "individual";
-
-interface TicketEntry {
-  id: string;
-  code: string;
-  sorteo: string;
-  amount: number;
-  time: string;
-}
 
 export default function TimingControl() {
   /* Verificar permisos del usuario */
@@ -96,6 +91,7 @@ export default function TimingControl() {
   const [currentCode, setCurrentCode] = useState("");
   const [selectedSorteo, setSelectedSorteo] = useState("");
   const [modalAmount, setModalAmount] = useState("");
+  const [modalComment, setModalComment] = useState("");
   const [keyBuffer, setKeyBuffer] = useState("");
   const [selectedSorteoIndex, setSelectedSorteoIndex] = useState(-1);
   const [tickets, setTickets] = useState<TicketEntry[]>([]);
@@ -229,6 +225,7 @@ export default function TimingControl() {
     setCurrentCode("");
     setSelectedSorteo("");
     setModalAmount("");
+    setModalComment("");
     setTicketToDelete(null);
   };
 
@@ -303,6 +300,7 @@ export default function TimingControl() {
       setCurrentCode(code);
       setSelectedSorteoIndex(-1);
       setModalAmount("");
+      setModalComment("");
 
       if (timingMode === "mixto" && code === "T11") {
         setSelectedSorteo(VALID_CODES.T11);
@@ -435,13 +433,15 @@ export default function TimingControl() {
       return;
     }
 
-    const newTicket: TicketEntry = {
+    const newTicket = createTimingTicket({
       id: Date.now().toString(),
       code: currentCode,
       sorteo: selectedSorteo,
       amount: Number(modalAmount),
       time: getNowTime(),
-    };
+      timingMode,
+      comment: modalComment,
+    });
 
     setTickets((prev) => [...prev, newTicket]);
 
@@ -450,6 +450,7 @@ export default function TimingControl() {
     setCurrentCode("");
     setSelectedSorteo("");
     setModalAmount("");
+    setModalComment("");
     setSelectedSorteoIndex(-1);
   };
 
@@ -1298,7 +1299,7 @@ export default function TimingControl() {
                   >
                     Monto para TIEMPOS (COMODIN):
                   </label>
-                  <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="flex flex-col gap-3">
                     <input
                       ref={amountInputRef}
                       type="number"
@@ -1313,6 +1314,27 @@ export default function TimingControl() {
                       }}
                       placeholder="Ingresa el monto"
                     />
+                    <div>
+                      <label
+                        htmlFor="mixed-t11-comment"
+                        className="mb-2 block text-sm font-medium text-[var(--foreground)]"
+                      >
+                        Comentario (opcional):
+                      </label>
+                      <input
+                        id="mixed-t11-comment"
+                        type="text"
+                        className="h-11 w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] hover:border-[var(--accent)]/60 focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+                        value={modalComment}
+                        onChange={(event) =>
+                          setModalComment(event.target.value)
+                        }
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") handleAddTicket();
+                        }}
+                        placeholder="Escribe un comentario"
+                      />
+                    </div>
                     <button
                       className="h-11 rounded-lg bg-[var(--button-bg)] px-4 text-[var(--button-text)] font-semibold hover:bg-[var(--button-hover)] transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                       onClick={handleAddTicket}
