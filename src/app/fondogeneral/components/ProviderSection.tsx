@@ -46,6 +46,7 @@ import { getAuthoritativeNowISO } from "@/utils/serverTime";
 import type { MovementAccountKey } from "@/services/movimientos-fondos";
 import type { FondoMovementType } from "../types";
 import { formatMovementType, isEgresoType } from "../utils/movementTypes/movementTypes";
+import { resolveProviderTypesOwnerId } from "./providerTypesOwner";
 
 const SHARED_COMPANY_STORAGE_KEY = "fg_selected_company_shared";
 const PROVIDER_ACCOUNT_OPTIONS: Array<{
@@ -156,52 +157,17 @@ export function ProviderSection({ id }: { id?: string }) {
   const [ownerCompaniesError, setOwnerCompaniesError] = useState<string | null>(
     null,
   );
-  const providerTypesOwnerId = useMemo(() => {
-    const normalizeCompanyKey = (value: unknown) =>
-      String(value || "")
-        .trim()
-        .toLowerCase();
-
-    const firstAllowedOwner = Array.from(allowedOwnerIds)[0] || "";
-    if (firstAllowedOwner) return String(firstAllowedOwner).trim();
-
-    if (canSelectCompany) {
-      const normalizedCompany = normalizeCompanyKey(adminCompany);
-      if (normalizedCompany.length > 0) {
-        const match = ownerCompanies.find((emp) => {
-          const candidates = [emp.name, emp.ubicacion, emp.id]
-            .map(normalizeCompanyKey)
-            .filter(Boolean);
-          return candidates.includes(normalizedCompany);
-        });
-        const ownerId =
-          typeof match?.ownerId === "string" ? match.ownerId.trim() : "";
-        if (ownerId) return ownerId;
-      }
-
-      const fallbackOwnerId =
-        ownerCompanies
-          .find(
-            (emp) =>
-              typeof emp.ownerId === "string" && emp.ownerId.trim().length > 0,
-          )
-          ?.ownerId?.trim() || "";
-      if (fallbackOwnerId) return fallbackOwnerId;
-    }
-
-    const directOwnerId =
-      typeof user?.ownerId === "string" ? user.ownerId.trim() : "";
-    if (directOwnerId) return directOwnerId;
-
-    return typeof user?.id === "string" ? user.id.trim() : "";
-  }, [
-    adminCompany,
-    allowedOwnerIds,
-    canSelectCompany,
-    ownerCompanies,
-    user?.id,
-    user?.ownerId,
-  ]);
+  const providerTypesOwnerId = useMemo(
+    () =>
+      resolveProviderTypesOwnerId({
+        adminCompany,
+        allowedOwnerIds,
+        canSelectCompany,
+        ownerCompanies,
+        user,
+      }),
+    [adminCompany, allowedOwnerIds, canSelectCompany, ownerCompanies, user],
+  );
   const activeOwnerId = providerTypesOwnerId;
 
   const sortedOwnerCompanies = useMemo(() => {
@@ -985,6 +951,17 @@ export function ProviderSection({ id }: { id?: string }) {
   // Cargar tipos de movimientos de fondo desde la base de datos (con caché y sincronización en tiempo real)
   useEffect(() => {
     let isMounted = true;
+    setFondoTypesLoaded(false);
+    setIngresoTypes([]);
+    setGastoTypes([]);
+    setEgresoTypes([]);
+
+    if (!activeOwnerId) {
+      setFondoTypesLoaded(true);
+      return () => {
+        isMounted = false;
+      };
+    }
 
     // Función para cargar y actualizar tipos
     const loadTypes = async () => {
@@ -1007,6 +984,9 @@ export function ProviderSection({ id }: { id?: string }) {
       } catch (err) {
         console.error("Error loading fondo movement types:", err);
         if (isMounted) {
+          setIngresoTypes([]);
+          setGastoTypes([]);
+          setEgresoTypes([]);
           setFondoTypesLoaded(true);
         }
       }
