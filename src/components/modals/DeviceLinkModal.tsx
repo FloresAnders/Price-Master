@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import QRCode from "qrcode";
 import { X } from "lucide-react";
 import { TokenService } from "../../services/tokenService";
+import { canApproveOrCancelDeviceLink } from "./deviceLinkModalState";
 
 interface DeviceLinkModalProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ export default function DeviceLinkModal({ isOpen, onClose }: DeviceLinkModalProp
   const [sessions, setSessions] = useState<any[]>([]);
   const pollRef = useRef<number | null>(null);
   const [selectedDuration, setSelectedDuration] = useState<number>(60);
+  const canActOnScannedRequest = canApproveOrCancelDeviceLink(status);
 
   useEffect(() => {
     if (!isOpen) {
@@ -131,7 +133,7 @@ export default function DeviceLinkModal({ isOpen, onClose }: DeviceLinkModalProp
   };
 
   const approveRequest = async () => {
-    if (!requestId) return;
+    if (!requestId || !canActOnScannedRequest) return;
     try {
       const rawToken = TokenService.getRawToken?.() ?? null;
       const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -156,6 +158,18 @@ export default function DeviceLinkModal({ isOpen, onClose }: DeviceLinkModalProp
       console.error('Error approving device link:', err);
       alert('Error al autorizar. Inténtalo de nuevo.');
     }
+  };
+
+  const cancelRequestDisplay = () => {
+    if (!canActOnScannedRequest) return;
+    if (pollRef.current) {
+      window.clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+    setQrDataUrl("");
+    setRequestId(null);
+    setExpiresAt(null);
+    setStatus(null);
   };
 
   const rejectRequest = async () => {
@@ -222,9 +236,9 @@ export default function DeviceLinkModal({ isOpen, onClose }: DeviceLinkModalProp
                   </div>
                   <div className="text-sm text-[var(--muted-foreground)]">Estado: <span className="font-medium text-[var(--foreground)]">{status}</span></div>
                   <div className="flex gap-2 mt-2">
-                    <button onClick={approveRequest} className="px-4 py-2 bg-[var(--accent)] text-white rounded-md shadow">Autorizar</button>
+                    <button onClick={approveRequest} disabled={!canActOnScannedRequest} className="px-4 py-2 bg-[var(--accent)] text-white rounded-md shadow disabled:cursor-not-allowed disabled:opacity-50">Autorizar</button>
                     <button onClick={rejectRequest} className="px-4 py-2 bg-[var(--error)] text-white rounded-md shadow">Rechazar</button>
-                    <button onClick={() => { if (pollRef.current) { window.clearInterval(pollRef.current); pollRef.current = null; } setQrDataUrl(''); setRequestId(null); setExpiresAt(null); setStatus(null); }} className="px-4 py-2 bg-[var(--card-bg)] border border-[var(--input-border)] rounded-md">Cancelar</button>
+                    <button onClick={cancelRequestDisplay} disabled={!canActOnScannedRequest} className="px-4 py-2 bg-[var(--card-bg)] border border-[var(--input-border)] rounded-md disabled:cursor-not-allowed disabled:opacity-50">Cancelar</button>
                   </div>
                 </div>
               )}
