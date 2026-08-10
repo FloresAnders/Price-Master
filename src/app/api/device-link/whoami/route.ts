@@ -8,7 +8,7 @@ export function serializeDeviceLinkUser(
 ): Record<string, unknown> | null {
   if (!data) return null;
   const { password, ...safeUser } = data;
-  return { id, ...safeUser };
+  return { ...safeUser, id };
 }
 
 export async function GET(req: Request) {

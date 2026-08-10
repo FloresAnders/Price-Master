@@ -9,6 +9,13 @@ test("serializeDeviceLinkUser includes firestore document id", () => {
   );
 });
 
+test("serializeDeviceLinkUser preserves firestore id over stored id", () => {
+  assert.deepEqual(
+    serializeDeviceLinkUser("user-123", { id: "wrong-id", name: "DELIFOOD" }),
+    { id: "user-123", name: "DELIFOOD" },
+  );
+});
+
 test("serializeDeviceLinkUser removes stored password", () => {
   assert.deepEqual(
     serializeDeviceLinkUser("user-123", {
