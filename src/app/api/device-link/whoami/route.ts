@@ -7,7 +7,8 @@ export function serializeDeviceLinkUser(
   data: Record<string, unknown> | undefined,
 ): Record<string, unknown> | null {
   if (!data) return null;
-  const { password, ...safeUser } = data;
+  const safeUser = { ...data };
+  delete safeUser.password;
   return { ...safeUser, id };
 }
 
