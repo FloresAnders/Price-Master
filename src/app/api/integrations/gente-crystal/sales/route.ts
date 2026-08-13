@@ -1,15 +1,24 @@
 import { NextResponse } from "next/server.js";
+import { readUserIdFromSessionCookie } from "../../../../../lib/auth/session-cookie.server.ts";
 import { getAdminDb } from "../../../../../lib/firebase-admin.ts";
+import { FirestoreGenteCrystalSalesReader } from "../../../../../lib/gente-crystal/firestore-sales-reader.ts";
 import {
   FirestoreGenteCrystalSalesRepository,
   type GenteCrystalSalesRepository,
 } from "../../../../../lib/gente-crystal/firestore-sales.ts";
+import type {
+  GenteCrystalReadCompany,
+  GenteCrystalReadUser,
+} from "../../../../../lib/gente-crystal/read-sales.ts";
 import {
   GenteCrystalSaleError,
   parseGenteCrystalSale,
   readBearerToken,
 } from "../../../../../lib/gente-crystal/sales.ts";
 import { hashToken } from "../../../../../lib/devices/tokens.ts";
+import { createGenteCrystalSalesGet } from "./read-route.ts";
+
+export const runtime = "nodejs";
 
 interface GenteCrystalSalesPostDependencies {
   now: () => Date;
@@ -72,4 +81,27 @@ export const POST = createGenteCrystalSalesPost({
   hashToken,
   createRepository: () =>
     new FirestoreGenteCrystalSalesRepository(getAdminDb()),
+});
+
+export const GET = createGenteCrystalSalesGet({
+  readUserId: readUserIdFromSessionCookie,
+  getUser: async (userId) => {
+    const snapshot = await getAdminDb().collection("users").doc(userId).get();
+    return snapshot.exists
+      ? ((snapshot.data() ?? {}) as GenteCrystalReadUser)
+      : null;
+  },
+  getCompany: async (companyId) => {
+    const snapshot = await getAdminDb()
+      .collection("empresas")
+      .doc(companyId)
+      .get();
+    return snapshot.exists
+      ? ({
+          ...(snapshot.data() ?? {}),
+          id: snapshot.id,
+        } as GenteCrystalReadCompany)
+      : null;
+  },
+  createReader: () => new FirestoreGenteCrystalSalesReader(getAdminDb()),
 });
