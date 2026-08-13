@@ -13,6 +13,7 @@ export {
 } from "./modals/DailyClosingModal";
 export { default as FacturaPaymentModal } from "./modals/FacturaPaymentModal";
 export { FondoMovementsSkeleton } from "./FondoMovementsSkeleton";
+export { TiemposTucanSection } from "./TiemposTucanSection";
 export { MovementDrawer } from "./drawers/MovementDrawer";
 export { ManualCreditNoteDrawer } from "./drawers/ManualCreditNoteDrawer";
 export { default as CreateInvoiceDrawer } from "./drawers/CreateInvoiceDrawer";

@@ -65,6 +65,10 @@ import { getLayoutPref, setLayoutPref } from "@/services/layoutPrefsDb";
 import { normalizeClosingTimeExtensionCompanyKey } from "@/services/closing-time-extensions";
 import { useFloatingAction } from "@/components/ui/FloatingActionsDock";
 import {
+  isFondoSectionHash,
+  TIEMPOS_TUCAN_TAB_ID,
+} from "@/components/layout/fondoNavigation";
+import {
   ConfigurationModal,
   CalculatorModal,
   CashCounterModal,
@@ -118,6 +122,7 @@ export type ActiveTab =
   | "fondogeneral"
   | "facturas"
   | "agregarproveedor"
+  | "tiempostucan"
   | "reportes"
   | "reportessinpe"
   | "deudasinternas";
@@ -969,13 +974,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     user?.role === "admin" || user?.role === "superadmin";
   const fondoMenuLabel = isFondoPrivileged ? "FG/Cuentas" : "Fondo General";
 
-  const isFondoSection =
-    currentHash === "#fondogeneral" ||
-    currentHash === "#agregarproveedor" ||
-    currentHash === "#facturas" ||
-    currentHash === "#reportes" ||
-    currentHash === "#reportessinpe" ||
-    currentHash === "#deudasinternas";
+  const isFondoSection = isFondoSectionHash(currentHash);
 
   const isRecetasSection =
     currentHash === "#recetas" || currentHash === "#agregarproducto";
@@ -998,6 +997,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     (activeTab &&
       activeTab !== "fondogeneral" &&
       activeTab !== "agregarproveedor" &&
+      activeTab !== TIEMPOS_TUCAN_TAB_ID &&
       activeTab !== "reportes" &&
       activeTab !== "reportessinpe" &&
       activeTab !== "deudasinternas" &&
@@ -1279,6 +1279,26 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   <ChartNoAxesCombined className="w-4 h-4" />
                   <span className="hidden xl:inline">Reportes SINPE</span>
                   {currentHash === "#reportessinpe" && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
+                  )}
+                </button>
+              )}
+               {/* Tiempos/Tucan */}
+              {canUseFondoAccounts && (
+                <button
+                  onClick={() => {
+                    safeWindow.location.hash(`#${TIEMPOS_TUCAN_TAB_ID}`);
+                  }}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors relative ${
+                    currentHash === `#${TIEMPOS_TUCAN_TAB_ID}`
+                      ? "text-[var(--tab-text-active)] font-semibold"
+                      : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
+                  }`}
+                  title="Tiempos/Tucan"
+                >
+                  <Timer className="w-4 h-4" />
+                  <span className="hidden xl:inline">Tiempos/Tucan</span>
+                  {currentHash === `#${TIEMPOS_TUCAN_TAB_ID}` && (
                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
                   )}
                 </button>
@@ -1631,6 +1651,25 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   >
                     <Landmark className="w-4 h-4" />
                     <span>{fondoMenuLabel}</span>
+                  </button>
+                )}
+
+                {/* Tiempos/Tucan */}
+                {canUseFondoAccounts && (
+                  <button
+                    onClick={() => {
+                      safeWindow.location.hash(`#${TIEMPOS_TUCAN_TAB_ID}`);
+                      setShowMobileMenu(false);
+                    }}
+                    className={`flex items-center gap-2 p-3 rounded-md text-sm transition-colors ${
+                      currentHash === `#${TIEMPOS_TUCAN_TAB_ID}`
+                        ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                        : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
+                    }`}
+                    title="Tiempos/Tucan"
+                  >
+                    <Timer className="w-4 h-4" />
+                    <span>Tiempos/Tucan</span>
                   </button>
                 )}
 

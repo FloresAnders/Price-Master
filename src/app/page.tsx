@@ -12,6 +12,11 @@ import Pruebas from "@/components/xpruebas/Pruebas";
 import { storage } from "@/config/firebase";
 import { safeLocalStorage, safeWindow } from "@/utils/client";
 import { getDefaultPermissions } from "@/utils/permissions";
+import { TiemposTucanSection } from "@/app/fondogeneral/components";
+import {
+  isHomeTabId,
+  TIEMPOS_TUCAN_TAB_ID,
+} from "@/components/layout/fondoNavigation";
 
 // Dynamic imports for code splitting
 const BarcodeScanner = dynamic(
@@ -178,6 +183,7 @@ type ActiveTab =
   | "anotaciones"
   | "fondogeneral"
   | "agregarproveedor"
+  | "tiempostucan"
   | "facturas"
   | "reportes"
   | "reportessinpe"
@@ -328,38 +334,8 @@ export default function HomePage() {
           return;
         }
 
-        const validTabs = [
-          "scanner",
-          "calculator",
-          "converter",
-          "xml",
-          "cashcounter",
-          "recetas",
-          "agregarproducto",
-          "timingcontrol",
-          "controlhorario",
-          "empleados",
-          "funciones",
-          "calculohorasprecios",
-          "supplierorders",
-          "scanhistory",
-          "solicitud",
-          "registroTucan",
-          "registroTiempos",
-          "anotaciones",
-          "fondogeneral",
-          "agregarproveedor",
-          "facturas",
-          "reportes",
-          "reportessinpe",
-          "deudasinternas",
-          ...(isSuperAdmin ? ["pruebas"] : []),
-        ];
-        if (validTabs.includes(hash)) {
+        if (isHomeTabId(hash, isSuperAdmin)) {
           setActiveTab(hash);
-        } else if (hash === "edit") {
-          // Special handling for edit tab
-          setActiveTab("edit");
         } else {
           setActiveTab(null); // Si no hay hash válido, mostrar HomeMenu
         }
@@ -412,35 +388,7 @@ export default function HomePage() {
           return;
         }
 
-        const validTabs = [
-          "scanner",
-          "calculator",
-          "converter",
-          "xml",
-          "cashcounter",
-          "recetas",
-          "agregarproducto",
-          "timingcontrol",
-          "controlhorario",
-          "empleados",
-          "funciones",
-          "calculohorasprecios",
-          "supplierorders",
-          "scanhistory",
-          "edit",
-          "solicitud",
-          "registroTucan",
-          "registroTiempos",
-          "anotaciones",
-          "fondogeneral",
-          "agregarproveedor",
-          "facturas",
-          "reportes",
-          "reportessinpe",
-          "deudasinternas",
-          ...(isSuperAdmin ? ["pruebas"] : []),
-        ];
-        if (validTabs.includes(hash)) {
+        if (isHomeTabId(hash, isSuperAdmin)) {
           setActiveTab(hash);
         } else {
           setActiveTab(null);
@@ -535,6 +483,11 @@ export default function HomePage() {
 
               {/* AGREGAR PROVEEDOR */}
               {activeTab === "agregarproveedor" && <AgregarProveedorPage />}
+
+              {/* TIEMPOS/TUCAN */}
+              {activeTab === TIEMPOS_TUCAN_TAB_ID && (
+                <TiemposTucanSection />
+              )}
 
               {/* FACTURAS */}
               {activeTab === "facturas" && <FacturasPage />}
