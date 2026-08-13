@@ -39,7 +39,7 @@ async function enqueueSales(events) {
   return runSerialized(async () => {
     const queue = await readQueue();
     const next = enqueueEvents(queue, events, Date.now());
-    await writeQueue(next);
+    if (next !== queue) await writeQueue(next);
     return summarizeQueue(next);
   });
 }

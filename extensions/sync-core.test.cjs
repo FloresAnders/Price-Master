@@ -48,6 +48,7 @@ test('polling an unchanged event does not create another revision', () => {
   const second = enqueueEvents(first, [{ ...activePayload }], 2000);
 
   assert.equal(first[ticketId].revision, 1);
+  assert.equal(second, first);
   assert.deepEqual(second[ticketId], first[ticketId]);
 });
 

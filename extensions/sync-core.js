@@ -57,12 +57,14 @@
   }
 
   function enqueueEvents(queue, events, now = Date.now()) {
-    const next = { ...(queue || {}) };
+    const original = queue || {};
+    let next = original;
     for (const rawEvent of Array.isArray(events) ? events : []) {
       const payload = normalizeEvent(rawEvent);
       const current = next[payload.ticketId];
       if (current && payloadsEqual(current.payload, payload)) continue;
 
+      if (next === original) next = { ...original };
       next[payload.ticketId] = {
         ticketId: payload.ticketId,
         payload,
