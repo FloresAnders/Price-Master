@@ -7,6 +7,7 @@ const {
   computeBackoffMs,
   enqueueEvents,
   getReadyRecords,
+  isExtensionContextInvalidatedError,
   markFailed,
   markSending,
   markSucceeded,
@@ -190,4 +191,19 @@ test('API base URLs require HTTPS except for local development', () => {
   assert.equal(normalizeApiBaseUrl('http://127.0.0.1:3000'), 'http://127.0.0.1:3000');
   assert.throws(() => normalizeApiBaseUrl('http://timemaster.es'), /HTTPS/);
   assert.throws(() => normalizeApiBaseUrl('javascript:alert(1)'), /URL/);
+});
+
+test('extension reload context errors are recognized without hiding other failures', () => {
+  assert.equal(
+    isExtensionContextInvalidatedError(new Error('Extension context invalidated.')),
+    true,
+  );
+  assert.equal(
+    isExtensionContextInvalidatedError('Error: Extension context invalidated.'),
+    true,
+  );
+  assert.equal(
+    isExtensionContextInvalidatedError(new Error('Could not establish connection.')),
+    false,
+  );
 });

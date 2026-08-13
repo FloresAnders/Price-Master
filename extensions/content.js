@@ -8,13 +8,27 @@
   const CAMBIO_SORTEO_ESPERA_MS = 1200;
 
   let mutationTimer = null;
+  let cambioSorteoTimer = null;
+  let inicioTimer = null;
+  let pollTimer = null;
+  let observer = null;
   let suspenderHasta = 0;
   let inicializado = false;
   let ultimoAvisoTicket = null;
   let escaneando = false;
+  let contextoInvalidado = false;
 
   function log(...args) {
     console.log('%c[TimeMaster]', 'color:#22c55e;font-weight:700', ...args);
+  }
+
+  function detenerPorContextoInvalidado() {
+    contextoInvalidado = true;
+    clearTimeout(mutationTimer);
+    clearTimeout(cambioSorteoTimer);
+    clearTimeout(inicioTimer);
+    clearInterval(pollTimer);
+    observer?.disconnect();
   }
 
   function normalizar(texto) {
@@ -295,6 +309,7 @@
       }
       return true;
     } catch (error) {
+      if (syncCore.isExtensionContextInvalidatedError(error)) throw error;
       console.error('[TimeMaster] No se pudieron encolar las ventas:', error);
       return false;
     }
@@ -349,6 +364,7 @@
   }
 
   async function sincronizarDesdeTabla({ avisarNuevas = true, forzar = false } = {}) {
+    if (contextoInvalidado) return { ok: false, motivo: 'contexto_invalidado' };
     if (escaneando) return { ok: false, motivo: 'escaneando' };
     if (!forzar && Date.now() < suspenderHasta) return { ok: false, motivo: 'cambio_sorteo' };
 
@@ -442,6 +458,10 @@
         diagnostico
       };
     } catch (error) {
+      if (syncCore.isExtensionContextInvalidatedError(error)) {
+        detenerPorContextoInvalidado();
+        return { ok: false, motivo: 'contexto_invalidado' };
+      }
       console.error('[TimeMaster] Error escaneando ventas:', error);
       return { ok: false, motivo: 'error', error: String(error?.message || error) };
     } finally {
@@ -450,20 +470,24 @@
   }
 
   function configurarCambioSorteo() {
+    if (contextoInvalidado) return;
     const select = getSelectSorteo();
     if (!select || select.dataset.tmGcV3Listener === '1') return;
 
     select.dataset.tmGcV3Listener = '1';
     select.addEventListener('change', () => {
       suspenderHasta = Date.now() + CAMBIO_SORTEO_ESPERA_MS;
-      setTimeout(() => {
+      clearTimeout(cambioSorteoTimer);
+      cambioSorteoTimer = setTimeout(() => {
+        if (contextoInvalidado) return;
         sincronizarDesdeTabla({ avisarNuevas: false, forzar: true });
       }, CAMBIO_SORTEO_ESPERA_MS + 150);
     });
   }
 
   function iniciarObserver() {
-    const observer = new MutationObserver(() => {
+    observer = new MutationObserver(() => {
+      if (contextoInvalidado) return;
       clearTimeout(mutationTimer);
       mutationTimer = setTimeout(() => {
         configurarCambioSorteo();
@@ -489,7 +513,7 @@
       obtenerGuardadas().then((ventas) => {
         sendResponse({
           ok: true,
-          version: '1.4.0',
+          version: '1.4.1',
           sorteo: getSorteo(),
           guardadas: ventas.length,
           diagnostico: lectura.diagnostico
@@ -508,17 +532,26 @@
     configurarCambioSorteo();
     iniciarObserver();
 
-    setTimeout(async () => {
+    inicioTimer = setTimeout(async () => {
+      if (contextoInvalidado) return;
       const resultado = await sincronizarDesdeTabla({ avisarNuevas: false, forzar: true });
+      if (resultado.motivo === 'contexto_invalidado') return;
       inicializado = true;
-      log('Extensión v1.3 activa:', resultado);
+      log('Extensión v1.4.1 activa:', resultado);
     }, 600);
 
-    setInterval(() => {
+    pollTimer = setInterval(() => {
+      if (contextoInvalidado) return;
       configurarCambioSorteo();
       sincronizarDesdeTabla({ avisarNuevas: true });
     }, POLL_MS);
   }
 
-  iniciar().catch((error) => console.error('[TimeMaster] Error al iniciar:', error));
+  iniciar().catch((error) => {
+    if (syncCore?.isExtensionContextInvalidatedError(error)) {
+      detenerPorContextoInvalidado();
+      return;
+    }
+    console.error('[TimeMaster] Error al iniciar:', error);
+  });
 })();

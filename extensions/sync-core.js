@@ -238,6 +238,12 @@
     return `${url.origin}${url.pathname}`.replace(/\/+$/, '');
   }
 
+  function isExtensionContextInvalidatedError(error) {
+    const message =
+      error instanceof Error ? error.message : String(error || '');
+    return /extension context invalidated/i.test(message);
+  }
+
   return {
     buildActivePayload,
     buildDeletedPayload,
@@ -245,6 +251,7 @@
     computeBackoffMs,
     enqueueEvents,
     getReadyRecords,
+    isExtensionContextInvalidatedError,
     markFailed,
     markSending,
     markSucceeded,

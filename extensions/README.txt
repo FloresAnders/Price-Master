@@ -1,4 +1,4 @@
-TimeMaster - Gente Crystal v1.4.0
+TimeMaster - Gente Crystal v1.4.1
 
 INSTALACIÓN / ACTUALIZACIÓN
 
@@ -55,6 +55,13 @@ El popup muestra:
 - tiquetes visibles y borrados ignorados;
 - ventas locales guardadas;
 - pendientes, enviando, sincronizados y errores de la cola.
+
+CAMBIOS DE LA VERSIÓN 1.4.1
+
+- Detiene silenciosamente el detector anterior cuando Chrome invalida su
+  contexto después de recargar o actualizar la extensión.
+- Evita que `Extension context invalidated` quede acumulado como un problema de
+  la extensión mientras la pestaña espera su recarga.
 
 CAMBIOS DE LA VERSIÓN 1.4.0
 
