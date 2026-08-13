@@ -47,13 +47,13 @@ test("company document IDs reject empty, oversized, and slash-containing values"
   }
 });
 
-test("regular users need Tiempos permission and their assigned company", () => {
+test("regular users need reportetiempos permission and their assigned company", () => {
   assert.equal(
     canReadGenteCrystalCompany(
       {
         role: "user",
         ownercompanie: "PALMARES",
-        permissions: { tiempos: true },
+        permissions: { reportetiempos: true },
       },
       company,
     ),
@@ -64,7 +64,7 @@ test("regular users need Tiempos permission and their assigned company", () => {
       {
         role: "user",
         ownercompanie: "DELIKOR PALMARES",
-        permissions: { tiempos: false },
+        permissions: { reportetiempos: false },
       },
       company,
     ),
@@ -75,7 +75,7 @@ test("regular users need Tiempos permission and their assigned company", () => {
       {
         role: "user",
         ownercompanie: "DELIKOR SAN VITO",
-        permissions: { tiempos: true },
+        permissions: { reportetiempos: true },
       },
       company,
     ),
@@ -86,21 +86,101 @@ test("regular users need Tiempos permission and their assigned company", () => {
 test("admins are restricted to their owner scope", () => {
   assert.equal(
     canReadGenteCrystalCompany(
-      { id: "admin-1", role: "admin", ownerId: "owner-1", eliminate: true },
+      {
+        id: "admin-1",
+        role: "admin",
+        ownerId: "owner-1",
+        eliminate: true,
+      },
       company,
     ),
     true,
   );
   assert.equal(
     canReadGenteCrystalCompany(
-      { id: "owner-1", role: "admin", eliminate: false },
+      {
+        id: "admin-1",
+        role: "admin",
+        ownerId: "owner-1",
+        eliminate: true,
+        permissions: { reportetiempos: true },
+      },
       company,
     ),
     true,
   );
   assert.equal(
     canReadGenteCrystalCompany(
-      { id: "admin-2", role: "admin", ownerId: "owner-2", eliminate: true },
+      {
+        id: "owner-1",
+        role: "admin",
+        eliminate: false,
+        permissions: { reportetiempos: true },
+      },
+      company,
+    ),
+    true,
+  );
+  assert.equal(
+    canReadGenteCrystalCompany(
+      {
+        id: "admin-2",
+        role: "admin",
+        ownerId: "owner-2",
+        eliminate: true,
+        permissions: { reportetiempos: true },
+      },
+      company,
+    ),
+    false,
+  );
+  assert.equal(
+    canReadGenteCrystalCompany(
+      {
+        id: "admin-1",
+        role: "admin",
+        ownerId: "owner-1",
+        eliminate: true,
+        permissions: { reportetiempos: false },
+      },
+      company,
+    ),
+    false,
+  );
+});
+
+test("legacy permission values are normalized before authorizing", () => {
+  assert.equal(
+    canReadGenteCrystalCompany(
+      {
+        id: "admin-1",
+        role: "admin",
+        ownerId: "owner-1",
+        eliminate: true,
+        permissions: { reportetiempos: "false" },
+      },
+      company,
+    ),
+    false,
+  );
+  assert.equal(
+    canReadGenteCrystalCompany(
+      {
+        role: "user",
+        ownercompanie: "PALMARES",
+        permissions: { reportetiempos: "true" },
+      },
+      company,
+    ),
+    true,
+  );
+  assert.equal(
+    canReadGenteCrystalCompany(
+      {
+        role: "user",
+        ownercompanie: "PALMARES",
+        permissions: { reportetiempos: 0 },
+      },
       company,
     ),
     false,
@@ -109,7 +189,27 @@ test("admins are restricted to their owner scope", () => {
 
 test("superadmins can read any company while unknown roles cannot", () => {
   assert.equal(canReadGenteCrystalCompany({ role: "superadmin" }, company), true);
-  assert.equal(canReadGenteCrystalCompany({ role: undefined }, company), false);
+  assert.equal(
+    canReadGenteCrystalCompany(
+      { role: "superadmin", permissions: { reportetiempos: true } },
+      company,
+    ),
+    true,
+  );
+  assert.equal(
+    canReadGenteCrystalCompany(
+      { role: "superadmin", permissions: { reportetiempos: false } },
+      company,
+    ),
+    false,
+  );
+  assert.equal(
+    canReadGenteCrystalCompany(
+      { role: undefined, permissions: { reportetiempos: true } },
+      company,
+    ),
+    false,
+  );
 });
 
 test("daily results exclude tombstones, sort newest first, and sum active sales", () => {

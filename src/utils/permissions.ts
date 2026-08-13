@@ -1,4 +1,4 @@
-import { UserPermissions } from "../types/firestore";
+import type { UserPermissions } from "../types/firestore";
 
 type RoleKey = "admin" | "user" | "superadmin";
 
@@ -79,6 +79,7 @@ export const DEFAULT_PERMISSIONS: Record<string, UserPermissions> = {
     cajaNegra: true,
     tucan: true,
     tiempos: true,
+    reportetiempos: true,
     deudasInternas: true,
     registroTucan: true,
     registroTiempos: true,
@@ -111,6 +112,7 @@ export const DEFAULT_PERMISSIONS: Record<string, UserPermissions> = {
     cajaNegra: true,
     tucan: true,
     tiempos: true,
+    reportetiempos: true,
     deudasInternas: true,
     registroTucan: true,
     registroTiempos: true,
@@ -142,6 +144,7 @@ export const DEFAULT_PERMISSIONS: Record<string, UserPermissions> = {
     cajaNegra: false,
     tucan: false,
     tiempos: false,
+    reportetiempos: false,
     deudasInternas: false,
     registroTucan: false,
     registroTiempos: false,
@@ -188,6 +191,7 @@ export function getAllPermissions(): UserPermissions {
     cajaNegra: true,
     tucan: true,
     tiempos: true,
+    reportetiempos: true,
     deudasInternas: true,
     registroTucan: true,
     registroTiempos: true,
@@ -225,6 +229,7 @@ export function getNoPermissions(): UserPermissions {
     cajaNegra: false,
     tucan: false,
     tiempos: false,
+    reportetiempos: false,
     deudasInternas: false,
     registroTucan: false,
     registroTiempos: false,

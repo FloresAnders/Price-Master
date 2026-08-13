@@ -350,7 +350,8 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
       resolvedPermissions?.fondogeneralBAC ||
       resolvedPermissions?.cajaNegra ||
       resolvedPermissions?.tucan ||
-      resolvedPermissions?.tiempos,
+      resolvedPermissions?.tiempos ||
+      resolvedPermissions?.reportetiempos,
   );
 
   // Filter menu items based on user permissions

@@ -1,5 +1,15 @@
 export const TIEMPOS_TUCAN_TAB_ID = "tiempostucan";
 
+export type ReporteTiemposPermissions = {
+  reportetiempos?: boolean;
+};
+
+export function canAccessTiemposTucan(
+  permissions?: ReporteTiemposPermissions | null,
+): boolean {
+  return permissions?.reportetiempos === true;
+}
+
 export const FONDO_SECTION_HASHES = [
   "#fondogeneral",
   "#agregarproveedor",

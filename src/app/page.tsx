@@ -14,6 +14,7 @@ import { safeLocalStorage, safeWindow } from "@/utils/client";
 import { getDefaultPermissions } from "@/utils/permissions";
 import { TiemposTucanSection } from "@/app/fondogeneral/components";
 import {
+  canAccessTiemposTucan,
   isHomeTabId,
   TIEMPOS_TUCAN_TAB_ID,
 } from "@/components/layout/fondoNavigation";
@@ -297,6 +298,7 @@ export default function HomePage() {
     resolvedPermissions?.registroTiempos,
   );
   const canAccessAnotaciones = Boolean(resolvedPermissions?.anotaciones);
+  const canUseTiemposTucan = canAccessTiemposTucan(resolvedPermissions);
 
   // 4) Al montar, leemos el hash de la URL y marcamos la pestaña correspondiente
   useEffect(() => {
@@ -334,6 +336,16 @@ export default function HomePage() {
           return;
         }
 
+        if (
+          hash === TIEMPOS_TUCAN_TAB_ID &&
+          user &&
+          !canUseTiemposTucan
+        ) {
+          safeWindow.location.hash("");
+          setActiveTab(null);
+          return;
+        }
+
         if (isHomeTabId(hash, isSuperAdmin)) {
           setActiveTab(hash);
         } else {
@@ -350,6 +362,7 @@ export default function HomePage() {
     canAccessRegistroTucan,
     canAccessRegistroTiempos,
     canAccessAnotaciones,
+    canUseTiemposTucan,
   ]);
 
   // 6) Escuchar cambios en el hash para actualizar la pestaña activa
@@ -388,6 +401,16 @@ export default function HomePage() {
           return;
         }
 
+        if (
+          hash === TIEMPOS_TUCAN_TAB_ID &&
+          user &&
+          !canUseTiemposTucan
+        ) {
+          safeWindow.location.hash("");
+          setActiveTab(null);
+          return;
+        }
+
         if (isHomeTabId(hash, isSuperAdmin)) {
           setActiveTab(hash);
         } else {
@@ -405,6 +428,7 @@ export default function HomePage() {
     canAccessRegistroTucan,
     canAccessRegistroTiempos,
     canAccessAnotaciones,
+    canUseTiemposTucan,
   ]);
   return (
     <>
@@ -485,9 +509,8 @@ export default function HomePage() {
               {activeTab === "agregarproveedor" && <AgregarProveedorPage />}
 
               {/* TIEMPOS/TUCAN */}
-              {activeTab === TIEMPOS_TUCAN_TAB_ID && (
-                <TiemposTucanSection />
-              )}
+              {activeTab === TIEMPOS_TUCAN_TAB_ID &&
+                canUseTiemposTucan && <TiemposTucanSection />}
 
               {/* FACTURAS */}
               {activeTab === "facturas" && <FacturasPage />}

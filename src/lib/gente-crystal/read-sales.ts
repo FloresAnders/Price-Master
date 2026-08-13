@@ -1,3 +1,5 @@
+import { normalizeUserPermissions } from "../../utils/permissions.ts";
+
 export const GENTE_CRYSTAL_TIMEZONE = "America/Costa_Rica" as const;
 
 export type GenteCrystalReadUser = {
@@ -7,7 +9,7 @@ export type GenteCrystalReadUser = {
   ownercompanie?: string;
   eliminate?: boolean;
   isActive?: boolean;
-  permissions?: { tiempos?: boolean };
+  permissions?: { reportetiempos?: unknown };
 };
 
 export type GenteCrystalReadCompany = {
@@ -91,6 +93,11 @@ export function canReadGenteCrystalCompany(
   user: GenteCrystalReadUser,
   company: GenteCrystalReadCompany,
 ): boolean {
+  const permissions = normalizeUserPermissions(
+    user.permissions,
+    user.role || "user",
+  );
+  if (!permissions.reportetiempos) return false;
   if (user.role === "superadmin") return true;
 
   if (user.role === "admin") {
@@ -102,7 +109,7 @@ export function canReadGenteCrystalCompany(
     return allowedOwners.has(normalizeKey(company.ownerId));
   }
 
-  if (user.role !== "user" || user.permissions?.tiempos !== true) return false;
+  if (user.role !== "user") return false;
   const assigned = normalizeKey(user.ownercompanie);
   if (!assigned) return false;
   return [company.id, company.name, company.ubicacion]

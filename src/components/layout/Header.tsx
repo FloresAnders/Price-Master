@@ -65,6 +65,7 @@ import { getLayoutPref, setLayoutPref } from "@/services/layoutPrefsDb";
 import { normalizeClosingTimeExtensionCompanyKey } from "@/services/closing-time-extensions";
 import { useFloatingAction } from "@/components/ui/FloatingActionsDock";
 import {
+  canAccessTiemposTucan,
   isFondoSectionHash,
   TIEMPOS_TUCAN_TAB_ID,
 } from "@/components/layout/fondoNavigation";
@@ -967,6 +968,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       userPermissions.tucan ||
       userPermissions.tiempos,
   );
+  const canUseTiemposTucan = canAccessTiemposTucan(userPermissions);
   const canUseInternalDebts = Boolean(userPermissions.deudasInternas);
   const canUseRecetas = Boolean(userPermissions.recetas);
   const canAgregarProducto = Boolean(userPermissions.agregarproductosdeli);
@@ -981,7 +983,14 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
   // Filter tabs based on user permissions
   const visibleTabs = allTabs.filter((tab) => {
-    if (tab.id === "fondogeneral") return canUseFondoAccounts;
+    if (tab.id === "fondogeneral") {
+      return Boolean(
+        canUseFondoAccounts ||
+          canUseTiemposTucan ||
+          canUseInternalDebts ||
+          userPermissions.reportessinpe,
+      );
+    }
     const hasPermission = userPermissions[tab.permission];
     return hasPermission;
   });
@@ -989,7 +998,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const isHomeRoute = pathname === "/" || pathname === "/home";
   const canShowFondoActions = Boolean(
     isFondoSection &&
-      (canUseFondoAccounts || canUseInternalDebts || userPermissions.reportessinpe),
+      (canUseFondoAccounts ||
+        canUseTiemposTucan ||
+        canUseInternalDebts ||
+        userPermissions.reportessinpe),
   );
 
   const canShowAdminSidebar = Boolean(
@@ -1284,7 +1296,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 </button>
               )}
                {/* Tiempos/Tucan */}
-              {canUseFondoAccounts && (
+              {canUseTiemposTucan && (
                 <button
                   onClick={() => {
                     safeWindow.location.hash(`#${TIEMPOS_TUCAN_TAB_ID}`);
@@ -1655,7 +1667,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 )}
 
                 {/* Tiempos/Tucan */}
-                {canUseFondoAccounts && (
+                {canUseTiemposTucan && (
                   <button
                     onClick={() => {
                       safeWindow.location.hash(`#${TIEMPOS_TUCAN_TAB_ID}`);

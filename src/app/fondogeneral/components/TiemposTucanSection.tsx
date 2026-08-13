@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useActorOwnership } from "../../../hooks/useActorOwnership";
 import { useAuth } from "../../../hooks/useAuth";
 import { EmpresasService } from "../../../services/empresas";
+import { canAccessTiemposTucan } from "../../../components/layout/fondoNavigation";
 import { getDefaultPermissions } from "../../../utils/permissions";
 import { GenteCrystalTiemposPanel } from "./GenteCrystalTiemposPanel";
 import {
@@ -30,7 +31,7 @@ export function TiemposTucanSection() {
     : null;
   const isPrivileged =
     user?.role === "admin" || user?.role === "superadmin";
-  const hasTiemposAccess = Boolean(isPrivileged || permissions?.tiempos);
+  const hasReporteTiemposAccess = canAccessTiemposTucan(permissions);
   const companyScopeKey = [
     user?.id || "",
     user?.role || "",
@@ -42,7 +43,7 @@ export function TiemposTucanSection() {
     companiesLoading || loadedScopeKey !== companyScopeKey;
 
   useEffect(() => {
-    if (!user || !hasTiemposAccess) return;
+    if (!user || !hasReporteTiemposAccess) return;
 
     let cancelled = false;
     queueMicrotask(() => {
@@ -86,7 +87,7 @@ export function TiemposTucanSection() {
     return () => {
       cancelled = true;
     };
-  }, [companyScopeKey, hasTiemposAccess, ownerIds, user]);
+  }, [companyScopeKey, hasReporteTiemposAccess, ownerIds, user]);
 
   const selectedOption = useMemo(
     () => companyOptions.find((option) => option.value === companyId),
@@ -136,9 +137,9 @@ export function TiemposTucanSection() {
             <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
               Inicia sesión para consultar los movimientos.
             </p>
-          ) : !hasTiemposAccess ? (
+          ) : !hasReporteTiemposAccess ? (
             <p className="rounded-md border border-amber-500/30 bg-amber-950/15 px-3 py-4 text-sm text-amber-100">
-              No tienes permiso para consultar Tiempos.
+              No tienes permiso para consultar Reporte Tiempos.
             </p>
           ) : companyScopeLoading ? (
             <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">

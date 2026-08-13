@@ -10,6 +10,7 @@ import {
   getDefaultPermissions,
   getAllPermissions,
   getNoPermissions,
+  normalizeUserPermissions,
 } from "../../utils/permissions";
 
 interface UserPermissionsManagerProps {
@@ -40,6 +41,7 @@ const PERMISSION_LABELS = {
   cajaNegra: "Caja Negra",
   tucan: "Tucan",
   tiempos: "Tiempos",
+  reportetiempos: "Reporte Tiempos",
   deudasInternas: "Deudas Internas",
   registroTucan: "Registro Tucan",
   registroTiempos: "Registro Tiempos",
@@ -75,6 +77,7 @@ const PERMISSION_DESCRIPTIONS = {
   cajaNegra: "Manejar dineros extra del Fondo General",
   tucan: "Manejar dineros extra del Fondo General",
   tiempos: "Manejar dineros extra del Fondo General",
+  reportetiempos: "Acceso a la sección interna Tiempos/Tucan",
   deudasInternas: "Gestionar deudas internas entre empresas y personas",
   registroTucan: "Acceso a Registro Tucan",
   registroTiempos: "Acceso a Registro Tiempos",
@@ -208,7 +211,9 @@ export default function UserPermissionsManager({
       const found = users.find((u) => u.id === userId);
       if (found) {
         setSelectedUser(found);
-        setPermissions(found.permissions || getDefaultPermissions(found.role));
+        setPermissions(
+          normalizeUserPermissions(found.permissions, found.role || "user"),
+        );
       } else {
         // If the provided userId is not in the visible list, likely the current
         // user doesn't have permission to view that user (e.g. admin attempting
@@ -226,7 +231,9 @@ export default function UserPermissionsManager({
 
   const handleUserChange = (user: User) => {
     setSelectedUser(user);
-    setPermissions(user.permissions || getDefaultPermissions(user.role));
+    setPermissions(
+      normalizeUserPermissions(user.permissions, user.role || "user"),
+    );
   };
 
   const handlePermissionChange = (
@@ -457,8 +464,10 @@ export default function UserPermissionsManager({
                 <h4 className="font-medium mb-2">Permisos Actuales:</h4>
                 <div className="flex flex-wrap gap-1">
                   {Object.entries(
-                    selectedUser.permissions ||
-                      getDefaultPermissions(selectedUser.role),
+                    normalizeUserPermissions(
+                      selectedUser.permissions,
+                      selectedUser.role || "user",
+                    ),
                   )
                     .filter(([, hasAccess]) => hasAccess)
                     .map(([permission]) => (
@@ -474,8 +483,10 @@ export default function UserPermissionsManager({
                       </span>
                     ))}
                   {Object.values(
-                    selectedUser.permissions ||
-                      getDefaultPermissions(selectedUser.role),
+                    normalizeUserPermissions(
+                      selectedUser.permissions,
+                      selectedUser.role || "user",
+                    ),
                   ).filter(Boolean).length === 0 && (
                     <span className="text-xs text-[var(--muted-foreground)] italic">
                       Sin permisos activos

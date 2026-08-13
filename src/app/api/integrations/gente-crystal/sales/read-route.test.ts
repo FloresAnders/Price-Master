@@ -17,7 +17,7 @@ const regularUser: GenteCrystalReadUser = {
   role: "user",
   isActive: true,
   ownercompanie: "PALMARES",
-  permissions: { tiempos: true },
+  permissions: { reportetiempos: true },
 };
 
 const populatedResult = {
@@ -161,12 +161,12 @@ test("missing, unknown, and inactive sessions return 401", async () => {
   }
 });
 
-test("missing Tiempos permission and forged company scopes return 403", async () => {
+test("missing reportetiempos permission and forged company scopes return 403", async () => {
   const scenarios = [
     dependencies({
       getUser: async () => ({
         ...regularUser,
-        permissions: { tiempos: false },
+        permissions: { reportetiempos: false },
       }),
     }),
     dependencies({
