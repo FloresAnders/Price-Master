@@ -106,8 +106,6 @@ export class FirestoreGenteCrystalSalesRepository
 
       if (merged.record) {
         transaction.set(saleReference, merged.record);
-      }
-      if (existingSale?.status !== "deleted") {
         transaction.set(deviceReference, { lastSeenAt: now }, { merge: true });
       }
 

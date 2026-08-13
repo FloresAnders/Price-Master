@@ -12,6 +12,7 @@ const {
   markSending,
   markSucceeded,
   normalizeApiBaseUrl,
+  resolveStableSaleTimestamp,
   resetErroredRecords,
   summarizeQueue,
 } = require('./sync-core.js');
@@ -35,6 +36,22 @@ test('active detector sales become API payloads', () => {
     }),
     activePayload,
   );
+});
+
+test('missing sale times reuse the first fallback across detector polls', () => {
+  const firstTimestamp = resolveStableSaleTimestamp(null, null, 1000);
+  const repeatedTimestamp = resolveStableSaleTimestamp(
+    null,
+    firstTimestamp,
+    2200,
+  );
+
+  assert.equal(firstTimestamp, 1000);
+  assert.equal(repeatedTimestamp, 1000);
+});
+
+test('a real detected sale time replaces an earlier fallback', () => {
+  assert.equal(resolveStableSaleTimestamp(3000, 1000, 4000), 3000);
 });
 
 test('deleted detector tickets become minimal tombstones', () => {

@@ -1,4 +1,4 @@
-TimeMaster - Gente Crystal v1.4.1
+TimeMaster - Gente Crystal v1.4.2
 
 INSTALACIÓN / ACTUALIZACIÓN
 
@@ -55,6 +55,13 @@ El popup muestra:
 - tiquetes visibles y borrados ignorados;
 - ventas locales guardadas;
 - pendientes, enviando, sincronizados y errores de la cola.
+
+CAMBIOS DE LA VERSIÓN 1.4.2
+
+- Conserva un timestamp estable cuando Gente Crystal no muestra una fecha y
+  evita reenviar el mismo tiquete en cada escaneo.
+- Evita escrituras de actividad para ventas que TimeMaster ya tenía
+  sincronizadas sin cambios.
 
 CAMBIOS DE LA VERSIÓN 1.4.1
 

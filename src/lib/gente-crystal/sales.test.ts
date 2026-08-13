@@ -413,7 +413,7 @@ test("repository creates the company and ticket scoped sale", async () => {
   );
 });
 
-test("repository skips the sale write for an identical replay", async () => {
+test("repository performs no writes for an identical active replay", async () => {
   const firestore = new FakeFirestore();
   addWritableDevice(firestore);
   firestore.documents.set(salePath, {
@@ -438,7 +438,8 @@ test("repository skips the sale write for an identical replay", async () => {
   );
 
   assert.deepEqual(result, { action: "already_exists" });
-  assert.deepEqual(firestore.writePaths, [devicePath]);
+  assert.deepEqual(firestore.writePaths, []);
+  assert.equal(firestore.documents.get(devicePath)?.lastSeenAt, undefined);
 });
 
 test("repository performs no writes for an already deleted ticket", async () => {

@@ -56,6 +56,20 @@
     return JSON.stringify(left) === JSON.stringify(right);
   }
 
+  function resolveStableSaleTimestamp(
+    observedTimestamp,
+    existingTimestamp,
+    now = Date.now(),
+  ) {
+    const observed = Number(observedTimestamp);
+    if (Number.isFinite(observed) && observed > 0) return observed;
+
+    const existing = Number(existingTimestamp);
+    if (Number.isFinite(existing) && existing > 0) return existing;
+
+    return now;
+  }
+
   function enqueueEvents(queue, events, now = Date.now()) {
     const original = queue || {};
     let next = original;
@@ -257,6 +271,7 @@
     markSending,
     markSucceeded,
     normalizeApiBaseUrl,
+    resolveStableSaleTimestamp,
     resetErroredRecords,
     summarizeQueue,
   };

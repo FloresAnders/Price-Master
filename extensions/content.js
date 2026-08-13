@@ -254,7 +254,7 @@
           monto,
           fecha: fechaHora?.fecha || null,
           hora: fechaHora?.hora || null,
-          timestamp: fechaHora?.timestamp || Date.now()
+          timestamp: fechaHora?.timestamp || null
         };
         continue;
       }
@@ -406,7 +406,11 @@
           monto: item.monto,
           fecha: item.fecha || existente?.fecha || fechaFallback(),
           hora: item.hora || existente?.hora || horaFallback(),
-          timestamp: item.timestamp || existente?.timestamp || Date.now()
+          timestamp: syncCore.resolveStableSaleTimestamp(
+            item.timestamp,
+            existente?.timestamp,
+            Date.now()
+          )
         };
 
         if (!existente) {
@@ -513,7 +517,7 @@
       obtenerGuardadas().then((ventas) => {
         sendResponse({
           ok: true,
-          version: '1.4.1',
+          version: '1.4.2',
           sorteo: getSorteo(),
           guardadas: ventas.length,
           diagnostico: lectura.diagnostico
@@ -537,7 +541,7 @@
       const resultado = await sincronizarDesdeTabla({ avisarNuevas: false, forzar: true });
       if (resultado.motivo === 'contexto_invalidado') return;
       inicializado = true;
-      log('Extensión v1.4.1 activa:', resultado);
+      log('Extensión v1.4.2 activa:', resultado);
     }, 600);
 
     pollTimer = setInterval(() => {

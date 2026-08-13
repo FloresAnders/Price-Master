@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TimeMaster - Gente Crystal",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "Detecta ventas en Gente Crystal y las sincroniza de forma segura con TimeMaster.",
   "permissions": ["storage", "activeTab", "alarms"],
   "host_permissions": [
