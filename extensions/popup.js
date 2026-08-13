@@ -38,7 +38,7 @@ function setConfigMessage(texto, tipo = '') {
 async function cargarConfiguracion() {
   const result = await chrome.storage.local.get(CONFIG_KEY);
   const config = result[CONFIG_KEY] || {};
-  apiUrlInput.value = config.apiBaseUrl || 'https://timemaster.es';
+  apiUrlInput.value = config.apiBaseUrl || 'https://www.timemaster.es';
   deviceTokenInput.value = typeof config.token === 'string' ? config.token : '';
 }
 

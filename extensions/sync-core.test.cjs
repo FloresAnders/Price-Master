@@ -184,7 +184,8 @@ test('queue summaries expose counts but no payload data', () => {
 });
 
 test('API base URLs require HTTPS except for local development', () => {
-  assert.equal(normalizeApiBaseUrl('https://timemaster.es/'), 'https://timemaster.es');
+  assert.equal(normalizeApiBaseUrl('https://timemaster.es/'), 'https://www.timemaster.es');
+  assert.equal(normalizeApiBaseUrl('https://www.timemaster.es/'), 'https://www.timemaster.es');
   assert.equal(normalizeApiBaseUrl('http://localhost:3000/'), 'http://localhost:3000');
   assert.equal(normalizeApiBaseUrl('http://127.0.0.1:3000'), 'http://127.0.0.1:3000');
   assert.throws(() => normalizeApiBaseUrl('http://timemaster.es'), /HTTPS/);

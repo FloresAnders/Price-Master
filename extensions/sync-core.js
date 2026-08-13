@@ -231,6 +231,10 @@
       throw new Error('Invalid TimeMaster URL.');
     }
 
+    if (url.hostname === 'timemaster.es') {
+      url.hostname = 'www.timemaster.es';
+    }
+
     return `${url.origin}${url.pathname}`.replace(/\/+$/, '');
   }
 

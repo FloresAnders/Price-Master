@@ -14,7 +14,7 @@ const {
 const QUEUE_KEY = 'genteCrystalSyncQueue';
 const CONFIG_KEY = 'genteCrystalIntegrationConfig';
 const ALARM_NAME = 'tmGcSync';
-const DEFAULT_API_BASE_URL = 'https://timemaster.es';
+const DEFAULT_API_BASE_URL = 'https://www.timemaster.es';
 
 let storageChain = Promise.resolve();
 let flushPromise = null;

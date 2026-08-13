@@ -24,7 +24,7 @@ Ejemplo:
 
 El comando escribe únicamente el hash SHA-256 en Firestore y muestra el token
 tm_gc_ una sola vez. Copia ese token en el popup de la extensión. La URL normal
-es https://timemaster.es. Para desarrollo también se aceptan
+es https://www.timemaster.es. Para desarrollo también se aceptan
 http://localhost:3000 y http://127.0.0.1:3000.
 
 No pongas el token en archivos del proyecto ni lo compartas entre
