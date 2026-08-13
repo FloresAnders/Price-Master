@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "TimeMaster - Gente Crystal",
+  "version": "1.4.0",
+  "description": "Detecta ventas en Gente Crystal y las sincroniza de forma segura con TimeMaster.",
+  "permissions": ["storage", "activeTab", "alarms"],
+  "host_permissions": [
+    "https://gentecrystal.net/*",
+    "https://timemaster.es/*",
+    "http://localhost:3000/*",
+    "http://127.0.0.1:3000/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://gentecrystal.net/entradas.php*"],
+      "js": ["sync-core.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Ventas Gente Crystal",
+    "default_popup": "popup.html"
+  }
+}
