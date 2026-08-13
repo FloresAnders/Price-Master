@@ -113,7 +113,7 @@ export default function CalculoHorasPrecios() {
 
   const empresaStorageKey = useMemo(() => {
     const scope = resolvedOwnerId || user?.id || user?.email || "global";
-    return `price-master:calculohorasprecios:selectedEmpresa:${scope}`;
+    return `timemaster:calculohorasprecios:selectedEmpresa:${scope}`;
   }, [resolvedOwnerId, user?.id, user?.email]);
 
   const readStoredEmpresa = () => {

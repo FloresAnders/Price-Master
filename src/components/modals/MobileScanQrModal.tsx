@@ -10,7 +10,7 @@ interface MobileScanQrModalProps {
 }
 
 const MOBILE_SCAN_URL =
-  "https://price-master-peach.vercel.app/mobile-scan?rpn=t";
+  "https://www.timemaster.es/mobile-scan?rpn=t";
 
 export default function MobileScanQrModal({
   isOpen,

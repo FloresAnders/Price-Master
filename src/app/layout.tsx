@@ -108,7 +108,7 @@ export default function RootLayout({
               name: "Time Master",
               description:
                 "Plataforma integral para gestión de precios, escaneo de códigos de barras, control de inventario y horarios laborales",
-              url: "https://price-master-peach.vercel.app",
+              url: "https://www.timemaster.es/",
               applicationCategory: "BusinessApplication",
               operatingSystem: "Web",
               offers: {

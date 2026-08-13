@@ -6,4 +6,4 @@ Allow: /
 Disallow: /api/
 Disallow: /firebase-test
 
-Sitemap: https://price-master-peach.vercel.app/sitemap.xml
+Sitemap: https://www.timemaster.es/sitemap.xml
