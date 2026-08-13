@@ -75,6 +75,23 @@ test('a newer deletion replaces a synced active state', () => {
   });
 });
 
+test('a deleted ticket remains terminal when the detector reports it as active', () => {
+  const deletedQueue = enqueueEvents(
+    {},
+    [{ ticketId, status: 'deleted' }],
+    1000,
+  );
+  const syncedDeletion = markSucceeded(deletedQueue, 1, ticketId, 1100);
+  const replayedAsActive = enqueueEvents(
+    syncedDeletion,
+    [activePayload],
+    1200,
+  );
+
+  assert.equal(replayedAsActive, syncedDeletion);
+  assert.deepEqual(replayedAsActive[ticketId], syncedDeletion[ticketId]);
+});
+
 test('an old response cannot sync a newer revision', () => {
   const revisionOne = enqueueEvents({}, [activePayload], 1000);
   const revisionTwo = enqueueEvents(

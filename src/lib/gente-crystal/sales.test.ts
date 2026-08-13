@@ -183,6 +183,53 @@ test("deletion preserves the original sale details", () => {
   });
 });
 
+test("an already deleted sale ignores repeated tombstones", () => {
+  const existing = {
+    ...active,
+    saleAt: new Date(active.saleAt),
+    receivedAt: now,
+    updatedAt: now,
+    status: "deleted" as const,
+    deviceId: "palmares-01",
+    source: "gente-crystal" as const,
+  };
+
+  assert.deepEqual(
+    mergeGenteCrystalSale(
+      existing,
+      parseGenteCrystalSale({
+        ticketId: active.ticketId,
+        status: "deleted",
+      }),
+      "palmares-01",
+      new Date("2026-08-13T02:16:00.000Z"),
+    ),
+    { action: "already_exists" },
+  );
+});
+
+test("an already deleted sale ignores later active payloads", () => {
+  const existing = {
+    ...active,
+    saleAt: new Date(active.saleAt),
+    receivedAt: now,
+    updatedAt: now,
+    status: "deleted" as const,
+    deviceId: "palmares-01",
+    source: "gente-crystal" as const,
+  };
+
+  assert.deepEqual(
+    mergeGenteCrystalSale(
+      existing,
+      parseGenteCrystalSale(active),
+      "palmares-01",
+      new Date("2026-08-13T02:16:00.000Z"),
+    ),
+    { action: "already_exists" },
+  );
+});
+
 interface FakeSnapshot {
   exists: boolean;
   data(): Record<string, unknown> | undefined;
@@ -392,4 +439,37 @@ test("repository skips the sale write for an identical replay", async () => {
 
   assert.deepEqual(result, { action: "already_exists" });
   assert.deepEqual(firestore.writePaths, [devicePath]);
+});
+
+test("repository performs no writes for an already deleted ticket", async () => {
+  const firestore = new FakeFirestore();
+  addWritableDevice(firestore);
+  firestore.documents.set(salePath, {
+    ticketId: active.ticketId,
+    sorteo: active.sorteo,
+    monto: active.monto,
+    saleAt: new Date(active.saleAt),
+    receivedAt: now,
+    updatedAt: now,
+    status: "deleted",
+    deviceId: "palmares-01",
+    source: "gente-crystal",
+  });
+  const repository = new FirestoreGenteCrystalSalesRepository(
+    firestore as never,
+  );
+
+  const result = await repository.sync(
+    tokenHash,
+    parseGenteCrystalSale({
+      ticketId: active.ticketId,
+      status: "deleted",
+    }),
+    new Date("2026-08-13T02:16:00.000Z"),
+  );
+
+  assert.deepEqual(result, { action: "already_exists" });
+  assert.deepEqual(firestore.writePaths, []);
+  assert.equal(firestore.documents.get(salePath)?.updatedAt, now);
+  assert.equal(firestore.documents.get(devicePath)?.lastSeenAt, undefined);
 });

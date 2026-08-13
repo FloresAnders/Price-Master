@@ -62,6 +62,7 @@
     for (const rawEvent of Array.isArray(events) ? events : []) {
       const payload = normalizeEvent(rawEvent);
       const current = next[payload.ticketId];
+      if (current?.payload?.status === 'deleted') continue;
       if (current && payloadsEqual(current.payload, payload)) continue;
 
       if (next === original) next = { ...original };

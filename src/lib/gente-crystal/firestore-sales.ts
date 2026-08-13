@@ -94,8 +94,11 @@ export class FirestoreGenteCrystalSalesRepository
         `genteCrystalSales/${companyId}/sales/${sale.ticketId}`,
       );
       const saleSnapshot = await transaction.get(saleReference);
+      const existingSale = saleSnapshot.exists
+        ? saleSnapshot.data()
+        : undefined;
       const merged = mergeGenteCrystalSale(
-        saleSnapshot.exists ? saleSnapshot.data() : undefined,
+        existingSale,
         sale,
         deviceId,
         now,
@@ -104,7 +107,9 @@ export class FirestoreGenteCrystalSalesRepository
       if (merged.record) {
         transaction.set(saleReference, merged.record);
       }
-      transaction.set(deviceReference, { lastSeenAt: now }, { merge: true });
+      if (existingSale?.status !== "deleted") {
+        transaction.set(deviceReference, { lastSeenAt: now }, { merge: true });
+      }
 
       return { action: merged.action };
     });

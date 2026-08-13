@@ -165,6 +165,10 @@ export function mergeGenteCrystalSale(
   deviceId: string,
   now: Date,
 ): { action: GenteCrystalSaleAction; record?: GenteCrystalSaleRecord } {
+  if (existing?.status === "deleted") {
+    return { action: "already_exists" };
+  }
+
   if (sale.status === "deleted") {
     return {
       action: "deleted",
