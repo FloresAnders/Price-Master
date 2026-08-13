@@ -78,7 +78,12 @@ function readServiceAccount(raw) {
 }
 
 async function main() {
-  const { loadEnvConfig } = await import("@next/env");
+  const nextEnv = await import("@next/env");
+  const loadEnvConfig =
+    nextEnv.loadEnvConfig || nextEnv.default?.loadEnvConfig;
+  if (typeof loadEnvConfig !== "function") {
+    throw new Error("Next.js environment loader is unavailable.");
+  }
   loadEnvConfig(process.cwd());
 
   const [companyId, deviceId, deviceName] = process.argv.slice(2);

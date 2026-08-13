@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import {
   buildProvisionedDevice,
   createDeviceToken,
@@ -88,4 +90,20 @@ test("provisioning validates the display name and token prefix", () => {
 test("generated device tokens use the integration prefix", () => {
   const token = createDeviceToken();
   assert.match(token, /^tm_gc_[a-f0-9]{64}$/);
+});
+
+test("the CLI validates missing arguments before accessing Firestore", () => {
+  const scriptPath = fileURLToPath(
+    new URL("./provision-gente-crystal-device.mjs", import.meta.url),
+  );
+  const result = spawnSync(process.execPath, [scriptPath], {
+    encoding: "utf8",
+  });
+
+  assert.equal(result.status, 1);
+  assert.match(
+    result.stderr,
+    /Usage: npm run provision:gente-crystal-device/,
+  );
+  assert.doesNotMatch(result.stderr, /loadEnvConfig is not a function/);
 });
