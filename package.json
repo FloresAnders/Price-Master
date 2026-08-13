@@ -5,6 +5,7 @@
   "scripts": {
     "firebase:routes": "node scripts/lectorFirebase.mjs",
     "firebase:read": "node scripts/firebase-read.mjs",
+    "provision:gente-crystal-device": "node scripts/provision-gente-crystal-device.mjs",
     "dev": "next dev",
     "build": "next build",
     "build:capacitor": "node build-capacitor.js && npx cap sync android",

@@ -664,6 +664,16 @@ service cloud.firestore {
           (userId == request.auth.uid || isSuperAdmin());
       }
     }
+
+    // Gente Crystal integration data is server-only. Route Handlers use
+    // Firebase Admin and are not affected by client security rules.
+    match /genteCrystalIntegrationDevices/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /genteCrystalSales/{document=**} {
+      allow read, write: if false;
+    }
     
     // Otras reglas existentes...
     match /{collection}/{document=**} {
@@ -675,7 +685,9 @@ service cloud.firestore {
         collection != 'pendingInvoiceDeletionRequests' &&
         collection != 'Facturas' &&
         collection != 'anotaciones' &&
-        collection != 'internalDebts';
+        collection != 'internalDebts' &&
+        collection != 'genteCrystalIntegrationDevices' &&
+        collection != 'genteCrystalSales';
     }
   }
 }
