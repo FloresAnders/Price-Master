@@ -12,6 +12,10 @@
   const LOCAL_SALE_INTENT_MS = 2 * 60 * 1000;
   const LOCAL_SALE_TIMESTAMP_TOLERANCE_MS = 1 * 1000;
   const MAX_PENDING_LOCAL_SALE_INTENTS = 20;
+  const LOCAL_PRINT_CONFIRMATION_GRACE_MS = 15 * 1000;
+  const MAX_PENDING_LOCAL_CONFIRMATIONS = 20;
+  const CONFIRMED_LOCAL_TICKET_MS = 24 * 60 * 60 * 1000;
+  const MAX_CONFIRMED_LOCAL_TICKETS = 50;
   const CONNECTION_SAVE_PASSWORD = 'TIMEMASTER2026!';
   const TICKET_PATTERN = /^\d{4,}-\d{2,}-\d{5,}$/;
 
@@ -128,6 +132,88 @@
     return value === CONNECTION_SAVE_PASSWORD;
   }
 
+  function extractPrintedTicketId(value) {
+    const match = String(value || '').match(/\b\d{4,}-\d{2,}-\d{5,}\b/);
+    return match ? match[0] : null;
+  }
+
+  function validConfirmedLocalTickets(markers, now) {
+    return (Array.isArray(markers) ? markers : []).filter((marker) => {
+      const ticketId = String(marker?.ticketId || '').trim();
+      const confirmedAt = marker?.confirmedAt;
+      return (
+        TICKET_PATTERN.test(ticketId) &&
+        typeof confirmedAt === 'number' &&
+        Number.isFinite(confirmedAt) &&
+        now >= confirmedAt &&
+        now - confirmedAt <= CONFIRMED_LOCAL_TICKET_MS
+      );
+    });
+  }
+
+  function appendConfirmedLocalTicket(markers, ticketId, now = Date.now()) {
+    const normalizedTicketId = requireTicketId(ticketId);
+    return [
+      ...validConfirmedLocalTickets(markers, now).filter(
+        (marker) => marker.ticketId !== normalizedTicketId,
+      ),
+      { ticketId: normalizedTicketId, confirmedAt: now },
+    ].slice(-MAX_CONFIRMED_LOCAL_TICKETS);
+  }
+
+  function validPendingLocalConfirmations(pending, now) {
+    return (Array.isArray(pending) ? pending : []).filter((confirmation) => {
+      const createdAt = confirmation?.createdAt;
+      return (
+        typeof createdAt === 'number' &&
+        Number.isFinite(createdAt) &&
+        now >= createdAt &&
+        now - createdAt <= LOCAL_PRINT_CONFIRMATION_GRACE_MS
+      );
+    });
+  }
+
+  function appendPendingLocalConfirmation(pending, now = Date.now()) {
+    return [
+      ...validPendingLocalConfirmations(pending, now),
+      { createdAt: now },
+    ].slice(-MAX_PENDING_LOCAL_CONFIRMATIONS);
+  }
+
+  function prepareNewSalesForPrintConfirmation(
+    sales,
+    confirmedTickets,
+    pendingConfirmations,
+    now = Date.now(),
+  ) {
+    const pending = validPendingLocalConfirmations(pendingConfirmations, now);
+    const confirmedTicketIds = new Set(
+      validConfirmedLocalTickets(confirmedTickets, now).map(
+        (marker) => marker.ticketId,
+      ),
+    );
+    const readySales = [];
+    const deferredSales = [];
+
+    for (const sale of Array.isArray(sales) ? sales : []) {
+      const ticketId = String(sale?.ticketId || sale?.ticket || '').trim();
+      if (confirmedTicketIds.has(ticketId) && pending.length) {
+        pending.shift();
+        readySales.push(sale);
+      } else if (pending.length) {
+        deferredSales.push(sale);
+      } else {
+        readySales.push(sale);
+      }
+    }
+
+    return {
+      readySales,
+      deferredSales,
+      pendingConfirmations: pending,
+    };
+  }
+
   function parseObservedSaleDateTime(value) {
     const match = String(value || '').match(
       /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)\b/i,
@@ -161,17 +247,28 @@
     };
   }
 
-  function classifyNewSales(sales, intents, now = Date.now()) {
-    const pendingIntents = validLocalSaleIntents(intents, now).map((intent) => ({
-      ...intent,
-      ticketIdsBeforeClick: new Set(
-        Array.isArray(intent?.ticketIdsBeforeClick)
-          ? intent.ticketIdsBeforeClick
-          : [],
-      ),
-    }));
+  function classifyNewSales(
+    sales,
+    intents,
+    now = Date.now(),
+    confirmedTickets,
+  ) {
+    const hasConfirmedTickets = arguments.length >= 4;
+    const pendingConfirmedTickets = hasConfirmedTickets
+      ? validConfirmedLocalTickets(confirmedTickets, now)
+      : [];
+    const pendingIntents = validLocalSaleIntents(intents, now)
+      .map((intent) => ({
+        ...intent,
+        ticketIdsBeforeClick: new Set(
+          Array.isArray(intent?.ticketIdsBeforeClick)
+            ? intent.ticketIdsBeforeClick
+            : [],
+        ),
+      }))
+      .sort((left, right) => Number(left.clickedAt) - Number(right.clickedAt));
 
-    const classifiedSales = (Array.isArray(sales) ? sales : []).map((sale) => {
+    const preparedSales = (Array.isArray(sales) ? sales : []).map((sale, index) => {
       const ticketId = String(sale?.ticketId || sale?.ticket || '').trim();
       const rawTimestamp = sale?.timestamp ?? sale?.saleAt;
       const parsedTimestamp =
@@ -186,29 +283,84 @@
         Number.isFinite(rawPrecision) && rawPrecision > 0
           ? rawPrecision
           : 0;
-      const matchingIntentIndex = pendingIntents.findIndex((intent) => {
-        if (!ticketId || intent.ticketIdsBeforeClick.has(ticketId)) return false;
-        return (
-          saleTimestamp === null ||
-          saleTimestamp + timestampPrecisionMs >
-            Number(intent.clickedAt) - LOCAL_SALE_TIMESTAMP_TOLERANCE_MS
-        );
-      });
-      const isLocalSale = matchingIntentIndex >= 0;
-      if (isLocalSale) pendingIntents.splice(matchingIntentIndex, 1);
       return {
-        ...sale,
-        captureOrigin: isLocalSale ? 'local_button' : 'indirect',
+        sale,
+        ticketId,
+        saleTimestamp,
+        timestampPrecisionMs,
+        isConfirmedLocalSale: false,
+        confirmedAt: null,
+        index,
       };
     });
 
-    return {
+    const findMatchingIntentIndex = (preparedSale) =>
+      pendingIntents.findIndex((intent) => {
+        if (
+          !preparedSale.ticketId ||
+          intent.ticketIdsBeforeClick.has(preparedSale.ticketId)
+        ) {
+          return false;
+        }
+        return (
+          preparedSale.saleTimestamp === null ||
+          preparedSale.saleTimestamp + preparedSale.timestampPrecisionMs >
+            Number(intent.clickedAt) - LOCAL_SALE_TIMESTAMP_TOLERANCE_MS
+        );
+      });
+
+    for (const preparedSale of preparedSales) {
+      const confirmedTicketIndex = pendingConfirmedTickets.findIndex(
+        (marker) => marker.ticketId === preparedSale.ticketId,
+      );
+      if (confirmedTicketIndex < 0) continue;
+
+      preparedSale.isConfirmedLocalSale = true;
+      preparedSale.confirmedAt =
+        pendingConfirmedTickets[confirmedTicketIndex].confirmedAt;
+      pendingConfirmedTickets.splice(confirmedTicketIndex, 1);
+    }
+
+    const confirmedSalesInTimeOrder = preparedSales
+      .filter((preparedSale) => preparedSale.isConfirmedLocalSale)
+      .sort((left, right) => {
+        const leftTimestamp = left.saleTimestamp ?? left.confirmedAt;
+        const rightTimestamp = right.saleTimestamp ?? right.confirmedAt;
+        return leftTimestamp - rightTimestamp || left.index - right.index;
+      });
+    for (const preparedSale of confirmedSalesInTimeOrder) {
+      const matchingIntentIndex = findMatchingIntentIndex(preparedSale);
+      if (matchingIntentIndex >= 0) {
+        pendingIntents.splice(matchingIntentIndex, 1);
+      }
+    }
+
+    const classifiedSales = preparedSales.map((preparedSale) => {
+      const matchingIntentIndex = preparedSale.isConfirmedLocalSale
+        ? -1
+        : findMatchingIntentIndex(preparedSale);
+      const isIntentLocalSale = matchingIntentIndex >= 0;
+      if (isIntentLocalSale) pendingIntents.splice(matchingIntentIndex, 1);
+      return {
+        ...preparedSale.sale,
+        captureOrigin:
+          preparedSale.isConfirmedLocalSale || isIntentLocalSale
+            ? 'local_button'
+            : 'indirect',
+      };
+    });
+
+    const result = {
       sales: classifiedSales,
       intents: pendingIntents.map((intent) => ({
         clickedAt: intent.clickedAt,
         ticketIdsBeforeClick: [...intent.ticketIdsBeforeClick],
       })),
     };
+    if (hasConfirmedTickets) {
+      result.confirmedTickets = pendingConfirmedTickets;
+    }
+    return result;
   }
 
   function enqueueEvents(queue, events, now = Date.now()) {
@@ -401,7 +553,9 @@
   }
 
   return {
+    appendConfirmedLocalTicket,
     appendLocalSaleIntent,
+    appendPendingLocalConfirmation,
     buildActivePayload,
     buildDeletedPayload,
     classifyHttpFailure,
@@ -409,6 +563,7 @@
     computeBackoffMs,
     createLocalSaleIntent,
     enqueueEvents,
+    extractPrintedTicketId,
     getReadyRecords,
     isConnectionSaveAuthorized,
     isIngresarVentaLabel,
@@ -418,6 +573,7 @@
     markSucceeded,
     normalizeApiBaseUrl,
     parseObservedSaleDateTime,
+    prepareNewSalesForPrintConfirmation,
     resolveStableSaleTimestamp,
     resetErroredRecords,
     summarizeQueue,

@@ -11,6 +11,7 @@ import {
   currentCostaRicaDate,
   genteCrystalSaleOriginMarker,
 } from "./genteCrystalTiempos";
+import { GenteCrystalTicketTableFrame } from "./GenteCrystalTicketTableFrame";
 
 type GenteCrystalTiemposPanelProps = {
   companyId: string;
@@ -165,70 +166,66 @@ export function GenteCrystalTiemposPanel({
         </p>
       )}
 
-      <div className="overflow-hidden rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/70">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[620px] text-left text-sm">
-            <thead className="bg-cyan-950/30 text-xs uppercase tracking-wide text-cyan-100/75">
-              <tr>
-                <th className="px-3 py-2 font-semibold">Hora</th>
-                <th className="px-3 py-2 font-semibold">Sorteo</th>
-                <th className="px-3 py-2 font-semibold">Tiquete</th>
-                <th className="px-3 py-2 text-right font-semibold">Monto</th>
+      <GenteCrystalTicketTableFrame>
+        <thead className="bg-cyan-950/30 text-xs uppercase tracking-wide text-cyan-100/75">
+          <tr>
+            <th className="px-2 py-2 font-semibold">Hora</th>
+            <th className="px-2 py-2 font-semibold">Sorteo</th>
+            <th className="px-2 py-2 font-semibold">Tiquete</th>
+            <th className="px-2 py-2 text-right font-semibold">Monto</th>
+          </tr>
+        </thead>
+        <tbody>
+          {loading && !visibleResult ? (
+            <tr>
+              <td
+                colSpan={4}
+                className="px-4 py-8 text-center text-[var(--muted-foreground)]"
+              >
+                Cargando movimientos...
+              </td>
+            </tr>
+          ) : visibleResult && visibleResult.sales.length > 0 ? (
+            visibleResult.sales.map((sale) => (
+              <tr
+                key={sale.ticketId}
+                className="border-t border-[var(--input-border)]/70 text-[var(--foreground)] transition hover:bg-[var(--muted)]/25"
+              >
+                <td className="whitespace-nowrap px-2 py-2">
+                  {formatSaleTime(sale.saleAt)}
+                </td>
+                <td className="px-2 py-2">{sale.sorteo}</td>
+                <td className="whitespace-nowrap px-2 py-2 font-mono text-xs">
+                  {sale.ticketId}{" "}
+                  {genteCrystalSaleOriginMarker(sale.captureOrigin) && (
+                    <span
+                      className="font-sans font-bold text-amber-300"
+                      title="Venta detectada sin un clic local en Ingresar venta"
+                      aria-label="Venta indirecta"
+                    >
+                      {genteCrystalSaleOriginMarker(sale.captureOrigin)}
+                    </span>
+                  )}
+                </td>
+                <td className="whitespace-nowrap px-2 py-2 text-right font-semibold text-emerald-300">
+                  {formatCRC(sale.monto)}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {loading && !visibleResult ? (
-                <tr>
-                  <td
-                    colSpan={4}
-                    className="px-4 py-8 text-center text-[var(--muted-foreground)]"
-                  >
-                    Cargando movimientos...
-                  </td>
-                </tr>
-              ) : visibleResult && visibleResult.sales.length > 0 ? (
-                visibleResult.sales.map((sale) => (
-                  <tr
-                    key={sale.ticketId}
-                    className="border-t border-[var(--input-border)]/70 text-[var(--foreground)] transition hover:bg-[var(--muted)]/25"
-                  >
-                    <td className="whitespace-nowrap px-3 py-2">
-                      {formatSaleTime(sale.saleAt)}
-                    </td>
-                    <td className="px-3 py-2">{sale.sorteo}</td>
-                    <td className="whitespace-nowrap px-3 py-2 font-mono text-xs">
-                      {sale.ticketId}{" "}
-                      {genteCrystalSaleOriginMarker(sale.captureOrigin) && (
-                        <span
-                          className="font-sans font-bold text-amber-300"
-                          title="Venta detectada sin un clic local en Ingresar venta"
-                          aria-label="Venta indirecta"
-                        >
-                          {genteCrystalSaleOriginMarker(sale.captureOrigin)}
-                        </span>
-                      )}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-2 text-right font-semibold text-emerald-300">
-                      {formatCRC(sale.monto)}
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan={4}
-                    className="px-4 py-8 text-center text-[var(--muted-foreground)]"
-                  >
-                    {error
-                      ? "Usa Actualizar para intentar nuevamente."
-                      : "No hay movimientos para esta fecha."}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            ))
+          ) : (
+            <tr>
+              <td
+                colSpan={4}
+                className="px-4 py-8 text-center text-[var(--muted-foreground)]"
+              >
+                {error
+                  ? "Usa Actualizar para intentar nuevamente."
+                  : "No hay movimientos para esta fecha."}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </GenteCrystalTicketTableFrame>
     </div>
   );
 }

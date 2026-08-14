@@ -1,5 +1,8 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const test = require('node:test');
+const vm = require('node:vm');
 const syncCore = require('./sync-core.js');
 const {
   buildActivePayload,
@@ -67,6 +70,482 @@ test('missing sale times reuse the first fallback across detector polls', () => 
 
 test('a real detected sale time replaces an earlier fallback', () => {
   assert.equal(resolveStableSaleTimestamp(3000, 1000, 4000), 3000);
+});
+
+test('the print page exposes the exact locally generated ticket', () => {
+  assert.equal(
+    syncCore.extractPrintedTicketId(`Grupo Cafetero
+41820-2204-59199878
+13/08/2026 19:13:46
+AF826AAD
+Puesto: Tiempos Delikor Palmares`),
+    '41820-2204-59199878',
+  );
+});
+
+test('a printed confirmation classifies only its exact ticket as local', () => {
+  assert.deepEqual(
+    syncCore.classifyNewSales(
+      [
+        { ticket: '41820-2204-59199877' },
+        { ticket: '41820-2204-59199878' },
+      ],
+      [],
+      2_000,
+      [{ ticketId: '41820-2204-59199878', confirmedAt: 1_000 }],
+    ),
+    {
+      sales: [
+        { ticket: '41820-2204-59199877', captureOrigin: 'indirect' },
+        { ticket: '41820-2204-59199878', captureOrigin: 'local_button' },
+      ],
+      intents: [],
+      confirmedTickets: [],
+    },
+  );
+});
+
+test('a printed confirmation also consumes its matching click intent', () => {
+  const intent = syncCore.createLocalSaleIntent([], 1_000);
+
+  assert.deepEqual(
+    syncCore.classifyNewSales(
+      [
+        { ticket: '41820-2204-59199878', timestamp: 1_500 },
+        { ticket: '41820-2204-59199879', timestamp: 1_600 },
+      ],
+      [intent],
+      2_000,
+      [{ ticketId: '41820-2204-59199878', confirmedAt: 1_500 }],
+    ),
+    {
+      sales: [
+        {
+          ticket: '41820-2204-59199878',
+          timestamp: 1_500,
+          captureOrigin: 'local_button',
+        },
+        {
+          ticket: '41820-2204-59199879',
+          timestamp: 1_600,
+          captureOrigin: 'indirect',
+        },
+      ],
+      intents: [],
+      confirmedTickets: [],
+    },
+  );
+});
+
+test('a confirmed ticket reserves its click intent regardless of sale order', () => {
+  const intent = syncCore.createLocalSaleIntent([], 1_000);
+
+  assert.deepEqual(
+    syncCore.classifyNewSales(
+      [
+        { ticket: '41820-2204-59199879', timestamp: 1_600 },
+        { ticket: '41820-2204-59199878', timestamp: 1_500 },
+      ],
+      [intent],
+      2_000,
+      [{ ticketId: '41820-2204-59199878', confirmedAt: 1_500 }],
+    ),
+    {
+      sales: [
+        {
+          ticket: '41820-2204-59199879',
+          timestamp: 1_600,
+          captureOrigin: 'indirect',
+        },
+        {
+          ticket: '41820-2204-59199878',
+          timestamp: 1_500,
+          captureOrigin: 'local_button',
+        },
+      ],
+      intents: [],
+      confirmedTickets: [],
+    },
+  );
+});
+
+test('multiple confirmed tickets reserve multiple intents chronologically', () => {
+  const firstIntent = syncCore.createLocalSaleIntent([], 1_000);
+  const secondIntent = syncCore.createLocalSaleIntent([], 3_000);
+
+  assert.deepEqual(
+    syncCore.classifyNewSales(
+      [
+        { ticket: '41820-2204-59199879', timestamp: 3_500 },
+        { ticket: '41820-2204-59199878', timestamp: 1_500 },
+        { ticket: '41820-2204-59199880', timestamp: 3_600 },
+      ],
+      [firstIntent, secondIntent],
+      4_000,
+      [
+        { ticketId: '41820-2204-59199879', confirmedAt: 3_500 },
+        { ticketId: '41820-2204-59199878', confirmedAt: 1_500 },
+      ],
+    ),
+    {
+      sales: [
+        {
+          ticket: '41820-2204-59199879',
+          timestamp: 3_500,
+          captureOrigin: 'local_button',
+        },
+        {
+          ticket: '41820-2204-59199878',
+          timestamp: 1_500,
+          captureOrigin: 'local_button',
+        },
+        {
+          ticket: '41820-2204-59199880',
+          timestamp: 3_600,
+          captureOrigin: 'indirect',
+        },
+      ],
+      intents: [],
+      confirmedTickets: [],
+    },
+  );
+});
+
+test('recording a printed confirmation replaces the older duplicate', () => {
+  assert.deepEqual(
+    syncCore.appendConfirmedLocalTicket(
+      [
+        { ticketId: '41820-2204-59199878', confirmedAt: 500 },
+        { ticketId: '41820-2204-59199879', confirmedAt: 750 },
+      ],
+      '41820-2204-59199878',
+      1_000,
+    ),
+    [
+      { ticketId: '41820-2204-59199879', confirmedAt: 750 },
+      { ticketId: '41820-2204-59199878', confirmedAt: 1_000 },
+    ],
+  );
+});
+
+test('printed confirmations retain only the newest fifty tickets', () => {
+  const existing = Array.from({ length: 50 }, (_, index) => ({
+    ticketId: `41820-2204-${59199000 + index}`,
+    confirmedAt: 1_000 + index,
+  }));
+
+  const result = syncCore.appendConfirmedLocalTicket(
+    existing,
+    '41820-2204-59199999',
+    2_000,
+  );
+
+  assert.equal(result.length, 50);
+  assert.equal(
+    result.some((marker) => marker.ticketId === '41820-2204-59199000'),
+    false,
+  );
+  assert.deepEqual(result.at(-1), {
+    ticketId: '41820-2204-59199999',
+    confirmedAt: 2_000,
+  });
+});
+
+test('a printed confirmation remains valid for exactly twenty-four hours', () => {
+  assert.deepEqual(
+    syncCore.classifyNewSales(
+      [{ ticket: '41820-2204-59199878' }],
+      [],
+      86_400_000,
+      [{ ticketId: '41820-2204-59199878', confirmedAt: 0 }],
+    ),
+    {
+      sales: [
+        { ticket: '41820-2204-59199878', captureOrigin: 'local_button' },
+      ],
+      intents: [],
+      confirmedTickets: [],
+    },
+  );
+});
+
+test('expired or malformed printed confirmations cannot mark a sale local', () => {
+  assert.deepEqual(
+    syncCore.classifyNewSales(
+      [{ ticket: '41820-2204-59199878' }],
+      [],
+      86_400_001,
+      [
+        { ticketId: '41820-2204-59199878', confirmedAt: 0 },
+        { ticketId: '41820-2204-59199878', confirmedAt: 'invalid' },
+        { ticketId: 'bad-ticket', confirmedAt: 1_000 },
+        { ticketId: '41820-2204-59199878', confirmedAt: 86_400_002 },
+      ],
+    ),
+    {
+      sales: [
+        { ticket: '41820-2204-59199878', captureOrigin: 'indirect' },
+      ],
+      intents: [],
+      confirmedTickets: [],
+    },
+  );
+});
+
+test('a pending print confirmation defers a new sale until its exact marker arrives', () => {
+  const pending = syncCore.appendPendingLocalConfirmation([], 1_000);
+  const sale = { ticket: '41820-2204-59199878', timestamp: 1_500 };
+
+  assert.deepEqual(
+    syncCore.prepareNewSalesForPrintConfirmation(
+      [sale],
+      [],
+      pending,
+      2_000,
+    ),
+    {
+      readySales: [],
+      deferredSales: [sale],
+      pendingConfirmations: [{ createdAt: 1_000 }],
+    },
+  );
+
+  assert.deepEqual(
+    syncCore.prepareNewSalesForPrintConfirmation(
+      [sale],
+      [{ ticketId: '41820-2204-59199878', confirmedAt: 2_500 }],
+      pending,
+      3_000,
+    ),
+    {
+      readySales: [sale],
+      deferredSales: [],
+      pendingConfirmations: [],
+    },
+  );
+});
+
+test('an unconfirmed print wait expires after fifteen seconds', () => {
+  const sale = { ticket: '41820-2204-59199878' };
+
+  assert.deepEqual(
+    syncCore.prepareNewSalesForPrintConfirmation(
+      [sale],
+      [],
+      [{ createdAt: 1_000 }],
+      16_001,
+    ),
+    {
+      readySales: [sale],
+      deferredSales: [],
+      pendingConfirmations: [],
+    },
+  );
+});
+
+test('the print page persists the exact generated ticket confirmation', async () => {
+  const storage = {};
+  const context = {
+    chrome: {
+      storage: {
+        local: {
+          async get(key) {
+            return { [key]: storage[key] };
+          },
+          async set(value) {
+            Object.assign(storage, value);
+          },
+        },
+      },
+    },
+    console: { error() {} },
+    Date: class extends Date {
+      static now() {
+        return 1_000;
+      }
+    },
+    document: {
+      body: {
+        innerText: `Grupo Cafetero
+41820-2204-59199878
+13/08/2026 19:13:46
+AF826AAD
+Puesto: Tiempos Delikor Palmares`,
+      },
+    },
+    TimeMasterGenteCrystalSync: syncCore,
+  };
+  context.globalThis = context;
+
+  const source = fs.readFileSync(
+    path.join(__dirname, 'print-confirmation.js'),
+    'utf8',
+  );
+  await vm.runInNewContext(source, context);
+
+  assert.deepEqual(storage, {
+    genteCrystalConfirmedLocalTickets: [
+      { ticketId: '41820-2204-59199878', confirmedAt: 1_000 },
+    ],
+  });
+});
+
+test('the entries detector waits for a late printed confirmation before saving', async () => {
+  const storage = {
+    ventasGenteCrystal: [],
+    genteCrystalConfirmedLocalTickets: [],
+    genteCrystalPendingLocalConfirmations: [],
+  };
+  const runtimeMessages = [];
+  let clickListener;
+  let onMessage;
+  let ticketVisible = false;
+  const saleRow = {
+    className: '',
+    getAttribute() {
+      return null;
+    },
+    id: '',
+    innerText: '13/08/2026 07:13 PM 41820-2204-59199878 ₡50',
+    querySelectorAll() {
+      return [];
+    },
+    textContent: '13/08/2026 07:13 PM 41820-2204-59199878 ₡50',
+  };
+  const table = {
+    querySelectorAll(selector) {
+      return selector === 'tr' && ticketVisible ? [saleRow] : [];
+    },
+  };
+  const select = {
+    addEventListener() {},
+    dataset: {},
+    id: 'sorteo',
+    name: 'sorteo',
+    options: [{ textContent: '13/08/2026 NICA NOCHE' }],
+    selectedIndex: 0,
+  };
+  class FakeElement {}
+  const context = {
+    chrome: {
+      runtime: {
+        onMessage: {
+          addListener(listener) {
+            onMessage = listener;
+          },
+        },
+        async sendMessage(message) {
+          runtimeMessages.push(message);
+          return { ok: true };
+        },
+      },
+      storage: {
+        local: {
+          async get(keys) {
+            const requested = Array.isArray(keys) ? keys : [keys];
+            return Object.fromEntries(
+              requested.map((key) => [key, storage[key]]),
+            );
+          },
+          async set(value) {
+            Object.assign(storage, value);
+          },
+        },
+      },
+    },
+    clearInterval() {},
+    clearTimeout() {},
+    console: { error() {}, log() {} },
+    Date: class extends Date {
+      static now() {
+        return 2_000;
+      }
+    },
+    document: {
+      addEventListener(type, listener) {
+        if (type === 'click') clickListener = listener;
+      },
+      body: {},
+      getElementById() {
+        return null;
+      },
+      querySelectorAll(selector) {
+        if (selector === 'select') return [select];
+        if (selector === 'table') return [table];
+        return [];
+      },
+      removeEventListener() {},
+    },
+    Element: FakeElement,
+    getComputedStyle() {
+      return { backgroundColor: 'rgba(0, 0, 0, 0)' };
+    },
+    HTMLInputElement: class extends FakeElement {},
+    MutationObserver: class {
+      disconnect() {}
+      observe() {}
+    },
+    setInterval() {
+      return 1;
+    },
+    setTimeout() {
+      return 1;
+    },
+    TimeMasterGenteCrystalSync: syncCore,
+  };
+  context.globalThis = context;
+
+  const source = fs.readFileSync(path.join(__dirname, 'content.js'), 'utf8');
+  vm.runInNewContext(source, context);
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const ingresarVenta = new FakeElement();
+  ingresarVenta.closest = () => ingresarVenta;
+  ingresarVenta.innerText = 'Ingresar venta';
+  clickListener({ target: ingresarVenta });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.deepEqual(storage.genteCrystalPendingLocalConfirmations, [
+    { createdAt: 2_000 },
+  ]);
+  ticketVisible = true;
+
+  const firstScan = await new Promise((resolve) => {
+    assert.equal(
+      onMessage({ type: 'TM_FORCE_SCAN' }, {}, resolve),
+      true,
+    );
+  });
+
+  assert.equal(firstScan.ok, true);
+  assert.equal(storage.ventasGenteCrystal.length, 0);
+  assert.equal(
+    runtimeMessages.some((message) =>
+      message.events?.some(
+        (event) => event.ticketId === '41820-2204-59199878',
+      ),
+    ),
+    false,
+  );
+
+  storage.genteCrystalConfirmedLocalTickets = [
+    { ticketId: '41820-2204-59199878', confirmedAt: 1_500 },
+  ];
+  const secondScan = await new Promise((resolve) => {
+    assert.equal(
+      onMessage({ type: 'TM_FORCE_SCAN' }, {}, resolve),
+      true,
+    );
+  });
+
+  assert.equal(secondScan.ok, true);
+  assert.equal(storage.ventasGenteCrystal.length, 1);
+  assert.equal(
+    storage.ventasGenteCrystal[0].captureOrigin,
+    'local_button',
+  );
+  assert.deepEqual(storage.genteCrystalConfirmedLocalTickets, []);
+  assert.deepEqual(storage.genteCrystalPendingLocalConfirmations, []);
 });
 
 test('one click classifies only the next new ticket as local', () => {

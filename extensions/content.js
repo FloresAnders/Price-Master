@@ -2,6 +2,9 @@
   'use strict';
 
   const STORAGE_KEY = 'ventasGenteCrystal';
+  const CONFIRMED_LOCAL_TICKETS_KEY = 'genteCrystalConfirmedLocalTickets';
+  const PENDING_LOCAL_CONFIRMATIONS_KEY =
+    'genteCrystalPendingLocalConfirmations';
   const syncCore = globalThis.TimeMasterGenteCrystalSync;
   const POLL_MS = 1200;
   const MUTATION_DEBOUNCE_MS = 300;
@@ -18,6 +21,7 @@
   let escaneando = false;
   let contextoInvalidado = false;
   let intencionesVentaLocal = [];
+  let confirmacionesVentaPendientes = [];
 
   function log(...args) {
     console.log('%c[TimeMaster]', 'color:#22c55e;font-weight:700', ...args);
@@ -262,9 +266,25 @@
     };
   }
 
+  async function obtenerEstadoLocal() {
+    const result = await chrome.storage.local.get([
+      STORAGE_KEY,
+      CONFIRMED_LOCAL_TICKETS_KEY,
+      PENDING_LOCAL_CONFIRMATIONS_KEY,
+    ]);
+    return {
+      ventas: Array.isArray(result[STORAGE_KEY]) ? result[STORAGE_KEY] : [],
+      confirmaciones: Array.isArray(result[CONFIRMED_LOCAL_TICKETS_KEY])
+        ? result[CONFIRMED_LOCAL_TICKETS_KEY]
+        : [],
+      pendientes: Array.isArray(result[PENDING_LOCAL_CONFIRMATIONS_KEY])
+        ? result[PENDING_LOCAL_CONFIRMATIONS_KEY]
+        : [],
+    };
+  }
+
   async function obtenerGuardadas() {
-    const result = await chrome.storage.local.get(STORAGE_KEY);
-    return Array.isArray(result[STORAGE_KEY]) ? result[STORAGE_KEY] : [];
+    return (await obtenerEstadoLocal()).ventas;
   }
 
   async function encolarEventos(eventos) {
@@ -357,14 +377,31 @@
     if (!syncCore.isIngresarVentaLabel(etiqueta)) return;
 
     const lectura = leerTiquetesVisibles();
+    const ahora = Date.now();
     intencionesVentaLocal = syncCore.appendLocalSaleIntent(
       intencionesVentaLocal,
       [
         ...lectura.ventas.map((venta) => venta.ticket),
         ...lectura.borrados
       ],
-      Date.now()
+      ahora
     );
+    confirmacionesVentaPendientes =
+      syncCore.appendPendingLocalConfirmation(
+        confirmacionesVentaPendientes,
+        ahora,
+      );
+    void chrome.storage.local
+      .set({
+        [PENDING_LOCAL_CONFIRMATIONS_KEY]: confirmacionesVentaPendientes,
+      })
+      .catch((error) => {
+        if (syncCore.isExtensionContextInvalidatedError(error)) return;
+        console.error(
+          '[TimeMaster] No se pudo registrar la venta pendiente:',
+          error,
+        );
+      });
   }
 
   async function sincronizarDesdeTabla({ avisarNuevas = true, forzar = false } = {}) {
@@ -383,7 +420,10 @@
         return { ok: false, motivo: 'sin_sorteo', sorteo: null, diagnostico };
       }
 
-      const guardadas = await obtenerGuardadas();
+      const estadoLocal = await obtenerEstadoLocal();
+      const guardadas = estadoLocal.ventas;
+      const confirmaciones = estadoLocal.confirmaciones;
+      const pendientes = estadoLocal.pendientes;
       const porTicket = new Map();
       const heredadas = [];
 
@@ -396,10 +436,21 @@
       const nuevas = [];
       const eventos = [];
 
-      const clasificacion = syncCore.classifyNewSales(
+      const preparacion = syncCore.prepareNewSalesForPrintConfirmation(
         visibles.filter((item) => !porTicket.has(item.ticket)),
+        confirmaciones,
+        pendientes,
+        Date.now(),
+      );
+      confirmacionesVentaPendientes = preparacion.pendingConfirmations;
+      const ticketsDiferidos = new Set(
+        preparacion.deferredSales.map((venta) => venta.ticket),
+      );
+      const clasificacion = syncCore.classifyNewSales(
+        preparacion.readySales,
         intencionesVentaLocal,
-        Date.now()
+        Date.now(),
+        confirmaciones,
       );
       intencionesVentaLocal = clasificacion.intents;
       const origenPorTicket = new Map(
@@ -413,6 +464,7 @@
 
       for (const item of visibles) {
         const existente = porTicket.get(item.ticket);
+        if (!existente && ticketsDiferidos.has(item.ticket)) continue;
         const venta = {
           id: existente?.id || `GC-${item.ticket}`,
           ticket: item.ticket,
@@ -452,11 +504,29 @@
         eventos.push(syncCore.buildActivePayload(porTicket.get(item.ticket)));
       }
 
+      const cambiosStorage = {};
       if (cambio) {
         const resultado = [...heredadas, ...porTicket.values()].sort(
           (a, b) => (a.timestamp || 0) - (b.timestamp || 0)
         );
-        await chrome.storage.local.set({ [STORAGE_KEY]: resultado });
+        cambiosStorage[STORAGE_KEY] = resultado;
+      }
+      if (
+        JSON.stringify(clasificacion.confirmedTickets) !==
+        JSON.stringify(confirmaciones)
+      ) {
+        cambiosStorage[CONFIRMED_LOCAL_TICKETS_KEY] =
+          clasificacion.confirmedTickets;
+      }
+      if (
+        JSON.stringify(preparacion.pendingConfirmations) !==
+        JSON.stringify(pendientes)
+      ) {
+        cambiosStorage[PENDING_LOCAL_CONFIRMATIONS_KEY] =
+          preparacion.pendingConfirmations;
+      }
+      if (Object.keys(cambiosStorage).length) {
+        await chrome.storage.local.set(cambiosStorage);
       }
 
       const colaActualizada = await encolarEventos(eventos);
@@ -535,7 +605,7 @@
       obtenerGuardadas().then((ventas) => {
         sendResponse({
           ok: true,
-          version: '1.6.0',
+          version: '1.7.0',
           sorteo: getSorteo(),
           guardadas: ventas.length,
           diagnostico: lectura.diagnostico
@@ -546,9 +616,28 @@
   });
 
   async function iniciar() {
-    const result = await chrome.storage.local.get(STORAGE_KEY);
+    const result = await chrome.storage.local.get([
+      STORAGE_KEY,
+      CONFIRMED_LOCAL_TICKETS_KEY,
+      PENDING_LOCAL_CONFIRMATIONS_KEY,
+    ]);
+    const estadoInicial = {};
     if (!Array.isArray(result[STORAGE_KEY])) {
-      await chrome.storage.local.set({ [STORAGE_KEY]: [] });
+      estadoInicial[STORAGE_KEY] = [];
+    }
+    if (!Array.isArray(result[CONFIRMED_LOCAL_TICKETS_KEY])) {
+      estadoInicial[CONFIRMED_LOCAL_TICKETS_KEY] = [];
+    }
+    confirmacionesVentaPendientes = Array.isArray(
+      result[PENDING_LOCAL_CONFIRMATIONS_KEY],
+    )
+      ? result[PENDING_LOCAL_CONFIRMATIONS_KEY]
+      : [];
+    if (!Array.isArray(result[PENDING_LOCAL_CONFIRMATIONS_KEY])) {
+      estadoInicial[PENDING_LOCAL_CONFIRMATIONS_KEY] = [];
+    }
+    if (Object.keys(estadoInicial).length) {
+      await chrome.storage.local.set(estadoInicial);
     }
 
     configurarCambioSorteo();
@@ -560,7 +649,7 @@
       const resultado = await sincronizarDesdeTabla({ avisarNuevas: false, forzar: true });
       if (resultado.motivo === 'contexto_invalidado') return;
       inicializado = true;
-      log('Extensión v1.6.0 activa:', resultado);
+      log('Extensión v1.7.0 activa:', resultado);
     }, 600);
 
     pollTimer = setInterval(() => {

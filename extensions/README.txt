@@ -1,4 +1,4 @@
-TimeMaster - Gente Crystal v1.6.0
+TimeMaster - Gente Crystal v1.7.0
 
 INSTALACIÓN / ACTUALIZACIÓN
 
@@ -55,6 +55,19 @@ El popup muestra:
 - tiquetes visibles y borrados ignorados;
 - ventas locales guardadas;
 - pendientes, enviando, sincronizados y errores de la cola.
+
+CAMBIOS DE LA VERSIÓN 1.7.0
+
+- Detecta el número exacto del tiquete que aparece en `print_pagos.php`
+  después de pulsar "Ingresar venta".
+- Conserva temporalmente esa confirmación al navegar y clasifica únicamente
+  ese tiquete como venta directa (`local_button`) al regresar a `entradas.php`.
+- Comparte una espera máxima de 15 segundos entre pestañas para no guardar el
+  tiquete como indirecto mientras carga la confirmación impresa.
+- Mantiene como indirectos los demás tiquetes detectados desde otros
+  dispositivos o medios.
+- Las ventas que ya estaban almacenadas antes de instalar esta versión no se
+  reclasifican automáticamente.
 
 CAMBIOS DE LA VERSIÓN 1.6.0
 

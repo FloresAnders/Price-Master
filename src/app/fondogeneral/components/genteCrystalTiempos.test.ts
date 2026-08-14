@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import type { Empresas } from "../../../types/firestore.ts";
 import {
   buildGenteCrystalCompanyOptions,
@@ -7,6 +9,7 @@ import {
   genteCrystalSaleOriginMarker,
   resolveGenteCrystalCompanySelection,
 } from "./genteCrystalTiempos.ts";
+import { GenteCrystalTicketTableFrame } from "./GenteCrystalTicketTableFrame.ts";
 
 test("only indirect sales receive the (i) marker", () => {
   assert.equal(genteCrystalSaleOriginMarker("indirect"), "(i)");
@@ -115,4 +118,18 @@ test("the default date follows Costa Rica across the UTC day boundary", () => {
     currentCostaRicaDate(new Date("2026-08-13T06:00:00.000Z")),
     "2026-08-13",
   );
+});
+
+test("the ticket table keeps its columns horizontally compact", () => {
+  const markup = renderToStaticMarkup(
+    createElement(
+      GenteCrystalTicketTableFrame,
+      null,
+      createElement("tbody", null, createElement("tr")),
+    ),
+  );
+
+  assert.match(markup, /class="w-fit max-w-full/);
+  assert.match(markup, /<table class="w-max/);
+  assert.doesNotMatch(markup, /min-w-\[620px\]|<table class="w-full/);
 });
