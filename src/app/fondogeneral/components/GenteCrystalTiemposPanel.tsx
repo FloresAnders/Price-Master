@@ -1,7 +1,7 @@
 "use client";
 
 import { Info, RefreshCw, Ticket, WalletCards } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   GenteCrystalSalesClient,
   messageForGenteCrystalSalesError,
@@ -9,13 +9,23 @@ import {
 } from "../../../services/gente-crystal-sales";
 import {
   buildGenteCrystalDisplayResult,
+  createGenteCrystalManualSalesQuery,
   currentCostaRicaDate,
   genteCrystalSaleOriginMarker,
 } from "./genteCrystalTiempos";
-import { GenteCrystalTicketTableFrame } from "./GenteCrystalTicketTableFrame";
+import {
+  GenteCrystalTicketNumbers,
+  GenteCrystalTicketTableFrame,
+  GenteCrystalTicketViewToggle,
+} from "./GenteCrystalTicketTableFrame";
 
 type GenteCrystalTiemposPanelProps = {
   companyId: string;
+};
+
+type RequestedScope = {
+  companyId: string;
+  date: string;
 };
 
 const formatCRC = (value: number) =>
@@ -41,43 +51,51 @@ export function GenteCrystalTiemposPanel({
     useState<GenteCrystalDailySalesResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [refreshVersion, setRefreshVersion] = useState(0);
+  const [requestedScope, setRequestedScope] =
+    useState<RequestedScope | null>(null);
+  const [showFullTicket, setShowFullTicket] = useState(false);
+  const activeRequestId = useRef(0);
+  const manualQuery = useRef<
+    ReturnType<typeof createGenteCrystalManualSalesQuery> | undefined
+  >(undefined);
+
+  if (!manualQuery.current) {
+    manualQuery.current = createGenteCrystalManualSalesQuery(
+      (nextCompanyId, nextDate, signal) =>
+        GenteCrystalSalesClient.getDaily(nextCompanyId, nextDate, signal),
+    );
+  }
 
   useEffect(() => {
-    const controller = new AbortController();
-    queueMicrotask(() => {
-      if (controller.signal.aborted) return;
-      setLoading(true);
-      setError("");
-      void GenteCrystalSalesClient.getDaily(
-        companyId,
-        date,
-        controller.signal,
-      )
-        .then((nextResult) => {
-          if (!controller.signal.aborted) setResult(nextResult);
-        })
-        .catch((reason: unknown) => {
-          if (!controller.signal.aborted) {
-            setError(messageForGenteCrystalSalesError(reason));
-          }
-        })
-        .finally(() => {
-          if (!controller.signal.aborted) setLoading(false);
-        });
-    });
+    return () => {
+      activeRequestId.current += 1;
+      manualQuery.current?.cancel();
+    };
+  }, []);
 
-    return () => controller.abort();
-  }, [companyId, date, refreshVersion]);
+  const handleRefresh = async () => {
+    const requestId = activeRequestId.current + 1;
+    activeRequestId.current = requestId;
+    setRequestedScope({ companyId, date });
+    setLoading(true);
+    setError("");
 
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      if (date === currentCostaRicaDate()) {
-        setRefreshVersion((version) => version + 1);
+    try {
+      const nextResult = await manualQuery.current!.refresh(companyId, date);
+      if (activeRequestId.current === requestId) setResult(nextResult);
+    } catch (reason: unknown) {
+      if (activeRequestId.current === requestId) {
+        setError(messageForGenteCrystalSalesError(reason));
       }
-    }, 30_000);
-    return () => window.clearInterval(timer);
-  }, [date]);
+    } finally {
+      if (activeRequestId.current === requestId) setLoading(false);
+    }
+  };
+
+  const isRequestedScopeVisible =
+    requestedScope?.companyId === companyId && requestedScope.date === date;
+  const visibleLoading = loading && isRequestedScopeVisible;
+  const visibleError = isRequestedScopeVisible ? error : "";
 
   const visibleResult = useMemo(
     () =>
@@ -101,15 +119,21 @@ export function GenteCrystalTiemposPanel({
             className="h-10 rounded-md border border-[var(--input-border)] bg-[var(--background)] px-3 text-[var(--foreground)] outline-none transition focus:border-cyan-500"
           />
         </label>
-        <button
-          type="button"
-          onClick={() => setRefreshVersion((version) => version + 1)}
-          disabled={loading}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-cyan-600/45 bg-cyan-950/20 px-4 text-sm font-semibold text-[var(--foreground)] transition hover:border-cyan-400/70 hover:bg-cyan-950/35 disabled:cursor-not-allowed disabled:opacity-55"
-        >
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          Actualizar
-        </button>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <GenteCrystalTicketViewToggle
+            showFullTicket={showFullTicket}
+            onToggle={() => setShowFullTicket((current) => !current)}
+          />
+          <button
+            type="button"
+            onClick={() => void handleRefresh()}
+            disabled={loading}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-cyan-600/45 bg-cyan-950/20 px-4 text-sm font-semibold text-[var(--foreground)] transition hover:border-cyan-400/70 hover:bg-cyan-950/35 disabled:cursor-not-allowed disabled:opacity-55"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Actualizar
+          </button>
+        </div>
       </div>
 
       <div
@@ -160,12 +184,12 @@ export function GenteCrystalTiemposPanel({
         </p>
       )}
 
-      {error && (
+      {visibleError && (
         <p
           role="alert"
           className="rounded-md border border-red-500/35 bg-red-950/20 px-3 py-2 text-sm text-red-200"
         >
-          {error}
+          {visibleError}
         </p>
       )}
 
@@ -179,7 +203,7 @@ export function GenteCrystalTiemposPanel({
           </tr>
         </thead>
         <tbody>
-          {loading && !visibleResult ? (
+          {visibleLoading && !visibleResult ? (
             <tr>
               <td
                 colSpan={4}
@@ -191,15 +215,18 @@ export function GenteCrystalTiemposPanel({
           ) : visibleResult && visibleResult.sales.length > 0 ? (
             visibleResult.sales.map((sale) => (
               <tr
-                key={sale.ticketId}
+                key={sale.ticketIds.join("|")}
                 className="border-t border-[var(--input-border)]/70 text-[var(--foreground)] transition hover:bg-[var(--muted)]/25"
               >
-                <td className="whitespace-nowrap px-2 py-2">
+                <td className="whitespace-nowrap px-2 py-2 align-middle">
                   {formatSaleTime(sale.saleAt)}
                 </td>
-                <td className="px-2 py-2">{sale.sorteo}</td>
-                <td className="whitespace-nowrap px-2 py-2 font-mono text-xs">
-                  {sale.ticketId}{" "}
+                <td className="px-2 py-2 align-middle">{sale.sorteo}</td>
+                <td className="whitespace-nowrap px-2 py-2 align-middle font-mono text-xs">
+                  <GenteCrystalTicketNumbers
+                    ticketIds={sale.ticketIds}
+                    showFullTicket={showFullTicket}
+                  />{" "}
                   {genteCrystalSaleOriginMarker(sale.captureOrigin) && (
                     <span
                       className="font-sans font-bold text-amber-300"
@@ -210,7 +237,7 @@ export function GenteCrystalTiemposPanel({
                     </span>
                   )}
                 </td>
-                <td className="whitespace-nowrap px-2 py-2 text-right font-semibold text-emerald-300">
+                <td className="whitespace-nowrap px-2 py-2 text-right align-middle font-semibold text-emerald-300">
                   {formatCRC(sale.monto)}
                 </td>
               </tr>
@@ -221,9 +248,11 @@ export function GenteCrystalTiemposPanel({
                 colSpan={4}
                 className="px-4 py-8 text-center text-[var(--muted-foreground)]"
               >
-                {error
+                {visibleError
                   ? "Usa Actualizar para intentar nuevamente."
-                  : "No hay movimientos para esta fecha."}
+                  : !isRequestedScopeVisible
+                    ? "Presiona Actualizar para consultar."
+                    : "No hay movimientos para esta fecha."}
               </td>
             </tr>
           )}

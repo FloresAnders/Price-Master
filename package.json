@@ -6,6 +6,7 @@
     "firebase:routes": "node scripts/lectorFirebase.mjs",
     "firebase:read": "node scripts/firebase-read.mjs",
     "provision:gente-crystal-device": "node scripts/provision-gente-crystal-device.mjs",
+    "test:gente-crystal": "tsx --test src/lib/gente-crystal/sales.test.ts src/lib/gente-crystal/read-sales.test.ts src/lib/gente-crystal/firestore-sales-reader.test.ts src/app/api/integrations/gente-crystal/sales/route.test.ts src/app/api/integrations/gente-crystal/sales/read-route.test.ts src/services/gente-crystal-sales.test.ts src/app/fondogeneral/components/genteCrystalTiempos.test.ts src/app/fondogeneral/components/GenteCrystalTiemposPanel.test.tsx",
     "dev": "next dev",
     "build": "next build",
     "build:capacitor": "node build-capacitor.js && npx cap sync android",
@@ -84,6 +85,7 @@
   },
   "devDependencies": {
     "@types/html2canvas": "^0.5.35",
+    "@types/jsdom": "^27.0.0",
     "@types/node": "^20",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
@@ -94,7 +96,9 @@
     "eslint": "^9",
     "eslint-config-next": "16.0.7",
     "firebase-admin": "^12.7.0",
+    "jsdom": "^29.1.1",
     "tailwindcss": "^3.4.0",
+    "tsx": "^4.23.12",
     "typescript": "^5"
   },
   "overrides": {

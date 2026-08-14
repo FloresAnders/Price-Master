@@ -7,20 +7,74 @@ import type { GenteCrystalDailySalesResponse } from "../../../services/gente-cry
 import {
   buildGenteCrystalDisplayResult,
   buildGenteCrystalCompanyOptions,
+  createGenteCrystalManualSalesQuery,
   currentCostaRicaDate,
   genteCrystalSaleOriginMarker,
   resolveGenteCrystalCompanySelection,
+  type GenteCrystalDisplayResult,
 } from "./genteCrystalTiempos.ts";
-import { GenteCrystalTicketTableFrame } from "./GenteCrystalTicketTableFrame.ts";
+import { GenteCrystalTiemposPanel } from "./GenteCrystalTiemposPanel.tsx";
+import * as ticketTableComponents from "./GenteCrystalTicketTableFrame.ts";
+
+const { GenteCrystalTicketTableFrame } = ticketTableComponents;
 
 test("only indirect sales receive the (i) marker", () => {
   assert.equal(genteCrystalSaleOriginMarker("indirect"), "(i)");
   assert.equal(genteCrystalSaleOriginMarker("local_button"), "");
 });
 
+test("daily sales stay idle until refresh is explicitly requested", async () => {
+  const calls: Array<{
+    companyId: string;
+    date: string;
+    signal: AbortSignal | undefined;
+  }> = [];
+  const expected: GenteCrystalDailySalesResponse = {
+    ok: true,
+    companyId: "DELIKOR PALMARES",
+    date: "2026-08-14",
+    timezone: "America/Costa_Rica",
+    summary: {
+      count: 0,
+      total: 0,
+      indirectCount: 0,
+      indirectTotal: 0,
+    },
+    sales: [],
+  };
+  const query = createGenteCrystalManualSalesQuery(
+    async (companyId: string, date: string, signal?: AbortSignal) => {
+      calls.push({ companyId, date, signal });
+      return expected;
+    },
+  );
+
+  assert.equal(calls.length, 0);
+  assert.equal(
+    await query.refresh("DELIKOR PALMARES", "2026-08-14"),
+    expected,
+  );
+  assert.deepEqual(
+    calls.map(({ companyId, date }) => ({ companyId, date })),
+    [{ companyId: "DELIKOR PALMARES", date: "2026-08-14" }],
+  );
+  assert.equal(calls[0]?.signal instanceof AbortSignal, true);
+});
+
+test("the initial panel asks for a manual refresh", () => {
+  const markup = renderToStaticMarkup(
+    createElement(GenteCrystalTiemposPanel, {
+      companyId: "DELIKOR PALMARES",
+    }),
+  );
+
+  assert.match(markup, /Presiona Actualizar para consultar\./);
+  assert.doesNotMatch(markup, /No hay movimientos para esta fecha\./);
+});
+
 function displayResultFor(
   sales: GenteCrystalDailySalesResponse["sales"],
-): GenteCrystalDailySalesResponse {
+): GenteCrystalDisplayResult {
   return buildGenteCrystalDisplayResult({
     ok: true,
     companyId: "DELIKOR PALMARES",
@@ -40,7 +94,7 @@ function displayResultFor(
   });
 }
 
-test("an indirect ticket one sequence above a local ticket is omitted", () => {
+test("a plus-minus pair is displayed and counted as one ticket", () => {
   const result = displayResultFor([
     {
       ticketId: "41831-2204-59203577",
@@ -59,18 +113,23 @@ test("an indirect ticket one sequence above a local ticket is omitted", () => {
   ]);
 
   assert.deepEqual(result.summary, {
-    count: 2,
+    count: 1,
     total: 800,
     indirectCount: 0,
     indirectTotal: 0,
   });
-  assert.deepEqual(
-    result.sales.map((sale) => sale.captureOrigin),
-    ["local_button", "local_button"],
-  );
+  assert.deepEqual(result.sales, [
+    {
+      ticketIds: ["41831-2204-59203577", "41830-2204-59203578"],
+      sorteo: "14/08/2026 TICA DÍA",
+      monto: 800,
+      saleAt: "2026-08-14T14:29:00.000Z",
+      captureOrigin: "local_button",
+    },
+  ]);
 });
 
-test("an indirect ticket one sequence below a local ticket is omitted", () => {
+test("a plus-minus pair is grouped regardless of which sequence is local", () => {
   const result = displayResultFor([
     {
       ticketId: "99999-9999-59203579",
@@ -88,9 +147,21 @@ test("an indirect ticket one sequence below a local ticket is omitted", () => {
     },
   ]);
 
-  assert.equal(result.summary.indirectCount, 0);
-  assert.equal(result.summary.indirectTotal, 0);
-  assert.equal(result.sales[1].captureOrigin, "local_button");
+  assert.deepEqual(result.summary, {
+    count: 1,
+    total: 1300,
+    indirectCount: 0,
+    indirectTotal: 0,
+  });
+  assert.deepEqual(result.sales, [
+    {
+      ticketIds: ["99999-9999-59203579", "41830-2204-59203578"],
+      sorteo: "OTRO SORTEO",
+      monto: 1300,
+      saleAt: "2026-08-14T15:00:00.000Z",
+      captureOrigin: "local_button",
+    },
+  ]);
 });
 
 test("consecutive indirect tickets stay indirect without a local neighbor", () => {
@@ -124,6 +195,77 @@ test("consecutive indirect tickets stay indirect without a local neighbor", () =
     result.sales.map((sale) => sale.captureOrigin),
     ["indirect", "indirect", "local_button"],
   );
+});
+
+test("a plus-minus pair does not absorb a third adjacent indirect ticket", () => {
+  const result = displayResultFor([
+    {
+      ticketId: "41830-2204-59203578",
+      sorteo: "14/08/2026 TICA DÍA",
+      monto: 100,
+      saleAt: "2026-08-14T14:29:00.000Z",
+      captureOrigin: "local_button",
+    },
+    {
+      ticketId: "41830-2204-59203577",
+      sorteo: "14/08/2026 TICA DÍA",
+      monto: 100,
+      saleAt: "2026-08-14T14:29:00.000Z",
+      captureOrigin: "indirect",
+    },
+    {
+      ticketId: "41830-2204-59203579",
+      sorteo: "14/08/2026 TICA DÍA",
+      monto: 200,
+      saleAt: "2026-08-14T14:29:00.000Z",
+      captureOrigin: "indirect",
+    },
+  ]);
+
+  assert.deepEqual(result.summary, {
+    count: 2,
+    total: 400,
+    indirectCount: 1,
+    indirectTotal: 200,
+  });
+  assert.deepEqual(
+    result.sales.map((sale) => [sale.ticketIds, sale.captureOrigin]),
+    [
+      [
+        ["41830-2204-59203578", "41830-2204-59203577"],
+        "local_button",
+      ],
+      [["41830-2204-59203579"], "indirect"],
+    ],
+  );
+});
+
+test("grouping preserves the API total exactly", () => {
+  const result = displayResultFor([
+    {
+      ticketId: "41830-2204-59203580",
+      sorteo: "OTRO SORTEO",
+      monto: 1000,
+      saleAt: "2026-08-14T15:00:00.000Z",
+      captureOrigin: "local_button",
+    },
+    {
+      ticketId: "41830-2204-59203577",
+      sorteo: "14/08/2026 TICA DÍA",
+      monto: 0.01,
+      saleAt: "2026-08-14T14:29:00.000Z",
+      captureOrigin: "local_button",
+    },
+    {
+      ticketId: "41830-2204-59203578",
+      sorteo: "14/08/2026 TICA DÍA",
+      monto: 0.06,
+      saleAt: "2026-08-14T14:29:00.000Z",
+      captureOrigin: "indirect",
+    },
+  ]);
+
+  assert.equal(result.summary.total, 1000.0699999999999);
 });
 
 const palmares: Empresas = {
@@ -242,4 +384,73 @@ test("the ticket table keeps its columns horizontally compact", () => {
   assert.match(markup, /class="w-fit max-w-full/);
   assert.match(markup, /<table class="w-max/);
   assert.doesNotMatch(markup, /min-w-\[620px\]|<table class="w-full/);
+});
+
+test("ticket numbers show only their final segments on separate lines", () => {
+  const TicketNumbers = Reflect.get(
+    ticketTableComponents,
+    "GenteCrystalTicketNumbers",
+  );
+  assert.equal(typeof TicketNumbers, "function");
+
+  const markup = renderToStaticMarkup(
+    createElement(TicketNumbers as never, {
+      ticketIds: ["41852-2204-59219733", "41851-2204-59219734"],
+      showFullTicket: false,
+    }),
+  );
+
+  assert.match(
+    markup,
+    /<span[^>]*><span[^>]*>59219733<\/span><span[^>]*>59219734<\/span><\/span>/,
+  );
+  assert.doesNotMatch(markup, /41852-2204|41851-2204/);
+});
+
+test("full ticket mode keeps paired ticket numbers on separate lines", () => {
+  const TicketNumbers = Reflect.get(
+    ticketTableComponents,
+    "GenteCrystalTicketNumbers",
+  );
+  assert.equal(typeof TicketNumbers, "function");
+
+  const markup = renderToStaticMarkup(
+    createElement(TicketNumbers as never, {
+      ticketIds: ["41852-2204-59219733", "41851-2204-59219734"],
+      showFullTicket: true,
+    }),
+  );
+
+  assert.match(
+    markup,
+    /<span[^>]*><span[^>]*>41852-2204-59219733<\/span><span[^>]*>41851-2204-59219734<\/span><\/span>/,
+  );
+});
+
+test("the ticket view toggle exposes its current display mode", () => {
+  const TicketViewToggle = Reflect.get(
+    ticketTableComponents,
+    "GenteCrystalTicketViewToggle",
+  );
+  assert.equal(typeof TicketViewToggle, "function");
+
+  const finalOnlyMarkup = renderToStaticMarkup(
+    createElement(TicketViewToggle as never, {
+      showFullTicket: false,
+      onToggle() {},
+    }),
+  );
+  const fullTicketMarkup = renderToStaticMarkup(
+    createElement(TicketViewToggle as never, {
+      showFullTicket: true,
+      onToggle() {},
+    }),
+  );
+
+  assert.match(finalOnlyMarkup, /aria-pressed="false"/);
+  assert.match(finalOnlyMarkup, />Tiquete completo<\/button>/);
+  assert.match(fullTicketMarkup, /aria-pressed="true"/);
+  assert.match(fullTicketMarkup, />Tiquete completo<\/button>/);
+  assert.doesNotMatch(finalOnlyMarkup, /aria-label=/);
+  assert.doesNotMatch(fullTicketMarkup, /aria-label=/);
 });

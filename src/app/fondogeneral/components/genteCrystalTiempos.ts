@@ -1,11 +1,52 @@
 import type { Empresas, User } from "../../../types/firestore.ts";
-import type { GenteCrystalDailySalesResponse } from "../../../services/gente-crystal-sales.ts";
+import type {
+  GenteCrystalDailySale,
+  GenteCrystalDailySalesResponse,
+} from "../../../services/gente-crystal-sales.ts";
 
 export type GenteCrystalCompanyOption = {
   value: string;
   label: string;
   aliases: string[];
 };
+
+export type GenteCrystalDisplaySale = Omit<
+  GenteCrystalDailySale,
+  "ticketId"
+> & {
+  ticketIds: string[];
+};
+
+export type GenteCrystalDisplayResult = Omit<
+  GenteCrystalDailySalesResponse,
+  "sales"
+> & {
+  sales: GenteCrystalDisplaySale[];
+};
+
+type GenteCrystalDailySalesLoader = (
+  companyId: string,
+  date: string,
+  signal?: AbortSignal,
+) => Promise<GenteCrystalDailySalesResponse>;
+
+export function createGenteCrystalManualSalesQuery(
+  loadDaily: GenteCrystalDailySalesLoader,
+) {
+  let controller: AbortController | null = null;
+
+  return {
+    refresh(companyId: string, date: string) {
+      controller?.abort();
+      controller = new AbortController();
+      return loadDaily(companyId, date, controller.signal);
+    },
+    cancel() {
+      controller?.abort();
+      controller = null;
+    },
+  };
+}
 
 export function genteCrystalSaleOriginMarker(
   captureOrigin: "local_button" | "indirect",
@@ -19,25 +60,102 @@ function ticketSequence(ticketId: string): number | null {
   return Number.isSafeInteger(sequence) ? sequence : null;
 }
 
+type TicketIndexQueue = {
+  indexes: number[];
+  cursor: number;
+};
+
+function nextUnconsumedTicketIndex(
+  queue: TicketIndexQueue | undefined,
+  currentIndex: number,
+  consumedIndexes: Set<number>,
+): number {
+  if (!queue) return -1;
+  while (
+    queue.cursor < queue.indexes.length &&
+    (queue.indexes[queue.cursor] <= currentIndex ||
+      consumedIndexes.has(queue.indexes[queue.cursor]))
+  ) {
+    queue.cursor += 1;
+  }
+  return queue.indexes[queue.cursor] ?? -1;
+}
+
 export function buildGenteCrystalDisplayResult(
   result: GenteCrystalDailySalesResponse,
-): GenteCrystalDailySalesResponse {
-  const localSequences = new Set(
-    result.sales
-      .filter((sale) => sale.captureOrigin === "local_button")
-      .map((sale) => ticketSequence(sale.ticketId))
-      .filter((sequence): sequence is number => sequence !== null),
-  );
-  const sales = result.sales.map((sale) => {
-    if (sale.captureOrigin !== "indirect") return sale;
+): GenteCrystalDisplayResult {
+  const consumedIndexes = new Set<number>();
+  const indexesByOrigin: Record<
+    GenteCrystalDailySale["captureOrigin"],
+    Map<number, TicketIndexQueue>
+  > = {
+    local_button: new Map(),
+    indirect: new Map(),
+  };
+  result.sales.forEach((sale, index) => {
     const sequence = ticketSequence(sale.ticketId);
-    const hasLocalNeighbor =
-      sequence !== null &&
-      (localSequences.has(sequence - 1) || localSequences.has(sequence + 1));
-    return hasLocalNeighbor
-      ? { ...sale, captureOrigin: "local_button" as const }
-      : sale;
+    if (sequence === null) return;
+    const originIndexes = indexesByOrigin[sale.captureOrigin];
+    const queue = originIndexes.get(sequence) ?? { indexes: [], cursor: 0 };
+    queue.indexes.push(index);
+    originIndexes.set(sequence, queue);
   });
+  const sales = result.sales.reduce<GenteCrystalDisplaySale[]>(
+    (displaySales, sale, index) => {
+      if (consumedIndexes.has(index)) return displaySales;
+
+      const sequence = ticketSequence(sale.ticketId);
+      const oppositeOrigin =
+        sale.captureOrigin === "local_button" ? "indirect" : "local_button";
+      const partnerIndexes = indexesByOrigin[oppositeOrigin];
+      const lowerPartnerIndex =
+        sequence === null
+          ? -1
+          : nextUnconsumedTicketIndex(
+              partnerIndexes.get(sequence - 1),
+              index,
+              consumedIndexes,
+            );
+      const upperPartnerIndex =
+        sequence === null
+          ? -1
+          : nextUnconsumedTicketIndex(
+              partnerIndexes.get(sequence + 1),
+              index,
+              consumedIndexes,
+            );
+      const partnerIndex =
+        lowerPartnerIndex < 0
+          ? upperPartnerIndex
+          : upperPartnerIndex < 0
+            ? lowerPartnerIndex
+            : Math.min(lowerPartnerIndex, upperPartnerIndex);
+
+      consumedIndexes.add(index);
+      if (partnerIndex >= 0) {
+        const partner = result.sales[partnerIndex];
+        consumedIndexes.add(partnerIndex);
+        displaySales.push({
+          ticketIds: [sale.ticketId, partner.ticketId],
+          sorteo: sale.sorteo,
+          monto: sale.monto + partner.monto,
+          saleAt: sale.saleAt,
+          captureOrigin: "local_button",
+        });
+        return displaySales;
+      }
+
+      displaySales.push({
+        ticketIds: [sale.ticketId],
+        sorteo: sale.sorteo,
+        monto: sale.monto,
+        saleAt: sale.saleAt,
+        captureOrigin: sale.captureOrigin,
+      });
+      return displaySales;
+    },
+    [],
+  );
   const indirectSales = sales.filter(
     (sale) => sale.captureOrigin === "indirect",
   );
@@ -46,6 +164,7 @@ export function buildGenteCrystalDisplayResult(
     ...result,
     summary: {
       ...result.summary,
+      count: sales.length,
       indirectCount: indirectSales.length,
       indirectTotal: indirectSales.reduce(
         (total, sale) => total + sale.monto,
