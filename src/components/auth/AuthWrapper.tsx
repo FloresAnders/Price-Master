@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import LoginModal from "./LoginModal";
 import type { User } from "@/types/firestore";
 import { safeLocalStorage } from "@/utils/client";
+import { isPublicRoute } from "./publicRoutes";
 //delete this line if not needed
 import { usePathname } from "next/navigation";
 //---------------------------------------------
@@ -20,8 +21,7 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
   const [hasStoredSession, setHasStoredSession] = useState<boolean>(false);
 
   // Rutas públicas que no requieren autenticación
-  const publicRoutes = ["/home", "/reset-password", "/pruebas", "/device-link"];
-  const isPublicRoute = publicRoutes.includes(pathname);
+  const isCurrentRoutePublic = isPublicRoute(pathname);
 
   useEffect(() => {
     setIsMounted(true);
@@ -49,7 +49,7 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
 
   // Para evitar hydration mismatch, el primer render debe ser idéntico entre servidor y cliente.
   if (!isMounted) {
-    if (isPublicRoute) {
+    if (isCurrentRoutePublic) {
       return <>{children}</>;
     }
     return (
@@ -68,7 +68,7 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
   }
 
   // Si es ruta pública, renderizar sin autenticación
-  if (isPublicRoute) {
+  if (isCurrentRoutePublic) {
     return <>{children}</>;
   }
   //---------------------------------------------
