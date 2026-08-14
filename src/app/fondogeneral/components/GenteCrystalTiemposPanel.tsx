@@ -8,6 +8,7 @@ import {
   type GenteCrystalDailySalesResponse,
 } from "../../../services/gente-crystal-sales";
 import {
+  buildGenteCrystalDisplayResult,
   currentCostaRicaDate,
   genteCrystalSaleOriginMarker,
 } from "./genteCrystalTiempos";
@@ -80,7 +81,9 @@ export function GenteCrystalTiemposPanel({
 
   const visibleResult = useMemo(
     () =>
-      result?.companyId === companyId && result.date === date ? result : null,
+      result?.companyId === companyId && result.date === date
+        ? buildGenteCrystalDisplayResult(result)
+        : null,
     [companyId, date, result],
   );
 

@@ -1,4 +1,5 @@
 import type { Empresas, User } from "../../../types/firestore.ts";
+import type { GenteCrystalDailySalesResponse } from "../../../services/gente-crystal-sales.ts";
 
 export type GenteCrystalCompanyOption = {
   value: string;
@@ -10,6 +11,49 @@ export function genteCrystalSaleOriginMarker(
   captureOrigin: "local_button" | "indirect",
 ): "" | "(i)" {
   return captureOrigin === "indirect" ? "(i)" : "";
+}
+
+function ticketSequence(ticketId: string): number | null {
+  const match = /-(\d+)$/.exec(ticketId);
+  const sequence = match ? Number(match[1]) : Number.NaN;
+  return Number.isSafeInteger(sequence) ? sequence : null;
+}
+
+export function buildGenteCrystalDisplayResult(
+  result: GenteCrystalDailySalesResponse,
+): GenteCrystalDailySalesResponse {
+  const localSequences = new Set(
+    result.sales
+      .filter((sale) => sale.captureOrigin === "local_button")
+      .map((sale) => ticketSequence(sale.ticketId))
+      .filter((sequence): sequence is number => sequence !== null),
+  );
+  const sales = result.sales.map((sale) => {
+    if (sale.captureOrigin !== "indirect") return sale;
+    const sequence = ticketSequence(sale.ticketId);
+    const hasLocalNeighbor =
+      sequence !== null &&
+      (localSequences.has(sequence - 1) || localSequences.has(sequence + 1));
+    return hasLocalNeighbor
+      ? { ...sale, captureOrigin: "local_button" as const }
+      : sale;
+  });
+  const indirectSales = sales.filter(
+    (sale) => sale.captureOrigin === "indirect",
+  );
+
+  return {
+    ...result,
+    summary: {
+      ...result.summary,
+      indirectCount: indirectSales.length,
+      indirectTotal: indirectSales.reduce(
+        (total, sale) => total + sale.monto,
+        0,
+      ),
+    },
+    sales,
+  };
 }
 
 function normalizeKey(value: unknown): string {
