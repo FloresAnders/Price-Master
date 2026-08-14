@@ -132,3 +132,38 @@ tbody tr:last-child td { border-bottom: 0; }
 .time { color: #cbd5e1; white-space: nowrap; }
 .draw { color: #f8fafc; }
 .empty { display: none; padding: 28px 14px; text-align: center; color: #64748b; }
+.password-dialog {
+  width: min(380px, calc(100% - 32px));
+  border: 1px solid #334155;
+  border-radius: 10px;
+  background: #111827;
+  color: #e5e7eb;
+  padding: 0;
+  box-shadow: 0 18px 45px rgb(0 0 0 / 55%);
+}
+.password-dialog::backdrop { background: rgb(2 6 23 / 78%); }
+.password-dialog form { display: grid; gap: 10px; padding: 18px; }
+.password-dialog h2 { font-size: 15px; }
+.password-dialog p { margin: 0; color: #94a3b8; font-size: 11px; }
+.password-dialog label {
+  display: grid;
+  gap: 5px;
+  color: #cbd5e1;
+  font-size: 11px;
+}
+.password-dialog input {
+  width: 100%;
+  height: 34px;
+  border: 1px solid #334155;
+  border-radius: 7px;
+  background: #0b1220;
+  color: #e5e7eb;
+  padding: 0 9px;
+  outline: none;
+}
+.password-dialog input:focus { border-color: #22c55e; }
+.password-dialog .password-error {
+  min-height: 13px;
+  color: #fca5a5;
+}
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }

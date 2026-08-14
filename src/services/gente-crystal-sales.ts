@@ -3,6 +3,7 @@ export type GenteCrystalDailySale = {
   sorteo: string;
   monto: number;
   saleAt: string;
+  captureOrigin: "local_button" | "indirect";
 };
 
 export type GenteCrystalDailySalesResponse = {
@@ -10,7 +11,12 @@ export type GenteCrystalDailySalesResponse = {
   companyId: string;
   date: string;
   timezone: "America/Costa_Rica";
-  summary: { count: number; total: number };
+  summary: {
+    count: number;
+    total: number;
+    indirectCount: number;
+    indirectTotal: number;
+  };
   sales: GenteCrystalDailySale[];
 };
 
@@ -39,7 +45,9 @@ function isDailySale(value: unknown): value is GenteCrystalDailySale {
     Number.isFinite(value.monto) &&
     value.monto > 0 &&
     typeof value.saleAt === "string" &&
-    Number.isFinite(new Date(value.saleAt).getTime())
+    Number.isFinite(new Date(value.saleAt).getTime()) &&
+    (value.captureOrigin === "local_button" ||
+      value.captureOrigin === "indirect")
   );
 }
 
@@ -50,6 +58,15 @@ function isDailyResponse(
   if (!Array.isArray(value.sales) || !value.sales.every(isDailySale)) {
     return false;
   }
+  const sales = value.sales as GenteCrystalDailySale[];
+  const indirectSales = sales.filter(
+    (sale) => sale.captureOrigin === "indirect",
+  );
+  const expectedTotal = sales.reduce((total, sale) => total + sale.monto, 0);
+  const expectedIndirectTotal = indirectSales.reduce(
+    (total, sale) => total + sale.monto,
+    0,
+  );
   return (
     value.ok === true &&
     typeof value.companyId === "string" &&
@@ -59,7 +76,14 @@ function isDailyResponse(
     (value.summary.count as number) >= 0 &&
     typeof value.summary.total === "number" &&
     Number.isFinite(value.summary.total) &&
-    value.summary.count === value.sales.length
+    Number.isInteger(value.summary.indirectCount) &&
+    (value.summary.indirectCount as number) >= 0 &&
+    typeof value.summary.indirectTotal === "number" &&
+    Number.isFinite(value.summary.indirectTotal) &&
+    value.summary.count === sales.length &&
+    value.summary.total === expectedTotal &&
+    value.summary.indirectCount === indirectSales.length &&
+    value.summary.indirectTotal === expectedIndirectTotal
   );
 }
 

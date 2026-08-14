@@ -8,8 +8,9 @@ const active = {
   sorteo: "12/08/2026 NY NOCHE",
   monto: 100,
   saleAt: "2026-08-13T02:14:00.000Z",
+  captureOrigin: "local_button",
   status: "active",
-};
+} as const;
 
 function request(
   body: string,

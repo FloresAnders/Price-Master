@@ -6,6 +6,12 @@ export type GenteCrystalCompanyOption = {
   aliases: string[];
 };
 
+export function genteCrystalSaleOriginMarker(
+  captureOrigin: "local_button" | "indirect",
+): "" | "(i)" {
+  return captureOrigin === "indirect" ? "(i)" : "";
+}
+
 function normalizeKey(value: unknown): string {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }

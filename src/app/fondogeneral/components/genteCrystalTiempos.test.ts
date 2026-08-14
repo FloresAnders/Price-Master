@@ -4,8 +4,14 @@ import type { Empresas } from "../../../types/firestore.ts";
 import {
   buildGenteCrystalCompanyOptions,
   currentCostaRicaDate,
+  genteCrystalSaleOriginMarker,
   resolveGenteCrystalCompanySelection,
 } from "./genteCrystalTiempos.ts";
+
+test("only indirect sales receive the (i) marker", () => {
+  assert.equal(genteCrystalSaleOriginMarker("indirect"), "(i)");
+  assert.equal(genteCrystalSaleOriginMarker("local_button"), "");
+});
 
 const palmares: Empresas = {
   id: "DELIKOR PALMARES",

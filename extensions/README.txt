@@ -1,4 +1,4 @@
-TimeMaster - Gente Crystal v1.4.2
+TimeMaster - Gente Crystal v1.6.0
 
 INSTALACIÓN / ACTUALIZACIÓN
 
@@ -55,6 +55,19 @@ El popup muestra:
 - tiquetes visibles y borrados ignorados;
 - ventas locales guardadas;
 - pendientes, enviando, sincronizados y errores de la cola.
+
+CAMBIOS DE LA VERSIÓN 1.6.0
+
+- Solicita una contraseña al pulsar "Guardar conexión".
+- No modifica la configuración si se cancela o la contraseña es incorrecta.
+- La contraseña se solicita vacía y nunca se almacena.
+
+CAMBIOS DE LA VERSIÓN 1.5.0
+
+- Clasifica como directa solamente la venta que aparece después de pulsar
+  "Ingresar venta" en esta computadora.
+- Guarda como indirectas las ventas detectadas desde otro dispositivo o medio.
+- Envía el origen de captura a TimeMaster para conservar la clasificación.
 
 CAMBIOS DE LA VERSIÓN 1.4.2
 

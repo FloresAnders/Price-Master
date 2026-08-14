@@ -75,6 +75,27 @@
     </div>
   </main>
 
+  <dialog id="connection-password-dialog" class="password-dialog" aria-labelledby="connection-password-title">
+    <form id="connection-password-form" method="dialog">
+      <h2 id="connection-password-title">Autorizar conexión</h2>
+      <p>Ingresa la contraseña para guardar esta configuración.</p>
+      <label for="connection-password">
+        Contraseña
+        <input
+          id="connection-password"
+          type="password"
+          autocomplete="off"
+          required
+        >
+      </label>
+      <p id="connection-password-error" class="password-error" aria-live="polite"></p>
+      <div class="dialog-actions">
+        <button id="cancelar-password" type="button">Cancelar</button>
+        <button type="submit" class="primary">Confirmar y guardar</button>
+      </div>
+    </form>
+  </dialog>
+
   <script src="sync-core.js"></script>
   <script src="popup.js"></script>
 </body>

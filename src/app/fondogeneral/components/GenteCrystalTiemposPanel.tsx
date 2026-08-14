@@ -1,13 +1,16 @@
 "use client";
 
-import { RefreshCw, Ticket, WalletCards } from "lucide-react";
+import { Info, RefreshCw, Ticket, WalletCards } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
   GenteCrystalSalesClient,
   messageForGenteCrystalSalesError,
   type GenteCrystalDailySalesResponse,
 } from "../../../services/gente-crystal-sales";
-import { currentCostaRicaDate } from "./genteCrystalTiempos";
+import {
+  currentCostaRicaDate,
+  genteCrystalSaleOriginMarker,
+} from "./genteCrystalTiempos";
 
 type GenteCrystalTiemposPanelProps = {
   companyId: string;
@@ -105,7 +108,13 @@ export function GenteCrystalTiemposPanel({
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div
+        className={`grid grid-cols-1 gap-3 ${
+          visibleResult?.summary.indirectCount
+            ? "sm:grid-cols-3"
+            : "sm:grid-cols-2"
+        }`}
+      >
         <div className="rounded-lg border border-emerald-500/25 bg-emerald-950/15 p-4">
           <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-emerald-300/80">
             <WalletCards className="h-4 w-4" />
@@ -124,7 +133,28 @@ export function GenteCrystalTiemposPanel({
             {visibleResult?.summary.count ?? 0}
           </p>
         </div>
+        {Boolean(visibleResult?.summary.indirectCount) && (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-950/15 p-4">
+            <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-300/85">
+              <Info className="h-4 w-4" />
+              Total indirectas (i)
+            </div>
+            <p className="text-xl font-bold text-[var(--foreground)]">
+              {formatCRC(visibleResult?.summary.indirectTotal ?? 0)}
+            </p>
+            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+              {visibleResult?.summary.indirectCount} tiquete
+              {visibleResult?.summary.indirectCount === 1 ? "" : "s"}
+            </p>
+          </div>
+        )}
       </div>
+
+      {Boolean(visibleResult?.summary.indirectCount) && (
+        <p className="text-xs text-amber-300/85">
+          (i) Venta detectada sin un clic local en Ingresar venta.
+        </p>
+      )}
 
       {error && (
         <p
@@ -167,7 +197,16 @@ export function GenteCrystalTiemposPanel({
                     </td>
                     <td className="px-3 py-2">{sale.sorteo}</td>
                     <td className="whitespace-nowrap px-3 py-2 font-mono text-xs">
-                      {sale.ticketId}
+                      {sale.ticketId}{" "}
+                      {genteCrystalSaleOriginMarker(sale.captureOrigin) && (
+                        <span
+                          className="font-sans font-bold text-amber-300"
+                          title="Venta detectada sin un clic local en Ingresar venta"
+                          aria-label="Venta indirecta"
+                        >
+                          {genteCrystalSaleOriginMarker(sale.captureOrigin)}
+                        </span>
+                      )}
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 text-right font-semibold text-emerald-300">
                       {formatCRC(sale.monto)}

@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
+const syncCore = require('./sync-core.js');
 const {
   buildActivePayload,
   buildDeletedPayload,
@@ -15,7 +16,7 @@ const {
   resolveStableSaleTimestamp,
   resetErroredRecords,
   summarizeQueue,
-} = require('./sync-core.js');
+} = syncCore;
 
 const ticketId = '41783-2204-59175496';
 const activePayload = {
@@ -23,6 +24,7 @@ const activePayload = {
   sorteo: '12/08/2026 NY NOCHE',
   monto: 100,
   saleAt: '2026-08-13T02:14:00.000Z',
+  captureOrigin: 'local_button',
   status: 'active',
 };
 
@@ -33,8 +35,21 @@ test('active detector sales become API payloads', () => {
       sorteo: ' 12/08/2026 NY NOCHE ',
       monto: 100,
       timestamp: Date.parse('2026-08-13T02:14:00.000Z'),
+      captureOrigin: 'local_button',
     }),
     activePayload,
+  );
+});
+
+test('detector sales without a click marker become indirect API payloads', () => {
+  assert.deepEqual(
+    buildActivePayload({
+      ticket: ticketId,
+      sorteo: '12/08/2026 NY NOCHE',
+      monto: 100,
+      timestamp: Date.parse('2026-08-13T02:14:00.000Z'),
+    }),
+    { ...activePayload, captureOrigin: 'indirect' },
   );
 });
 
@@ -52,6 +67,225 @@ test('missing sale times reuse the first fallback across detector polls', () => 
 
 test('a real detected sale time replaces an earlier fallback', () => {
   assert.equal(resolveStableSaleTimestamp(3000, 1000, 4000), 3000);
+});
+
+test('one click classifies only the next new ticket as local', () => {
+  const createLocalSaleIntent = Reflect.get(syncCore, 'createLocalSaleIntent');
+  const classifyNewSales = Reflect.get(syncCore, 'classifyNewSales');
+  assert.equal(typeof createLocalSaleIntent, 'function');
+  assert.equal(typeof classifyNewSales, 'function');
+  if (!createLocalSaleIntent || !classifyNewSales) return;
+
+  const intent = createLocalSaleIntent(['41783-2204-59175495'], 1000);
+  const result = classifyNewSales(
+    [
+      { ticket: '41783-2204-59175495' },
+      { ticket: '41783-2204-59175496' },
+      { ticket: '41783-2204-59175497' },
+    ],
+    [intent],
+    2000,
+  );
+
+  assert.deepEqual(result.sales, [
+    { ticket: '41783-2204-59175495', captureOrigin: 'indirect' },
+    { ticket: '41783-2204-59175496', captureOrigin: 'local_button' },
+    { ticket: '41783-2204-59175497', captureOrigin: 'indirect' },
+  ]);
+  assert.deepEqual(result.intents, []);
+});
+
+test('sales without a recent click are indirect', () => {
+  const createLocalSaleIntent = Reflect.get(syncCore, 'createLocalSaleIntent');
+  const classifyNewSales = Reflect.get(syncCore, 'classifyNewSales');
+  assert.equal(typeof createLocalSaleIntent, 'function');
+  assert.equal(typeof classifyNewSales, 'function');
+  if (!createLocalSaleIntent || !classifyNewSales) return;
+
+  assert.deepEqual(
+    classifyNewSales([{ ticket: ticketId }], [], 2000),
+    {
+      sales: [{ ticket: ticketId, captureOrigin: 'indirect' }],
+      intents: [],
+    },
+  );
+  assert.deepEqual(
+    classifyNewSales(
+      [{ ticket: ticketId }],
+      [createLocalSaleIntent([], 1000)],
+      121001,
+    ),
+    {
+      sales: [{ ticket: ticketId, captureOrigin: 'indirect' }],
+      intents: [],
+    },
+  );
+});
+
+test('an older external sale does not consume the local click intent', () => {
+  const intent = syncCore.createLocalSaleIntent([], 10_000);
+  const result = syncCore.classifyNewSales(
+    [
+      { ticket: '41783-2204-59175497', timestamp: 8_000 },
+      { ticket: '41783-2204-59175498', timestamp: 11_000 },
+    ],
+    [intent],
+    12_000,
+  );
+
+  assert.deepEqual(result, {
+    sales: [
+      {
+        ticket: '41783-2204-59175497',
+        timestamp: 8_000,
+        captureOrigin: 'indirect',
+      },
+      {
+        ticket: '41783-2204-59175498',
+        timestamp: 11_000,
+        captureOrigin: 'local_button',
+      },
+    ],
+    intents: [],
+  });
+});
+
+test('a local sale may arrive more than fifteen seconds after its click', () => {
+  const intent = syncCore.createLocalSaleIntent([], 1_000);
+
+  assert.deepEqual(
+    syncCore.classifyNewSales(
+      [{ ticket: ticketId, timestamp: 31_000 }],
+      [intent],
+      31_000,
+    ),
+    {
+      sales: [
+        { ticket: ticketId, timestamp: 31_000, captureOrigin: 'local_button' },
+      ],
+      intents: [],
+    },
+  );
+});
+
+test('minute-precision sale times can still match a click later in that minute', () => {
+  const intent = syncCore.createLocalSaleIntent([], 55_000);
+
+  assert.deepEqual(
+    syncCore.classifyNewSales(
+      [
+        {
+          ticket: ticketId,
+          timestamp: 0,
+          timestampPrecisionMs: 60_000,
+        },
+      ],
+      [intent],
+      56_000,
+    ),
+    {
+      sales: [
+        {
+          ticket: ticketId,
+          timestamp: 0,
+          timestampPrecisionMs: 60_000,
+          captureOrigin: 'local_button',
+        },
+      ],
+      intents: [],
+    },
+  );
+});
+
+test('observed sale times expose whether the table included seconds', () => {
+  const parseObservedSaleDateTime = Reflect.get(
+    syncCore,
+    'parseObservedSaleDateTime',
+  );
+  assert.equal(typeof parseObservedSaleDateTime, 'function');
+  if (!parseObservedSaleDateTime) return;
+
+  assert.deepEqual(
+    {
+      ...parseObservedSaleDateTime('13/08/2026 10:55 PM'),
+      timestamp: 0,
+    },
+    {
+      fecha: '13/08/2026',
+      hora: '10:55 PM',
+      timestamp: 0,
+      timestampPrecisionMs: 60_000,
+    },
+  );
+  assert.equal(
+    parseObservedSaleDateTime('13/08/2026 10:55:42 PM')
+      ?.timestampPrecisionMs,
+    1_000,
+  );
+});
+
+test('consecutive clicks retain one intent for each generated sale', () => {
+  const appendLocalSaleIntent = Reflect.get(
+    syncCore,
+    'appendLocalSaleIntent',
+  );
+  assert.equal(typeof appendLocalSaleIntent, 'function');
+  if (!appendLocalSaleIntent) return;
+
+  let intents = appendLocalSaleIntent([], [], 1_000);
+  intents = appendLocalSaleIntent(intents, [], 2_000);
+
+  assert.deepEqual(
+    syncCore.classifyNewSales(
+      [
+        { ticket: '41783-2204-59175497', timestamp: 1_500 },
+        { ticket: '41783-2204-59175498', timestamp: 2_500 },
+      ],
+      intents,
+      3_000,
+    ),
+    {
+      sales: [
+        {
+          ticket: '41783-2204-59175497',
+          timestamp: 1_500,
+          captureOrigin: 'local_button',
+        },
+        {
+          ticket: '41783-2204-59175498',
+          timestamp: 2_500,
+          captureOrigin: 'local_button',
+        },
+      ],
+      intents: [],
+    },
+  );
+});
+
+test('only the Ingresar venta control creates a local sale intent', () => {
+  const isIngresarVentaLabel = Reflect.get(syncCore, 'isIngresarVentaLabel');
+  assert.equal(typeof isIngresarVentaLabel, 'function');
+  if (!isIngresarVentaLabel) return;
+
+  assert.equal(isIngresarVentaLabel('Ingresar venta'), true);
+  assert.equal(isIngresarVentaLabel('  INGRESAR   VENTA  '), true);
+  assert.equal(isIngresarVentaLabel('Ingresar ventas'), false);
+  assert.equal(isIngresarVentaLabel('Borrar venta'), false);
+});
+
+test('connection configuration requires the exact password', () => {
+  const isConnectionSaveAuthorized = Reflect.get(
+    syncCore,
+    'isConnectionSaveAuthorized',
+  );
+  assert.equal(typeof isConnectionSaveAuthorized, 'function');
+  if (!isConnectionSaveAuthorized) return;
+
+  assert.equal(isConnectionSaveAuthorized('TIMEMASTER2026!'), true);
+  assert.equal(isConnectionSaveAuthorized('timemaster2026!'), false);
+  assert.equal(isConnectionSaveAuthorized(' TIMEMASTER2026! '), false);
+  assert.equal(isConnectionSaveAuthorized(''), false);
+  assert.equal(isConnectionSaveAuthorized(null), false);
 });
 
 test('deleted detector tickets become minimal tombstones', () => {

@@ -65,6 +65,7 @@ test("reader queries one company and one half-open saleAt range", async () => {
       sorteo: "13/08/2026 TICA TARDE",
       monto: 100,
       saleAt: new Date("2026-08-13T03:31:00.000Z"),
+      captureOrigin: "indirect",
     },
     {
       ticketId: "41807-2204-59177103",
@@ -89,13 +90,14 @@ test("reader queries one company and one half-open saleAt range", async () => {
     ["get"],
   ]);
   assert.deepEqual(result, {
-    summary: { count: 1, total: 100 },
+    summary: { count: 1, total: 100, indirectCount: 1, indirectTotal: 100 },
     sales: [
       {
         ticketId: "41807-2204-59177102",
         sorteo: "13/08/2026 TICA TARDE",
         monto: 100,
         saleAt: "2026-08-13T03:31:00.000Z",
+        captureOrigin: "indirect",
       },
     ],
   });

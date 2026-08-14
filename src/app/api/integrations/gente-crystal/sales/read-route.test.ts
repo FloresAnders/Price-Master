@@ -21,13 +21,14 @@ const regularUser: GenteCrystalReadUser = {
 };
 
 const populatedResult = {
-  summary: { count: 1, total: 100 },
+  summary: { count: 1, total: 100, indirectCount: 1, indirectTotal: 100 },
   sales: [
     {
       ticketId: "41807-2204-59177102",
       sorteo: "13/08/2026 TICA TARDE",
       monto: 100,
       saleAt: "2026-08-13T03:31:00.000Z",
+      captureOrigin: "indirect" as const,
     },
   ],
 };
@@ -114,7 +115,7 @@ test("an authorized day without movements returns a zero summary", async () => {
   const GET = createGenteCrystalSalesGet(
     dependencies({
       listDaily: async () => ({
-        summary: { count: 0, total: 0 },
+        summary: { count: 0, total: 0, indirectCount: 0, indirectTotal: 0 },
         sales: [],
       }),
     }),
@@ -123,7 +124,12 @@ test("an authorized day without movements returns a zero summary", async () => {
   const response = await GET(request());
 
   assert.equal(response.status, 200);
-  assert.deepEqual((await response.json()).summary, { count: 0, total: 0 });
+  assert.deepEqual((await response.json()).summary, {
+    count: 0,
+    total: 0,
+    indirectCount: 0,
+    indirectTotal: 0,
+  });
 });
 
 test("invalid company IDs and dates return 400 before authorization", async () => {

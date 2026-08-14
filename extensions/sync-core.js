@@ -9,6 +9,10 @@
 
   const MAX_BACKOFF_MS = 15 * 60 * 1000;
   const STALE_SENDING_MS = 2 * 60 * 1000;
+  const LOCAL_SALE_INTENT_MS = 2 * 60 * 1000;
+  const LOCAL_SALE_TIMESTAMP_TOLERANCE_MS = 1 * 1000;
+  const MAX_PENDING_LOCAL_SALE_INTENTS = 20;
+  const CONNECTION_SAVE_PASSWORD = 'TIMEMASTER2026!';
   const TICKET_PATTERN = /^\d{4,}-\d{2,}-\d{5,}$/;
 
   function requireTicketId(value) {
@@ -25,6 +29,8 @@
     const monto = Number(sale?.monto);
     const dateValue = sale?.saleAt ?? sale?.timestamp;
     const saleAt = new Date(dateValue);
+    const captureOrigin =
+      sale?.captureOrigin === 'local_button' ? 'local_button' : 'indirect';
 
     if (!sorteo || sorteo.length > 160) throw new Error('Invalid sorteo.');
     if (!Number.isFinite(monto) || monto <= 0) throw new Error('Invalid monto.');
@@ -35,6 +41,7 @@
       sorteo,
       monto,
       saleAt: saleAt.toISOString(),
+      captureOrigin,
       status: 'active',
     };
   }
@@ -68,6 +75,140 @@
     if (Number.isFinite(existing) && existing > 0) return existing;
 
     return now;
+  }
+
+  function createLocalSaleIntent(visibleTicketIds, now = Date.now()) {
+    return {
+      clickedAt: now,
+      ticketIdsBeforeClick: [...new Set(
+        (Array.isArray(visibleTicketIds) ? visibleTicketIds : [])
+          .map((ticketId) => String(ticketId || '').trim())
+          .filter(Boolean),
+      )],
+    };
+  }
+
+  function validLocalSaleIntents(intents, now) {
+    const candidates = Array.isArray(intents)
+      ? intents
+      : intents
+        ? [intents]
+        : [];
+    return candidates.filter((intent) => {
+      const clickedAt = Number(intent?.clickedAt);
+      return (
+        Number.isFinite(clickedAt) &&
+        now >= clickedAt &&
+        now - clickedAt <= LOCAL_SALE_INTENT_MS
+      );
+    });
+  }
+
+  function appendLocalSaleIntent(
+    intents,
+    visibleTicketIds,
+    now = Date.now(),
+  ) {
+    return [
+      ...validLocalSaleIntents(intents, now),
+      createLocalSaleIntent(visibleTicketIds, now),
+    ].slice(-MAX_PENDING_LOCAL_SALE_INTENTS);
+  }
+
+  function isIngresarVentaLabel(value) {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase() === 'ingresar venta';
+  }
+
+  function isConnectionSaveAuthorized(value) {
+    return value === CONNECTION_SAVE_PASSWORD;
+  }
+
+  function parseObservedSaleDateTime(value) {
+    const match = String(value || '').match(
+      /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)\b/i,
+    );
+    if (!match) return null;
+
+    const [, ddRaw, mmRaw, yyyy, hhRaw, min, secMatch, apRaw] = match;
+    const secRaw = secMatch || '00';
+    const dd = ddRaw.padStart(2, '0');
+    const mm = mmRaw.padStart(2, '0');
+    const ap = apRaw.toUpperCase();
+
+    let hh24 = Number(hhRaw);
+    if (ap === 'PM' && hh24 !== 12) hh24 += 12;
+    if (ap === 'AM' && hh24 === 12) hh24 = 0;
+
+    const timestamp = new Date(
+      Number(yyyy),
+      Number(mm) - 1,
+      Number(dd),
+      hh24,
+      Number(min),
+      Number(secRaw),
+    ).getTime();
+
+    return {
+      fecha: `${dd}/${mm}/${yyyy}`,
+      hora: `${hhRaw.padStart(2, '0')}:${min}${secMatch ? `:${secRaw}` : ''} ${ap}`,
+      timestamp: Number.isFinite(timestamp) ? timestamp : Date.now(),
+      timestampPrecisionMs: secMatch ? 1000 : 60_000,
+    };
+  }
+
+  function classifyNewSales(sales, intents, now = Date.now()) {
+    const pendingIntents = validLocalSaleIntents(intents, now).map((intent) => ({
+      ...intent,
+      ticketIdsBeforeClick: new Set(
+        Array.isArray(intent?.ticketIdsBeforeClick)
+          ? intent.ticketIdsBeforeClick
+          : [],
+      ),
+    }));
+
+    const classifiedSales = (Array.isArray(sales) ? sales : []).map((sale) => {
+      const ticketId = String(sale?.ticketId || sale?.ticket || '').trim();
+      const rawTimestamp = sale?.timestamp ?? sale?.saleAt;
+      const parsedTimestamp =
+        typeof rawTimestamp === 'number'
+          ? rawTimestamp
+          : new Date(rawTimestamp).getTime();
+      const saleTimestamp = Number.isFinite(parsedTimestamp)
+        ? parsedTimestamp
+        : null;
+      const rawPrecision = Number(sale?.timestampPrecisionMs);
+      const timestampPrecisionMs =
+        Number.isFinite(rawPrecision) && rawPrecision > 0
+          ? rawPrecision
+          : 0;
+      const matchingIntentIndex = pendingIntents.findIndex((intent) => {
+        if (!ticketId || intent.ticketIdsBeforeClick.has(ticketId)) return false;
+        return (
+          saleTimestamp === null ||
+          saleTimestamp + timestampPrecisionMs >
+            Number(intent.clickedAt) - LOCAL_SALE_TIMESTAMP_TOLERANCE_MS
+        );
+      });
+      const isLocalSale = matchingIntentIndex >= 0;
+      if (isLocalSale) pendingIntents.splice(matchingIntentIndex, 1);
+      return {
+        ...sale,
+        captureOrigin: isLocalSale ? 'local_button' : 'indirect',
+      };
+    });
+
+    return {
+      sales: classifiedSales,
+      intents: pendingIntents.map((intent) => ({
+        clickedAt: intent.clickedAt,
+        ticketIdsBeforeClick: [...intent.ticketIdsBeforeClick],
+      })),
+    };
   }
 
   function enqueueEvents(queue, events, now = Date.now()) {
@@ -260,17 +401,23 @@
   }
 
   return {
+    appendLocalSaleIntent,
     buildActivePayload,
     buildDeletedPayload,
     classifyHttpFailure,
+    classifyNewSales,
     computeBackoffMs,
+    createLocalSaleIntent,
     enqueueEvents,
     getReadyRecords,
+    isConnectionSaveAuthorized,
+    isIngresarVentaLabel,
     isExtensionContextInvalidatedError,
     markFailed,
     markSending,
     markSucceeded,
     normalizeApiBaseUrl,
+    parseObservedSaleDateTime,
     resolveStableSaleTimestamp,
     resetErroredRecords,
     summarizeQueue,

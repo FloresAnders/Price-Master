@@ -2,12 +2,14 @@ export const GENTE_CRYSTAL_WRITE_PERMISSION =
   "gentecrystal.sales.write" as const;
 
 export type GenteCrystalSaleStatus = "active" | "deleted";
+export type GenteCrystalCaptureOrigin = "local_button" | "indirect";
 
 export interface ActiveGenteCrystalSaleInput {
   ticketId: string;
   sorteo: string;
   monto: number;
   saleAt: Date;
+  captureOrigin: GenteCrystalCaptureOrigin;
   status: "active";
 }
 
@@ -36,6 +38,7 @@ export interface GenteCrystalSaleRecord extends Record<string, unknown> {
   sorteo?: string;
   monto?: number;
   saleAt?: unknown;
+  captureOrigin?: GenteCrystalCaptureOrigin;
 }
 
 export class GenteCrystalSaleError extends Error {
@@ -107,11 +110,20 @@ export function parseGenteCrystalSale(body: unknown): GenteCrystalSaleInput {
     invalid("invalid_sale_at", "saleAt");
   }
 
+  if (
+    body.captureOrigin !== undefined &&
+    body.captureOrigin !== "local_button" &&
+    body.captureOrigin !== "indirect"
+  ) {
+    invalid("invalid_capture_origin", "captureOrigin");
+  }
+
   return {
     ticketId: rawTicketId,
     sorteo,
     monto: body.monto,
     saleAt,
+    captureOrigin: body.captureOrigin ?? "indirect",
     status: "active",
   };
 }
@@ -195,6 +207,11 @@ export function mergeGenteCrystalSale(
       sorteo: sale.sorteo,
       monto: sale.monto,
       saleAt: sale.saleAt,
+      captureOrigin:
+        existing?.captureOrigin === "local_button" ||
+        existing?.captureOrigin === "indirect"
+          ? existing.captureOrigin
+          : sale.captureOrigin,
       receivedAt: existing?.receivedAt ?? now,
       updatedAt: now,
       status: "active",

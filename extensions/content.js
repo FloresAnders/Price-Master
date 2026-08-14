@@ -17,6 +17,7 @@
   let ultimoAvisoTicket = null;
   let escaneando = false;
   let contextoInvalidado = false;
+  let intencionesVentaLocal = [];
 
   function log(...args) {
     console.log('%c[TimeMaster]', 'color:#22c55e;font-weight:700', ...args);
@@ -29,6 +30,7 @@
     clearTimeout(inicioTimer);
     clearInterval(pollTimer);
     observer?.disconnect();
+    document.removeEventListener('click', detectarClicIngresarVenta, true);
   }
 
   function normalizar(texto) {
@@ -89,36 +91,7 @@
   }
 
   function extraerFechaHora(texto) {
-    const value = String(texto || '');
-    const match = value.match(
-      /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)\b/i
-    );
-
-    if (!match) return null;
-
-    const [, ddRaw, mmRaw, yyyy, hhRaw, min, secRaw = '00', apRaw] = match;
-    const dd = ddRaw.padStart(2, '0');
-    const mm = mmRaw.padStart(2, '0');
-    const ap = apRaw.toUpperCase();
-
-    let hh24 = Number(hhRaw);
-    if (ap === 'PM' && hh24 !== 12) hh24 += 12;
-    if (ap === 'AM' && hh24 === 12) hh24 = 0;
-
-    const timestamp = new Date(
-      Number(yyyy),
-      Number(mm) - 1,
-      Number(dd),
-      hh24,
-      Number(min),
-      Number(secRaw)
-    ).getTime();
-
-    return {
-      fecha: `${dd}/${mm}/${yyyy}`,
-      hora: `${hhRaw.padStart(2, '0')}:${min}${secRaw !== '00' ? `:${secRaw}` : ''} ${ap}`,
-      timestamp: Number.isFinite(timestamp) ? timestamp : Date.now()
-    };
+    return syncCore.parseObservedSaleDateTime(texto);
   }
 
   function filaTexto(fila) {
@@ -254,7 +227,8 @@
           monto,
           fecha: fechaHora?.fecha || null,
           hora: fechaHora?.hora || null,
-          timestamp: fechaHora?.timestamp || null
+          timestamp: fechaHora?.timestamp || null,
+          timestampPrecisionMs: fechaHora?.timestampPrecisionMs || null
         };
         continue;
       }
@@ -268,6 +242,7 @@
           actual.fecha = fechaHora.fecha;
           actual.hora = fechaHora.hora;
           actual.timestamp = fechaHora.timestamp;
+          actual.timestampPrecisionMs = fechaHora.timestampPrecisionMs;
         }
       }
     }
@@ -363,6 +338,35 @@
     setTimeout(() => toast.remove(), 4500);
   }
 
+  function detectarClicIngresarVenta(event) {
+    const objetivo = event.target;
+    if (!(objetivo instanceof Element)) return;
+
+    const control = objetivo.closest(
+      'button, input[type="button"], input[type="submit"], a, [role="button"]'
+    );
+    if (!control) return;
+
+    const etiqueta =
+      control instanceof HTMLInputElement
+        ? control.value
+        : control.innerText ||
+          control.textContent ||
+          control.getAttribute('aria-label') ||
+          control.getAttribute('title');
+    if (!syncCore.isIngresarVentaLabel(etiqueta)) return;
+
+    const lectura = leerTiquetesVisibles();
+    intencionesVentaLocal = syncCore.appendLocalSaleIntent(
+      intencionesVentaLocal,
+      [
+        ...lectura.ventas.map((venta) => venta.ticket),
+        ...lectura.borrados
+      ],
+      Date.now()
+    );
+  }
+
   async function sincronizarDesdeTabla({ avisarNuevas = true, forzar = false } = {}) {
     if (contextoInvalidado) return { ok: false, motivo: 'contexto_invalidado' };
     if (escaneando) return { ok: false, motivo: 'escaneando' };
@@ -392,6 +396,16 @@
       const nuevas = [];
       const eventos = [];
 
+      const clasificacion = syncCore.classifyNewSales(
+        visibles.filter((item) => !porTicket.has(item.ticket)),
+        intencionesVentaLocal,
+        Date.now()
+      );
+      intencionesVentaLocal = clasificacion.intents;
+      const origenPorTicket = new Map(
+        clasificacion.sales.map((venta) => [venta.ticket, venta.captureOrigin])
+      );
+
       for (const ticket of borrados) {
         eventos.push(syncCore.buildDeletedPayload(ticket));
         if (porTicket.delete(ticket)) cambio = true;
@@ -406,6 +420,10 @@
           monto: item.monto,
           fecha: item.fecha || existente?.fecha || fechaFallback(),
           hora: item.hora || existente?.hora || horaFallback(),
+          captureOrigin:
+            existente?.captureOrigin ||
+            origenPorTicket.get(item.ticket) ||
+            'indirect',
           timestamp: syncCore.resolveStableSaleTimestamp(
             item.timestamp,
             existente?.timestamp,
@@ -517,7 +535,7 @@
       obtenerGuardadas().then((ventas) => {
         sendResponse({
           ok: true,
-          version: '1.4.2',
+          version: '1.6.0',
           sorteo: getSorteo(),
           guardadas: ventas.length,
           diagnostico: lectura.diagnostico
@@ -534,6 +552,7 @@
     }
 
     configurarCambioSorteo();
+    document.addEventListener('click', detectarClicIngresarVenta, true);
     iniciarObserver();
 
     inicioTimer = setTimeout(async () => {
@@ -541,7 +560,7 @@
       const resultado = await sincronizarDesdeTabla({ avisarNuevas: false, forzar: true });
       if (resultado.motivo === 'contexto_invalidado') return;
       inicializado = true;
-      log('Extensión v1.4.2 activa:', resultado);
+      log('Extensión v1.6.0 activa:', resultado);
     }, 600);
 
     pollTimer = setInterval(() => {

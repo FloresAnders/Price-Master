@@ -13,6 +13,11 @@ const syncStatus = document.getElementById('sync-status');
 const syncIndicator = document.getElementById('sync-indicator');
 const configMessage = document.getElementById('config-message');
 const saveConfigButton = document.getElementById('guardar-config');
+const passwordDialog = document.getElementById('connection-password-dialog');
+const passwordForm = document.getElementById('connection-password-form');
+const passwordInput = document.getElementById('connection-password');
+const passwordError = document.getElementById('connection-password-error');
+const cancelPasswordButton = document.getElementById('cancelar-password');
 
 function formatMonto(value) {
   return `₡${Number(value || 0).toLocaleString('es-CR')}`;
@@ -75,7 +80,6 @@ async function comprobarSincronizacion() {
 }
 
 async function guardarConfiguracion() {
-  saveConfigButton.disabled = true;
   setConfigMessage('Guardando…');
 
   try {
@@ -103,6 +107,51 @@ async function guardarConfiguracion() {
     await comprobarSincronizacion();
   } catch (error) {
     setConfigMessage(String(error?.message || error), 'error');
+  }
+}
+
+function solicitarAutorizacionConexion() {
+  passwordInput.value = '';
+  passwordError.textContent = '';
+  passwordDialog.returnValue = '';
+
+  return new Promise((resolve) => {
+    const finalizar = () => {
+      passwordForm.removeEventListener('submit', confirmar);
+      cancelPasswordButton.removeEventListener('click', cancelar);
+      passwordInput.value = '';
+      resolve(passwordDialog.returnValue === 'authorized');
+    };
+
+    const confirmar = (event) => {
+      event.preventDefault();
+      if (!syncCore.isConnectionSaveAuthorized(passwordInput.value)) {
+        passwordInput.value = '';
+        passwordError.textContent = 'Contraseña incorrecta.';
+        passwordInput.focus();
+        return;
+      }
+      passwordDialog.close('authorized');
+    };
+
+    const cancelar = () => passwordDialog.close('cancelled');
+
+    passwordForm.addEventListener('submit', confirmar);
+    cancelPasswordButton.addEventListener('click', cancelar);
+    passwordDialog.addEventListener('close', finalizar, { once: true });
+    passwordDialog.showModal();
+    passwordInput.focus();
+  });
+}
+
+async function autorizarYGuardarConfiguracion() {
+  if (saveConfigButton.disabled) return;
+  saveConfigButton.disabled = true;
+  setConfigMessage('');
+
+  try {
+    const autorizado = await solicitarAutorizacionConexion();
+    if (autorizado) await guardarConfiguracion();
   } finally {
     saveConfigButton.disabled = false;
   }
@@ -195,7 +244,7 @@ async function escanearAhora() {
 }
 
 document.getElementById('recargar').addEventListener('click', escanearAhora);
-saveConfigButton.addEventListener('click', guardarConfiguracion);
+saveConfigButton.addEventListener('click', autorizarYGuardarConfiguracion);
 
 document.getElementById('limpiar').addEventListener('click', async () => {
   if (!confirm('¿Eliminar todas las ventas guardadas por la extensión?')) return;

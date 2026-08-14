@@ -219,6 +219,7 @@ test("daily results exclude tombstones, sort newest first, and sum active sales"
       sorteo: "13/08/2026 TICA TARDE",
       monto: 100,
       saleAt: new Date("2026-08-13T03:31:00.000Z"),
+      captureOrigin: "local_button",
       status: "active",
     },
     {
@@ -233,24 +234,27 @@ test("daily results exclude tombstones, sort newest first, and sum active sales"
       sorteo: "13/08/2026 TICA NOCHE",
       monto: 200,
       saleAt: { toDate: () => new Date("2026-08-13T04:31:00.000Z") },
+      captureOrigin: "indirect",
       status: "active",
     },
   ]);
 
   assert.deepEqual(result, {
-    summary: { count: 2, total: 300 },
+    summary: { count: 2, total: 300, indirectCount: 1, indirectTotal: 200 },
     sales: [
       {
         ticketId: "41807-2204-59177104",
         sorteo: "13/08/2026 TICA NOCHE",
         monto: 200,
         saleAt: "2026-08-13T04:31:00.000Z",
+        captureOrigin: "indirect",
       },
       {
         ticketId: "41807-2204-59177102",
         sorteo: "13/08/2026 TICA TARDE",
         monto: 100,
         saleAt: "2026-08-13T03:31:00.000Z",
+        captureOrigin: "local_button",
       },
     ],
   });
@@ -268,5 +272,8 @@ test("malformed active records are omitted from the public result", () => {
     },
   ]);
 
-  assert.deepEqual(result, { summary: { count: 0, total: 0 }, sales: [] });
+  assert.deepEqual(result, {
+    summary: { count: 0, total: 0, indirectCount: 0, indirectTotal: 0 },
+    sales: [],
+  });
 });

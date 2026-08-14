@@ -1,4 +1,5 @@
 import { normalizeUserPermissions } from "../../utils/permissions.ts";
+import type { GenteCrystalCaptureOrigin } from "./sales.ts";
 
 export const GENTE_CRYSTAL_TIMEZONE = "America/Costa_Rica" as const;
 
@@ -30,10 +31,16 @@ export type GenteCrystalPublicSale = {
   sorteo: string;
   monto: number;
   saleAt: string;
+  captureOrigin: GenteCrystalCaptureOrigin;
 };
 
 export type GenteCrystalDailyResult = {
-  summary: { count: number; total: number };
+  summary: {
+    count: number;
+    total: number;
+    indirectCount: number;
+    indirectTotal: number;
+  };
   sales: GenteCrystalPublicSale[];
 };
 
@@ -159,15 +166,30 @@ export function buildGenteCrystalDailyResult(
     ) {
       return result;
     }
-    result.push({ ticketId, sorteo, monto, saleAt: saleAt.toISOString() });
+    result.push({
+      ticketId,
+      sorteo,
+      monto,
+      saleAt: saleAt.toISOString(),
+      captureOrigin:
+        record.captureOrigin === "local_button" ? "local_button" : "indirect",
+    });
     return result;
   }, []);
 
   sales.sort((left, right) => right.saleAt.localeCompare(left.saleAt));
+  const indirectSales = sales.filter(
+    (sale) => sale.captureOrigin === "indirect",
+  );
   return {
     summary: {
       count: sales.length,
       total: sales.reduce((total, sale) => total + sale.monto, 0),
+      indirectCount: indirectSales.length,
+      indirectTotal: indirectSales.reduce(
+        (total, sale) => total + sale.monto,
+        0,
+      ),
     },
     sales,
   };

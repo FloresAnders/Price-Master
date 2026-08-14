@@ -11,13 +11,14 @@ const responseBody = {
   companyId: "DELIKOR PALMARES",
   date: "2026-08-12",
   timezone: "America/Costa_Rica",
-  summary: { count: 1, total: 100 },
+  summary: { count: 1, total: 100, indirectCount: 1, indirectTotal: 100 },
   sales: [
     {
       ticketId: "41807-2204-59177102",
       sorteo: "13/08/2026 TICA TARDE",
       monto: 100,
       saleAt: "2026-08-13T03:31:00.000Z",
+      captureOrigin: "indirect",
     },
   ],
 };
@@ -85,6 +86,34 @@ test("malformed success payloads are rejected before reaching the UI", async () 
         error instanceof GenteCrystalSalesClientError &&
         error.code === "invalid_response",
     );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("responses reject inconsistent indirect summaries and origins", async () => {
+  const originalFetch = globalThis.fetch;
+  const malformedResponses = [
+    {
+      ...responseBody,
+      summary: { ...responseBody.summary, indirectTotal: 0 },
+    },
+    {
+      ...responseBody,
+      sales: [{ ...responseBody.sales[0], captureOrigin: "manual" }],
+    },
+  ];
+
+  try {
+    for (const body of malformedResponses) {
+      globalThis.fetch = (async () => Response.json(body)) as typeof fetch;
+      await assert.rejects(
+        GenteCrystalSalesClient.getDaily("DELIKOR PALMARES", "2026-08-12"),
+        (error) =>
+          error instanceof GenteCrystalSalesClientError &&
+          error.code === "invalid_response",
+      );
+    }
   } finally {
     globalThis.fetch = originalFetch;
   }

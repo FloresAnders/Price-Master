@@ -13,6 +13,7 @@ const active = {
   sorteo: "12/08/2026 NY NOCHE",
   monto: 100,
   saleAt: "2026-08-13T02:14:00.000Z",
+  captureOrigin: "local_button",
   status: "active",
 } as const;
 
@@ -23,6 +24,26 @@ test("active sales are normalized", () => {
     ...active,
     saleAt: new Date(active.saleAt),
   });
+});
+
+test("active sales without an origin default to indirect", () => {
+  const { captureOrigin: _captureOrigin, ...withoutOrigin } = active;
+  const parsed = parseGenteCrystalSale(withoutOrigin);
+
+  assert.equal(
+    parsed.status === "active" ? parsed.captureOrigin : null,
+    "indirect",
+  );
+});
+
+test("active sales reject unknown capture origins", () => {
+  assert.throws(
+    () => parseGenteCrystalSale({ ...active, captureOrigin: "manual" }),
+    (error) =>
+      error instanceof GenteCrystalSaleError &&
+      error.status === 400 &&
+      error.code === "invalid_capture_origin",
+  );
 });
 
 test("deleted sales require only a ticket", () => {
@@ -128,9 +149,33 @@ test("a changed active sale preserves its first received time", () => {
     receivedAt: firstReceivedAt,
     updatedAt: now,
     status: "active",
+    captureOrigin: active.captureOrigin,
     deviceId: "palmares-02",
     source: "gente-crystal",
   });
+});
+
+test("a changed active sale preserves its first capture origin", () => {
+  const firstReceivedAt = new Date("2026-08-13T02:14:30.000Z");
+  const existing = {
+    ...active,
+    captureOrigin: "indirect" as const,
+    monto: 50,
+    saleAt: new Date(active.saleAt),
+    receivedAt: firstReceivedAt,
+    updatedAt: firstReceivedAt,
+    deviceId: "palmares-01",
+    source: "gente-crystal" as const,
+  };
+
+  const result = mergeGenteCrystalSale(
+    existing,
+    parseGenteCrystalSale(active),
+    "palmares-02",
+    now,
+  );
+
+  assert.equal(result.record?.captureOrigin, "indirect");
 });
 
 test("deletion creates an auditable tombstone", () => {
@@ -404,6 +449,7 @@ test("repository creates the company and ticket scoped sale", async () => {
     receivedAt: now,
     updatedAt: now,
     status: "active",
+    captureOrigin: active.captureOrigin,
     deviceId: "palmares-01",
     source: "gente-crystal",
   });
@@ -424,6 +470,7 @@ test("repository performs no writes for an identical active replay", async () =>
     receivedAt: now,
     updatedAt: now,
     status: "active",
+    captureOrigin: active.captureOrigin,
     deviceId: "palmares-01",
     source: "gente-crystal",
   });
