@@ -9,10 +9,12 @@ import {
   Edit,
   UserPlus,
   Mail,
+  Fingerprint,
 } from "lucide-react";
 
 import type { User } from "../../types/firestore";
 import ChangeEmailModal from "../../components/modals/ChangeEmailModal";
+import PasskeyManagerModal from "../../components/auth/PasskeyManagerModal";
 
 const SUBSCRIPTION_PENDING_DAYS = 5;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -111,6 +113,10 @@ export default function UsersEditorSection({
     userRole?: User["role"];
     index: number;
   } | null>(null);
+  const [passkeyTarget, setPasskeyTarget] = React.useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const isEditingUser = (user: User, index: number) => {
     // New users must be editable so they can be saved.
@@ -192,6 +198,21 @@ export default function UsersEditorSection({
                     </div>
 
                     <div className="flex flex-col sm:flex-row justify-end gap-2 mt-2">
+                      {currentUser?.role === "superadmin" && user.id && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPasskeyTarget({
+                              id: String(user.id),
+                              name: user.name,
+                            })
+                          }
+                          className={`${secondaryButtonClassName} flex items-center justify-center gap-1.5 sm:gap-2`}
+                        >
+                          <Fingerprint className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                          Passkeys
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => {
@@ -633,6 +654,21 @@ export default function UsersEditorSection({
                     </div>
 
                     <div className="flex flex-col sm:flex-row justify-end gap-2 mt-2">
+                      {currentUser?.role === "superadmin" && user.id && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPasskeyTarget({
+                              id: String(user.id),
+                              name: user.name,
+                            })
+                          }
+                          className={`${secondaryButtonClassName} flex items-center justify-center gap-1.5 sm:gap-2`}
+                        >
+                          <Fingerprint className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                          Passkeys
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => {
@@ -718,6 +754,12 @@ export default function UsersEditorSection({
           updateUser(emailChangeTarget.index, "email", newEmail);
           setEmailChangeTarget(null);
         }}
+      />
+      <PasskeyManagerModal
+        isOpen={Boolean(passkeyTarget)}
+        onClose={() => setPasskeyTarget(null)}
+        targetUserId={passkeyTarget?.id}
+        targetUserName={passkeyTarget?.name}
       />
     </div>
   );

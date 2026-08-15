@@ -38,6 +38,7 @@ import {
   CircleDollarSign,
   NotebookPen,
   ReceiptText,
+  Fingerprint,
 } from "lucide-react";
 import { CustomIcon } from "@/icons/icons";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -78,6 +79,7 @@ import {
   DeviceLinkModal,
 } from "../modals";
 import type { UserPermissions } from "../../types/firestore";
+import PasskeyManagerModal from "../auth/PasskeyManagerModal";
 
 const ADMIN_SIDEBAR_EXPANDED_WIDTH_PREF_KEY = "adminSidebarWidth";
 const ADMIN_SIDEBAR_COLLAPSED_WIDTH_PREF_KEY = "adminSidebarCollapsedWidth";
@@ -142,6 +144,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showDeviceLinkModal, setShowDeviceLinkModal] = useState(false);
+  const [showPasskeyManager, setShowPasskeyManager] = useState(false);
   const [showAdminSidebar, setShowAdminSidebar] = useState(false);
   const [isAdminSidebarHovered, setIsAdminSidebarHovered] = useState(false);
   const [adminSidebarExpandedWidth, setAdminSidebarExpandedWidth] = useState(
@@ -1487,6 +1490,16 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                               </button>
                               <button
                                 onClick={() => {
+                                  setShowPasskeyManager(true);
+                                  setShowUserDropdown(false);
+                                }}
+                                className="flex items-center gap-3 w-full px-4 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
+                              >
+                                <Fingerprint className="w-4 h-4 text-[var(--muted-foreground)]" />
+                                <span className="truncate">Mis passkeys</span>
+                              </button>
+                              <button
+                                onClick={() => {
                                   setShowUserDropdown(false);
                                   window.location.reload();
                                 }}
@@ -1867,6 +1880,16 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                     </button>
                     <button
                       onClick={() => {
+                        setShowPasskeyManager(true);
+                        setShowMobileMenu(false);
+                      }}
+                      className="p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
+                      title="Mis passkeys"
+                    >
+                      <Fingerprint className="w-4 h-4 text-[var(--muted-foreground)]" />
+                    </button>
+                    <button
+                      onClick={() => {
                         setShowMobileMenu(false);
                         handleLogoutClick();
                       }}
@@ -1946,6 +1969,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       <DeviceLinkModal
         isOpen={showDeviceLinkModal}
         onClose={() => setShowDeviceLinkModal(false)}
+      />
+      <PasskeyManagerModal
+        isOpen={showPasskeyManager}
+        onClose={() => setShowPasskeyManager(false)}
       />
 
       {canShowAdminSidebar && (
