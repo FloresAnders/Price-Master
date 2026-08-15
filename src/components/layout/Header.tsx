@@ -42,7 +42,6 @@ import {
 } from "lucide-react";
 import { CustomIcon } from "@/icons/icons";
 import { useState, useEffect, useRef, useCallback } from "react";
-import QRCode from "qrcode";
 import {
   collection,
   query as fbQuery,

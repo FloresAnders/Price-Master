@@ -1,16 +1,22 @@
 import { NextResponse } from 'next/server';
 import { getAdminDb } from '../../../../lib/firebase-admin';
-import { getUserIdFromAuthorizationHeader } from '../../../../lib/appAuth';
 import { generateToken, hashToken } from '../../../../lib/devices/tokens';
+import { readAuthSession } from '../../../../lib/auth/session-store.server';
+
+export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
   try {
+    const authenticated = await readAuthSession(req.headers.get('cookie'));
+    const userId = authenticated?.user.id;
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'missing_or_invalid_session' },
+        { status: 401 },
+      );
+    }
     const body = await req.json();
     const { durationMinutes = 120, permissions = [] } = body;
-
-    const authHeader = req.headers.get('authorization') || '';
-    const userId = await getUserIdFromAuthorizationHeader(authHeader);
-    if (!userId) return NextResponse.json({ error: 'missing_or_invalid_token' }, { status: 401 });
 
     const token = generateToken(32);
     const tokenHash = hashToken(token);
