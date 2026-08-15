@@ -55,7 +55,6 @@ export default function LoginModal({
   title,
   canClose = true,
 }: LoginModalProps) {
-  const { version } = useVersion();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [rememberUser, setRememberUser] = useState(false);
@@ -357,8 +356,6 @@ export default function LoginModal({
             Cerrar
           </button>
         )}
-
-        <p className="mt-7 text-center text-xs text-slate-600">v{version} · © Time Master</p>
       </main>
 
       <PasswordRecoveryModal
