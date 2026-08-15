@@ -10,6 +10,8 @@
     "build": "next build",
     "build:export": "next build && echo 'Build completed for Capacitor'",
     "start": "next start",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "eslint .",
     "migrate:fondoMovementTypesByOwner": "node scripts/migrate-fondoMovementTypes-by-owner.js",
     "migrate:funcionesByOwner": "node scripts/migrate-funciones-by-owner.js",
@@ -45,6 +47,8 @@
     "@heroicons/react": "^2.2.0",
     "@mui/icons-material": "^7.3.5",
     "@mui/material": "^7.3.5",
+    "@simplewebauthn/browser": "^13.3.0",
+    "@simplewebauthn/server": "^13.3.2",
     "@types/mailparser": "^3.4.6",
     "@types/nodemailer": "^6.4.17",
     "@types/qrcode": "^1.5.5",
@@ -74,6 +78,8 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.2",
     "@types/html2canvas": "^0.5.35",
     "@types/jsdom": "^27.0.0",
     "@types/node": "^20",
@@ -85,10 +91,12 @@
     "cssnano": "^7.1.2",
     "eslint": "^9",
     "eslint-config-next": "16.0.7",
+    "fake-indexeddb": "^6.2.5",
     "firebase-admin": "^12.7.0",
     "jsdom": "^29.1.1",
     "tailwindcss": "^3.4.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   },
   "overrides": {
     "@types/react": "19.2.7",
