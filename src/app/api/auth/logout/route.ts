@@ -1,19 +1,17 @@
 import { NextResponse } from "next/server";
 import {
-  AUTH_COOKIE_NAME,
-  sessionCookieOptions,
+  clearAuthCookie,
 } from "@/lib/auth/session-cookie.server";
+import { revokeAuthSession } from "@/lib/auth/session-store.server";
 
 export const runtime = "nodejs";
 
-export async function POST() {
+export async function POST(request: Request) {
+  await revokeAuthSession(request.headers.get("cookie"), "logout");
   const response = NextResponse.json(
     { ok: true },
     { headers: { "Cache-Control": "no-store" } },
   );
-  response.cookies.set(AUTH_COOKIE_NAME, "", {
-    ...sessionCookieOptions(),
-    maxAge: 0,
-  });
+  clearAuthCookie(response);
   return response;
 }

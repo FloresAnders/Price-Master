@@ -7,10 +7,12 @@ import {
   hashPasswordServer,
 } from "@/lib/auth/password.server";
 import {
-  AUTH_COOKIE_NAME,
-  createSessionCookieValue,
-  sessionCookieOptions,
+  setAuthCookie,
 } from "@/lib/auth/session-cookie.server";
+import {
+  createAuthSession,
+  serializeSafeUser,
+} from "@/lib/auth/session-store.server";
 
 export async function POST(request: Request) {
   try {
@@ -58,7 +60,7 @@ export async function POST(request: Request) {
         }
       }
     }
-    const safeUser = { ...user } as any;
+    const safeUser = serializeSafeUser(user) as any;
     // Agregar bandera para superadmin
     const isSuperAdmin = safeUser.role === "superadmin";
     if (!isValid) {
@@ -68,8 +70,6 @@ export async function POST(request: Request) {
       );
     }
 
-    delete safeUser.password;
-
     const response = NextResponse.json(
       {
         ok: true,
@@ -78,11 +78,16 @@ export async function POST(request: Request) {
       { headers: { "Cache-Control": "no-store" } },
     );
     if (safeUser.id) {
-      response.cookies.set(
-        AUTH_COOKIE_NAME,
-        createSessionCookieValue(safeUser.id),
-        sessionCookieOptions(),
+      const issued = await createAuthSession({
+        userId: safeUser.id,
+        role: safeUser.role || "user",
+        authMethod: "password",
+      });
+      const maxAge = Math.max(
+        0,
+        Math.floor((issued.record.expiresAt - Date.now()) / 1000),
       );
+      setAuthCookie(response, issued.token, maxAge);
     }
     return response;
   } catch (error) {
