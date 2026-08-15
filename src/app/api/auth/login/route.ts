@@ -13,10 +13,11 @@ import {
   createAuthSession,
   serializeSafeUser,
 } from "@/lib/auth/session-store.server";
+import { getCeremonyService } from "@/lib/passkeys/ceremonies.server";
 
 export async function POST(request: Request) {
   try {
-    const { username, password } = await request.json();
+    const { username, password, enrollPasskey } = await request.json();
 
     if (typeof username !== "string" || typeof password !== "string") {
       return NextResponse.json(
@@ -70,19 +71,34 @@ export async function POST(request: Request) {
       );
     }
 
-    const response = NextResponse.json(
-      {
-        ok: true,
-        user: safeUser,
-      },
-      { headers: { "Cache-Control": "no-store" } },
-    );
+    let enrollmentGrantId: string | undefined;
+    let issued:
+      | Awaited<ReturnType<typeof createAuthSession>>
+      | undefined;
     if (safeUser.id) {
-      const issued = await createAuthSession({
+      issued = await createAuthSession({
         userId: safeUser.id,
         role: safeUser.role || "user",
         authMethod: "password",
       });
+      if (enrollPasskey === true) {
+        const grant = await getCeremonyService().createEnrollmentGrant(
+          safeUser.id,
+          issued.record.id,
+        );
+        enrollmentGrantId = grant.id;
+      }
+    }
+
+    const response = NextResponse.json(
+      {
+        ok: true,
+        user: safeUser,
+        ...(enrollmentGrantId ? { enrollmentGrantId } : {}),
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+    if (issued) {
       const maxAge = Math.max(
         0,
         Math.floor((issued.record.expiresAt - Date.now()) / 1000),

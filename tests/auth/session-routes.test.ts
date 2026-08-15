@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   revokeAuthSession: vi.fn(),
   getActiveUsers: vi.fn(),
   verifyPasswordServer: vi.fn(),
+  createEnrollmentGrant: vi.fn(),
 }));
 
 vi.mock("@/services/users", () => ({
@@ -25,6 +26,12 @@ vi.mock("@/lib/auth/session-store.server", () => ({
     const { password: _password, ...safe } = user;
     return safe;
   },
+}));
+
+vi.mock("@/lib/passkeys/ceremonies.server", () => ({
+  getCeremonyService: () => ({
+    createEnrollmentGrant: mocks.createEnrollmentGrant,
+  }),
 }));
 
 vi.mock("@/lib/auth/session-cookie.server", () => ({
@@ -83,6 +90,7 @@ describe("server session routes", () => {
       },
     });
     mocks.revokeAuthSession.mockResolvedValue(true);
+    mocks.createEnrollmentGrant.mockResolvedValue({ id: "grant-id" });
     mocks.readAuthSession.mockResolvedValue({
       user: {
         id: "u1",
@@ -137,6 +145,26 @@ describe("server session routes", () => {
     expect(response.headers.get("set-cookie")).toContain(
       "pricemaster_auth=;",
     );
+  });
+
+  it("entrega una concesión breve cuando se solicita activar passkey", async () => {
+    const response = await login(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: "ALCHACAS",
+          password: "secret",
+          enrollPasskey: true,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      ok: true,
+      enrollmentGrantId: "grant-id",
+    });
   });
 
   it("hidrata la sesión actual desde la cookie del servidor", async () => {
