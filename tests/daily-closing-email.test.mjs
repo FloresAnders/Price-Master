@@ -96,6 +96,28 @@ test("separa los cuatro saldos digitados de los valores calculados del turno", (
   }
 });
 
+test("ordena cada saldo externo antes de su dato correspondiente en Contica", () => {
+  const rendered = renderEmail();
+
+  for (const output of [normalizeText(rendered.text), normalizeText(rendered.html)]) {
+    const positions = [
+      /Tuc[aá]n(?: —)? ?saldo acumulado:? ₡163 008/i,
+      /Contica(?: —)? ?R08:? ₡149 572/,
+      /Tiempos(?: —)? ?saldo acumulado:? ₡96 900/i,
+      /Contica(?: —)? ?T11:? ₡67 100/,
+    ].map((pattern) => output.search(pattern));
+
+    assert.ok(
+      positions.every((position) => position >= 0),
+      `Falta un saldo digitado en el correo: ${positions.join(", ")}`,
+    );
+    assert.ok(
+      positions.every((position, index) => index === 0 || positions[index - 1] < position),
+      `Orden incorrecto de saldos digitados: ${positions.join(", ")}`,
+    );
+  }
+});
+
 test("explica por separado el ajuste de Tiempos entre turnos", () => {
   const rendered = renderEmail();
   const text = normalizeText(rendered.text);
@@ -152,6 +174,15 @@ test("la vista local simula los cierres diurno y nocturno con sus saldos reales"
   );
 
   const dayRows = previewRows(day);
+  assert.deepEqual(
+    dayRows.filter((row) => row.length === 3 && row[0] !== "Sistema"),
+    [
+      ["Tucán", "Saldo acumulado", "₡155 962"],
+      ["Contica", "R08", "₡155 960"],
+      ["Tiempos", "Saldo acumulado", "₡35 350"],
+      ["Contica", "T11", "₡45 150"],
+    ],
+  );
   for (const expected of [
     ["Contica", "R08", "₡155 960"],
     ["Contica", "T11", "₡45 150"],
@@ -188,6 +219,15 @@ test("la vista local simula los cierres diurno y nocturno con sus saldos reales"
   );
 
   const nightRows = previewRows(night);
+  assert.deepEqual(
+    nightRows.filter((row) => row.length === 3 && row[0] !== "Sistema"),
+    [
+      ["Tucán", "Saldo acumulado", "₡402 123,76"],
+      ["Contica", "R08", "₡246 163"],
+      ["Tiempos", "Saldo acumulado", "₡147 650"],
+      ["Contica", "T11", "₡104 500"],
+    ],
+  );
   for (const expected of [
     ["Contica", "R08", "₡246 163"],
     ["Contica", "T11", "₡104 500"],

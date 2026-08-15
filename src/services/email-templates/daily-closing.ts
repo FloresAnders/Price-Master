@@ -111,10 +111,10 @@ ${context.noMovementsReason.trim()}
   const reconciliationSection = context.reconciliation
     ? `
 Saldos digitados en la verificación de sistemas:
- - Contica — R08: ${formatCRC(context.reconciliation.contica.r08)}
- - Contica — T11: ${formatCRC(context.reconciliation.contica.t11)}
  - Tucán — saldo acumulado: ${formatCRC(context.reconciliation.externalSnapshots.tucanCumulative)}
+ - Contica — R08: ${formatCRC(context.reconciliation.contica.r08)}
  - Tiempos — saldo acumulado: ${formatCRC(context.reconciliation.externalSnapshots.tiemposCumulative)}
+ - Contica — T11: ${formatCRC(context.reconciliation.contica.t11)}
 
 Comparación del turno (Contica − sistema):
  - Tucán: R08 ${formatCRC(context.reconciliation.contica.r08)} − saldo del turno ${formatCRC(context.reconciliation.calculated.tucanForShift)} = ${formatCRC(context.reconciliation.calculated.tucanDifference)}
@@ -195,10 +195,10 @@ ${singleClosingReasonSection}${noMovementsSection}${reconciliationSection}${note
                             </tr>
                         </thead>
                         <tbody>
-                            <tr><td style="padding: 8px; border: 1px solid #d0d7de;">Contica</td><td style="padding: 8px; border: 1px solid #d0d7de;">R08</td><td style="padding: 8px; border: 1px solid #d0d7de; text-align: right;"><strong>${formatCRC(context.reconciliation.contica.r08)}</strong></td></tr>
-                            <tr><td style="padding: 8px; border: 1px solid #d0d7de;">Contica</td><td style="padding: 8px; border: 1px solid #d0d7de;">T11</td><td style="padding: 8px; border: 1px solid #d0d7de; text-align: right;"><strong>${formatCRC(context.reconciliation.contica.t11)}</strong></td></tr>
                             <tr><td style="padding: 8px; border: 1px solid #d0d7de;">Tucán</td><td style="padding: 8px; border: 1px solid #d0d7de;">Saldo acumulado</td><td style="padding: 8px; border: 1px solid #d0d7de; text-align: right;"><strong>${formatCRC(context.reconciliation.externalSnapshots.tucanCumulative)}</strong></td></tr>
+                            <tr><td style="padding: 8px; border: 1px solid #d0d7de;">Contica</td><td style="padding: 8px; border: 1px solid #d0d7de;">R08</td><td style="padding: 8px; border: 1px solid #d0d7de; text-align: right;"><strong>${formatCRC(context.reconciliation.contica.r08)}</strong></td></tr>
                             <tr><td style="padding: 8px; border: 1px solid #d0d7de;">Tiempos</td><td style="padding: 8px; border: 1px solid #d0d7de;">Saldo acumulado</td><td style="padding: 8px; border: 1px solid #d0d7de; text-align: right;"><strong>${formatCRC(context.reconciliation.externalSnapshots.tiemposCumulative)}</strong></td></tr>
+                            <tr><td style="padding: 8px; border: 1px solid #d0d7de;">Contica</td><td style="padding: 8px; border: 1px solid #d0d7de;">T11</td><td style="padding: 8px; border: 1px solid #d0d7de; text-align: right;"><strong>${formatCRC(context.reconciliation.contica.t11)}</strong></td></tr>
                         </tbody>
                     </table>
                     <h3 style="margin: 16px 0 8px 0;">Comparación del turno (Contica − sistema)</h3>
