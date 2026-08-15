@@ -125,6 +125,7 @@ export function useAuth() {
   }, [isAuthenticated, user?.id]);
 
   const logout = useCallback(async (_reason?: string) => {
+    void _reason;
     try {
       await fetch("/api/auth/logout", {
         method: "POST",
@@ -176,6 +177,8 @@ export function useAuth() {
 
   const login = useCallback(
     (userData: User, _keepActive = false, _useTokens = false) => {
+      void _keepActive;
+      void _useTokens;
       clearLegacyAuthState();
       const safeUser = normalizedUser(userData);
       const role = safeUser.role || "user";

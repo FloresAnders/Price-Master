@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { usePathname } from "next/navigation";
 import { Footer } from "../layout";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,12 +14,9 @@ interface AuthWrapperProps {
 export default function AuthWrapper({ children }: AuthWrapperProps) {
   const { user, isAuthenticated, loading, login } = useAuth();
   const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
   const publicRoute = isPublicRoute(pathname);
 
-  useEffect(() => setMounted(true), []);
-
-  if (!mounted || (loading && !publicRoute)) {
+  if (loading && !publicRoute) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#020713] text-white">
         <div className="text-center">
