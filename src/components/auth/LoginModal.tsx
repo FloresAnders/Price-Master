@@ -154,7 +154,7 @@ export default function LoginModal({
   if (!isOpen) return null;
 
   const inputClass =
-    "h-16 w-full rounded-2xl border border-blue-500/70 bg-slate-950/35 pl-14 pr-12 text-base text-white outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/25 disabled:opacity-60";
+    "h-11 w-full rounded-2xl border border-blue-500/70 bg-slate-950/35 pl-10 pr-9 text-xs text-white outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/25 disabled:opacity-60 sm:h-12 sm:pl-12 sm:pr-10 sm:text-sm";
 
   return (
     <div className="relative flex min-h-full w-full items-center justify-center overflow-hidden bg-[#020713] px-5 py-8 text-white">
@@ -170,8 +170,8 @@ export default function LoginModal({
             priority
             className="mx-auto h-[126px] w-[126px] object-contain"
           />
-          <h1 className="mt-2 text-4xl font-semibold tracking-tight">Bienvenido</h1>
-          <p className="mt-2 text-base text-slate-400">Inicia sesión para continuar</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Bienvenido</h1>
+          <p className="mt-2 text-sm text-slate-400 sm:text-base">Inicia sesión para continuar</p>
         </header>
 
         {passkeyAvailable && !showPasswordLogin ? (
@@ -189,7 +189,7 @@ export default function LoginModal({
               type="button"
               onClick={handlePasskeyLogin}
               disabled={loading}
-              className="h-16 w-full rounded-2xl bg-gradient-to-r from-blue-500 to-blue-700 text-lg font-semibold shadow-[0_12px_35px_rgba(37,99,235,0.3)] transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60"
+              className="h-11 w-full rounded-2xl bg-gradient-to-r from-blue-500 to-blue-700 text-sm font-semibold shadow-[0_12px_35px_rgba(37,99,235,0.3)] transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60 sm:h-12 sm:text-base"
             >
               {loading ? "Verificando…" : "Ingresar con biometría"}
             </button>
@@ -200,7 +200,7 @@ export default function LoginModal({
                 setShowPasswordLogin(true);
               }}
               disabled={loading}
-              className="h-14 w-full rounded-2xl border border-slate-600/80 bg-slate-950/30 font-medium text-slate-200 transition hover:border-blue-500/70 hover:bg-blue-500/5"
+              className="h-10 w-full rounded-2xl border border-slate-600/80 bg-slate-950/30 text-xs font-medium text-slate-200 transition hover:border-blue-500/70 hover:bg-blue-500/5 sm:h-11 sm:text-sm"
             >
               Ingresar con contraseña
             </button>
@@ -265,20 +265,22 @@ export default function LoginModal({
                 </button>
               </div>
 
-              <label className="flex min-h-14 cursor-pointer items-center gap-4 py-1">
-                <input
-                  type="checkbox"
-                  checked={enrollPasskey}
-                  onChange={(event) => setEnrollPasskey(event.target.checked)}
-                  disabled={loading || !isPasskeySupported()}
-                  className="h-6 w-11 shrink-0 appearance-none rounded-full bg-slate-700 p-1 transition before:block before:h-4 before:w-4 before:rounded-full before:bg-white before:transition checked:bg-blue-600 checked:before:translate-x-5 disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-label="Activar biometría en este dispositivo"
-                />
-                <Fingerprint className="h-10 w-10 shrink-0 text-blue-500" />
-                <span className="text-sm font-medium text-slate-100">
-                  Activar biometría en este dispositivo
-                </span>
-              </label>
+              <div className="flex justify-center">
+                <label className="flex min-h-11 cursor-pointer items-center justify-center gap-2.5 py-1 sm:min-h-12 sm:gap-3">
+                  <input
+                    type="checkbox"
+                    checked={enrollPasskey}
+                    onChange={(event) => setEnrollPasskey(event.target.checked)}
+                    disabled={loading || !isPasskeySupported()}
+                    className="h-4.5 w-8 shrink-0 appearance-none rounded-full bg-slate-700 p-1 transition before:block before:h-3 before:w-3 before:rounded-full before:bg-white before:transition checked:bg-blue-600 checked:before:translate-x-4 disabled:cursor-not-allowed disabled:opacity-50 sm:h-5 sm:w-9 sm:checked:before:translate-x-4"
+                    aria-label="Activar biometría en este dispositivo"
+                  />
+                  <Fingerprint className="h-7 w-7 shrink-0 text-blue-500 sm:h-8 sm:w-8" />
+                  <span className="text-center text-[11px] font-medium text-slate-100 sm:text-xs">
+                    Activar biometría en este dispositivo
+                  </span>
+                </label>
+              </div>
 
               {error && (
                 <div role="alert" className="flex gap-2 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
@@ -290,7 +292,7 @@ export default function LoginModal({
               <button
                 type="submit"
                 disabled={loading}
-                className="h-16 w-full rounded-2xl bg-gradient-to-r from-blue-500 to-blue-700 text-lg font-semibold shadow-[0_12px_35px_rgba(37,99,235,0.3)] transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60"
+                className="h-11 w-full rounded-2xl bg-gradient-to-r from-blue-500 to-blue-700 text-sm font-semibold shadow-[0_12px_35px_rgba(37,99,235,0.3)] transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60 sm:h-12 sm:text-base"
               >
                 {loading ? "Ingresando…" : "Ingresar"}
               </button>
@@ -301,9 +303,9 @@ export default function LoginModal({
                 type="button"
                 onClick={handlePasskeyLogin}
                 disabled={loading}
-                className="mt-4 flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-blue-500/45 bg-blue-500/5 font-medium text-blue-200 transition hover:bg-blue-500/10 disabled:opacity-60"
+                className="mt-4 flex h-9 w-full items-center justify-center gap-2 rounded-2xl border border-blue-500/45 bg-blue-500/5 text-[11px] font-medium text-blue-200 transition hover:bg-blue-500/10 disabled:opacity-60 sm:h-10 sm:gap-2.5 sm:text-xs"
               >
-                <Fingerprint className="h-7 w-7" />
+                <Fingerprint className="h-4 w-4 sm:h-5 sm:w-5" />
                 Ya tengo una passkey
               </button>
             )}
@@ -335,17 +337,17 @@ export default function LoginModal({
             type="button"
             disabled
             onClick={() => setShowRecoveryModal(true)}
-            className="h-14 w-full rounded-2xl border border-slate-600/80 bg-slate-950/30 text-sm text-slate-200 transition hover:border-blue-500/70 cursor-not-allowed"
+            className="h-10 w-full rounded-2xl border border-slate-600/80 bg-slate-950/30 text-[11px] text-slate-200 transition hover:border-blue-500/70 cursor-not-allowed sm:h-11 sm:text-xs"
           >
             ¿Olvidó su usuario o contraseña?
           </button>
           <button
             type="button"
             disabled
-            className="relative h-14 w-full cursor-not-allowed rounded-2xl border border-slate-700 bg-slate-950/20 text-blue-400 opacity-60"
+            className="relative h-10 w-full cursor-not-allowed rounded-2xl border border-slate-700 bg-slate-950/20 text-[11px] text-blue-400 opacity-60 sm:h-11 sm:text-xs"
           >
             Regístrese
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-slate-800 px-2 py-1 text-[10px] uppercase tracking-wide text-slate-400">
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-slate-800 px-2 py-1 text-[8px] uppercase tracking-wide text-slate-400 sm:right-4 sm:text-[9px]">
               Próximamente
             </span>
           </button>
