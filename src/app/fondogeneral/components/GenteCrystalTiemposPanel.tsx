@@ -43,6 +43,22 @@ const formatSaleTime = (saleAt: string) =>
     hour12: true,
   }).format(new Date(saleAt));
 
+const saleTimeInMinutes = (saleAt: string) => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Costa_Rica",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(saleAt));
+  const hour = Number(parts.find((part) => part.type === "hour")?.value);
+  const minute = Number(
+    parts.find((part) => part.type === "minute")?.value,
+  );
+  return Number.isFinite(hour) && Number.isFinite(minute)
+    ? hour * 60 + minute
+    : null;
+};
+
 const splitDisplaySorteoLines = (value: string): string[] => {
   const normalized = String(value || "").trim();
   if (!normalized) return ["-"];
@@ -63,6 +79,8 @@ export function GenteCrystalTiemposPanel({
   const [requestedScope, setRequestedScope] =
     useState<RequestedScope | null>(null);
   const [showFullTicket, setShowFullTicket] = useState(false);
+  const [timeFrom, setTimeFrom] = useState("");
+  const [timeUntil, setTimeUntil] = useState("");
   const activeRequestId = useRef(0);
   const manualQuery = useRef<
     ReturnType<typeof createGenteCrystalManualSalesQuery> | undefined
@@ -113,6 +131,36 @@ export function GenteCrystalTiemposPanel({
         : null,
     [companyId, date, result],
   );
+  const filteredResult = useMemo(() => {
+    if (!visibleResult) return null;
+    const fromMinutes = timeFrom ? Number(timeFrom.slice(0, 2)) * 60 + Number(timeFrom.slice(3)) : null;
+    const untilMinutes = timeUntil ? Number(timeUntil.slice(0, 2)) * 60 + Number(timeUntil.slice(3)) : null;
+    const sales = visibleResult.sales.filter((sale) => {
+      const saleMinutes = saleTimeInMinutes(sale.saleAt);
+      return (
+        saleMinutes !== null &&
+        (fromMinutes === null || saleMinutes >= fromMinutes) &&
+        (untilMinutes === null || saleMinutes <= untilMinutes)
+      );
+    });
+    const indirectSales = sales.filter(
+      (sale) => sale.captureOrigin === "indirect",
+    );
+    return {
+      ...visibleResult,
+      sales,
+      summary: {
+        ...visibleResult.summary,
+        count: sales.length,
+        total: sales.reduce((total, sale) => total + sale.monto, 0),
+        indirectCount: indirectSales.length,
+        indirectTotal: indirectSales.reduce(
+          (total, sale) => total + sale.monto,
+          0,
+        ),
+      },
+    };
+  }, [timeFrom, timeUntil, visibleResult]);
 
   return (
     <div className="space-y-4">
@@ -145,9 +193,32 @@ export function GenteCrystalTiemposPanel({
         </div>
       </div>
 
+      {visibleResult && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="grid gap-1 text-sm text-[var(--muted-foreground)]">
+            <span className="font-medium text-[var(--foreground)]">Desde</span>
+            <input
+              type="time"
+              value={timeFrom}
+              onChange={(event) => setTimeFrom(event.target.value)}
+              className="h-10 rounded-md border border-[var(--input-border)] bg-[var(--background)] px-3 text-[var(--foreground)] outline-none transition focus:border-cyan-500"
+            />
+          </label>
+          <label className="grid gap-1 text-sm text-[var(--muted-foreground)]">
+            <span className="font-medium text-[var(--foreground)]">Hasta</span>
+            <input
+              type="time"
+              value={timeUntil}
+              onChange={(event) => setTimeUntil(event.target.value)}
+              className="h-10 rounded-md border border-[var(--input-border)] bg-[var(--background)] px-3 text-[var(--foreground)] outline-none transition focus:border-cyan-500"
+            />
+          </label>
+        </div>
+      )}
+
       <div
         className={`grid grid-cols-1 gap-3 ${
-          visibleResult?.summary.indirectCount
+          filteredResult?.summary.indirectCount
             ? "sm:grid-cols-3"
             : "sm:grid-cols-2"
         }`}
@@ -158,7 +229,7 @@ export function GenteCrystalTiemposPanel({
             Total vendido
           </div>
           <p className="text-xl font-bold text-[var(--foreground)]">
-            {formatCRC(visibleResult?.summary.total ?? 0)}
+            {formatCRC(filteredResult?.summary.total ?? 0)}
           </p>
         </div>
         <div className="rounded-lg border border-cyan-500/25 bg-cyan-950/15 p-4">
@@ -167,10 +238,10 @@ export function GenteCrystalTiemposPanel({
             Tiquetes
           </div>
           <p className="text-xl font-bold text-[var(--foreground)]">
-            {visibleResult?.summary.count ?? 0}
+            {filteredResult?.summary.count ?? 0}
           </p>
         </div>
-        {Boolean(visibleResult?.summary.indirectCount) && (
+        {Boolean(filteredResult?.summary.indirectCount) && (
           <div className="rounded-lg border border-amber-500/30 bg-amber-950/15 p-4">
             <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-300/85">
               <Info className="h-4 w-4" />
@@ -180,14 +251,14 @@ export function GenteCrystalTiemposPanel({
               {formatCRC(visibleResult?.summary.indirectTotal ?? 0)}
             </p>
             <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-              {visibleResult?.summary.indirectCount} tiquete
-              {visibleResult?.summary.indirectCount === 1 ? "" : "s"}
+              {filteredResult?.summary.indirectCount} tiquete
+              {filteredResult?.summary.indirectCount === 1 ? "" : "s"}
             </p>
           </div>
         )}
       </div>
 
-      {Boolean(visibleResult?.summary.indirectCount) && (
+      {Boolean(filteredResult?.summary.indirectCount) && (
         <p className="text-xs text-amber-300/85">
           (i) Venta detectada sin un clic local en Ingresar venta.
         </p>
@@ -221,8 +292,8 @@ export function GenteCrystalTiemposPanel({
                 Cargando movimientos...
               </td>
             </tr>
-          ) : visibleResult && visibleResult.sales.length > 0 ? (
-            visibleResult.sales.map((sale) => (
+          ) : filteredResult && filteredResult.sales.length > 0 ? (
+            filteredResult.sales.map((sale) => (
               <tr
                 key={sale.ticketIds.join("|")}
                 className="border-t border-[var(--input-border)]/70 text-[var(--foreground)] transition hover:bg-[var(--muted)]/25"
@@ -269,7 +340,9 @@ export function GenteCrystalTiemposPanel({
                   ? "Usa Actualizar para intentar nuevamente."
                   : !isRequestedScopeVisible
                     ? "Presiona Actualizar para consultar."
-                    : "No hay movimientos para esta fecha."}
+                    : timeFrom || timeUntil
+                      ? "No hay tiquetes dentro del horario seleccionado."
+                      : "No hay movimientos para esta fecha."}
               </td>
             </tr>
           )}
