@@ -1,4 +1,4 @@
-import { doc, onSnapshot, type Unsubscribe } from "firebase/firestore";
+import { doc, getDoc, onSnapshot, type Unsubscribe } from "firebase/firestore";
 import { db } from "@/config/firebase";
 
 export type VersionDocSnapshot = {
@@ -15,9 +15,45 @@ type VersionListener = (snapshot: VersionDocSnapshot | null) => void;
 type VersionErrorListener = (error: unknown) => void;
 
 let activeUnsubscribe: Unsubscribe | null = null;
-let listeners = new Set<VersionListener>();
-let errorListeners = new Set<VersionErrorListener>();
+const listeners = new Set<VersionListener>();
+const errorListeners = new Set<VersionErrorListener>();
 let latestSnapshot: VersionDocSnapshot | null = null;
+let initPromise: Promise<void> | null = null;
+
+const buildSnapshot = (docSnap: { id: string; exists: () => boolean; data: () => Record<string, unknown> }): VersionDocSnapshot => {
+  const data = (docSnap.exists() ? docSnap.data() : {}) as Record<string, unknown>;
+  return {
+    id: docSnap.id,
+    exists: docSnap.exists(),
+    data,
+    version: String((data.version as string | undefined) || "").trim(),
+    versionstorage: String((data.versionstorage as string | undefined) || "").trim(),
+    notasDeSistemas: String((data.notasDeSistemas as string | undefined) || "").trim(),
+    systemNotes: Array.isArray(data.systemNotes) ? data.systemNotes : [],
+  };
+};
+
+export async function readVersionSnapshotOnce(): Promise<VersionDocSnapshot | null> {
+  if (latestSnapshot) return latestSnapshot;
+  if (initPromise) return initPromise.then(() => latestSnapshot);
+
+  const versionRef = doc(db, "version", "current");
+  initPromise = getDoc(versionRef)
+    .then((docSnap) => {
+      latestSnapshot = buildSnapshot(docSnap as any);
+      return latestSnapshot;
+    })
+    .catch((error) => {
+      console.warn("Error reading version snapshot once:", error);
+      latestSnapshot = null;
+      return null;
+    })
+    .finally(() => {
+      initPromise = null;
+    });
+
+  return initPromise.then(() => latestSnapshot);
+}
 
 const notifyListeners = (snapshot: VersionDocSnapshot | null) => {
   latestSnapshot = snapshot;
@@ -54,20 +90,7 @@ export function subscribeToVersionDoc(
     activeUnsubscribe = onSnapshot(
       versionRef,
       (docSnap) => {
-        const data = (docSnap.exists() ? docSnap.data() : {}) as Record<string, unknown>;
-        const nextSnapshot: VersionDocSnapshot = {
-          id: docSnap.id,
-          exists: docSnap.exists(),
-          data,
-          version: String((data.version as string | undefined) || "").trim(),
-          versionstorage: String(
-            (data.versionstorage as string | undefined) || "",
-          ).trim(),
-          notasDeSistemas: String(
-            (data.notasDeSistemas as string | undefined) || "",
-          ).trim(),
-          systemNotes: Array.isArray(data.systemNotes) ? data.systemNotes : [],
-        };
+        const nextSnapshot = buildSnapshot(docSnap as any);
         notifyListeners(nextSnapshot);
       },
       (error) => {
@@ -76,9 +99,11 @@ export function subscribeToVersionDoc(
     );
   }
 
-  if (latestSnapshot) {
-    listener(latestSnapshot);
-  }
+  void readVersionSnapshotOnce().then((snapshot) => {
+    if (snapshot) {
+      listener(snapshot);
+    }
+  });
 
   return () => {
     listeners.delete(listener);

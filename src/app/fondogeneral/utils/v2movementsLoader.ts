@@ -19,6 +19,8 @@ type V2MovementsCacheEntry = {
   revision?: number;
 };
 
+const inFlightV2Reads = new Map<string, Promise<void>>();
+
 export interface EnsureV2LoadedDeps {
   rebuildEntriesFromV2Cache: (docKey: string, targetAccountKey: MovementAccountKey) => void;
   beginMovementsLoading: () => void;
@@ -91,6 +93,20 @@ export async function ensureV2MovementsLoaded(
     return;
   }
 
+  const requestKey = [
+    docKey,
+    targetAccountKey,
+    queryKey,
+    startIso,
+    endIsoExclusive,
+    append ? "append" : "base",
+  ].join("::");
+
+  const existingInFlight = inFlightV2Reads.get(requestKey);
+  if (existingInFlight) {
+    return existingInFlight;
+  }
+
   const computeRemoteBatchSize = () => {
     // Hard cap for daily mode per requirement.
     if (pageSize === "daily") return 50;
@@ -143,54 +159,58 @@ export async function ensureV2MovementsLoaded(
   v2MovementsCacheRef.current[cacheKey] = nextCache;
   beginMovementsLoading();
 
-  try {
-    const pageResult = await MovimientosFondosService.listMovementsPageByCreatedAtRange(
-      docKey,
-      {
-        startIso,
-        endIsoExclusive,
-        pageSize: remoteBatchSize,
-        cursor: shouldReset ? null : nextCache.cursor,
-        accountId: targetAccountKey,
-      },
-    );
+  const requestPromise = (async () => {
+    try {
+      const pageResult = await MovimientosFondosService.listMovementsPageByCreatedAtRange(
+        docKey,
+        {
+          startIso,
+          endIsoExclusive,
+          pageSize: remoteBatchSize,
+          cursor: shouldReset ? null : nextCache.cursor,
+          accountId: targetAccountKey,
+        },
+      );
 
-    const latestCache = v2MovementsCacheRef.current[cacheKey] ?? cached;
-    const latestRevision = latestCache.revision ?? 0;
-    const isStale = latestRevision !== startRevision;
-    const baseMovements = isStale && latestCache.loaded ? latestCache.movements : nextCache.movements;
-    const mergedById = new Map<string, FondoEntry>();
+      const latestCache = v2MovementsCacheRef.current[cacheKey] ?? cached;
+      const latestRevision = latestCache.revision ?? 0;
+      const isStale = latestRevision !== startRevision;
+      const baseMovements = isStale && latestCache.loaded ? latestCache.movements : nextCache.movements;
+      const mergedById = new Map<string, FondoEntry>();
 
-    for (const movement of baseMovements) {
-      mergedById.set(movement.id, movement);
-    }
-    for (const movement of pageResult.items as FondoEntry[]) {
-      mergedById.set(movement.id, movement);
-    }
+      for (const movement of baseMovements) {
+        mergedById.set(movement.id, movement);
+      }
+      for (const movement of pageResult.items as FondoEntry[]) {
+        mergedById.set(movement.id, movement);
+      }
 
-    const mergedMovements = shouldReset
-      ? Array.from(mergedById.values())
-      : Array.from(mergedById.values());
+      const mergedMovements = Array.from(mergedById.values());
 
-    v2MovementsCacheRef.current[cacheKey] = {
-      ...latestCache,
-      loaded: true,
-      movements: mergedMovements,
-      cursor: pageResult.cursor,
-      exhausted: pageResult.exhausted,
-      loading: false,
-      revision: latestRevision,
-    };
-  } finally {
-    const latest = v2MovementsCacheRef.current[cacheKey];
-    if (latest) {
       v2MovementsCacheRef.current[cacheKey] = {
-        ...latest,
+        ...latestCache,
+        loaded: true,
+        movements: mergedMovements,
+        cursor: pageResult.cursor,
+        exhausted: pageResult.exhausted,
         loading: false,
+        revision: latestRevision,
       };
+    } finally {
+      const latest = v2MovementsCacheRef.current[cacheKey];
+      if (latest) {
+        v2MovementsCacheRef.current[cacheKey] = {
+          ...latest,
+          loading: false,
+        };
+      }
+      endMovementsLoading();
+      inFlightV2Reads.delete(requestKey);
     }
-    endMovementsLoading();
-  }
 
-  rebuildEntriesFromV2Cache(docKey, targetAccountKey);
+    rebuildEntriesFromV2Cache(docKey, targetAccountKey);
+  })();
+
+  inFlightV2Reads.set(requestKey, requestPromise);
+  return requestPromise;
 }

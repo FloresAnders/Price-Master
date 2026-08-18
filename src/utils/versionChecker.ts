@@ -6,6 +6,7 @@ let updateTimeout: NodeJS.Timeout | null = null;
 let unsubscribe: (() => void) | null = null;
 let lastNotifiedVersion: string | null = null; // Guardar la última versión notificada
 let initialVersion: string | null = null; // Versión inicial de la BD al cargar la página
+let versionCheckStarted = false;
 const AUTO_RELOAD_DELAY = 5 * 60 * 1000; // 5 minutos
 
 // Función para mostrar notificación de toast
@@ -122,6 +123,12 @@ const showToast = (
 };
 
 export const startVersionCheck = async () => {
+  if (versionCheckStarted) {
+    return;
+  }
+
+  versionCheckStarted = true;
+
   // Primero, obtener la versión inicial de la BD
   const versionRef = doc(db, "version", "current");
 
@@ -208,6 +215,8 @@ export const stopVersionCheck = () => {
     clearTimeout(updateTimeout);
     updateTimeout = null;
   }
+
+  versionCheckStarted = false;
 
   // Resetear la última versión notificada y la versión inicial
   lastNotifiedVersion = null;

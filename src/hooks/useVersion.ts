@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { db } from "@/config/firebase";
-import { doc, getDoc } from "firebase/firestore";
 import versionData from "../data/version.json";
+import { subscribeToVersionDoc } from "@/services/version-doc";
 
 export type ReleaseNote = {
   date: string;
@@ -38,48 +37,39 @@ export function useVersion() {
     [];
 
   useEffect(() => {
-    // Obtener la versión una sola vez al cargar, sin suscripción en tiempo real
-    const fetchVersion = async () => {
-      try {
-        const versionRef = doc(db, "version", "current");
-        const docSnap = await getDoc(versionRef);
-
-        if (docSnap.exists()) {
-          const serverVersion = docSnap.data().version;
-          setDbVersion(serverVersion);
-
-          // Comparar versiones
-          const comparison = compareVersions(
-            versionData.version,
-            serverVersion,
-          );
-
-          if (comparison > 0) {
-            // version.json es SUPERIOR - Usar versión local y marcar
-            setVersion(versionData.version);
-            setIsLocalNewer(true);
-          } else {
-            // version.json es igual o inferior - Usar versión de Firestore
-            setVersion(serverVersion || versionData.version);
-            setIsLocalNewer(false);
-          }
-        } else {
-          // Si no existe en la base de datos, usar la versión local
-          setVersion(versionData.version);
-          setIsLocalNewer(false);
-        }
-      } catch (error) {
-        console.error("Error obteniendo versión:", error);
-        // En caso de error, usar la versión local
+    const unsubscribe = subscribeToVersionDoc((snapshot) => {
+      if (!snapshot?.exists) {
         setVersion(versionData.version);
+        setDbVersion(null);
         setIsLocalNewer(false);
-      } finally {
         setLoading(false);
+        return;
       }
-    };
 
-    fetchVersion();
-  }, []); // Solo se ejecuta una vez al montar el componente
+      const serverVersion = snapshot.version || versionData.version;
+      setDbVersion(serverVersion);
+
+      const comparison = compareVersions(versionData.version, serverVersion);
+
+      if (comparison > 0) {
+        setVersion(versionData.version);
+        setIsLocalNewer(true);
+      } else {
+        setVersion(serverVersion || versionData.version);
+        setIsLocalNewer(false);
+      }
+
+      setLoading(false);
+    }, (error) => {
+      console.error("Error obteniendo versión:", error);
+      setVersion(versionData.version);
+      setDbVersion(null);
+      setIsLocalNewer(false);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   return { version, loading, isLocalNewer, dbVersion, releaseNotes };
 }
