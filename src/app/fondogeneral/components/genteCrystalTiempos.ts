@@ -81,6 +81,20 @@ function nextUnconsumedTicketIndex(
   return queue.indexes[queue.cursor] ?? -1;
 }
 
+function canonicalSaleAt(value: string): string {
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? String(value || "") : new Date(parsed).toISOString();
+}
+
+function mergedSorteoLabel(left: string, right: string): string {
+  const first = String(left || "").trim();
+  const second = String(right || "").trim();
+  if (!first) return second;
+  if (!second) return first;
+  if (first.toLowerCase() === second.toLowerCase()) return first;
+  return `${first} + ${second}`;
+}
+
 export function buildGenteCrystalDisplayResult(
   result: GenteCrystalDailySalesResponse,
 ): GenteCrystalDisplayResult {
@@ -131,13 +145,51 @@ export function buildGenteCrystalDisplayResult(
             ? lowerPartnerIndex
             : Math.min(lowerPartnerIndex, upperPartnerIndex);
 
+      const sameOriginIndexes = indexesByOrigin[sale.captureOrigin];
+      const lowerSameOriginIndex =
+        sequence === null
+          ? -1
+          : nextUnconsumedTicketIndex(
+              sameOriginIndexes.get(sequence - 1),
+              index,
+              consumedIndexes,
+            );
+      const upperSameOriginIndex =
+        sequence === null
+          ? -1
+          : nextUnconsumedTicketIndex(
+              sameOriginIndexes.get(sequence + 1),
+              index,
+              consumedIndexes,
+            );
+      const sameOriginCandidateIndex =
+        lowerSameOriginIndex < 0
+          ? upperSameOriginIndex
+          : upperSameOriginIndex < 0
+            ? lowerSameOriginIndex
+            : Math.min(lowerSameOriginIndex, upperSameOriginIndex);
+
+      const sameOriginPartnerIndex =
+        sale.captureOrigin === "local_button" && sameOriginCandidateIndex >= 0
+          ? (() => {
+              const candidate = result.sales[sameOriginCandidateIndex];
+              const matchesComparableValues =
+                canonicalSaleAt(candidate.saleAt) === canonicalSaleAt(sale.saleAt) &&
+                candidate.monto === sale.monto;
+              return matchesComparableValues ? sameOriginCandidateIndex : -1;
+            })()
+          : -1;
+
+      const effectivePartnerIndex =
+        partnerIndex >= 0 ? partnerIndex : sameOriginPartnerIndex;
+
       consumedIndexes.add(index);
-      if (partnerIndex >= 0) {
-        const partner = result.sales[partnerIndex];
-        consumedIndexes.add(partnerIndex);
+      if (effectivePartnerIndex >= 0) {
+        const partner = result.sales[effectivePartnerIndex];
+        consumedIndexes.add(effectivePartnerIndex);
         displaySales.push({
           ticketIds: [sale.ticketId, partner.ticketId],
-          sorteo: sale.sorteo,
+          sorteo: mergedSorteoLabel(sale.sorteo, partner.sorteo),
           monto: sale.monto + partner.monto,
           saleAt: sale.saleAt,
           captureOrigin: "local_button",
