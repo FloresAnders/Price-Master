@@ -43,6 +43,15 @@ const formatSaleTime = (saleAt: string) =>
     hour12: true,
   }).format(new Date(saleAt));
 
+const splitDisplaySorteoLines = (value: string): string[] => {
+  const normalized = String(value || "").trim();
+  if (!normalized) return ["-"];
+  return normalized
+    .split(/\s\+\s/g)
+    .map((line) => line.trim())
+    .filter(Boolean);
+};
+
 export function GenteCrystalTiemposPanel({
   companyId,
 }: GenteCrystalTiemposPanelProps) {
@@ -221,7 +230,15 @@ export function GenteCrystalTiemposPanel({
                 <td className="whitespace-nowrap px-2 py-2 align-middle">
                   {formatSaleTime(sale.saleAt)}
                 </td>
-                <td className="px-2 py-2 align-middle">{sale.sorteo}</td>
+                <td className="px-2 py-2 align-middle">
+                  <span className="inline-flex flex-col">
+                    {splitDisplaySorteoLines(sale.sorteo).map((line) => (
+                      <span key={`${sale.ticketIds.join("|")}-${line}`} className="block">
+                        {line}
+                      </span>
+                    ))}
+                  </span>
+                </td>
                 <td className="whitespace-nowrap px-2 py-2 align-middle font-mono text-xs">
                   <GenteCrystalTicketNumbers
                     ticketIds={sale.ticketIds}
