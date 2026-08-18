@@ -173,9 +173,11 @@ export function buildGenteCrystalDisplayResult(
         sale.captureOrigin === "local_button" && sameOriginCandidateIndex >= 0
           ? (() => {
               const candidate = result.sales[sameOriginCandidateIndex];
+              // En Gente Crystal hay jugadas partidas en dos tiquetes locales
+              // consecutivos (ej. NICA/NICA ESPECIAL) con el mismo instante
+              // de venta pero montos distintos, y deben mostrarse juntas.
               const matchesComparableValues =
-                canonicalSaleAt(candidate.saleAt) === canonicalSaleAt(sale.saleAt) &&
-                candidate.monto === sale.monto;
+                canonicalSaleAt(candidate.saleAt) === canonicalSaleAt(sale.saleAt);
               return matchesComparableValues ? sameOriginCandidateIndex : -1;
             })()
           : -1;
