@@ -23,7 +23,7 @@
     {
       "matches": ["https://gentecrystal.net/print_pagos.php*"],
       "js": ["sync-core.js", "print-confirmation.js"],
-      "run_at": "document_idle"
+      "run_at": "document_start"
     }
   ],
   "action": {

@@ -78,9 +78,7 @@
   }
 
   function extraerTicket(texto) {
-    // Formato observado: 41787-2204-59175789
-    const match = String(texto || '').match(/\b\d{4,}-\d{2,}-\d{5,}\b/);
-    return match ? match[0] : null;
+    return syncCore.extractPrintedTicketId(texto);
   }
 
   function extraerMonto(texto) {

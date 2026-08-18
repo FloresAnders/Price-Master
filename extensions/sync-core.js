@@ -17,7 +17,7 @@
   const CONFIRMED_LOCAL_TICKET_MS = 24 * 60 * 60 * 1000;
   const MAX_CONFIRMED_LOCAL_TICKETS = 50;
   const CONNECTION_SAVE_PASSWORD = 'TIMEMASTER2026!';
-  const TICKET_PATTERN = /^\d{4,}-\d{2,}-\d{5,}$/;
+  const TICKET_PATTERN = /^\d{4,}-\d{2,6}-\d{5,}$/;
 
   function requireTicketId(value) {
     const ticketId = String(value || '').trim();
@@ -133,7 +133,7 @@
   }
 
   function extractPrintedTicketId(value) {
-    const match = String(value || '').match(/\b\d{4,}-\d{2,}-\d{5,}\b/);
+    const match = String(value || '').match(/\b\d{4,}-\d{2,6}-\d{5,}\b/);
     return match ? match[0] : null;
   }
 
