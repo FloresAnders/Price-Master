@@ -8,7 +8,7 @@
   const syncCore = globalThis.TimeMasterGenteCrystalSync;
   const MAX_WAIT_MS = 15000;
   const RETRY_MS = 500;
-  const EXTENSION_VERSION = '1.7.0';
+  const EXTENSION_VERSION = '1.8.0';
   const TICKET_REGEX = /\b\d{4,}-\d{2,6}-\d{5,}\b/g;
 
   function getPageText() {

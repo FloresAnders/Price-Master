@@ -603,7 +603,7 @@
       obtenerGuardadas().then((ventas) => {
         sendResponse({
           ok: true,
-          version: '1.7.0',
+          version: '1.8.0',
           sorteo: getSorteo(),
           guardadas: ventas.length,
           diagnostico: lectura.diagnostico
@@ -647,7 +647,7 @@
       const resultado = await sincronizarDesdeTabla({ avisarNuevas: false, forzar: true });
       if (resultado.motivo === 'contexto_invalidado') return;
       inicializado = true;
-      log('Extensión v1.7.0 activa:', resultado);
+      log('Extensión v1.8.0 activa:', resultado);
     }, 600);
 
     pollTimer = setInterval(() => {
