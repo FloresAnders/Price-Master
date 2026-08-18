@@ -18,7 +18,7 @@ let activeUnsubscribe: Unsubscribe | null = null;
 const listeners = new Set<VersionListener>();
 const errorListeners = new Set<VersionErrorListener>();
 let latestSnapshot: VersionDocSnapshot | null = null;
-let initPromise: Promise<void> | null = null;
+let initPromise: Promise<VersionDocSnapshot | null> | null = null;
 
 const buildSnapshot = (docSnap: { id: string; exists: () => boolean; data: () => Record<string, unknown> }): VersionDocSnapshot => {
   const data = (docSnap.exists() ? docSnap.data() : {}) as Record<string, unknown>;
