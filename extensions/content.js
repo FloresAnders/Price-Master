@@ -77,6 +77,11 @@
     return (select.options[select.selectedIndex]?.textContent || '').trim() || null;
   }
 
+  function hasSorteo(value) {
+    const normalized = String(value || '').trim();
+    return Boolean(normalized) && normalized.toUpperCase() !== 'SIN SORTEO';
+  }
+
   function extraerTicket(texto) {
     return syncCore.extractPrintedTicketId(texto);
   }
@@ -463,10 +468,13 @@
       for (const item of visibles) {
         const existente = porTicket.get(item.ticket);
         if (!existente && ticketsDiferidos.has(item.ticket)) continue;
+        const sorteoExistente = hasSorteo(existente?.sorteo)
+          ? existente.sorteo
+          : '';
         const venta = {
           id: existente?.id || `GC-${item.ticket}`,
           ticket: item.ticket,
-          sorteo: existente?.sorteo || sorteo,
+          sorteo: sorteoExistente || sorteo,
           monto: item.monto,
           fecha: item.fecha || existente?.fecha || fechaFallback(),
           hora: item.hora || existente?.hora || horaFallback(),
@@ -488,8 +496,13 @@
         } else {
           // No cambiamos el sorteo de un ticket ya registrado solo porque el
           // usuario cambió el selector después. Sí actualizamos monto/fecha/hora.
-          const actualizado = { ...existente, ...venta, sorteo: existente.sorteo || sorteo };
+          const actualizado = {
+            ...existente,
+            ...venta,
+            sorteo: sorteoExistente || sorteo,
+          };
           if (
+            existente.sorteo !== actualizado.sorteo ||
             existente.monto !== actualizado.monto ||
             existente.hora !== actualizado.hora ||
             existente.fecha !== actualizado.fecha

@@ -111,9 +111,17 @@
       .filter(Boolean);
 
     const fechaSorteoIndex = lines.findIndex((line) =>
-      /^fecha\s+sorteo\s*:/i.test(line),
+      /\bfecha\s+sorteo\s*:/i.test(line),
     );
     if (fechaSorteoIndex >= 0) {
+      const sameLine = lines[fechaSorteoIndex].replace(
+        /^.*?\bfecha\s+sorteo\s*:\s*/i,
+        '',
+      );
+      if (sameLine && !/^cliente\s*:/i.test(sameLine)) {
+        return normalizeWhitespace(sameLine).toUpperCase();
+      }
+
       for (let i = fechaSorteoIndex + 1; i < lines.length; i += 1) {
         const line = lines[i];
         if (/^cliente\s*:/i.test(line)) break;
