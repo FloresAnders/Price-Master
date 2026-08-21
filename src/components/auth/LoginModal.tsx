@@ -273,11 +273,11 @@ export default function LoginModal({
                     onChange={(event) => setEnrollPasskey(event.target.checked)}
                     disabled={loading || !isPasskeySupported()}
                     className="h-4.5 w-8 shrink-0 appearance-none rounded-full bg-slate-700 p-1 transition before:block before:h-3 before:w-3 before:rounded-full before:bg-white before:transition checked:bg-blue-600 checked:before:translate-x-4 disabled:cursor-not-allowed disabled:opacity-50 sm:h-5 sm:w-9 sm:checked:before:translate-x-4"
-                    aria-label="Activar biometría en este dispositivo"
+                    aria-label="Activar passkey en este dispositivo"
                   />
                   <Fingerprint className="h-7 w-7 shrink-0 text-blue-500 sm:h-8 sm:w-8" />
                   <span className="text-center text-[11px] font-medium text-slate-100 sm:text-xs">
-                    Activar biometría en este dispositivo
+                    Activar passkey en este dispositivo
                   </span>
                 </label>
               </div>
