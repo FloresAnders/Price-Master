@@ -34,8 +34,8 @@ import {
   AUTO_ADJUSTMENT_PROVIDER_CODE,
 } from "../../constants";
 import {
-  hasMinimumSingleClosingReasonLength,
-  SINGLE_CLOSING_REASON_FORM_MIN_LENGTH_MESSAGE,
+  SINGLE_CLOSING_REASON_INVALID_MESSAGE,
+  validateSingleClosingReason,
 } from "./singleClosingReason";
 import { acquireClosingGuard, releaseClosingGuard, touchClosingGuard } from "./closingGuards";
 
@@ -236,10 +236,10 @@ export async function handleConfirmDailyClosing(
   if (
     requireSingleClosingReason &&
     !closing.sinTurno &&
-    !hasMinimumSingleClosingReasonLength(singleClosingReason)
+    !validateSingleClosingReason(singleClosingReason).valid
   ) {
     showToast(
-      SINGLE_CLOSING_REASON_FORM_MIN_LENGTH_MESSAGE,
+      SINGLE_CLOSING_REASON_INVALID_MESSAGE,
       "warning",
       5000,
     );

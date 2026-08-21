@@ -16,9 +16,9 @@ import {
 import ConfirmModal from "../../../../components/ui/ConfirmModal";
 import { isWithinCierreRange } from "../../utils/turnoRango";
 import {
-  hasMinimumSingleClosingReasonLength,
-  SINGLE_CLOSING_REASON_FORM_MIN_LENGTH_MESSAGE,
+  SINGLE_CLOSING_REASON_INVALID_MESSAGE,
   SINGLE_CLOSING_REASON_MIN_LENGTH,
+  validateSingleClosingReason,
 } from "../../utils/closing/singleClosingReason";
 import { reconcileClosing, type ClosingReconciliation } from "@/domain/reconciliation";
 import {
@@ -456,7 +456,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     (verificationActive && tiemposBelowTurnoD) ||
     (requireSingleClosingReason &&
       !selectedSinTurno &&
-      !hasMinimumSingleClosingReasonLength(singleClosingReason));
+      !validateSingleClosingReason(singleClosingReason).valid);
   const hasDifferences = diffCRC !== 0 || diffUSD !== 0;
 
   const reconciliationPreview = useMemo(() => {
@@ -704,9 +704,9 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     if (
       requireSingleClosingReason &&
       !selectedSinTurno &&
-      !hasMinimumSingleClosingReasonLength(singleClosingReason)
+      !validateSingleClosingReason(singleClosingReason).valid
     ) {
-      return SINGLE_CLOSING_REASON_FORM_MIN_LENGTH_MESSAGE;
+      return SINGLE_CLOSING_REASON_INVALID_MESSAGE;
     }
     return "";
   }, [
@@ -1577,7 +1577,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                 }}
                 minLength={SINGLE_CLOSING_REASON_MIN_LENGTH}
                 maxLength={400}
-                placeholder="Minimo 10 caracteres"
+                placeholder="Describe el motivo del cierre único"
               />
             </div>
           )}

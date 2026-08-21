@@ -36,8 +36,8 @@ import {
 } from "./closing/closingGuards";
 import {
   getSingleClosingReasonFromNotes,
-  hasMinimumSingleClosingReasonLength,
-  SINGLE_CLOSING_REASON_OBSERVATIONS_MIN_LENGTH_MESSAGE,
+  SINGLE_CLOSING_REASON_INVALID_MESSAGE,
+  validateSingleClosingReason,
 } from "./closing/singleClosingReason";
 import { sendMovementNotification } from "./fondo/notifications";
 import { validateFondoGeneralOpeningRequirement } from "./fondo/openingRequirement";
@@ -417,9 +417,9 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         ) {
           shouldPrefixSingleClosingReason = true;
           const singleClosingReason = getSingleClosingReasonFromNotes(trimmedNotes);
-          if (!hasMinimumSingleClosingReasonLength(singleClosingReason)) {
+          if (!validateSingleClosingReason(singleClosingReason).valid) {
             showToast(
-              SINGLE_CLOSING_REASON_OBSERVATIONS_MIN_LENGTH_MESSAGE,
+              SINGLE_CLOSING_REASON_INVALID_MESSAGE,
               "warning",
               6000,
             );

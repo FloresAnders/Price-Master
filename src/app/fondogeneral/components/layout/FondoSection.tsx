@@ -91,8 +91,8 @@ import { persistMovementToFirestore as persistMovementToFirestoreFn } from "../.
 import { handleConfirmDailyClosing as handleConfirmDailyClosingFn } from "../../utils/closing/dailyClosing";
 import {
   getSingleClosingReasonFromNotes,
-  hasMinimumSingleClosingReasonLength,
-  SINGLE_CLOSING_REASON_OBSERVATIONS_MIN_LENGTH_MESSAGE,
+  SINGLE_CLOSING_REASON_INVALID_MESSAGE,
+  validateSingleClosingReason,
 } from "../../utils/closing/singleClosingReason";
 import { handleConfirmCashOpening as handleConfirmCashOpeningFn } from "../../utils/fondo/cashOpening";
 import { resetStateForCompanyChange } from "../../utils/companyReset";
@@ -4686,9 +4686,9 @@ export function FondoSection({
           activeEmpresaForCompany.unicoCierre !== true
         ) {
           const singleClosingReason = getSingleClosingReasonFromNotes(notes);
-          if (!hasMinimumSingleClosingReasonLength(singleClosingReason)) {
+          if (!validateSingleClosingReason(singleClosingReason).valid) {
             showToast(
-              SINGLE_CLOSING_REASON_OBSERVATIONS_MIN_LENGTH_MESSAGE,
+              SINGLE_CLOSING_REASON_INVALID_MESSAGE,
               "warning",
               6000,
             );
@@ -4703,9 +4703,9 @@ export function FondoSection({
         activeEmpresaForCompany.unicoCierre !== true
       ) {
         const singleClosingReason = getSingleClosingReasonFromNotes(notes);
-        if (!hasMinimumSingleClosingReasonLength(singleClosingReason)) {
+        if (!validateSingleClosingReason(singleClosingReason).valid) {
           showToast(
-            SINGLE_CLOSING_REASON_OBSERVATIONS_MIN_LENGTH_MESSAGE,
+            SINGLE_CLOSING_REASON_INVALID_MESSAGE,
             "warning",
             6000,
           );
