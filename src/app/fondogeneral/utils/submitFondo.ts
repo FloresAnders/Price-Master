@@ -168,7 +168,9 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
   let effectiveManager = manager;
 
   const effectiveInvoiceNumber =
-    isCajaNegra && !editingEntryId ? getTodayInvoiceMMDD() : invoiceNumber;
+    isCajaNegra && accountKey !== "Tiempos" && !editingEntryId
+      ? getTodayInvoiceMMDD()
+      : invoiceNumber;
 
   if (!selectedProvider) {
     setProviderError("Selecciona un proveedor");

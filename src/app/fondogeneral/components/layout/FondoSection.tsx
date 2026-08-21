@@ -345,6 +345,7 @@ export function FondoSection({
     accountKey === "CajaNegra" ||
     accountKey === "Tucan" ||
     accountKey === "Tiempos";
+  const isTiemposAccount = accountKey === "Tiempos";
   const accountScopedProviders = useMemo(
     () =>
       (
@@ -3482,6 +3483,7 @@ export function FondoSection({
   }, [editingEntryId, invoiceDocType, isInvoiceDocTypeLockedToContado]);
 
   const isInvoiceAutoDateLocked = useMemo(() => {
+    if (isTiemposAccount) return false;
     if (isCajaNegra) return true;
     if (!selectedProvider) return false;
     if (isAutoAdjustmentProvider(selectedProvider)) return true;
@@ -3491,7 +3493,7 @@ export function FondoSection({
       selectedProviderData?.name?.toUpperCase() ===
       CIERRE_FONDO_VENTAS_PROVIDER_NAME
     );
-  }, [isCajaNegra, selectedProvider, selectedProviderData]);
+  }, [isCajaNegra, isTiemposAccount, selectedProvider, selectedProviderData]);
 
    // Si el proveedor es un cierre/ajuste automático, usar YYYY-MM-DD como Nro. factura y bloquear edición.
   useEffect(() => {
@@ -3786,9 +3788,10 @@ export function FondoSection({
     try {
       // (prov) already resolved above
       shouldAutoDateInvoice =
-        isCajaNegra ||
-        isAutoAdjustmentProvider(value) ||
-        prov?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME;
+        !isTiemposAccount &&
+        (isCajaNegra ||
+          isAutoAdjustmentProvider(value) ||
+          prov?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME);
       if (
         prov &&
         prov.type &&
@@ -3910,7 +3913,7 @@ export function FondoSection({
   const openCreateMovementDrawer = useCallback(() => {
     resetFondoForm();
     setMovementCurrency(currencyEnabled.CRC ? "CRC" : "USD");
-    if (isCajaNegra) {
+    if (isCajaNegra && !isTiemposAccount) {
       setInvoiceNumber(getTodayInvoiceMMDD());
       setInvoiceError("");
     }
@@ -3959,6 +3962,7 @@ export function FondoSection({
     movementProviders,
     mode,
     isCajaNegra,
+    isTiemposAccount,
     getTodayInvoiceMMDD,
     restoreMovementDraft,
   ]);
