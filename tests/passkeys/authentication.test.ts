@@ -10,6 +10,7 @@ import {
   PasskeyAuthenticationError,
 } from "@/lib/passkeys/authentication.server";
 import type { PasskeyRecord } from "@/lib/passkeys/types";
+import type { User } from "@/types/firestore";
 
 const passkey: PasskeyRecord = {
   credentialId: "credential-id",
@@ -27,7 +28,16 @@ const passkey: PasskeyRecord = {
   revokedBy: null,
 };
 
-const fixture = () => {
+const activeUser: User = {
+  id: "u1",
+  name: "ALCHACAS",
+  password: "must-not-leak",
+  role: "user",
+  isActive: true,
+  eliminate: true,
+};
+
+const fixture = (user: User = activeUser) => {
   const updates: unknown[] = [];
   const sessions: unknown[] = [];
   const generateOptions = vi.fn(
@@ -102,13 +112,7 @@ const fixture = () => {
         consumedAt: 2,
       }),
     },
-    getUser: async () => ({
-      id: "u1",
-      name: "ALCHACAS",
-      password: "must-not-leak",
-      role: "user",
-      isActive: true,
-    }),
+    getUser: async () => user,
     createSession: async (input) => {
       sessions.push(input);
       return {
@@ -221,6 +225,15 @@ describe("discoverable passkey authentication", () => {
     unknown.setPasskey(null);
     await expect(
       unknown.service.verify({
+        ceremonyId: "ceremony-id",
+        browserBinding: "browser-binding",
+        response: { id: "credential-id" } as never,
+      }),
+    ).rejects.toBeInstanceOf(PasskeyAuthenticationError);
+
+    const inactive = fixture({ ...activeUser, isActive: false });
+    await expect(
+      inactive.service.verify({
         ceremonyId: "ceremony-id",
         browserBinding: "browser-binding",
         response: { id: "credential-id" } as never,

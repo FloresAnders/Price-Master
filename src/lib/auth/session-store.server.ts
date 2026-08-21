@@ -85,7 +85,7 @@ export function createSessionService(dependencies: SessionServiceDependencies) {
       }
 
       const user = await dependencies.getUser(record.userId);
-      if (!user || user.isActive === false || user.eliminate === true) return null;
+      if (!user || user.isActive === false) return null;
 
       if (
         record.authMethod === "passkey" &&

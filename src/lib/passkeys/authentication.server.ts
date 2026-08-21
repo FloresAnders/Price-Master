@@ -121,7 +121,6 @@ export function createAuthenticationService(
       if (
         !user?.id ||
         user.isActive === false ||
-        user.eliminate === true ||
         !user.role
       ) {
         throw new PasskeyAuthenticationError("authentication_invalid");

@@ -12,6 +12,7 @@ const activeUser: User = {
   password: "must-not-leak",
   role: "user",
   isActive: true,
+  eliminate: true,
 };
 
 class MemorySessionRepository implements SessionRepository {
@@ -90,6 +91,7 @@ describe("server session service", () => {
       name: "ALCHACAS",
       role: "user",
       isActive: true,
+      eliminate: true,
     });
   });
 

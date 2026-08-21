@@ -64,13 +64,14 @@ export function getAdminAuth() {
 export function resolveAdminFirestoreDatabaseId(
   env: Record<string, string | undefined> = process.env,
 ): string | undefined {
+  if (env.NODE_ENV === "production") return "restauracion";
+
   const explicitDatabaseId =
     env.FIRESTORE_DATABASE_ID?.trim() ||
     env.NEXT_PUBLIC_FIRESTORE_DATABASE_ID?.trim() ||
     "";
 
   if (explicitDatabaseId) return explicitDatabaseId;
-  if (env.NODE_ENV === "production") return "restauracion";
   return undefined;
 }
 
