@@ -23,7 +23,8 @@ vi.mock("@/lib/auth/session-store.server", () => ({
   readAuthSession: mocks.readAuthSession,
   revokeAuthSession: mocks.revokeAuthSession,
   serializeSafeUser: (user: Record<string, unknown>) => {
-    const { password: _password, ...safe } = user;
+    const safe = { ...user };
+    delete safe.password;
     return safe;
   },
 }));
@@ -145,6 +146,32 @@ describe("server session routes", () => {
     expect(response.headers.get("set-cookie")).toContain(
       "pricemaster_auth=;",
     );
+  });
+
+  it("borra la cookie aunque falle la revocación de la sesión", async () => {
+    mocks.revokeAuthSession.mockRejectedValueOnce(
+      new Error("session store unavailable"),
+    );
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const request = new Request("http://localhost/api/auth/logout", {
+      method: "POST",
+      headers: { cookie: "pricemaster_auth=opaque-session-token" },
+    });
+
+    try {
+      const response = await logout(request);
+
+      expect(response.status).toBe(503);
+      expect(response.headers.get("set-cookie")).toContain(
+        "pricemaster_auth=;",
+      );
+      expect(await response.json()).toEqual({
+        ok: false,
+        error: "logout_failed",
+      });
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   it("entrega una concesión breve cuando se solicita activar passkey", async () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { User } from "@/types/firestore";
 import { normalizeUserPermissions } from "@/utils/permissions";
 import { UsersService } from "@/services/users";
@@ -54,6 +54,7 @@ function publishAuthState(detail: AuthStateDetail): void {
 }
 
 export function useAuth() {
+  const sessionCheckGeneration = useRef(0);
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -68,6 +69,7 @@ export function useAuth() {
   }, []);
 
   const checkExistingSession = useCallback(async () => {
+    const requestGeneration = ++sessionCheckGeneration.current;
     try {
       const response = await fetch("/api/auth/session", {
         method: "GET",
@@ -77,6 +79,7 @@ export function useAuth() {
       const payload = (await response.json().catch(() => null)) as
         | ServerSessionPayload
         | null;
+      if (requestGeneration !== sessionCheckGeneration.current) return;
       clearLegacyAuthState();
 
       if (!response.ok || !payload?.ok || !payload.user) {
@@ -89,10 +92,13 @@ export function useAuth() {
         expiresAt: Number(payload.session?.expiresAt || 0) || null,
       });
     } catch (error) {
+      if (requestGeneration !== sessionCheckGeneration.current) return;
       console.warn("No se pudo verificar la sesión del servidor", error);
       applyAuthState({ user: null, expiresAt: null });
     } finally {
-      setLoading(false);
+      if (requestGeneration === sessionCheckGeneration.current) {
+        setLoading(false);
+      }
     }
   }, [applyAuthState]);
 
@@ -105,6 +111,7 @@ export function useAuth() {
 
   useEffect(() => {
     const handleAuthState = (event: Event) => {
+      sessionCheckGeneration.current += 1;
       applyAuthState((event as CustomEvent<AuthStateDetail>).detail);
       setLoading(false);
     };
@@ -126,6 +133,13 @@ export function useAuth() {
 
   const logout = useCallback(async (_reason?: string) => {
     void _reason;
+    sessionCheckGeneration.current += 1;
+    clearLegacyAuthState();
+    localStorage.removeItem("pricemaster_user_phash");
+    const next = { user: null, expiresAt: null };
+    applyAuthState(next);
+    publishAuthState(next);
+    setLoading(false);
     try {
       await fetch("/api/auth/logout", {
         method: "POST",
@@ -136,11 +150,6 @@ export function useAuth() {
       // El estado local se limpia aunque la red falle; la cookie sigue siendo
       // la autoridad y se volverá a comprobar en la siguiente carga.
     }
-    clearLegacyAuthState();
-    const next = { user: null, expiresAt: null };
-    applyAuthState(next);
-    publishAuthState(next);
-    setLoading(false);
   }, [applyAuthState]);
 
   useEffect(() => {

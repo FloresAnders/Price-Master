@@ -54,7 +54,6 @@ import { db } from "@/config/firebase";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../../hooks/useAuth";
-import { TokenService } from "../../services/tokenService";
 import { SolicitudesService } from "@/services/solicitudes";
 //import { ThemeToggle } from "./ThemeToggle";
 import { safeLocalStorage, safeWindow } from "../../utils/client";
@@ -1051,25 +1050,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   ]);
 
   const handleLogoutClick = () => {
-    // Si estamos en /home, limpiar TODAS las sesiones y redirigir
-    if (isHomeRoute) {
-      fetch("/api/auth/logout", { method: "POST", keepalive: true }).catch(
-        () => {
-          // ignore
-        },
-      );
-      // Limpiar sesión tradicional
-      localStorage.removeItem("pricemaster_session");
-      localStorage.removeItem("pricemaster_session_id");
-      // Limpiar sesión por token (usada por "Mantener sesión activa")
-      TokenService.revokeToken();
-      // Limpiar hash de contraseña
-      localStorage.removeItem("pricemaster_user_phash");
-      safeWindow.location.href("/");
-    } else {
-      // Para usuarios autenticados, mostrar modal de confirmación
-      setShowLogoutConfirm(true);
-    }
+    setShowLogoutConfirm(true);
   };
 
   const handleTabClick = (tabId: ActiveTab) => {
