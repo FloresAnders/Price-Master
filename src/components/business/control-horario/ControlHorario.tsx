@@ -88,7 +88,7 @@ export default function ControlHorario({ currentUser }: Props = {}) {
         <div className="text-center mb-8">
           <Clock className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 text-cyan-500" />
           <h3 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-cyan-500 to-blue-500 bg-clip-text text-transparent mb-4">Control de Horarios</h3>
-          <p className="text-sm text-[var(--muted-foreground)] mb-6">Selecciona una empresa para continuar</p>
+          <p className="text-sm text-[var(--muted-foreground)] mb-6">Selecciona una empresa para continuar.</p>
         </div>
         <div className="max-w-md mx-auto mb-4">
           <label className="block text-sm font-semibold mb-2 text-[var(--foreground)]">Empresa:</label>

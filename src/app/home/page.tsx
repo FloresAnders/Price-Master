@@ -307,7 +307,7 @@ export default function HomePage() {
         />
       </div>
       <h1 className="text-3xl font-bold mb-8 text-center">
-        Bienvenido a Time Master
+        Bienvenido a TimeMaster
       </h1>
 
       {visibleMenuItems.length === 0 ? (
