@@ -1,12 +1,19 @@
 import { NextResponse } from 'next/server';
 import { getAdminDb } from '../../../../lib/firebase-admin';
-import { getUserIdFromAuthorizationHeader } from '../../../../lib/appAuth';
+import { readAuthSession } from '../../../../lib/auth/session-store.server';
+
+export const runtime = 'nodejs';
 
 export async function GET(req: Request) {
   try {
-    const authHeader = req.headers.get('authorization') || '';
-    const userId = await getUserIdFromAuthorizationHeader(authHeader);
-    if (!userId) return NextResponse.json({ error: 'missing_or_invalid_token' }, { status: 401 });
+    const authenticated = await readAuthSession(req.headers.get('cookie'));
+    const userId = authenticated?.user.id;
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'missing_or_invalid_session' },
+        { status: 401 },
+      );
+    }
 
     const firestore = getAdminDb();
     const q = await firestore.collection('deviceSessions').where('userId', '==', userId).limit(50).get();

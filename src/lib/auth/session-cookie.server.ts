@@ -1,75 +1,60 @@
-import crypto from "crypto";
+import type { NextResponse } from "next/server";
 
 export const AUTH_COOKIE_NAME = "pricemaster_auth";
-const MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
+const DEFAULT_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 
-type SessionPayload = {
-  userId: string;
-  exp: number;
-};
+export function getSessionTokenFromCookie(
+  cookieHeader: string | null,
+): string | null {
+  const encoded = String(cookieHeader || "")
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${AUTH_COOKIE_NAME}=`))
+    ?.slice(AUTH_COOKIE_NAME.length + 1);
 
-const base64url = (value: string | Buffer) =>
-  Buffer.from(value)
-    .toString("base64")
-    .replace(/=/g, "")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_");
-
-function getSecret() {
-  return (
-    process.env.PRICE_MASTER_SESSION_SECRET ||
-    process.env.NEXTAUTH_SECRET ||
-    process.env.FIREBASE_SERVICE_ACCOUNT_KEY ||
-    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ||
-    "price-master-session"
-  );
+  if (!encoded) return null;
+  try {
+    return decodeURIComponent(encoded);
+  } catch {
+    return null;
+  }
 }
 
-function sign(payload: string) {
-  return base64url(
-    crypto.createHmac("sha256", getSecret()).update(payload).digest(),
-  );
-}
-
-export function createSessionCookieValue(userId: string) {
-  const payload = base64url(
-    JSON.stringify({
-      userId,
-      exp: Date.now() + MAX_AGE_SECONDS * 1000,
-    } satisfies SessionPayload),
-  );
-  return `${payload}.${sign(payload)}`;
-}
-
-export function sessionCookieOptions() {
+export function sessionCookieOptions(
+  maxAge = DEFAULT_MAX_AGE_SECONDS,
+  secure = process.env.NODE_ENV === "production",
+) {
   return {
     httpOnly: true,
     sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
+    secure,
     path: "/",
-    maxAge: MAX_AGE_SECONDS,
+    maxAge,
   };
 }
 
-export function readUserIdFromSessionCookie(cookieHeader: string | null) {
-  const cookie = String(cookieHeader || "")
-    .split(";")
-    .map((part) => part.trim())
-    .find((part) => part.startsWith(`${AUTH_COOKIE_NAME}=`));
-  const value = cookie?.slice(AUTH_COOKIE_NAME.length + 1);
-  if (!value) return "";
+export function setAuthCookie(
+  response: NextResponse,
+  token: string,
+  maxAge: number,
+) {
+  response.cookies.set(
+    AUTH_COOKIE_NAME,
+    token,
+    sessionCookieOptions(maxAge),
+  );
+}
 
-  const [payload, signature] = value.split(".");
-  if (!payload || !signature || sign(payload) !== signature) return "";
+export function clearAuthCookie(response: NextResponse) {
+  response.cookies.set(AUTH_COOKIE_NAME, "", {
+    ...sessionCookieOptions(0),
+    maxAge: 0,
+  });
+}
 
-  try {
-    const decoded = JSON.parse(
-      Buffer.from(payload.replace(/-/g, "+").replace(/_/g, "/"), "base64")
-        .toString("utf8"),
-    ) as SessionPayload;
-    if (!decoded.userId || Date.now() > decoded.exp) return "";
-    return decoded.userId;
-  } catch {
-    return "";
-  }
+export async function readUserIdFromSessionCookie(
+  cookieHeader: string | null,
+) {
+  const { readAuthSession } = await import("./session-store.server");
+  return (await readAuthSession(cookieHeader))?.user.id || "";
 }

@@ -106,7 +106,9 @@ export async function POST(request: Request) {
       empresa?: unknown;
       noteId?: unknown;
     };
-    const userId = readUserIdFromSessionCookie(request.headers.get("cookie"));
+    const userId = await readUserIdFromSessionCookie(
+      request.headers.get("cookie"),
+    );
     const password = typeof body.password === "string" ? body.password : "";
     const empresa = typeof body.empresa === "string" ? body.empresa.trim() : "";
     const noteId = typeof body.noteId === "string" ? body.noteId.trim() : "";

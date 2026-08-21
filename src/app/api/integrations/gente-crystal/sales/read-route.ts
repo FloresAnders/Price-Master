@@ -11,7 +11,7 @@ import {
 } from "../../../../../lib/gente-crystal/read-sales.ts";
 
 export interface GenteCrystalSalesGetDependencies {
-  readUserId: (cookieHeader: string | null) => string;
+  readUserId: (cookieHeader: string | null) => Promise<string>;
   getUser: (userId: string) => Promise<GenteCrystalReadUser | null>;
   getCompany: (
     companyId: string,
@@ -39,7 +39,7 @@ export function createGenteCrystalSalesGet(
       const range = buildCostaRicaDayRange(
         url.searchParams.get("date") || "",
       );
-      const userId = dependencies.readUserId(
+      const userId = await dependencies.readUserId(
         request.headers.get("cookie"),
       );
       if (!userId) return jsonError("unauthorized", 401);

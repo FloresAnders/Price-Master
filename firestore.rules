@@ -674,6 +674,28 @@ service cloud.firestore {
     match /genteCrystalSales/{document=**} {
       allow read, write: if false;
     }
+
+    // WebAuthn credentials, one-time ceremonies and app sessions are
+    // exclusively managed by server Route Handlers through Firebase Admin.
+    match /passkeyUsers/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /passkeys/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /webauthnCeremonies/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /passkeyEnrollmentGrants/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /authSessions/{document=**} {
+      allow read, write: if false;
+    }
     
     // Otras reglas existentes...
     match /{collection}/{document=**} {
@@ -687,7 +709,12 @@ service cloud.firestore {
         collection != 'anotaciones' &&
         collection != 'internalDebts' &&
         collection != 'genteCrystalIntegrationDevices' &&
-        collection != 'genteCrystalSales';
+        collection != 'genteCrystalSales' &&
+        collection != 'passkeyUsers' &&
+        collection != 'passkeys' &&
+        collection != 'webauthnCeremonies' &&
+        collection != 'passkeyEnrollmentGrants' &&
+        collection != 'authSessions';
     }
   }
 }

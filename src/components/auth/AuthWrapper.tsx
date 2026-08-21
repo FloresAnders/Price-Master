@@ -1,15 +1,12 @@
 "use client";
-import { Footer } from "../layout";
 
-import React, { useEffect, useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import LoginModal from "./LoginModal";
-import type { User } from "@/types/firestore";
-import { safeLocalStorage } from "@/utils/client";
-import { isPublicRoute } from "./publicRoutes";
-//delete this line if not needed
+import React from "react";
 import { usePathname } from "next/navigation";
-//---------------------------------------------
+import { Footer } from "../layout";
+import { useAuth } from "@/hooks/useAuth";
+import { isPublicRoute } from "./publicRoutes";
+import LoginModal from "./LoginModal";
+
 interface AuthWrapperProps {
   children: React.ReactNode;
 }
@@ -17,134 +14,37 @@ interface AuthWrapperProps {
 export default function AuthWrapper({ children }: AuthWrapperProps) {
   const { user, isAuthenticated, loading, login } = useAuth();
   const pathname = usePathname();
-  const [isMounted, setIsMounted] = useState(false);
-  const [hasStoredSession, setHasStoredSession] = useState<boolean>(false);
+  const publicRoute = isPublicRoute(pathname);
 
-  // Rutas públicas que no requieren autenticación
-  const isCurrentRoutePublic = isPublicRoute(pathname);
-
-  useEffect(() => {
-    setIsMounted(true);
-    
-    const checkSession = () => {
-      try {
-        const hasTraditional = Boolean(
-          safeLocalStorage.getItem("pricemaster_session"),
-        );
-        const hasToken = Boolean(
-          safeLocalStorage.getItem("pricemaster_token_session"),
-        );
-        setHasStoredSession(hasTraditional || hasToken);
-      } catch {
-        setHasStoredSession(false);
-      }
-    };
-
-    checkSession();
-
-    const onStorage = () => checkSession();
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
-
-  // Para evitar hydration mismatch, el primer render debe ser idéntico entre servidor y cliente.
-  if (!isMounted) {
-    if (isCurrentRoutePublic) {
-      return <>{children}</>;
-    }
+  if (loading && !publicRoute) {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center bg-[var(--background)] dark:bg-zinc-900"
-        suppressHydrationWarning
-      >
-        <div className="text-center" suppressHydrationWarning>
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[var(--primary)] mx-auto mb-4"></div>
-          <p className="text-[var(--muted-foreground)]" suppressHydrationWarning>
-            Iniciando...
-          </p>
+      <div className="flex min-h-screen items-center justify-center bg-[#020713] text-white">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-14 w-14 animate-spin rounded-full border-2 border-slate-700 border-b-blue-500" />
+          <p className="text-sm text-slate-400">Verificando sesión…</p>
         </div>
       </div>
     );
   }
 
-  // Si es ruta pública, renderizar sin autenticación
-  if (isCurrentRoutePublic) {
-    return <>{children}</>;
-  }
-  //---------------------------------------------
-  // Failsafe: si no hay nada guardado para verificar, no mostrar spinner infinito.
-  if (loading && hasStoredSession === false) {
-    return (
-      <div className="relative min-h-screen">
-        <div className="absolute inset-0 bg-black/45 backdrop-blur-[4px]" />
+  if (publicRoute) return <>{children}</>;
 
-        <div className="relative z-10 min-h-screen flex flex-col">
-          <div className="flex-1 min-h-0 flex">
-            <LoginModal
-              isOpen={true}
-              onClose={() => {}}
-              onLoginSuccess={(
-                userData: User,
-                keepActive?: boolean,
-                useTokens?: boolean,
-              ) => {
-                login(userData, keepActive, useTokens);
-              }}
-              title="Time Master"
-              canClose={false}
-            />
-          </div>
-          <Footer />
-        </div>
-      </div>
-    );
-  }
-
-  // Mostrar loading mientras se verifica la sesión
-  if (loading) {
-    return (
-      <div
-        className="min-h-screen flex items-center justify-center bg-[var(--background)] dark:bg-zinc-900"
-        suppressHydrationWarning
-      >
-        <div className="text-center" suppressHydrationWarning>
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[var(--primary)] mx-auto mb-4"></div>
-          <p className="text-[var(--muted-foreground)]" suppressHydrationWarning>
-            Verificando sesión...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Si no está autenticado, mostrar modal de login directamente
   if (!isAuthenticated || !user) {
     return (
-      <div className="relative min-h-screen">
-        <div className="absolute inset-0 bg-black/45 backdrop-blur-[4px]" />
-
-        <div className="relative z-10 min-h-screen flex flex-col">
-          <div className="flex-1 min-h-0 flex">
-            <LoginModal
-              isOpen={true}
-              onClose={() => {}} // No permitir cerrar
-              onLoginSuccess={(
-                userData: User,
-                keepActive?: boolean,
-                useTokens?: boolean,
-              ) => {
-                login(userData, keepActive, useTokens);
-              }}
-              title="Time Master"
-              canClose={false} // No mostrar botón cancelar
-            />
-          </div>
-          <Footer />
+      <div className="flex min-h-screen flex-col bg-[#020713]">
+        <div className="flex min-h-0 flex-1">
+          <LoginModal
+            isOpen
+            onClose={() => undefined}
+            onLoginSuccess={login}
+            title="Time Master"
+            canClose={false}
+          />
         </div>
+        <Footer />
       </div>
     );
   }
 
-  // Usuario autenticado, mostrar la aplicación
   return <>{children}</>;
 }

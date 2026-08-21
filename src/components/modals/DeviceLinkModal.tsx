@@ -3,7 +3,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import QRCode from "qrcode";
 import { X } from "lucide-react";
-import { TokenService } from "../../services/tokenService";
 import { canApproveOrCancelDeviceLink } from "./deviceLinkModalState";
 
 interface DeviceLinkModalProps {
@@ -49,10 +48,9 @@ export default function DeviceLinkModal({ isOpen, onClose }: DeviceLinkModalProp
     // fetch current device sessions for this user
     (async () => {
       try {
-        const rawToken = TokenService.getRawToken?.() ?? null;
-        const headers: Record<string, string> = {};
-        if (rawToken) headers['Authorization'] = `Bearer ${rawToken}`;
-        const res = await fetch('/api/device-link/sessions', { headers });
+        const res = await fetch('/api/device-link/sessions', {
+          credentials: "same-origin",
+        });
         const data = await res.json();
         if (res.ok && data.sessions) setSessions(data.sessions);
       } catch (e) {
@@ -69,12 +67,11 @@ export default function DeviceLinkModal({ isOpen, onClose }: DeviceLinkModalProp
     setStatus(null);
 
     try {
-      const rawToken = TokenService.getRawToken?.() ?? null;
       const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (rawToken) headers["Authorization"] = `Bearer ${rawToken}`;
 
       const res = await fetch("/api/device-link/create", {
         method: "POST",
+        credentials: "same-origin",
         headers,
         body: JSON.stringify({ durationMinutes, permissions: [] }),
       });
@@ -135,11 +132,10 @@ export default function DeviceLinkModal({ isOpen, onClose }: DeviceLinkModalProp
   const approveRequest = async () => {
     if (!requestId || !canActOnScannedRequest) return;
     try {
-      const rawToken = TokenService.getRawToken?.() ?? null;
       const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (rawToken) headers["Authorization"] = `Bearer ${rawToken}`;
       const res = await fetch(`/api/device-link/approve`, {
         method: "POST",
+        credentials: "same-origin",
         headers,
         body: JSON.stringify({ requestId }),
       });
@@ -148,7 +144,9 @@ export default function DeviceLinkModal({ isOpen, onClose }: DeviceLinkModalProp
       setStatus("approved");
       // refresh sessions list
       try {
-        const sres = await fetch('/api/device-link/sessions', { headers });
+        const sres = await fetch('/api/device-link/sessions', {
+          credentials: "same-origin",
+        });
         const sdata = await sres.json();
         if (sres.ok && sdata.sessions) setSessions(sdata.sessions);
       } catch (e) {
@@ -175,11 +173,10 @@ export default function DeviceLinkModal({ isOpen, onClose }: DeviceLinkModalProp
   const rejectRequest = async () => {
     if (!requestId) return;
     try {
-      const rawToken = TokenService.getRawToken?.() ?? null;
       const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (rawToken) headers["Authorization"] = `Bearer ${rawToken}`;
       await fetch(`/api/device-link/reject`, {
         method: "POST",
+        credentials: "same-origin",
         headers,
         body: JSON.stringify({ requestId }),
       });

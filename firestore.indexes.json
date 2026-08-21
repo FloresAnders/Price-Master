@@ -136,6 +136,23 @@
         { "fieldPath": "dateKey", "order": "DESCENDING" },
         { "fieldPath": "hora", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "passkeys",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "revokedAt", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "authSessions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "credentialIdHash", "order": "ASCENDING" },
+        { "fieldPath": "revokedAt", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

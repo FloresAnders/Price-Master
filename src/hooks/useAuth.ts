@@ -1,848 +1,232 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import type { User, UserPermissions } from "../types/firestore";
-import { TokenService } from "../services/tokenService";
-import { UsersService } from "../services/users";
-import { normalizeUserPermissions } from "../utils/permissions";
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import type { User } from "@/types/firestore";
+import { normalizeUserPermissions } from "@/utils/permissions";
+import { UsersService } from "@/services/users";
 import { subscribeToVersionDoc } from "@/services/version-doc";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/config/firebase";
 
-type StorageVersionChangeHandler = (newVersionstorage: string) => void;
+const AUTH_STATE_EVENT = "timemaster-auth-state";
+const STORAGE_VERSION_KEY = "pricemaster_storage_version";
 
-let storageVersionUnsubscribe: (() => void) | null = null;
-let storageVersionInitial: string | null = null;
-let storageVersionLastNotified: string | null = null;
-let storageVersionStartPromise: Promise<void> | null = null;
-const storageVersionHandlers = new Set<StorageVersionChangeHandler>();
+const SESSION_DURATION_HOURS = {
+  superadmin: 4,
+  admin: 4,
+  user: 720,
+} as const;
 
-const notifyStorageVersionHandlers = (newVersionstorage: string) => {
-  for (const handler of Array.from(storageVersionHandlers)) {
-    try {
-      handler(newVersionstorage);
-    } catch (err) {
-      console.warn("Error in storage version handler:", err);
-    }
-  }
-};
-
-const ensureStorageVersionListener = async () => {
-  if (typeof window === "undefined") return;
-  if (storageVersionUnsubscribe) return;
-  if (storageVersionStartPromise) return storageVersionStartPromise;
-
-  storageVersionStartPromise = (async () => {
-    storageVersionUnsubscribe = subscribeToVersionDoc(
-      (snapshot) => {
-        if (!snapshot?.exists) return;
-        const serverVersionstorage = String(
-          (snapshot.data as any)?.versionstorage || "",
-        ).trim();
-        if (!serverVersionstorage) return;
-
-        if (!storageVersionInitial) {
-          storageVersionInitial = serverVersionstorage;
-          return;
-        }
-
-        if (
-          serverVersionstorage !== storageVersionInitial &&
-          serverVersionstorage !== storageVersionLastNotified
-        ) {
-          storageVersionLastNotified = serverVersionstorage;
-          notifyStorageVersionHandlers(serverVersionstorage);
-        }
-      },
-      (error) => {
-        console.warn("Error listening versionstorage changes:", error);
-      },
-    );
-  })();
-
-  return storageVersionStartPromise;
-};
-
-const subscribeStorageVersionChanges = (
-  handler: StorageVersionChangeHandler,
-) => {
-  storageVersionHandlers.add(handler);
-  void ensureStorageVersionListener();
-
-  return () => {
-    storageVersionHandlers.delete(handler);
-    if (storageVersionHandlers.size === 0) {
-      if (storageVersionUnsubscribe) {
-        storageVersionUnsubscribe();
-      }
-      storageVersionUnsubscribe = null;
-      storageVersionInitial = null;
-      storageVersionLastNotified = null;
-      storageVersionStartPromise = null;
-    }
+interface ServerSessionPayload {
+  ok: boolean;
+  user?: User;
+  session?: {
+    authMethod?: "password" | "passkey";
+    expiresAt?: number;
   };
-};
-
-interface SessionData {
-  id?: string;
-  name: string;
-  ownercompanie?: string;
-  role?: "admin" | "user" | "superadmin";
-  permissions?: UserPermissions;
-  loginTime: string;
-  lastActivity?: string;
-  sessionId?: string;
-  ipAddress?: string;
-  userAgent?: string;
-  keepActive?: boolean; // Nueva propiedad para sesiones extendidas
-  useTokenAuth?: boolean; // Nueva propiedad para indicar si usar autenticación por tokens
 }
 
-// Duración de la sesión en horas por tipo de usuario
-const SESSION_DURATION_HOURS = {
-  superadmin: 4, // SuperAdmin: 4 horas por seguridad
-  // Admins get the same session duration as SuperAdmins
-  admin: 4,
-  user: 720, // User: 30 días
-  extended: 168, // Sesión extendida: 1 semana (7 días * 24 horas)
-};
+interface AuthStateDetail {
+  user: User | null;
+  expiresAt: number | null;
+}
 
-// Tiempo de inactividad máximo antes de logout automático (en minutos)
-const MAX_INACTIVITY_MINUTES = {
-  superadmin: 30, // SuperAdmin: 30 minutos
-  // Admins use the same inactivity timeout as SuperAdmins
-  admin: 30,
-  user: 480, // User: 8 horas
-};
+function normalizedUser(user: User): User {
+  return {
+    ...user,
+    ownerId: user.ownerId || "",
+    eliminate: user.eliminate ?? false,
+    permissions: normalizeUserPermissions(
+      user.permissions,
+      user.role || "user",
+    ),
+  };
+}
 
-// Evita loops de recarga cuando expiró la sesión
-const SESSION_EXPIRED_RELOAD_KEY = "pricemaster_session_expired_reload_at";
-const SESSION_EXPIRED_RELOAD_WINDOW_MS = 10_000;
+function clearLegacyAuthState(): void {
+  localStorage.removeItem("pricemaster_session");
+  localStorage.removeItem("pricemaster_session_id");
+  localStorage.removeItem("pricemaster_token_session");
+}
 
-// Forzar re-login cuando cambia el versionado de storage (version.json)
-// Solo se activa con `versionstorage`.
-const STORAGE_VERSION_KEY = "pricemaster_storage_version";
-const STORAGE_VERSION_INVALIDATION_SESSION_KEY =
-  "pricemaster_storage_version_invalidated";
+function publishAuthState(detail: AuthStateDetail): void {
+  window.dispatchEvent(
+    new CustomEvent<AuthStateDetail>(AUTH_STATE_EVENT, { detail }),
+  );
+}
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [sessionExpiresAt, setSessionExpiresAt] = useState<number | null>(null);
   const [sessionWarning, setSessionWarning] = useState(false);
-  const [useTokenAuth, setUseTokenAuth] = useState(false); // Estado para controlar el tipo de autenticación
-  const tokenHydratedRef = useRef<Set<string>>(new Set());
-  const storageVersionRef = useRef<string>("");
-  // Función para generar ID de sesión único (short format)
-  const generateSessionId = () => {
-    // Generate a short session ID: timestamp base36 + random string
-    const timestamp = Date.now().toString(36); // Much shorter than decimal
-    const random = Math.random().toString(36).substr(2, 6); // 6 chars instead of 9
-    return `${timestamp}${random}`;
-  };
 
-  // Función para obtener información del navegador
-  const getBrowserInfo = () => {
-    return {
-      userAgent: navigator.userAgent,
-      language: navigator.language,
-      platform: navigator.platform,
-      cookieEnabled: navigator.cookieEnabled,
-    };
-  };
-
-  // Función para verificar tiempo de inactividad
-  const checkInactivity = useCallback((session: SessionData) => {
-    if (!session.lastActivity || !session.role) return false;
-
-    const lastActivity = new Date(session.lastActivity);
-    const now = new Date();
-    const minutesInactive =
-      (now.getTime() - lastActivity.getTime()) / (1000 * 60);
-    const maxInactivity =
-      MAX_INACTIVITY_MINUTES[session.role] || MAX_INACTIVITY_MINUTES.user;
-
-    return minutesInactive > maxInactivity;
+  const applyAuthState = useCallback((detail: AuthStateDetail) => {
+    setUser(detail.user);
+    setIsAuthenticated(Boolean(detail.user));
+    setSessionExpiresAt(detail.expiresAt);
+    if (!detail.user) setSessionWarning(false);
   }, []);
-  // Función para actualizar actividad del usuario
-  const updateActivity = useCallback(() => {
-    if (isAuthenticated && user) {
-      const sessionData = localStorage.getItem("pricemaster_session");
-      if (sessionData) {
-        try {
-          const session: SessionData = JSON.parse(sessionData);
-          session.lastActivity = new Date().toISOString();
-          localStorage.setItem("pricemaster_session", JSON.stringify(session));
-        } catch (error) {
-          console.error("Error updating activity:", error);
-        }
-      }
-    }
-  }, [isAuthenticated, user]);
 
-  const logout = useCallback(
-    (reason?: string) => {
-      fetch("/api/auth/logout", { method: "POST", keepalive: true }).catch(
-        () => {
-          // ignore
-        },
-      );
-      // Limpiar datos de sesión según el tipo de autenticación
-      if (useTokenAuth) {
-        TokenService.revokeToken();
-      } else {
-        localStorage.removeItem("pricemaster_session");
-        localStorage.removeItem("pricemaster_session_id");
-      }
-      // Limpiar hash de contraseña almacenado para verificación local
-      try {
-        localStorage.removeItem("pricemaster_user_phash");
-      } catch {
-        // ignore
-      }
-      setUser(null);
-      setIsAuthenticated(false);
-      setSessionWarning(false);
-      setUseTokenAuth(false);
-      setLoading(false);
-    },
-    [useTokenAuth],
-  );
-
-  const logoutAndReloadOnce = useCallback(
-    (reason?: string) => {
-      // Limpia estado/almacenamiento primero
-      logout(reason);
-
-      // En cliente: recargar solo una vez por ventana de tiempo
-      if (typeof window === "undefined") return;
-
-      try {
-        const now = Date.now();
-        const last = Number(
-          sessionStorage.getItem(SESSION_EXPIRED_RELOAD_KEY) || "0",
-        );
-
-        // Si ya se recargó recientemente, evitar loop
-        if (last && now - last < SESSION_EXPIRED_RELOAD_WINDOW_MS) {
-          return;
-        }
-
-        sessionStorage.setItem(SESSION_EXPIRED_RELOAD_KEY, String(now));
-      } catch {
-        // Si sessionStorage falla, seguimos igual (preferible a quedar colgado)
-      }
-
-      // Dar un tick para que React aplique estado antes de recargar
-      setTimeout(() => {
-        window.location.reload();
-      }, 50);
-    },
-    [logout],
-  );
-
-  const maybeInvalidateForStorageVersion = useCallback(
-    (targetVersionstorage: string, reason?: string) => {
-      if (typeof window === "undefined") return false;
-
-      const desired = String(targetVersionstorage || "").trim();
-      if (!desired) return false;
-
-      try {
-        const invalidatedFor = sessionStorage.getItem(
-          STORAGE_VERSION_INVALIDATION_SESSION_KEY,
-        );
-        if (invalidatedFor === desired) {
-          return false;
-        }
-      } catch {
-        // ignore
-      }
-
-      let storedVersion: string | null = null;
-      try {
-        storedVersion = localStorage.getItem(STORAGE_VERSION_KEY);
-      } catch {
-        // ignore
-      }
-
-      if (storedVersion === desired) {
-        // Marcar para evitar loops en la misma pestaña
-        try {
-          sessionStorage.setItem(
-            STORAGE_VERSION_INVALIDATION_SESSION_KEY,
-            desired,
-          );
-        } catch {
-          // ignore
-        }
-        return false;
-      }
-
-      try {
-        TokenService.revokeToken();
-      } catch {
-        // ignore
-      }
-
-      try {
-        localStorage.clear();
-      } catch {
-        // ignore
-      }
-
-      try {
-        sessionStorage.clear();
-      } catch {
-        // ignore
-      }
-
-      try {
-        sessionStorage.setItem(
-          STORAGE_VERSION_INVALIDATION_SESSION_KEY,
-          desired,
-        );
-      } catch {
-        // ignore
-      }
-
-      try {
-        localStorage.setItem(STORAGE_VERSION_KEY, desired);
-      } catch {
-        // ignore
-      }
-
-      setUser(null);
-      setIsAuthenticated(false);
-      setSessionWarning(false);
-      setUseTokenAuth(false);
-      setLoading(false);
-
-      setTimeout(() => {
-        window.location.reload();
-      }, 50);
-
-      return true;
-    },
-    [],
-  );
-
-  const checkExistingSession = useCallback(() => {
+  const checkExistingSession = useCallback(async () => {
     try {
-      // Si la app se actualizó (versionstorage cambió), limpiar storage y forzar re-login.
-      // Fuente: SOLO Firestore.
-      const effectiveStorageVersion = String(
-        storageVersionRef.current || "",
-      ).trim();
-      if (effectiveStorageVersion) {
-        const didInvalidate = maybeInvalidateForStorageVersion(
-          effectiveStorageVersion,
-          "checkExistingSession",
-        );
-        if (didInvalidate) return;
-      }
+      const response = await fetch("/api/auth/session", {
+        method: "GET",
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | ServerSessionPayload
+        | null;
+      clearLegacyAuthState();
 
-      // Verificar primero si hay una sesión de token
-      const tokenInfo = TokenService.getTokenInfo();
-      if (tokenInfo.isValid && tokenInfo.user) {
-        // Usar autenticación por token
-        setUseTokenAuth(true);
-
-        const newUserData = {
-          id: tokenInfo.user.id,
-          name: tokenInfo.user.name,
-          ownercompanie: tokenInfo.user.ownercompanie,
-          role: tokenInfo.user.role,
-          photoUrl: (tokenInfo.user as any).photoUrl,
-          fullName: (tokenInfo.user as any).fullName,
-          permissions: normalizeUserPermissions(
-            tokenInfo.user.permissions,
-            tokenInfo.user.role || "user",
-          ),
-          // Ensure ownerId and eliminate are available for actor-aware logic
-          ownerId: tokenInfo.user.ownerId || "",
-          eliminate: tokenInfo.user.eliminate ?? false,
-        };
-
-        // Check if user data has changed to prevent unnecessary re-renders
-        const hasUserChanged =
-          !user ||
-          user.id !== newUserData.id ||
-          user.name !== newUserData.name ||
-          user.ownercompanie !== newUserData.ownercompanie ||
-          user.role !== newUserData.role ||
-          (user as any).photoUrl !== (newUserData as any).photoUrl ||
-          (user as any).fullName !== (newUserData as any).fullName ||
-          JSON.stringify(user.permissions) !==
-            JSON.stringify(newUserData.permissions);
-
-        if (hasUserChanged) {
-          setUser(newUserData);
-        }
-
-        if (!isAuthenticated) {
-          setIsAuthenticated(true);
-        }
-
-        // Advertencia de token (24 horas antes de expirar)
-        const hoursLeft = tokenInfo.timeLeft / (1000 * 60 * 60);
-        const shouldShowWarning = hoursLeft <= 24 && hoursLeft > 0;
-        if (shouldShowWarning !== sessionWarning) {
-          setSessionWarning(shouldShowWarning);
-        }
-
-        if (
-          !newUserData.ownerId &&
-          newUserData.id &&
-          !tokenHydratedRef.current.has(newUserData.id)
-        ) {
-          const userId = newUserData.id;
-          if (!userId) return;
-          tokenHydratedRef.current.add(userId);
-          void (async () => {
-            try {
-              const fresh = await UsersService.getUserById(userId);
-              if (!fresh) return;
-              const enriched = {
-                ...newUserData,
-                ownerId: String(fresh.ownerId || newUserData.ownerId || ""),
-                eliminate: fresh.eliminate ?? newUserData.eliminate,
-                role: fresh.role || newUserData.role,
-                ownercompanie: fresh.ownercompanie || newUserData.ownercompanie,
-                photoUrl: fresh.photoUrl || newUserData.photoUrl,
-                fullName: fresh.fullName || newUserData.fullName,
-                permissions: normalizeUserPermissions(
-                  fresh.permissions,
-                  (fresh.role as any) || newUserData.role || "user",
-                ),
-              };
-              setUser(enriched);
-            } catch (error) {
-              console.warn("Failed to hydrate token session user:", error);
-            }
-          })();
-        }
-
+      if (!response.ok || !payload?.ok || !payload.user) {
+        applyAuthState({ user: null, expiresAt: null });
         return;
       }
 
-      // Si no hay token válido, verificar sesión tradicional
-      const sessionData = localStorage.getItem("pricemaster_session");
-      if (sessionData) {
-        setUseTokenAuth(false);
-        const session: SessionData = JSON.parse(sessionData);
-
-        // Verificar si la sesión no ha expirado según el rol o configuración extendida
-        const loginTime = new Date(session.loginTime);
-        const now = new Date();
-        const hoursElapsed =
-          (now.getTime() - loginTime.getTime()) / (1000 * 60 * 60);
-
-        // Usar duración extendida solo si la sesión fue creada con token (keepActive no otorgará 1 semana a sesiones tradicionales)
-        let maxHours;
-        if (session.keepActive && session.useTokenAuth) {
-          // Solo sesiones basadas en token pueden obtener la duración extendida
-          maxHours = SESSION_DURATION_HOURS.extended; // 1 semana
-        } else {
-          maxHours =
-            SESSION_DURATION_HOURS[session.role || "user"] ||
-            SESSION_DURATION_HOURS.user;
-        }
-
-        // Verificar inactividad
-        const isInactive = checkInactivity(session);
-
-        if (hoursElapsed < maxHours && !isInactive) {
-          // Only update user if the data has actually changed
-          const sessionObj = session as unknown as Record<string, unknown>;
-          const newUserData = {
-            id: session.id,
-            name: session.name,
-            ownercompanie:
-              (sessionObj.ownercompanie as string) || session.ownercompanie,
-            role: session.role,
-            photoUrl: (sessionObj.photoUrl as string) || undefined,
-            fullName: (sessionObj.fullName as string) || undefined,
-            permissions: normalizeUserPermissions(
-              session.permissions,
-              (session.role as any) || "user",
-            ),
-            // Restore ownerId and eliminate if present in the stored session
-            ownerId: (sessionObj.ownerId as string) || "",
-            eliminate: (sessionObj.eliminate as boolean) ?? false,
-          };
-
-          // Check if user data has changed to prevent unnecessary re-renders
-          const hasUserChanged =
-            !user ||
-            user.id !== newUserData.id ||
-            user.name !== newUserData.name ||
-            user.ownercompanie !== newUserData.ownercompanie ||
-            user.role !== newUserData.role ||
-            (user as any).photoUrl !== (newUserData as any).photoUrl ||
-            (user as any).fullName !== (newUserData as any).fullName ||
-            JSON.stringify(user.permissions) !==
-              JSON.stringify(newUserData.permissions);
-
-          if (hasUserChanged) {
-            setUser(newUserData);
-          }
-
-          if (!isAuthenticated) {
-            setIsAuthenticated(true);
-          }
-
-          // Advertencia de sesión para SuperAdmin (30 minutos antes de expirar)
-          if (session.role === "superadmin") {
-            const minutesLeft = maxHours * 60 - hoursElapsed * 60;
-            const shouldShowWarning = minutesLeft <= 30 && minutesLeft > 0;
-            if (shouldShowWarning !== sessionWarning) {
-              setSessionWarning(shouldShowWarning);
-            }
-          }
-        } else {
-          // Sesión expirada o inactiva
-          logoutAndReloadOnce("expired_or_inactive");
-        }
-      } else {
-        // No hay sesión persistida (ni token válido). Asegurar estado consistente.
-        if (user || isAuthenticated || useTokenAuth) {
-          logoutAndReloadOnce("missing_session");
-        }
-      }
+      applyAuthState({
+        user: normalizedUser(payload.user),
+        expiresAt: Number(payload.session?.expiresAt || 0) || null,
+      });
     } catch (error) {
-      console.error("Error checking session:", error);
-      logoutAndReloadOnce("check_error");
+      console.warn("No se pudo verificar la sesión del servidor", error);
+      applyAuthState({ user: null, expiresAt: null });
     } finally {
       setLoading(false);
     }
-  }, [
-    checkInactivity,
-    logoutAndReloadOnce,
-    user,
-    isAuthenticated,
-    sessionWarning,
-    useTokenAuth,
-  ]);
+  }, [applyAuthState]);
 
   useEffect(() => {
-    // 1) Obtener versionstorage actual desde Firestore (solo BD) y validar inmediatamente.
-    // 2) Suscribirse a cambios (tiempo real) para invalidación inmediata.
-    let mounted = true;
-    const versionRef = doc(db, "version", "current");
+    void checkExistingSession();
+    const refresh = () => void checkExistingSession();
+    const interval = window.setInterval(refresh, 5 * 60 * 1000);
+    return () => window.clearInterval(interval);
+  }, [checkExistingSession]);
 
-    void (async () => {
-      try {
-        const snap = await getDoc(versionRef);
-        if (!mounted) return;
-        if (!snap.exists()) return;
-
-        const serverVersionstorage = String(
-          (snap.data() as any)?.versionstorage || "",
-        ).trim();
-        if (!serverVersionstorage) return;
-
-        storageVersionRef.current = serverVersionstorage;
-        if (!storageVersionInitial)
-          storageVersionInitial = serverVersionstorage;
-        maybeInvalidateForStorageVersion(
-          serverVersionstorage,
-          "firestore_versionstorage_initial",
-        );
-      } catch (error) {
-        // Sin fallback: si Firestore falla, no invalidamos.
-        console.warn("Error fetching versionstorage from Firestore:", error);
-      }
-    })();
-
-    const unsubscribe = subscribeStorageVersionChanges((newVersionstorage) => {
-      storageVersionRef.current = String(newVersionstorage || "").trim();
-      maybeInvalidateForStorageVersion(
-        storageVersionRef.current,
-        "firestore_versionstorage_change",
-      );
-    });
-
-    return () => {
-      mounted = false;
-      unsubscribe();
-    };
-  }, [maybeInvalidateForStorageVersion]);
-  const checkExistingSessionRef = useRef(checkExistingSession);
-  checkExistingSessionRef.current = checkExistingSession;
-  const updateActivityRef = useRef(updateActivity);
-  updateActivityRef.current = updateActivity;
   useEffect(() => {
-    let unsubscribeUser: (() => void) | null = null;
-
-    checkExistingSessionRef.current();
-
-    // Configurar listener en tiempo real para actualizaciones de usuario (permisos, etc.)
-    if (isAuthenticated && user?.id) {
-      unsubscribeUser = UsersService.subscribeToUser(
-        user.id,
-        (updatedUserData) => {
-          if (updatedUserData) {
-            const normalizedPerms = normalizeUserPermissions(
-              updatedUserData.permissions,
-              updatedUserData.role || "user",
-            );
-            setUser((prevUser) => {
-              if (!prevUser) return prevUser;
-
-              // Actualizar solo si hay cambios relevantes (especialmente permisos)
-              const hasPermissionsChanged =
-                JSON.stringify(prevUser.permissions) !==
-                JSON.stringify(normalizedPerms);
-              const hasDataChanged =
-                prevUser.name !== updatedUserData.name ||
-                prevUser.ownercompanie !== updatedUserData.ownercompanie ||
-                prevUser.role !== updatedUserData.role ||
-                (prevUser as any).photoUrl !==
-                  (updatedUserData as any).photoUrl ||
-                (prevUser as any).fullName !==
-                  (updatedUserData as any).fullName ||
-                hasPermissionsChanged;
-
-              if (!hasDataChanged) return prevUser;
-              // Actualizar también en localStorage para mantener sincronizado
-              if (useTokenAuth) {
-                // Actualizar token con nuevos datos
-                const tokenData = TokenService.getTokenInfo();
-                if (tokenData.isValid) {
-                  TokenService.createTokenSession(updatedUserData);
-                }
-              } else {
-                // Actualizar sesión tradicional
-                const sessionData = localStorage.getItem("pricemaster_session");
-                if (sessionData) {
-                  try {
-                    const session = JSON.parse(sessionData);
-                    session.permissions = normalizedPerms;
-                    session.name = updatedUserData.name;
-                    session.role = updatedUserData.role;
-                    session.photoUrl = (updatedUserData as any).photoUrl || "";
-                    session.fullName =
-                      (updatedUserData as any).fullName || "";
-                    localStorage.setItem(
-                      "pricemaster_session",
-                      JSON.stringify(session),
-                    );
-                  } catch (err) {
-                    console.error(
-                      "Error updating session with new permissions:",
-                      err,
-                    );
-                  }
-                }
-              }
-
-              return {
-                ...prevUser,
-                ...updatedUserData,
-                permissions: normalizedPerms,
-              };
-            });
-          }
-        },
-        (error) => {
-          console.error("Error en listener de usuario:", error);
-        },
-      );
-    }
-
-    // Configurar listener para actividad del usuario
-    const activityEvents = [
-      "mousedown",
-      "mousemove",
-      "keypress",
-      "scroll",
-      "touchstart",
-      "click",
-    ];
-
-    const handleActivity = () => {
-      updateActivityRef.current();
+    const handleAuthState = (event: Event) => {
+      applyAuthState((event as CustomEvent<AuthStateDetail>).detail);
+      setLoading(false);
     };
+    window.addEventListener(AUTH_STATE_EVENT, handleAuthState);
+    return () => window.removeEventListener(AUTH_STATE_EVENT, handleAuthState);
+  }, [applyAuthState]);
 
-    // Agregar listeners
-    activityEvents.forEach((event) => {
-      document.addEventListener(event, handleActivity, { passive: true });
-    });
-
-    // Verificar sesión cada 5 minutos (usar ref para evitar loops)
-    const sessionInterval = setInterval(
-      () => {
-        checkExistingSessionRef.current();
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) return;
+    return UsersService.subscribeToUser(
+      user.id,
+      (updatedUser) => {
+        if (!updatedUser) return;
+        setUser(normalizedUser(updatedUser));
       },
-      5 * 60 * 1000,
+      (error) => console.warn("No se pudo actualizar el usuario autenticado", error),
     );
+  }, [isAuthenticated, user?.id]);
 
-    // Cleanup
-    return () => {
-      if (unsubscribeUser) {
-        unsubscribeUser();
-      }
-      activityEvents.forEach((event) => {
-        document.removeEventListener(event, handleActivity);
+  const logout = useCallback(async (_reason?: string) => {
+    void _reason;
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "same-origin",
+        keepalive: true,
       });
-      clearInterval(sessionInterval);
+    } catch {
+      // El estado local se limpia aunque la red falle; la cookie sigue siendo
+      // la autoridad y se volverá a comprobar en la siguiente carga.
+    }
+    clearLegacyAuthState();
+    const next = { user: null, expiresAt: null };
+    applyAuthState(next);
+    publishAuthState(next);
+    setLoading(false);
+  }, [applyAuthState]);
+
+  useEffect(() => {
+    return subscribeToVersionDoc((snapshot) => {
+      const nextVersion = snapshot?.versionstorage?.trim();
+      if (!nextVersion) return;
+      const previousVersion = localStorage.getItem(STORAGE_VERSION_KEY);
+      if (!previousVersion) {
+        localStorage.setItem(STORAGE_VERSION_KEY, nextVersion);
+        return;
+      }
+      if (previousVersion !== nextVersion) {
+        localStorage.setItem(STORAGE_VERSION_KEY, nextVersion);
+        void logout("storage_version_changed").finally(() => {
+          window.location.reload();
+        });
+      }
+    });
+  }, [logout]);
+
+  useEffect(() => {
+    const updateWarning = () => {
+      const timeLeft = sessionExpiresAt ? sessionExpiresAt - Date.now() : 0;
+      setSessionWarning(
+        user?.role === "superadmin" &&
+          timeLeft > 0 &&
+          timeLeft <= 30 * 60 * 1000,
+      );
     };
-  }, [
-    isAuthenticated,
-    user?.id,
-    useTokenAuth,
-  ]);
-  const login = (
-    userData: User,
-    keepActive: boolean = false,
-    useTokens: boolean = false,
-  ) => {
-    const normalizedPerms = normalizeUserPermissions(
-      userData.permissions,
-      userData.role || "user",
-    );
-    const userDataAny = userData as unknown as Record<string, unknown>;
-    if (useTokens) {
-      // Usar autenticación por tokens (una semana automáticamente)
-      TokenService.createTokenSession(userData);
-      const enrichedUser = {
-        ...userData,
-        permissions: normalizedPerms,
-        ownerId: (userDataAny.ownerId as string) || "",
-        eliminate: (userDataAny.eliminate as boolean) ?? false,
-        photoUrl: (userDataAny.photoUrl as string) || undefined,
-        fullName: (userDataAny.fullName as string) || undefined,
-      };
-      setUser(enrichedUser);
-      setIsAuthenticated(true);
-      setSessionWarning(false);
-      setUseTokenAuth(true);
-    } else {
-      // Usar autenticación tradicional
-      const sessionId = generateSessionId();
-      const browserInfo = getBrowserInfo();
+    updateWarning();
+    const interval = window.setInterval(updateWarning, 60_000);
+    return () => window.clearInterval(interval);
+  }, [sessionExpiresAt, user?.role]);
 
-      // Crear datos de sesión completos
-      const sessionDataObj = {
-        id: userData.id,
-        name: userData.name,
-        ownercompanie: (userDataAny.ownercompanie as string) || undefined,
-        role: userData.role,
-        photoUrl: (userDataAny.photoUrl as string) || undefined,
-        fullName: (userDataAny.fullName as string) || undefined,
-        permissions: normalizedPerms,
-        loginTime: new Date().toISOString(),
-        lastActivity: new Date().toISOString(),
-        sessionId,
-        userAgent: browserInfo.userAgent,
-        keepActive: keepActive,
-        useTokenAuth: false,
-        ownerId: (userDataAny.ownerId as string) || "",
-        eliminate: (userDataAny.eliminate as boolean) ?? false,
-      };
-      const sessionData = sessionDataObj as unknown as SessionData;
+  const login = useCallback(
+    (userData: User, _keepActive = false, _useTokens = false) => {
+      void _keepActive;
+      void _useTokens;
+      clearLegacyAuthState();
+      const safeUser = normalizedUser(userData);
+      const role = safeUser.role || "user";
+      const expiresAt =
+        Date.now() + SESSION_DURATION_HOURS[role] * 60 * 60 * 1000;
+      const next = { user: safeUser, expiresAt };
+      applyAuthState(next);
+      publishAuthState(next);
+      setLoading(false);
+    },
+    [applyAuthState],
+  );
 
-      // Guardar sesión
-      localStorage.setItem("pricemaster_session", JSON.stringify(sessionData));
-      localStorage.setItem("pricemaster_session_id", sessionId);
-
-      const enrichedUser = {
-        ...userData,
-        permissions: normalizedPerms,
-        ownerId: (userDataAny.ownerId as string) || "",
-        eliminate: (userDataAny.eliminate as boolean) ?? false,
-        photoUrl: (userDataAny.photoUrl as string) || undefined,
-        fullName: (userDataAny.fullName as string) || undefined,
-      };
-      setUser(enrichedUser);
-      setIsAuthenticated(true);
-      setSessionWarning(false);
-      setUseTokenAuth(false);
-    }
-  };
-
-  // Función para obtener tiempo restante de sesión
   const getSessionTimeLeft = useCallback(() => {
-    if (!user || !isAuthenticated) return 0;
+    if (!user || !isAuthenticated || !sessionExpiresAt) return 0;
+    return Math.max(0, (sessionExpiresAt - Date.now()) / (1000 * 60 * 60));
+  }, [isAuthenticated, sessionExpiresAt, user]);
 
-    if (useTokenAuth) {
-      // Usar tiempo del token
-      return TokenService.getTokenTimeLeft();
-    } else {
-      // Usar tiempo de sesión tradicional
-      const sessionData = localStorage.getItem("pricemaster_session");
-      if (!sessionData) return 0;
-
-      try {
-        const session: SessionData = JSON.parse(sessionData);
-        const loginTime = new Date(session.loginTime);
-        const now = new Date();
-        const hoursElapsed =
-          (now.getTime() - loginTime.getTime()) / (1000 * 60 * 60);
-
-        // Usar duración extendida solo para sesiones creadas como token (no aplicar keepActive de 1 semana a sesiones tradicionales)
-        let maxHours;
-        if (session.keepActive && session.useTokenAuth) {
-          maxHours = SESSION_DURATION_HOURS.extended; // 1 semana
-        } else {
-          maxHours =
-            SESSION_DURATION_HOURS[session.role || "user"] ||
-            SESSION_DURATION_HOURS.user;
-        }
-
-        return Math.max(0, maxHours - hoursElapsed);
-      } catch {
-        return 0;
-      }
-    }
-  }, [user, isAuthenticated, useTokenAuth]);
-
-  const isAdmin = useCallback(() => {
-    return user?.role === "admin" || user?.role === "superadmin";
-  }, [user?.role]);
-
-  const isSuperAdmin = useCallback(() => {
-    return user?.role === "superadmin";
-  }, [user?.role]);
-
-  const canChangeOwnercompanie = useCallback(() => {
-    return user?.role === "admin" || user?.role === "superadmin";
-  }, [user?.role]);
-  // Función para verificar si el usuario necesita autenticación de dos factores
-  const requiresTwoFactor = useCallback(() => {
-    // Require two-factor for both SuperAdmins and Admins
-    return user?.role === "superadmin" || user?.role === "admin";
-  }, [user?.role]);
-
-  // Función para obtener información del tipo de sesión
-  const getSessionType = useCallback(() => {
-    return useTokenAuth ? "token" : "traditional";
-  }, [useTokenAuth]);
-
-  // Función para obtener tiempo formateado
   const getFormattedTimeLeft = useCallback(() => {
-    if (useTokenAuth) {
-      return TokenService.formatTokenTimeLeft();
-    } else {
-      const timeLeft = getSessionTimeLeft();
-      if (timeLeft <= 0) return "Sesión expirada";
+    const totalMinutes = Math.floor(getSessionTimeLeft() * 60);
+    if (totalMinutes <= 0) return "Sesión expirada";
+    const days = Math.floor(totalMinutes / (24 * 60));
+    const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+    const minutes = totalMinutes % 60;
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
+  }, [getSessionTimeLeft]);
 
-      const hours = Math.floor(timeLeft);
-      const minutes = Math.floor((timeLeft - hours) * 60);
-
-      if (hours > 0) {
-        return `${hours}h ${minutes}m`;
-      } else {
-        return `${minutes}m`;
-      }
-    }
-  }, [useTokenAuth, getSessionTimeLeft]);
+  const isAdmin = useCallback(
+    () => user?.role === "admin" || user?.role === "superadmin",
+    [user?.role],
+  );
+  const isSuperAdmin = useCallback(
+    () => user?.role === "superadmin",
+    [user?.role],
+  );
+  const canChangeOwnercompanie = isAdmin;
+  const requiresTwoFactor = isAdmin;
+  const updateActivity = useCallback(() => undefined, []);
+  const getSessionType = useCallback(() => "server", []);
 
   return {
     user,
     isAuthenticated,
     loading,
     sessionWarning,
-    useTokenAuth,
+    useTokenAuth: false,
     login,
     logout,
     isAdmin,
