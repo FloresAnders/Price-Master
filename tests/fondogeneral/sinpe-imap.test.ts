@@ -107,6 +107,7 @@ describe("readBcrSinpeReport", () => {
     expect(mocks.fetch).toHaveBeenNthCalledWith(1, [1, 2], {
       uid: true,
       envelope: true,
+      internalDate: true,
     });
     expect(mocks.fetch).toHaveBeenNthCalledWith(2, [1], {
       uid: true,
@@ -208,6 +209,68 @@ describe("readBcrSinpeReport", () => {
           amount: 850,
         }),
       ],
+    });
+  });
+
+  it("filtra por fecha de recepcion de Gmail y no por el header Date del correo", async () => {
+    mocks.fetch.mockReset();
+    mocks.fetch
+      .mockReturnValueOnce(
+        messages([
+          {
+            uid: 23,
+            internalDate: new Date("2026-08-22T15:08:00.000Z"),
+            envelope: {
+              date: new Date("2026-08-21T23:08:00.000Z"),
+              subject: "SINPEMOVIL - Notificación de transacción realizada",
+            },
+          },
+        ]),
+      )
+      .mockReturnValueOnce(
+        messages([
+          {
+            uid: 23,
+            envelope: {
+              date: new Date("2026-08-21T23:08:00.000Z"),
+              subject: "SINPEMOVIL - Notificación de transacción realizada",
+            },
+            source: Buffer.from(
+              [
+                "Transacción SINPE MÓVIL",
+                "Número de referencia: 2026082280383010609995425",
+                "Monto: 2,625.00",
+                "Esta transacción fue realizada el 22/08/2026 a las 9:08 AM",
+              ].join("\n"),
+            ),
+          },
+        ]),
+      );
+    mocks.simpleParser.mockResolvedValueOnce({
+      text: [
+        "Transacción SINPE MÓVIL",
+        "Número de referencia: 2026082280383010609995425",
+        "Monto: 2,625.00",
+        "Esta transacción fue realizada el 22/08/2026 a las 9:08 AM",
+      ].join("\n"),
+      html: "",
+      from: { text: "BCR Mensajero <mensajero@bancobcr.com>" },
+    });
+    const { readBcrSinpeReport } = await import("@/services/sinpe-imap.server");
+
+    const result = await readBcrSinpeReport({
+      email: "cuenta@gmail.com",
+      password: "secret",
+      start: new Date("2026-08-22T13:01:00.000Z"),
+      end: new Date("2026-08-22T21:00:00.000Z"),
+    });
+
+    expect(result.validTransactions).toBe(1);
+    expect(result.transactions[0]).toMatchObject({
+      uid: 23,
+      date: "2026-08-22T15:08:00.000Z",
+      reference: "2026082280383010609995425",
+      amount: 2625,
     });
   });
 });

@@ -93,6 +93,12 @@ const toCRDateMidnight = (d: Date) => {
   return new Date(`${crDateStr}T00:00:00-06:00`);
 };
 
+const normalizeFetchDate = (value: Date | string | undefined) => {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
 export async function readBcrSinpeReport(params: {
   email: string;
   password: string;
@@ -128,8 +134,11 @@ export async function readBcrSinpeReport(params: {
       for await (const message of client.fetch(uids, {
         uid: true,
         envelope: true,
+        internalDate: true,
       })) {
-        const messageDate = message.envelope?.date;
+        const messageDate =
+          normalizeFetchDate(message.internalDate) ||
+          normalizeFetchDate(message.envelope?.date);
         if (!messageDate || messageDate < start || messageDate > end) continue;
 
         const subject = message.envelope?.subject || "";
