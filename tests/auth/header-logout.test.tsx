@@ -153,4 +153,23 @@ describe("header logout", () => {
       await waitFor(() => expect(mocks.navigate).toHaveBeenCalledWith("/"));
     },
   );
+
+  it("reveals user menu actions in mobile only after clicking the user summary", () => {
+    render(<Header />);
+
+    fireEvent.click(screen.getByTitle("Menú"));
+
+    expect(screen.queryByText("Sincronizar")).toBeNull();
+    expect(screen.queryByText("Limpiar Cache")).toBeNull();
+    expect(screen.queryByText("Vincular dispositivo")).toBeNull();
+
+    fireEvent.click(screen.getByTitle("Menú de usuario"));
+
+    expect(screen.getByText("Editar Perfil")).toBeTruthy();
+    expect(screen.getByText("Configuración de Sesión")).toBeTruthy();
+    expect(screen.getByText("Mis passkeys")).toBeTruthy();
+    expect(screen.getByText("Sincronizar")).toBeTruthy();
+    expect(screen.getByText("Limpiar Cache")).toBeTruthy();
+    expect(screen.getByText("Vincular dispositivo")).toBeTruthy();
+  });
 });

@@ -137,6 +137,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const pathname = usePathname();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showMobileUserActions, setShowMobileUserActions] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
@@ -1565,7 +1566,12 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
             {/* Mobile hamburger menu button */}
             <button
-              onClick={() => setShowMobileMenu(!showMobileMenu)}
+              onClick={() => {
+                setShowMobileMenu(!showMobileMenu);
+                if (showMobileMenu) {
+                  setShowMobileUserActions(false);
+                }
+              }}
               className="lg:hidden p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
               title="Menú"
             >
@@ -1790,42 +1796,56 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             {/* Mobile user section */}
             {user && (
               <div className="mt-4 pt-4 border-t border-[var(--input-border)]">
-                <div className="flex items-start justify-between">
-                  <div className="flex gap-3 items-center">
-                    <div
-                      className="w-14 h-14 rounded-full flex items-center justify-center overflow-hidden"
-                      style={{ backgroundColor: "var(--primary)" }}
-                    >
-                      {(user as any)?.photoUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={(user as any).photoUrl}
-                          alt="avatar"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-sm font-semibold text-[var(--button-text)]">
-                          {userInitials}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex flex-col">
-                      <span className="font-medium text-[var(--foreground)]">
-                        {user.name}
-                      </span>
-                      <div className="flex items-center gap-2 mt-1 text-xs text-[var(--muted-foreground)]">
-                        {user?.role === "superadmin" ? (
-                          <Star className="w-3 h-3 text-[var(--muted-foreground)]" />
-                        ) : user?.role === "admin" ? (
-                          <Shield className="w-3 h-3 text-[var(--muted-foreground)]" />
+                <div className="flex items-start justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowMobileUserActions((current) => !current)}
+                    className="flex flex-1 items-center justify-between gap-3 rounded-lg border border-[var(--input-border)] px-3 py-2 text-left hover:bg-[var(--hover-bg)] transition-colors"
+                    title="Menú de usuario"
+                    aria-expanded={showMobileUserActions}
+                  >
+                    <div className="flex gap-3 items-center">
+                      <div
+                        className="w-14 h-14 rounded-full flex items-center justify-center overflow-hidden"
+                        style={{ backgroundColor: "var(--primary)" }}
+                      >
+                        {(user as any)?.photoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={(user as any).photoUrl}
+                            alt="avatar"
+                            className="w-full h-full object-cover"
+                          />
                         ) : (
-                          <User className="w-3 h-3 text-[var(--muted-foreground)]" />
+                          <span className="text-sm font-semibold text-[var(--button-text)]">
+                            {userInitials}
+                          </span>
                         )}
-                        <span>{roleLabel}</span>
+                      </div>
+
+                      <div className="flex flex-col">
+                        <span className="font-medium text-[var(--foreground)]">
+                          {user.name}
+                        </span>
+                        <div className="flex items-center gap-2 mt-1 text-xs text-[var(--muted-foreground)]">
+                          {user?.role === "superadmin" ? (
+                            <Star className="w-3 h-3 text-[var(--muted-foreground)]" />
+                          ) : user?.role === "admin" ? (
+                            <Shield className="w-3 h-3 text-[var(--muted-foreground)]" />
+                          ) : (
+                            <User className="w-3 h-3 text-[var(--muted-foreground)]" />
+                          )}
+                          <span>{roleLabel}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
+
+                    <ChevronDown
+                      className={`w-4 h-4 shrink-0 text-[var(--muted-foreground)] transition-transform ${
+                        showMobileUserActions ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
 
                   <div className="flex items-center gap-2">
                     <button
@@ -1871,6 +1891,88 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                     </button>
                   </div>
                 </div>
+
+                {showMobileUserActions && (
+                  <div className="mt-4 flex flex-col rounded-lg border border-[var(--input-border)] overflow-hidden">
+                  <button
+                    onClick={() => {
+                      setShowEditProfileModal(true);
+                      setShowMobileMenu(false);
+                      setShowMobileUserActions(false);
+                    }}
+                    className="flex items-center gap-3 w-full px-4 py-3 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
+                  >
+                    <User className="w-4 h-4 text-[var(--muted-foreground)]" />
+                    <span className="truncate">Editar Perfil</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowConfigModal(true);
+                      setShowMobileMenu(false);
+                      setShowMobileUserActions(false);
+                    }}
+                    className="flex items-center gap-3 w-full px-4 py-3 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
+                  >
+                    <Settings className="w-4 h-4 text-[var(--muted-foreground)]" />
+                    <span className="truncate">Configuración de Sesión</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowPasskeyManager(true);
+                      setShowMobileMenu(false);
+                      setShowMobileUserActions(false);
+                    }}
+                    className="flex items-center gap-3 w-full px-4 py-3 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
+                  >
+                    <Fingerprint className="w-4 h-4 text-[var(--muted-foreground)]" />
+                    <span className="truncate">Mis passkeys</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowMobileMenu(false);
+                      setShowMobileUserActions(false);
+                      window.location.reload();
+                    }}
+                    className="flex items-center gap-3 w-full px-4 py-3 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
+                  >
+                    <RefreshCw className="w-4 h-4 text-[var(--muted-foreground)]" />
+                    <span className="truncate">Sincronizar</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowMobileMenu(false);
+                      setShowMobileUserActions(false);
+                      const sessionKey = "pricemaster_session";
+                      const sessionValue = localStorage.getItem(sessionKey);
+                      localStorage.clear();
+                      if (sessionValue !== null) {
+                        localStorage.setItem(sessionKey, sessionValue);
+                      }
+                      window.location.reload();
+                    }}
+                    className="flex items-center gap-3 w-full px-4 py-3 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4 text-[var(--muted-foreground)]" />
+                    <span className="truncate">Limpiar Cache</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowMobileMenu(false);
+                      setShowMobileUserActions(false);
+                      setShowDeviceLinkModal(true);
+                    }}
+                    className="flex items-center gap-3 w-full px-4 py-3 text-sm text-[var(--foreground)] hover:bg-[var(--hover-bg)] transition-colors"
+                  >
+                    <QrCode className="w-4 h-4 text-[var(--muted-foreground)]" />
+                    <span className="truncate">Vincular dispositivo</span>
+                  </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
