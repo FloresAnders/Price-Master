@@ -23,12 +23,12 @@ vi.mock("imapflow", () => ({
       return { release: vi.fn() };
     }
 
-    async search(query: unknown) {
-      return mocks.search(query);
+    async search(query: unknown, options?: unknown) {
+      return mocks.search(query, options);
     }
 
-    fetch(range: unknown, query: unknown) {
-      return mocks.fetch(range, query);
+    fetch(range: unknown, query: unknown, options?: unknown) {
+      return mocks.fetch(range, query, options);
     }
 
     async logout() {}
@@ -103,17 +103,18 @@ describe("readBcrSinpeReport", () => {
         from: "mensajero@bancobcr.com",
         subject: "SINPEMOVIL",
       }),
+      { uid: true },
     );
     expect(mocks.fetch).toHaveBeenNthCalledWith(1, [1, 2], {
       uid: true,
       envelope: true,
       internalDate: true,
-    });
+    }, { uid: true });
     expect(mocks.fetch).toHaveBeenNthCalledWith(2, [1], {
       uid: true,
       envelope: true,
       source: { maxLength: expect.any(Number) },
-    });
+    }, { uid: true });
     expect(mocks.simpleParser).toHaveBeenCalledTimes(1);
     expect(result.validTransactions).toBe(1);
     expect(result.total).toBe(1250);
@@ -271,6 +272,59 @@ describe("readBcrSinpeReport", () => {
       date: "2026-08-22T15:08:00.000Z",
       reference: "2026082280383010609995425",
       amount: 2625,
+    });
+  });
+
+  it("usa UID en la busqueda y en ambas lecturas IMAP", async () => {
+    mocks.search.mockReset();
+    mocks.fetch.mockReset();
+    mocks.search.mockImplementation(
+      (_query: unknown, options?: { uid?: boolean }) =>
+        Promise.resolve(options?.uid ? [9484] : [7]),
+    );
+    mocks.fetch.mockImplementation(
+      (_range: unknown, query: { source?: unknown }, options?: { uid?: boolean }) => {
+        if (!options?.uid) return messages([]);
+        if (query.source) {
+          return messages([
+            {
+              uid: 9484,
+              envelope: {
+                subject: "SINPEMOVIL - Notificacion de transaccion realizada",
+              },
+              source: Buffer.from("Monto: 2,625.00 Referencia: 2026082280383010609995425"),
+            },
+          ]);
+        }
+        return messages([
+          {
+            uid: 9484,
+            internalDate: new Date("2026-08-22T15:08:31.000Z"),
+            envelope: {
+              subject: "SINPEMOVIL - Notificacion de transaccion realizada",
+            },
+          },
+        ]);
+      },
+    );
+    mocks.simpleParser.mockResolvedValueOnce({
+      text: "Monto: 2,625.00 Referencia: 2026082280383010609995425",
+      html: "",
+      from: { text: "BCR Mensajero <mensajero@bancobcr.com>" },
+    });
+    const { readBcrSinpeReport } = await import("@/services/sinpe-imap.server");
+
+    const result = await readBcrSinpeReport({
+      email: "cuenta@gmail.com",
+      password: "secret",
+      start: new Date("2026-08-22T13:01:00.000Z"),
+      end: new Date("2026-08-22T21:00:00.000Z"),
+    });
+
+    expect(result).toMatchObject({
+      processedEmails: 1,
+      validTransactions: 1,
+      total: 2625,
     });
   });
 });

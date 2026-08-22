@@ -122,12 +122,15 @@ export async function readBcrSinpeReport(params: {
   try {
     const lock = await client.getMailboxLock("INBOX");
     try {
-      const searchResult = await client.search({
-        from: BCR_FROM,
-        subject: "SINPEMOVIL",
-        since: toCRDateMidnight(start),
-        before: new Date(toCRDateMidnight(end).getTime() + 24 * 60 * 60 * 1000),
-      });
+      const searchResult = await client.search(
+        {
+          from: BCR_FROM,
+          subject: "SINPEMOVIL",
+          since: toCRDateMidnight(start),
+          before: new Date(toCRDateMidnight(end).getTime() + 24 * 60 * 60 * 1000),
+        },
+        { uid: true },
+      );
       const uids = Array.isArray(searchResult) ? searchResult : [];
       const candidates: Array<{ uid: number; date: Date; subject: string }> = [];
 
@@ -135,7 +138,7 @@ export async function readBcrSinpeReport(params: {
         uid: true,
         envelope: true,
         internalDate: true,
-      })) {
+      }, { uid: true })) {
         const messageDate =
           normalizeFetchDate(message.internalDate) ||
           normalizeFetchDate(message.envelope?.date);
@@ -153,7 +156,7 @@ export async function readBcrSinpeReport(params: {
           uid: true,
           envelope: true,
           source: { maxLength: SINPE_SOURCE_MAX_BYTES },
-        })) {
+        }, { uid: true })) {
           const candidate = candidateByUid.get(message.uid);
           if (!candidate) continue;
           processedEmails += 1;
