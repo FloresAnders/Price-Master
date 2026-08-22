@@ -1,4 +1,4 @@
-TimeMaster - Gente Crystal v1.9.0
+TimeMaster - Gente Crystal v1.9.1
 
 INSTALACIÓN / ACTUALIZACIÓN
 
@@ -56,7 +56,7 @@ El popup muestra:
 - ventas locales guardadas;
 - pendientes, enviando, sincronizados y errores de la cola.
 
-CAMBIOS DE LA VERSIÓN 1.9.0
+CAMBIOS DE LA VERSIÓN 1.9.1
 
 - Detecta el número exacto del tiquete que aparece en `print_pagos.php`
   después de pulsar "Ingresar venta".
