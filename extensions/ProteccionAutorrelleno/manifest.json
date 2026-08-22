@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Proteccion de Autorrelleno",
+  "version": "1.0.0",
+  "description": "Solicita una contrasena local antes de permitir autorrelleno en sitios configurados.",
+  "permissions": ["storage"],
+  "host_permissions": ["<all_urls>"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["autofill-core.js", "content-gate.js", "content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {
+    "default_title": "Proteccion de Autorrelleno",
+    "default_popup": "popup.html"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "proteccion-autorrelleno@pricemaster.local",
+      "strict_min_version": "109.0"
+    }
+  }
+}

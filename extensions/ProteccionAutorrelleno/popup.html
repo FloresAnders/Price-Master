@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Proteccion de Autorrelleno</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Proteccion de Autorrelleno</h1>
+      <p>Control local para sitios con credenciales</p>
+    </div>
+    <label class="switch" title="Activar o desactivar proteccion">
+      <input id="enabled" type="checkbox">
+      <span></span>
+    </label>
+  </header>
+
+  <main>
+    <p id="status" class="status" aria-live="polite"></p>
+
+    <section aria-labelledby="password-title">
+      <h2 id="password-title">Contrasena de la extension</h2>
+      <details id="password-change-panel">
+        <summary id="toggle-password-change">Configurar contrasena</summary>
+        <p class="hint">Usa al menos 10 caracteres. Esta contrasena protege el bloqueo local de la extension.</p>
+        <label id="current-password-row">
+          Contrasena actual
+          <input id="current-password" type="password" autocomplete="current-password">
+        </label>
+        <div class="grid two">
+          <label>
+            Nueva contrasena
+            <input id="master-password" type="password" autocomplete="new-password">
+          </label>
+          <label>
+            Verificacion
+            <input id="master-password-confirm" type="password" autocomplete="new-password">
+          </label>
+        </div>
+        <button id="save-password" class="primary" type="button">Guardar contrasena</button>
+      </details>
+    </section>
+
+    <section aria-labelledby="urls-title">
+      <h2 id="urls-title">URLs protegidas</h2>
+      <div class="add-row">
+        <input id="url-input" type="url" placeholder="https://ejemplo.com/login/" spellcheck="false">
+        <button id="add-url" class="primary" type="button">Agregar</button>
+      </div>
+      <ul id="url-list" class="url-list"></ul>
+    </section>
+  </main>
+
+  <dialog id="disable-dialog">
+    <form id="disable-form" method="dialog">
+      <h2>Desactivar proteccion</h2>
+      <p>Ingresa la contrasena de la extension para desactivar el bloqueo.</p>
+      <label>
+        Contrasena
+        <input id="disable-password" type="password" autocomplete="off">
+      </label>
+      <p id="disable-error" class="error" aria-live="polite"></p>
+      <div class="dialog-actions">
+        <button id="cancel-disable" type="button">Cancelar</button>
+        <button class="primary" type="submit">Desactivar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="remove-dialog">
+    <form id="remove-form" method="dialog">
+      <h2>Eliminar URL</h2>
+      <p id="remove-url-text">Confirma la contrasena para eliminar esta URL.</p>
+      <label>
+        Contrasena
+        <input id="remove-password" type="password" autocomplete="off">
+      </label>
+      <p id="remove-error" class="error" aria-live="polite"></p>
+      <div class="dialog-actions">
+        <button id="cancel-remove" type="button">Cancelar</button>
+        <button class="primary" type="submit">Eliminar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="autofill-core.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
