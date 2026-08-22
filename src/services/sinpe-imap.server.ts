@@ -4,6 +4,11 @@ import { simpleParser } from "mailparser";
 const BCR_FROM = "mensajero@bancobcr.com";
 const BCR_SUBJECT = "SINPEMOVIL - Notificación de transacción realizada";
 
+const IMAP_CONNECTION_TIMEOUT_MS = 15_000;
+const IMAP_GREETING_TIMEOUT_MS = 10_000;
+const IMAP_SOCKET_TIMEOUT_MS = 30_000;
+const SINPE_SOURCE_MAX_BYTES = 64 * 1024;
+
 export type SinpeEmailTransaction = {
   uid: number;
   date: string;
@@ -98,6 +103,9 @@ export async function readBcrSinpeReport(params: {
   const client = new ImapFlow({
     ...getImapHost(email),
     auth: { user: email, pass: password },
+    connectionTimeout: IMAP_CONNECTION_TIMEOUT_MS,
+    greetingTimeout: IMAP_GREETING_TIMEOUT_MS,
+    socketTimeout: IMAP_SOCKET_TIMEOUT_MS,
     logger: false,
   });
 
@@ -114,33 +122,46 @@ export async function readBcrSinpeReport(params: {
         before: new Date(toCRDateMidnight(end).getTime() + 24 * 60 * 60 * 1000),
       });
       const uids = Array.isArray(searchResult) ? searchResult : [];
+      const candidates: Array<{ uid: number; date: Date; subject: string }> = [];
 
       for await (const message of client.fetch(uids, {
         uid: true,
         envelope: true,
-        source: true,
       })) {
         const messageDate = message.envelope?.date;
         if (!messageDate || messageDate < start || messageDate > end) continue;
 
         const subject = message.envelope?.subject || "";
         if (normalizeSubject(subject) !== normalizeSubject(BCR_SUBJECT)) continue;
+        candidates.push({ uid: message.uid, date: messageDate, subject });
+      }
 
-        processedEmails += 1;
-        if (!message.source) continue;
-        const parsed = await simpleParser(message.source);
-        const body = [parsed.text || "", parsed.html || ""].join("\n");
-        const amount = parseAmount(body);
-        if (amount === null) continue;
+      if (candidates.length) {
+        const candidateByUid = new Map(candidates.map((item) => [item.uid, item]));
 
-        transactions.push({
-          uid: message.uid,
-          date: messageDate.toISOString(),
-          from: parsed.from?.text || BCR_FROM,
-          subject,
-          reference: parseReference(body),
-          amount,
-        });
+        for await (const message of client.fetch(candidates.map((item) => item.uid), {
+          uid: true,
+          envelope: true,
+          source: { maxLength: SINPE_SOURCE_MAX_BYTES },
+        })) {
+          const candidate = candidateByUid.get(message.uid);
+          if (!candidate) continue;
+          processedEmails += 1;
+          if (!message.source) continue;
+          const parsed = await simpleParser(message.source);
+          const body = [parsed.text || "", parsed.html || ""].join("\n");
+          const amount = parseAmount(body);
+          if (amount === null) continue;
+
+          transactions.push({
+            uid: message.uid,
+            date: candidate.date.toISOString(),
+            from: parsed.from?.text || BCR_FROM,
+            subject: message.envelope?.subject || candidate.subject,
+            reference: parseReference(body),
+            amount,
+          });
+        }
       }
     } finally {
       lock.release();
