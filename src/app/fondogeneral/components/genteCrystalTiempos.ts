@@ -8,6 +8,8 @@ export type GenteCrystalCompanyOption = {
   value: string;
   label: string;
   aliases: string[];
+  cierreFondoVentasMinutesBeforeEnd?: number;
+  cierreFondoVentasMinutesAfterEnd?: number;
 };
 
 export type GenteCrystalDisplaySale = Omit<
@@ -289,6 +291,10 @@ export function buildGenteCrystalCompanyOptions(
       value: documentId,
       label: companyLabel(company),
       aliases,
+      cierreFondoVentasMinutesBeforeEnd:
+        company.cierreFondoVentasMinutesBeforeEnd,
+      cierreFondoVentasMinutesAfterEnd:
+        company.cierreFondoVentasMinutesAfterEnd,
     });
     return options;
   }, []);

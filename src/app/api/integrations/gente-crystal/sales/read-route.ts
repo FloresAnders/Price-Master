@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server.js";
+import { getTiemposTucanUpdateAccess } from "../../../../../app/fondogeneral/utils/tiemposTucanUpdateAccess.ts";
 import type { GenteCrystalSalesReader } from "../../../../../lib/gente-crystal/firestore-sales-reader.ts";
 import {
   GENTE_CRYSTAL_TIMEZONE,
@@ -17,6 +18,7 @@ export interface GenteCrystalSalesGetDependencies {
     companyId: string,
   ) => Promise<GenteCrystalReadCompany | null>;
   createReader: () => GenteCrystalSalesReader;
+  now?: () => Date;
   logError?: (message: string, error: unknown) => void;
 }
 
@@ -53,6 +55,16 @@ export function createGenteCrystalSalesGet(
         !canReadGenteCrystalCompany({ ...user, id: userId }, company)
       ) {
         return jsonError("forbidden", 403);
+      }
+
+      const updateAccess = getTiemposTucanUpdateAccess({
+        role: user.role,
+        minutesBeforeEnd: company.cierreFondoVentasMinutesBeforeEnd,
+        minutesAfterEnd: company.cierreFondoVentasMinutesAfterEnd,
+        now: (dependencies.now ?? (() => new Date()))(),
+      });
+      if (!updateAccess.allowed) {
+        return jsonError("update_window_closed", 403);
       }
 
       const result = await dependencies

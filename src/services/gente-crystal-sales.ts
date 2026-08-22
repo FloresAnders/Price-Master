@@ -128,6 +128,9 @@ export function messageForGenteCrystalSalesError(error: unknown): string {
     if (error.status === 401) {
       return "Tu sesión expiró. Inicia sesión nuevamente.";
     }
+    if (error.code === "update_window_closed") {
+      return "Solo puedes actualizar Tiempos/Tucan durante la ventana de cierre del turno D o N.";
+    }
     if (error.status === 403) {
       return "No tienes acceso a esta empresa.";
     }

@@ -13,6 +13,7 @@ import {
   currentCostaRicaDate,
   genteCrystalSaleOriginMarker,
 } from "./genteCrystalTiempos";
+import { getTiemposTucanUpdateAccess } from "../utils/tiemposTucanUpdateAccess";
 import {
   GenteCrystalTicketNumbers,
   GenteCrystalTicketTableFrame,
@@ -21,6 +22,9 @@ import {
 
 type GenteCrystalTiemposPanelProps = {
   companyId: string;
+  userRole?: string;
+  cierreFondoVentasMinutesBeforeEnd?: number;
+  cierreFondoVentasMinutesAfterEnd?: number;
 };
 
 type RequestedScope = {
@@ -70,6 +74,9 @@ const splitDisplaySorteoLines = (value: string): string[] => {
 
 export function GenteCrystalTiemposPanel({
   companyId,
+  userRole,
+  cierreFondoVentasMinutesBeforeEnd,
+  cierreFondoVentasMinutesAfterEnd,
 }: GenteCrystalTiemposPanelProps) {
   const [date, setDate] = useState(() => currentCostaRicaDate());
   const [result, setResult] =
@@ -81,6 +88,7 @@ export function GenteCrystalTiemposPanel({
   const [showFullTicket, setShowFullTicket] = useState(false);
   const [timeFrom, setTimeFrom] = useState("");
   const [timeUntil, setTimeUntil] = useState("");
+  const [windowCheckNow, setWindowCheckNow] = useState(() => new Date());
   const activeRequestId = useRef(0);
   const manualQuery = useRef<
     ReturnType<typeof createGenteCrystalManualSalesQuery> | undefined
@@ -100,7 +108,37 @@ export function GenteCrystalTiemposPanel({
     };
   }, []);
 
+  useEffect(() => {
+    if (userRole !== "user") return;
+    const timer = window.setInterval(() => {
+      setWindowCheckNow(new Date());
+    }, 30_000);
+    return () => window.clearInterval(timer);
+  }, [userRole]);
+
+  const updateAccess = getTiemposTucanUpdateAccess({
+    role: userRole,
+    minutesBeforeEnd: cierreFondoVentasMinutesBeforeEnd,
+    minutesAfterEnd: cierreFondoVentasMinutesAfterEnd,
+    now: windowCheckNow,
+  });
+  const updateBlocked = !updateAccess.allowed;
+
   const handleRefresh = async () => {
+    const currentAccess = getTiemposTucanUpdateAccess({
+      role: userRole,
+      minutesBeforeEnd: cierreFondoVentasMinutesBeforeEnd,
+      minutesAfterEnd: cierreFondoVentasMinutesAfterEnd,
+      now: new Date(),
+    });
+    setWindowCheckNow(new Date());
+    if (!currentAccess.allowed) {
+      setError(
+        "Solo puedes actualizar Tiempos/Tucan durante la ventana de cierre del turno D o N.",
+      );
+      return;
+    }
+
     const requestId = activeRequestId.current + 1;
     activeRequestId.current = requestId;
     setRequestedScope({ companyId, date });
@@ -184,7 +222,7 @@ export function GenteCrystalTiemposPanel({
           <button
             type="button"
             onClick={() => void handleRefresh()}
-            disabled={loading}
+            disabled={loading || updateBlocked}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-cyan-600/45 bg-cyan-950/20 px-4 text-sm font-semibold text-[var(--foreground)] transition hover:border-cyan-400/70 hover:bg-cyan-950/35 disabled:cursor-not-allowed disabled:opacity-55"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
@@ -192,6 +230,13 @@ export function GenteCrystalTiemposPanel({
           </button>
         </div>
       </div>
+
+      {updateBlocked && (
+        <p className="rounded-md border border-amber-500/30 bg-amber-950/15 px-3 py-2 text-sm text-amber-100">
+          Solo puedes actualizar Tiempos/Tucan durante la ventana de cierre del
+          turno D o N.
+        </p>
+      )}
 
       {visibleResult && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

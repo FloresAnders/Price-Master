@@ -188,7 +188,16 @@ export function TiemposTucanSection() {
                 </div>
               )}
 
-              <GenteCrystalTiemposPanel companyId={companyId} />
+              <GenteCrystalTiemposPanel
+                companyId={companyId}
+                userRole={user.role}
+                cierreFondoVentasMinutesBeforeEnd={
+                  selectedOption?.cierreFondoVentasMinutesBeforeEnd
+                }
+                cierreFondoVentasMinutesAfterEnd={
+                  selectedOption?.cierreFondoVentasMinutesAfterEnd
+                }
+              />
             </>
           )}
         </section>

@@ -18,6 +18,8 @@ export type GenteCrystalReadCompany = {
   name?: string;
   ubicacion?: string;
   ownerId?: string;
+  cierreFondoVentasMinutesBeforeEnd?: number;
+  cierreFondoVentasMinutesAfterEnd?: number;
 };
 
 export type GenteCrystalDayRange = {
