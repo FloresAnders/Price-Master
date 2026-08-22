@@ -73,7 +73,6 @@ import {
   CalculatorModal,
   CashCounterModal,
   NotificationModal,
-  MobileScanQrModal,
   DeviceLinkModal,
 } from "../modals";
 import type { UserPermissions } from "../../types/firestore";
@@ -1555,14 +1554,6 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 <span className="absolute top-0 right-0 inline-flex w-2 h-2 bg-red-500 rounded-full transform translate-x-1 -translate-y-1" />
               )}
             </button>
-            <button
-              onClick={() => setShowMobileQrModal(true)}
-              className="hidden lg:inline-flex p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
-              title="Escanear móvil"
-            >
-              <QrCode className="w-5 h-5 text-[var(--foreground)]" />
-            </button>
-
             {/* Mobile scanner button (only visible on mobile) */}
             <Link
               href="/mobile-scan?rpn=t"
@@ -2194,11 +2185,6 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       <CashCounterModal
         isOpen={showCashCounterModal}
         onClose={() => setShowCashCounterModal(false)}
-      />
-
-      <MobileScanQrModal
-        isOpen={showMobileQrModal}
-        onClose={() => setShowMobileQrModal(false)}
       />
     </>
   );
