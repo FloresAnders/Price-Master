@@ -104,6 +104,20 @@
     return 0;
   }
 
+  function normalizeSorteoCandidate(value) {
+    const candidate = normalizeWhitespace(value).replace(
+      /^\d{1,2}\/\d{1,2}\/\d{4}\s+/,
+      '',
+    );
+    if (!candidate || /^cliente\s*:/i.test(candidate)) return null;
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(candidate)) return null;
+    if (/^\d{4,}-\d{2,6}-\d{5,}$/.test(candidate)) return null;
+    if (/^[-=]{3,}$/.test(candidate)) return null;
+    if (!/[A-ZÁÉÍÓÚÑ]/i.test(candidate)) return null;
+    if (!/^[A-ZÁÉÍÓÚÑ0-9\s-]{3,}$/i.test(candidate)) return null;
+    return candidate.toUpperCase();
+  }
+
   function parseSorteoFromPrintText(text) {
     const lines = String(text || '')
       .split(/\r?\n/)
@@ -118,13 +132,14 @@
         /^.*?\bfecha\s+sorteo\s*:\s*/i,
         '',
       );
-      if (sameLine && !/^cliente\s*:/i.test(sameLine)) {
-        return normalizeWhitespace(sameLine).toUpperCase();
-      }
+      const sameLineSorteo = normalizeSorteoCandidate(sameLine);
+      if (sameLineSorteo) return sameLineSorteo;
 
       for (let i = fechaSorteoIndex + 1; i < lines.length; i += 1) {
         const line = lines[i];
         if (/^cliente\s*:/i.test(line)) break;
+        const sorteo = normalizeSorteoCandidate(line);
+        if (sorteo) return sorteo;
         if (/^[A-ZÁÉÍÓÚÑ0-9\s-]{3,}$/i.test(line)) {
           return normalizeWhitespace(line).toUpperCase();
         }
