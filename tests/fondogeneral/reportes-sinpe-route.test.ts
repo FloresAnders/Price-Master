@@ -111,6 +111,27 @@ describe("reportes SINPE API", () => {
     expect(mocks.readBcrSinpeReport).not.toHaveBeenCalled();
   });
 
+  it("acepta el rango visible en formato costarricense sin marcarlo como mayor a 48 horas", async () => {
+    const { POST } = await import("@/app/api/reportes-sinpe/route");
+
+    const response = await POST(
+      request({
+        startDate: "22/08/2026",
+        startTime: "07:01",
+        endDate: "22/08/2026",
+        endTime: "15:00",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.readBcrSinpeReport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        start: new Date("2026-08-22T07:01:00-06:00"),
+        end: new Date("2026-08-22T15:00:00-06:00"),
+      }),
+    );
+  });
+
   it("impide consultar una empresa fuera del alcance del usuario", async () => {
     mocks.getEmpresaById.mockResolvedValueOnce({
       id: "empresa-2",

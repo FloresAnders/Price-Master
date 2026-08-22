@@ -98,6 +98,12 @@ describe("readBcrSinpeReport", () => {
       greetingTimeout: expect.any(Number),
       socketTimeout: expect.any(Number),
     });
+    expect(mocks.search).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from: "mensajero@bancobcr.com",
+        subject: "SINPEMOVIL",
+      }),
+    );
     expect(mocks.fetch).toHaveBeenNthCalledWith(1, [1, 2], {
       uid: true,
       envelope: true,
@@ -137,5 +143,71 @@ describe("readBcrSinpeReport", () => {
     expect(mocks.fetch).toHaveBeenCalledTimes(1);
     expect(mocks.simpleParser).not.toHaveBeenCalled();
     expect(result.validTransactions).toBe(0);
+  });
+
+  it("lee correos BCR SINPE reales con asunto acentuado, monto y numero de referencia", async () => {
+    mocks.fetch.mockReset();
+    mocks.fetch
+      .mockReturnValueOnce(
+        messages([
+          {
+            uid: 22,
+            envelope: {
+              date: new Date("2026-08-22T17:31:00.000Z"),
+              subject: "SINPEMOVIL - Notificación de transacción realizada",
+            },
+          },
+        ]),
+      )
+      .mockReturnValueOnce(
+        messages([
+          {
+            uid: 22,
+            envelope: {
+              date: new Date("2026-08-22T17:31:00.000Z"),
+              subject: "SINPEMOVIL - Notificación de transacción realizada",
+            },
+            source: Buffer.from(
+              [
+                "Transacción SINPE MÓVIL",
+                "Número de referencia: 2026082115183010997449092",
+                "Monto: 850.00",
+                "Esta transacción fue realizada el 22/08/2026 a las 11:31 AM",
+              ].join("\n"),
+            ),
+          },
+        ]),
+      );
+    mocks.simpleParser.mockResolvedValueOnce({
+      text: [
+        "Transacción SINPE MÓVIL",
+        "Número de referencia: 2026082115183010997449092",
+        "Monto: 850.00",
+        "Esta transacción fue realizada el 22/08/2026 a las 11:31 AM",
+      ].join("\n"),
+      html: "",
+      from: { text: "BCR Mensajero <mensajero@bancobcr.com>" },
+    });
+    const { readBcrSinpeReport } = await import("@/services/sinpe-imap.server");
+
+    const result = await readBcrSinpeReport({
+      email: "cuenta@gmail.com",
+      password: "secret",
+      start: new Date("2026-08-22T13:01:00.000Z"),
+      end: new Date("2026-08-22T21:00:00.000Z"),
+    });
+
+    expect(result).toMatchObject({
+      processedEmails: 1,
+      validTransactions: 1,
+      total: 850,
+      transactions: [
+        expect.objectContaining({
+          uid: 22,
+          reference: "2026082115183010997449092",
+          amount: 850,
+        }),
+      ],
+    });
   });
 });

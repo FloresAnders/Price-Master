@@ -118,6 +118,7 @@ export async function readBcrSinpeReport(params: {
     try {
       const searchResult = await client.search({
         from: BCR_FROM,
+        subject: "SINPEMOVIL",
         since: toCRDateMidnight(start),
         before: new Date(toCRDateMidnight(end).getTime() + 24 * 60 * 60 * 1000),
       });

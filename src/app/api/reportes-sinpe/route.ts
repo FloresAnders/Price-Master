@@ -21,9 +21,35 @@ class SinpeReportTimeoutError extends Error {
   }
 }
 
+const normalizeDateInput = (date: string) => {
+  const trimmed = date.trim();
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) return trimmed;
+
+  const crMatch = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!crMatch) return null;
+
+  return `${crMatch[3]}-${crMatch[2]}-${crMatch[1]}`;
+};
+
+const normalizeTimeInput = (time: string) => {
+  const match = time.trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+
+  return `${String(hour).padStart(2, "0")}:${match[2]}`;
+};
+
 const parseRangeDate = (date: unknown, time: unknown) => {
   if (typeof date !== "string" || typeof time !== "string") return null;
-  const parsed = new Date(`${date}T${time}:00-06:00`);
+  const normalizedDate = normalizeDateInput(date);
+  const normalizedTime = normalizeTimeInput(time);
+  if (!normalizedDate || !normalizedTime) return null;
+
+  const parsed = new Date(`${normalizedDate}T${normalizedTime}:00-06:00`);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
