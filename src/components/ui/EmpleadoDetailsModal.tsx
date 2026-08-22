@@ -27,6 +27,10 @@ const CCSS_TYPE_LABELS: Record<CcssType, string> = {
   PH: "Pago por Hora",
 };
 
+function formatWeeklyHoursLabel(type: CcssType): string {
+  return `${CCSS_TYPE_LABELS[type]} (${CCSS_WEEKLY_HOURS[type]} horas semanales)`;
+}
+
 function isCcssType(v: unknown): v is CcssType {
   return v === "TC" || v === "MT" || v === "PH";
 }
@@ -180,7 +184,6 @@ export default function EmpleadoDetailsModal({
   const [pagoHoraBruta, setPagoHoraBruta] = useState<string>("");
   const [diaContratacion, setDiaContratacion] = useState<string>("");
   const [paganAguinaldo, setPaganAguinaldo] = useState<string>("");
-  const [cantidadHorasTrabaja, setCantidadHorasTrabaja] = useState<string>("");
   const [ccssType, setCcssType] = useState<CcssTypeSelection>("");
   const [hasSelectedWorkHoursType, setHasSelectedWorkHoursType] =
     useState(false);
@@ -283,11 +286,6 @@ export default function EmpleadoDetailsModal({
     setDiaContratacion(String(empleado?.diaContratacion || ""));
     setPaganAguinaldo(normalizeYesNo(String(empleado?.paganAguinaldo || "")));
     setCcssType(initialSelectionType);
-    setCantidadHorasTrabaja(
-      readOnly || hasCompletedWorkConfig
-        ? String(CCSS_WEEKLY_HOURS[initialType])
-        : "",
-    );
     setHasSelectedWorkHoursType(readOnly || hasCompletedWorkConfig);
     setDanReciboPago(normalizeYesNo(String(empleado?.danReciboPago || "")));
     setContratoFisico(normalizeYesNo(String(empleado?.contratoFisico || "")));
@@ -604,7 +602,7 @@ export default function EmpleadoDetailsModal({
                 </label>
                 {readOnly ? (
                   <div className="w-full px-3 py-2 rounded-md bg-[var(--card-bg)] border border-[var(--input-border)] text-[var(--muted-foreground)] text-sm">
-                    {CCSS_TYPE_LABELS[displayCcssType]} ({CCSS_WEEKLY_HOURS[displayCcssType]} horas)
+                    {formatWeeklyHoursLabel(displayCcssType)}
                   </div>
                 ) : (
                   <select
@@ -613,7 +611,6 @@ export default function EmpleadoDetailsModal({
                       const raw = e.target.value as CcssTypeSelection;
                       if (!isCcssType(raw)) {
                         setCcssType("");
-                        setCantidadHorasTrabaja("");
                         setHasSelectedWorkHoursType(false);
                         setPagoHoraBruta("");
                         setPagoHoraBrutaDisplay("");
@@ -621,7 +618,6 @@ export default function EmpleadoDetailsModal({
                       }
                       const next = raw;
                       setCcssType(next);
-                      setCantidadHorasTrabaja(String(CCSS_WEEKLY_HOURS[next]));
                       setHasSelectedWorkHoursType(true);
 
                       const salaryFromConfig = getSalaryByType(next);
@@ -634,9 +630,9 @@ export default function EmpleadoDetailsModal({
                     className="w-full px-3 py-2 rounded-md bg-[var(--card-bg)] border border-[var(--input-border)] text-[var(--foreground)]"
                   >
                     <option value="">Seleccionar tipo...</option>
-                    <option value="TC">Tiempo Completo (48 horas)</option>
-                    <option value="MT">Medio Tiempo (24 horas)</option>
-                    <option value="PH">Pago por Hora (8 horas)</option>
+                    <option value="TC">{formatWeeklyHoursLabel("TC")}</option>
+                    <option value="MT">{formatWeeklyHoursLabel("MT")}</option>
+                    <option value="PH">{formatWeeklyHoursLabel("PH")}</option>
                   </select>
                 )}
               </div>

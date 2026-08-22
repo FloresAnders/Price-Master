@@ -781,10 +781,10 @@ export default function EmpleadosProximamente() {
                               <div>
                                 CCSS: {ccss} ·{" "}
                                 {horasDoc !== undefined ? (
-                                  <>Horas: {horasDoc}</>
+                                  <>Horas semanales: {horasDoc}</>
                                 ) : (
                                   <>
-                                    Horas/turno:{" "}
+                                    Horas semanales:{" "}
                                     {horasEmb !== undefined ? horasEmb : "—"}
                                   </>
                                 )}
