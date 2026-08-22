@@ -8,6 +8,8 @@ export type GenteCrystalCompanyOption = {
   value: string;
   label: string;
   aliases: string[];
+  horarioApertura?: string;
+  horarioCierre?: string;
   cierreFondoVentasMinutesBeforeEnd?: number;
   cierreFondoVentasMinutesAfterEnd?: number;
 };
@@ -291,6 +293,8 @@ export function buildGenteCrystalCompanyOptions(
       value: documentId,
       label: companyLabel(company),
       aliases,
+      horarioApertura: company.horarioApertura,
+      horarioCierre: company.horarioCierre,
       cierreFondoVentasMinutesBeforeEnd:
         company.cierreFondoVentasMinutesBeforeEnd,
       cierreFondoVentasMinutesAfterEnd:

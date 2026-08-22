@@ -4,6 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useActorOwnership } from "../../../hooks/useActorOwnership";
 import { useAuth } from "../../../hooks/useAuth";
 import { EmpresasService } from "../../../services/empresas";
+import { SchedulesService } from "../../../services/schedules";
+import type { Empresas } from "../../../types/firestore";
+import { getControlHorarioShiftTiming } from "../../../utils/controlHorarioManager";
 import { canAccessTiemposTucan } from "../../../components/layout/fondoNavigation";
 import { getDefaultPermissions } from "../../../utils/permissions";
 import { GenteCrystalTiemposPanel } from "./GenteCrystalTiemposPanel";
@@ -21,7 +24,9 @@ export function TiemposTucanSection() {
   const [companyOptions, setCompanyOptions] = useState<
     GenteCrystalCompanyOption[]
   >([]);
+  const [companies, setCompanies] = useState<Empresas[]>([]);
   const [companyId, setCompanyId] = useState("");
+  const [shiftChangeMin, setShiftChangeMin] = useState<number | null>(null);
   const [companiesLoading, setCompaniesLoading] = useState(true);
   const [companiesError, setCompaniesError] = useState("");
   const [loadedScopeKey, setLoadedScopeKey] = useState("");
@@ -61,6 +66,7 @@ export function TiemposTucanSection() {
           const stored =
             window.localStorage.getItem(COMPANY_STORAGE_KEY) || "";
           setCompanyOptions(options);
+          setCompanies(companies);
           setCompanyId((current) =>
             resolveGenteCrystalCompanySelection(
               current || stored,
@@ -73,6 +79,7 @@ export function TiemposTucanSection() {
           if (cancelled) return;
           console.error("Error loading Tiempos companies:", error);
           setCompanyOptions([]);
+          setCompanies([]);
           setCompanyId("");
           setCompaniesError("No se pudieron cargar las empresas.");
         })
@@ -93,6 +100,68 @@ export function TiemposTucanSection() {
     () => companyOptions.find((option) => option.value === companyId),
     [companyId, companyOptions],
   );
+  const selectedCompany = useMemo(
+    () => companies.find((company) => company.id === companyId),
+    [companies, companyId],
+  );
+
+  useEffect(() => {
+    if (!selectedCompany || user?.role !== "user") {
+      queueMicrotask(() => setShiftChangeMin(null));
+      return;
+    }
+
+    let cancelled = false;
+    const loadShiftChange = async () => {
+      const now = new Date();
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Costa_Rica",
+        year: "numeric",
+        month: "2-digit",
+      }).formatToParts(now);
+      const year = Number(parts.find((part) => part.type === "year")?.value);
+      const month = Number(parts.find((part) => part.type === "month")?.value);
+      if (!Number.isFinite(year) || !Number.isFinite(month)) {
+        if (!cancelled) setShiftChangeMin(null);
+        return;
+      }
+
+      const companyKeys = [
+        selectedCompany.id,
+        selectedCompany.name,
+        selectedCompany.ubicacion,
+      ]
+        .map((value) => String(value || "").trim())
+        .filter(Boolean);
+      const schedulesLists = await Promise.all(
+        Array.from(new Set(companyKeys)).map((key) =>
+          SchedulesService.getSchedulesByLocationYearMonth(
+            key,
+            year,
+            month - 1,
+          ),
+        ),
+      );
+      const timing = getControlHorarioShiftTiming({
+        nowISO: now.toISOString(),
+        empresa: selectedCompany,
+        monthSchedules: schedulesLists.flat(),
+      });
+
+      if (!cancelled) {
+        setShiftChangeMin(timing.withinHorario ? timing.shiftChangeMin : null);
+      }
+    };
+
+    void loadShiftChange().catch((error) => {
+      console.error("Error resolving Tiempos/Tucan shift timing:", error);
+      if (!cancelled) setShiftChangeMin(null);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCompany, user?.role]);
 
   const handleCompanyChange = useCallback(
     (nextCompanyId: string) => {
@@ -191,6 +260,9 @@ export function TiemposTucanSection() {
               <GenteCrystalTiemposPanel
                 companyId={companyId}
                 userRole={user.role}
+                horarioApertura={selectedOption?.horarioApertura}
+                horarioCierre={selectedOption?.horarioCierre}
+                shiftChangeMin={shiftChangeMin}
                 cierreFondoVentasMinutesBeforeEnd={
                   selectedOption?.cierreFondoVentasMinutesBeforeEnd
                 }

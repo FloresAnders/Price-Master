@@ -23,6 +23,9 @@ import {
 type GenteCrystalTiemposPanelProps = {
   companyId: string;
   userRole?: string;
+  horarioApertura?: string;
+  horarioCierre?: string;
+  shiftChangeMin?: number | null;
   cierreFondoVentasMinutesBeforeEnd?: number;
   cierreFondoVentasMinutesAfterEnd?: number;
 };
@@ -75,6 +78,9 @@ const splitDisplaySorteoLines = (value: string): string[] => {
 export function GenteCrystalTiemposPanel({
   companyId,
   userRole,
+  horarioApertura,
+  horarioCierre,
+  shiftChangeMin,
   cierreFondoVentasMinutesBeforeEnd,
   cierreFondoVentasMinutesAfterEnd,
 }: GenteCrystalTiemposPanelProps) {
@@ -118,6 +124,9 @@ export function GenteCrystalTiemposPanel({
 
   const updateAccess = getTiemposTucanUpdateAccess({
     role: userRole,
+    horarioApertura,
+    horarioCierre,
+    shiftChangeMin,
     minutesBeforeEnd: cierreFondoVentasMinutesBeforeEnd,
     minutesAfterEnd: cierreFondoVentasMinutesAfterEnd,
     now: windowCheckNow,
@@ -127,6 +136,9 @@ export function GenteCrystalTiemposPanel({
   const handleRefresh = async () => {
     const currentAccess = getTiemposTucanUpdateAccess({
       role: userRole,
+      horarioApertura,
+      horarioCierre,
+      shiftChangeMin,
       minutesBeforeEnd: cierreFondoVentasMinutesBeforeEnd,
       minutesAfterEnd: cierreFondoVentasMinutesAfterEnd,
       now: new Date(),

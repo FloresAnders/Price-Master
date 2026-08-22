@@ -6,7 +6,7 @@ describe("createGenteCrystalSalesGet", () => {
   it("bloquea la actualizacion de un user fuera de las ventanas de cierre", async () => {
     const listDaily = vi.fn();
     const GET = createGenteCrystalSalesGet({
-      now: () => new Date("2026-08-21T22:00:00.000Z"), // 16:00 CR
+      now: () => new Date("2026-08-22T02:16:00.000Z"), // 20:16 CR
       readUserId: async () => "user-1",
       getUser: async () => ({
         role: "user",
@@ -17,6 +17,8 @@ describe("createGenteCrystalSalesGet", () => {
       getCompany: async () => ({
         id: "empresa-1",
         name: "Empresa",
+        horarioApertura: "07:45",
+        horarioCierre: "23:45",
         cierreFondoVentasMinutesBeforeEnd: 15,
         cierreFondoVentasMinutesAfterEnd: 90,
       }),

@@ -19,6 +19,10 @@ export interface GenteCrystalSalesGetDependencies {
   ) => Promise<GenteCrystalReadCompany | null>;
   createReader: () => GenteCrystalSalesReader;
   now?: () => Date;
+  getShiftChangeMin?: (
+    company: GenteCrystalReadCompany,
+    now: Date,
+  ) => Promise<number | null>;
   logError?: (message: string, error: unknown) => void;
 }
 
@@ -57,11 +61,18 @@ export function createGenteCrystalSalesGet(
         return jsonError("forbidden", 403);
       }
 
+      const now = (dependencies.now ?? (() => new Date()))();
+      const shiftChangeMin = dependencies.getShiftChangeMin
+        ? await dependencies.getShiftChangeMin(company, now)
+        : null;
       const updateAccess = getTiemposTucanUpdateAccess({
         role: user.role,
+        horarioApertura: company.horarioApertura,
+        horarioCierre: company.horarioCierre,
+        shiftChangeMin,
         minutesBeforeEnd: company.cierreFondoVentasMinutesBeforeEnd,
         minutesAfterEnd: company.cierreFondoVentasMinutesAfterEnd,
-        now: (dependencies.now ?? (() => new Date()))(),
+        now,
       });
       if (!updateAccess.allowed) {
         return jsonError("update_window_closed", 403);

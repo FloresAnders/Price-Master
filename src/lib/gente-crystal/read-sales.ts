@@ -18,6 +18,8 @@ export type GenteCrystalReadCompany = {
   name?: string;
   ubicacion?: string;
   ownerId?: string;
+  horarioApertura?: string;
+  horarioCierre?: string;
   cierreFondoVentasMinutesBeforeEnd?: number;
   cierreFondoVentasMinutesAfterEnd?: number;
 };

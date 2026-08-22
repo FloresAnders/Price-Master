@@ -16,6 +16,7 @@ import {
   readBearerToken,
 } from "../../../../../lib/gente-crystal/sales.ts";
 import { hashToken } from "../../../../../lib/devices/tokens.ts";
+import { getControlHorarioShiftTiming } from "../../../../../utils/controlHorarioManager.ts";
 import { createGenteCrystalSalesGet } from "./read-route.ts";
 
 export const runtime = "nodejs";
@@ -102,6 +103,76 @@ export const GET = createGenteCrystalSalesGet({
           id: snapshot.id,
         } as GenteCrystalReadCompany)
       : null;
+  },
+  getShiftChangeMin: async (company, now) => {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Costa_Rica",
+      year: "numeric",
+      month: "2-digit",
+    }).formatToParts(now);
+    const year = Number(parts.find((part) => part.type === "year")?.value);
+    const month = Number(parts.find((part) => part.type === "month")?.value);
+    if (!Number.isFinite(year) || !Number.isFinite(month)) return null;
+
+    const keys = Array.from(
+      new Set(
+        [company.id, company.name, company.ubicacion]
+          .map((value) => String(value || "").trim())
+          .filter(Boolean),
+      ),
+    );
+    const db = getAdminDb();
+    const month0 = month - 1;
+    const schedulesLists = await Promise.all(
+      keys.map(async (key) => {
+        const monthlySnap = await db
+          .collection("schedules")
+          .doc(`${key}_${year}_${month0}`)
+          .get();
+        const monthlyData = monthlySnap.exists ? monthlySnap.data() : null;
+        const monthlyEntries =
+          monthlyData &&
+          typeof monthlyData.company === "string" &&
+          typeof monthlyData.year === "number" &&
+          typeof monthlyData.month === "number" &&
+          monthlyData.employees &&
+          typeof monthlyData.employees === "object"
+            ? Object.entries(monthlyData.employees as Record<string, any>).flatMap(
+                ([employeeName, days]) =>
+                  Object.entries((days ?? {}) as Record<string, any>).map(
+                    ([dayKey, entry]) => ({
+                      companieValue: monthlyData.company,
+                      employeeName,
+                      year: monthlyData.year,
+                      month: monthlyData.month,
+                      day: Number(dayKey),
+                      shift: String(entry?.shift || ""),
+                      ...(typeof entry?.horasPorDia === "number"
+                        ? { horasPorDia: entry.horasPorDia }
+                        : {}),
+                    }),
+                  ),
+              )
+            : [];
+        const legacySnap = await db
+          .collection("schedules")
+          .where("companieValue", "==", key)
+          .where("year", "==", year)
+          .where("month", "==", month0)
+          .get();
+        const legacyEntries = legacySnap.docs.map((doc) => ({
+          id: doc.id,
+          ...(doc.data() as Record<string, unknown>),
+        }));
+        return [...monthlyEntries, ...legacyEntries];
+      }),
+    );
+    const timing = getControlHorarioShiftTiming({
+      nowISO: now.toISOString(),
+      empresa: company as any,
+      monthSchedules: schedulesLists.flat() as any,
+    });
+    return timing.withinHorario ? timing.shiftChangeMin : null;
   },
   createReader: () => new FirestoreGenteCrystalSalesReader(getAdminDb()),
 });

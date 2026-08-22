@@ -34,6 +34,57 @@ describe("getTiemposTucanUpdateAccess", () => {
     ).toEqual({ allowed: false, turno: null });
   });
 
+  it("usa el horario de cierre de la empresa en lugar de medianoche para el turno N", () => {
+    const palmaresWindow = {
+      role: "user",
+      horarioApertura: "07:45",
+      horarioCierre: "23:45",
+      minutesBeforeEnd: 15,
+      minutesAfterEnd: 90,
+    } as const;
+
+    expect(
+      getTiemposTucanUpdateAccess({
+        now: new Date("2026-08-22T02:16:00.000Z"), // 20:16 CR
+        ...palmaresWindow,
+      }),
+    ).toEqual({ allowed: false, turno: null });
+
+    expect(
+      getTiemposTucanUpdateAccess({
+        now: new Date("2026-08-22T05:40:00.000Z"), // 23:40 CR
+        ...palmaresWindow,
+      }),
+    ).toEqual({ allowed: true, turno: "N" });
+  });
+
+  it("no inventa una ventana D cuando la empresa tiene horario configurado sin corte de turno", () => {
+    expect(
+      getTiemposTucanUpdateAccess({
+        role: "user",
+        horarioApertura: "07:45",
+        horarioCierre: "23:45",
+        now: new Date("2026-08-21T21:50:00.000Z"), // 15:50 CR
+        minutesBeforeEnd: 15,
+        minutesAfterEnd: 90,
+      }),
+    ).toEqual({ allowed: false, turno: null });
+  });
+
+  it("permite el turno D solo cuando recibe el corte real usado por el cierre", () => {
+    expect(
+      getTiemposTucanUpdateAccess({
+        role: "user",
+        horarioApertura: "07:45",
+        horarioCierre: "23:45",
+        shiftChangeMin: 20 * 60,
+        now: new Date("2026-08-22T01:50:00.000Z"), // 19:50 CR
+        minutesBeforeEnd: 15,
+        minutesAfterEnd: 90,
+      }),
+    ).toEqual({ allowed: true, turno: "D" });
+  });
+
   it("permite a admin y superadmin actualizar fuera de horario", () => {
     const outsideWindow = {
       now: new Date("2026-08-21T22:00:00.000Z"), // 16:00 CR
