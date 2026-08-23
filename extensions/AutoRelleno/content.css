@@ -1,0 +1,38 @@
+.gc-cliente-autocomplete {
+  position: absolute;
+  z-index: 2147483647;
+  display: none;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid #9ca3af;
+  border-radius: 4px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgb(15 23 42 / 18%);
+  font: 14px Arial, Helvetica, sans-serif;
+}
+
+.gc-cliente-autocomplete[data-open="true"] {
+  display: block;
+}
+
+.gc-cliente-autocomplete__item {
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 0;
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #111827;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.gc-cliente-autocomplete__item:last-child {
+  border-bottom: 0;
+}
+
+.gc-cliente-autocomplete__item:hover,
+.gc-cliente-autocomplete__item[data-active="true"] {
+  background: #e0f2fe;
+}
