@@ -1,9 +1,21 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { createElement, StrictMode } from "react";
+import {
+  act,
+  cleanup,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useAuth } from "@/hooks/useAuth";
+import AuthWrapper from "@/components/auth/AuthWrapper";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
+}));
 vi.mock("@/config/firebase", () => ({ db: {} }));
 vi.mock("firebase/firestore", () => ({
   doc: vi.fn(() => ({})),
@@ -50,6 +62,7 @@ describe("server-authoritative auth state", () => {
 
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -63,7 +76,7 @@ describe("server-authoritative auth state", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const { result } = renderHook(() => useAuth());
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.isAuthenticated).toBe(true);
@@ -72,6 +85,40 @@ describe("server-authoritative auth state", () => {
       "/api/auth/session",
       expect.objectContaining({ credentials: "same-origin" }),
     );
+  });
+
+  it("shares one session validation across auth consumers in Strict Mode", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () =>
+      response({
+        ok: true,
+        user: { id: "user-1", name: "ALCHACAS", role: "user" },
+        session: { authMethod: "password", expiresAt: Date.now() + 60_000 },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    function AuthConsumer() {
+      const { user } = useAuth();
+      return createElement("span", null, user?.name || "loading");
+    }
+
+    render(
+      createElement(
+        StrictMode,
+        null,
+        createElement(
+          AuthWrapper,
+          null,
+          createElement(AuthConsumer),
+          createElement(AuthConsumer),
+        ),
+      ),
+    );
+
+    await waitFor(() =>
+      expect(screen.getAllByText("ALCHACAS")).toHaveLength(2),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("does not trust a forged legacy localStorage session", async () => {
@@ -89,7 +136,7 @@ describe("server-authoritative auth state", () => {
       vi.fn().mockResolvedValue(response({ ok: false, error: "unauthorized" }, 401)),
     );
 
-    const { result } = renderHook(() => useAuth());
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.isAuthenticated).toBe(false);
@@ -101,7 +148,7 @@ describe("server-authoritative auth state", () => {
       "fetch",
       vi.fn().mockResolvedValue(response({ ok: false, error: "unauthorized" }, 401)),
     );
-    const { result } = renderHook(() => useAuth());
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     act(() => {
@@ -131,8 +178,8 @@ describe("server-authoritative auth state", () => {
       }),
     );
 
-    const firstAuth = renderHook(() => useAuth());
-    const secondAuth = renderHook(() => useAuth());
+    const firstAuth = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    const secondAuth = renderHook(() => useAuth(), { wrapper: AuthProvider });
     let logoutPromise!: Promise<void>;
 
     act(() => {
@@ -166,6 +213,100 @@ describe("server-authoritative auth state", () => {
     });
   });
 
+  it("does not reuse a stale session request after the provider remounts", async () => {
+    const staleSession = deferred<Response>();
+    let sessionRequestCount = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        if (String(input) === "/api/auth/session") {
+          sessionRequestCount += 1;
+          if (sessionRequestCount === 1) return staleSession.promise;
+          return Promise.resolve(
+            response({ ok: false, error: "unauthorized" }, 401),
+          );
+        }
+        if (String(input) === "/api/auth/logout") {
+          return Promise.resolve(response({ ok: true }));
+        }
+        throw new Error(`Unexpected request: ${String(input)}`);
+      }),
+    );
+
+    const firstAuth = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    await waitFor(() => expect(sessionRequestCount).toBe(1));
+
+    await act(async () => {
+      await firstAuth.result.current.logout();
+    });
+    firstAuth.unmount();
+
+    const secondAuth = renderHook(() => useAuth(), { wrapper: AuthProvider });
+
+    await act(async () => {
+      staleSession.resolve(
+        response({
+          ok: true,
+          user: { id: "user-1", name: "ALCHACAS", role: "user" },
+          session: { authMethod: "password", expiresAt: Date.now() + 60_000 },
+        }),
+      );
+      await staleSession.promise;
+    });
+
+    await waitFor(() => expect(secondAuth.result.current.loading).toBe(false));
+    expect(secondAuth.result.current.isAuthenticated).toBe(false);
+    expect(secondAuth.result.current.user).toBeNull();
+    expect(sessionRequestCount).toBe(2);
+  });
+
+  it("does not reuse a stale session request on refresh after logout", async () => {
+    vi.useFakeTimers();
+    const staleSession = deferred<Response>();
+    let sessionRequestCount = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        if (String(input) === "/api/auth/session") {
+          sessionRequestCount += 1;
+          if (sessionRequestCount === 1) return staleSession.promise;
+          return Promise.resolve(
+            response({ ok: false, error: "unauthorized" }, 401),
+          );
+        }
+        if (String(input) === "/api/auth/logout") {
+          return Promise.resolve(response({ ok: true }));
+        }
+        throw new Error(`Unexpected request: ${String(input)}`);
+      }),
+    );
+
+    const auth = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    expect(sessionRequestCount).toBe(1);
+
+    await act(async () => {
+      await auth.result.current.logout();
+      vi.advanceTimersByTime(5 * 60 * 1000);
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      staleSession.resolve(
+        response({
+          ok: true,
+          user: { id: "user-1", name: "ALCHACAS", role: "user" },
+          session: { authMethod: "password", expiresAt: Date.now() + 60_000 },
+        }),
+      );
+      await staleSession.promise;
+      await Promise.resolve();
+    });
+
+    expect(auth.result.current.isAuthenticated).toBe(false);
+    expect(auth.result.current.user).toBeNull();
+    expect(sessionRequestCount).toBe(2);
+  });
+
   it("clears the stored password hash as soon as logout begins", async () => {
     const pendingSession = deferred<Response>();
     const pendingLogout = deferred<Response>();
@@ -182,7 +323,7 @@ describe("server-authoritative auth state", () => {
       }),
     );
     localStorage.setItem("pricemaster_user_phash", "stored-hash");
-    const { result } = renderHook(() => useAuth());
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
     let logoutPromise!: Promise<void>;
 
     act(() => {
@@ -194,6 +335,13 @@ describe("server-authoritative auth state", () => {
     await act(async () => {
       pendingLogout.resolve(response({ ok: true }));
       await logoutPromise;
+    });
+
+    await act(async () => {
+      pendingSession.resolve(
+        response({ ok: false, error: "unauthorized" }, 401),
+      );
+      await pendingSession.promise;
     });
   });
 });

@@ -1,6 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import type { User } from "@/types/firestore";
 import { normalizeUserPermissions } from "@/utils/permissions";
 import { UsersService } from "@/services/users";
@@ -29,6 +38,11 @@ interface AuthStateDetail {
   expiresAt: number | null;
 }
 
+interface ServerSessionResult {
+  ok: boolean;
+  payload: ServerSessionPayload | null;
+}
+
 function normalizedUser(user: User): User {
   return {
     ...user,
@@ -53,8 +67,11 @@ function publishAuthState(detail: AuthStateDetail): void {
   );
 }
 
-export function useAuth() {
+function useAuthState() {
   const sessionCheckGeneration = useRef(0);
+  const sessionRequestInFlight = useRef<Promise<ServerSessionResult> | null>(
+    null,
+  );
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -68,21 +85,50 @@ export function useAuth() {
     if (!detail.user) setSessionWarning(false);
   }, []);
 
-  const checkExistingSession = useCallback(async () => {
-    const requestGeneration = ++sessionCheckGeneration.current;
-    try {
-      const response = await fetch("/api/auth/session", {
+  const invalidateSessionChecks = useCallback(() => {
+    sessionCheckGeneration.current += 1;
+    sessionRequestInFlight.current = null;
+  }, []);
+
+  const requestServerSession = useCallback((): Promise<ServerSessionResult> => {
+    if (!sessionRequestInFlight.current) {
+      const request = fetch("/api/auth/session", {
         method: "GET",
         credentials: "same-origin",
         cache: "no-store",
-      });
-      const payload = (await response.json().catch(() => null)) as
-        | ServerSessionPayload
-        | null;
+      }).then(async (response) => ({
+        ok: response.ok,
+        payload: (await response.json().catch(() => null)) as
+          | ServerSessionPayload
+          | null,
+      }));
+
+      sessionRequestInFlight.current = request;
+      void request.then(
+        () => {
+          if (sessionRequestInFlight.current === request) {
+            sessionRequestInFlight.current = null;
+          }
+        },
+        () => {
+          if (sessionRequestInFlight.current === request) {
+            sessionRequestInFlight.current = null;
+          }
+        },
+      );
+    }
+
+    return sessionRequestInFlight.current;
+  }, []);
+
+  const checkExistingSession = useCallback(async () => {
+    const requestGeneration = ++sessionCheckGeneration.current;
+    try {
+      const { ok, payload } = await requestServerSession();
       if (requestGeneration !== sessionCheckGeneration.current) return;
       clearLegacyAuthState();
 
-      if (!response.ok || !payload?.ok || !payload.user) {
+      if (!ok || !payload?.ok || !payload.user) {
         applyAuthState({ user: null, expiresAt: null });
         return;
       }
@@ -100,24 +146,27 @@ export function useAuth() {
         setLoading(false);
       }
     }
-  }, [applyAuthState]);
+  }, [applyAuthState, requestServerSession]);
 
   useEffect(() => {
     void checkExistingSession();
     const refresh = () => void checkExistingSession();
     const interval = window.setInterval(refresh, 5 * 60 * 1000);
-    return () => window.clearInterval(interval);
+    return () => {
+      sessionCheckGeneration.current += 1;
+      window.clearInterval(interval);
+    };
   }, [checkExistingSession]);
 
   useEffect(() => {
     const handleAuthState = (event: Event) => {
-      sessionCheckGeneration.current += 1;
+      invalidateSessionChecks();
       applyAuthState((event as CustomEvent<AuthStateDetail>).detail);
       setLoading(false);
     };
     window.addEventListener(AUTH_STATE_EVENT, handleAuthState);
     return () => window.removeEventListener(AUTH_STATE_EVENT, handleAuthState);
-  }, [applyAuthState]);
+  }, [applyAuthState, invalidateSessionChecks]);
 
   useEffect(() => {
     if (!isAuthenticated || !user?.id) return;
@@ -133,7 +182,7 @@ export function useAuth() {
 
   const logout = useCallback(async (_reason?: string) => {
     void _reason;
-    sessionCheckGeneration.current += 1;
+    invalidateSessionChecks();
     clearLegacyAuthState();
     localStorage.removeItem("pricemaster_user_phash");
     const next = { user: null, expiresAt: null };
@@ -150,7 +199,7 @@ export function useAuth() {
       // El estado local se limpia aunque la red falle; la cookie sigue siendo
       // la autoridad y se volverá a comprobar en la siguiente carga.
     }
-  }, [applyAuthState]);
+  }, [applyAuthState, invalidateSessionChecks]);
 
   useEffect(() => {
     return subscribeToVersionDoc((snapshot) => {
@@ -188,6 +237,7 @@ export function useAuth() {
     (userData: User, _keepActive = false, _useTokens = false) => {
       void _keepActive;
       void _useTokens;
+      invalidateSessionChecks();
       clearLegacyAuthState();
       const safeUser = normalizedUser(userData);
       const role = safeUser.role || "user";
@@ -198,7 +248,7 @@ export function useAuth() {
       publishAuthState(next);
       setLoading(false);
     },
-    [applyAuthState],
+    [applyAuthState, invalidateSessionChecks],
   );
 
   const getSessionTimeLeft = useCallback(() => {
@@ -247,4 +297,21 @@ export function useAuth() {
     getSessionType,
     getFormattedTimeLeft,
   };
+}
+
+type AuthContextValue = ReturnType<typeof useAuthState>;
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const auth = useAuthState();
+  return createElement(AuthContext.Provider, { value: auth }, children);
+}
+
+export function useAuth(): AuthContextValue {
+  const auth = useContext(AuthContext);
+  if (!auth) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return auth;
 }

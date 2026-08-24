@@ -3,7 +3,7 @@
 import React from "react";
 import { usePathname } from "next/navigation";
 import { Footer } from "../layout";
-import { useAuth } from "@/hooks/useAuth";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { isPublicRoute } from "./publicRoutes";
 import LoginModal from "./LoginModal";
 
@@ -11,7 +11,7 @@ interface AuthWrapperProps {
   children: React.ReactNode;
 }
 
-export default function AuthWrapper({ children }: AuthWrapperProps) {
+function AuthGuard({ children }: AuthWrapperProps) {
   const { user, isAuthenticated, loading, login } = useAuth();
   const pathname = usePathname();
   const publicRoute = isPublicRoute(pathname);
@@ -47,4 +47,12 @@ export default function AuthWrapper({ children }: AuthWrapperProps) {
   }
 
   return <>{children}</>;
+}
+
+export default function AuthWrapper({ children }: AuthWrapperProps) {
+  return (
+    <AuthProvider>
+      <AuthGuard>{children}</AuthGuard>
+    </AuthProvider>
+  );
 }
