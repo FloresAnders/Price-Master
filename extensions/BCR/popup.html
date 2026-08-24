@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Comprobantes BCR Tucán</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <div>
+      <h1>TimeMaster · BCR Tucán</h1>
+      <p>Comprobantes detectados al imprimir</p>
+    </div>
+    <span id="contador">0</span>
+  </header>
+
+  <main>
+    <div class="status ok">Detector activo para ventanas impresas de BCR.</div>
+
+    <section class="sync-panel" aria-labelledby="sync-title">
+      <div class="sync-heading">
+        <div>
+          <h2 id="sync-title">Sincronización con TimeMaster</h2>
+          <p id="sync-status">Comprobando cola…</p>
+        </div>
+        <span id="sync-indicator" class="sync-indicator">Sin configurar</span>
+      </div>
+
+      <div class="settings-grid">
+        <label for="api-url">
+          URL de TimeMaster
+          <input id="api-url" type="url" value="https://www.timemaster.es" autocomplete="url" spellcheck="false">
+        </label>
+        <label for="device-token">
+          Token del dispositivo
+          <input id="device-token" type="password" placeholder="tm_bcr_…" autocomplete="off" spellcheck="false">
+        </label>
+        <button id="guardar-config" type="button" class="primary">Guardar conexión</button>
+      </div>
+      <p id="config-message" class="config-message" aria-live="polite"></p>
+    </section>
+
+    <div class="toolbar">
+      <button id="limpiar" type="button" class="danger">Limpiar lista local</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Hora</th>
+            <th class="right">Monto</th>
+          </tr>
+        </thead>
+        <tbody id="comprobantes"></tbody>
+      </table>
+      <div id="vacio" class="empty">Todavía no hay comprobantes detectados.</div>
+    </div>
+  </main>
+
+  <dialog id="connection-password-dialog" class="password-dialog" aria-labelledby="connection-password-title">
+    <form id="connection-password-form" method="dialog">
+      <h2 id="connection-password-title">Autorizar conexión</h2>
+      <p>Ingresa la contraseña para guardar esta configuración.</p>
+      <label for="connection-password">
+        Contraseña
+        <input id="connection-password" type="password" autocomplete="off" required>
+      </label>
+      <p id="connection-password-error" class="password-error" aria-live="polite"></p>
+      <div class="dialog-actions">
+        <button id="cancelar-password" type="button">Cancelar</button>
+        <button type="submit" class="primary">Confirmar y guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="sync-core.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

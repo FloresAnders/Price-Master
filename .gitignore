@@ -42,6 +42,8 @@ yarn-error.log*
 !AGENTS.md
 !skills/
 !skills/**
+!extensions/BCR/README.md
+!extensions/BCR/CREAR_TOKENS.md
 
 
 # Firebase Admin SDK credentials

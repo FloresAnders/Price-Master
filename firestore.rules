@@ -675,6 +675,16 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // BCR integration data is server-only. Route Handlers use Firebase Admin
+    // and are not affected by client security rules.
+    match /bcrIntegrationDevices/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /bcrReceipts/{document=**} {
+      allow read, write: if false;
+    }
+
     // WebAuthn credentials, one-time ceremonies and app sessions are
     // exclusively managed by server Route Handlers through Firebase Admin.
     match /passkeyUsers/{document=**} {
@@ -710,6 +720,8 @@ service cloud.firestore {
         collection != 'internalDebts' &&
         collection != 'genteCrystalIntegrationDevices' &&
         collection != 'genteCrystalSales' &&
+        collection != 'bcrIntegrationDevices' &&
+        collection != 'bcrReceipts' &&
         collection != 'passkeyUsers' &&
         collection != 'passkeys' &&
         collection != 'webauthnCeremonies' &&
