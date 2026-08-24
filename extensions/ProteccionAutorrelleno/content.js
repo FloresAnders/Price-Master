@@ -97,7 +97,7 @@
         <p>Esta pagina tiene campos de usuario y contrasena. Ingresa la contrasena de la extension para permitir el autorrelleno.</p>
         <label>
           Contrasena de la extension
-          <input id="password" type="password" autocomplete="off" autofocus>
+          <input id="password" type="text" autocomplete="one-time-code" autofocus>
         </label>
         <div id="error" class="error" aria-live="polite"></div>
         <div class="actions">
@@ -108,13 +108,14 @@
 
     const form = wrapper.querySelector("form");
     const input = wrapper.querySelector("#password");
+    const secretInput = core.createMaskedSecretInput(input);
     const error = wrapper.querySelector("#error");
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       error.textContent = "";
-      const ok = await gate.attemptUnlock(input.value);
+      const ok = await gate.attemptUnlock(secretInput.getValue());
       if (!ok) {
-        input.value = "";
+        secretInput.clear();
         error.textContent = "Contrasena incorrecta.";
         input.focus();
         return;

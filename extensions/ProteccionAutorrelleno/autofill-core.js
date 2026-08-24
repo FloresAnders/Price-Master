@@ -98,6 +98,66 @@
     );
   }
 
+  function createMaskedSecretInput(input) {
+    let secret = "";
+
+    input.type = "text";
+    input.autocomplete = "one-time-code";
+    input.spellcheck = false;
+    input.setAttribute("autocapitalize", "off");
+    input.setAttribute("data-1p-ignore", "true");
+    input.setAttribute("data-lpignore", "true");
+    input.value = "";
+
+    function selection() {
+      const start = Math.min(input.selectionStart ?? secret.length, secret.length);
+      const end = Math.min(input.selectionEnd ?? start, secret.length);
+      return { start, end };
+    }
+
+    function render(caret = secret.length) {
+      input.value = "•".repeat(secret.length);
+      input.setSelectionRange(caret, caret);
+    }
+
+    function replaceSelection(replacement) {
+      const { start, end } = selection();
+      secret = `${secret.slice(0, start)}${replacement}${secret.slice(end)}`;
+      render(start + replacement.length);
+    }
+
+    input.addEventListener("beforeinput", (event) => {
+      if (event.inputType === "insertText" && event.data !== null) {
+        event.preventDefault();
+        replaceSelection(event.data);
+        return;
+      }
+
+      if (event.inputType === "deleteContentBackward") {
+        event.preventDefault();
+        const { start, end } = selection();
+        const deleteFrom = start === end ? Math.max(0, start - 1) : start;
+        secret = `${secret.slice(0, deleteFrom)}${secret.slice(end)}`;
+        render(deleteFrom);
+      }
+    });
+
+    input.addEventListener("paste", (event) => {
+      event.preventDefault();
+      replaceSelection(event.clipboardData?.getData("text") || "");
+    });
+
+    return {
+      clear() {
+        secret = "";
+        render();
+      },
+      getValue() {
+        return secret;
+      },
+    };
+  }
+
   function getCrypto() {
     const cryptoApi = global.crypto;
     if (!cryptoApi?.subtle) {
@@ -195,6 +255,7 @@
   const api = {
     DEFAULT_SETTINGS,
     canDisableProtection,
+    createMaskedSecretInput,
     createPasswordRecord,
     detectCredentialFields,
     matchesProtectedUrl,

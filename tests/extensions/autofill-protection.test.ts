@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   canDisableProtection,
+  createMaskedSecretInput,
   createPasswordRecord,
   detectCredentialFields,
   matchesProtectedUrl,
@@ -13,6 +14,68 @@ import {
 } from "../../extensions/ProteccionAutorrelleno/autofill-core.js";
 
 describe("autofill protection core", () => {
+  it("captura la clave maestra sin exponer un campo de contrasena al autorrelleno", () => {
+    const input = document.createElement("input");
+    input.type = "password";
+    document.body.replaceChildren(input);
+
+    const secret = createMaskedSecretInput(input);
+    const typed = new InputEvent("beforeinput", {
+      bubbles: true,
+      cancelable: true,
+      data: "clave-segura",
+      inputType: "insertText",
+    });
+
+    expect(input.dispatchEvent(typed)).toBe(false);
+    expect(input.type).toBe("text");
+    expect(input.autocomplete).toBe("one-time-code");
+    expect(input.value).toBe("•".repeat(12));
+    expect(secret.getValue()).toBe("clave-segura");
+
+    secret.clear();
+    expect(input.value).toBe("");
+    expect(secret.getValue()).toBe("");
+  });
+
+  it("permite corregir la clave maestra enmascarada", () => {
+    const input = document.createElement("input");
+    document.body.replaceChildren(input);
+    const secret = createMaskedSecretInput(input);
+
+    input.dispatchEvent(
+      new InputEvent("beforeinput", {
+        bubbles: true,
+        cancelable: true,
+        data: "claveX",
+        inputType: "insertText",
+      }),
+    );
+    const deleted = new InputEvent("beforeinput", {
+      bubbles: true,
+      cancelable: true,
+      inputType: "deleteContentBackward",
+    });
+
+    expect(input.dispatchEvent(deleted)).toBe(false);
+    expect(input.value).toBe("•".repeat(5));
+    expect(secret.getValue()).toBe("clave");
+  });
+
+  it("permite pegar la clave maestra sin mostrarla en el DOM", () => {
+    const input = document.createElement("input");
+    document.body.replaceChildren(input);
+    const secret = createMaskedSecretInput(input);
+    const pasted = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(pasted, "clipboardData", {
+      value: { getData: () => "clave-pegada" },
+    });
+
+    expect(input.dispatchEvent(pasted)).toBe(false);
+    expect(input.value).toBe("•".repeat(12));
+    expect(secret.getValue()).toBe("clave-pegada");
+  });
+
   it("protege la URL configurada y sus query params sin invadir otras rutas", () => {
     const protectedUrls = [
       "https://contica.app/app/login/",
