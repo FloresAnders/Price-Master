@@ -22,6 +22,13 @@ export const MENU_CARD_THEMES: Record<
     ring: "border-cyan-400/25",
     arrow: "text-cyan-100",
   },
+  verificarInventario: {
+    glow: "from-emerald-500/15 via-transparent to-transparent",
+    iconBg: "bg-emerald-500/20",
+    iconText: "text-emerald-100",
+    ring: "border-emerald-400/25",
+    arrow: "text-emerald-100",
+  },
   calculator: {
     glow: "from-violet-500/15 via-transparent to-transparent",
     iconBg: "bg-violet-500/20",

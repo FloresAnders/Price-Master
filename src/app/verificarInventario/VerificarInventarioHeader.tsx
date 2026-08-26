@@ -68,7 +68,9 @@ export default function VerificarInventarioHeader({
             Verificar Inventario
           </h1>
           <p className="text-sm text-[var(--foreground)] opacity-80">
-            Selecciona empresa, carga XLSX, escanea y revisa resultados.
+            {hasRestrictedView
+              ? "Carga XLSX, escanea y revisa resultados."
+              : "Selecciona empresa, carga XLSX, escanea y revisa resultados."}
           </p>
           </div>
 
@@ -89,7 +91,13 @@ export default function VerificarInventarioHeader({
             onClick={onOpenScanner}
             disabled={disableScanner}
             className={`inline-flex items-center justify-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 ${hasRestrictedView ? "lg:hidden" : ""}`}
-            title={disableScanner ? "Selecciona una empresa antes de escanear." : "Abrir escáner"}
+            title={
+              disableScanner
+                ? hasRestrictedView
+                  ? "Carga un XLSX antes de escanear."
+                  : "Selecciona una empresa antes de escanear."
+                : "Abrir escáner"
+            }
           >
             <ScanLine className="h-4 w-4" />
             Abrir escáner
@@ -116,7 +124,13 @@ export default function VerificarInventarioHeader({
                 onClick={() => fileInputRef.current?.click()}
                 disabled={disableUpload}
                 className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                title={disableUpload ? "Selecciona una empresa antes de cargar el XLSX." : "Cargar archivo XLSX"}
+                title={
+                  disableUpload
+                    ? hasRestrictedView
+                      ? "Carga no disponible."
+                      : "Selecciona una empresa antes de cargar el XLSX."
+                    : "Cargar archivo XLSX"
+                }
               >
                 <FileSpreadsheet className="h-4 w-4" />
                 Cargar .xlsx
@@ -204,7 +218,7 @@ export default function VerificarInventarioHeader({
             <ListChecks className="h-4 w-4" />
             Listar productos
           </button>
-          {!hasSelectedEmpresa ? (
+          {!hasSelectedEmpresa && !hasRestrictedView ? (
             <span className="text-xs text-amber-600">
               Selecciona una empresa para activar modos y carga.
             </span>

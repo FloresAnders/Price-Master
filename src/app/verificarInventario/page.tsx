@@ -207,7 +207,8 @@ function normalizeCode(value: string): string {
 }
 
 export default function VerificarInventarioPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const hasRestrictedView = user?.role !== "admin" && user?.role !== "superadmin";
   const { showToast } = useToast();
   const [state, setState] = useState<VerificarInventarioState>(EMPTY_STATE);
   const [loading, setLoading] = useState(true);
@@ -246,6 +247,23 @@ export default function VerificarInventarioPage() {
   const lastListedCodeRef = useRef<string | null>(null);
   const lastListedAtRef = useRef<number>(0);
   const processingListedCodesRef = useRef<Set<string>>(new Set());
+  const assignedEmpresaName = hasRestrictedView
+    ? user?.ownercompanie?.trim() ?? ""
+    : "";
+  const assignedEmpresaId = assignedEmpresaName
+    ? state.empresas.find(
+        (empresa) =>
+          empresa.nombre.trim().toLowerCase() ===
+          assignedEmpresaName.toLowerCase(),
+      )?.id ?? null
+    : null;
+  const selectedEmpresaId = hasRestrictedView
+    ? user
+      ? assignedEmpresaName
+        ? assignedEmpresaId
+        : state.selectedEmpresaId ?? state.empresas[0]?.id ?? null
+      : null
+    : state.selectedEmpresaId;
 
   const copyTextToClipboard = async (text: string) => {
     if (navigator.clipboard?.writeText) {
@@ -409,7 +427,7 @@ export default function VerificarInventarioPage() {
     detectionMethod,
   } = useBarcodeScanner(
     (foundCode) => {
-      const empresaId = state.selectedEmpresaId;
+      const empresaId = selectedEmpresaId;
       if (!empresaId) {
         setError("Selecciona una empresa antes de escanear.");
         clearDetection();
@@ -512,24 +530,24 @@ export default function VerificarInventarioPage() {
   }, []);
 
   const selectedEmpresa = useMemo(() => {
-    if (!state.selectedEmpresaId) return null;
-    return state.empresas.find((empresa) => empresa.id === state.selectedEmpresaId) ?? null;
-  }, [state.empresas, state.selectedEmpresaId]);
+    if (!selectedEmpresaId) return null;
+    return state.empresas.find((empresa) => empresa.id === selectedEmpresaId) ?? null;
+  }, [selectedEmpresaId, state.empresas]);
 
   const selectedEmpresaPendientes = useMemo(() => {
-    if (!state.selectedEmpresaId) return [];
-    return state.pendientesPorEmpresa[state.selectedEmpresaId] ?? [];
-  }, [state.pendientesPorEmpresa, state.selectedEmpresaId]);
+    if (!selectedEmpresaId) return [];
+    return state.pendientesPorEmpresa[selectedEmpresaId] ?? [];
+  }, [selectedEmpresaId, state.pendientesPorEmpresa]);
 
   const selectedEmpresaInventarios = useMemo(() => {
-    if (!state.selectedEmpresaId) return [];
-    return state.inventariosPorEmpresa[state.selectedEmpresaId] ?? [];
-  }, [state.inventariosPorEmpresa, state.selectedEmpresaId]);
+    if (!selectedEmpresaId) return [];
+    return state.inventariosPorEmpresa[selectedEmpresaId] ?? [];
+  }, [selectedEmpresaId, state.inventariosPorEmpresa]);
 
   const selectedEmpresaListados = useMemo(() => {
-    if (!state.selectedEmpresaId) return [];
-    return state.listadosPorEmpresa[state.selectedEmpresaId] ?? [];
-  }, [state.listadosPorEmpresa, state.selectedEmpresaId]);
+    if (!selectedEmpresaId) return [];
+    return state.listadosPorEmpresa[selectedEmpresaId] ?? [];
+  }, [selectedEmpresaId, state.listadosPorEmpresa]);
 
   const pendingExportText = useMemo(() => {
     if (!selectedEmpresa || selectedEmpresaPendientes.length === 0) {
@@ -582,7 +600,7 @@ export default function VerificarInventarioPage() {
   };
 
   const handleManualSearch = () => {
-    const empresaId = state.selectedEmpresaId;
+    const empresaId = selectedEmpresaId;
     if (!empresaId) {
       setManualSearchError("Selecciona una empresa antes de buscar.");
       return;
@@ -688,9 +706,9 @@ export default function VerificarInventarioPage() {
   };
 
   const handleDeleteEmpresa = async () => {
-    if (!state.selectedEmpresaId) return;
+    if (!selectedEmpresaId) return;
 
-    const deletedEmpresaId = state.selectedEmpresaId;
+    const deletedEmpresaId = selectedEmpresaId;
 
     const nextEmpresas = state.empresas.filter(
       (empresa) => empresa.id !== deletedEmpresaId,
@@ -730,7 +748,59 @@ export default function VerificarInventarioPage() {
   };
 
   const handleUploadXlsx = async (file: File) => {
-    if (!state.selectedEmpresaId) {
+    let uploadState = state;
+    let uploadEmpresaId = selectedEmpresaId;
+
+    if (hasRestrictedView) {
+      const assignedEmpresa = assignedEmpresaName
+        ? state.empresas.find(
+            (empresa) =>
+              empresa.nombre.trim().toLowerCase() ===
+              assignedEmpresaName.toLowerCase(),
+          )
+        : null;
+      const fallbackEmpresa = assignedEmpresaName
+        ? null
+        : state.empresas.find(
+            (empresa) => empresa.id === selectedEmpresaId,
+          ) ?? state.empresas[0] ?? null;
+      const uploadEmpresa = assignedEmpresa ?? fallbackEmpresa;
+
+      if (uploadEmpresa) {
+        uploadEmpresaId = uploadEmpresa.id;
+      } else {
+        uploadEmpresaId = createEmpresaId();
+        uploadState = {
+          ...state,
+          empresas: [
+            ...state.empresas,
+            {
+              id: uploadEmpresaId,
+              nombre: assignedEmpresaName || "Inventario",
+              createdAt: Date.now(),
+            },
+          ],
+          relacionesPorEmpresa: {
+            ...state.relacionesPorEmpresa,
+            [uploadEmpresaId]: [],
+          },
+          pendientesPorEmpresa: {
+            ...state.pendientesPorEmpresa,
+            [uploadEmpresaId]: [],
+          },
+          inventariosPorEmpresa: {
+            ...state.inventariosPorEmpresa,
+            [uploadEmpresaId]: [],
+          },
+          listadosPorEmpresa: {
+            ...state.listadosPorEmpresa,
+            [uploadEmpresaId]: [],
+          },
+        };
+      }
+    }
+
+    if (!uploadEmpresaId) {
       setError("Selecciona una empresa antes de cargar un archivo.");
       return;
     }
@@ -760,10 +830,10 @@ export default function VerificarInventarioPage() {
       const relaciones = parseXlsxRowsToRelaciones(rows);
 
       const nextState: VerificarInventarioState = {
-        ...state,
+        ...uploadState,
         relacionesPorEmpresa: {
-          ...state.relacionesPorEmpresa,
-          [state.selectedEmpresaId]: relaciones,
+          ...uploadState.relacionesPorEmpresa,
+          [uploadEmpresaId]: relaciones,
         },
       };
 
@@ -783,7 +853,7 @@ export default function VerificarInventarioPage() {
   };
 
   const handleSavePendingCode = async () => {
-    if (!state.selectedEmpresaId || !pendingCodigo) return;
+    if (!selectedEmpresaId || !pendingCodigo) return;
 
     const nombre = pendingNombre.trim();
     if (!nombre) {
@@ -791,7 +861,7 @@ export default function VerificarInventarioPage() {
       return;
     }
 
-    const empresaId = state.selectedEmpresaId;
+    const empresaId = selectedEmpresaId;
     const nextPending: CodigoPendiente = {
       codigoBarras: pendingCodigo,
       nombre,
@@ -826,7 +896,7 @@ export default function VerificarInventarioPage() {
   };
 
   const handleOpenManualPending = () => {
-    if (!state.selectedEmpresaId) {
+    if (!selectedEmpresaId) {
       setError("Selecciona una empresa antes de agregar un código.");
       return;
     }
@@ -840,7 +910,7 @@ export default function VerificarInventarioPage() {
   };
 
   const handleSaveManualPending = async () => {
-    if (!state.selectedEmpresaId) return;
+    if (!selectedEmpresaId) return;
 
     const codigoBarras = normalizeCode(manualPendingCodigo);
     const nombre = manualPendingNombre.trim();
@@ -855,7 +925,7 @@ export default function VerificarInventarioPage() {
       return;
     }
 
-    const empresaId = state.selectedEmpresaId;
+    const empresaId = selectedEmpresaId;
     const nextPending: CodigoPendiente = {
       codigoBarras,
       nombre,
@@ -898,9 +968,9 @@ export default function VerificarInventarioPage() {
   };
 
   const handleDeletePendings = async () => {
-    if (!state.selectedEmpresaId) return;
+    if (!selectedEmpresaId) return;
 
-    const empresaId = state.selectedEmpresaId;
+    const empresaId = selectedEmpresaId;
     const nextState: VerificarInventarioState = {
       ...state,
       pendientesPorEmpresa: {
@@ -926,9 +996,9 @@ export default function VerificarInventarioPage() {
   };
 
   const handleClearListedProducts = async () => {
-    if (!state.selectedEmpresaId) return;
+    if (!selectedEmpresaId) return;
 
-    const empresaId = state.selectedEmpresaId;
+    const empresaId = selectedEmpresaId;
     const nextState: VerificarInventarioState = {
       ...state,
       listadosPorEmpresa: {
@@ -942,7 +1012,7 @@ export default function VerificarInventarioPage() {
   };
 
   const handleSaveInventory = async () => {
-    if (!state.selectedEmpresaId || !scanNotice) return;
+    if (!selectedEmpresaId || !scanNotice) return;
 
     const inventario = inventoryCount.trim();
     if (!inventario) {
@@ -950,7 +1020,7 @@ export default function VerificarInventarioPage() {
       return;
     }
 
-    const empresaId = state.selectedEmpresaId;
+    const empresaId = selectedEmpresaId;
     const item: InventarioItem = {
       codigo: scanNotice.codigoProducto || scanNotice.codigo,
       descripcion: scanNotice.descripcion,
@@ -1029,9 +1099,9 @@ export default function VerificarInventarioPage() {
   };
 
   const handleClearInventory = async () => {
-    if (!state.selectedEmpresaId) return;
+    if (!selectedEmpresaId) return;
 
-    const empresaId = state.selectedEmpresaId;
+    const empresaId = selectedEmpresaId;
     const nextState: VerificarInventarioState = {
       ...state,
       inventariosPorEmpresa: {
@@ -1069,10 +1139,9 @@ export default function VerificarInventarioPage() {
   };
 
   const selectedEmpresaRelacionesCount =
-    state.selectedEmpresaId
-      ? state.relacionesPorEmpresa[state.selectedEmpresaId]?.length ?? 0
+    selectedEmpresaId
+      ? state.relacionesPorEmpresa[selectedEmpresaId]?.length ?? 0
       : 0;
-  const hasRestrictedView = user?.role !== "admin" && user?.role !== "superadmin";
   const showDesktopLookup =
     hasRestrictedView && selectedEmpresaRelacionesCount > 0;
 
@@ -1083,7 +1152,7 @@ export default function VerificarInventarioPage() {
   }, [showDesktopLookup]);
 
   const handleDesktopLookup = () => {
-    const empresaId = state.selectedEmpresaId;
+    const empresaId = selectedEmpresaId;
     const codigo = normalizeCode(desktopLookupCodigo);
 
     if (!empresaId || !codigo) {
@@ -1122,7 +1191,7 @@ export default function VerificarInventarioPage() {
     }, 5_000);
   };
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <section className="mx-auto w-full max-w-5xl px-4 py-8">
         <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-5 text-sm text-[var(--foreground)]">
@@ -1136,7 +1205,7 @@ export default function VerificarInventarioPage() {
     <section className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-8">
       <VerificarInventarioHeader
         empresas={state.empresas}
-        selectedEmpresaId={state.selectedEmpresaId}
+        selectedEmpresaId={selectedEmpresaId}
         inventoryMode={inventoryMode}
         listProductsMode={listProductsMode}
         onOpenAddModal={() => setIsAddOpen(true)}
@@ -1146,9 +1215,9 @@ export default function VerificarInventarioPage() {
         onSelectEmpresa={handleSelectEmpresa}
         onOpenDeleteModal={() => setIsDeleteOpen(true)}
         onUploadXlsx={handleUploadXlsx}
-        disableUpload={saving || !state.selectedEmpresaId}
-        disableScanner={!state.selectedEmpresaId}
-        hideManagementControls={listProductsMode && Boolean(state.selectedEmpresaId)}
+        disableUpload={saving || (!hasRestrictedView && !selectedEmpresaId)}
+        disableScanner={!selectedEmpresaId}
+        hideManagementControls={listProductsMode && Boolean(selectedEmpresaId)}
         userRole={user?.role ?? "user"}
       />
 
@@ -1325,7 +1394,7 @@ export default function VerificarInventarioPage() {
             <button
               type="button"
               onClick={handleOpenManualPending}
-              disabled={!state.selectedEmpresaId}
+              disabled={!selectedEmpresaId}
               className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Agregar

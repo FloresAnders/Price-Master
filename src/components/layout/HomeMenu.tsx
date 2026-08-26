@@ -24,6 +24,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   Scan,
+  ScanBarcode,
   Calculator,
   Languages,
   FileCode,
@@ -92,6 +93,14 @@ const menuItems = [
     icon: Scan,
     description: "Escanear códigos de barras",
     permission: "scanner" as keyof UserPermissions,
+  },
+  {
+    id: "verificarInventario",
+    name: "Verificar Inventario",
+    icon: ScanBarcode,
+    description: "Cargar y verificar inventario",
+    permission: "scanner" as keyof UserPermissions,
+    desktopOnly: true,
   },
   {
     id: "calculator",
@@ -306,6 +315,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const [enableHomeMenuSortMobile, setEnableHomeMenuSortMobile] =
     useState(false);
   const [showFavoritesView, setShowFavoritesView] = useState(false);
+  const [isDesktopViewport, setIsDesktopViewport] = useState(false);
   const [favoritesPreferenceHydrated, setFavoritesPreferenceHydrated] =
     useState(false);
   const [favoriteMenuIds, setFavoriteMenuIds] = useState<string[]>([]);
@@ -334,6 +344,18 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     setHomeGreeting(
       HOME_GREETINGS[Math.floor(Math.random() * HOME_GREETINGS.length)],
     );
+  }, []);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+
+    const desktopQuery = window.matchMedia("(min-width: 1024px)");
+    const syncDesktopViewport = () => setIsDesktopViewport(desktopQuery.matches);
+
+    syncDesktopViewport();
+    desktopQuery.addEventListener("change", syncDesktopViewport);
+    return () =>
+      desktopQuery.removeEventListener("change", syncDesktopViewport);
   }, []);
 
   // Resolve user permissions once for reuse
@@ -372,6 +394,11 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
 
     // Filter items based on user permissions
     return menuItems.filter((item) => {
+      if (item.id === "verificarInventario") {
+        return (
+          currentUser.role !== "admin" && currentUser.role !== "superadmin"
+        );
+      }
       if (item.id === "fondogeneral") return hasAnyFondoAccountAccess;
       const hasPermission = userPermissions[item.permission];
       return hasPermission === true;
@@ -379,6 +406,9 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   };
 
   const visibleMenuItems = getVisibleMenuItems();
+  const responsiveVisibleMenuItems = visibleMenuItems.filter(
+    (item) => !item.desktopOnly || isDesktopViewport,
+  );
 
   const homeMenuOrderStorageKey = useMemo(() => {
     if (!currentUser) return null;
@@ -658,9 +688,9 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
       .filter(Boolean) as typeof visibleMenuItems;
   }, [favoriteMenuIds, visibleMenuItems]);
 
-  const displayedMenuItems = showFavoritesView
-    ? favoriteVisibleMenuItems
-    : orderedVisibleMenuItems;
+  const displayedMenuItems = (
+    showFavoritesView ? favoriteVisibleMenuItems : orderedVisibleMenuItems
+  ).filter((item) => !item.desktopOnly || isDesktopViewport);
   const reorderEnabled = enableHomeMenuSortMobile;
 
   const sensors = useSensors(
@@ -1542,6 +1572,11 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
 
   const handleNavigate = (id: string) => {
     if (typeof window !== "undefined") {
+      if (id === "verificarInventario") {
+        window.location.href = "/verificarInventario";
+        return;
+      }
+
       // Redirigir a la ruta específica para la herramienta usando hash navigation
       // Nota: al entrar a "Recetas" se debe ir primero a "Agregar Producto".
       const target = id === "recetas" ? "agregarproducto" : id;
@@ -1702,7 +1737,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
         </button>
       </div>
 
-      {visibleMenuItems.length === 0 ? (
+      {responsiveVisibleMenuItems.length === 0 ? (
         <div className="text-center py-12">
           <div className="bg-[var(--card-bg)] border border-[var(--input-border)] rounded-xl p-8 max-w-md mx-auto">
             <Settings className="w-16 h-16 mx-auto mb-4 text-[var(--primary)]" />
@@ -1790,18 +1825,22 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
                   if (!over) return;
                   if (active.id === over.id) return;
 
-                  const oldIndex = orderedVisibleMenuItemIds.indexOf(
-                    String(active.id),
-                  );
-                  const newIndex = orderedVisibleMenuItemIds.indexOf(
-                    String(over.id),
-                  );
+                  const draggableIds = displayedMenuItems.map((item) => item.id);
+                  const oldIndex = draggableIds.indexOf(String(active.id));
+                  const newIndex = draggableIds.indexOf(String(over.id));
                   if (oldIndex < 0 || newIndex < 0) return;
 
-                  const nextOrder = arrayMove(
-                    orderedVisibleMenuItemIds,
+                  const reorderedDraggableIds = arrayMove(
+                    draggableIds,
                     oldIndex,
                     newIndex,
+                  );
+                  const draggableIdSet = new Set(draggableIds);
+                  let reorderedIndex = 0;
+                  const nextOrder = orderedVisibleMenuItemIds.map((id) =>
+                    draggableIdSet.has(id)
+                      ? reorderedDraggableIds[reorderedIndex++]
+                      : id,
                   );
                   setSavedMenuOrder(nextOrder);
                   if (!homeMenuOrderStorageKey) return;
@@ -1816,7 +1855,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
                 }}
               >
                 <SortableContext
-                  items={orderedVisibleMenuItemIds}
+                  items={displayedMenuItems.map((item) => item.id)}
                   strategy={rectSortingStrategy}
                 >
                   {displayedMenuItems.map((item) => {
@@ -1827,7 +1866,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
                         id={item.id}
                         onClick={() => handleNavigate(item.id)}
                         lastDragEndAt={lastDragEndAt}
-                        className={`home-menu-card ${theme.ring}`}
+                        className={`home-menu-card ${theme.ring} ${item.desktopOnly ? "hidden lg:block" : ""}`}
                       >
                         <div className={`home-menu-card-glow bg-gradient-to-br ${theme.glow}`} />
                         <div className="home-menu-card-body">
@@ -1854,7 +1893,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
                       key={item.id}
                       type="button"
                       onClick={() => handleNavigate(item.id)}
-                      className={`home-menu-card ${theme.ring}`}
+                      className={`home-menu-card ${theme.ring} ${item.desktopOnly ? "hidden lg:block" : ""}`}
                     >
                       <div className={`home-menu-card-glow bg-gradient-to-br ${theme.glow}`} />
                       <div className="home-menu-card-body">
