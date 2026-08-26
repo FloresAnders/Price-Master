@@ -9,6 +9,7 @@ import {
   ScanLine,
   Trash2,
 } from "lucide-react";
+import type { User } from "@/types/firestore";
 import type { Empresa } from "./verificarInventarioDb";
 
 type VerificarInventarioHeaderProps = {
@@ -26,6 +27,7 @@ type VerificarInventarioHeaderProps = {
   disableUpload: boolean;
   disableScanner: boolean;
   hideManagementControls: boolean;
+  userRole?: User["role"];
 };
 
 export default function VerificarInventarioHeader({
@@ -43,8 +45,10 @@ export default function VerificarInventarioHeader({
   disableUpload,
   disableScanner,
   hideManagementControls,
+  userRole,
 }: VerificarInventarioHeaderProps) {
   const hasSelectedEmpresa = Boolean(selectedEmpresaId);
+  const hasRestrictedView = userRole !== "admin" && userRole !== "superadmin";
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeMode = listProductsMode ? "list" : inventoryMode ? "inventory" : "verify";
   const canUseModes = hasSelectedEmpresa;
@@ -59,7 +63,7 @@ export default function VerificarInventarioHeader({
     <header className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-4 shadow-sm">
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div>
+          <div className={hasRestrictedView ? "lg:hidden" : undefined}>
           <h1 className="text-lg font-bold text-[var(--foreground)]">
             Verificar Inventario
           </h1>
@@ -69,7 +73,7 @@ export default function VerificarInventarioHeader({
           </div>
 
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:w-auto">
-          {!hideManagementControls ? (
+          {!hideManagementControls && !hasRestrictedView ? (
             <button
               type="button"
               onClick={onOpenAddModal}
@@ -84,14 +88,14 @@ export default function VerificarInventarioHeader({
             type="button"
             onClick={onOpenScanner}
             disabled={disableScanner}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className={`inline-flex items-center justify-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 ${hasRestrictedView ? "lg:hidden" : ""}`}
             title={disableScanner ? "Selecciona una empresa antes de escanear." : "Abrir escáner"}
           >
             <ScanLine className="h-4 w-4" />
             Abrir escáner
           </button>
 
-          {!hideManagementControls ? (
+          {!hideManagementControls || hasRestrictedView ? (
             <>
               <input
                 ref={fileInputRef}
@@ -120,20 +124,22 @@ export default function VerificarInventarioHeader({
             </>
           ) : null}
 
-          <select
-            value={selectedEmpresaId ?? ""}
-            onChange={(event) => onSelectEmpresa(event.target.value)}
-            className="min-w-[220px] rounded-md border border-[var(--input-border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">Selecciona una empresa</option>
-            {empresas.map((empresa) => (
-              <option key={empresa.id} value={empresa.id}>
-                {empresa.nombre}
-              </option>
-            ))}
-          </select>
+          {!hasRestrictedView ? (
+            <select
+              value={selectedEmpresaId ?? ""}
+              onChange={(event) => onSelectEmpresa(event.target.value)}
+              className="min-w-[220px] rounded-md border border-[var(--input-border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Selecciona una empresa</option>
+              {empresas.map((empresa) => (
+                <option key={empresa.id} value={empresa.id}>
+                  {empresa.nombre}
+                </option>
+              ))}
+            </select>
+          ) : null}
 
-          {hasSelectedEmpresa && !hideManagementControls ? (
+          {hasSelectedEmpresa && !hideManagementControls && !hasRestrictedView ? (
             <button
               type="button"
               onClick={onOpenDeleteModal}
@@ -146,7 +152,9 @@ export default function VerificarInventarioHeader({
           </div>
         </div>
 
-        <div className="grid gap-2 text-xs text-[var(--muted-foreground)] sm:grid-cols-4">
+        <div
+          className={`grid gap-2 text-xs text-[var(--muted-foreground)] sm:grid-cols-4 ${hasRestrictedView ? "lg:hidden" : ""}`}
+        >
           {["1. Empresa", "2. XLSX", "3. Escanear", "4. Revisar"].map((step) => (
             <div
               key={step}
@@ -157,7 +165,9 @@ export default function VerificarInventarioHeader({
           ))}
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <div
+          className={`flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center ${hasRestrictedView ? "lg:hidden" : ""}`}
+        >
           {activeMode !== "verify" ? (
             <button
               type="button"

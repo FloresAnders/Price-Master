@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 import CameraScanner from "./CameraScanner";
+import PendingCodeOverlay from "./PendingCodeOverlay";
+import ScanNoticeOverlay from "./ScanNoticeOverlay";
 
 type ScannerModalProps = {
   open: boolean;
@@ -90,7 +92,7 @@ export default function ScannerModal({
   onManualSearch,
 }: ScannerModalProps) {
   useEffect(() => {
-    if (!open && !manualAddOpen) return;
+    if (!open && !manualAddOpen && !pendingCodigo) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
@@ -101,14 +103,29 @@ export default function ScannerModal({
         return;
       }
 
-      onClose();
+      if (open) {
+        onClose();
+        return;
+      }
+
+      if (pendingCodigo) {
+        onPendingCancel();
+        return;
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [manualAddOpen, onClose, onManualPendingClose, open]);
+  }, [
+    manualAddOpen,
+    onClose,
+    onManualPendingClose,
+    onPendingCancel,
+    open,
+    pendingCodigo,
+  ]);
 
-  if (!open && !manualAddOpen) return null;
+  if (!open && !manualAddOpen && !pendingCodigo) return null;
 
   const scannerOverlay = open ? (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6 backdrop-blur-sm">
@@ -182,145 +199,73 @@ export default function ScannerModal({
         </div>
       </div>
 
-      {scanNotice ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-2xl border border-emerald-400/30 bg-slate-950 p-6 text-white shadow-2xl">
-            <p className="text-sm uppercase tracking-[0.25em] text-emerald-300">
-              {scanNotice.variant === "found"
-                ? "Código encontrado"
-                : scanNotice.variant === "duplicate"
-                  ? "Ya escaneado"
-                  : "Agregado"}
-            </p>
-            <h3 className="mt-2 text-xl font-semibold">
-              {scanNotice.variant === "found"
-                ? scanNotice.descripcion
-                : scanNotice.variant === "duplicate"
-                  ? "Ya escaneado"
-                  : "Agregado"}
-            </h3>
-            {scanNotice.precioVenta && scanNotice.variant === "found" ? (
-              <p className="mt-3 text-lg font-semibold text-emerald-200">
-                Precio de venta: {scanNotice.precioVenta}
-              </p>
-            ) : null}
-            <p className="mt-3 text-sm text-slate-300">
-              Código: {scanNotice.codigoProducto || scanNotice.codigo}
-            </p>
-            {scanNotice.variant === "added" ? (
-              <p className="mt-2 text-sm text-emerald-200">
-                Código agregado a la lista. Escanea otro código o cierra el escáner.
-              </p>
-            ) : null}
-            {scanNotice.variant === "duplicate" ? (
-              <p className="mt-2 text-sm text-amber-200">
-                Este código ya fue escaneado. Escanea otro código.
-              </p>
-            ) : null}
-            {scanNotice.codigoBarras ? (
-              <p className="mt-1 text-sm text-slate-300">
-                Código de barras: {scanNotice.codigoBarras}
-              </p>
-            ) : null}
-            {inventoryMode && scanNotice.variant === "found" ? (
-              <div className="mt-5">
-                <label className="block text-sm font-medium text-slate-100">
-                  Cantidad en inventario
-                </label>
-                <input
-                  value={inventoryCount}
-                  onChange={(event) => onInventoryCountChange(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      onInventorySave();
-                    }
-                  }}
-                  className="mt-2 w-full rounded-md border border-emerald-400/30 bg-slate-900 px-3 py-2 text-sm text-white outline-none"
-                  inputMode="decimal"
-                  autoFocus
-                />
-                {inventoryError ? (
-                  <p className="mt-2 text-sm text-red-300">{inventoryError}</p>
-                ) : null}
-                <div className="mt-4 flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={onInventoryCancel}
-                    className="rounded-md border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-800"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onInventorySave}
-                    className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
-                  >
-                    Guardar
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-
-      {pendingCodigo ? (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-md rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)] p-6 shadow-2xl">
-            <h3 className="text-lg font-semibold text-[var(--foreground)]">
-              Guardar en pendientes
-            </h3>
-            <p className="mt-2 text-sm opacity-70">{pendingCodigo}</p>
-            <p className="mt-2 text-sm opacity-70">
-              No encontramos este código. Escribe el nombre para guardarlo como pendiente.
-            </p>
-
-            <label className="mt-4 block text-sm font-medium text-[var(--foreground)]">
-              Nombre del producto
+      <ScanNoticeOverlay scanNotice={scanNotice}>
+        {inventoryMode && scanNotice?.variant === "found" ? (
+          <div className="mt-5">
+            <label className="block text-sm font-medium text-slate-100">
+              Cantidad en inventario
             </label>
             <input
-              value={pendingNombre}
-              onChange={(event) => onPendingNombreChange(event.target.value)}
+              value={inventoryCount}
+              onChange={(event) => onInventoryCountChange(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   event.preventDefault();
-                  onPendingSave();
+                  onInventorySave();
                 }
               }}
-              className="mt-2 w-full rounded-md border border-[var(--input-border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none"
-              placeholder="Nombre para identificar el producto"
+              className="mt-2 w-full rounded-md border border-emerald-400/30 bg-slate-900 px-3 py-2 text-sm text-white outline-none"
+              inputMode="decimal"
+              autoFocus
             />
-
-            {pendingError ? (
-              <div className="mt-2 text-sm text-red-500">{pendingError}</div>
+            {inventoryError ? (
+              <p className="mt-2 text-sm text-red-300">{inventoryError}</p>
             ) : null}
-
-            <div className="mt-5 flex justify-end gap-2">
+            <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={onPendingCancel}
-                className="rounded-md border border-[var(--input-border)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] hover:bg-black/5"
+                onClick={onInventoryCancel}
+                className="rounded-md border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-slate-800"
               >
                 Cancelar
               </button>
               <button
                 type="button"
-                onClick={onPendingSave}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                onClick={onInventorySave}
+                className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
               >
                 Guardar
               </button>
             </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </ScanNoticeOverlay>
+
+      <PendingCodeOverlay
+        codigo={pendingCodigo}
+        nombre={pendingNombre}
+        error={pendingError}
+        onNombreChange={onPendingNombreChange}
+        onCancel={onPendingCancel}
+        onSave={onPendingSave}
+      />
     </div>
   ) : null;
 
   return (
     <>
       {scannerOverlay}
+
+      {!open ? (
+        <PendingCodeOverlay
+          codigo={pendingCodigo}
+          nombre={pendingNombre}
+          error={pendingError}
+          onNombreChange={onPendingNombreChange}
+          onCancel={onPendingCancel}
+          onSave={onPendingSave}
+        />
+      ) : null}
 
       {manualAddOpen ? (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 px-4">

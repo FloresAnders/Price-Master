@@ -5,6 +5,8 @@ import AddEmpresaModal from "./AddEmpresaModal";
 import DeleteEmpresaModal from "./DeleteEmpresaModal";
 import VerificarInventarioHeader from "./VerificarInventarioHeader";
 import ScannerModal from "./ScannerModal";
+import ScanNoticeOverlay, { type ScanNoticeState } from "./ScanNoticeOverlay";
+import { useAuth } from "@/hooks/useAuth";
 import useToast from "@/hooks/useToast";
 import { useBarcodeScanner } from "./useBarcodeScanner";
 import type {
@@ -54,15 +56,6 @@ const EMPTY_STATE: VerificarInventarioState = {
 };
 
 const LISTAR_PRODUCTOS_STORAGE_KEY = "listar productos";
-
-type ScanNoticeState = {
-  variant: "found" | "added" | "duplicate";
-  codigo: string;
-  codigoProducto?: string;
-  codigoBarras?: string;
-  descripcion: string;
-  precioVenta?: string;
-};
 
 function normalizeHeader(value: unknown): string {
   return String(value ?? "")
@@ -214,6 +207,7 @@ function normalizeCode(value: string): string {
 }
 
 export default function VerificarInventarioPage() {
+  const { user } = useAuth();
   const { showToast } = useToast();
   const [state, setState] = useState<VerificarInventarioState>(EMPTY_STATE);
   const [loading, setLoading] = useState(true);
@@ -239,8 +233,15 @@ export default function VerificarInventarioPage() {
   const [manualPendingError, setManualPendingError] = useState<string | null>(null);
   const [manualSearchCodigo, setManualSearchCodigo] = useState("");
   const [manualSearchError, setManualSearchError] = useState<string | null>(null);
+  const [desktopLookupCodigo, setDesktopLookupCodigo] = useState("");
+  const [desktopLookupError, setDesktopLookupError] = useState<string | null>(null);
+  const [desktopLookupNotice, setDesktopLookupNotice] =
+    useState<ScanNoticeState | null>(null);
   const [listStatus, setListStatus] = useState<string | null>(null);
   const scanNoticeTimerRef = useRef<number | null>(null);
+  const desktopLookupTimerRef = useRef<number | null>(null);
+  const desktopLookupInputRef = useRef<HTMLInputElement>(null);
+  const pendingSourceRef = useRef<"desktop" | "scanner" | null>(null);
   const stateRef = useRef<VerificarInventarioState>(EMPTY_STATE);
   const lastListedCodeRef = useRef<string | null>(null);
   const lastListedAtRef = useRef<number>(0);
@@ -272,6 +273,13 @@ export default function VerificarInventarioPage() {
     }
   };
 
+  const clearDesktopLookupTimer = () => {
+    if (desktopLookupTimerRef.current !== null) {
+      window.clearTimeout(desktopLookupTimerRef.current);
+      desktopLookupTimerRef.current = null;
+    }
+  };
+
   const findRelacionByCode = (empresaId: string, codigo: string) => {
     const normalized = normalizeCode(codigo);
     return state.relacionesPorEmpresa[empresaId]?.find((item) => {
@@ -284,6 +292,7 @@ export default function VerificarInventarioPage() {
 
   const showFoundCode = (codigo: string, relacion: RelacionProducto) => {
     clearScanNoticeTimer();
+    pendingSourceRef.current = null;
     setPendingCodigo(null);
     setPendingNombre("");
     setPendingError(null);
@@ -308,6 +317,7 @@ export default function VerificarInventarioPage() {
 
   const showAddedCode = (codigo: string) => {
     clearScanNoticeTimer();
+    pendingSourceRef.current = null;
     setPendingCodigo(null);
     setPendingNombre("");
     setPendingError(null);
@@ -423,6 +433,7 @@ export default function VerificarInventarioPage() {
 
       clearScanNoticeTimer();
       setScanNotice(null);
+      pendingSourceRef.current = "scanner";
       setPendingCodigo(codigo);
       setPendingNombre("");
       setPendingError(null);
@@ -496,6 +507,7 @@ export default function VerificarInventarioPage() {
   useEffect(() => {
     return () => {
       clearScanNoticeTimer();
+      clearDesktopLookupTimer();
     };
   }, []);
 
@@ -550,6 +562,7 @@ export default function VerificarInventarioPage() {
 
   const closeScannerModal = () => {
     setIsScannerOpen(false);
+    pendingSourceRef.current = null;
     setPendingCodigo(null);
     setPendingNombre("");
     setPendingError(null);
@@ -599,6 +612,7 @@ export default function VerificarInventarioPage() {
 
     clearScanNoticeTimer();
     setScanNotice(null);
+    pendingSourceRef.current = "scanner";
     setPendingCodigo(codigo);
     setPendingNombre("");
     setPendingError(null);
@@ -756,6 +770,7 @@ export default function VerificarInventarioPage() {
       await saveVerificarInventarioState(nextState);
       setState(nextState);
       setLastImportCount(relaciones.length);
+      window.setTimeout(() => desktopLookupInputRef.current?.focus(), 0);
     } catch (uploadError) {
       const message =
         uploadError instanceof Error
@@ -799,10 +814,15 @@ export default function VerificarInventarioPage() {
       },
     };
 
+    const restoreDesktopFocus = pendingSourceRef.current === "desktop";
     await persistState(nextState);
+    pendingSourceRef.current = null;
     setPendingCodigo(null);
     setPendingNombre("");
     setPendingError(null);
+    if (restoreDesktopFocus) {
+      window.setTimeout(() => desktopLookupInputRef.current?.focus(), 0);
+    }
   };
 
   const handleOpenManualPending = () => {
@@ -1052,6 +1072,55 @@ export default function VerificarInventarioPage() {
     state.selectedEmpresaId
       ? state.relacionesPorEmpresa[state.selectedEmpresaId]?.length ?? 0
       : 0;
+  const hasRestrictedView = user?.role !== "admin" && user?.role !== "superadmin";
+  const showDesktopLookup =
+    hasRestrictedView && selectedEmpresaRelacionesCount > 0;
+
+  useEffect(() => {
+    if (showDesktopLookup) {
+      desktopLookupInputRef.current?.focus();
+    }
+  }, [showDesktopLookup]);
+
+  const handleDesktopLookup = () => {
+    const empresaId = state.selectedEmpresaId;
+    const codigo = normalizeCode(desktopLookupCodigo);
+
+    if (!empresaId || !codigo) {
+      setDesktopLookupError("Ingresa un código para buscar.");
+      desktopLookupInputRef.current?.focus();
+      return;
+    }
+
+    setDesktopLookupCodigo("");
+    const relacion = findRelacionByCode(empresaId, codigo);
+    if (!relacion) {
+      clearDesktopLookupTimer();
+      setDesktopLookupNotice(null);
+      setDesktopLookupError(null);
+      pendingSourceRef.current = "desktop";
+      setPendingCodigo(codigo);
+      setPendingNombre("");
+      setPendingError(null);
+      return;
+    }
+
+    clearDesktopLookupTimer();
+    setDesktopLookupError(null);
+    setDesktopLookupNotice({
+      variant: "found",
+      codigo,
+      codigoProducto: relacion.codigo,
+      codigoBarras: relacion.codigoBarras,
+      descripcion: relacion.descripcion,
+      precioVenta: relacion.precioVenta,
+    });
+    desktopLookupTimerRef.current = window.setTimeout(() => {
+      setDesktopLookupNotice(null);
+      desktopLookupTimerRef.current = null;
+      desktopLookupInputRef.current?.focus();
+    }, 5_000);
+  };
 
   if (loading) {
     return (
@@ -1080,7 +1149,45 @@ export default function VerificarInventarioPage() {
         disableUpload={saving || !state.selectedEmpresaId}
         disableScanner={!state.selectedEmpresaId}
         hideManagementControls={listProductsMode && Boolean(state.selectedEmpresaId)}
+        userRole={user?.role ?? "user"}
       />
+
+      {showDesktopLookup ? (
+        <section
+          aria-label="Búsqueda manual en XLSX"
+          className="hidden rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-4 shadow-sm lg:block"
+        >
+          <label
+            htmlFor="desktop-xlsx-lookup"
+            className="text-sm font-semibold text-[var(--foreground)]"
+          >
+            Buscar código en XLSX
+          </label>
+          <input
+            ref={desktopLookupInputRef}
+            id="desktop-xlsx-lookup"
+            value={desktopLookupCodigo}
+            onChange={(event) => {
+              setDesktopLookupCodigo(event.target.value);
+              if (desktopLookupError) setDesktopLookupError(null);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                handleDesktopLookup();
+              }
+            }}
+            autoFocus
+            className="mt-2 w-full rounded-md border border-[var(--input-border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Código de producto o código de barras"
+          />
+          {desktopLookupError ? (
+            <p className="mt-2 text-sm text-red-500">{desktopLookupError}</p>
+          ) : null}
+        </section>
+      ) : null}
+
+      <ScanNoticeOverlay scanNotice={desktopLookupNotice} />
 
       {!listProductsMode ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -1313,9 +1420,14 @@ export default function VerificarInventarioPage() {
           if (pendingError) setPendingError(null);
         }}
         onPendingCancel={() => {
+          const restoreDesktopFocus = pendingSourceRef.current === "desktop";
+          pendingSourceRef.current = null;
           setPendingCodigo(null);
           setPendingNombre("");
           setPendingError(null);
+          if (restoreDesktopFocus) {
+            window.setTimeout(() => desktopLookupInputRef.current?.focus(), 0);
+          }
         }}
         onPendingSave={() => {
           void handleSavePendingCode();
