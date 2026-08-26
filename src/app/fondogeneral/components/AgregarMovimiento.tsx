@@ -257,14 +257,17 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     const formattedInteger =
       currency === "USD"
         ? inputFormatterUSD.format(integerValue)
-        : inputFormatterCRC.format(integerValue);
+        : inputFormatterCRC
+            .formatToParts(integerValue)
+            .map((part) => (part.type === "group" ? " " : part.value))
+            .join("");
     const decimalSeparator = currency === "USD" ? "." : ",";
     const suffix = normalized.includes(".")
       ? `${decimalSeparator}${fractionPart ?? ""}`
       : "";
     return currency === "USD"
       ? `$ ${formattedInteger}${suffix}`
-      : `₡ ${formattedInteger}${suffix}`;
+      : `₡${formattedInteger}${suffix}`;
   };
 
   const [filter, setFilter] = useState("");
