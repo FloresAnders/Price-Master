@@ -161,6 +161,21 @@ describe("server-authoritative auth state", () => {
     expect(localStorage.getItem("pricemaster_token_session")).toBeNull();
   });
 
+  it("reports five hours for a newly authenticated administrator", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(response({ ok: false, error: "unauthorized" }, 401)),
+    );
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => {
+      result.current.login({ id: "admin-1", name: "ADMIN", role: "admin" });
+    });
+
+    expect(result.current.getSessionTimeLeft()).toBeCloseTo(5, 2);
+  });
+
   it("keeps every auth instance logged out when an old session response arrives", async () => {
     const pendingSessions = [deferred<Response>(), deferred<Response>()];
     const pendingLogout = deferred<Response>();

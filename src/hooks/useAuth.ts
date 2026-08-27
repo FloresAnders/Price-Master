@@ -11,18 +11,13 @@ import {
   type ReactNode,
 } from "react";
 import type { User } from "@/types/firestore";
+import { SESSION_DURATION_HOURS } from "@/lib/auth/session-policy";
 import { normalizeUserPermissions } from "@/utils/permissions";
 import { UsersService } from "@/services/users";
 import { subscribeToVersionDoc } from "@/services/version-doc";
 
 const AUTH_STATE_EVENT = "timemaster-auth-state";
 const STORAGE_VERSION_KEY = "pricemaster_storage_version";
-
-const SESSION_DURATION_HOURS = {
-  superadmin: 4,
-  admin: 4,
-  user: 720,
-} as const;
 
 interface ServerSessionPayload {
   ok: boolean;

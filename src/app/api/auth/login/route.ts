@@ -17,7 +17,8 @@ import { getCeremonyService } from "@/lib/passkeys/ceremonies.server";
 
 export async function POST(request: Request) {
   try {
-    const { username, password, enrollPasskey } = await request.json();
+    const { username, password, enrollPasskey, keepSessionActive } =
+      await request.json();
 
     if (typeof username !== "string" || typeof password !== "string") {
       return NextResponse.json(
@@ -80,6 +81,7 @@ export async function POST(request: Request) {
         userId: safeUser.id,
         role: safeUser.role || "user",
         authMethod: "password",
+        keepActive: keepSessionActive !== false,
       });
       if (enrollPasskey === true) {
         const grant = await getCeremonyService().createEnrollmentGrant(

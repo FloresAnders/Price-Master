@@ -85,13 +85,26 @@ describe("reformulated passkey login", () => {
     expect(await screen.findByLabelText("Usuario")).toBeVisible();
     expect(screen.getByLabelText("Contraseña")).toBeVisible();
     expect(
+      screen.getByRole("checkbox", { name: "Mantener sesión activa" }),
+    ).toBeChecked();
+    expect(screen.queryByText("Recordar usuario")).not.toBeInTheDocument();
+    expect(
       screen.getByRole("checkbox", {
-        name: "Activar biometría en este dispositivo",
+        name: "Activar passkey en este dispositivo",
       }),
     ).not.toBeChecked();
     expect(screen.getByRole("button", { name: "Ingresar" })).toBeEnabled();
     expect(screen.getByRole("button", { name: /Regístrese/ })).toBeDisabled();
     expect(screen.getByText("Próximamente")).toBeVisible();
+  });
+
+  it("removes the legacy remembered username without restoring it", async () => {
+    localStorage.setItem("timemaster_remembered_user", "ALCHACAS");
+
+    renderLogin();
+
+    expect(await screen.findByLabelText("Usuario")).toHaveValue("");
+    expect(localStorage.getItem("timemaster_remembered_user")).toBeNull();
   });
 
   it("uses passkey as the primary launcher when IndexedDB marks it active", async () => {
@@ -148,7 +161,7 @@ describe("reformulated passkey login", () => {
     });
     fireEvent.click(
       screen.getByRole("checkbox", {
-        name: "Activar biometría en este dispositivo",
+        name: "Activar passkey en este dispositivo",
       }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Ingresar" }));
@@ -162,9 +175,46 @@ describe("reformulated passkey login", () => {
           username: "ALCHACAS",
           password: "secret",
           enrollPasskey: true,
+          keepSessionActive: true,
         }),
       }),
     );
     expect(onLoginSuccess).toHaveBeenCalledWith(user);
+  });
+
+  it("requests a fixed session when the active-session toggle is disabled", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true, user }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    renderLogin();
+    await screen.findByLabelText("Usuario");
+
+    fireEvent.change(screen.getByLabelText("Usuario"), {
+      target: { value: "ALCHACAS" },
+    });
+    fireEvent.change(screen.getByLabelText("Contraseña"), {
+      target: { value: "secret" },
+    });
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "Mantener sesión activa" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Ingresar" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/auth/login",
+      expect.objectContaining({
+        body: JSON.stringify({
+          username: "ALCHACAS",
+          password: "secret",
+          enrollPasskey: false,
+          keepSessionActive: false,
+        }),
+      }),
+    );
   });
 });

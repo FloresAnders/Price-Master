@@ -11,7 +11,6 @@ import {
   UserRound,
 } from "lucide-react";
 import type { User } from "@/types/firestore";
-import { useVersion } from "@/hooks/useVersion";
 import { hashPassword } from "@/lib/auth/password";
 import { PHASH_KEY } from "@/hooks/useUnlockPastDays";
 import {
@@ -31,7 +30,7 @@ interface LoginModalProps {
   canClose?: boolean;
 }
 
-const REMEMBERED_USER_KEY = "timemaster_remembered_user";
+const LEGACY_REMEMBERED_USER_KEY = "timemaster_remembered_user";
 
 function passkeyMessage(error: unknown): string {
   if (error instanceof PasskeyClientError) {
@@ -57,7 +56,7 @@ export default function LoginModal({
 }: LoginModalProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [rememberUser, setRememberUser] = useState(false);
+  const [keepSessionActive, setKeepSessionActive] = useState(true);
   const [enrollPasskey, setEnrollPasskey] = useState(false);
   const [passkeyAvailable, setPasskeyAvailable] = useState(false);
   const [showPasswordLogin, setShowPasswordLogin] = useState(true);
@@ -69,11 +68,7 @@ export default function LoginModal({
   useEffect(() => {
     if (!isOpen) return;
     let active = true;
-    const remembered = localStorage.getItem(REMEMBERED_USER_KEY) || "";
-    if (remembered) {
-      setUsername(remembered);
-      setRememberUser(true);
-    }
+    localStorage.removeItem(LEGACY_REMEMBERED_USER_KEY);
 
     void getPasskeyPreference().then((preference) => {
       if (!active) return;
@@ -114,18 +109,13 @@ export default function LoginModal({
           username: normalizedUsername,
           password,
           enrollPasskey,
+          keepSessionActive,
         }),
       });
       const payload = await response.json();
       if (!response.ok || !payload?.ok || !payload.user) {
         setError(payload?.error || "Usuario o contraseña incorrectos.");
         return;
-      }
-
-      if (rememberUser) {
-        localStorage.setItem(REMEMBERED_USER_KEY, normalizedUsername);
-      } else {
-        localStorage.removeItem(REMEMBERED_USER_KEY);
       }
 
       if (enrollPasskey && payload.enrollmentGrantId) {
@@ -227,14 +217,15 @@ export default function LoginModal({
               </div>
 
               <div className="flex items-center justify-end gap-3 py-1">
-                <label htmlFor="remember-user" className="text-sm text-slate-300">
-                  Recordar usuario
+                <label htmlFor="keep-session-active" className="text-sm text-slate-300">
+                  Mantener sesión activa
                 </label>
                 <input
-                  id="remember-user"
+                  id="keep-session-active"
                   type="checkbox"
-                  checked={rememberUser}
-                  onChange={(event) => setRememberUser(event.target.checked)}
+                  checked={keepSessionActive}
+                  onChange={(event) => setKeepSessionActive(event.target.checked)}
+                  disabled={loading}
                   className="h-5 w-9 appearance-none rounded-full bg-slate-700 transition before:block before:h-5 before:w-5 before:rounded-full before:bg-white before:transition checked:bg-blue-600 checked:before:translate-x-4"
                 />
               </div>

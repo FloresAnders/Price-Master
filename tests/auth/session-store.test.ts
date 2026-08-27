@@ -34,10 +34,14 @@ class MemorySessionRepository implements SessionRepository {
     }
   }
 
-  async touch(id: string, lastSeenAt: number) {
+  async touch(id: string, lastSeenAt: number, expiresAt?: number) {
     for (const [hash, record] of this.records) {
       if (record.id === id) {
-        this.records.set(hash, { ...record, lastSeenAt });
+        this.records.set(hash, {
+          ...record,
+          lastSeenAt,
+          ...(expiresAt === undefined ? {} : { expiresAt }),
+        });
       }
     }
   }
@@ -46,16 +50,24 @@ class MemorySessionRepository implements SessionRepository {
 const createFixture = (user: User | null = activeUser) => {
   const repository = new MemorySessionRepository();
   const now = 1_700_000_000_000;
+  let currentTime = now;
   const service = createSessionService({
     repository,
     getUser: async () => user,
     isPasskeyActive: async (credentialIdHash) => credentialIdHash === "active-key",
-    now: () => now,
+    now: () => currentTime,
     randomToken: () => "opaque-session-token",
     randomId: () => "session-id",
     hashToken: (token) => `hash:${token}`,
   });
-  return { now, repository, service };
+  return {
+    now,
+    repository,
+    service,
+    advance: (milliseconds: number) => {
+      currentTime += milliseconds;
+    },
+  };
 };
 
 describe("server session service", () => {
@@ -75,6 +87,7 @@ describe("server session service", () => {
       userId: "u1",
       authMethod: "password",
       credentialIdHash: null,
+      keepActive: true,
     });
   });
 
@@ -164,6 +177,56 @@ describe("server session service", () => {
     });
 
     expect(userSession.record.expiresAt - now).toBe(30 * 24 * 60 * 60 * 1000);
-    expect(adminSession.record.expiresAt - now).toBe(4 * 60 * 60 * 1000);
+    expect(adminSession.record.expiresAt - now).toBe(5 * 60 * 60 * 1000);
+  });
+
+  it("renueva el vencimiento por rol de una sesión activa", async () => {
+    const { advance, now, repository, service } = createFixture({
+      ...activeUser,
+      role: "admin",
+    });
+    await service.create({
+      userId: "u1",
+      role: "admin",
+      authMethod: "password",
+      keepActive: true,
+    });
+
+    advance(10 * 60 * 1000);
+    const authenticated = await service.read(
+      "pricemaster_auth=opaque-session-token",
+    );
+
+    expect(authenticated?.session.expiresAt).toBe(
+      now + 10 * 60 * 1000 + 5 * 60 * 60 * 1000,
+    );
+    expect(
+      repository.records.get("hash:opaque-session-token")?.expiresAt,
+    ).toBe(now + 10 * 60 * 1000 + 5 * 60 * 60 * 1000);
+  });
+
+  it("conserva el vencimiento inicial cuando la renovación está desactivada", async () => {
+    const { advance, repository, service } = createFixture({
+      ...activeUser,
+      role: "admin",
+    });
+    const issued = await service.create({
+      userId: "u1",
+      role: "admin",
+      authMethod: "password",
+      keepActive: false,
+    });
+    const initialExpiration = issued.record.expiresAt;
+
+    advance(10 * 60 * 1000);
+    const authenticated = await service.read(
+      "pricemaster_auth=opaque-session-token",
+    );
+
+    expect(issued.record.keepActive).toBe(false);
+    expect(authenticated?.session.expiresAt).toBe(initialExpiration);
+    expect(
+      repository.records.get("hash:opaque-session-token")?.expiresAt,
+    ).toBe(initialExpiration);
   });
 });

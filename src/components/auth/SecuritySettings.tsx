@@ -5,6 +5,7 @@ import React, { useState, useEffect } from "react";
 import { Shield, Clock, Users, Key, Eye, EyeOff, Save } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import useToast from "../../hooks/useToast";
+import { SESSION_DURATION_HOURS } from "@/lib/auth/session-policy";
 
 interface SecurityConfig {
   sessionDuration: {
@@ -40,9 +41,9 @@ export default function SecuritySettings() {
   const { isSuperAdmin, user } = useAuth();
   const [config, setConfig] = useState<SecurityConfig>({
     sessionDuration: {
-      superadmin: 4,
-      admin: 24,
-      user: 720,
+      superadmin: SESSION_DURATION_HOURS.superadmin,
+      admin: SESSION_DURATION_HOURS.admin,
+      user: SESSION_DURATION_HOURS.user,
     },
     inactivityTimeout: {
       superadmin: 30,

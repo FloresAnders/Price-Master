@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Clock, X, EyeOff, Key, Timer } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { TokenService } from "../../services/tokenService";
+import { SESSION_DURATION_HOURS } from "@/lib/auth/session-policy";
 
 interface TokenInfo {
   isValid: boolean;
@@ -77,8 +78,7 @@ export default function FloatingSessionTimer({
   const getProgressPercentage = () => {
     if (!useTokenAuth) {
       // Para sesiones tradicionales, usar estimación basada en el rol
-      const maxHours =
-        user?.role === "superadmin" ? 4 : user?.role === "admin" ? 24 : 720;
+      const maxHours = SESSION_DURATION_HOURS[user?.role || "user"];
       const currentHours = timeInMs / (1000 * 60 * 60);
       return Math.max(0, Math.min(100, (currentHours / maxHours) * 100));
     } else {

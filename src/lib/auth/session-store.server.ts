@@ -9,12 +9,13 @@ import type {
   AuthSessionRecord,
 } from "@/lib/passkeys/types";
 import type { User } from "@/types/firestore";
+import { SESSION_DURATION_HOURS } from "./session-policy";
 import { getSessionTokenFromCookie } from "./session-cookie.server";
 
 const SESSION_DURATION_MS = {
-  superadmin: 4 * 60 * 60 * 1000,
-  admin: 4 * 60 * 60 * 1000,
-  user: 30 * 24 * 60 * 60 * 1000,
+  superadmin: SESSION_DURATION_HOURS.superadmin * 60 * 60 * 1000,
+  admin: SESSION_DURATION_HOURS.admin * 60 * 60 * 1000,
+  user: SESSION_DURATION_HOURS.user * 60 * 60 * 1000,
 } as const;
 const TOUCH_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -22,7 +23,7 @@ export interface SessionRepository {
   save(record: AuthSessionRecord): Promise<void>;
   findByTokenHash(tokenHash: string): Promise<AuthSessionRecord | null>;
   revoke(id: string, revokedAt: number, reason: string): Promise<void>;
-  touch(id: string, lastSeenAt: number): Promise<void>;
+  touch(id: string, lastSeenAt: number, expiresAt?: number): Promise<void>;
 }
 
 interface SessionServiceDependencies {
@@ -40,6 +41,7 @@ interface CreateSessionInput {
   role: "admin" | "user" | "superadmin";
   authMethod: AuthMethod;
   credentialIdHash?: string | null;
+  keepActive?: boolean;
 }
 
 export function serializeSafeUser(user: User): Omit<User, "password"> {
@@ -66,6 +68,7 @@ export function createSessionService(dependencies: SessionServiceDependencies) {
         createdAt,
         lastSeenAt: createdAt,
         expiresAt: createdAt + SESSION_DURATION_MS[input.role],
+        keepActive: input.keepActive !== false,
         revokedAt: null,
         revokedReason: null,
       };
@@ -96,8 +99,23 @@ export function createSessionService(dependencies: SessionServiceDependencies) {
       }
 
       if (currentTime - record.lastSeenAt >= TOUCH_INTERVAL_MS) {
-        await dependencies.repository.touch(record.id, currentTime);
+        const role =
+          user.role === "admin" || user.role === "superadmin"
+            ? user.role
+            : "user";
+        const renewedExpiresAt =
+          record.keepActive === false
+            ? undefined
+            : currentTime + SESSION_DURATION_MS[role];
+        await dependencies.repository.touch(
+          record.id,
+          currentTime,
+          renewedExpiresAt,
+        );
         record.lastSeenAt = currentTime;
+        if (renewedExpiresAt !== undefined) {
+          record.expiresAt = renewedExpiresAt;
+        }
       }
 
       return { session: record, user: serializeSafeUser(user) };
@@ -159,9 +177,12 @@ function firestoreSessionRepository(): SessionRepository {
         revokedReason: reason,
       });
     },
-    async touch(id, lastSeenAt) {
+    async touch(id, lastSeenAt, expiresAt) {
       await collection.doc(id).update({
         lastSeenAt: Timestamp.fromMillis(lastSeenAt),
+        ...(expiresAt === undefined
+          ? {}
+          : { expiresAt: Timestamp.fromMillis(expiresAt) }),
       });
     },
   };

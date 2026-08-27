@@ -38,6 +38,7 @@ vi.mock("@/lib/passkeys/ceremonies.server", () => ({
 vi.mock("@/lib/auth/session-cookie.server", () => ({
   AUTH_COOKIE_NAME: "pricemaster_auth",
   createSessionCookieValue: () => "legacy-self-contained-token",
+  getSessionTokenFromCookie: () => "opaque-session-token",
   sessionCookieOptions: (maxAge = 2_592_000) => ({
     httpOnly: true,
     sameSite: "lax",
@@ -88,6 +89,7 @@ describe("server session routes", () => {
       record: {
         id: "session-id",
         expiresAt: Date.now() + 3_600_000,
+        keepActive: true,
       },
     });
     mocks.revokeAuthSession.mockResolvedValue(true);
@@ -102,6 +104,7 @@ describe("server session routes", () => {
       session: {
         authMethod: "passkey",
         expiresAt: 1_800_000_000_000,
+        keepActive: true,
       },
     });
   });
@@ -119,6 +122,12 @@ describe("server session routes", () => {
     expect(response.headers.get("set-cookie")).toContain(
       "pricemaster_auth=opaque-session-token",
     );
+    expect(mocks.createAuthSession).toHaveBeenCalledWith({
+      userId: "u1",
+      role: "user",
+      authMethod: "password",
+      keepActive: true,
+    });
     expect(await response.json()).toEqual({
       ok: true,
       user: {
@@ -127,6 +136,28 @@ describe("server session routes", () => {
         role: "user",
         isActive: true,
       },
+    });
+  });
+
+  it("crea una sesión fija cuando el usuario desactiva la renovación", async () => {
+    const response = await login(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: "ALCHACAS",
+          password: "secret",
+          keepSessionActive: false,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.createAuthSession).toHaveBeenCalledWith({
+      userId: "u1",
+      role: "user",
+      authMethod: "password",
+      keepActive: false,
     });
   });
 
@@ -225,5 +256,8 @@ describe("server session routes", () => {
         expiresAt: 1_800_000_000_000,
       },
     });
+    expect(response.headers.get("set-cookie")).toContain(
+      "pricemaster_auth=opaque-session-token",
+    );
   });
 });
