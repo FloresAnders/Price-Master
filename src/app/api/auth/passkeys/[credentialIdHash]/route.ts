@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { readAuthSession } from "@/lib/auth/session-store.server";
-import { getPasskeyService } from "@/lib/passkeys/repository.server";
+import {
+  getPasskeyService,
+  PasskeyRepositoryError,
+} from "@/lib/passkeys/repository.server";
 import { toPublicPasskey } from "../route";
 
 export const runtime = "nodejs";
@@ -68,6 +71,16 @@ export async function DELETE(request: Request, context: RouteContext) {
       { headers: noStore },
     );
   } catch (error) {
+    if (
+      error instanceof PasskeyRepositoryError &&
+      error.code === "session_limit_exceeded"
+    ) {
+      console.error("Passkey session revocation limit exceeded", error);
+      return NextResponse.json(
+        { ok: false, error: "passkey_session_limit_exceeded" },
+        { status: 409, headers: noStore },
+      );
+    }
     console.warn("Passkey revoke rejected", error);
     return NextResponse.json(
       { ok: false, error: "passkey_management_failed" },

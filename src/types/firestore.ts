@@ -221,6 +221,7 @@ export interface UserPermissions {
 export interface User {
   id?: string;
   name: string;
+  nameNormalized?: string;
   // correo electrónico del usuario
   email?: string;
   // nombre completo de la persona encargada (para admins)

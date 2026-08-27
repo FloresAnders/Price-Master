@@ -3,14 +3,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   createAuthSession: vi.fn(),
   readAuthSession: vi.fn(),
+  heartbeatAuthSession: vi.fn(),
   revokeAuthSession: vi.fn(),
+  findActiveUserByUsername: vi.fn(),
+  backfillUsernameLookup: vi.fn(),
   getActiveUsers: vi.fn(),
   verifyPasswordServer: vi.fn(),
   createEnrollmentGrant: vi.fn(),
 }));
 
 vi.mock("@/services/users", () => ({
-  UsersService: { getActiveUsers: mocks.getActiveUsers },
+  UsersService: {
+    findActiveUserByUsername: mocks.findActiveUserByUsername,
+    backfillUsernameLookup: mocks.backfillUsernameLookup,
+    getActiveUsers: mocks.getActiveUsers,
+  },
 }));
 
 vi.mock("@/lib/auth/password.server", () => ({
@@ -21,6 +28,7 @@ vi.mock("@/lib/auth/password.server", () => ({
 vi.mock("@/lib/auth/session-store.server", () => ({
   createAuthSession: mocks.createAuthSession,
   readAuthSession: mocks.readAuthSession,
+  heartbeatAuthSession: mocks.heartbeatAuthSession,
   revokeAuthSession: mocks.revokeAuthSession,
   serializeSafeUser: (user: Record<string, unknown>) => {
     const safe = { ...user };
@@ -74,15 +82,13 @@ import { POST as logout } from "@/app/api/auth/logout/route";
 describe("server session routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.getActiveUsers.mockResolvedValue([
-      {
-        id: "u1",
-        name: "ALCHACAS",
-        password: "$argon2id$stored",
-        role: "user",
-        isActive: true,
-      },
-    ]);
+    mocks.findActiveUserByUsername.mockResolvedValue({
+      id: "u1",
+      name: "ALCHACAS",
+      password: "$argon2id$stored",
+      role: "user",
+      isActive: true,
+    });
     mocks.verifyPasswordServer.mockResolvedValue(true);
     mocks.createAuthSession.mockResolvedValue({
       token: "opaque-session-token",
@@ -107,6 +113,12 @@ describe("server session routes", () => {
         keepActive: true,
       },
     });
+    mocks.heartbeatAuthSession.mockResolvedValue({
+      id: "session-id",
+      authMethod: "password",
+      expiresAt: 1_800_000_000_000,
+      keepActive: true,
+    });
   });
 
   it("el login establece el token opaco emitido por el servidor", async () => {
@@ -128,6 +140,9 @@ describe("server session routes", () => {
       authMethod: "password",
       keepActive: true,
     });
+    expect(mocks.findActiveUserByUsername).toHaveBeenCalledWith("ALCHACAS");
+    expect(mocks.backfillUsernameLookup).toHaveBeenCalledWith("u1", "ALCHACAS");
+    expect(mocks.getActiveUsers).not.toHaveBeenCalled();
     expect(await response.json()).toEqual({
       ok: true,
       user: {
@@ -137,6 +152,52 @@ describe("server session routes", () => {
         isActive: true,
       },
     });
+  });
+
+  it("no escribe la clave normalizada si la contraseña es incorrecta", async () => {
+    mocks.verifyPasswordServer.mockResolvedValue(false);
+
+    const response = await login(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: "INVALID-PASSWORD-CASE",
+          password: "incorrecta",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(401);
+    expect(mocks.backfillUsernameLookup).not.toHaveBeenCalled();
+  });
+
+  it("limita intentos fallidos antes de volver a consultar usuarios", async () => {
+    mocks.verifyPasswordServer.mockResolvedValue(false);
+    const makeRequest = () =>
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-forwarded-for": "203.0.113.42",
+        },
+        body: JSON.stringify({
+          username: "RATE-LIMIT-CASE",
+          password: "incorrecta",
+        }),
+      });
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const response = await login(makeRequest());
+      expect(response.status).toBe(401);
+    }
+
+    mocks.findActiveUserByUsername.mockClear();
+    const limited = await login(makeRequest());
+
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("retry-after")).toBeTruthy();
+    expect(mocks.findActiveUserByUsername).not.toHaveBeenCalled();
   });
 
   it("crea una sesión fija cuando el usuario desactiva la renovación", async () => {
@@ -253,6 +314,31 @@ describe("server session routes", () => {
       },
       session: {
         authMethod: "passkey",
+        expiresAt: 1_800_000_000_000,
+      },
+    });
+    expect(response.headers.get("set-cookie")).toContain(
+      "pricemaster_auth=opaque-session-token",
+    );
+  });
+
+  it("renueva con el heartbeat sin hidratar nuevamente al usuario", async () => {
+    const { GET } = await import("@/app/api/auth/session/heartbeat/route");
+    const response = await GET(
+      new Request("http://localhost/api/auth/session/heartbeat", {
+        headers: { cookie: "pricemaster_auth=opaque-session-token" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.heartbeatAuthSession).toHaveBeenCalledWith(
+      "pricemaster_auth=opaque-session-token",
+    );
+    expect(mocks.readAuthSession).not.toHaveBeenCalled();
+    expect(await response.json()).toEqual({
+      ok: true,
+      session: {
+        authMethod: "password",
         expiresAt: 1_800_000_000_000,
       },
     });

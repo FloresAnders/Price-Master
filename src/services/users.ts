@@ -2,7 +2,7 @@ import { FirestoreService } from "./firestore";
 import { User } from "../types/firestore";
 import { getDefaultPermissions } from "../utils/permissions";
 import { hashPassword } from "../lib/auth/password";
-import { getFirestore, onSnapshot, doc } from "firebase/firestore";
+import { onSnapshot, doc } from "firebase/firestore";
 import { db } from "@/config/firebase";
 
 const ARGON2_HASH_PREFIX = "$argon2";
@@ -27,6 +27,10 @@ async function preparePasswordForStorage(
 
 export class UsersService {
   private static readonly COLLECTION_NAME = "users";
+
+  private static normalizeUsername(name: string): string {
+    return name.trim().normalize("NFKC").toLocaleLowerCase();
+  }
 
   /**
    * Subscribe to real-time updates for a specific user
@@ -192,6 +196,7 @@ export class UsersService {
 
     const userWithTimestamps = {
       ...user,
+      nameNormalized: this.normalizeUsername(user.name),
       password: passwordForStorage,
       isActive: user.isActive ?? true,
       // ensure eliminate defaults to false when not provided
@@ -301,6 +306,10 @@ export class UsersService {
    */
   static async updateUser(id: string, user: Partial<User>): Promise<void> {
     const updatePayload: Partial<User> = { ...user };
+
+    if (typeof updatePayload.name === "string") {
+      updatePayload.nameNormalized = this.normalizeUsername(updatePayload.name);
+    }
 
     if (Object.prototype.hasOwnProperty.call(updatePayload, "password")) {
       const passwordForStorage = await preparePasswordForStorage(
@@ -421,6 +430,62 @@ export class UsersService {
     return await FirestoreService.query(this.COLLECTION_NAME, [
       { field: "isActive", operator: "==", value: true },
     ]);
+  }
+
+  static async findActiveUserByUsername(username: string): Promise<User | null> {
+    const trimmed = username.trim().normalize("NFKC");
+    const normalized = this.normalizeUsername(trimmed);
+    if (!normalized) return null;
+
+    const normalizedMatches = (await FirestoreService.query(
+      this.COLLECTION_NAME,
+      [{ field: "nameNormalized", operator: "==", value: normalized }],
+      undefined,
+      "asc",
+      5,
+    )) as User[];
+    const normalizedMatch = normalizedMatches.find(
+      (candidate) => candidate.isActive !== false,
+    );
+    if (normalizedMatch) return normalizedMatch;
+
+    const titleCase = trimmed.replace(/\p{L}+/gu, (part) =>
+      `${part.slice(0, 1).toLocaleUpperCase()}${part.slice(1).toLocaleLowerCase()}`,
+    );
+    const legacyNames = [
+      trimmed,
+      trimmed.toLocaleLowerCase(),
+      trimmed.toLocaleUpperCase(),
+      titleCase,
+    ].filter((value, index, values) => value && values.indexOf(value) === index);
+    const legacyMatches = (await FirestoreService.query(
+      this.COLLECTION_NAME,
+      [{ field: "name", operator: "in", value: legacyNames }],
+      undefined,
+      "asc",
+      10,
+    )) as User[];
+    const legacyMatch = legacyMatches.find(
+      (candidate) =>
+        candidate.isActive !== false &&
+        this.normalizeUsername(candidate.name || "") === normalized,
+    );
+    if (!legacyMatch) return null;
+
+    return legacyMatch;
+  }
+
+  static async backfillUsernameLookup(
+    userId: string,
+    username: string,
+  ): Promise<void> {
+    const nameNormalized = this.normalizeUsername(username);
+    if (!userId || !nameNormalized) return;
+
+    await FirestoreService.update(this.COLLECTION_NAME, userId, {
+      nameNormalized,
+      updatedAt: new Date(),
+    });
   }
 
   /**

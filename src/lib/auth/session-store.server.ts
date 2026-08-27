@@ -17,13 +17,21 @@ const SESSION_DURATION_MS = {
   admin: SESSION_DURATION_HOURS.admin * 60 * 60 * 1000,
   user: SESSION_DURATION_HOURS.user * 60 * 60 * 1000,
 } as const;
-const TOUCH_INTERVAL_MS = 5 * 60 * 1000;
+const TOUCH_INTERVAL_MS = 30 * 60 * 1000;
+const USER_REVALIDATION_INTERVAL_MS = 60 * 60 * 1000;
 
 export interface SessionRepository {
   save(record: AuthSessionRecord): Promise<void>;
   findByTokenHash(tokenHash: string): Promise<AuthSessionRecord | null>;
   revoke(id: string, revokedAt: number, reason: string): Promise<void>;
-  touch(id: string, lastSeenAt: number, expiresAt?: number): Promise<void>;
+  touch(
+    id: string,
+    lastSeenAt: number,
+    expiresAt?: number,
+    durationMs?: number,
+    userValidatedAt?: number,
+  ): Promise<void>;
+  linkPasskeySession(id: string): Promise<void>;
 }
 
 interface SessionServiceDependencies {
@@ -45,7 +53,8 @@ interface CreateSessionInput {
 }
 
 export function serializeSafeUser(user: User): Omit<User, "password"> {
-  const { password: _password, ...safeUser } = user;
+  const safeUser = { ...user };
+  delete safeUser.password;
   return safeUser;
 }
 
@@ -54,6 +63,16 @@ export function createSessionService(dependencies: SessionServiceDependencies) {
   const randomToken = dependencies.randomToken ?? (() => base64UrlRandom(32));
   const randomId = dependencies.randomId ?? (() => base64UrlRandom(18));
   const hashToken = dependencies.hashToken ?? sessionTokenHash;
+  const rejectAndRevoke = async (
+    record: AuthSessionRecord,
+    revokedAt: number,
+    reason: string,
+  ) => {
+    await dependencies.repository.revoke(record.id, revokedAt, reason);
+    record.revokedAt = revokedAt;
+    record.revokedReason = reason;
+    return null;
+  };
 
   return {
     async create(input: CreateSessionInput) {
@@ -68,7 +87,12 @@ export function createSessionService(dependencies: SessionServiceDependencies) {
         createdAt,
         lastSeenAt: createdAt,
         expiresAt: createdAt + SESSION_DURATION_MS[input.role],
+        durationMs: SESSION_DURATION_MS[input.role],
+        userValidatedAt: createdAt,
         keepActive: input.keepActive !== false,
+        ...(input.authMethod === "passkey"
+          ? { passkeyRevocationLinked: true }
+          : {}),
         revokedAt: null,
         revokedReason: null,
       };
@@ -88,37 +112,121 @@ export function createSessionService(dependencies: SessionServiceDependencies) {
       }
 
       const user = await dependencies.getUser(record.userId);
-      if (!user || user.isActive === false) return null;
+      if (!user || user.isActive === false) {
+        return rejectAndRevoke(record, currentTime, "user_inactive");
+      }
 
       if (
         record.authMethod === "passkey" &&
-        (!record.credentialIdHash ||
-          !(await dependencies.isPasskeyActive(record.credentialIdHash)))
+        !record.credentialIdHash
       ) {
-        return null;
+        return rejectAndRevoke(record, currentTime, "passkey_inactive");
+      }
+      if (
+        record.authMethod === "passkey" &&
+        record.passkeyRevocationLinked !== true
+      ) {
+        if (!(await dependencies.isPasskeyActive(record.credentialIdHash!))) {
+          return rejectAndRevoke(record, currentTime, "passkey_inactive");
+        }
+        await dependencies.repository.linkPasskeySession(record.id);
+        record.passkeyRevocationLinked = true;
       }
 
-      if (currentTime - record.lastSeenAt >= TOUCH_INTERVAL_MS) {
+      if (
+        record.keepActive !== false &&
+        currentTime - record.lastSeenAt >= TOUCH_INTERVAL_MS
+      ) {
         const role =
           user.role === "admin" || user.role === "superadmin"
             ? user.role
             : "user";
-        const renewedExpiresAt =
-          record.keepActive === false
-            ? undefined
-            : currentTime + SESSION_DURATION_MS[role];
+        const durationMs = SESSION_DURATION_MS[role];
+        const renewedExpiresAt = currentTime + durationMs;
         await dependencies.repository.touch(
           record.id,
           currentTime,
           renewedExpiresAt,
+          durationMs,
+          currentTime,
         );
         record.lastSeenAt = currentTime;
-        if (renewedExpiresAt !== undefined) {
-          record.expiresAt = renewedExpiresAt;
-        }
+        record.expiresAt = renewedExpiresAt;
+        record.durationMs = durationMs;
+        record.userValidatedAt = currentTime;
       }
 
       return { session: record, user: serializeSafeUser(user) };
+    },
+
+    async heartbeat(cookieHeader: string | null): Promise<AuthSessionRecord | null> {
+      const token = getSessionTokenFromCookie(cookieHeader);
+      if (!token) return null;
+      const record = await dependencies.repository.findByTokenHash(
+        hashToken(token),
+      );
+      const currentTime = now();
+      if (!record || record.revokedAt !== null || record.expiresAt <= currentTime) {
+        return null;
+      }
+      if (record.keepActive === false) return record;
+
+      let durationMs = record.durationMs;
+      let userValidatedAt: number | undefined;
+      const userValidationDue =
+        !durationMs ||
+        currentTime - (record.userValidatedAt ?? record.createdAt) >=
+          USER_REVALIDATION_INTERVAL_MS;
+      if (userValidationDue) {
+        const user = await dependencies.getUser(record.userId);
+        if (!user || user.isActive === false) {
+          return rejectAndRevoke(record, currentTime, "user_inactive");
+        }
+        if (
+          record.authMethod === "passkey" &&
+          !record.credentialIdHash
+        ) {
+          return rejectAndRevoke(record, currentTime, "passkey_inactive");
+        }
+        if (
+          record.authMethod === "passkey" &&
+          record.passkeyRevocationLinked !== true
+        ) {
+          if (!(await dependencies.isPasskeyActive(record.credentialIdHash!))) {
+            return rejectAndRevoke(record, currentTime, "passkey_inactive");
+          }
+          await dependencies.repository.linkPasskeySession(record.id);
+          record.passkeyRevocationLinked = true;
+        }
+        const role =
+          user.role === "admin" || user.role === "superadmin"
+            ? user.role
+            : "user";
+        durationMs = SESSION_DURATION_MS[role];
+        userValidatedAt = currentTime;
+      }
+
+      if (!durationMs) {
+        return rejectAndRevoke(record, currentTime, "invalid_session_duration");
+      }
+
+      if (currentTime - record.lastSeenAt >= TOUCH_INTERVAL_MS) {
+        const renewedExpiresAt = currentTime + durationMs;
+        await dependencies.repository.touch(
+          record.id,
+          currentTime,
+          renewedExpiresAt,
+          durationMs,
+          userValidatedAt,
+        );
+        record.lastSeenAt = currentTime;
+        record.expiresAt = renewedExpiresAt;
+        record.durationMs = durationMs;
+        if (userValidatedAt !== undefined) {
+          record.userValidatedAt = userValidatedAt;
+        }
+      }
+      return record;
     },
 
     async revoke(cookieHeader: string | null, reason: string) {
@@ -177,13 +285,18 @@ function firestoreSessionRepository(): SessionRepository {
         revokedReason: reason,
       });
     },
-    async touch(id, lastSeenAt, expiresAt) {
+    async touch(id, lastSeenAt, expiresAt, durationMs, userValidatedAt) {
       await collection.doc(id).update({
         lastSeenAt: Timestamp.fromMillis(lastSeenAt),
         ...(expiresAt === undefined
           ? {}
           : { expiresAt: Timestamp.fromMillis(expiresAt) }),
+        ...(durationMs === undefined ? {} : { durationMs }),
+        ...(userValidatedAt === undefined ? {} : { userValidatedAt }),
       });
+    },
+    async linkPasskeySession(id) {
+      await collection.doc(id).update({ passkeyRevocationLinked: true });
     },
   };
 }
@@ -220,6 +333,10 @@ export async function createAuthSession(input: CreateSessionInput) {
 
 export async function readAuthSession(cookieHeader: string | null) {
   return productionSessionService().read(cookieHeader);
+}
+
+export async function heartbeatAuthSession(cookieHeader: string | null) {
+  return productionSessionService().heartbeat(cookieHeader);
 }
 
 export async function revokeAuthSession(

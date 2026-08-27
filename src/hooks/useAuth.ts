@@ -12,11 +12,16 @@ import {
 } from "react";
 import type { User } from "@/types/firestore";
 import { SESSION_DURATION_HOURS } from "@/lib/auth/session-policy";
+import {
+  claimSessionHeartbeatLease,
+  releaseSessionHeartbeatLease,
+} from "@/lib/auth/session-heartbeat";
 import { normalizeUserPermissions } from "@/utils/permissions";
 import { UsersService } from "@/services/users";
 import { subscribeToVersionDoc } from "@/services/version-doc";
 
 const AUTH_STATE_EVENT = "timemaster-auth-state";
+const AUTH_SYNC_STORAGE_KEY = "pricemaster_auth_sync";
 const STORAGE_VERSION_KEY = "pricemaster_storage_version";
 
 interface ServerSessionPayload {
@@ -62,10 +67,34 @@ function publishAuthState(detail: AuthStateDetail): void {
   );
 }
 
+function publishAuthSync(
+  message:
+    | { type: "logout" }
+    | { type: "heartbeat"; expiresAt: number | null },
+): void {
+  try {
+    localStorage.setItem(
+      AUTH_SYNC_STORAGE_KEY,
+      JSON.stringify({
+        ...message,
+        nonce:
+          globalThis.crypto?.randomUUID?.() ||
+          `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      }),
+    );
+  } catch {
+    // La sincronización local es auxiliar; la cookie sigue siendo la autoridad.
+  }
+}
+
 function useAuthState() {
   const sessionCheckGeneration = useRef(0);
   const sessionRequestInFlight = useRef<Promise<ServerSessionResult> | null>(
     null,
+  );
+  const heartbeatOwnerId = useRef(
+    globalThis.crypto?.randomUUID?.() ||
+      `heartbeat-${Date.now()}-${Math.random().toString(36).slice(2)}`,
   );
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -84,6 +113,18 @@ function useAuthState() {
     sessionCheckGeneration.current += 1;
     sessionRequestInFlight.current = null;
   }, []);
+
+  const clearClientSession = useCallback((broadcast = true) => {
+    invalidateSessionChecks();
+    releaseSessionHeartbeatLease(localStorage, heartbeatOwnerId.current);
+    clearLegacyAuthState();
+    localStorage.removeItem("pricemaster_user_phash");
+    const next = { user: null, expiresAt: null };
+    applyAuthState(next);
+    publishAuthState(next);
+    if (broadcast) publishAuthSync({ type: "logout" });
+    setLoading(false);
+  }, [applyAuthState, invalidateSessionChecks]);
 
   const requestServerSession = useCallback((): Promise<ServerSessionResult> => {
     if (!sessionRequestInFlight.current) {
@@ -143,15 +184,69 @@ function useAuthState() {
     }
   }, [applyAuthState, requestServerSession]);
 
+  const checkSessionHeartbeat = useCallback(async () => {
+    try {
+      const response = await fetch("/api/auth/session/heartbeat", {
+        method: "GET",
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | ServerSessionPayload
+        | null;
+      if (response.status === 401) {
+        clearClientSession();
+        return;
+      }
+      if (!response.ok || !payload?.ok) {
+        releaseSessionHeartbeatLease(localStorage, heartbeatOwnerId.current);
+        console.warn("El servidor no pudo renovar la sesión temporalmente");
+        return;
+      }
+      const expiresAt = Number(payload.session?.expiresAt || 0) || null;
+      setSessionExpiresAt(expiresAt);
+      publishAuthSync({ type: "heartbeat", expiresAt });
+    } catch (error) {
+      releaseSessionHeartbeatLease(localStorage, heartbeatOwnerId.current);
+      console.warn("No se pudo renovar la sesión del servidor", error);
+    }
+  }, [clearClientSession]);
+
   useEffect(() => {
+    const heartbeatOwner = heartbeatOwnerId.current;
     void checkExistingSession();
-    const refresh = () => void checkExistingSession();
-    const interval = window.setInterval(refresh, 5 * 60 * 1000);
+    claimSessionHeartbeatLease(
+      localStorage,
+      heartbeatOwner,
+      Date.now(),
+    );
+    const refresh = () => {
+      if (document.visibilityState === "hidden") return;
+      if (
+        !claimSessionHeartbeatLease(
+          localStorage,
+          heartbeatOwner,
+          Date.now(),
+        )
+      ) {
+        return;
+      }
+      void checkSessionHeartbeat();
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    const interval = window.setInterval(refresh, 60_000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", handleVisibility);
     return () => {
       sessionCheckGeneration.current += 1;
       window.clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      releaseSessionHeartbeatLease(localStorage, heartbeatOwner);
     };
-  }, [checkExistingSession]);
+  }, [checkExistingSession, checkSessionHeartbeat]);
 
   useEffect(() => {
     const handleAuthState = (event: Event) => {
@@ -164,26 +259,52 @@ function useAuthState() {
   }, [applyAuthState, invalidateSessionChecks]);
 
   useEffect(() => {
+    const handleAuthSync = (event: StorageEvent) => {
+      if (event.key !== AUTH_SYNC_STORAGE_KEY || !event.newValue) return;
+      try {
+        const message = JSON.parse(event.newValue) as {
+          type?: string;
+          expiresAt?: unknown;
+        };
+        if (message.type === "logout") {
+          clearClientSession(false);
+          return;
+        }
+        if (message.type === "heartbeat") {
+          const expiresAt = Number(message.expiresAt || 0) || null;
+          setSessionExpiresAt(expiresAt);
+        }
+      } catch {
+        // Ignorar mensajes corruptos o escritos por versiones antiguas.
+      }
+    };
+    window.addEventListener("storage", handleAuthSync);
+    return () => window.removeEventListener("storage", handleAuthSync);
+  }, [clearClientSession]);
+
+  useEffect(() => {
     if (!isAuthenticated || !user?.id) return;
     return UsersService.subscribeToUser(
       user.id,
       (updatedUser) => {
-        if (!updatedUser) return;
+        if (!updatedUser || updatedUser.isActive === false) {
+          clearClientSession();
+          void fetch("/api/auth/logout", {
+            method: "POST",
+            credentials: "same-origin",
+            keepalive: true,
+          }).catch(() => undefined);
+          return;
+        }
         setUser(normalizedUser(updatedUser));
       },
       (error) => console.warn("No se pudo actualizar el usuario autenticado", error),
     );
-  }, [isAuthenticated, user?.id]);
+  }, [clearClientSession, isAuthenticated, user?.id]);
 
   const logout = useCallback(async (_reason?: string) => {
     void _reason;
-    invalidateSessionChecks();
-    clearLegacyAuthState();
-    localStorage.removeItem("pricemaster_user_phash");
-    const next = { user: null, expiresAt: null };
-    applyAuthState(next);
-    publishAuthState(next);
-    setLoading(false);
+    clearClientSession();
     try {
       await fetch("/api/auth/logout", {
         method: "POST",
@@ -194,7 +315,7 @@ function useAuthState() {
       // El estado local se limpia aunque la red falle; la cookie sigue siendo
       // la autoridad y se volverá a comprobar en la siguiente carga.
     }
-  }, [applyAuthState, invalidateSessionChecks]);
+  }, [clearClientSession]);
 
   useEffect(() => {
     return subscribeToVersionDoc((snapshot) => {

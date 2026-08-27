@@ -15,10 +15,19 @@ export class PasskeyRepositoryError extends Error {
       | "credential_exists"
       | "passkey_not_found"
       | "forbidden"
-      | "invalid_label",
+      | "invalid_label"
+      | "session_limit_exceeded",
   ) {
     super(code);
     this.name = "PasskeyRepositoryError";
+  }
+}
+
+const MAX_PASSKEY_SESSION_REVOCATION_WRITES = 450;
+
+export function ensureSafePasskeySessionRevocation(sessionCount: number) {
+  if (sessionCount > MAX_PASSKEY_SESSION_REVOCATION_WRITES) {
+    throw new PasskeyRepositoryError("session_limit_exceeded");
   }
 }
 
@@ -33,6 +42,11 @@ export interface PasskeyStore {
   updatePasskey(
     credentialIdHash: string,
     changes: Partial<PasskeyRecord>,
+  ): Promise<PasskeyRecord | null>;
+  revokePasskeyAndSessions(
+    credentialIdHash: string,
+    revokedAt: number,
+    revokedBy: string,
   ): Promise<PasskeyRecord | null>;
 }
 
@@ -116,10 +130,11 @@ export function createPasskeyService(dependencies: PasskeyServiceDependencies) {
         credentialIdHash,
       );
       if (passkey.revokedAt !== null) return passkey;
-      return dependencies.store.updatePasskey(credentialIdHash, {
-        revokedAt: now(),
-        revokedBy: actorId,
-      });
+      return dependencies.store.revokePasskeyAndSessions(
+        credentialIdHash,
+        now(),
+        actorId,
+      );
     },
 
     async updateAfterAuthentication(
@@ -214,6 +229,41 @@ function firestorePasskeyStore(): PasskeyStore {
       return snapshot.exists
         ? passkeyFromData(snapshot.id, snapshot.data()!)
         : null;
+    },
+    async revokePasskeyAndSessions(credentialIdHash, revokedAt, revokedBy) {
+      const passkeyReference = passkeys.doc(credentialIdHash);
+      const sessions = db
+        .collection("authSessions")
+        .where("credentialIdHash", "==", credentialIdHash)
+        .where("revokedAt", "==", null)
+        .where("expiresAt", ">", Timestamp.fromMillis(revokedAt))
+        .limit(MAX_PASSKEY_SESSION_REVOCATION_WRITES + 1);
+
+      return db.runTransaction(async (transaction) => {
+        const passkeySnapshot = await transaction.get(passkeyReference);
+        if (!passkeySnapshot.exists) return null;
+        const current = passkeyFromData(
+          passkeySnapshot.id,
+          passkeySnapshot.data()!,
+        );
+        if (current.revokedAt !== null) return current;
+
+        const sessionSnapshot = await transaction.get(sessions);
+        ensureSafePasskeySessionRevocation(sessionSnapshot.size);
+        const revokedTimestamp = Timestamp.fromMillis(revokedAt);
+        transaction.update(passkeyReference, {
+          revokedAt: revokedTimestamp,
+          revokedBy,
+        });
+        for (const session of sessionSnapshot.docs) {
+          transaction.update(session.ref, {
+            revokedAt: revokedTimestamp,
+            revokedReason: "passkey_revoked",
+          });
+        }
+
+        return { ...current, revokedAt, revokedBy };
+      });
     },
   };
 }

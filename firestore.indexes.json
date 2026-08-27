@@ -151,7 +151,8 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "credentialIdHash", "order": "ASCENDING" },
-        { "fieldPath": "revokedAt", "order": "ASCENDING" }
+        { "fieldPath": "revokedAt", "order": "ASCENDING" },
+        { "fieldPath": "expiresAt", "order": "ASCENDING" }
       ]
     }
   ],

@@ -14,24 +14,44 @@ import {
   serializeSafeUser,
 } from "@/lib/auth/session-store.server";
 import { getCeremonyService } from "@/lib/passkeys/ceremonies.server";
+import {
+  clearLoginAttempts,
+  consumeLoginAttempt,
+} from "@/lib/auth/login-rate-limit.server";
 
 export async function POST(request: Request) {
   try {
     const { username, password, enrollPasskey, keepSessionActive } =
       await request.json();
 
-    if (typeof username !== "string" || typeof password !== "string") {
+    if (
+      typeof username !== "string" ||
+      typeof password !== "string" ||
+      username.trim().length < 1 ||
+      username.trim().length > 80 ||
+      password.length > 1024
+    ) {
       return NextResponse.json(
         { ok: false, error: "Invalid input" },
         { status: 400, headers: { "Cache-Control": "no-store" } },
       );
     }
 
-    // Lookup active users and match by username (case-insensitive)
-    const users = await UsersService.getActiveUsers();
-    const user = users.find(
-      (u) => (u.name ?? "").toLowerCase() === username.toLowerCase(),
-    );
+    const attempt = consumeLoginAttempt(request, username);
+    if (!attempt.allowed) {
+      return NextResponse.json(
+        { ok: false, error: "Demasiados intentos. Intenta nuevamente pronto." },
+        {
+          status: 429,
+          headers: {
+            "Cache-Control": "no-store",
+            "Retry-After": String(attempt.retryAfterSeconds),
+          },
+        },
+      );
+    }
+
+    const user = await UsersService.findActiveUserByUsername(username);
 
     if (!user) {
       return NextResponse.json(
@@ -71,6 +91,15 @@ export async function POST(request: Request) {
         { status: 401, headers: { "Cache-Control": "no-store" } },
       );
     }
+
+    if (user.id && !user.nameNormalized) {
+      try {
+        await UsersService.backfillUsernameLookup(user.id, username);
+      } catch (error) {
+        console.warn("Failed to backfill normalized username", user.id, error);
+      }
+    }
+    clearLoginAttempts(request, username);
 
     let enrollmentGrantId: string | undefined;
     let issued:

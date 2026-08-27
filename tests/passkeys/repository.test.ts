@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createPasskeyService,
+  ensureSafePasskeySessionRevocation,
   PasskeyRepositoryError,
   type PasskeyStore,
 } from "@/lib/passkeys/repository.server";
@@ -12,6 +13,7 @@ import type {
 class MemoryPasskeyStore implements PasskeyStore {
   users = new Map<string, PasskeyUserRecord>();
   passkeys = new Map<string, PasskeyRecord>();
+  revokedSessionCredentials: string[] = [];
 
   async getOrCreateUser(
     userId: string,
@@ -49,6 +51,15 @@ class MemoryPasskeyStore implements PasskeyStore {
     this.passkeys.set(credentialIdHash, updated);
     return updated;
   }
+
+  async revokePasskeyAndSessions(
+    credentialIdHash: string,
+    revokedAt: number,
+    revokedBy: string,
+  ) {
+    this.revokedSessionCredentials.push(credentialIdHash);
+    return this.updatePasskey(credentialIdHash, { revokedAt, revokedBy });
+  }
 }
 
 const fixture = () => {
@@ -79,6 +90,13 @@ const record = (userId = "u1"): PasskeyRecord => ({
 });
 
 describe("passkey repository service", () => {
+  it("rechaza una revocación que excedería el límite transaccional", () => {
+    expect(() => ensureSafePasskeySessionRevocation(451)).toThrowError(
+      expect.objectContaining({ code: "session_limit_exceeded" }),
+    );
+    expect(() => ensureSafePasskeySessionRevocation(450)).not.toThrow();
+  });
+
   it("mantiene un identificador WebAuthn estable y opaco por usuario", async () => {
     const { service } = fixture();
     const first = await service.getOrCreatePasskeyUser("u1");
@@ -121,7 +139,7 @@ describe("passkey repository service", () => {
   });
 
   it("revoca de forma idempotente sin borrar la credencial", async () => {
-    const { service } = fixture();
+    const { service, store } = fixture();
     await service.savePasskey(record());
 
     const first = await service.revokePasskey(
@@ -140,5 +158,6 @@ describe("passkey repository service", () => {
       revokedBy: "u1",
     });
     expect(second).toEqual(first);
+    expect(store.revokedSessionCredentials).toEqual(["hash:credential-a"]);
   });
 });

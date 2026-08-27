@@ -17,6 +17,8 @@ const activeUser: User = {
 
 class MemorySessionRepository implements SessionRepository {
   records = new Map<string, AuthSessionRecord>();
+  touches: Array<{ id: string; lastSeenAt: number; expiresAt?: number }> = [];
+  linkedPasskeySessions: string[] = [];
 
   async save(record: AuthSessionRecord) {
     this.records.set(record.tokenHash, { ...record });
@@ -34,15 +36,31 @@ class MemorySessionRepository implements SessionRepository {
     }
   }
 
-  async touch(id: string, lastSeenAt: number, expiresAt?: number) {
+  async touch(
+    id: string,
+    lastSeenAt: number,
+    expiresAt?: number,
+    durationMs?: number,
+    userValidatedAt?: number,
+  ) {
+    this.touches.push({ id, lastSeenAt, expiresAt });
     for (const [hash, record] of this.records) {
       if (record.id === id) {
         this.records.set(hash, {
           ...record,
           lastSeenAt,
           ...(expiresAt === undefined ? {} : { expiresAt }),
+          ...(durationMs === undefined ? {} : { durationMs }),
+          ...(userValidatedAt === undefined ? {} : { userValidatedAt }),
         });
       }
+    }
+  }
+
+  async linkPasskeySession(id: string) {
+    this.linkedPasskeySessions.push(id);
+    for (const record of this.records.values()) {
+      if (record.id === id) record.passkeyRevocationLinked = true;
     }
   }
 }
@@ -51,10 +69,18 @@ const createFixture = (user: User | null = activeUser) => {
   const repository = new MemorySessionRepository();
   const now = 1_700_000_000_000;
   let currentTime = now;
+  let getUserCalls = 0;
+  let passkeyValidationCalls = 0;
   const service = createSessionService({
     repository,
-    getUser: async () => user,
-    isPasskeyActive: async (credentialIdHash) => credentialIdHash === "active-key",
+    getUser: async () => {
+      getUserCalls += 1;
+      return user;
+    },
+    isPasskeyActive: async (credentialIdHash) => {
+      passkeyValidationCalls += 1;
+      return credentialIdHash === "active-key";
+    },
     now: () => currentTime,
     randomToken: () => "opaque-session-token",
     randomId: () => "session-id",
@@ -67,6 +93,8 @@ const createFixture = (user: User | null = activeUser) => {
     advance: (milliseconds: number) => {
       currentTime += milliseconds;
     },
+    getUserCalls: () => getUserCalls,
+    passkeyValidationCalls: () => passkeyValidationCalls,
   };
 };
 
@@ -146,20 +174,69 @@ describe("server session service", () => {
     expect(
       await inactiveFixture.service.read("pricemaster_auth=opaque-session-token"),
     ).toBeNull();
+    expect(
+      inactiveFixture.repository.records.get("hash:opaque-session-token"),
+    ).toMatchObject({
+      revokedAt: inactiveFixture.now,
+      revokedReason: "user_inactive",
+    });
   });
 
   it("invalida una sesión cuando su passkey deja de estar activa", async () => {
-    const { service } = createFixture();
+    const { repository, service } = createFixture();
     await service.create({
       userId: "u1",
       role: "user",
       authMethod: "passkey",
       credentialIdHash: "revoked-key",
     });
+    repository.records.get("hash:opaque-session-token")!.passkeyRevocationLinked =
+      false;
 
     expect(
       await service.read("pricemaster_auth=opaque-session-token"),
     ).toBeNull();
+    expect(
+      repository.records.get("hash:opaque-session-token"),
+    ).toMatchObject({
+      revokedAt: 1_700_000_000_000,
+      revokedReason: "passkey_inactive",
+    });
+  });
+
+  it("no relee la passkey de una sesión vinculada al mecanismo de revocación", async () => {
+    const { passkeyValidationCalls, service } = createFixture();
+    await service.create({
+      userId: "u1",
+      role: "user",
+      authMethod: "passkey",
+      credentialIdHash: "active-key",
+    });
+
+    const authenticated = await service.read(
+      "pricemaster_auth=opaque-session-token",
+    );
+
+    expect(authenticated?.user.id).toBe("u1");
+    expect(passkeyValidationCalls()).toBe(0);
+  });
+
+  it("valida y vincula una sola vez las sesiones passkey heredadas", async () => {
+    const { passkeyValidationCalls, repository, service } = createFixture();
+    await service.create({
+      userId: "u1",
+      role: "user",
+      authMethod: "passkey",
+      credentialIdHash: "active-key",
+    });
+    repository.records.get("hash:opaque-session-token")!.passkeyRevocationLinked =
+      false;
+
+    await service.read("pricemaster_auth=opaque-session-token");
+    await service.read("pricemaster_auth=opaque-session-token");
+
+    expect(passkeyValidationCalls()).toBe(1);
+    expect(repository.linkedPasskeySessions).toEqual(["session-id"]);
   });
 
   it("conserva las duraciones actuales por rol", async () => {
@@ -192,17 +269,38 @@ describe("server session service", () => {
       keepActive: true,
     });
 
-    advance(10 * 60 * 1000);
+    advance(31 * 60 * 1000);
     const authenticated = await service.read(
       "pricemaster_auth=opaque-session-token",
     );
 
     expect(authenticated?.session.expiresAt).toBe(
-      now + 10 * 60 * 1000 + 5 * 60 * 60 * 1000,
+      now + 31 * 60 * 1000 + 5 * 60 * 60 * 1000,
     );
     expect(
       repository.records.get("hash:opaque-session-token")?.expiresAt,
-    ).toBe(now + 10 * 60 * 1000 + 5 * 60 * 60 * 1000);
+    ).toBe(now + 31 * 60 * 1000 + 5 * 60 * 60 * 1000);
+  });
+
+  it("no toca ni renueva una sesión antes de treinta minutos", async () => {
+    const { advance, repository, service } = createFixture({
+      ...activeUser,
+      role: "admin",
+    });
+    const issued = await service.create({
+      userId: "u1",
+      role: "admin",
+      authMethod: "password",
+      keepActive: true,
+    });
+
+    advance(10 * 60 * 1000);
+    const authenticated = await service.read(
+      "pricemaster_auth=opaque-session-token",
+    );
+
+    expect(authenticated?.session.expiresAt).toBe(issued.record.expiresAt);
+    expect(repository.touches).toHaveLength(0);
   });
 
   it("conserva el vencimiento inicial cuando la renovación está desactivada", async () => {
@@ -218,7 +316,7 @@ describe("server session service", () => {
     });
     const initialExpiration = issued.record.expiresAt;
 
-    advance(10 * 60 * 1000);
+    advance(31 * 60 * 1000);
     const authenticated = await service.read(
       "pricemaster_auth=opaque-session-token",
     );
@@ -228,5 +326,101 @@ describe("server session service", () => {
     expect(
       repository.records.get("hash:opaque-session-token")?.expiresAt,
     ).toBe(initialExpiration);
+    expect(repository.touches).toHaveLength(0);
+  });
+
+  it("el heartbeat renueva usando solo el documento de sesión", async () => {
+    const {
+      advance,
+      getUserCalls,
+      passkeyValidationCalls,
+      repository,
+      service,
+    } = createFixture({ ...activeUser, role: "admin" });
+    await service.create({
+      userId: "u1",
+      role: "admin",
+      authMethod: "password",
+      keepActive: true,
+    });
+
+    advance(31 * 60 * 1000);
+    const session = await service.heartbeat(
+      "pricemaster_auth=opaque-session-token",
+    );
+
+    expect(session?.expiresAt).toBe(
+      1_700_000_000_000 + 31 * 60 * 1000 + 5 * 60 * 60 * 1000,
+    );
+    expect(getUserCalls()).toBe(0);
+    expect(passkeyValidationCalls()).toBe(0);
+    expect(repository.touches).toHaveLength(1);
+  });
+
+  it("migra una sola vez la duración de una sesión heredada", async () => {
+    const { advance, getUserCalls, repository, service } = createFixture({
+      ...activeUser,
+      role: "admin",
+    });
+    await service.create({
+      userId: "u1",
+      role: "admin",
+      authMethod: "password",
+      keepActive: true,
+    });
+    delete repository.records.get("hash:opaque-session-token")!.durationMs;
+
+    advance(31 * 60 * 1000);
+    await service.heartbeat("pricemaster_auth=opaque-session-token");
+    advance(31 * 60 * 1000);
+    await service.heartbeat("pricemaster_auth=opaque-session-token");
+
+    expect(getUserCalls()).toBe(1);
+    expect(
+      repository.records.get("hash:opaque-session-token")?.durationMs,
+    ).toBe(5 * 60 * 60 * 1000);
+  });
+
+  it("revalida al usuario como máximo una vez por hora de heartbeat", async () => {
+    const { advance, getUserCalls, service } = createFixture({
+      ...activeUser,
+      role: "admin",
+    });
+    await service.create({
+      userId: "u1",
+      role: "admin",
+      authMethod: "password",
+      keepActive: true,
+    });
+
+    advance(31 * 60 * 1000);
+    await service.heartbeat("pricemaster_auth=opaque-session-token");
+    expect(getUserCalls()).toBe(0);
+
+    advance(31 * 60 * 1000);
+    await service.heartbeat("pricemaster_auth=opaque-session-token");
+    expect(getUserCalls()).toBe(1);
+  });
+
+  it("ajusta la duración cuando el rol cambia durante la sesión", async () => {
+    const mutableUser: User = { ...activeUser, role: "user" };
+    const { advance, now, repository, service } = createFixture(mutableUser);
+    await service.create({
+      userId: "u1",
+      role: "user",
+      authMethod: "password",
+      keepActive: true,
+    });
+
+    mutableUser.role = "admin";
+    advance(61 * 60 * 1000);
+    await service.heartbeat("pricemaster_auth=opaque-session-token");
+
+    expect(
+      repository.records.get("hash:opaque-session-token")?.durationMs,
+    ).toBe(5 * 60 * 60 * 1000);
+    expect(
+      repository.records.get("hash:opaque-session-token")?.expiresAt,
+    ).toBe(now + 61 * 60 * 1000 + 5 * 60 * 60 * 1000);
   });
 });

@@ -57,7 +57,10 @@ export interface AuthSessionRecord {
   createdAt: number;
   lastSeenAt: number;
   expiresAt: number;
+  durationMs?: number;
+  userValidatedAt?: number;
   keepActive?: boolean;
+  passkeyRevocationLinked?: boolean;
   revokedAt: number | null;
   revokedReason: string | null;
 }

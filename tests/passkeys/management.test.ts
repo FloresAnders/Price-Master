@@ -17,7 +17,11 @@ vi.mock("@/lib/passkeys/repository.server", () => ({
     renamePasskey: mocks.renamePasskey,
     revokePasskey: mocks.revokePasskey,
   }),
-  PasskeyRepositoryError: class extends Error {},
+  PasskeyRepositoryError: class extends Error {
+    constructor(public readonly code: string) {
+      super(code);
+    }
+  },
 }));
 
 const storedPasskey = {
@@ -172,5 +176,31 @@ describe("passkey management routes", () => {
       false,
       "credential-hash",
     );
+  });
+
+  it("informa cuando la revocación excede el lote seguro", async () => {
+    const { DELETE } = await import(
+      "@/app/api/auth/passkeys/[credentialIdHash]/route"
+    );
+    const { PasskeyRepositoryError } = await import(
+      "@/lib/passkeys/repository.server"
+    );
+    mocks.revokePasskey.mockRejectedValueOnce(
+      new PasskeyRepositoryError("session_limit_exceeded"),
+    );
+
+    const response = await DELETE(
+      new Request("http://localhost/api/auth/passkeys/credential-hash", {
+        method: "DELETE",
+        headers: { cookie: "pricemaster_auth=session" },
+      }),
+      { params: Promise.resolve({ credentialIdHash: "credential-hash" }) },
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: "passkey_session_limit_exceeded",
+    });
   });
 });

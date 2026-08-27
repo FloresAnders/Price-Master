@@ -13,6 +13,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AuthWrapper from "@/components/auth/AuthWrapper";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 
+const serviceMocks = vi.hoisted(() => ({
+  subscribeToUser: vi.fn(
+    (
+      _userId: string,
+      _callback: (user: Record<string, unknown> | null) => void,
+    ) => {
+      void _userId;
+      void _callback;
+      return () => undefined;
+    },
+  ),
+}));
+
 vi.mock("next/navigation", () => ({
   usePathname: () => "/",
 }));
@@ -26,7 +39,7 @@ vi.mock("@/services/version-doc", () => ({
 }));
 vi.mock("@/services/users", () => ({
   UsersService: {
-    subscribeToUser: vi.fn(() => () => undefined),
+    subscribeToUser: serviceMocks.subscribeToUser,
     getUserById: vi.fn(),
   },
 }));
@@ -58,6 +71,7 @@ describe("server-authoritative auth state", () => {
     localStorage.clear();
     sessionStorage.clear();
     vi.clearAllMocks();
+    serviceMocks.subscribeToUser.mockImplementation(() => () => undefined);
   });
 
   afterEach(() => {
@@ -161,6 +175,84 @@ describe("server-authoritative auth state", () => {
     expect(localStorage.getItem("pricemaster_token_session")).toBeNull();
   });
 
+  it("cierra la sesión cuando el listener informa que el usuario fue desactivado", async () => {
+    let pushUserUpdate: ((user: Record<string, unknown> | null) => void) | null =
+      null;
+    serviceMocks.subscribeToUser.mockImplementation((_userId, callback) => {
+      pushUserUpdate = callback;
+      return () => undefined;
+    });
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      if (String(input) === "/api/auth/session") {
+        return Promise.resolve(
+          response({
+            ok: true,
+            user: {
+              id: "user-1",
+              name: "ALCHACAS",
+              role: "user",
+              isActive: true,
+            },
+            session: { authMethod: "password", expiresAt: Date.now() + 60_000 },
+          }),
+        );
+      }
+      if (String(input) === "/api/auth/logout") {
+        return Promise.resolve(response({ ok: true }));
+      }
+      throw new Error(`Unexpected request: ${String(input)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const auth = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    await waitFor(() => expect(auth.result.current.loading).toBe(false));
+
+    act(() => {
+      pushUserUpdate?.({
+        id: "user-1",
+        name: "ALCHACAS",
+        role: "user",
+        isActive: false,
+      });
+    });
+
+    expect(auth.result.current.isAuthenticated).toBe(false);
+    expect(auth.result.current.user).toBeNull();
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/auth/logout",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+  });
+
+  it("propaga el cierre de sesión recibido desde otra pestaña", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        response({
+          ok: true,
+          user: { id: "user-1", name: "ALCHACAS", role: "user" },
+          session: { authMethod: "password", expiresAt: Date.now() + 60_000 },
+        }),
+      ),
+    );
+    const auth = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    await waitFor(() => expect(auth.result.current.isAuthenticated).toBe(true));
+
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "pricemaster_auth_sync",
+          newValue: JSON.stringify({ type: "logout", nonce: "other-tab" }),
+        }),
+      );
+    });
+
+    expect(auth.result.current.isAuthenticated).toBe(false);
+    expect(auth.result.current.user).toBeNull();
+    expect(localStorage.getItem("pricemaster_session_heartbeat_lease")).toBeNull();
+  });
+
   it("reports five hours for a newly authenticated administrator", async () => {
     vi.stubGlobal(
       "fetch",
@@ -174,6 +266,98 @@ describe("server-authoritative auth state", () => {
     });
 
     expect(result.current.getSessionTimeLeft()).toBeCloseTo(5, 2);
+  });
+
+  it("espera treinta minutos y usa el heartbeat liviano", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      if (String(input) === "/api/auth/session") {
+        return Promise.resolve(
+          response({
+            ok: true,
+            user: { id: "user-1", name: "ALCHACAS", role: "user" },
+            session: {
+              authMethod: "password",
+              expiresAt: Date.now() + 60_000,
+            },
+          }),
+        );
+      }
+      if (String(input) === "/api/auth/session/heartbeat") {
+        return Promise.resolve(
+          response({
+            ok: true,
+            session: {
+              authMethod: "password",
+              expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
+            },
+          }),
+        );
+      }
+      throw new Error(`Unexpected request: ${String(input)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const auth = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(auth.result.current.loading).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(5 * 60 * 1000);
+      await Promise.resolve();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(25 * 60 * 1000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/auth/session/heartbeat");
+  });
+
+  it("conserva la sesión ante un fallo temporal del heartbeat", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      if (String(input) === "/api/auth/session") {
+        return Promise.resolve(
+          response({
+            ok: true,
+            user: { id: "user-1", name: "ALCHACAS", role: "user" },
+            session: {
+              authMethod: "password",
+              expiresAt: Date.now() + 60_000,
+            },
+          }),
+        );
+      }
+      if (String(input) === "/api/auth/session/heartbeat") {
+        return Promise.resolve(response({ ok: false, error: "unavailable" }, 503));
+      }
+      throw new Error(`Unexpected request: ${String(input)}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const auth = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(30 * 60 * 1000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(auth.result.current.isAuthenticated).toBe(true);
+    expect(auth.result.current.user?.id).toBe("user-1");
   });
 
   it("keeps every auth instance logged out when an old session response arrives", async () => {
@@ -279,6 +463,7 @@ describe("server-authoritative auth state", () => {
     vi.useFakeTimers();
     const staleSession = deferred<Response>();
     let sessionRequestCount = 0;
+    let heartbeatRequestCount = 0;
     vi.stubGlobal(
       "fetch",
       vi.fn((input: RequestInfo | URL) => {
@@ -292,6 +477,12 @@ describe("server-authoritative auth state", () => {
         if (String(input) === "/api/auth/logout") {
           return Promise.resolve(response({ ok: true }));
         }
+        if (String(input) === "/api/auth/session/heartbeat") {
+          heartbeatRequestCount += 1;
+          return Promise.resolve(
+            response({ ok: false, error: "unauthorized" }, 401),
+          );
+        }
         throw new Error(`Unexpected request: ${String(input)}`);
       }),
     );
@@ -301,7 +492,7 @@ describe("server-authoritative auth state", () => {
 
     await act(async () => {
       await auth.result.current.logout();
-      vi.advanceTimersByTime(5 * 60 * 1000);
+      vi.advanceTimersByTime(30 * 60 * 1000);
       await Promise.resolve();
     });
 
@@ -319,7 +510,8 @@ describe("server-authoritative auth state", () => {
 
     expect(auth.result.current.isAuthenticated).toBe(false);
     expect(auth.result.current.user).toBeNull();
-    expect(sessionRequestCount).toBe(2);
+    expect(sessionRequestCount).toBe(1);
+    expect(heartbeatRequestCount).toBe(1);
   });
 
   it("clears the stored password hash as soon as logout begins", async () => {

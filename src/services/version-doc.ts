@@ -85,7 +85,9 @@ export function subscribeToVersionDoc(
     errorListeners.add(onError);
   }
 
-  if (!activeUnsubscribe) {
+  if (activeUnsubscribe && latestSnapshot) {
+    listener(latestSnapshot);
+  } else if (!activeUnsubscribe) {
     const versionRef = doc(db, "version", "current");
     activeUnsubscribe = onSnapshot(
       versionRef,
@@ -98,12 +100,6 @@ export function subscribeToVersionDoc(
       },
     );
   }
-
-  void readVersionSnapshotOnce().then((snapshot) => {
-    if (snapshot) {
-      listener(snapshot);
-    }
-  });
 
   return () => {
     listeners.delete(listener);
