@@ -12,7 +12,7 @@ describe("messageForGenteCrystalSalesError", () => {
         new GenteCrystalSalesClientError(403, "update_window_closed"),
       ),
     ).toBe(
-      "Solo puedes actualizar Tiempos/Tucan durante la ventana de cierre del turno D o N.",
+      "Solo puedes actualizar Tiempos durante la ventana de cierre del turno D o N.",
     );
   });
 });

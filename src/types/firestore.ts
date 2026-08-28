@@ -208,7 +208,7 @@ export interface UserPermissions {
   cajaNegra?: boolean; // Caja Negra - Manejo de dineros extra del Fondo General
   tucan?: boolean; // Tucan - Manejo de dineros extra del Fondo General
   tiempos?: boolean; // Tiempos - Manejo de dineros extra del Fondo General
-  reportetiempos?: boolean; // Reporte Tiempos/Tucan - Acceso a la seccion interna de reportes
+  reportetiempos?: boolean; // Reporte Tiempos - Acceso a la seccion interna de reportes
   deudasInternas?: boolean; // Deudas Internas - Deudas entre empresas y personas
   registroTucan?: boolean; // Registro Tucan - Seccion independiente en mantenimiento
   registroTiempos?: boolean; // Registro Tiempos - Seccion independiente en mantenimiento

@@ -77,7 +77,7 @@ const PERMISSION_DESCRIPTIONS = {
   cajaNegra: "Manejar dineros extra del Fondo General",
   tucan: "Manejar dineros extra del Fondo General",
   tiempos: "Manejar dineros extra del Fondo General",
-  reportetiempos: "Acceso a la sección interna Tiempos/Tucan",
+  reportetiempos: "Acceso a la sección interna Tiempos",
   deudasInternas: "Gestionar deudas internas entre empresas y personas",
   registroTucan: "Acceso a Registro Tucan",
   registroTiempos: "Acceso a Registro Tiempos",

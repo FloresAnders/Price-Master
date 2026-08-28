@@ -146,7 +146,7 @@ export function GenteCrystalTiemposPanel({
     setWindowCheckNow(new Date());
     if (!currentAccess.allowed) {
       setError(
-        "Solo puedes actualizar Tiempos/Tucan durante la ventana de cierre del turno D o N.",
+        "Solo puedes actualizar Tiempos durante la ventana de cierre del turno D o N.",
       );
       return;
     }
@@ -245,7 +245,7 @@ export function GenteCrystalTiemposPanel({
 
       {updateBlocked && (
         <p className="rounded-md border border-amber-500/30 bg-amber-950/15 px-3 py-2 text-sm text-amber-100">
-          Solo puedes actualizar Tiempos/Tucan durante la ventana de cierre del
+          Solo puedes actualizar Tiempos durante la ventana de cierre del
           turno D o N.
         </p>
       )}

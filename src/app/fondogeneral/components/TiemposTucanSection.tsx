@@ -10,7 +10,6 @@ import { getControlHorarioShiftTiming } from "../../../utils/controlHorarioManag
 import { canAccessTiemposTucan } from "../../../components/layout/fondoNavigation";
 import { getDefaultPermissions } from "../../../utils/permissions";
 import { GenteCrystalTiemposPanel } from "./GenteCrystalTiemposPanel";
-import { BcrTucanPanel } from "./BcrTucanPanel";
 import {
   buildGenteCrystalCompanyOptions,
   resolveGenteCrystalCompanySelection,
@@ -153,7 +152,7 @@ export function TiemposTucanSection() {
     };
 
     void loadShiftChange().catch((error) => {
-      console.error("Error resolving Tiempos/Tucan shift timing:", error);
+      console.error("Error resolving Tiempos shift timing:", error);
       if (!cancelled) setShiftChangeMin(null);
     });
 
@@ -190,7 +189,7 @@ export function TiemposTucanSection() {
     <div className="w-full bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg shadow p-8">
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <h2 className="text-xl font-semibold text-[var(--foreground)]">
-          Tiempos/Tucan
+          Tiempos
         </h2>
         {!loading &&
           user &&
@@ -216,12 +215,8 @@ export function TiemposTucanSection() {
             </label>
           )}
       </div>
-      <div className="grid w-full grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="w-full">
         <section className="min-h-40 space-y-4 rounded-lg border border-[var(--input-border)] bg-[var(--background)] p-6">
-          <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">
-            Tiempos
-          </h3>
-
           {loading ? (
             <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
               Cargando empresas...
@@ -251,50 +246,6 @@ export function TiemposTucanSection() {
             </p>
           ) : (
             <GenteCrystalTiemposPanel
-              companyId={companyId}
-              userRole={user.role}
-              horarioApertura={selectedOption?.horarioApertura}
-              horarioCierre={selectedOption?.horarioCierre}
-              shiftChangeMin={shiftChangeMin}
-              cierreFondoVentasMinutesBeforeEnd={
-                selectedOption?.cierreFondoVentasMinutesBeforeEnd
-              }
-              cierreFondoVentasMinutesAfterEnd={
-                selectedOption?.cierreFondoVentasMinutesAfterEnd
-              }
-            />
-          )}
-        </section>
-        <section className="min-h-40 space-y-4 rounded-lg border border-[var(--input-border)] bg-[var(--background)] p-6">
-          <h3 className="text-lg font-semibold text-[var(--foreground)] mb-2">
-            Tucan
-          </h3>
-          {loading ? (
-            <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
-              Cargando empresas...
-            </p>
-          ) : !user ? (
-            <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
-              Inicia sesión para consultar los comprobantes.
-            </p>
-          ) : !hasReporteTiemposAccess ? (
-            <p className="rounded-md border border-amber-500/30 bg-amber-950/15 px-3 py-4 text-sm text-amber-100">
-              No tienes permiso para consultar Reporte Tiempos.
-            </p>
-          ) : companyScopeLoading ? (
-            <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
-              Cargando empresas...
-            </p>
-          ) : companiesError ? (
-            <p role="alert" className="rounded-md border border-red-500/35 bg-red-950/20 px-3 py-4 text-sm text-red-200">
-              {companiesError}
-            </p>
-          ) : !companyId ? (
-            <p className="rounded-md border border-amber-500/30 bg-amber-950/15 px-3 py-4 text-sm text-amber-100">
-              No hay una empresa asignada para consultar.
-            </p>
-          ) : (
-            <BcrTucanPanel
               companyId={companyId}
               userRole={user.role}
               horarioApertura={selectedOption?.horarioApertura}

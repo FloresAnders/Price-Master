@@ -1278,7 +1278,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   )}
                 </button>
               )}
-               {/* Tiempos/Tucan */}
+               {/* Tiempos */}
               {canUseTiemposTucan && (
                 <button
                   onClick={() => {
@@ -1289,10 +1289,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                       ? "text-[var(--tab-text-active)] font-semibold"
                       : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
                   }`}
-                  title="Tiempos/Tucan"
+                  title="Tiempos"
                 >
                   <Timer className="w-4 h-4" />
-                  <span className="hidden xl:inline">Tiempos/Tucan</span>
+                  <span className="hidden xl:inline">Tiempos</span>
                   {currentHash === `#${TIEMPOS_TUCAN_TAB_ID}` && (
                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
                   )}
@@ -1656,7 +1656,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   </button>
                 )}
 
-                {/* Tiempos/Tucan */}
+                {/* Tiempos */}
                 {canUseTiemposTucan && (
                   <button
                     onClick={() => {
@@ -1668,10 +1668,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                         ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
                         : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
                     }`}
-                    title="Tiempos/Tucan"
+                    title="Tiempos"
                   >
                     <Timer className="w-4 h-4" />
-                    <span>Tiempos/Tucan</span>
+                    <span>Tiempos</span>
                   </button>
                 )}
 

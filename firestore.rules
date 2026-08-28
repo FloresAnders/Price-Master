@@ -675,8 +675,8 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // BCR integration data is server-only. Route Handlers use Firebase Admin
-    // and are not affected by client security rules.
+    // Retired integration collections remain blocked in case historical data
+    // still exists. No client or Route Handler consumes these collections.
     match /bcrIntegrationDevices/{document=**} {
       allow read, write: if false;
     }

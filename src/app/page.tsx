@@ -508,7 +508,7 @@ export default function HomePage() {
               {/* AGREGAR PROVEEDOR */}
               {activeTab === "agregarproveedor" && <AgregarProveedorPage />}
 
-              {/* TIEMPOS/TUCAN */}
+              {/* TIEMPOS */}
               {activeTab === TIEMPOS_TUCAN_TAB_ID &&
                 canUseTiemposTucan && <TiemposTucanSection />}
 
