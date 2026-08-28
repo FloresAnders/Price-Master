@@ -26,6 +26,10 @@ import {
   parseBillCountInput,
 } from "@/components/business/cash-counter-tabs/utils";
 import type { DailyClosingRecord } from "@/services/daily-closings";
+import {
+  formatSystemVerificationMoneyInput as formatMoneyInput,
+  normalizeSystemVerificationMoneyInput as normalizeMoneyInput,
+} from "@/utils/systemVerificationMoneyInput";
 // Usar botones nativos con clases Tailwind en vez de un componente Button central
 
 const CRC_DENOMINATIONS: readonly number[] = [
@@ -366,40 +370,6 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
         ? `$ ${usdFormatter.format(value)}`
         : `₡ ${crcFormatter.format(value)}`,
     [usdFormatter, crcFormatter],
-  );
-
-  const normalizeMoneyInput = useCallback((raw: string) => {
-    if (!raw) return "";
-
-    const stripped = raw.replace(/\s/g, "").replace(/[^\d.,]/g, "");
-    const decimalIndex = Math.max(stripped.lastIndexOf(","), stripped.lastIndexOf("."));
-
-    if (decimalIndex === -1) {
-      return stripped;
-    }
-
-    const integerPart = stripped.slice(0, decimalIndex).replace(/[.,]/g, "");
-    const fractionPart = stripped
-      .slice(decimalIndex + 1)
-      .replace(/[.,]/g, "")
-      .slice(0, 2);
-
-    return fractionPart.length > 0 ? `${integerPart}.${fractionPart}` : `${integerPart}.`;
-  }, []);
-
-  const formatMoneyInput = useCallback(
-    (value: string) => {
-      if (!value) return "";
-      const normalized = normalizeMoneyInput(value);
-      if (normalized.endsWith(".")) {
-        const integerValue = Number.parseFloat(normalized.slice(0, -1) || "0") || 0;
-        return `${crcFormatter.format(integerValue)},`;
-      }
-
-      const numericValue = Number.parseFloat(normalized);
-      return Number.isFinite(numericValue) ? crcFormatter.format(numericValue) : "";
-    },
-    [crcFormatter, normalizeMoneyInput],
   );
 
   const normalizeCount = useCallback((raw: string) => {
@@ -1373,6 +1343,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                           ₡
                         </span>
                         <input
+                          type="text"
                           value={formatMoneyInput(conticaValue as string)}
                           onChange={(event) =>
                             (setContica as React.Dispatch<React.SetStateAction<string>>)(
@@ -1380,6 +1351,9 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                             )
                           }
                           inputMode="decimal"
+                          autoComplete="off"
+                          autoCorrect="off"
+                          spellCheck={false}
                           className="h-10 w-full rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 pl-7 text-sm text-[var(--foreground)]"
                         />
                       </div>
@@ -1392,6 +1366,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                           ₡
                         </span>
                         <input
+                          type="text"
                           value={formatMoneyInput(externalValue as string)}
                           onChange={(event) =>
                             (setExternal as React.Dispatch<React.SetStateAction<string>>)(
@@ -1399,11 +1374,31 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                             )
                           }
                           inputMode="decimal"
+                          autoComplete="off"
+                          autoCorrect="off"
+                          spellCheck={false}
                           className="h-10 w-full rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 pl-7 text-sm text-[var(--foreground)]"
                         />
                       </div>
                     </label>
-                    <label className="text-xs text-[var(--muted-foreground)]"><span className="md:hidden">Diferencia · </span>Diferencia<input value={(() => { const amount = difference as number; return amount > 0 ? `+${crcFormatter.format(amount)}` : crcFormatter.format(amount); })()} readOnly aria-label={`Diferencia ${conticaLabel as string}`} className="mt-1 h-10 w-full cursor-default rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm font-semibold text-[var(--foreground)]" /></label>
+                    <label className="text-xs text-[var(--muted-foreground)]">
+                      <span className="md:hidden">Diferencia · </span>
+                      Diferencia
+                      <input
+                        value={(() => {
+                          const amount = difference as number;
+                          const formattedAmount = formatMoneyInput(String(Math.abs(amount)));
+                          return amount > 0
+                            ? `+${formattedAmount}`
+                            : amount < 0
+                              ? `-${formattedAmount}`
+                              : formattedAmount;
+                        })()}
+                        readOnly
+                        aria-label={`Diferencia ${conticaLabel as string}`}
+                        className="mt-1 h-10 w-full cursor-default rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-sm font-semibold text-[var(--foreground)]"
+                      />
+                    </label>
                   </div>
                 ))}
                 {tucanBelowTurnoD && (

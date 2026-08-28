@@ -7,6 +7,7 @@ export type ReconciliationStatus =
   | "DAILY_UNRESOLVED";
 
 export const RECONCILIATION_TOLERANCE = 0;
+export const MINIMUM_REPORTABLE_RECONCILIATION_DIFFERENCE = 1;
 
 export type ClosingReconciliation = {
   contica: { r08: number; t11: number };
@@ -29,21 +30,27 @@ export type ReconciliationInput = {
 };
 
 const money = (value: number) => (Number.isFinite(value) ? value : 0);
+const reportableDifference = (value: number) =>
+  Math.abs(value) < MINIMUM_REPORTABLE_RECONCILIATION_DIFFERENCE ? 0 : value;
 const matched = (value: number) => Math.abs(value) <= RECONCILIATION_TOLERANCE;
 
 export function reconcileClosing(input: ReconciliationInput): ClosingReconciliation {
   const previous = input.previous;
   const prevTucan = money(previous?.externalSnapshots.tucanCumulative ?? 0);
   const prevTiempos = money(previous?.externalSnapshots.tiemposCumulative ?? 0);
-  const prevPending = money(previous?.calculated.tiemposPendingAfterClosing ?? 0);
+  const prevPending = reportableDifference(
+    money(previous?.calculated.tiemposPendingAfterClosing ?? 0),
+  );
   const r08 = money(input.r08), t11 = money(input.t11);
   const tucan = money(input.tucanCumulative), tiempos = money(input.tiemposCumulative);
   if (tucan < prevTucan || tiempos < prevTiempos) throw new Error("Reporte acumulado actual no puede ser menor al anterior.");
   const tucanForShift = tucan - prevTucan;
   const tiemposForShift = tiempos - prevTiempos;
-  const tucanDifference = r08 - tucanForShift;
-  const tiemposRawDifference = t11 - tiemposForShift;
-  const combinedTiemposDifference = prevPending + tiemposRawDifference;
+  const tucanDifference = reportableDifference(r08 - tucanForShift);
+  const tiemposRawDifference = reportableDifference(t11 - tiemposForShift);
+  const combinedTiemposDifference = reportableDifference(
+    prevPending + tiemposRawDifference,
+  );
   const hasOppositePending =
     prevPending !== 0 &&
     tiemposRawDifference !== 0 &&
@@ -56,12 +63,38 @@ export function reconcileClosing(input: ReconciliationInput): ClosingReconciliat
   const realDifference = input.isFinalShift ? tiemposDifference : 0;
   const cumulativeR08 = money(input.cumulativeR08 ?? r08);
   const cumulativeT11 = money(input.cumulativeT11 ?? t11);
-  const cumulativeTiemposDifference = cumulativeT11 - tiempos;
+  const cumulativeTiemposDifference = reportableDifference(
+    cumulativeT11 - tiempos,
+  );
   let tiemposStatus: ReconciliationStatus = "MATCHED";
   if (input.isFinalShift && !matched(cumulativeTiemposDifference)) tiemposStatus = "DAILY_UNRESOLVED";
   else if (!matched(realDifference)) tiemposStatus = "REAL_DIFFERENCE";
   else if (compensation > 0 && matched(pendingAfter)) tiemposStatus = "RESOLVED";
   else if (compensation > 0) tiemposStatus = "PARTIALLY_RESOLVED";
   else if (!matched(pendingAfter)) tiemposStatus = "TEMPORARY_PENDING";
-  return { contica: { r08, t11 }, externalSnapshots: { tucanCumulative: tucan, tiemposCumulative: tiempos }, calculated: { previousTucanCumulative: prevTucan, previousTiemposCumulative: prevTiempos, tucanForShift, tiemposForShift, tucanDifference, tiemposRawDifference, tiemposDifference, previousTiemposPending: prevPending, compensatedTiemposAmount: compensation, tiemposRealShiftDifference: realDifference, tiemposPendingAfterClosing: pendingAfter, cumulativeR08, cumulativeT11, cumulativeTucanDifference: cumulativeR08 - tucan, cumulativeTiemposDifference }, tiemposStatus };
+  return {
+    contica: { r08, t11 },
+    externalSnapshots: {
+      tucanCumulative: tucan,
+      tiemposCumulative: tiempos,
+    },
+    calculated: {
+      previousTucanCumulative: prevTucan,
+      previousTiemposCumulative: prevTiempos,
+      tucanForShift,
+      tiemposForShift,
+      tucanDifference,
+      tiemposRawDifference,
+      tiemposDifference,
+      previousTiemposPending: prevPending,
+      compensatedTiemposAmount: compensation,
+      tiemposRealShiftDifference: realDifference,
+      tiemposPendingAfterClosing: pendingAfter,
+      cumulativeR08,
+      cumulativeT11,
+      cumulativeTucanDifference: reportableDifference(cumulativeR08 - tucan),
+      cumulativeTiemposDifference,
+    },
+    tiemposStatus,
+  };
 }
