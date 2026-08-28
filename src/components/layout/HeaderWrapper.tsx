@@ -46,6 +46,7 @@ export default function HeaderWrapper() {
         "supplierorders",
         "histoscans",
         "scanhistory",
+        "verificarinventario",
         "edit",
         "solicitud",
         "registroTucan",

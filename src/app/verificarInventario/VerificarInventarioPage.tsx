@@ -1,5 +1,7 @@
 "use client";
 
+// Vista integrada en la navegación principal mediante #verificarinventario.
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import AddEmpresaModal from "./AddEmpresaModal";
 import DeleteEmpresaModal from "./DeleteEmpresaModal";
@@ -1193,7 +1195,7 @@ export default function VerificarInventarioPage() {
 
   if (loading || authLoading) {
     return (
-      <section className="mx-auto w-full max-w-5xl px-4 py-8">
+      <section className="mx-auto w-full max-w-5xl">
         <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-5 text-sm text-[var(--foreground)]">
           Cargando sección...
         </div>
@@ -1202,7 +1204,7 @@ export default function VerificarInventarioPage() {
   }
 
   return (
-    <section className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-8">
+    <section className="mx-auto flex w-full max-w-5xl flex-col gap-4">
       <VerificarInventarioHeader
         empresas={state.empresas}
         selectedEmpresaId={selectedEmpresaId}

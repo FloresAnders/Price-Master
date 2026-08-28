@@ -160,6 +160,10 @@ const AnotacionesPage = dynamic(
   () => import("@/components/anotaciones/AnotacionesPage"),
   { ssr: false },
 );
+const VerificarInventarioPage = dynamic(
+  () => import("@/app/verificarInventario/VerificarInventarioPage"),
+  { ssr: false },
+);
 
 // 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders", "edit", "scanhistory", "solicitud", "agregarproveedor", "reportes"
 type ActiveTab =
@@ -177,6 +181,7 @@ type ActiveTab =
   | "calculohorasprecios"
   | "supplierorders"
   | "scanhistory"
+  | "verificarinventario"
   | "edit"
   | "solicitud"
   | "registroTucan"
@@ -501,6 +506,11 @@ export default function HomePage() {
 
               {/* HISTORIAL DE ESCANEOS */}
               {activeTab === "scanhistory" && <ScanHistoryTable />}
+
+              {/* VERIFICAR INVENTARIO */}
+              {activeTab === "verificarinventario" && (
+                <VerificarInventarioPage />
+              )}
 
               {/* FONDO GENERAL */}
               {activeTab === "fondogeneral" && <FondoPage />}

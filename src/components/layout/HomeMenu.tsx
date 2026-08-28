@@ -1573,7 +1573,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const handleNavigate = (id: string) => {
     if (typeof window !== "undefined") {
       if (id === "verificarInventario") {
-        window.location.href = "/verificarInventario";
+        window.location.href = "/#verificarinventario";
         return;
       }
 

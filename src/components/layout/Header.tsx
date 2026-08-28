@@ -114,6 +114,7 @@ export type ActiveTab =
   | "supplierorders"
   | "histoscans"
   | "scanhistory"
+  | "verificarinventario"
   | "edit"
   | "solicitud"
   | "registroTucan"
@@ -1536,7 +1537,12 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             )}
             {/* Mobile scanner button (only visible on mobile) */}
             <Link
-              href="/verificarInventario"
+              href="/#verificarinventario"
+              onClick={(event) => {
+                if (pathname !== "/") return;
+                event.preventDefault();
+                window.location.hash = "#verificarinventario";
+              }}
               className="lg:hidden p-2 rounded-md hover:bg-[var(--hover-bg)] transition-colors"
               title="Verificar inventario"
             >

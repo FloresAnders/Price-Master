@@ -35,6 +35,7 @@ export const HOME_TAB_IDS = [
   "calculohorasprecios",
   "supplierorders",
   "scanhistory",
+  "verificarinventario",
   "edit",
   "solicitud",
   "registroTucan",
