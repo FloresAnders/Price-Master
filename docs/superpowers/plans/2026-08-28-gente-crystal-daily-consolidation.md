@@ -302,10 +302,10 @@ git commit -m "Read Gente Crystal daily consolidations"
 - [ ] **Step 1: Write failing script-helper tests**
 
 Import the ESM script under Vitest and test exported `parseBackfillArgs`,
-`costaRicaDateKey`, `buildBackfillMutation`, and `compareDailyTotals`. Require a
-company ID, reject slashes, reject simultaneous `--apply`/`--verify-only`,
-project the exact minimal active entry, and plan deletion only when a tombstone
-retains a valid `saleAt`.
+`buildBackfillMutation`, and `compareDailyTotals`. Require a company ID, reject
+slashes, reject simultaneous `--apply`/`--verify-only`, project the exact
+minimal active entry, and plan deletion only when a tombstone retains a valid
+`saleAt`.
 
 - [ ] **Step 2: Run the helper tests and confirm the missing script failure**
 
@@ -318,8 +318,12 @@ Expected: FAIL because the migration script does not exist.
 The script must not initialize Firebase until argument validation succeeds. It
 loads Next environment configuration, selects `FIRESTORE_DATABASE_ID` (or
 `restauracion` in production), enumerates the required company's individual
-sales, and re-reads each document in a Firestore transaction before a merge
-write:
+sales, and imports `genteCrystalCostaRicaDateKey` and
+`buildGenteCrystalDailyEntry` from
+`../src/lib/gente-crystal/daily-sales.ts` instead of duplicating their logic.
+The repository's Node 22 runtime loads that TypeScript dependency using its
+built-in type stripping. The script re-reads each document in a Firestore
+transaction before a merge write:
 
 ```js
 await firestore.runTransaction(async (transaction) => {
