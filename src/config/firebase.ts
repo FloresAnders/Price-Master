@@ -50,16 +50,17 @@ const app = initializeApp(firebaseConfig);
 const firestoreDatabaseIdRaw = (
   process.env.NEXT_PUBLIC_FIRESTORE_DATABASE_ID || ""
 ).trim();
-const firestoreDatabaseId =
+const selectedFirestoreDatabaseId =
   process.env.NODE_ENV === "production"
     ? "restauracion"
     : firestoreDatabaseIdRaw;
+export const firestoreDatabaseId = selectedFirestoreDatabaseId || "(default)";
 
 export const db = (() => {
   const isBrowser = typeof window !== "undefined";
   if (!isBrowser) {
-    return firestoreDatabaseId
-      ? getFirestore(app, firestoreDatabaseId)
+    return selectedFirestoreDatabaseId
+      ? getFirestore(app, selectedFirestoreDatabaseId)
       : getFirestore(app);
   }
 
@@ -70,8 +71,8 @@ export const db = (() => {
       }),
     };
 
-    return firestoreDatabaseId
-      ? initializeFirestore(app, settings, firestoreDatabaseId)
+    return selectedFirestoreDatabaseId
+      ? initializeFirestore(app, settings, selectedFirestoreDatabaseId)
       : initializeFirestore(app, settings);
   } catch (err) {
     console.warn(
@@ -82,8 +83,8 @@ export const db = (() => {
       localCache: memoryLocalCache(),
     };
 
-    return firestoreDatabaseId
-      ? initializeFirestore(app, settings, firestoreDatabaseId)
+    return selectedFirestoreDatabaseId
+      ? initializeFirestore(app, settings, selectedFirestoreDatabaseId)
       : initializeFirestore(app, settings);
   }
 })();

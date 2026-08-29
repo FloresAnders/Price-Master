@@ -151,15 +151,15 @@ git commit -m "Add tenant-safe Fondo IndexedDB cache"
 - Produces: optional `FondoCacheIdentity` arguments for Fondo-specific provider/type/movement loaders.
 - Exports: `firestoreDatabaseId` from Firebase config, normalized to `"(default)"` when empty.
 
-- [ ] **Step 1: Write failing loader tests**
+- [x] **Step 1: Write failing loader tests**
 
 Use dependency injection around cache/remote functions and assert real returned values: fresh providers/types/movements do not invoke the remote loader; stale values render once and then refresh; a cache exception still returns remote data; daily remote page size is exactly 50.
 
-- [ ] **Step 2: Run and confirm cache integration failures**
+- [x] **Step 2: Run and confirm cache integration failures**
 
 Run: `npm test -- tests/fondogeneral/fondo-cached-loaders.test.ts tests/fondogeneral/v2-movements-loader.test.ts`
 
-- [ ] **Step 3: Wire exact TTLs and invalidation**
+- [x] **Step 3: Wire exact TTLs and invalidation**
 
 ```ts
 const PROVIDERS_TTL_MS = 5 * 60_000;
@@ -169,13 +169,13 @@ const CURRENT_DAY_MOVEMENTS_TTL_MS = 45_000;
 
 Fondo passes `user.id ?? user.email`, `activeOwnerId`, company, account, database, and date key. Provider/type fresh hits skip their Firestore service. Stale hits render then refresh once. The hooks subscribe to matching cross-tab invalidation events and refresh only their own resource. `ensureV2MovementsLoaded` stores display-only base pages, never cursors. Its remote operation uses a 15-second UI timeout; timed-out responses cannot mutate the active request, and the returned module error exposes a retry action without hiding cached data. `persistMovementToFirestore` invalidates matching movement records after Firestore succeeds. Logout clears the signed-in user's Fondo records. The normal Fondo type hook calls `getAllMovementTypes` and never initializes a permanent listener.
 
-- [ ] **Step 4: Run focused tests and TypeScript**
+- [x] **Step 4: Run focused tests and TypeScript**
 
 Run: `npm test -- tests/fondogeneral/fondo-cached-loaders.test.ts tests/fondogeneral/v2-movements-loader.test.ts`
 
 Run: `npx tsc --noEmit`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add src/config/firebase.ts src/hooks/useProviders.ts src/app/fondogeneral/hooks/fondo/useFondoMovementTypes.ts src/app/fondogeneral/utils/v2movementsLoader.ts src/app/fondogeneral/hooks/fondo/useV2MovementsHydration.ts src/app/fondogeneral/components/layout/FondoSection.tsx src/app/fondogeneral/utils/fondo/persistence.ts src/hooks/useAuth.ts tests/fondogeneral/fondo-cached-loaders.test.ts tests/fondogeneral/v2-movements-loader.test.ts

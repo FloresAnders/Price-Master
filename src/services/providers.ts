@@ -11,6 +11,7 @@ import {
 import { db } from "@/config/firebase";
 import type { ProviderEntry } from "../types/firestore";
 import type { MovementAccountKey } from "./movimientos-fondos";
+import { invalidateFondoCache } from "./fondo-cache";
 
 type ProviderVisitDay = "D" | "L" | "M" | "MI" | "J" | "V" | "S";
 type ProviderVisitFrequency = "SEMANAL" | "QUINCENAL" | "MENSUAL" | "22 DIAS";
@@ -465,6 +466,10 @@ export class ProvidersService {
       return provider;
     });
     this.providersCache.delete(trimmedCompany);
+    await invalidateFondoCache({
+      companyId: trimmedCompany,
+      resource: "providers",
+    });
     return createdProvider;
   }
 
@@ -496,6 +501,10 @@ export class ProvidersService {
       return provider;
     });
     this.providersCache.delete(trimmedCompany);
+    await invalidateFondoCache({
+      companyId: trimmedCompany,
+      resource: "providers",
+    });
     return removedProvider;
   }
 
@@ -525,6 +534,10 @@ export class ProvidersService {
     });
 
     this.providersCache.delete(trimmedCompany);
+    await invalidateFondoCache({
+      companyId: trimmedCompany,
+      resource: "providers",
+    });
     return updated;
   }
 
@@ -628,6 +641,10 @@ export class ProvidersService {
       return provider;
     });
     this.providersCache.delete(trimmedCompany);
+    await invalidateFondoCache({
+      companyId: trimmedCompany,
+      resource: "providers",
+    });
     return updatedProvider;
   }
 }

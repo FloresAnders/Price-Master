@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 import {
   MovimientosFondosService,
@@ -11,6 +11,11 @@ import type { FondoEntry } from "../../types";
 import { ensureV2MovementsLoaded as ensureV2MovementsLoadedFn } from "../../utils/v2movementsLoader";
 import { buildV2MovementsCacheKey, resolveV2DocKey } from "../../utils/v2movements";
 import { sanitizeFondoEntries, isMovementAccountKey } from "../../utils/helpers";
+import {
+  subscribeFondoCacheInvalidation,
+  type FondoCacheIdentity,
+  type FondoCacheScope,
+} from "../../../../services/fondo-cache";
 
 type V2MovementsCacheEntry = {
   loaded: boolean;
@@ -51,6 +56,7 @@ interface UseV2MovementsHydrationProps {
     currentUSD: number;
   }) => void;
   setMovementCurrency: (value: MovementCurrencyKey) => void;
+  cacheIdentity?: FondoCacheIdentity;
 }
 
 export function useV2MovementsHydration({
@@ -75,7 +81,9 @@ export function useV2MovementsHydration({
   setInitialAmountUSD,
   setLedgerSnapshot,
   setMovementCurrency,
+  cacheIdentity,
 }: UseV2MovementsHydrationProps) {
+  const [movementLoadError, setMovementLoadError] = useState<Error | null>(null);
   const storageSnapshotRef = useRef<MovementStorage<FondoEntry> | null>(null);
   const accountKeyRef = useRef<MovementAccountKey>(accountKey);
   const v2MovementsCacheRef = useRef<
@@ -97,6 +105,24 @@ export function useV2MovementsHydration({
   useEffect(() => {
     accountKeyRef.current = accountKey;
   }, [accountKey]);
+
+  const persistentCacheScope = useMemo<FondoCacheScope | undefined>(() => {
+    const normalizedCompany = company.trim();
+    if (
+      !normalizedCompany ||
+      !cacheIdentity?.userId?.trim() ||
+      !cacheIdentity.ownerId?.trim()
+    ) {
+      return undefined;
+    }
+    return {
+      ...cacheIdentity,
+      companyId: normalizedCompany,
+      accountId: accountKey,
+      resource: "movements",
+      dateKey: todayKey,
+    };
+  }, [accountKey, cacheIdentity, company, todayKey]);
 
   const applyLedgerStateFromStorage = useCallback(
     (state?: MovementStorageState | null) => {
@@ -184,6 +210,8 @@ export function useV2MovementsHydration({
         toFilter,
         accountKeyRef,
         v2MovementsCacheRef,
+        persistentCacheScope,
+        onLoadError: setMovementLoadError,
       }),
     [
       rebuildEntriesFromV2Cache,
@@ -194,8 +222,45 @@ export function useV2MovementsHydration({
       todayKey,
       fromFilter,
       toFilter,
+      persistentCacheScope,
     ],
   );
+
+  const retryMovements = useCallback(() => {
+    const docKey = resolveV2DocKey({
+      company,
+      resolvedOwnerId,
+      v2MovementsCache: v2MovementsCacheRef.current,
+      accountKey: accountKeyRef.current,
+      MovimientosFondosService,
+    });
+    if (!docKey) return Promise.resolve();
+    const cacheKey = buildV2MovementsCacheKey(docKey, accountKeyRef.current);
+    const cached = v2MovementsCacheRef.current[cacheKey];
+    if (cached) {
+      v2MovementsCacheRef.current[cacheKey] = {
+        ...cached,
+        loaded: false,
+        loading: false,
+      };
+    }
+    return ensureV2MovementsLoaded(docKey);
+  }, [company, ensureV2MovementsLoaded, resolvedOwnerId]);
+
+  useEffect(() => {
+    if (!persistentCacheScope) return;
+    return subscribeFondoCacheInvalidation((match) => {
+      if (
+        match.resource !== "movements" ||
+        (match.companyId && match.companyId !== persistentCacheScope.companyId) ||
+        (match.accountId && match.accountId !== persistentCacheScope.accountId) ||
+        (match.databaseId && match.databaseId !== persistentCacheScope.databaseId)
+      ) {
+        return;
+      }
+      void retryMovements();
+    });
+  }, [persistentCacheScope, retryMovements]);
 
   useEffect(() => {
     if (!entriesHydrated) return;
@@ -260,5 +325,7 @@ export function useV2MovementsHydration({
     applyLedgerStateFromStorage,
     rebuildEntriesFromV2Cache,
     ensureV2MovementsLoaded,
+    movementLoadError,
+    retryMovements,
   };
 }

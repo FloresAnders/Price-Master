@@ -6,6 +6,12 @@ import type { QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 import type { FondoEntry } from "../types";
 import { buildV2MovementsCacheKey } from "../utils/v2movements";
 import { resolveActiveMovementsQuery } from "../utils/v2movements";
+import {
+  readFondoCache,
+  writeFondoCache,
+  type FondoCacheHit,
+  type FondoCacheScope,
+} from "../../../services/fondo-cache";
 
 type V2MovementsCacheEntry = {
   loaded: boolean;
@@ -18,6 +24,10 @@ type V2MovementsCacheEntry = {
   endIsoExclusive?: string;
   revision?: number;
 };
+
+type MovementPageResult = Awaited<
+  ReturnType<typeof MovimientosFondosService.listMovementsPageByCreatedAtRange>
+>;
 
 const inFlightV2Reads = new Map<string, Promise<void>>();
 
@@ -32,7 +42,49 @@ export interface EnsureV2LoadedDeps {
   toFilter: string | null;
   accountKeyRef: { current: MovementAccountKey };
   v2MovementsCacheRef: { current: Record<string, V2MovementsCacheEntry> };
+  persistentCacheScope?: FondoCacheScope;
+  readPersistentCache?: (
+    scope: FondoCacheScope,
+  ) => Promise<FondoCacheHit<FondoEntry[]> | null>;
+  writePersistentCache?: (
+    scope: FondoCacheScope,
+    data: FondoEntry[],
+    ttlMs: number,
+  ) => Promise<void>;
+  loadRemotePage?: (
+    docKey: string,
+    options: Parameters<
+      typeof MovimientosFondosService.listMovementsPageByCreatedAtRange
+    >[1],
+  ) => Promise<MovementPageResult>;
+  movementLoadTimeoutMs?: number;
+  onLoadError?: (error: Error | null) => void;
 }
+
+const CURRENT_DAY_MOVEMENTS_TTL_MS = 45_000;
+
+const normalizeError = (error: unknown): Error =>
+  error instanceof Error ? error : new Error(String(error || "Error desconocido"));
+
+const withTimeout = async <T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error("La carga de movimientos superó 15 segundos.")),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+};
 
 export async function ensureV2MovementsLoaded(
   docKey: string,
@@ -50,6 +102,14 @@ export async function ensureV2MovementsLoaded(
     toFilter,
     accountKeyRef,
     v2MovementsCacheRef,
+    persistentCacheScope,
+    readPersistentCache = readFondoCache,
+    writePersistentCache = writeFondoCache,
+    loadRemotePage = MovimientosFondosService.listMovementsPageByCreatedAtRange.bind(
+      MovimientosFondosService,
+    ),
+    movementLoadTimeoutMs = 15_000,
+    onLoadError,
   } = deps;
 
   if (!docKey) return;
@@ -64,7 +124,7 @@ export async function ensureV2MovementsLoaded(
     todayKey,
   });
 
-  const cached = v2MovementsCacheRef.current[cacheKey] ?? {
+  let cached = v2MovementsCacheRef.current[cacheKey] ?? {
     loaded: false,
     movements: [] as FondoEntry[],
     cursor: null as QueryDocumentSnapshot<DocumentData> | null,
@@ -76,9 +136,41 @@ export async function ensureV2MovementsLoaded(
     revision: 0,
   };
 
-  const startRevision = cached.revision ?? 0;
-
   if (cached.loading) return;
+
+  const append = Boolean(options?.append);
+  const persistentCacheEligible = Boolean(
+    !append &&
+      persistentCacheScope &&
+      pageSize === "daily" &&
+      currentDailyKey === todayKey &&
+      !fromFilter &&
+      !toFilter,
+  );
+  let hydratedStalePersistentCache = false;
+
+  if (persistentCacheEligible && !cached.loaded && persistentCacheScope) {
+    const persistentHit = await readPersistentCache(persistentCacheScope);
+    if (persistentHit && Array.isArray(persistentHit.data)) {
+      cached = {
+        ...cached,
+        loaded: true,
+        movements: persistentHit.data,
+        cursor: null,
+        exhausted: persistentHit.data.length < 50,
+        loading: false,
+        queryKey,
+        startIso,
+        endIsoExclusive,
+      };
+      v2MovementsCacheRef.current[cacheKey] = cached;
+      rebuildEntriesFromV2Cache(docKey, targetAccountKey);
+      if (persistentHit.freshness === "fresh") return;
+      hydratedStalePersistentCache = true;
+    }
+  }
+
+  const startRevision = cached.revision ?? 0;
 
   const queryUnchanged =
     cached.loaded &&
@@ -86,9 +178,8 @@ export async function ensureV2MovementsLoaded(
     cached.startIso === startIso &&
     cached.endIsoExclusive === endIsoExclusive;
 
-  const append = Boolean(options?.append);
   // If query params changed, we must reset regardless of append intent.
-  if (queryUnchanged && !append) {
+  if (queryUnchanged && !append && !hydratedStalePersistentCache) {
     rebuildEntriesFromV2Cache(docKey, targetAccountKey);
     return;
   }
@@ -157,19 +248,20 @@ export async function ensureV2MovementsLoaded(
   };
 
   v2MovementsCacheRef.current[cacheKey] = nextCache;
+  onLoadError?.(null);
   beginMovementsLoading();
 
   const requestPromise = (async () => {
     try {
-      const pageResult = await MovimientosFondosService.listMovementsPageByCreatedAtRange(
-        docKey,
-        {
+      const pageResult = await withTimeout(
+        loadRemotePage(docKey, {
           startIso,
           endIsoExclusive,
           pageSize: remoteBatchSize,
           cursor: shouldReset ? null : nextCache.cursor,
           accountId: targetAccountKey,
-        },
+        }),
+        movementLoadTimeoutMs,
       );
 
       const latestCache = v2MovementsCacheRef.current[cacheKey] ?? cached;
@@ -196,6 +288,21 @@ export async function ensureV2MovementsLoaded(
         loading: false,
         revision: latestRevision,
       };
+      if (
+        persistentCacheEligible &&
+        persistentCacheScope &&
+        !append
+      ) {
+        await writePersistentCache(
+          persistentCacheScope,
+          pageResult.items as FondoEntry[],
+          CURRENT_DAY_MOVEMENTS_TTL_MS,
+        );
+      }
+    } catch (error) {
+      const normalizedError = normalizeError(error);
+      onLoadError?.(normalizedError);
+      throw normalizedError;
     } finally {
       const latest = v2MovementsCacheRef.current[cacheKey];
       if (latest) {

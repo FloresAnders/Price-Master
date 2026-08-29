@@ -26,6 +26,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../../../hooks/useAuth";
 import { useProviders } from "../../../../hooks/useProviders";
+import { firestoreDatabaseId } from "../../../../config/firebase";
+import type { FondoCacheIdentity } from "../../../../services/fondo-cache";
 import useToast from "../../../../hooks/useToast";
 import type { Empresas } from "../../../../types/firestore";
 import { getDefaultPermissions } from "../../../../utils/permissions";
@@ -297,11 +299,6 @@ export function FondoSection({
   const company = canSelectCompany
     ? adminCompany
     : resolvedCompany || assignedCompany;
-  const {
-    providers,
-    loading: providersLoading,
-    error: providersError,
-  } = useProviders(company);
   const { showToast } = useToast();
   const {
     ownerAdminEmail,
@@ -324,6 +321,17 @@ export function FondoSection({
     setResolvedCompany,
     setAdminCompany,
   });
+  const fondoCacheIdentity = useMemo<FondoCacheIdentity | undefined>(() => {
+    const userId = String(user?.id || user?.email || "").trim();
+    const ownerId = String(activeOwnerId || resolvedOwnerId || "").trim();
+    if (!userId || !ownerId) return undefined;
+    return { databaseId: firestoreDatabaseId, userId, ownerId };
+  }, [activeOwnerId, resolvedOwnerId, user?.email, user?.id]);
+  const {
+    providers,
+    loading: providersLoading,
+    error: providersError,
+  } = useProviders(company, fondoCacheIdentity);
   const permissions =
     user?.permissions || getDefaultPermissions(user?.role || "user");
   const hasGeneralAccess = Boolean(permissions.fondogeneral);
@@ -408,8 +416,14 @@ export function FondoSection({
     createMovementValidationIdRef.current += 1;
   }, [accountKey, company, namespace, user?.email]);
 
-  const { fondoTypesLoaded, ingresoTypes, gastoTypes, egresoTypes } =
-    useFondoMovementTypes(activeOwnerId);
+  const {
+    fondoTypesLoaded,
+    fondoTypesError,
+    retryFondoTypes,
+    ingresoTypes,
+    gastoTypes,
+    egresoTypes,
+  } = useFondoMovementTypes(activeOwnerId, fondoCacheIdentity, company);
 
   const [fondoEntries, setFondoEntries] = useState<FondoEntry[]>([]);
   const [latestMovementOverall, setLatestMovementOverall] = useState<FondoEntry | null>(null);
@@ -1018,6 +1032,8 @@ export function FondoSection({
     applyLedgerStateFromStorage,
     rebuildEntriesFromV2Cache,
     ensureV2MovementsLoaded,
+    movementLoadError,
+    retryMovements,
   } = useV2MovementsHydration({
     company,
     resolvedOwnerId,
@@ -1040,6 +1056,7 @@ export function FondoSection({
     setInitialAmountUSD,
     setLedgerSnapshot,
     setMovementCurrency,
+    cacheIdentity: fondoCacheIdentity,
   });
 
   const shouldPromptPhysicalCount = useCallback(
@@ -5109,6 +5126,30 @@ export function FondoSection({
 
       {providersError && (
         <div className="mb-4 text-sm text-red-500">{providersError}</div>
+      )}
+      {fondoTypesError && (
+        <div className="mb-4 flex items-center gap-3 text-sm text-amber-300">
+          <span>{fondoTypesError}</span>
+          <button
+            type="button"
+            onClick={() => void retryFondoTypes()}
+            className="rounded border border-amber-400/40 px-2 py-1 text-xs font-semibold hover:bg-amber-500/10"
+          >
+            Reintentar tipos
+          </button>
+        </div>
+      )}
+      {movementLoadError && (
+        <div className="mb-4 flex items-center gap-3 text-sm text-amber-300">
+          <span>{movementLoadError.message}</span>
+          <button
+            type="button"
+            onClick={() => void retryMovements()}
+            className="rounded border border-amber-400/40 px-2 py-1 text-xs font-semibold hover:bg-amber-500/10"
+          >
+            Reintentar movimientos
+          </button>
+        </div>
       )}
 
       <MovementDrawer

@@ -3,6 +3,12 @@ export type FondoCacheResource =
   | "movement-types"
   | "movements";
 
+export type FondoCacheIdentity = {
+  databaseId: string;
+  userId: string;
+  ownerId: string;
+};
+
 export type FondoCacheScope = {
   databaseId: string;
   userId: string;

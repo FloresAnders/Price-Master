@@ -16,6 +16,7 @@ import {
 import { APERTURA_FONDO_PROVIDER_CODE } from "../../constants";
 import { buildV2MovementsCacheKey } from "../v2movements";
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
+import { invalidateFondoCache } from "@/services/fondo-cache";
 
 type PersistMovementLedgerSnapshot = {
   initialCRC: number;
@@ -430,6 +431,12 @@ export async function persistMovementToFirestore(
         );
       }
     }
+
+    await invalidateFondoCache({
+      companyId: normalizedCompany,
+      accountId: accountKey,
+      resource: "movements",
+    });
 
     // Guardar snapshot liviano en localStorage DESPUÉS del commit.
     // Esto evita que un fallo de Firestore deje un snapshot local inconsistente.

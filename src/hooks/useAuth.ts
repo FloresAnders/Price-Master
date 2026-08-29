@@ -19,6 +19,7 @@ import {
 import { normalizeUserPermissions } from "@/utils/permissions";
 import { UsersService } from "@/services/users";
 import { subscribeToVersionDoc } from "@/services/version-doc";
+import { clearFondoCacheForUser } from "@/services/fondo-cache";
 
 const AUTH_STATE_EVENT = "timemaster-auth-state";
 const AUTH_SYNC_STORAGE_KEY = "pricemaster_auth_sync";
@@ -304,6 +305,8 @@ function useAuthState() {
 
   const logout = useCallback(async (_reason?: string) => {
     void _reason;
+    const cacheUserId = String(user?.id || user?.email || "").trim();
+    if (cacheUserId) void clearFondoCacheForUser(cacheUserId);
     clearClientSession();
     try {
       await fetch("/api/auth/logout", {
@@ -315,7 +318,7 @@ function useAuthState() {
       // El estado local se limpia aunque la red falle; la cookie sigue siendo
       // la autoridad y se volverá a comprobar en la siguiente carga.
     }
-  }, [clearClientSession]);
+  }, [clearClientSession, user?.email, user?.id]);
 
   useEffect(() => {
     return subscribeToVersionDoc((snapshot) => {

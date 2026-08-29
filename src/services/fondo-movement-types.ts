@@ -14,6 +14,7 @@ import {
   updateDoc,
   Unsubscribe,
 } from "firebase/firestore";
+import { invalidateFondoCache } from "./fondo-cache";
 
 // Keys para localStorage
 const CACHE_KEY = "fondoMovementTypes_cache";
@@ -228,6 +229,10 @@ export class FondoMovementTypesService {
     }
 
     const docRef = await addDoc(this.getCollectionRef(context.scopeId), typeWithDates as any);
+    await invalidateFondoCache({
+      ownerId: context.ownerId || "",
+      resource: "movement-types",
+    });
     return docRef.id;
   }
 
@@ -257,6 +262,10 @@ export class FondoMovementTypesService {
       id,
     );
     await updateDoc(docRef, updateData as any);
+    await invalidateFondoCache({
+      ownerId: context.ownerId || "",
+      resource: "movement-types",
+    });
   }
 
   /**
@@ -280,6 +289,10 @@ export class FondoMovementTypesService {
       id,
     );
     await deleteDoc(docRef);
+    await invalidateFondoCache({
+      ownerId: context.ownerId || "",
+      resource: "movement-types",
+    });
   }
 
   /**

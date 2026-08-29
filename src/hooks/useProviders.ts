@@ -1,14 +1,54 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ProvidersService } from "../services/providers";
 import type { ProviderEntry } from "../types/firestore";
+import {
+  readFondoCache,
+  subscribeFondoCacheInvalidation,
+  writeFondoCache,
+  type FondoCacheIdentity,
+  type FondoCacheScope,
+} from "../services/fondo-cache";
+import { loadFondoCachedResource } from "../app/fondogeneral/utils/cachedResourceLoader";
 
-export function useProviders(company?: string) {
+const PROVIDERS_TTL_MS = 5 * 60_000;
+
+export function useProviders(
+  company?: string,
+  cacheIdentity?: FondoCacheIdentity,
+) {
   const [providers, setProviders] = useState<ProviderEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
+  const ignoreNextInvalidationRef = useRef(false);
 
-  const fetchProviders = useCallback(async () => {
+  const buildCacheScope = useCallback((): FondoCacheScope | null => {
+    const trimmedCompany = (company || "").trim();
+    if (
+      !trimmedCompany ||
+      !cacheIdentity?.userId?.trim() ||
+      !cacheIdentity.ownerId?.trim()
+    ) {
+      return null;
+    }
+    return {
+      ...cacheIdentity,
+      companyId: trimmedCompany,
+      resource: "providers",
+    };
+  }, [cacheIdentity, company]);
+
+  const filterCompanyProviders = useCallback(
+    (data: ProviderEntry[], trimmedCompany: string) =>
+      data.filter(
+        (provider) =>
+          (provider.company || "").trim().toLowerCase() ===
+          trimmedCompany.toLowerCase(),
+      ),
+    [],
+  );
+
+  const fetchProviders = useCallback(async (options?: { skipCache?: boolean }) => {
     const trimmedCompany = (company || "").trim();
     const requestId = ++requestIdRef.current;
 
@@ -19,20 +59,40 @@ export function useProviders(company?: string) {
       return;
     }
 
-    setProviders([]);
     setLoading(true);
     setError(null);
 
     try {
-      const data = await ProvidersService.getProviders(trimmedCompany);
+      const cacheScope = buildCacheScope();
+      const applyProviders = (data: ProviderEntry[]) => {
+        if (requestId !== requestIdRef.current) return;
+        setProviders(filterCompanyProviders(data, trimmedCompany));
+      };
+      const result =
+        cacheScope && !options?.skipCache
+          ? await loadFondoCachedResource({
+              readCache: () => readFondoCache<ProviderEntry[]>(cacheScope),
+              loadRemote: () => ProvidersService.getProviders(trimmedCompany),
+              writeCache: (data) =>
+                writeFondoCache(cacheScope, data, PROVIDERS_TTL_MS),
+              onCachedData: (data) => {
+                applyProviders(data);
+                if (requestId === requestIdRef.current) setLoading(false);
+              },
+            })
+          : {
+              data: await ProvidersService.getProviders(trimmedCompany),
+              source: "server" as const,
+            };
+
       if (requestId === requestIdRef.current) {
-        setProviders(
-          data.filter(
-            (provider) =>
-              (provider.company || "").trim().toLowerCase() ===
-              trimmedCompany.toLowerCase(),
-          ),
-        );
+        applyProviders(result.data);
+        if (cacheScope && options?.skipCache) {
+          await writeFondoCache(cacheScope, result.data, PROVIDERS_TTL_MS);
+        }
+        if (result.source === "stale-cache") {
+          setError("No se pudo actualizar proveedores; se muestra la caché disponible.");
+        }
       }
     } catch (err) {
       if (requestId !== requestIdRef.current) return;
@@ -45,7 +105,7 @@ export function useProviders(company?: string) {
         setLoading(false);
       }
     }
-  }, [company]);
+  }, [buildCacheScope, company, filterCompanyProviders]);
 
   const addProvider = useCallback(
     async (
@@ -66,6 +126,7 @@ export function useProviders(company?: string) {
 
       try {
         setError(null);
+        ignoreNextInvalidationRef.current = true;
         await ProvidersService.addProvider(
           trimmedCompany,
           name,
@@ -76,7 +137,7 @@ export function useProviders(company?: string) {
           accountId,
           explicitCategory,
         );
-        await fetchProviders();
+        await fetchProviders({ skipCache: true });
       } catch (err) {
         const message =
           err instanceof Error
@@ -101,8 +162,9 @@ export function useProviders(company?: string) {
 
       try {
         setError(null);
+        ignoreNextInvalidationRef.current = true;
         await ProvidersService.removeProvider(trimmedCompany, code);
-        await fetchProviders();
+        await fetchProviders({ skipCache: true });
       } catch (err) {
         const message =
           err instanceof Error
@@ -136,6 +198,7 @@ export function useProviders(company?: string) {
 
       try {
         setError(null);
+        ignoreNextInvalidationRef.current = true;
         await ProvidersService.updateProvider(
           trimmedCompany,
           code,
@@ -147,7 +210,7 @@ export function useProviders(company?: string) {
           accountId,
           explicitCategory,
         );
-        await fetchProviders();
+        await fetchProviders({ skipCache: true });
       } catch (err) {
         const message =
           err instanceof Error
@@ -164,6 +227,25 @@ export function useProviders(company?: string) {
   useEffect(() => {
     void fetchProviders();
   }, [fetchProviders]);
+
+  useEffect(() => {
+    const cacheScope = buildCacheScope();
+    if (!cacheScope) return;
+    return subscribeFondoCacheInvalidation((match) => {
+      if (ignoreNextInvalidationRef.current) {
+        ignoreNextInvalidationRef.current = false;
+        return;
+      }
+      if (
+        match.resource === "providers" &&
+        (!match.userId || match.userId === cacheScope.userId) &&
+        (!match.companyId || match.companyId === cacheScope.companyId) &&
+        (!match.databaseId || match.databaseId === cacheScope.databaseId)
+      ) {
+        void fetchProviders({ skipCache: true });
+      }
+    });
+  }, [buildCacheScope, fetchProviders]);
 
   return {
     providers,
