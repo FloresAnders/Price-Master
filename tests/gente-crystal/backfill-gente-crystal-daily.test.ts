@@ -72,6 +72,14 @@ describe("Gente Crystal daily backfill arguments", () => {
       ]),
     ).toThrow(/cannot be combined/);
   });
+
+  it.each([
+    ["--company", "--apply"],
+    ["--company", "--apply", "--apply"],
+    ["--company", "--verify-only", "--apply"],
+  ])("does not consume another flag as the --company value: %j", (...argv) => {
+    expect(() => parseBackfillArgs(argv)).toThrow(/--company.*value/);
+  });
 });
 
 describe("Gente Crystal daily backfill mutations", () => {
@@ -183,6 +191,191 @@ describe("Gente Crystal daily backfill verification", () => {
           daily: { count: 1, total: 400 },
         },
       ],
+      entryMismatches: [
+        {
+          ticketId: "42148-2204-59468316",
+          expected: {
+            date: "2026-08-24",
+            entry: {
+              sorteo: "LOTERIA",
+              captureOrigin: "indirect",
+              monto: 500,
+              saleAt: "2026-08-24T06:00:00.000Z",
+              status: "active",
+            },
+          },
+          actual: [
+            {
+              date: "2026-08-24",
+              exactMinimalEntry: true,
+              entry: {
+                sorteo: "NUEVOS TIEMPOS",
+                captureOrigin: "indirect",
+                monto: 400,
+                saleAt: "2026-08-24T06:00:00.000Z",
+                status: "active",
+              },
+            },
+          ],
+        },
+      ],
     });
+  });
+
+  it("rejects compensating totals when daily ticket IDs differ", () => {
+    const result = compareDailyTotals(
+      [
+        { id: ticketId, data: activeSale },
+        {
+          id: "42148-2204-59468316",
+          data: { ...activeSale, monto: 500 },
+        },
+      ],
+      [
+        {
+          id: "2026-08-23",
+          data: {
+            sales: {
+              "42148-2204-70000001": {
+                sorteo: "LOTERIA",
+                captureOrigin: "local_button",
+                monto: 2000,
+                saleAt,
+                status: "active",
+              },
+              "42148-2204-70000002": {
+                sorteo: "LOTERIA",
+                captureOrigin: "local_button",
+                monto: 500,
+                saleAt,
+                status: "active",
+              },
+            },
+          },
+        },
+      ],
+    );
+
+    expect(result.individual).toEqual({
+      "2026-08-23": { count: 2, total: 2500 },
+    });
+    expect(result.daily).toEqual({
+      "2026-08-23": { count: 2, total: 2500 },
+    });
+    expect(result.ok).toBe(false);
+    expect(result.entryMismatches.map(({ ticketId: id }) => id)).toEqual([
+      "42148-2204-59468315",
+      "42148-2204-59468316",
+      "42148-2204-70000001",
+      "42148-2204-70000002",
+    ]);
+  });
+
+  it("rejects tickets stored under each other's Costa Rica date", () => {
+    const secondTicketId = "42148-2204-59468316";
+    const secondSaleAt = new Date("2026-08-24T06:00:00.000Z");
+    const result = compareDailyTotals(
+      [
+        { id: ticketId, data: activeSale },
+        {
+          id: secondTicketId,
+          data: { ...activeSale, ticketId: secondTicketId, saleAt: secondSaleAt },
+        },
+      ],
+      [
+        {
+          id: "2026-08-23",
+          data: {
+            sales: {
+              [secondTicketId]: {
+                sorteo: "LOTERIA",
+                captureOrigin: "local_button",
+                monto: 2000,
+                saleAt: secondSaleAt,
+                status: "active",
+              },
+            },
+          },
+        },
+        {
+          id: "2026-08-24",
+          data: {
+            sales: {
+              [ticketId]: {
+                sorteo: "LOTERIA",
+                captureOrigin: "local_button",
+                monto: 2000,
+                saleAt,
+                status: "active",
+              },
+            },
+          },
+        },
+      ],
+    );
+
+    expect(result.individual).toEqual({
+      "2026-08-23": { count: 1, total: 2000 },
+      "2026-08-24": { count: 1, total: 2000 },
+    });
+    expect(result.daily).toEqual(result.individual);
+    expect(result.ok).toBe(false);
+    expect(result.entryMismatches).toMatchObject([
+      {
+        ticketId,
+        expected: { date: "2026-08-23" },
+        actual: [{ date: "2026-08-24" }],
+      },
+      {
+        ticketId: secondTicketId,
+        expected: { date: "2026-08-24" },
+        actual: [{ date: "2026-08-23" }],
+      },
+    ]);
+  });
+
+  it("rejects a daily entry whose exact five-field minimal schema differs", () => {
+    const result = compareDailyTotals(
+      [{ id: ticketId, data: activeSale }],
+      [
+        {
+          id: "2026-08-23",
+          data: {
+            sales: {
+              [ticketId]: {
+                sorteo: "OTRA LOTERIA",
+                captureOrigin: "local_button",
+                monto: 2000,
+                saleAt,
+                status: "active",
+                ignoredLegacyField: "must make verification fail",
+              },
+            },
+          },
+        },
+      ],
+    );
+
+    expect(result.individual).toEqual({
+      "2026-08-23": { count: 1, total: 2000 },
+    });
+    expect(result.daily).toEqual(result.individual);
+    expect(result.ok).toBe(false);
+    expect(result.entryMismatches).toMatchObject([
+      {
+        ticketId,
+        expected: {
+          date: "2026-08-23",
+          entry: { sorteo: "LOTERIA" },
+        },
+        actual: [
+          {
+            date: "2026-08-23",
+            exactMinimalEntry: false,
+            entry: { sorteo: "OTRA LOTERIA" },
+          },
+        ],
+      },
+    ]);
   });
 });

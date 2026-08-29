@@ -28,7 +28,11 @@ export function parseBackfillArgs(argv) {
       if (companyId !== undefined) {
         throw new Error(`--company may be provided only once. ${USAGE}`);
       }
-      companyId = argv[index + 1];
+      const value = argv[index + 1];
+      if (typeof value !== "string" || value.startsWith("--")) {
+        throw new Error("--company requires a value that is not another flag.");
+      }
+      companyId = value;
       index += 1;
       continue;
     }
@@ -99,26 +103,87 @@ function sortedTotals(totals) {
   );
 }
 
+const MINIMAL_ENTRY_FIELDS = [
+  "captureOrigin",
+  "monto",
+  "saleAt",
+  "sorteo",
+  "status",
+];
+
+function canonicalEntry(record) {
+  const entry = buildGenteCrystalDailyEntry(record);
+  if (!entry) return null;
+  return {
+    sorteo: entry.sorteo,
+    captureOrigin: entry.captureOrigin,
+    monto: entry.monto,
+    saleAt: entry.saleAt.toISOString(),
+    status: entry.status,
+  };
+}
+
+function isExactMinimalEntry(record, entry) {
+  if (!record || typeof record !== "object" || !entry) return false;
+  const fields = Object.keys(record).sort((left, right) =>
+    left.localeCompare(right),
+  );
+  return (
+    fields.length === MINIMAL_ENTRY_FIELDS.length &&
+    fields.every((field, index) => field === MINIMAL_ENTRY_FIELDS[index]) &&
+    record.sorteo === entry.sorteo &&
+    record.captureOrigin === entry.captureOrigin &&
+    record.monto === entry.monto &&
+    record.status === entry.status
+  );
+}
+
+function entriesMatch(expected, actual) {
+  return (
+    expected.sorteo === actual.sorteo &&
+    expected.captureOrigin === actual.captureOrigin &&
+    expected.monto === actual.monto &&
+    expected.saleAt === actual.saleAt &&
+    expected.status === actual.status
+  );
+}
+
 export function compareDailyTotals(individualDocuments, dailyDocuments) {
   const individualTotals = new Map();
+  const expectedEntries = new Map();
   for (const document of individualDocuments) {
     const data = readDocumentData(document);
     const entry = buildGenteCrystalDailyEntry(data);
     const date = genteCrystalCostaRicaDateKey(data?.saleAt);
-    if (entry && date) addTotal(individualTotals, date, entry.monto);
+    if (entry && date) {
+      addTotal(individualTotals, date, entry.monto);
+      expectedEntries.set(document.id, {
+        date,
+        entry: canonicalEntry(data),
+      });
+    }
   }
 
   const dailyTotals = new Map();
+  const actualEntries = new Map();
   for (const document of dailyDocuments) {
     const date = typeof document?.id === "string" ? document.id : "";
     const data = readDocumentData(document);
     const sales =
       data?.sales && typeof data.sales === "object" && !Array.isArray(data.sales)
-        ? Object.values(data.sales)
+        ? Object.entries(data.sales)
         : [];
-    for (const sale of sales) {
+    for (const [ticketId, sale] of sales) {
       const entry = buildGenteCrystalDailyEntry(sale);
       if (date && entry) addTotal(dailyTotals, date, entry.monto);
+      const canonical = canonicalEntry(sale);
+      const locations = actualEntries.get(ticketId) ?? [];
+      locations.push({
+        date,
+        exactMinimalEntry: isExactMinimalEntry(sale, canonical),
+        entry: canonical,
+      });
+      actualEntries.set(ticketId, locations);
     }
   }
 
@@ -133,12 +198,28 @@ export function compareDailyTotals(individualDocuments, dailyDocuments) {
       ? []
       : [{ date, individual: expected, daily: actual }];
   });
+  const ticketIds = [
+    ...new Set([...expectedEntries.keys(), ...actualEntries.keys()]),
+  ].sort((left, right) => left.localeCompare(right));
+  const entryMismatches = ticketIds.flatMap((ticketId) => {
+    const expected = expectedEntries.get(ticketId) ?? null;
+    const actual = actualEntries.get(ticketId) ?? [];
+    const matches =
+      expected &&
+      actual.length === 1 &&
+      actual[0].date === expected.date &&
+      actual[0].exactMinimalEntry &&
+      actual[0].entry &&
+      entriesMatch(expected.entry, actual[0].entry);
+    return matches ? [] : [{ ticketId, expected, actual }];
+  });
 
   return {
-    ok: mismatches.length === 0,
+    ok: mismatches.length === 0 && entryMismatches.length === 0,
     individual,
     daily,
     mismatches,
+    entryMismatches,
   };
 }
 
