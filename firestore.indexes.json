@@ -9,6 +9,14 @@
       ]
     },
     {
+      "collectionGroup": "movements",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isPendingForClosing", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "reportes_movimientos",
       "queryScope": "COLLECTION",
       "fields": [

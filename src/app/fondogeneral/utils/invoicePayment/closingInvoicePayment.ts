@@ -3,6 +3,8 @@ import { doc, writeBatch, type WriteBatch } from "firebase/firestore";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import {
   FacturasService,
+  isFacturaPendingForClosing,
+  withFacturaPendingForClosing,
   type AppliedCreditNote,
   type FacturaMovement,
 } from "../../../../services/facturas";
@@ -289,7 +291,7 @@ export async function submitClosingInvoicePayment(
     const batch: WriteBatch = writeBatch(db);
     batch.set(
       FacturasService.buildMovementRef(company, closingPaymentTarget.id),
-      stripUndefinedDeep(updatedMovement),
+      stripUndefinedDeep(withFacturaPendingForClosing(updatedMovement)),
       { merge: true },
     );
 
@@ -304,12 +306,21 @@ export async function submitClosingInvoicePayment(
         );
         const nextBalanceDue = Math.max(0, roundMoney2(noteAmount - nextPaidAmount));
 
+        const nextStatus = nextBalanceDue === 0 ? "REBAJADA" : "PARCIAL";
         batch.set(
           FacturasService.buildMovementRef(company, note.id),
           {
             paidAmount: nextPaidAmount,
             balanceDue: nextBalanceDue,
-            paymentStatus: nextBalanceDue === 0 ? "REBAJADA" : "PARCIAL",
+            paymentStatus: nextStatus,
+            isPendingForClosing: isFacturaPendingForClosing({
+              invoiceDocType: "NC",
+              amount: noteAmount,
+              originalAmount: noteAmount,
+              paidAmount: nextPaidAmount,
+              balanceDue: nextBalanceDue,
+              paymentStatus: nextStatus,
+            }),
             updateAt: nowISO,
           },
           { merge: true },

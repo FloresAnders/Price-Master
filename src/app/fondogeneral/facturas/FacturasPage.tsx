@@ -27,7 +27,11 @@ import { useProviders } from "@/hooks/useProviders";
 import { useAuth } from "@/hooks/useAuth";
 import { useActorOwnership } from "@/hooks/useActorOwnership";
 import useToast from "@/hooks/useToast";
-import { FacturasService, type FacturaMovement } from "@/services/facturas";
+import {
+  FacturasService,
+  withFacturaPendingForClosing,
+  type FacturaMovement,
+} from "@/services/facturas";
 import { PendingInvoiceDeletionRequestsService } from "@/services/pending-invoice-deletion-requests";
 import {
   MovimientosFondosService,
@@ -1672,7 +1676,7 @@ export default function FacturasCreditoPage() {
         // Persist Facturas updated invoice
         batch.set(
           FacturasService.buildMovementRef(selectedCompany, paymentTarget.id),
-          stripUndefinedDeep(updatedMovement),
+          stripUndefinedDeep(withFacturaPendingForClosing(updatedMovement)),
           { merge: true },
         );
         // Persist ledger main doc

@@ -241,19 +241,19 @@ git commit -m "Deduplicate Fondo company metadata reads"
 **Interfaces:**
 - Produces: `isFacturaPendingForClosing(movement): boolean` and `withFacturaPendingForClosing(movement): FacturaMovement`.
 
-- [ ] **Step 1: Write failing projector tests**
+- [x] **Step 1: Write failing projector tests**
 
 Cover FCR pending/partial/paid/rebated, FCO false, NC positive balance, NC zero amount, and malformed numeric fields.
 
-- [ ] **Step 2: Run and confirm the projector API is missing**
+- [x] **Step 2: Run and confirm the projector API is missing**
 
 Run: `npm test -- tests/fondogeneral/factura-pending-projector.test.ts`
 
-- [ ] **Step 3: Implement projector and centralize the write field**
+- [x] **Step 3: Implement projector and centralize the write field**
 
 `upsertMovement` always writes the derived boolean. Batch updates include a complete projected movement or explicitly write the correctly projected flag. The legacy reader remains in place in this commit so this writer can be deployed before migration.
 
-- [ ] **Step 4: Add the Firestore composite index**
+- [x] **Step 4: Add the Firestore composite index**
 
 ```json
 {
@@ -266,13 +266,13 @@ Run: `npm test -- tests/fondogeneral/factura-pending-projector.test.ts`
 }
 ```
 
-- [ ] **Step 5: Run focused tests and TypeScript**
+- [x] **Step 5: Run focused tests and TypeScript**
 
 Run: `npm test -- tests/fondogeneral/factura-pending-projector.test.ts`
 
 Run: `npx tsc --noEmit`
 
-- [ ] **Step 6: Commit the independently deployable writer**
+- [x] **Step 6: Commit the independently deployable writer**
 
 ```powershell
 git add src/services/facturas.ts src/app/fondogeneral firestore.indexes.json tests/fondogeneral/factura-pending-projector.test.ts

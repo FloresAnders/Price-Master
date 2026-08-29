@@ -1,5 +1,9 @@
 import { getDoc, type WriteBatch } from "firebase/firestore";
-import { FacturasService, type FacturaMovement } from "../../../services/facturas";
+import {
+  FacturasService,
+  withFacturaPendingForClosing,
+  type FacturaMovement,
+} from "../../../services/facturas";
 import {
   CIERRE_FONDO_VENTAS_PROVIDER_NAME,
 } from "../constants";
@@ -276,24 +280,30 @@ export async function confirmDeleteMovement(
         facturaRollbackWrites = (batch) => {
           batch.set(
             invoiceRef,
-            stripUndefinedDeep({
-              ...invoiceData,
-              id: invoiceId,
-              empresa: normalizedCompany,
-              paidAmount: nextPaid,
-              balanceDue: nextBalance,
-              amountDue: nextBalance,
-              paymentStatus: nextStatus,
-              updateAt: rollbackAt,
-            }),
+            stripUndefinedDeep(
+              withFacturaPendingForClosing({
+                ...invoiceData,
+                id: invoiceId,
+                empresa: normalizedCompany,
+                paidAmount: nextPaid,
+                balanceDue: nextBalance,
+                amountDue: nextBalance,
+                paymentStatus: nextStatus,
+                updateAt: rollbackAt,
+              }),
+            ),
             { merge: true },
           );
 
           noteWrites.forEach((noteWrite) => {
             if (!noteWrite) return;
-            batch.set(noteWrite.noteRef, stripUndefinedDeep(noteWrite.payload), {
-              merge: true,
-            });
+            batch.set(
+              noteWrite.noteRef,
+              stripUndefinedDeep(
+                withFacturaPendingForClosing(noteWrite.payload),
+              ),
+              { merge: true },
+            );
           });
         };
       }

@@ -38,10 +38,67 @@ export type FacturaMovement = {
   providerCode: string;
   paidAmount?: number;
   paymentStatus?: "PENDIENTE" | "PARCIAL" | "PAGADA" | "REBAJADA";
+  isPendingForClosing?: boolean;
   updateAt?: string;
   zeroAmountEditCount?: number;
   zeroAmountEditedAt?: string;
 };
+
+export type FacturaPendingProjectionInput = Pick<
+  FacturaMovement,
+  | "invoiceDocType"
+  | "paymentStatus"
+  | "amount"
+  | "originalAmount"
+  | "paidAmount"
+  | "balanceDue"
+>;
+
+const pendingMoney = (value: unknown): number => {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : 0;
+};
+
+export function isFacturaPendingForClosing(
+  movement: FacturaPendingProjectionInput,
+): boolean {
+  const documentType = normalizeInvoiceDocType(movement.invoiceDocType);
+  if (documentType === "FCO") return false;
+
+  const status = String(movement.paymentStatus || "PENDIENTE").toUpperCase();
+  if (status === "PAGADA" || status === "REBAJADA") return false;
+
+  const rawTotal = movement.originalAmount ?? movement.amount;
+  const total =
+    documentType === "NC"
+      ? Math.abs(pendingMoney(rawTotal))
+      : Math.max(0, pendingMoney(rawTotal));
+  const paid = Math.max(0, pendingMoney(movement.paidAmount));
+  const balance = Math.max(
+    0,
+    pendingMoney(
+      movement.balanceDue !== undefined
+        ? movement.balanceDue
+        : total - paid,
+    ),
+  );
+
+  if (documentType === "FCR") return balance > 0;
+
+  const rawAmount = Number(movement.amount);
+  const isZeroAmountNote =
+    Number.isFinite(rawAmount) && pendingMoney(rawAmount) === 0;
+  return balance > 0 || isZeroAmountNote;
+}
+
+export function withFacturaPendingForClosing<T extends FacturaMovement>(
+  movement: T,
+): T & { isPendingForClosing: boolean } {
+  return {
+    ...movement,
+    isPendingForClosing: isFacturaPendingForClosing(movement),
+  };
+}
 
 export type AppliedCreditNote = {
   id: string;
@@ -214,6 +271,10 @@ const sanitizeFacturaMovement = (raw: unknown): FacturaMovement | null => {
     paidAmount: paidAmount > 0 ? paidAmount : undefined,
     balanceDue: balanceDue > 0 ? balanceDue : undefined,
     paymentStatus,
+    isPendingForClosing:
+      typeof candidate.isPendingForClosing === "boolean"
+        ? candidate.isPendingForClosing
+        : undefined,
     paymentType: typeof candidate.paymentType === "string" ? candidate.paymentType : "",
     providerCode,
     updateAt: updateAt || undefined,
@@ -254,12 +315,12 @@ export class FacturasService {
     );
 
     // Guarantee required fields.
-    const payload: FacturaMovement = {
+    const payload = withFacturaPendingForClosing({
       ...movement,
       empresa: String(movement.empresa || empresa).trim(),
       invoiceDocType: normalizeInvoiceDocType(movement.invoiceDocType),
       paymentType: String(movement.paymentType || "").trim(),
-    };
+    });
 
     await setDoc(ref, stripUndefinedDeep(payload), { merge: true });
   }

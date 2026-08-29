@@ -9,6 +9,8 @@ import {
 } from "@/utils/controlHorarioManager";
 import {
   FacturasService,
+  isFacturaPendingForClosing,
+  withFacturaPendingForClosing,
   type AppliedCreditNote,
   type FacturaMovement,
 } from "../../../services/facturas";
@@ -1584,12 +1586,22 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                 0,
                 pendingNote.amount - nextPaidAmount,
               );
+              const nextStatus =
+                nextBalanceDue === 0 ? "REBAJADA" : "PARCIAL";
               batch.set(
                 FacturasService.buildMovementRef(normalizedCompany, note.id),
                 {
                   paidAmount: nextPaidAmount,
                   balanceDue: nextBalanceDue,
-                  paymentStatus: nextBalanceDue === 0 ? "REBAJADA" : "PARCIAL",
+                  paymentStatus: nextStatus,
+                  isPendingForClosing: isFacturaPendingForClosing({
+                    invoiceDocType: "NC",
+                    amount: pendingNote.amount,
+                    originalAmount: pendingNote.amount,
+                    paidAmount: nextPaidAmount,
+                    balanceDue: nextBalanceDue,
+                    paymentStatus: nextStatus,
+                  }),
                   updateAt: entry.createdAt,
                 },
                 { merge: true },
@@ -1722,7 +1734,9 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                     normalizedCompany,
                     invoice.id,
                   ),
-                  stripUndefinedDeep(updatedMovement),
+                  stripUndefinedDeep(
+                    withFacturaPendingForClosing(updatedMovement),
+                  ),
                   { merge: true },
                 );
 
