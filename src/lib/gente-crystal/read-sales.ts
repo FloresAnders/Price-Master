@@ -129,7 +129,7 @@ export function canReadGenteCrystalCompany(
     .includes(assigned);
 }
 
-function readDate(value: unknown): Date | null {
+export function readGenteCrystalDate(value: unknown): Date | null {
   if (value instanceof Date) {
     return Number.isFinite(value.getTime()) ? value : null;
   }
@@ -159,7 +159,7 @@ export function buildGenteCrystalDailyResult(
     const ticketId = typeof record.ticketId === "string" ? record.ticketId : "";
     const sorteo = typeof record.sorteo === "string" ? record.sorteo.trim() : "";
     const monto = record.monto;
-    const saleAt = readDate(record.saleAt);
+    const saleAt = readGenteCrystalDate(record.saleAt);
     if (
       !/^\d{4,}-\d{2,}-\d{5,}$/.test(ticketId) ||
       !sorteo ||
