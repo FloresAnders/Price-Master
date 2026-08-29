@@ -91,7 +91,7 @@ git commit -m "Fix Fondo current-day loading boundaries"
 - Produces: `FondoCacheScope`, `FondoCacheResource`, `FondoCacheHit<T>`.
 - Produces: `buildFondoCacheKey`, `readFondoCache`, `writeFondoCache`, `invalidateFondoCache`, `subscribeFondoCacheInvalidation`, and `clearFondoCacheForUser`.
 
-- [ ] **Step 1: Write failing tests using `fake-indexeddb/auto`**
+- [x] **Step 1: Write failing tests using `fake-indexeddb/auto`**
 
 ```ts
 const scope = { databaseId: "restauracion", userId: "u1", ownerId: "o1", companyId: "ACME", accountId: "FondoGeneral", resource: "movements", dateKey: "2026-08-29" } as const;
@@ -103,11 +103,11 @@ expect(await readFondoCache({ ...scope, userId: "u2" }, 20_000)).toBeNull();
 
 Also cover schema mismatch, IndexedDB open failure returning `null`, targeted invalidation, and clearing only one user's records.
 
-- [ ] **Step 2: Run and confirm the cache API is missing**
+- [x] **Step 2: Run and confirm the cache API is missing**
 
 Run: `npm test -- tests/fondogeneral/fondo-cache.test.ts`
 
-- [ ] **Step 3: Implement one IndexedDB object store named `records`**
+- [x] **Step 3: Implement one IndexedDB object store named `records`**
 
 ```ts
 export type FondoCacheResource = "providers" | "movement-types" | "movements";
@@ -121,11 +121,11 @@ export function subscribeFondoCacheInvalidation(listener: (match: Partial<FondoC
 
 All public operations catch IndexedDB errors, log one warning, and return a non-blocking fallback. Successful invalidation broadcasts `pricemaster-fondo-cache-invalidated` through `BroadcastChannel`, falling back to a `localStorage` event.
 
-- [ ] **Step 4: Run cache tests**
+- [x] **Step 4: Run cache tests**
 
 Run: `npm test -- tests/fondogeneral/fondo-cache.test.ts`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add src/services/fondo-cache.ts tests/fondogeneral/fondo-cache.test.ts
