@@ -1,4 +1,8 @@
-import { FieldValue, type Firestore } from "firebase-admin/firestore";
+import {
+  FieldPath,
+  FieldValue,
+  type Firestore,
+} from "firebase-admin/firestore";
 import { planGenteCrystalDailyMutation } from "./daily-sales.ts";
 import {
   GENTE_CRYSTAL_WRITE_PERMISSION,
@@ -123,7 +127,11 @@ export class FirestoreGenteCrystalSalesRepository
                 [dailyMutation.remove.ticketId]: FieldValue.delete(),
               },
             },
-            { merge: true },
+            {
+              mergeFields: [
+                new FieldPath("sales", dailyMutation.remove.ticketId),
+              ],
+            },
           );
         }
 
@@ -137,7 +145,11 @@ export class FirestoreGenteCrystalSalesRepository
                 [dailyMutation.upsert.ticketId]: dailyMutation.upsert.entry,
               },
             },
-            { merge: true },
+            {
+              mergeFields: [
+                new FieldPath("sales", dailyMutation.upsert.ticketId),
+              ],
+            },
           );
         }
       }

@@ -1,7 +1,9 @@
 import type { Firestore } from "firebase-admin/firestore";
 import { describe, expect, it } from "vitest";
 import {
+  createGenteCrystalSalesReader,
   FirestoreGenteCrystalDailySalesReader,
+  FirestoreGenteCrystalSalesQueryReader,
   shouldUseGenteCrystalDailyReads,
 } from "@/lib/gente-crystal/firestore-sales-reader";
 import { buildCostaRicaDayRange } from "@/lib/gente-crystal/read-sales";
@@ -135,5 +137,23 @@ describe("shouldUseGenteCrystalDailyReads", () => {
       }),
     ).toBe(false);
     expect(shouldUseGenteCrystalDailyReads({})).toBe(false);
+  });
+
+  it("factory selects the concrete reader only for the exact true flag", () => {
+    const { firestore } = createFirestore(undefined);
+
+    expect(
+      createGenteCrystalSalesReader(firestore, {
+        GENTE_CRYSTAL_DAILY_READS_ENABLED: "true",
+      }),
+    ).toBeInstanceOf(FirestoreGenteCrystalDailySalesReader);
+    expect(
+      createGenteCrystalSalesReader(firestore, {
+        GENTE_CRYSTAL_DAILY_READS_ENABLED: "TRUE",
+      }),
+    ).toBeInstanceOf(FirestoreGenteCrystalSalesQueryReader);
+    expect(createGenteCrystalSalesReader(firestore, {})).toBeInstanceOf(
+      FirestoreGenteCrystalSalesQueryReader,
+    );
   });
 });

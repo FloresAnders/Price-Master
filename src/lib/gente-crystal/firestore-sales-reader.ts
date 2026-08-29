@@ -71,3 +71,12 @@ export function shouldUseGenteCrystalDailyReads(
 ): boolean {
   return env.GENTE_CRYSTAL_DAILY_READS_ENABLED === "true";
 }
+
+export function createGenteCrystalSalesReader(
+  firestore: Firestore,
+  env: Record<string, string | undefined>,
+): GenteCrystalSalesReader {
+  return shouldUseGenteCrystalDailyReads(env)
+    ? new FirestoreGenteCrystalDailySalesReader(firestore)
+    : new FirestoreGenteCrystalSalesQueryReader(firestore);
+}

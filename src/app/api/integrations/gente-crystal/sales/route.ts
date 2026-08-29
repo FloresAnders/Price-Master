@@ -2,9 +2,7 @@ import { NextResponse } from "next/server.js";
 import { readUserIdFromSessionCookie } from "../../../../../lib/auth/session-cookie.server.ts";
 import { getAdminDb } from "../../../../../lib/firebase-admin.ts";
 import {
-  FirestoreGenteCrystalDailySalesReader,
-  FirestoreGenteCrystalSalesQueryReader,
-  shouldUseGenteCrystalDailyReads,
+  createGenteCrystalSalesReader,
 } from "../../../../../lib/gente-crystal/firestore-sales-reader.ts";
 import {
   FirestoreGenteCrystalSalesRepository,
@@ -178,8 +176,5 @@ export const GET = createGenteCrystalSalesGet({
     });
     return timing.withinHorario ? timing.shiftChangeMin : null;
   },
-  createReader: () =>
-    shouldUseGenteCrystalDailyReads(process.env)
-      ? new FirestoreGenteCrystalDailySalesReader(getAdminDb())
-      : new FirestoreGenteCrystalSalesQueryReader(getAdminDb()),
+  createReader: () => createGenteCrystalSalesReader(getAdminDb(), process.env),
 });

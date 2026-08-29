@@ -1,4 +1,8 @@
-import { FieldValue, type Firestore } from "firebase-admin/firestore";
+import {
+  FieldPath,
+  FieldValue,
+  type Firestore,
+} from "firebase-admin/firestore";
 import { describe, expect, it } from "vitest";
 import { FirestoreGenteCrystalSalesRepository } from "@/lib/gente-crystal/firestore-sales";
 
@@ -11,7 +15,7 @@ const saleAt = new Date("2026-08-24T00:02:00.000Z");
 type FakeWrite = {
   path: string;
   data: Record<string, unknown>;
-  options?: { merge: true };
+  options?: { merge: true } | { mergeFields: FieldPath[] };
 };
 
 function activeSale(overrides: Record<string, unknown> = {}) {
@@ -49,7 +53,7 @@ function createFirestore(existingSale?: Record<string, unknown>) {
         set(
           reference: { path: string },
           data: Record<string, unknown>,
-          options?: { merge: true },
+          options?: { merge: true } | { mergeFields: FieldPath[] },
         ): void;
       }) => Promise<T>,
     ): Promise<T> {
@@ -85,7 +89,9 @@ describe("FirestoreGenteCrystalSalesRepository", () => {
       "genteCrystalSales/DELIKOR PALMARES/daily/2026-08-23",
     ]);
     const [dailyWrite] = dailyWrites(writes);
-    expect(dailyWrite.options).toEqual({ merge: true });
+    expect(dailyWrite.options).toEqual({
+      mergeFields: [new FieldPath("sales", ticketId)],
+    });
     expect(
       (dailyWrite.data.sales as Record<string, unknown>)[ticketId],
     ).toMatchObject({
@@ -111,7 +117,9 @@ describe("FirestoreGenteCrystalSalesRepository", () => {
       (dailyWrite.data.sales as Record<string, { monto: number }>)[ticketId]
         .monto,
     ).toBe(3000);
-    expect(dailyWrite.options).toEqual({ merge: true });
+    expect(dailyWrite.options).toEqual({
+      mergeFields: [new FieldPath("sales", ticketId)],
+    });
   });
 
   it("removes the old daily entry before upserting a moved active sale", async () => {
@@ -131,11 +139,17 @@ describe("FirestoreGenteCrystalSalesRepository", () => {
     expect(
       (dailyWrites(writes)[0].data.sales as Record<string, unknown>)[ticketId],
     ).toEqual(FieldValue.delete());
+    expect(dailyWrites(writes)[0].options).toEqual({
+      mergeFields: [new FieldPath("sales", ticketId)],
+    });
     expect(
       (dailyWrites(writes)[1].data.sales as Record<string, { monto: number }>)[
         ticketId
       ].monto,
     ).toBe(2000);
+    expect(dailyWrites(writes)[1].options).toEqual({
+      mergeFields: [new FieldPath("sales", ticketId)],
+    });
   });
 
   it("removes a deleted active sale from its daily consolidation", async () => {
@@ -151,7 +165,9 @@ describe("FirestoreGenteCrystalSalesRepository", () => {
     expect(
       (dailyWrite.data.sales as Record<string, unknown>)[ticketId],
     ).toEqual(FieldValue.delete());
-    expect(dailyWrite.options).toEqual({ merge: true });
+    expect(dailyWrite.options).toEqual({
+      mergeFields: [new FieldPath("sales", ticketId)],
+    });
   });
 
   it("does not write a daily document when deleting a sale that does not exist", async () => {

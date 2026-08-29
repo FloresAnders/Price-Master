@@ -271,9 +271,11 @@ export class FirestoreGenteCrystalDailySalesReader
 }
 ```
 
-Export `shouldUseGenteCrystalDailyReads(env)` and choose the daily reader only
-when `GENTE_CRYSTAL_DAILY_READS_ENABLED=true`; otherwise use the retained query
-reader. This lets writer deployment and live backfill happen before cutover.
+Export `shouldUseGenteCrystalDailyReads(env)` and
+`createGenteCrystalSalesReader(firestore, env)`. The factory chooses the daily
+reader only when `GENTE_CRYSTAL_DAILY_READS_ENABLED=true`; otherwise it returns
+the retained query reader. Wire the `GET` route through this factory. This lets
+writer deployment and live backfill happen before cutover.
 
 - [ ] **Step 4: Run focused and full tests**
 
@@ -297,7 +299,7 @@ git commit -m "Read Gente Crystal daily consolidations"
 
 **Interfaces:**
 - Consumes: live individual sales under a required `--company` document ID.
-- Produces: `npm run backfill:gente-crystal-daily -- --company "<id>" --apply` and `--verify-only` operator modes.
+- Produces: `npm run backfill:gente-crystal-daily -- --company "<id>" --database "<id>" --apply` and `--verify-only` operator modes.
 
 - [ ] **Step 1: Write failing script-helper tests**
 
@@ -316,9 +318,9 @@ Expected: FAIL because the migration script does not exist.
 - [ ] **Step 3: Implement guarded live migration**
 
 The script must not initialize Firebase until argument validation succeeds. It
-loads Next environment configuration, selects `FIRESTORE_DATABASE_ID` (or
-`restauracion` in production), enumerates the required company's individual
-sales, and imports `genteCrystalCostaRicaDateKey` and
+requires `--database <document-segment>` in both modes and passes that exact
+value to `getFirestore(app, databaseId)`. It enumerates the required company's
+individual sales and imports `genteCrystalCostaRicaDateKey` and
 `buildGenteCrystalDailyEntry` from
 `../src/lib/gente-crystal/daily-sales.ts` instead of duplicating their logic.
 The repository's Node 22 runtime loads that TypeScript dependency using its
@@ -334,7 +336,7 @@ await firestore.runTransaction(async (transaction) => {
   transaction.set(
     firestore.doc(mutation.dailyPath),
     mutation.data,
-    { merge: true },
+    { mergeFields: [new FieldPath("sales", ticketId)] },
   );
 });
 ```
@@ -347,7 +349,7 @@ JSON, and exit nonzero on mismatch. `--verify-only` performs only the comparison
 Add to `package.json`:
 
 ```json
-"backfill:gente-crystal-daily": "node scripts/backfill-gente-crystal-daily.mjs"
+"backfill:gente-crystal-daily": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/backfill-gente-crystal-daily.mjs"
 ```
 
 - [ ] **Step 4: Run all Gente Crystal tests**
@@ -407,11 +409,12 @@ with `--apply` and no environment file containing credentials was changed.
 After deploying dual writes with daily reads disabled:
 
 ```bash
-npm run backfill:gente-crystal-daily -- --company "DELIKOR PALMARES" --apply
-npm run backfill:gente-crystal-daily -- --company "DELIKOR PALMARES" --verify-only
+npm run backfill:gente-crystal-daily -- --company "DELIKOR PALMARES" --database restauracion --apply
+npm run backfill:gente-crystal-daily -- --company "DELIKOR PALMARES" --database restauracion --verify-only
 ```
 
-Only after both report matching counts/totals, set
+Only after both commands exit 0 and report `ok: true`, `mismatches: []`, and
+`entryMismatches: []`, set
 `GENTE_CRYSTAL_DAILY_READS_ENABLED=true` and redeploy. Report that this final
 environment change is required for the read count to fall from about 91 to
 about 7.

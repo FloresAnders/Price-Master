@@ -1,13 +1,13 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldPath, FieldValue } from "firebase-admin/firestore";
 import {
   buildGenteCrystalDailyEntry,
   genteCrystalCostaRicaDateKey,
 } from "../src/lib/gente-crystal/daily-sales.ts";
 
 const USAGE =
-  'Usage: npm run backfill:gente-crystal-daily -- --company "<id>" (--apply | --verify-only)';
+  'Usage: npm run backfill:gente-crystal-daily -- --company "<id>" --database "<id>" (--apply | --verify-only)';
 
 function readDocumentSegment(value, flag) {
   const normalized = typeof value === "string" ? value.trim() : "";
@@ -19,6 +19,7 @@ function readDocumentSegment(value, flag) {
 
 export function parseBackfillArgs(argv) {
   let companyId;
+  let databaseId;
   let apply = false;
   let verifyOnly = false;
 
@@ -36,6 +37,18 @@ export function parseBackfillArgs(argv) {
       index += 1;
       continue;
     }
+    if (argument === "--database") {
+      if (databaseId !== undefined) {
+        throw new Error(`--database may be provided only once. ${USAGE}`);
+      }
+      const value = argv[index + 1];
+      if (typeof value !== "string" || value.startsWith("--")) {
+        throw new Error("--database requires a value that is not another flag.");
+      }
+      databaseId = value;
+      index += 1;
+      continue;
+    }
     if (argument === "--apply") {
       apply = true;
       continue;
@@ -48,6 +61,7 @@ export function parseBackfillArgs(argv) {
   }
 
   const normalizedCompanyId = readDocumentSegment(companyId, "--company");
+  const normalizedDatabaseId = readDocumentSegment(databaseId, "--database");
   if (apply && verifyOnly) {
     throw new Error("--apply and --verify-only cannot be combined.");
   }
@@ -57,6 +71,7 @@ export function parseBackfillArgs(argv) {
 
   return {
     companyId: normalizedCompanyId,
+    databaseId: normalizedDatabaseId,
     mode: apply ? "apply" : "verify-only",
   };
 }
@@ -81,6 +96,9 @@ export function buildBackfillMutation(companyId, ticketId, record) {
       sales: {
         [normalizedTicketId]: dailyValue,
       },
+    },
+    options: {
+      mergeFields: [new FieldPath("sales", normalizedTicketId)],
     },
   };
 }
@@ -243,34 +261,33 @@ function readServiceAccount(raw) {
   return { projectId, clientEmail, privateKey };
 }
 
-async function loadFirestore() {
+async function loadFirestoreRuntime() {
   const nextEnv = await import("@next/env");
   const loadEnvConfig = nextEnv.loadEnvConfig || nextEnv.default?.loadEnvConfig;
   if (typeof loadEnvConfig !== "function") {
     throw new Error("Next.js environment loader is unavailable.");
   }
-  loadEnvConfig(process.cwd());
 
   const [{ cert, getApps, initializeApp }, { getFirestore }] = await Promise.all([
     import("firebase-admin/app"),
     import("firebase-admin/firestore"),
   ]);
-  const serviceAccount = readServiceAccount(
-    process.env.FIREBASE_SERVICE_ACCOUNT_KEY,
-  );
+  return { loadEnvConfig, cert, getApps, initializeApp, getFirestore };
+}
+
+export async function loadFirestore(databaseId, dependencies = {}) {
+  const normalizedDatabaseId = readDocumentSegment(databaseId, "databaseId");
+  const runtime = await (dependencies.loadRuntime ?? loadFirestoreRuntime)();
+  runtime.loadEnvConfig(process.cwd());
+  const env = dependencies.env ?? process.env;
+  const serviceAccount = readServiceAccount(env.FIREBASE_SERVICE_ACCOUNT_KEY);
   const app =
-    getApps()[0] ??
-    initializeApp({
-      credential: cert(serviceAccount),
+    runtime.getApps()[0] ??
+    runtime.initializeApp({
+      credential: runtime.cert(serviceAccount),
       projectId: serviceAccount.projectId,
     });
-  const databaseId =
-    process.env.FIRESTORE_DATABASE_ID?.trim() ||
-    (process.env.NODE_ENV === "production" ? "restauracion" : "");
-  return {
-    databaseId: databaseId || "(default)",
-    firestore: databaseId ? getFirestore(app, databaseId) : getFirestore(app),
-  };
+  return runtime.getFirestore(app, normalizedDatabaseId);
 }
 
 async function readBackfillDocuments(firestore, companyId) {
@@ -285,7 +302,11 @@ async function readBackfillDocuments(firestore, companyId) {
   };
 }
 
-async function applyBackfill(firestore, companyId, individualDocuments) {
+export async function applyBackfill(
+  firestore,
+  companyId,
+  individualDocuments,
+) {
   for (const saleDocument of individualDocuments) {
     const saleRef = saleDocument.ref;
     await firestore.runTransaction(async (transaction) => {
@@ -297,16 +318,18 @@ async function applyBackfill(firestore, companyId, individualDocuments) {
         current.data(),
       );
       if (!mutation) return;
-      transaction.set(firestore.doc(mutation.dailyPath), mutation.data, {
-        merge: true,
-      });
+      transaction.set(
+        firestore.doc(mutation.dailyPath),
+        mutation.data,
+        mutation.options,
+      );
     });
   }
 }
 
 async function main(argv = process.argv.slice(2)) {
   const options = parseBackfillArgs(argv);
-  const { databaseId, firestore } = await loadFirestore();
+  const firestore = await loadFirestore(options.databaseId);
   let documents = await readBackfillDocuments(firestore, options.companyId);
 
   if (options.mode === "apply") {
@@ -328,7 +351,7 @@ async function main(argv = process.argv.slice(2)) {
         ok: comparison.ok,
         mode: options.mode,
         companyId: options.companyId,
-        databaseId,
+        databaseId: options.databaseId,
         individualDocuments: documents.individualDocuments.length,
         dailyDocuments: documents.dailyDocuments.length,
         comparison,

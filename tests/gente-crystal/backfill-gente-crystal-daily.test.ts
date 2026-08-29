@@ -1,9 +1,12 @@
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { FieldPath, type Firestore } from "firebase-admin/firestore";
 import { describe, expect, it } from "vitest";
 import {
+  applyBackfill,
   buildBackfillMutation,
   compareDailyTotals,
+  loadFirestore,
   parseBackfillArgs,
 } from "../../scripts/backfill-gente-crystal-daily.mjs";
 
@@ -20,12 +23,13 @@ const activeSale = {
 };
 
 describe("Gente Crystal daily backfill arguments", () => {
-  it("validates CLI arguments before loading environment or initializing Firebase", () => {
-    const scriptPath = fileURLToPath(
-      new URL("../../scripts/backfill-gente-crystal-daily.mjs", import.meta.url),
-    );
-    const result = spawnSync(process.execPath, [scriptPath], {
+  it("validates the npm command before Firebase and suppresses the typeless-package warning", () => {
+    const repositoryPath = fileURLToPath(new URL("../..", import.meta.url));
+    const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+    const result = spawnSync(npmCommand, ["run", "backfill:gente-crystal-daily"], {
+      cwd: repositoryPath,
       encoding: "utf8",
+      shell: process.platform === "win32",
       env: {
         ...process.env,
         FIREBASE_SERVICE_ACCOUNT_KEY: "must-not-be-read-before-validation",
@@ -36,30 +40,49 @@ describe("Gente Crystal daily backfill arguments", () => {
     expect(result.stderr).toContain("--company");
     expect(result.stderr).not.toContain("FIREBASE_SERVICE_ACCOUNT_KEY");
     expect(result.stderr).not.toContain("must-not-be-read-before-validation");
+    expect(result.stderr).not.toContain("MODULE_TYPELESS_PACKAGE_JSON");
   });
 
-  it("requires one explicit operator mode and a trimmed company document ID", () => {
+  it("parses exact trimmed company and database document IDs", () => {
     expect(
       parseBackfillArgs([
         "--company",
         " DELIKOR PALMARES ",
+        "--database",
+        " restauracion ",
         "--verify-only",
       ]),
-    ).toEqual({ companyId: "DELIKOR PALMARES", mode: "verify-only" });
-
-    expect(() => parseBackfillArgs(["--verify-only"])).toThrow(
-      /--company/,
-    );
-    expect(() => parseBackfillArgs(["--company", "DELIKOR PALMARES"])).toThrow(
-      /--apply.*--verify-only|--verify-only.*--apply/,
-    );
+    ).toEqual({
+      companyId: "DELIKOR PALMARES",
+      databaseId: "restauracion",
+      mode: "verify-only",
+    });
   });
 
-  it("rejects unsafe company paths and ambiguous modes", () => {
+  it("requires an explicit database for either operator mode", () => {
+    expect(() =>
+      parseBackfillArgs([
+        "--company",
+        "DELIKOR PALMARES",
+        "--verify-only",
+      ]),
+    ).toThrow(/--database/);
+    expect(() =>
+      parseBackfillArgs([
+        "--company",
+        "DELIKOR PALMARES",
+        "--apply",
+      ]),
+    ).toThrow(/--database/);
+  });
+
+  it("rejects unsafe company or database paths and ambiguous modes", () => {
     expect(() =>
       parseBackfillArgs([
         "--company",
         "DELIKOR/PALMARES",
+        "--database",
+        "restauracion",
         "--verify-only",
       ]),
     ).toThrow(/document segment/);
@@ -67,6 +90,17 @@ describe("Gente Crystal daily backfill arguments", () => {
       parseBackfillArgs([
         "--company",
         "DELIKOR PALMARES",
+        "--database",
+        "regional/restauracion",
+        "--verify-only",
+      ]),
+    ).toThrow(/--database.*document segment/);
+    expect(() =>
+      parseBackfillArgs([
+        "--company",
+        "DELIKOR PALMARES",
+        "--database",
+        "restauracion",
         "--apply",
         "--verify-only",
       ]),
@@ -79,6 +113,44 @@ describe("Gente Crystal daily backfill arguments", () => {
     ["--company", "--verify-only", "--apply"],
   ])("does not consume another flag as the --company value: %j", (...argv) => {
     expect(() => parseBackfillArgs(argv)).toThrow(/--company.*value/);
+  });
+
+  it.each([
+    ["--company", "DELIKOR PALMARES", "--database", "--apply"],
+    ["--company", "DELIKOR PALMARES", "--database", "--verify-only"],
+  ])("does not consume another flag as the --database value: %j", (...argv) => {
+    expect(() => parseBackfillArgs(argv)).toThrow(/--database.*value/);
+  });
+
+  it("passes the exact parsed database ID to getFirestore", async () => {
+    const app = { name: "backfill-test" };
+    const requestedDatabaseIds: unknown[] = [];
+
+    const firestore = await loadFirestore("regional-restauracion", {
+      env: {
+        FIREBASE_SERVICE_ACCOUNT_KEY: JSON.stringify({
+          project_id: "test-project",
+          client_email: "test@example.invalid",
+          private_key: "fake-private-key",
+        }),
+      },
+      loadRuntime: async () => ({
+        loadEnvConfig: () => undefined,
+        cert: () => ({ kind: "credential" }),
+        getApps: () => [app],
+        initializeApp: () => {
+          throw new Error("must reuse the injected app");
+        },
+        getFirestore(receivedApp: unknown, databaseId: unknown) {
+          expect(receivedApp).toBe(app);
+          requestedDatabaseIds.push(databaseId);
+          return { kind: "firestore" };
+        },
+      }),
+    });
+
+    expect(firestore).toEqual({ kind: "firestore" });
+    expect(requestedDatabaseIds).toEqual(["regional-restauracion"]);
   });
 });
 
@@ -99,6 +171,9 @@ describe("Gente Crystal daily backfill mutations", () => {
           },
         },
       },
+      options: {
+        mergeFields: [new FieldPath("sales", ticketId)],
+      },
     });
   });
 
@@ -114,11 +189,59 @@ describe("Gente Crystal daily backfill mutations", () => {
     expect(
       mutation?.data.sales[ticketId]?.constructor.name,
     ).toBe("DeleteTransform");
+    expect(mutation?.options).toEqual({
+      mergeFields: [new FieldPath("sales", ticketId)],
+    });
     expect(
       buildBackfillMutation("DELIKOR PALMARES", ticketId, {
         status: "deleted",
       }),
     ).toBeNull();
+  });
+
+  it("applies only the whole ticket field so sibling tickets are preserved", async () => {
+    const writes: Array<{
+      path: string;
+      data: Record<string, unknown>;
+      options: unknown;
+    }> = [];
+    const saleReference = { path: `sales/${ticketId}` };
+    const firestore = {
+      doc(path: string) {
+        return { path };
+      },
+      async runTransaction(update: (transaction: unknown) => Promise<void>) {
+        await update({
+          async get() {
+            return {
+              exists: true,
+              id: ticketId,
+              data: () => activeSale,
+            };
+          },
+          set(
+            reference: { path: string },
+            data: Record<string, unknown>,
+            options: unknown,
+          ) {
+            writes.push({ path: reference.path, data, options });
+          },
+        });
+      },
+    } as unknown as Firestore;
+
+    await applyBackfill(firestore, "DELIKOR PALMARES", [
+      { ref: saleReference },
+    ]);
+
+    expect(writes).toHaveLength(1);
+    expect(writes[0]).toMatchObject({
+      path: "genteCrystalSales/DELIKOR PALMARES/daily/2026-08-23",
+      data: { sales: { [ticketId]: { monto: 2000 } } },
+    });
+    expect(writes[0].options).toEqual({
+      mergeFields: [new FieldPath("sales", ticketId)],
+    });
   });
 });
 

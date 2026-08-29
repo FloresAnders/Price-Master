@@ -162,9 +162,17 @@ represented in daily documents:
    and retains a usable `saleAt`. Firestore retries a transaction if a
    concurrent API write changes that individual record, preventing an older
    active snapshot from restoring a ticket deleted during migration.
-3. Validate per-day ticket counts and totals between the individual source and
-   daily documents for all migrated days.
-4. Switch the `GET` reader to the daily document.
+3. Run the explicit commands against the intended Firestore database:
+
+   ```bash
+   npm run backfill:gente-crystal-daily -- --company "DELIKOR PALMARES" --database restauracion --apply
+   npm run backfill:gente-crystal-daily -- --company "DELIKOR PALMARES" --database restauracion --verify-only
+   ```
+
+   The command must exit 0 and report `ok: true`, `mismatches: []`, and
+   `entryMismatches: []` before cutover.
+4. Only then set `GENTE_CRYSTAL_DAILY_READS_ENABLED=true` and switch the `GET`
+   reader to the daily document.
 
 The individual documents remain intact, allowing the daily documents to be
 rebuilt or the reader to be reverted without data loss. The backfill must be an
