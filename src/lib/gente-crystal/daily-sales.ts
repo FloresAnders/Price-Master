@@ -3,8 +3,8 @@ import {
   GENTE_CRYSTAL_TIMEZONE,
   readGenteCrystalDate,
   type GenteCrystalDailyResult,
-} from "./read-sales";
-import type { GenteCrystalSaleRecord } from "./sales";
+} from "./read-sales.ts";
+import type { GenteCrystalSaleRecord } from "./sales.ts";
 
 export type GenteCrystalDailySaleEntry = {
   sorteo: string;
