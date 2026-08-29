@@ -7,6 +7,14 @@ export class EmpresasService {
   private static readonly CACHE_TTL_MS = 30_000;
   private static empresasCache: { expiresAt: number; data: Empresas[] } | null =
     null;
+  private static empresasInFlight: Promise<Empresas[]> | null = null;
+  private static cacheGeneration = 0;
+
+  private static invalidateCache(): void {
+    this.empresasCache = null;
+    this.empresasInFlight = null;
+    this.cacheGeneration += 1;
+  }
 
   private static normalizeClosingWindowMinutes(value: unknown): number | undefined {
     if (value === undefined || value === null || value === "") return undefined;
@@ -179,38 +187,55 @@ export class EmpresasService {
       return this.cloneEmpresas(cached.data);
     }
 
-    const all = (await FirestoreService.getAll(
-      this.COLLECTION_NAME,
-    )) as Empresas[];
-    const normalized = all.map((e) => ({
-      ...e,
-      cierreFondoVentasMinutesBeforeEnd:
-        EmpresasService.normalizeClosingWindowMinutes(
-          e.cierreFondoVentasMinutesBeforeEnd,
+    if (this.empresasInFlight) {
+      return this.cloneEmpresas(await this.empresasInFlight);
+    }
+
+    const generation = this.cacheGeneration;
+    const request = (async () => {
+      const all = (await FirestoreService.getAll(
+        this.COLLECTION_NAME,
+      )) as Empresas[];
+      const normalized = all.map((e) => ({
+        ...e,
+        cierreFondoVentasMinutesBeforeEnd:
+          EmpresasService.normalizeClosingWindowMinutes(
+            e.cierreFondoVentasMinutesBeforeEnd,
+          ),
+        cierreFondoVentasMinutesAfterEnd:
+          EmpresasService.normalizeClosingWindowMinutes(
+            e.cierreFondoVentasMinutesAfterEnd,
+          ),
+        mostrarInfoPago: EmpresasService.normalizeBoolean(
+          (e as any).mostrarInfoPago,
         ),
-      cierreFondoVentasMinutesAfterEnd:
-        EmpresasService.normalizeClosingWindowMinutes(
-          e.cierreFondoVentasMinutesAfterEnd,
+        unicoCierre: EmpresasService.normalizeUnicoCierre(
+          (e as any).unicoCierre,
         ),
-      mostrarInfoPago: EmpresasService.normalizeBoolean(
-        (e as any).mostrarInfoPago,
-      ),
-      unicoCierre: EmpresasService.normalizeUnicoCierre(
-        (e as any).unicoCierre,
-      ),
-      verificacionSistemas: EmpresasService.normalizeVerificacionSistemas(
-        (e as any).verificacionSistemas,
-      ),
-      solicitarApertura: EmpresasService.normalizeSolicitarApertura(
-        (e as any).solicitarApertura,
-      ),
-      empleados: EmpresasService.normalizeEmpleados(e.empleados as unknown),
-    }));
-    this.empresasCache = {
-      expiresAt: Date.now() + this.CACHE_TTL_MS,
-      data: normalized,
-    };
-    return this.cloneEmpresas(normalized);
+        verificacionSistemas: EmpresasService.normalizeVerificacionSistemas(
+          (e as any).verificacionSistemas,
+        ),
+        solicitarApertura: EmpresasService.normalizeSolicitarApertura(
+          (e as any).solicitarApertura,
+        ),
+        empleados: EmpresasService.normalizeEmpleados(e.empleados as unknown),
+      }));
+      if (generation === this.cacheGeneration) {
+        this.empresasCache = {
+          expiresAt: Date.now() + this.CACHE_TTL_MS,
+          data: normalized,
+        };
+      }
+      return normalized;
+    })();
+    this.empresasInFlight = request;
+    try {
+      return this.cloneEmpresas(await request);
+    } finally {
+      if (this.empresasInFlight === request) {
+        this.empresasInFlight = null;
+      }
+    }
   }
 
   static async getEmpresaById(id: string): Promise<Empresas | null> {
@@ -253,7 +278,7 @@ export class EmpresasService {
     empresa: Partial<Empresas> & { id?: string },
   ): Promise<string> {
     // invalidate cache on write
-    this.empresasCache = null;
+    this.invalidateCache();
     // If an ownerId is provided, enforce owner's maxCompanies limit (if any)
     const ownerId = empresa.ownerId || "";
     if (ownerId) {
@@ -352,7 +377,7 @@ export class EmpresasService {
     id: string,
     empresa: Partial<Empresas>,
   ): Promise<void> {
-    this.empresasCache = null;
+    this.invalidateCache();
     const patch = { ...empresa } as Partial<Empresas> & Record<string, unknown>;
     if (patch.empleados) {
       patch.empleados = EmpresasService.normalizeEmpleados(
@@ -400,7 +425,7 @@ export class EmpresasService {
   }
 
   static async deleteEmpresa(id: string): Promise<void> {
-    this.empresasCache = null;
+    this.invalidateCache();
     return await FirestoreService.delete(this.COLLECTION_NAME, id);
   }
 }

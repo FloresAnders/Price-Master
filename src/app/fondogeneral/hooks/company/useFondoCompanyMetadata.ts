@@ -7,11 +7,13 @@ import type { Empresas } from "../../../../types/firestore";
 type UseFondoCompanyMetadataParams = {
   company: string;
   namespace: string;
+  resolvedEmpresa?: Empresas | null;
 };
 
 export function useFondoCompanyMetadata({
   company,
   namespace,
+  resolvedEmpresa,
 }: UseFondoCompanyMetadataParams) {
   const shouldLoadEmployees =
     Boolean(company) &&
@@ -51,6 +53,19 @@ export function useFondoCompanyMetadata({
     const loadEmployees = async () => {
       setRawEmployeesLoading(true);
       try {
+        if (resolvedEmpresa) {
+          const names =
+            resolvedEmpresa.empleados
+              ?.map((employee) => employee.Empleado)
+              .filter(Boolean) ?? [];
+          if (isActive) {
+            setCompanyEmployeesState({
+              key: employeesKey,
+              employees: names as string[],
+            });
+          }
+          return;
+        }
         const empresas = await EmpresasService.getAllEmpresas();
         if (!isActive) return;
         const match = empresas.find(
@@ -77,12 +92,19 @@ export function useFondoCompanyMetadata({
     return () => {
       isActive = false;
     };
-  }, [company, employeesKey, shouldLoadEmployees]);
+  }, [company, employeesKey, resolvedEmpresa, shouldLoadEmployees]);
 
   useEffect(() => {
     let isActive = true;
 
     if (!company) {
+      return () => {
+        isActive = false;
+      };
+    }
+
+    if (resolvedEmpresa) {
+      setCompanyDataState({ company, data: resolvedEmpresa });
       return () => {
         isActive = false;
       };
@@ -108,7 +130,7 @@ export function useFondoCompanyMetadata({
     return () => {
       isActive = false;
     };
-  }, [company]);
+  }, [company, resolvedEmpresa]);
 
   return { companyEmployees, employeesLoading, companyData };
 }

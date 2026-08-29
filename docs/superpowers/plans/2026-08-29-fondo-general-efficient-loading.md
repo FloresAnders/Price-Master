@@ -194,7 +194,7 @@ git commit -m "Cache Fondo startup data in IndexedDB"
 - Produces: one shared in-flight `Promise<Empresas[]>` inside `getAllEmpresas()`.
 - Changes: `useFondoCompanyMetadata` accepts `resolvedEmpresa: Empresas | null` and avoids a collection read when provided.
 
-- [ ] **Step 1: Write a failing concurrency test**
+- [x] **Step 1: Write a failing concurrency test**
 
 ```ts
 const [first, second, third] = await Promise.all([
@@ -206,21 +206,21 @@ expect(firestoreGetAllCalls).toBe(1);
 expect(first).not.toBe(second);
 ```
 
-- [ ] **Step 2: Run and confirm three underlying reads occur**
+- [x] **Step 2: Run and confirm three underlying reads occur**
 
 Run: `npm test -- tests/fondogeneral/empresas-cache.test.ts`
 
-- [ ] **Step 3: Add in-flight promise cleanup and metadata reuse**
+- [x] **Step 3: Add in-flight promise cleanup and metadata reuse**
 
 The in-flight promise is cleared in `finally`, successful data enters the existing 30-second cache, and every caller receives a clone. Fondo passes `activeEmpresaForCompany` to metadata so employees/company data are derived locally.
 
-- [ ] **Step 4: Run test and TypeScript**
+- [x] **Step 4: Run test and TypeScript**
 
 Run: `npm test -- tests/fondogeneral/empresas-cache.test.ts`
 
 Run: `npx tsc --noEmit`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add src/services/empresas.ts src/app/fondogeneral/hooks/company/useFondoCompanyMetadata.ts src/app/fondogeneral/components/layout/FondoSection.tsx tests/fondogeneral/empresas-cache.test.ts

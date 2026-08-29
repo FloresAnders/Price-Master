@@ -429,7 +429,11 @@ export function FondoSection({
   const [latestMovementOverall, setLatestMovementOverall] = useState<FondoEntry | null>(null);
   const [latestMovementOverallLoaded, setLatestMovementOverallLoaded] = useState(false);
   const { companyEmployees, employeesLoading, companyData } =
-    useFondoCompanyMetadata({ company, namespace });
+    useFondoCompanyMetadata({
+      company,
+      namespace,
+      resolvedEmpresa: activeEmpresaForCompany,
+    });
   const empresaForShiftResolution = useMemo<Empresas | null>(() => {
     if (!activeEmpresaForCompany && !companyData) return null;
     if (!activeEmpresaForCompany) return companyData;
