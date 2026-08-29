@@ -290,23 +290,23 @@ git commit -m "Write pending invoice index field"
 - Produces command: `npm run backfill:factura-pending-index -- --database <id> --company <name> --verify-only`.
 - Apply mode additionally requires `--apply`; exactly one of `--apply` and `--verify-only` is accepted.
 
-- [ ] **Step 1: Write failing argument/projection/verification tests**
+- [x] **Step 1: Write failing argument/projection/verification tests**
 
 Test missing `--database`, missing `--company`, mutually supplied modes, verification mismatch exit code, dry verification with no writes, and transaction re-read before each apply write. Use an injected fake Admin adapter; never initialize real Firebase Admin in tests.
 
-- [ ] **Step 2: Run and confirm the script is missing**
+- [x] **Step 2: Run and confirm the script is missing**
 
 Run: `npm test -- tests/fondogeneral/backfill-factura-pending-index.test.ts`
 
-- [ ] **Step 3: Implement explicit, idempotent operator modes**
+- [x] **Step 3: Implement explicit, idempotent operator modes**
 
 The script prints project/database/company/mode before work, enumerates the selected company's `Facturas/<normalized>/movements` collection, re-reads each target in a transaction in apply mode, writes only changed flags, and verifies projected IDs against `isPendingForClosing == true`. Mismatches set `process.exitCode = 1`.
 
-- [ ] **Step 4: Run the backfill tests**
+- [x] **Step 4: Run the backfill tests**
 
 Run: `npm test -- tests/fondogeneral/backfill-factura-pending-index.test.ts`
 
-- [ ] **Step 5: Commit the operator tool**
+- [x] **Step 5: Commit the operator tool**
 
 ```powershell
 git add scripts/backfill-factura-pending-index.mjs package.json package-lock.json tests/fondogeneral/backfill-factura-pending-index.test.ts

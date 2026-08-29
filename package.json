@@ -7,6 +7,7 @@
     "firebase:read": "node scripts/firebase-read.mjs",
     "provision:gente-crystal-device": "node scripts/provision-gente-crystal-device.mjs",
     "backfill:gente-crystal-daily": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/backfill-gente-crystal-daily.mjs",
+    "backfill:factura-pending-index": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/backfill-factura-pending-index.mjs",
     "dev": "next dev",
     "build": "next build",
     "build:export": "next build && echo 'Build completed for Capacitor'",
