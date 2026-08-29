@@ -170,9 +170,9 @@ represented in daily documents:
    ```
 
    The command must exit 0 and report `ok: true`, `mismatches: []`, and
-   `entryMismatches: []` before cutover.
-4. Only then set `GENTE_CRYSTAL_DAILY_READS_ENABLED=true` and switch the `GET`
-   reader to the daily document.
+   `entryMismatches: []` before deploying this reader change.
+4. Deploy the application. The `GET` reader always uses the daily document;
+   no environment flag is required.
 
 The individual documents remain intact, allowing the daily documents to be
 rebuilt or the reader to be reverted without data loss. The backfill must be an

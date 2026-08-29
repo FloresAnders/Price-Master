@@ -176,5 +176,5 @@ export const GET = createGenteCrystalSalesGet({
     });
     return timing.withinHorario ? timing.shiftChangeMin : null;
   },
-  createReader: () => createGenteCrystalSalesReader(getAdminDb(), process.env),
+  createReader: () => createGenteCrystalSalesReader(getAdminDb()),
 });

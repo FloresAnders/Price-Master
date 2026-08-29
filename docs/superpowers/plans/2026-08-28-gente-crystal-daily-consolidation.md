@@ -406,7 +406,7 @@ with `--apply` and no environment file containing credentials was changed.
 
 - [ ] **Step 5: Provide the operator sequence without executing it**
 
-After deploying dual writes with daily reads disabled:
+Before deploying the always-daily reader, run:
 
 ```bash
 npm run backfill:gente-crystal-daily -- --company "DELIKOR PALMARES" --database restauracion --apply
@@ -414,7 +414,6 @@ npm run backfill:gente-crystal-daily -- --company "DELIKOR PALMARES" --database 
 ```
 
 Only after both commands exit 0 and report `ok: true`, `mismatches: []`, and
-`entryMismatches: []`, set
-`GENTE_CRYSTAL_DAILY_READS_ENABLED=true` and redeploy. Report that this final
-environment change is required for the read count to fall from about 91 to
-about 7.
+`entryMismatches: []`, deploy the application. The GET route always reads the
+daily document, so no environment variable is required. Report that this
+deployment lowers the read count from about 91 to about 7.

@@ -3,8 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   createGenteCrystalSalesReader,
   FirestoreGenteCrystalDailySalesReader,
-  FirestoreGenteCrystalSalesQueryReader,
-  shouldUseGenteCrystalDailyReads,
 } from "@/lib/gente-crystal/firestore-sales-reader";
 import { buildCostaRicaDayRange } from "@/lib/gente-crystal/read-sales";
 
@@ -119,41 +117,12 @@ describe("FirestoreGenteCrystalDailySalesReader", () => {
   });
 });
 
-describe("shouldUseGenteCrystalDailyReads", () => {
-  it("enables the daily reader only for the exact true flag", () => {
-    expect(
-      shouldUseGenteCrystalDailyReads({
-        GENTE_CRYSTAL_DAILY_READS_ENABLED: "true",
-      }),
-    ).toBe(true);
-    expect(
-      shouldUseGenteCrystalDailyReads({
-        GENTE_CRYSTAL_DAILY_READS_ENABLED: "TRUE",
-      }),
-    ).toBe(false);
-    expect(
-      shouldUseGenteCrystalDailyReads({
-        GENTE_CRYSTAL_DAILY_READS_ENABLED: " true ",
-      }),
-    ).toBe(false);
-    expect(shouldUseGenteCrystalDailyReads({})).toBe(false);
-  });
-
-  it("factory selects the concrete reader only for the exact true flag", () => {
+describe("createGenteCrystalSalesReader", () => {
+  it("always selects the daily reader without an environment flag", () => {
     const { firestore } = createFirestore(undefined);
 
-    expect(
-      createGenteCrystalSalesReader(firestore, {
-        GENTE_CRYSTAL_DAILY_READS_ENABLED: "true",
-      }),
-    ).toBeInstanceOf(FirestoreGenteCrystalDailySalesReader);
-    expect(
-      createGenteCrystalSalesReader(firestore, {
-        GENTE_CRYSTAL_DAILY_READS_ENABLED: "TRUE",
-      }),
-    ).toBeInstanceOf(FirestoreGenteCrystalSalesQueryReader);
-    expect(createGenteCrystalSalesReader(firestore, {})).toBeInstanceOf(
-      FirestoreGenteCrystalSalesQueryReader,
+    expect(createGenteCrystalSalesReader(firestore)).toBeInstanceOf(
+      FirestoreGenteCrystalDailySalesReader,
     );
   });
 });
