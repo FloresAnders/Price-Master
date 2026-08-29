@@ -1,4 +1,5 @@
-import type { Firestore } from "firebase-admin/firestore";
+import { FieldValue, type Firestore } from "firebase-admin/firestore";
+import { planGenteCrystalDailyMutation } from "./daily-sales.ts";
 import {
   GENTE_CRYSTAL_WRITE_PERMISSION,
   GenteCrystalSaleError,
@@ -105,8 +106,40 @@ export class FirestoreGenteCrystalSalesRepository
       );
 
       if (merged.record) {
+        const dailyMutation = planGenteCrystalDailyMutation(
+          existingSale,
+          merged.record,
+        );
         transaction.set(saleReference, merged.record);
         transaction.set(deviceReference, { lastSeenAt: now }, { merge: true });
+
+        if (dailyMutation.remove) {
+          transaction.set(
+            this.firestore.doc(
+              `genteCrystalSales/${companyId}/daily/${dailyMutation.remove.date}`,
+            ),
+            {
+              sales: {
+                [dailyMutation.remove.ticketId]: FieldValue.delete(),
+              },
+            },
+            { merge: true },
+          );
+        }
+
+        if (dailyMutation.upsert) {
+          transaction.set(
+            this.firestore.doc(
+              `genteCrystalSales/${companyId}/daily/${dailyMutation.upsert.date}`,
+            ),
+            {
+              sales: {
+                [dailyMutation.upsert.ticketId]: dailyMutation.upsert.entry,
+              },
+            },
+            { merge: true },
+          );
+        }
       }
 
       return { action: merged.action };
