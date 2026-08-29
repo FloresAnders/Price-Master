@@ -15,6 +15,7 @@ import {
   getPrimaryMovementManager,
   dateKeyFromDate,
 } from "../../utils/helpers";
+import { getCostaRicaCurrentDateKey } from "../../utils/costaRicaDay";
 import type { FondoEntry, FondoMovementType } from "../../types";
 
 interface MovementProvider {
@@ -36,33 +37,17 @@ export function useFondoFilters({
   movementProviders,
   mode,
 }: Props) {
-  const todayKey = useMemo(() => dateKeyFromDate(new Date()), []);
+  const todayKey = useMemo(() => getCostaRicaCurrentDateKey(), []);
 
   const providersMap = useMemo(() => {
     const map = new Map<string, string>();
     movementProviders.forEach((p) => map.set(p.code, p.name));
     return map;
   }, [movementProviders]);
-  const [pageSize, setPageSize] = useState<"daily" | number | "all">(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const remember = localStorage.getItem("fondogeneral-rememberFilters");
-        if (remember === "true") {
-          const saved = localStorage.getItem("fondogeneral-pageSize");
-          if (saved === null) return "daily";
-          if (saved === "daily" || saved === "all") return saved as any;
-          const n = Number.parseInt(saved, 10);
-          if (!Number.isNaN(n) && n > 0) return n;
-        }
-      } catch {
-        // ignore storage errors
-      }
-    }
-    return "daily";
-  });
+  const [pageSize, setPageSize] = useState<"daily" | number | "all">("daily");
   const [pageIndex, setPageIndex] = useState(0);
   const [currentDailyKey, setCurrentDailyKey] = useState(() =>
-    dateKeyFromDate(new Date()),
+    getCostaRicaCurrentDateKey(),
   );
 
   const [sortAsc, setSortAsc] = useState(() => {
@@ -75,20 +60,8 @@ export function useFondoFilters({
     return false;
   });
 
-  const [fromFilter, setFromFilter] = useState<string | null>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("fondogeneral-fromFilter");
-      return saved ? saved : null;
-    }
-    return null;
-  });
-  const [toFilter, setToFilter] = useState<string | null>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("fondogeneral-toFilter");
-      return saved ? saved : null;
-    }
-    return null;
-  });
+  const [fromFilter, setFromFilter] = useState<string | null>(null);
+  const [toFilter, setToFilter] = useState<string | null>(null);
 
   const [calendarFromOpen, setCalendarFromOpen] = useState(false);
   const [calendarToOpen, setCalendarToOpen] = useState(false);
@@ -300,20 +273,6 @@ export function useFondoFilters({
     searchQuery,
     pageSize,
   ]);
-
-  // When rememberFilters is enabled, load pageSize from storage
-  useEffect(() => {
-    if (!rememberFilters) return;
-    if (typeof window === "undefined") return;
-    const saved = localStorage.getItem("fondogeneral-pageSize");
-    if (saved === null) return;
-    if (saved === "daily" || saved === "all") {
-      setPageSize(saved as any);
-      return;
-    }
-    const n = Number.parseInt(saved, 10);
-    if (!Number.isNaN(n) && n > 0) setPageSize(n);
-  }, [rememberFilters]);
 
   // Column resize handler
   useEffect(() => {

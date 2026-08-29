@@ -1,4 +1,5 @@
 import type { MovementAccountKey } from "@/services/movimientos-fondos";
+import { buildCostaRicaDayRange } from "./costaRicaDay";
 
 export function buildV2MovementsCacheKey(
   docKey: string,
@@ -11,23 +12,8 @@ export function buildLocalDayIsoRange(isoDateKey: string): {
   startIso: string;
   endIsoExclusive: string;
 } {
-  const [yStr, mStr, dStr] = String(isoDateKey || "").split("-");
-  const y = Number(yStr);
-  const m = Number(mStr);
-  const d = Number(dStr);
-
-  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 1);
-    return { startIso: start.toISOString(), endIsoExclusive: end.toISOString() };
-  }
-
-  const start = new Date(y, m - 1, d, 0, 0, 0, 0);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
-  return { startIso: start.toISOString(), endIsoExclusive: end.toISOString() };
+  const { startIso, endIsoExclusive } = buildCostaRicaDayRange(isoDateKey);
+  return { startIso, endIsoExclusive };
 }
 
 export function resolveActiveMovementsQuery(params: {

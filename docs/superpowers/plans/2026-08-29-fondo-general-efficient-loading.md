@@ -38,7 +38,7 @@
 - Produces: `resolveActiveMovementsQuery(...)` using Costa Rica ranges.
 - Preserves: explicit historical range selection, but ignores persisted date filters and starts every mount on today's Costa Rica date.
 
-- [ ] **Step 1: Write failing boundary and query tests**
+- [x] **Step 1: Write failing boundary and query tests**
 
 ```ts
 expect(buildCostaRicaCurrentDayRange(new Date("2026-08-29T05:59:59.000Z"))).toEqual({
@@ -54,11 +54,11 @@ expect(resolveActiveMovementsQuery({
 }).startIso).toBe("2026-08-29T06:00:00.000Z");
 ```
 
-- [ ] **Step 2: Run the focused tests and confirm missing/wrong-local-time failures**
+- [x] **Step 2: Run the focused tests and confirm missing/wrong-local-time failures**
 
 Run: `npm test -- tests/fondogeneral/costa-rica-day.test.ts tests/fondogeneral/v2-movements-query.test.ts`
 
-- [ ] **Step 3: Implement strict date-key validation, `-06:00` conversion, Costa Rica `todayKey`, and unconditional loading cleanup**
+- [x] **Step 3: Implement strict date-key validation, `-06:00` conversion, Costa Rica `todayKey`, and unconditional loading cleanup**
 
 ```ts
 export type FondoDayRange = { dateKey: string; startIso: string; endIsoExclusive: string };
@@ -68,13 +68,13 @@ export function buildCostaRicaCurrentDayRange(now: Date): FondoDayRange;
 
 Move `endMovementsLoading()` outside the `isMounted` condition in `FondoSection`'s `finally`. Initialize `pageSize` to `"daily"`, `fromFilter`/`toFilter` to `null`, and `currentDailyKey`/`todayKey` from the Costa Rica helper.
 
-- [ ] **Step 4: Run focused tests and TypeScript**
+- [x] **Step 4: Run focused tests and TypeScript**
 
 Run: `npm test -- tests/fondogeneral/costa-rica-day.test.ts tests/fondogeneral/v2-movements-query.test.ts`
 
 Run: `npx tsc --noEmit`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add src/app/fondogeneral/utils/costaRicaDay.ts src/app/fondogeneral/utils/v2movements.ts src/app/fondogeneral/hooks/fondo/useFondoFilters.ts src/app/fondogeneral/components/layout/FondoSection.tsx tests/fondogeneral/costa-rica-day.test.ts tests/fondogeneral/v2-movements-query.test.ts

@@ -1633,8 +1633,8 @@ export function FondoSection({
           setHydratedCompany(normalizedCompany);
           setHydratedAccountKey(accountKeyRef.current);
           setEntriesHydrated(true);
-          endMovementsLoading();
         }
+        endMovementsLoading();
       }
     };
 
