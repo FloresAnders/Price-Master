@@ -1387,7 +1387,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                       <input
                         value={(() => {
                           const amount = difference as number;
-                          const formattedAmount = formatMoneyInput(String(Math.abs(amount)));
+                          const formattedAmount = formatCRCAmount(Math.abs(amount));
                           return amount > 0
                             ? `+${formattedAmount}`
                             : amount < 0
