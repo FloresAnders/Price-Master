@@ -14,7 +14,7 @@ import type { FondoMovementTypeConfig } from "@/types/firestore";
 import { setFondoMovementTypes } from "../../constants";
 import { loadFondoCachedResource } from "../../utils/cachedResourceLoader";
 
-const MOVEMENT_TYPES_TTL_MS = 30 * 60_000;
+const MOVEMENT_TYPES_TTL_MS = 7 * 24 * 60 * 60_000;
 
 type FondoModuleStatus =
   | "idle"

@@ -92,6 +92,8 @@ interface Props {
   handleOpenDailyClosing: () => void;
   handleOpenCreateMovement: () => void | Promise<void>;
   entriesHydrated: boolean;
+  refreshMovements: () => void | Promise<void>;
+  movementsRefreshing: boolean;
 }
 
 export function FondoFiltersToolbar({
@@ -151,6 +153,8 @@ export function FondoFiltersToolbar({
   handleOpenDailyClosing,
   handleOpenCreateMovement,
   entriesHydrated,
+  refreshMovements,
+  movementsRefreshing,
 }: Props) {
   return (
     <section className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/70 p-2 sm:p-3 md:p-4 space-y-3 sm:space-y-4">
@@ -394,6 +398,23 @@ export function FondoFiltersToolbar({
               {filtersDropdownOpen && (
                 <div className="absolute left-1/2 top-full z-[9999] mt-2 w-[260px] -translate-x-1/2 rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] shadow-2xl">
                   <div className="flex flex-col py-1">
+                    <button
+                      type="button"
+                      onClick={() => void refreshMovements()}
+                      disabled={!entriesHydrated || movementsRefreshing}
+                      className="flex items-center gap-3 border-b border-[var(--input-border)] px-4 py-2.5 text-left text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <RotateCcw
+                        className={`h-4 w-4 shrink-0 text-cyan-300 ${
+                          movementsRefreshing ? "animate-spin" : ""
+                        }`}
+                      />
+                      <span>
+                        {movementsRefreshing
+                          ? "Actualizando movimientos..."
+                          : "Refrescar movimientos"}
+                      </span>
+                    </button>
                     {!isCajaNegra && (
                       <label className="flex cursor-pointer items-center gap-3 px-4 py-2.5 text-sm text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20">
                         <input

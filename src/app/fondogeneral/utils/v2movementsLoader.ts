@@ -61,7 +61,7 @@ export interface EnsureV2LoadedDeps {
   onLoadError?: (error: Error | null) => void;
 }
 
-const CURRENT_DAY_MOVEMENTS_TTL_MS = 45_000;
+const CURRENT_DAY_MOVEMENTS_TTL_MS = 16 * 60 * 60_000;
 
 const normalizeError = (error: unknown): Error =>
   error instanceof Error ? error : new Error(String(error || "Error desconocido"));
@@ -88,7 +88,7 @@ const withTimeout = async <T>(
 
 export async function ensureV2MovementsLoaded(
   docKey: string,
-  options: { append?: boolean } | undefined,
+  options: { append?: boolean; forceRefresh?: boolean } | undefined,
   deps: EnsureV2LoadedDeps,
 ): Promise<void> {
   const {
@@ -136,9 +136,11 @@ export async function ensureV2MovementsLoaded(
     revision: 0,
   };
 
+  const append = Boolean(options?.append);
+  const forceRefresh = Boolean(options?.forceRefresh);
+
   if (cached.loading) return;
 
-  const append = Boolean(options?.append);
   const persistentCacheEligible = Boolean(
     !append &&
       persistentCacheScope &&
@@ -149,7 +151,12 @@ export async function ensureV2MovementsLoaded(
   );
   let hydratedStalePersistentCache = false;
 
-  if (persistentCacheEligible && !cached.loaded && persistentCacheScope) {
+  if (
+    !forceRefresh &&
+    persistentCacheEligible &&
+    !cached.loaded &&
+    persistentCacheScope
+  ) {
     const persistentHit = await readPersistentCache(persistentCacheScope);
     if (persistentHit && Array.isArray(persistentHit.data)) {
       cached = {
@@ -179,7 +186,12 @@ export async function ensureV2MovementsLoaded(
     cached.endIsoExclusive === endIsoExclusive;
 
   // If query params changed, we must reset regardless of append intent.
-  if (queryUnchanged && !append && !hydratedStalePersistentCache) {
+  if (
+    queryUnchanged &&
+    !append &&
+    !forceRefresh &&
+    !hydratedStalePersistentCache
+  ) {
     rebuildEntriesFromV2Cache(docKey, targetAccountKey);
     return;
   }
@@ -191,6 +203,7 @@ export async function ensureV2MovementsLoaded(
     startIso,
     endIsoExclusive,
     append ? "append" : "base",
+    forceRefresh ? "force-refresh" : "cache-allowed",
   ].join("::");
 
   const existingInFlight = inFlightV2Reads.get(requestKey);
@@ -223,6 +236,7 @@ export async function ensureV2MovementsLoaded(
     orderBy: "createdAt desc",
     pageSize: remoteBatchSize,
     append,
+    forceRefresh,
     ui: {
       pageSizeMode: pageSize,
       currentDailyKey,
@@ -232,7 +246,7 @@ export async function ensureV2MovementsLoaded(
     },
   });
 
-  const shouldReset = !queryUnchanged || !append;
+  const shouldReset = forceRefresh || !queryUnchanged || !append;
   const nextCache = {
     ...cached,
     loaded: false,
@@ -301,6 +315,13 @@ export async function ensureV2MovementsLoaded(
       }
     } catch (error) {
       const normalizedError = normalizeError(error);
+      const latestCache = v2MovementsCacheRef.current[cacheKey];
+      if ((latestCache?.revision ?? 0) === startRevision) {
+        v2MovementsCacheRef.current[cacheKey] = {
+          ...cached,
+          loading: false,
+        };
+      }
       onLoadError?.(normalizedError);
       throw normalizedError;
     } finally {

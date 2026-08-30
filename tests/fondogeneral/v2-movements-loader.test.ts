@@ -83,7 +83,7 @@ describe("Fondo V2 movement page cache", () => {
     expect(deps.writePersistentCache).toHaveBeenCalledWith(
       scope,
       expect.arrayContaining([expect.objectContaining({ id: "fresh" })]),
-      45_000,
+      16 * 60 * 60_000,
     );
   });
 });

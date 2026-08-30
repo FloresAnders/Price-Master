@@ -1048,6 +1048,7 @@ export function FondoSection({
     ensureV2MovementsLoaded,
     movementLoadError,
     retryMovements,
+    refreshMovements,
   } = useV2MovementsHydration({
     company,
     resolvedOwnerId,
@@ -1072,6 +1073,24 @@ export function FondoSection({
     setMovementCurrency,
     cacheIdentity: fondoCacheIdentity,
   });
+  const [movementsRefreshing, setMovementsRefreshing] = useState(false);
+  const handleRefreshMovements = useCallback(async () => {
+    if (movementsRefreshing) return;
+    setMovementsRefreshing(true);
+    try {
+      await refreshMovements();
+      showToast("Movimientos actualizados correctamente.", "success", 3000);
+    } catch (error) {
+      console.error("[FG] Error refreshing movements manually:", error);
+      showToast(
+        "No se pudieron actualizar los movimientos. Se conservaron los datos anteriores.",
+        "error",
+        5000,
+      );
+    } finally {
+      setMovementsRefreshing(false);
+    }
+  }, [movementsRefreshing, refreshMovements, showToast]);
 
   const shouldPromptPhysicalCount = useCallback(
     (): boolean => {
@@ -5128,6 +5147,8 @@ export function FondoSection({
         handleOpenDailyClosing={handleOpenDailyClosing}
         handleOpenCreateMovement={handleOpenCreateMovement}
         entriesHydrated={entriesHydrated}
+        refreshMovements={handleRefreshMovements}
+        movementsRefreshing={movementsRefreshing}
       />
 
       {!authLoading && !company && (

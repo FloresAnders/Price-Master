@@ -198,7 +198,10 @@ export function useV2MovementsHydration({
   );
 
   const ensureV2MovementsLoaded = useCallback(
-    (docKey: string, options?: { append?: boolean }) =>
+    (
+      docKey: string,
+      options?: { append?: boolean; forceRefresh?: boolean },
+    ) =>
       ensureV2MovementsLoadedFn(docKey, options, {
         rebuildEntriesFromV2Cache,
         beginMovementsLoading,
@@ -245,6 +248,18 @@ export function useV2MovementsHydration({
       };
     }
     return ensureV2MovementsLoaded(docKey);
+  }, [company, ensureV2MovementsLoaded, resolvedOwnerId]);
+
+  const refreshMovements = useCallback(() => {
+    const docKey = resolveV2DocKey({
+      company,
+      resolvedOwnerId,
+      v2MovementsCache: v2MovementsCacheRef.current,
+      accountKey: accountKeyRef.current,
+      MovimientosFondosService,
+    });
+    if (!docKey) return Promise.resolve();
+    return ensureV2MovementsLoaded(docKey, { forceRefresh: true });
   }, [company, ensureV2MovementsLoaded, resolvedOwnerId]);
 
   useEffect(() => {
@@ -327,5 +342,6 @@ export function useV2MovementsHydration({
     ensureV2MovementsLoaded,
     movementLoadError,
     retryMovements,
+    refreshMovements,
   };
 }

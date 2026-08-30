@@ -10,7 +10,7 @@ import {
 } from "../services/fondo-cache";
 import { loadFondoCachedResource } from "../app/fondogeneral/utils/cachedResourceLoader";
 
-const PROVIDERS_TTL_MS = 5 * 60_000;
+const PROVIDERS_TTL_MS = 16 * 60 * 60_000;
 
 export function useProviders(
   company?: string,
