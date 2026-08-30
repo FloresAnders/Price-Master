@@ -7,6 +7,7 @@ import {
   orderBy,
   query,
   setDoc,
+  startAfter,
   where,
   type QueryConstraint,
   type QueryDocumentSnapshot,
@@ -57,6 +58,12 @@ export type AppliedCreditNote = {
   appliedAmount: number;
   currency: MovementCurrencyKey;
   observation?: string;
+};
+
+export type PendingFacturaPage = {
+  items: FacturaMovement[];
+  cursor: QueryDocumentSnapshot<DocumentData> | null;
+  exhausted: boolean;
 };
 
 const normalizeEmpresaDocId = (empresa: string): string => {
@@ -298,6 +305,49 @@ export class FacturasService {
       if (movement) acc.push(movement);
       return acc;
     }, []);
+  }
+
+  static async listPendingForClosingPage(
+    empresa: string,
+    opts?: {
+      pageSize?: number;
+      cursor?: QueryDocumentSnapshot<DocumentData> | null;
+    },
+  ): Promise<PendingFacturaPage> {
+    const empresaId = this.buildEmpresaDocId(empresa);
+    const pageSize = Math.max(1, Math.min(50, opts?.pageSize ?? 50));
+    const constraints: QueryConstraint[] = [
+      where("isPendingForClosing", "==", true),
+      orderBy("createdAt", "desc"),
+    ];
+
+    if (opts?.cursor) {
+      constraints.push(startAfter(opts.cursor));
+    }
+    constraints.push(limit(pageSize));
+
+    const q = query(
+      collection(db, this.COLLECTION_NAME, empresaId, this.MOVEMENTS_SUBCOLLECTION),
+      ...constraints,
+    );
+    const snap = await getDocs(q);
+    const items = snap.docs.reduce<FacturaMovement[]>(
+      (acc, movementDoc: QueryDocumentSnapshot<DocumentData>) => {
+        const movement = sanitizeFacturaMovement({
+          id: movementDoc.id,
+          ...(movementDoc.data() as Record<string, unknown>),
+        });
+        if (movement) acc.push(movement);
+        return acc;
+      },
+      [],
+    );
+
+    return {
+      items,
+      cursor: snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null,
+      exhausted: snap.docs.length < pageSize,
+    };
   }
 
   static async listMovementsByDateRange(

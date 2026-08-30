@@ -537,12 +537,6 @@ export function FondoSection({
     currentUSD: 0,
   }));
 
-  const {
-    pendingClosingCreditInvoices,
-    setPendingClosingCreditInvoices,
-    pendingCreditNotes,
-    pendingZeroAmountCreditNotes,
-  } = usePendingClosingCreditInvoices({ company });
   const [
     showPendingClosingCreditInvoices,
     setShowPendingClosingCreditInvoices,
@@ -817,6 +811,22 @@ export function FondoSection({
     handleManager2Change,
     cancelOpenCreateMovement,
   } = useMovementForm({ mode, fondoEntries });
+  const {
+    pendingClosingCreditInvoices,
+    setPendingClosingCreditInvoices,
+    pendingCreditNotes,
+    pendingZeroAmountCreditNotes,
+    pendingInvoicesLoading,
+    pendingInvoicesError,
+    hasMorePendingInvoices,
+    loadMorePendingInvoices,
+    reloadPendingInvoices,
+  } = usePendingClosingCreditInvoices({
+    company,
+    enabled:
+      Boolean(company) &&
+      (movementModalOpen || showPendingClosingCreditInvoices),
+  });
   const [cierreFondoVentasTurnoSelection, setCierreFondoVentasTurnoSelection] =
     useState<"" | "D" | "N" | "none">("");
 
@@ -5698,6 +5708,11 @@ export function FondoSection({
                       dateTimeFormatter={dateTimeFormatter}
                       formatByCurrency={formatByCurrency}
                       onOpenPaymentModal={openClosingInvoicePaymentModal}
+                      loading={pendingInvoicesLoading}
+                      error={pendingInvoicesError}
+                      hasMore={hasMorePendingInvoices}
+                      onLoadMore={loadMorePendingInvoices}
+                      onRetry={reloadPendingInvoices}
                     />
                     {Array.from(groupedByDay.entries()).map(
                       ([dayKey, entries]) => (

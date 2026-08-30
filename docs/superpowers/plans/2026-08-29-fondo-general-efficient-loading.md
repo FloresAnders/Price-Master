@@ -328,15 +328,15 @@ git commit -m "Add pending invoice index backfill"
 - Produces: `FacturasService.listPendingForClosingPage(empresa, { pageSize, cursor })` returning `{ items, cursor, exhausted }`.
 - Hook accepts `{ company, enabled }` and exposes `loading`, `error`, `hasMore`, `loadMore`, and `reload` in addition to the three partitioned arrays/setter.
 
-- [ ] **Step 1: Write failing query and hook tests**
+- [x] **Step 1: Write failing query and hook tests**
 
 Cover page size clamped to 50, cursor forwarding, `where("isPendingForClosing", "==", true)`, descending `createdAt`, disabled hook with zero calls, first enabled page, and cursor-based merge without duplicate IDs.
 
-- [ ] **Step 2: Run and confirm missing reader/lazy behavior failures**
+- [x] **Step 2: Run and confirm missing reader/lazy behavior failures**
 
 Run: `npm test -- tests/fondogeneral/factura-pending-index.test.ts tests/fondogeneral/pending-invoices-hook.test.tsx`
 
-- [ ] **Step 3: Implement reader, hook, and UI pagination**
+- [x] **Step 3: Implement reader, hook, and UI pagination**
 
 ```ts
 export type PendingFacturaPage = {
@@ -348,7 +348,9 @@ export type PendingFacturaPage = {
 
 Fondo enables the hook only when the movement drawer or pending section is open. The pending section shows retry/error/loading and a `Cargar más` action when `hasMore` is true. Remove the call to `listMovementsByEmpresa(company, { limit: 800 })` from Fondo and never call it on indexed-query failure.
 
-- [ ] **Step 4: Run all focused tests, full tests, lint, TypeScript, and build**
+- [x] **Step 4: Run all focused tests, full tests, lint, TypeScript, and build**
+
+Verification note: focused and full tests, TypeScript, changed-file lint, and the production build pass. The broader Fondo lint command still reports 10 pre-existing errors on lines unchanged by this plan.
 
 Run: `npm test -- tests/fondogeneral/costa-rica-day.test.ts tests/fondogeneral/v2-movements-query.test.ts tests/fondogeneral/fondo-cache.test.ts tests/fondogeneral/fondo-cached-loaders.test.ts tests/fondogeneral/v2-movements-loader.test.ts tests/fondogeneral/empresas-cache.test.ts tests/fondogeneral/factura-pending-projector.test.ts tests/fondogeneral/factura-pending-index.test.ts tests/fondogeneral/pending-invoices-hook.test.tsx tests/fondogeneral/backfill-factura-pending-index.test.ts`
 
@@ -360,13 +362,13 @@ Run: `npx eslint src/services/fondo-cache.ts src/services/facturas.ts src/servic
 
 Run: `npm run build`
 
-- [ ] **Step 5: Confirm no startup 800-read remains**
+- [x] **Step 5: Confirm no startup 800-read remains**
 
 Run: `rg -n "listMovementsByEmpresa\(company, \{ limit: 800 \}\)" src/app/fondogeneral`
 
 Expected: no matches.
 
-- [ ] **Step 6: Commit the cutover reader**
+- [x] **Step 6: Commit the cutover reader**
 
 ```powershell
 git add src/services/facturas.ts src/app/fondogeneral/hooks/usePendingClosingCreditInvoices.ts src/app/fondogeneral/components/invoices/PendingCreditInvoicesSection.tsx src/app/fondogeneral/components/layout/FondoSection.tsx tests/fondogeneral/factura-pending-index.test.ts tests/fondogeneral/pending-invoices-hook.test.tsx

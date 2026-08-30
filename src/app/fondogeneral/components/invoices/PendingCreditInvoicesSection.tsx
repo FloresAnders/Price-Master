@@ -8,6 +8,11 @@ type PendingCreditInvoicesSectionProps = {
   dateTimeFormatter: Intl.DateTimeFormat;
   formatByCurrency: (currency: "CRC" | "USD", amount: number) => string;
   onOpenPaymentModal: (invoice: FacturaMovement) => void;
+  loading: boolean;
+  error: string;
+  hasMore: boolean;
+  onLoadMore: () => void | Promise<void>;
+  onRetry: () => void | Promise<void>;
 };
 
 export function PendingCreditInvoicesSection({
@@ -17,8 +22,13 @@ export function PendingCreditInvoicesSection({
   dateTimeFormatter,
   formatByCurrency,
   onOpenPaymentModal,
+  loading,
+  error,
+  hasMore,
+  onLoadMore,
+  onRetry,
 }: PendingCreditInvoicesSectionProps) {
-  if (!showPendingClosingCreditInvoices || pendingClosingCreditInvoices.length === 0) {
+  if (!showPendingClosingCreditInvoices) {
     return null;
   }
 
@@ -135,6 +145,47 @@ export function PendingCreditInvoicesSection({
           </tr>
         );
       })}
+      {loading && (
+        <tr className="[&>td]:border-b [&>td]:border-cyan-900/35">
+          <td colSpan={7} className="px-3 py-4 text-center text-sm text-amber-100/80">
+            Cargando facturas pendientes...
+          </td>
+        </tr>
+      )}
+      {!loading && error && (
+        <tr className="[&>td]:border-b [&>td]:border-cyan-900/35">
+          <td colSpan={7} className="px-3 py-4 text-center text-sm text-red-300">
+            <span>{error}</span>
+            <button
+              type="button"
+              onClick={() => void onRetry()}
+              className="ml-3 rounded border border-red-400/40 px-2.5 py-1 text-xs font-semibold hover:bg-red-500/10"
+            >
+              Reintentar
+            </button>
+          </td>
+        </tr>
+      )}
+      {!loading && !error && pendingClosingCreditInvoices.length === 0 && (
+        <tr className="[&>td]:border-b [&>td]:border-cyan-900/35">
+          <td colSpan={7} className="px-3 py-4 text-center text-sm text-[var(--muted-foreground)]">
+            No hay facturas de crédito pendientes.
+          </td>
+        </tr>
+      )}
+      {!loading && !error && hasMore && (
+        <tr className="[&>td]:border-b [&>td]:border-cyan-900/35">
+          <td colSpan={7} className="px-3 py-3 text-center">
+            <button
+              type="button"
+              onClick={() => void onLoadMore()}
+              className="rounded border border-amber-400/35 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-100 hover:bg-amber-500/20"
+            >
+              Cargar más
+            </button>
+          </td>
+        </tr>
+      )}
     </tbody>
   );
 }

@@ -1,119 +1,178 @@
-import { useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import {
   FacturasService,
   type FacturaMovement,
+  type PendingFacturaPage,
 } from "@/services/facturas";
-import { normalizeInvoiceDocType, roundMoney2 } from "../utils/helpers";
+import { isFacturaPendingForClosing } from "@/lib/factura-pending";
 
 interface Props {
   company: string;
+  enabled: boolean;
 }
 
-export function usePendingClosingCreditInvoices({ company }: Props) {
-  const [pendingClosingCreditInvoices, setPendingClosingCreditInvoices] =
+const PAGE_SIZE = 50;
+
+const isCreditInvoice = (movement: FacturaMovement) =>
+  movement.invoiceDocType === "FCR";
+
+const isCreditNote = (movement: FacturaMovement) =>
+  movement.invoiceDocType === "NC";
+
+const isZeroAmountCreditNote = (movement: FacturaMovement) => {
+  const amount = Number(movement.amount);
+  return (
+    isCreditNote(movement) &&
+    Number.isFinite(amount) &&
+    Math.round(amount * 100) === 0
+  );
+};
+
+const mergeById = (
+  current: FacturaMovement[],
+  incoming: FacturaMovement[],
+) => {
+  const merged = new Map(current.map((movement) => [movement.id, movement]));
+  incoming.forEach((movement) => merged.set(movement.id, movement));
+  return Array.from(merged.values());
+};
+
+export function usePendingClosingCreditInvoices({ company, enabled }: Props) {
+  const [pendingMovements, setPendingMovements] =
     useState<FacturaMovement[]>([]);
-  const [pendingCreditNotes, setPendingCreditNotes] =
-    useState<FacturaMovement[]>([]);
-  const [pendingZeroAmountCreditNotes, setPendingZeroAmountCreditNotes] =
-    useState<FacturaMovement[]>([]);
+  const [pendingInvoicesLoading, setPendingInvoicesLoading] = useState(false);
+  const [pendingInvoicesError, setPendingInvoicesError] = useState("");
+  const [hasMorePendingInvoices, setHasMorePendingInvoices] = useState(false);
+  const cursorRef = useRef<PendingFacturaPage["cursor"]>(null);
+  const loadingRef = useRef(false);
+  const hasMoreRef = useRef(false);
+  const requestVersionRef = useRef(0);
+
+  const loadPage = useCallback(
+    async (append: boolean) => {
+      if (!enabled || !company || loadingRef.current) return;
+      if (append && !hasMoreRef.current) return;
+
+      const requestVersion = requestVersionRef.current;
+      loadingRef.current = true;
+      setPendingInvoicesLoading(true);
+      setPendingInvoicesError("");
+
+      try {
+        const page = await FacturasService.listPendingForClosingPage(company, {
+          pageSize: PAGE_SIZE,
+          cursor: append ? cursorRef.current : null,
+        });
+        if (requestVersion !== requestVersionRef.current) return;
+
+        const indexedPending = page.items.filter(isFacturaPendingForClosing);
+        setPendingMovements((current) =>
+          append ? mergeById(current, indexedPending) : indexedPending,
+        );
+        cursorRef.current = page.cursor;
+        hasMoreRef.current = !page.exhausted;
+        setHasMorePendingInvoices(!page.exhausted);
+      } catch (error) {
+        if (requestVersion !== requestVersionRef.current) return;
+        console.error("[FONDO] Error loading pending credit invoices:", error);
+        setPendingInvoicesError(
+          "No se pudieron cargar las facturas pendientes.",
+        );
+      } finally {
+        if (requestVersion === requestVersionRef.current) {
+          loadingRef.current = false;
+          setPendingInvoicesLoading(false);
+        }
+      }
+    },
+    [company, enabled],
+  );
 
   useEffect(() => {
-    let cancelled = false;
+    requestVersionRef.current += 1;
+    loadingRef.current = false;
+    cursorRef.current = null;
+    hasMoreRef.current = false;
+    setPendingMovements([]);
+    setHasMorePendingInvoices(false);
+    setPendingInvoicesError("");
+    setPendingInvoicesLoading(false);
 
-    if (!company) {
-      setPendingClosingCreditInvoices([]);
-      setPendingCreditNotes([]);
-      setPendingZeroAmountCreditNotes([]);
-      return () => {
-        cancelled = true;
-      };
+    if (enabled && company) {
+      void loadPage(false);
     }
 
-    FacturasService.listMovementsByEmpresa(company, { limit: 800 })
-      .then((movements) => {
-        if (cancelled) return;
-        const pending = movements
-          .filter((movement) => {
-            if (normalizeInvoiceDocType(movement.invoiceDocType) !== "FCR") {
-              return false;
-            }
-            const totalAmount = Math.max(
-              0,
-              roundMoney2(movement.originalAmount ?? movement.amount),
-            );
-            const paidAmount = Math.max(
-              0,
-              roundMoney2(movement.paidAmount),
-            );
-            const balanceDue = Math.max(
-              0,
-              roundMoney2(movement.balanceDue ?? totalAmount - paidAmount),
-            );
-            return (
-              balanceDue > 0 &&
-              !["PAGADA", "REBAJADA"].includes(
-                String(movement.paymentStatus || "").toUpperCase(),
-              )
-            );
-          })
-          .sort((a, b) => {
-            const aDate = new Date(a.createdAt || 0).getTime();
-            const bDate = new Date(b.createdAt || 0).getTime();
-            return bDate - aDate;
-          });
-        setPendingClosingCreditInvoices(pending);
-        const pendingNotes = movements.filter((movement) => {
-          if (normalizeInvoiceDocType(movement.invoiceDocType) !== "NC") {
-            return false;
-          }
-          const totalAmount = Math.max(
-            0,
-            Math.abs(roundMoney2(movement.originalAmount ?? movement.amount)),
-          );
-          const paidAmount = Math.max(
-            0,
-            roundMoney2(movement.paidAmount),
-          );
-          const balanceDue = Math.max(
-            0,
-            roundMoney2(movement.balanceDue ?? totalAmount - paidAmount),
-          );
-          const isZeroAmountNote =
-            Math.max(0, roundMoney2(movement.amount)) === 0;
-          return (
-            (balanceDue > 0 || isZeroAmountNote) &&
-            !["PAGADA", "REBAJADA"].includes(
-              String(movement.paymentStatus || "PENDIENTE").toUpperCase(),
-            )
-          );
-        });
-        setPendingCreditNotes(pendingNotes);
-        const pendingZeroNotes = movements.filter((movement) => {
-          if (normalizeInvoiceDocType(movement.invoiceDocType) !== "NC") {
-            return false;
-          }
-          if (Math.max(0, roundMoney2(movement.amount)) !== 0) {
-            return false;
-          }
-          return !["PAGADA", "REBAJADA"].includes(
-            String(movement.paymentStatus || "PENDIENTE").toUpperCase(),
-          );
-        });
-        setPendingZeroAmountCreditNotes(pendingZeroNotes);
-      })
-      .catch((error) => {
-        console.error("[FONDO] Error loading pending credit invoices:", error);
-        if (!cancelled) {
-          setPendingClosingCreditInvoices([]);
-          setPendingCreditNotes([]);
-          setPendingZeroAmountCreditNotes([]);
-        }
-      });
-
     return () => {
-      cancelled = true;
+      requestVersionRef.current += 1;
     };
-  }, [company]);
+  }, [company, enabled, loadPage]);
+
+  const pendingClosingCreditInvoices = useMemo(
+    () => pendingMovements.filter(isCreditInvoice),
+    [pendingMovements],
+  );
+  const pendingCreditNotes = useMemo(
+    () => pendingMovements.filter(isCreditNote),
+    [pendingMovements],
+  );
+  const pendingZeroAmountCreditNotes = useMemo(
+    () => pendingMovements.filter(isZeroAmountCreditNote),
+    [pendingMovements],
+  );
+
+  const replaceMatching = useCallback(
+    (
+      predicate: (movement: FacturaMovement) => boolean,
+      update: SetStateAction<FacturaMovement[]>,
+    ) => {
+      setPendingMovements((current) => {
+        const matching = current.filter(predicate);
+        const replacement =
+          typeof update === "function" ? update(matching) : update;
+        return [
+          ...replacement,
+          ...current.filter((movement) => !predicate(movement)),
+        ];
+      });
+    },
+    [],
+  );
+
+  const setPendingClosingCreditInvoices = useCallback<
+    Dispatch<SetStateAction<FacturaMovement[]>>
+  >(
+    (update) => replaceMatching(isCreditInvoice, update),
+    [replaceMatching],
+  );
+  const setPendingCreditNotes = useCallback<
+    Dispatch<SetStateAction<FacturaMovement[]>>
+  >(
+    (update) => replaceMatching(isCreditNote, update),
+    [replaceMatching],
+  );
+  const setPendingZeroAmountCreditNotes = useCallback<
+    Dispatch<SetStateAction<FacturaMovement[]>>
+  >(
+    (update) => replaceMatching(isZeroAmountCreditNote, update),
+    [replaceMatching],
+  );
+
+  const loadMorePendingInvoices = useCallback(
+    () => loadPage(true),
+    [loadPage],
+  );
+  const reloadPendingInvoices = useCallback(
+    () => loadPage(false),
+    [loadPage],
+  );
 
   return {
     pendingClosingCreditInvoices,
@@ -122,5 +181,10 @@ export function usePendingClosingCreditInvoices({ company }: Props) {
     setPendingCreditNotes,
     pendingZeroAmountCreditNotes,
     setPendingZeroAmountCreditNotes,
+    pendingInvoicesLoading,
+    pendingInvoicesError,
+    hasMorePendingInvoices,
+    loadMorePendingInvoices,
+    reloadPendingInvoices,
   };
 }

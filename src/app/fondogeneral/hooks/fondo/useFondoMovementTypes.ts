@@ -128,7 +128,10 @@ export function useFondoMovementTypes(
   );
 
   useEffect(() => {
-    void loadTypes();
+    const timeoutId = window.setTimeout(() => {
+      void loadTypes();
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [loadTypes]);
 
   useEffect(() => {
