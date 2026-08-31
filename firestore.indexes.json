@@ -26,6 +26,14 @@
       ]
     },
     {
+      "collectionGroup": "reportes_movimientos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresa", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "items",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
