@@ -237,59 +237,50 @@ export class SolicitudesService {
       return () => {};
     }
 
-    const expectedSources = new Set(["empresaKey", "empresa"]);
-    const initializedSources = new Set<string>();
-    const rowsBySource = new Map<string, Map<string, any>>();
+    let active = true;
+    let liveRows: any[] = [];
+    let legacyRows: any[] = [];
     const emit = () => {
-      if (initializedSources.size < expectedSources.size) return;
+      if (!active) return;
       const merged = new Map<string, any>();
-      rowsBySource.forEach((sourceRows) => {
-        sourceRows.forEach((row, id) => merged.set(id, row));
+      [...legacyRows, ...liveRows].forEach((row) => {
+        if (row?.id && !row?.listo) merged.set(row.id, row);
       });
-      onRows(
-        sortByCreatedAtDesc(
-          Array.from(merged.values()).filter((row) => !row?.listo),
-        ).slice(0, limitCount),
-      );
+      onRows(sortByCreatedAtDesc(Array.from(merged.values())).slice(0, limitCount));
     };
 
-    const subscribe = (
-      source: string,
-      field: "empresa" | "empresaKey",
-      value: string,
-    ) =>
-      onSnapshot(
-        query(
-          collection(db, this.COLLECTION_NAME),
-          where(field, "==", value),
-          orderBy("createdAt", "desc"),
-          limit(limitCount),
-        ),
-        (snapshot) => {
-          initializedSources.add(source);
-          rowsBySource.set(
-            source,
-            new Map(
-              snapshot.docs.map((item) => [
-                item.id,
-                { id: item.id, ...item.data() },
-              ]),
-            ),
-          );
-          emit();
-        },
-        (error) => {
-          console.error("onSnapshot error for solicitudes:", error);
-          onError?.(error);
-        },
+    void this.getSolicitudesByEmpresa(empresa, limitCount).then((rows) => {
+      if (!active) return;
+      legacyRows = rows.filter(
+        (row) =>
+          normalizeSolicitudEmpresaKey(String(row?.empresaKey || "")) !==
+            empresaKey || typeof row?.listo !== "boolean",
       );
+      emit();
+    });
 
-    const unsubscribers = [
-      subscribe("empresaKey", "empresaKey", empresaKey),
-      subscribe("empresa", "empresa", empresa),
-    ];
+    const unsubscribe = onSnapshot(
+      query(
+        collection(db, this.COLLECTION_NAME),
+        where("empresaKey", "==", empresaKey),
+        where("listo", "==", false),
+        orderBy("createdAt", "desc"),
+        limit(limitCount),
+      ),
+      (snapshot) => {
+        liveRows = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+        emit();
+      },
+      (error) => {
+        console.error("onSnapshot error for solicitudes:", error);
+        onError?.(error);
+      },
+    );
 
-    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }
 
   /**

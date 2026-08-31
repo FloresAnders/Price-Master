@@ -40,6 +40,7 @@ const normalizeCachedTypes = (
 // Listener global para detectar cambios en tiempo real
 let globalListener: Unsubscribe | null = null;
 let globalListenerKey: string | null = null;
+let listenerGeneration = 0;
 
 const normalizePathSegment = (value: string): string =>
   value
@@ -453,9 +454,13 @@ export class FondoMovementTypesService {
    * Inicializa el listener global de Firestore para sincronización en tiempo real
    */
   static async initializeListener(ownerId?: string | null): Promise<void> {
+    const requestGeneration = ++listenerGeneration;
     const context = await this.resolveStorageContext(ownerId);
 
+    if (requestGeneration !== listenerGeneration) return;
+
     if (!context.scopeId) {
+      this.stopListener();
       console.log("[FondoMovementTypes] No scopeId, skipping listener");
       return;
     }
@@ -521,6 +526,7 @@ export class FondoMovementTypesService {
    * Detiene el listener global
    */
   static stopListener(): void {
+    listenerGeneration += 1;
     if (globalListener) {
       console.log("[FondoMovementTypes] Stopping listener...");
       globalListener();

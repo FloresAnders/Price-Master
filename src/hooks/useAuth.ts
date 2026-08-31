@@ -20,6 +20,7 @@ import { normalizeUserPermissions } from "@/utils/permissions";
 import { UsersService } from "@/services/users";
 import { subscribeToVersionDoc } from "@/services/version-doc";
 import { clearFondoCacheForUser } from "@/services/fondo-cache";
+import { FondoMovementTypesService } from "@/services/fondo-movement-types";
 
 const AUTH_STATE_EVENT = "timemaster-auth-state";
 const AUTH_SYNC_STORAGE_KEY = "pricemaster_auth_sync";
@@ -117,6 +118,7 @@ function useAuthState() {
 
   const clearClientSession = useCallback((broadcast = true) => {
     invalidateSessionChecks();
+    FondoMovementTypesService.stopListener();
     releaseSessionHeartbeatLease(localStorage, heartbeatOwnerId.current);
     clearLegacyAuthState();
     localStorage.removeItem("pricemaster_user_phash");

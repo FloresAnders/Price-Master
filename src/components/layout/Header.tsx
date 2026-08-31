@@ -135,6 +135,12 @@ interface HeaderProps {
 
 export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const { logout, user } = useAuth();
+  const userRole = user?.role;
+  const userCompany = String(
+    (user as any)?.ownercompanie || (user as any)?.ownerCompanie || "",
+  ).trim();
+  const userCompanyKey = normalizeClosingTimeExtensionCompanyKey(userCompany);
+  const userRequestedBy = String((user as any)?.email || user?.id || "").trim();
   const pathname = usePathname();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -405,10 +411,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
   // Real-time listener for solicitudes for the user's company (onSnapshot)
   useEffect(() => {
-    if (!user) return;
-
-    const company =
-      (user as any)?.ownercompanie || (user as any)?.ownerCompanie || "";
+    const company = userCompany;
     if (!company) {
       knownSolicitudesRef.current = new Set();
       initializedSolicitudesRef.current = false;
@@ -484,14 +487,12 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       console.error("Error setting up solicitudes listener:", err);
       return;
     }
-  }, [isClient, user]);
+  }, [isClient, userCompany]);
 
   useEffect(() => {
-    if (!user || (user.role !== "admin" && user.role !== "superadmin")) return;
+    if (userRole !== "admin" && userRole !== "superadmin") return;
 
-    const company =
-      (user as any)?.ownercompanie || (user as any)?.ownerCompanie || "";
-    const companyKey = normalizeClosingTimeExtensionCompanyKey(company);
+    const companyKey = userCompanyKey;
 
     knownClosingExtensionsRef.current = new Set();
     initializedClosingExtensionsRef.current = false;
@@ -566,11 +567,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       console.error("Error setting up closingTimeExtensions listener:", err);
       return;
     }
-  }, [user]);
+  }, [userCompanyKey, userRole]);
 
   useEffect(() => {
-    if (!user) return;
-    const requestedBy = String((user as any)?.email || user.id || "").trim();
+    const requestedBy = userRequestedBy;
     if (!requestedBy) {
       knownClosingExtensionResponsesRef.current = new Set();
       initializedClosingExtensionResponsesRef.current = false;
@@ -645,14 +645,12 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       console.error("Error setting up closing extension responses listener:", err);
       return;
     }
-  }, [user]);
+  }, [userRequestedBy]);
 
   useEffect(() => {
-    if (!user || (user.role !== "admin" && user.role !== "superadmin")) return;
+    if (userRole !== "admin" && userRole !== "superadmin") return;
 
-    const company =
-      (user as any)?.ownercompanie || (user as any)?.ownerCompanie || "";
-    const companyKey = normalizeClosingTimeExtensionCompanyKey(company);
+    const companyKey = userCompanyKey;
 
     knownInvoiceDeletionRequestsRef.current = new Set();
     initializedInvoiceDeletionRequestsRef.current = false;
@@ -733,11 +731,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       );
       return;
     }
-  }, [user]);
+  }, [userCompanyKey, userRole]);
 
   useEffect(() => {
-    if (!user) return;
-    const requestedBy = String((user as any)?.email || user.id || "").trim();
+    const requestedBy = userRequestedBy;
     if (!requestedBy) {
       knownInvoiceDeletionResponsesRef.current = new Set();
       initializedInvoiceDeletionResponsesRef.current = false;
@@ -818,7 +815,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       );
       return;
     }
-  }, [user]);
+  }, [userRequestedBy]);
 
   // Navigation tabs with permissions
   const allTabs = [

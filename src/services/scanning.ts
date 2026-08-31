@@ -473,12 +473,19 @@ export class ScanningService {
    */
   static subscribeToScans(
     callback: (scans: ScanResult[]) => void,
-    onError?: (error: Error) => void,
-    sessionId?: string,
+    onError: ((error: Error) => void) | undefined,
+    sessionId: string | undefined,
+    empresaId: string,
   ): () => void {
+    const normalizedEmpresaId = String(empresaId || "").trim();
+    if (!normalizedEmpresaId) {
+      throw new Error("empresaId is required for scan subscriptions");
+    }
+
     try {
       let q = query(
         collection(db, this.COLLECTION_NAME),
+        where("empresaId", "==", normalizedEmpresaId),
         where("processed", "==", false),
         orderBy("timestamp", "desc"),
         limit(50),
@@ -487,6 +494,7 @@ export class ScanningService {
       if (sessionId) {
         q = query(
           collection(db, this.COLLECTION_NAME),
+          where("empresaId", "==", normalizedEmpresaId),
           where("processed", "==", false),
           where("sessionId", "==", sessionId),
           orderBy("timestamp", "desc"),

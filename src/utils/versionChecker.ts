@@ -1,5 +1,4 @@
-import { db } from "@/config/firebase";
-import { doc, onSnapshot, getDoc } from "firebase/firestore";
+import { subscribeToVersionDoc } from "@/services/version-doc";
 import versionData from "../data/version.json";
 
 let updateTimeout: NodeJS.Timeout | null = null;
@@ -129,33 +128,16 @@ export const startVersionCheck = async () => {
 
   versionCheckStarted = true;
 
-  // Primero, obtener la versión inicial de la BD
-  const versionRef = doc(db, "version", "current");
+  unsubscribe = subscribeToVersionDoc(
+    (snapshot) => {
+      if (snapshot?.exists) {
+        const serverVersion = snapshot.version || versionData.version;
 
-  try {
-    const docSnap = await getDoc(versionRef);
-    if (docSnap.exists()) {
-      initialVersion = docSnap.data().version;
-      console.log("Versión inicial de la BD:", initialVersion);
-    } else {
-      // Si no existe, usar la versión del JSON como fallback
-      initialVersion = versionData.version;
-      console.log(
-        "No se encontró versión en BD, usando versión local:",
-        initialVersion,
-      );
-    }
-  } catch (error) {
-    console.error("Error obteniendo versión inicial:", error);
-    initialVersion = versionData.version;
-  }
-
-  // Ahora escuchar cambios en tiempo real
-  unsubscribe = onSnapshot(
-    versionRef,
-    (docSnap) => {
-      if (docSnap.exists()) {
-        const serverVersion = docSnap.data().version;
+        if (!initialVersion) {
+          initialVersion = serverVersion;
+          console.log("Versión inicial de la BD:", initialVersion);
+          return;
+        }
 
         console.log("Versión inicial:", initialVersion);
         console.log("Versión servidor actual:", serverVersion);
@@ -174,7 +156,7 @@ export const startVersionCheck = async () => {
         console.warn("No se encontró el documento de versión en Firestore");
       }
     },
-    (error) => {
+    (error: unknown) => {
       console.error("Error escuchando cambios de versión:", error);
     },
   );
