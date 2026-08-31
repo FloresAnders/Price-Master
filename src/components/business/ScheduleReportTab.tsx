@@ -180,16 +180,13 @@ export default function ScheduleReportTab() {
     BiweeklyPeriod[]
   > => {
     try {
-      const allSchedules = await SchedulesService.getAllSchedules();
       const periods = new Set<string>();
-
-      allSchedules.forEach((schedule) => {
-        if (schedule.shift && schedule.shift.trim() !== "") {
-          const period = schedule.day <= 15 ? "first" : "second";
-          const key = `${schedule.year}-${schedule.month}-${period}`;
-          periods.add(key);
-        }
-      });
+      const cursor = new Date();
+      for (let index = 0; index < 24; index += 1) {
+        const period = cursor.getDate() <= 15 ? "first" : "second";
+        periods.add(`${cursor.getFullYear()}-${cursor.getMonth()}-${period}`);
+        cursor.setDate(period === "second" ? 15 : 0);
+      }
 
       const periodsArray: BiweeklyPeriod[] = [];
 
@@ -366,21 +363,23 @@ export default function ScheduleReportTab() {
 
     setLoading(true);
     try {
-      const allSchedules = await SchedulesService.getAllSchedules();
+      const targetLocations =
+        selectedLocation === "all"
+          ? locations.filter((location) => location.value !== "DELIFOOD")
+          : locations.filter((location) => location.value === selectedLocation);
+      const allSchedules = (
+        await Promise.all(
+          targetLocations.map((location) =>
+            SchedulesService.getSchedulesForRange(
+              location.value,
+              currentPeriod.start,
+              currentPeriod.end,
+            ),
+          ),
+        )
+      ).flat();
 
-      const periodSchedules = allSchedules.filter((schedule) => {
-        const matchesPeriod =
-          schedule.year === currentPeriod.year &&
-          schedule.month === currentPeriod.month;
-
-        if (!matchesPeriod) return false;
-
-        if (currentPeriod.period === "first") {
-          return schedule.day >= 1 && schedule.day <= 15;
-        } else {
-          return schedule.day >= 16;
-        }
-      });
+      const periodSchedules = allSchedules;
 
       const locationGroups = new Map<string, ScheduleEntry[]>();
 

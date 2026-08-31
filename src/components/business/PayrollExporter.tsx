@@ -516,28 +516,23 @@ export default function PayrollExporter({
 
       setLoading(true);
       try {
-        const allSchedules = await SchedulesService.getAllSchedules();
+        const targetLocations =
+          selectedLocation === "all"
+            ? locations.filter((location) => location.value !== "DELIFOOD")
+            : locations.filter((location) => location.value === selectedLocation);
+        const allSchedules = (
+          await Promise.all(
+            targetLocations.map((location) =>
+              SchedulesService.getSchedulesForRange(
+                location.value,
+                activeRange.start,
+                activeRange.end,
+              ),
+            ),
+          )
+        ).flat();
 
-        // Filtrar por período actual
-        const startKey = new Date(
-          activeRange.start.getFullYear(),
-          activeRange.start.getMonth(),
-          activeRange.start.getDate(),
-        ).getTime();
-        const endKey = new Date(
-          activeRange.end.getFullYear(),
-          activeRange.end.getMonth(),
-          activeRange.end.getDate(),
-        ).getTime();
-
-        const periodSchedules = allSchedules.filter((schedule) => {
-          const scheduleKey = new Date(
-            schedule.year,
-            schedule.month,
-            schedule.day,
-          ).getTime();
-          return scheduleKey >= startKey && scheduleKey <= endKey;
-        });
+        const periodSchedules = allSchedules;
 
         // Agrupar por ubicación
         const locationGroups = new Map<string, ScheduleEntry[]>();

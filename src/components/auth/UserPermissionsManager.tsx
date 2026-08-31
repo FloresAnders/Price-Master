@@ -107,7 +107,7 @@ export default function UserPermissionsManager({
   const loadUsers = React.useCallback(async () => {
     setLoading(true);
     try {
-      const allUsers = await UsersService.getAllUsersAs(currentUser);
+      const allUsers = await UsersService.getUsersForActor(currentUser);
       if (currentUser && currentUser.role !== "superadmin") {
         const allowed = new Set(actorOwnerIds.map((id) => String(id)));
         if (allowed.size > 0) {

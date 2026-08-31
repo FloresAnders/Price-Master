@@ -19,7 +19,7 @@ import type {
   MovementAccountKey,
   MovementCurrencyKey,
 } from "@/services/movimientos-fondos";
-import { ReportesMovimientosService } from "@/services/reportes-movimientos";
+import { ReportesMovimientosService, type ReportDetailLimit } from "@/services/reportes-movimientos";
 import { ProvidersService } from "@/services/providers";
 import ReportMovementsDetailModal, {
   type ReportMovementDetail,
@@ -940,6 +940,7 @@ export default function ReporteMovimientosPage() {
   const detailLoadTokenRef = useRef<number>(0);
   // Trigger to force reloading detail after a failed attempt
   const [detailReloadTrigger, setDetailReloadTrigger] = useState(0);
+  const [detailLimit, setDetailLimit] = useState<ReportDetailLimit>(50);
 
   useEffect(() => {
     if (!detailRequest) {
@@ -991,14 +992,14 @@ export default function ReporteMovimientosPage() {
           chunks.push(allowedCompanies.slice(i, i + 30));
         }
 
-        const queries: Array<Promise<any[]>> = [];
+        const queries: Array<() => Promise<any[]>> = [];
         // Do not filter by stored classification in Firestore for totals.
         // We normalize by movement type category below to avoid mixed gasto/egreso.
         const queryClassification =
           detailRequest.paymentType ? undefined : undefined;
 
         if (allowedCompanies.length === 1) {
-          queries.push(
+          queries.push(() =>
             ReportesMovimientosService.listDetailItems({
               fromIso,
               toExclusiveIso,
@@ -1007,12 +1008,13 @@ export default function ReporteMovimientosPage() {
               currency: detailRequest.currency,
               classification: queryClassification,
               paymentType: detailRequest.paymentType,
+              limit: detailLimit,
             }) as any,
           );
         } else if (accountIds.length > 1) {
           accountIds.forEach((accountId) => {
             chunks.forEach((chunk) => {
-              queries.push(
+              queries.push(() =>
                 ReportesMovimientosService.listDetailItems({
                   fromIso,
                   toExclusiveIso,
@@ -1021,13 +1023,14 @@ export default function ReporteMovimientosPage() {
                   currency: detailRequest.currency,
                   classification: queryClassification,
                   paymentType: detailRequest.paymentType,
+                  limit: detailLimit,
                 }) as any,
               );
             });
           });
         } else {
           chunks.forEach((chunk) => {
-            queries.push(
+            queries.push(() =>
               ReportesMovimientosService.listDetailItems({
                 fromIso,
                 toExclusiveIso,
@@ -1036,6 +1039,7 @@ export default function ReporteMovimientosPage() {
                 currency: detailRequest.currency,
                 classification: queryClassification,
                 paymentType: detailRequest.paymentType,
+                limit: detailLimit,
               }) as any,
             );
           });
@@ -1051,14 +1055,18 @@ export default function ReporteMovimientosPage() {
         }
         // Execute queries sequentially to avoid overwhelming the network when many chunks exist
         const allItems: any[] = [];
-        for (const promise of queries) {
+        for (const runQuery of queries) {
           if (cancelled || detailLoadTokenRef.current !== token) break;
-          const partial = await promise;
+          const partial = await runQuery();
           if (Array.isArray(partial)) {
             allItems.push(...partial);
           } else if (partial) {
             allItems.push(partial);
           }
+          if (detailLimit !== "all" && allItems.length >= detailLimit) break;
+        }
+        if (detailLimit !== "all" && allItems.length > detailLimit) {
+          allItems.length = detailLimit;
         }
         const dedup = new Map<string, any>();
         allItems.forEach((it) => {
@@ -1163,6 +1171,7 @@ export default function ReporteMovimientosPage() {
     selectedMovementTypes,
     movementTypeCategoryLookup,
     detailReloadTrigger,
+    detailLimit,
   ]);
 
   useEffect(() => {
@@ -1971,6 +1980,25 @@ export default function ReporteMovimientosPage() {
           </div>
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-md border border-[var(--input-border)] px-3 py-2 text-sm text-[var(--foreground)] sm:col-span-2 lg:col-span-4 bg-[var(--muted)]/5">
             <div className="flex flex-wrap items-center gap-4">
+              <label className="flex items-center gap-2">
+                <span>Detalle</span>
+                <select
+                  value={detailLimit}
+                  onChange={(event) =>
+                    setDetailLimit(
+                      event.target.value === "all"
+                        ? "all"
+                        : (Number(event.target.value) as ReportDetailLimit),
+                    )
+                  }
+                  className="rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-2 py-1"
+                >
+                  {[25, 50, 75, 100].map((value) => (
+                    <option key={value} value={value}>{value}</option>
+                  ))}
+                  <option value="all">Todos</option>
+                </select>
+              </label>
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"

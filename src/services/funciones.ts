@@ -1,5 +1,7 @@
 import { FirestoreService } from "./firestore";
 import { UsersService } from "./users";
+import { doc, getDoc, runTransaction } from "firebase/firestore";
+import { db } from "@/config/firebase";
 
 export type FuncionGeneralDoc = {
   type: "general";
@@ -182,10 +184,10 @@ const normalizeDocIdPart = (raw: string): string => {
 export class FuncionesService {
   private static readonly COLLECTION_NAME = SHARED_FUNCIONES_COLLECTION;
   private static readonly CACHE_TTL_MS = 30_000;
-  private static funcionesGeneralCache: {
+  private static funcionesGeneralCache = new Map<string, {
     expiresAt: number;
     data: Array<{ docId: string } & FuncionGeneralDoc>;
-  } | null = null;
+  }>();
   private static funcionesEmpresaCache: Map<string, { expiresAt: number; data: ({ docId: string } & FuncionesEmpresaDoc) | null }> = new Map();
 
   private static async resolveOwnerCollectionId(ownerId: string): Promise<string> {
@@ -234,27 +236,43 @@ export class FuncionesService {
     if (!ownerId) throw new Error("ownerId requerido para generar funcionId.");
 
     const ownerCollectionId = await this.resolveOwnerCollectionId(ownerId);
-    const all = await FirestoreService.getAll(
-      `${OWNER_FUNCIONES_COLLECTION}/${ownerCollectionId}/${OWNER_FUNCIONES_SUBCOLLECTION}`,
+    const counterRef = doc(
+      db,
+      OWNER_FUNCIONES_COLLECTION,
+      ownerCollectionId,
+      "meta",
+      "numericCounter",
     );
-    const docs = (Array.isArray(all) ? all : []) as Array<any>;
-
-    const generalForOwner = docs.filter((d) => {
-      if (!d) return false;
-      if (!isOwnedNumericFuncionDoc(d)) return false;
-      return String(d.ownerId || "").trim() === ownerId;
-    });
-
-    let max = -1;
-    for (const d of generalForOwner) {
-      const raw = String(d.funcionId || "").trim();
-      if (!/^[0-9]+$/.test(raw)) continue;
-      const n = Number.parseInt(raw, 10);
-      if (Number.isFinite(n) && n > max) max = n;
+    const counterSnapshot = await getDoc(counterRef);
+    let initialNext = 0;
+    if (!counterSnapshot.exists()) {
+      const all = await FirestoreService.getAll(
+        `${OWNER_FUNCIONES_COLLECTION}/${ownerCollectionId}/${OWNER_FUNCIONES_SUBCOLLECTION}`,
+      );
+      for (const d of (Array.isArray(all) ? all : []) as Array<any>) {
+        if (!isOwnedNumericFuncionDoc(d)) continue;
+        if (String(d.ownerId || "").trim() !== ownerId) continue;
+        const value = Number.parseInt(String(d.funcionId || ""), 10);
+        if (Number.isFinite(value)) initialNext = Math.max(initialNext, value + 1);
+      }
     }
-
-    const next = max + 1;
-    return this.formatNumericFuncionId(next, params.padLength ?? 4);
+    const allocated = await runTransaction(db, async (tx) => {
+      const snapshot = await tx.get(counterRef);
+      const storedValue = snapshot.exists()
+        ? Number(snapshot.data()?.nextValue)
+        : initialNext;
+      if (!Number.isSafeInteger(storedValue) || storedValue < 0) {
+        throw new Error("Contador numérico de funciones inválido.");
+      }
+      const nextValue = storedValue;
+      tx.set(counterRef, {
+        nextValue: nextValue + 1,
+        initialized: true,
+        updatedAt: new Date().toISOString(),
+      });
+      return nextValue;
+    });
+    return this.formatNumericFuncionId(allocated, params.padLength ?? 4);
   }
 
   static buildFuncionDocId(funcionId: string, nombre: string): string {
@@ -266,12 +284,14 @@ export class FuncionesService {
     role?: string;
   }): Promise<Array<{ docId: string } & FuncionGeneralDoc>> {
     const cacheKey = `${(actor.role || "").trim().toLowerCase()}::${(actor.ownerIds || []).map((x) => String(x).trim()).filter(Boolean).sort().join("|")}`;
-    const cached = this.funcionesGeneralCache;
+    const cached = this.funcionesGeneralCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       return cached.data.map((doc) => ({ ...doc }));
     }
 
-    const sharedAll = await FirestoreService.getAll(this.COLLECTION_NAME);
+    const sharedAll = await FirestoreService.query(this.COLLECTION_NAME, [
+      { field: "type", operator: "==", value: "general" },
+    ]);
     const sharedDocs = (Array.isArray(sharedAll) ? sharedAll : []) as Array<any>;
 
     const sharedGeneral = sharedDocs.filter(isSharedSpecialFuncionDoc);
@@ -322,10 +342,10 @@ export class FuncionesService {
         })
     ).map((d) => ({ docId: String(d.id), ...(d as FuncionGeneralDoc) }));
 
-    this.funcionesGeneralCache = {
+    this.funcionesGeneralCache.set(cacheKey, {
       expiresAt: Date.now() + this.CACHE_TTL_MS,
       data: resolved,
-    };
+    });
 
     return resolved.map((doc) => ({ ...doc }));
   }

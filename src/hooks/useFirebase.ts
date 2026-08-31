@@ -128,7 +128,7 @@ export function useUsers() {
     try {
       setLoading(true);
       setError(null);
-      const data = await UsersService.getAllUsersAs(currentUser);
+      const data = await UsersService.getUsersForActor(currentUser);
       setUsers(filterUsersByOwner(data));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error loading users");

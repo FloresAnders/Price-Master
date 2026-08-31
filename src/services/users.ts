@@ -130,6 +130,27 @@ export class UsersService {
     return allUsers;
   }
 
+  static async getUsersForActor(
+    actor: Partial<User> | null,
+  ): Promise<User[]> {
+    if (!actor) return [];
+    if (actor.role === "superadmin") {
+      return (await FirestoreService.query(this.COLLECTION_NAME, [
+        { field: "role", operator: "in", value: ["admin", "superadmin"] },
+      ])) as User[];
+    }
+    const effectiveOwnerId = String(
+      actor.role === "admin" && actor.eliminate === false
+        ? actor.id || actor.ownerId || ""
+        : actor.ownerId || "",
+    ).trim();
+    if (!effectiveOwnerId) return [];
+    const users = (await FirestoreService.query(this.COLLECTION_NAME, [
+      { field: "ownerId", operator: "==", value: effectiveOwnerId },
+    ])) as User[];
+    return users.filter((user) => user.role !== "superadmin");
+  }
+
   /**
    * Get user by ID
    */
@@ -541,7 +562,7 @@ export class UsersService {
     actor: User | { role?: string } | null,
     searchTerm: string,
   ): Promise<User[]> {
-    const users = await this.getAllUsersAs(actor);
+    const users = await this.getUsersForActor(actor as Partial<User> | null);
     const searchTermLower = searchTerm.toLowerCase();
 
     return users.filter(

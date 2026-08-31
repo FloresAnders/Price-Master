@@ -463,7 +463,7 @@ export default function DataEditor() {
       if (currentUser) {
         const users = isSuperadmin
           ? await UsersService.getAllUsers()
-          : await UsersService.getAllUsersAs(currentUser);
+          : await UsersService.getUsersForActor(currentUser);
 
         // Asegurar que todos los usuarios tengan todos los permisos disponibles
         try {

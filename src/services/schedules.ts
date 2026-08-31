@@ -196,6 +196,59 @@ export class SchedulesService {
     return mergeScheduleEntries(monthlyEntries, legacyEntries);
   }
 
+  static async getSchedulesForRange(
+    locationValue: string,
+    start: Date,
+    end: Date,
+    options?: { now?: Date },
+  ): Promise<ScheduleEntry[]> {
+    if (!locationValue.trim() || start > end) return [];
+    const { getFortnightRange, getScheduleFortnightCacheGeneration, readScheduleFortnightCache, writeScheduleFortnightCache } =
+      await import("./schedule-fortnight-cache");
+    const current = getFortnightRange(options?.now ?? new Date());
+    const isCurrentFortnight =
+      start.getFullYear() === current.start.getFullYear() &&
+      start.getMonth() === current.start.getMonth() &&
+      start.getDate() === current.start.getDate() &&
+      end.getFullYear() === current.end.getFullYear() &&
+      end.getMonth() === current.end.getMonth() &&
+      end.getDate() === current.end.getDate();
+    if (isCurrentFortnight) {
+      const cached = await readScheduleFortnightCache(locationValue, current.key);
+      if (cached) return cached;
+    }
+    const cacheGeneration = isCurrentFortnight
+      ? getScheduleFortnightCacheGeneration(locationValue, current.key)
+      : undefined;
+
+    const rows: ScheduleEntry[] = [];
+    const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+    const lastMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+    while (cursor <= lastMonth) {
+      const monthRows = await this.getSchedulesByLocationYearMonth(
+        locationValue,
+        cursor.getFullYear(),
+        cursor.getMonth() + 1,
+      );
+      rows.push(
+        ...monthRows.filter((row) => {
+          const date = new Date(row.year, row.month - 1, row.day);
+          return date >= start && date <= end;
+        }),
+      );
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+    if (isCurrentFortnight) {
+      await writeScheduleFortnightCache(
+        locationValue,
+        current.key,
+        rows,
+        cacheGeneration,
+      );
+    }
+    return rows;
+  }
+
   static async getScheduleById(id: string): Promise<ScheduleEntry | null> {
     const parsed = parseScheduleEntryId(id);
     if (!parsed) {
@@ -281,6 +334,13 @@ export class SchedulesService {
       },
       { merge: true },
     );
+    const { invalidateScheduleFortnightCache } = await import("./schedule-fortnight-cache");
+    await invalidateScheduleFortnightCache(
+      monthly.company,
+      monthly.year,
+      monthly.month,
+      parsed.day,
+    );
   }
 
   static async deleteSchedule(id: string): Promise<void> {
@@ -289,13 +349,20 @@ export class SchedulesService {
       return await FirestoreService.delete(this.COLLECTION_NAME, id);
     }
 
+    const ref = doc(db, this.COLLECTION_NAME, parsed.docId);
+    const snap = await getDoc(ref);
     await updateDoc(
-      doc(db, this.COLLECTION_NAME, parsed.docId),
+      ref,
       new FieldPath("employees", parsed.employeeName, String(parsed.day)),
       deleteField(),
       "updatedAt",
       new Date(),
     );
+    if (snap.exists()) {
+      const monthly = snap.data() as MonthlySchedule;
+      const { invalidateScheduleFortnightCache } = await import("./schedule-fortnight-cache");
+      await invalidateScheduleFortnightCache(monthly.company, monthly.year, monthly.month, parsed.day);
+    }
   }
 
   static async getSchedulesByLocationEmployeeMonth(
@@ -491,6 +558,8 @@ export class SchedulesService {
         { merge: true },
       );
     });
+    const { invalidateScheduleFortnightCache } = await import("./schedule-fortnight-cache");
+    await invalidateScheduleFortnightCache(locationValue, year, month, day);
   }
 
   static async updateScheduleHours(
@@ -518,6 +587,8 @@ export class SchedulesService {
         "updatedAt",
         new Date(),
       );
+      const { invalidateScheduleFortnightCache } = await import("./schedule-fortnight-cache");
+      await invalidateScheduleFortnightCache(locationValue, year, month, day);
       return;
     }
 
@@ -534,6 +605,8 @@ export class SchedulesService {
       },
       { merge: true },
     );
+    const { invalidateScheduleFortnightCache } = await import("./schedule-fortnight-cache");
+    await invalidateScheduleFortnightCache(locationValue, year, month, day);
   }
 
   static async migrateHorasPorDia(

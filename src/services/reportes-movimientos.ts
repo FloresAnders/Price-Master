@@ -2,15 +2,21 @@ import {
   collection,
   collectionGroup,
   getDocs,
+  limit,
   orderBy,
   query,
+  startAfter,
   where,
+  type QueryDocumentSnapshot,
   type QueryConstraint,
+  type QuerySnapshot,
+  type DocumentData,
 } from "firebase/firestore";
 import { db } from "@/config/firebase";
 
 export type ReporteMovimientoClassification = "ingreso" | "gasto" | "egreso";
 export type ReporteMovimientoCurrency = "CRC" | "USD";
+export type ReportDetailLimit = 25 | 50 | 75 | 100 | "all";
 
 export type ReporteMovimientosDailyDoc = {
   id: string;
@@ -164,6 +170,7 @@ export class ReportesMovimientosService {
     currency: ReporteMovimientoCurrency;
     classification?: ReporteMovimientoClassification;
     paymentType?: string;
+    limit?: ReportDetailLimit;
   }): Promise<ReporteMovimientosDetailItem[]> {
     const constraints: QueryConstraint[] = [
       where("createdAt", ">=", opts.fromIso),
@@ -199,18 +206,34 @@ export class ReportesMovimientosService {
 
     constraints.push(orderBy("createdAt", "asc"));
 
-    const q = query(collectionGroup(db, "items"), ...constraints);
-    const snap = await getDocs(q);
-
-    return snap.docs.map((d) => {
-      const data = d.data() as Omit<ReporteMovimientosDetailItem, "id">;
-      return {
-        id: d.id,
-        ...data,
-        currency: normalizeCurrency(data.currency),
-        amountIngreso: Math.trunc(Number(data.amountIngreso ?? 0)) || 0,
-        amountEgreso: Math.trunc(Number(data.amountEgreso ?? 0)) || 0,
-      };
-    });
+    const selectedLimit = opts.limit ?? 50;
+    const pageSize = selectedLimit === "all" ? 100 : selectedLimit;
+    const results: ReporteMovimientosDetailItem[] = [];
+    let cursor: QueryDocumentSnapshot | null = null;
+    do {
+      const pageConstraints: QueryConstraint[] = [
+        ...constraints,
+        ...(cursor ? [startAfter(cursor)] : []),
+        limit(pageSize),
+      ];
+      const snap: QuerySnapshot<DocumentData> = await getDocs(
+        query(collectionGroup(db, "items"), ...pageConstraints),
+      );
+      results.push(
+        ...snap.docs.map((d) => {
+          const data = d.data() as Omit<ReporteMovimientosDetailItem, "id">;
+          return {
+            id: d.id,
+            ...data,
+            currency: normalizeCurrency(data.currency),
+            amountIngreso: Math.trunc(Number(data.amountIngreso ?? 0)) || 0,
+            amountEgreso: Math.trunc(Number(data.amountEgreso ?? 0)) || 0,
+          };
+        }),
+      );
+      cursor = snap.docs[snap.docs.length - 1] ?? null;
+      if (selectedLimit !== "all" || snap.docs.length < pageSize) break;
+    } while (cursor);
+    return results;
   }
 }
