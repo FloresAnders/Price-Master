@@ -2246,6 +2246,28 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   </button>
                 );
               })}
+
+              {isAdminSidebarExpanded && (
+                <button
+                  type="button"
+                  onClick={handleLogoutClick}
+                  className="group flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-red-600 transition-colors hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-900/30"
+                  title="Cerrar sesión"
+                >
+                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center">
+                    <LogOut className="h-4 w-4" />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium">
+                      Cerrar sesión
+                    </div>
+                    <div className="truncate text-xs text-[var(--muted-foreground)]">
+                      Salir de la cuenta
+                    </div>
+                  </div>
+                </button>
+              )}
             </div>
           </div>
 
