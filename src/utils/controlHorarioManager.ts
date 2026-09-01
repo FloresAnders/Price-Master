@@ -45,6 +45,7 @@ type DailyClosingLike = {
   closingDate?: string;
   turno?: ShiftCode;
   sinTurno?: boolean;
+  singleClosingReason?: string;
 };
 
 export type CashOpeningAvailability =
@@ -289,6 +290,15 @@ export const getCashOpeningAvailabilityAfterDailyClosing = (args: {
     nowOperationalDateKey !== closingOperationalDateKey
   ) {
     return { allowed: true };
+  }
+
+  if (String(latest.singleClosingReason || "").trim()) {
+    return {
+      allowed: false,
+      closingTurno: "N",
+      waitUntilLabel: formatMinuteOfDay(openMin),
+      reason: "next_day_shift_not_started",
+    };
   }
 
   if (latest.turno === "N") {
