@@ -85,7 +85,7 @@ export default function LoginModal({
     setLoading(true);
     setError("");
     try {
-      const safeUser = await authenticateWithPasskey();
+      const safeUser = await authenticateWithPasskey(keepSessionActive);
       onLoginSuccess(safeUser as User);
     } catch (passkeyError) {
       setError(passkeyMessage(passkeyError));
@@ -175,6 +175,19 @@ export default function LoginModal({
                 Usa la huella, el rostro o el PIN configurado en tu dispositivo.
               </p>
             </div>
+            <div className="flex items-center justify-center gap-3 py-1">
+              <label htmlFor="keep-passkey-session-active" className="text-sm text-slate-300">
+                Mantener sesión al cerrar el navegador
+              </label>
+              <input
+                id="keep-passkey-session-active"
+                type="checkbox"
+                checked={keepSessionActive}
+                onChange={(event) => setKeepSessionActive(event.target.checked)}
+                disabled={loading}
+                className="h-5 w-9 appearance-none rounded-full bg-slate-700 transition before:block before:h-5 before:w-5 before:rounded-full before:bg-white before:transition checked:bg-blue-600 checked:before:translate-x-4"
+              />
+            </div>
             <button
               type="button"
               onClick={handlePasskeyLogin}
@@ -218,7 +231,7 @@ export default function LoginModal({
 
               <div className="flex items-center justify-end gap-3 py-1">
                 <label htmlFor="keep-session-active" className="text-sm text-slate-300">
-                  Mantener sesión activa
+                  Mantener sesión al cerrar el navegador
                 </label>
                 <input
                   id="keep-session-active"

@@ -7,6 +7,7 @@ import {
   hashPasswordServer,
 } from "@/lib/auth/password.server";
 import {
+  getSessionCookieMaxAge,
   setAuthCookie,
 } from "@/lib/auth/session-cookie.server";
 import {
@@ -130,9 +131,9 @@ export async function POST(request: Request) {
       { headers: { "Cache-Control": "no-store" } },
     );
     if (issued) {
-      const maxAge = Math.max(
-        0,
-        Math.floor((issued.record.expiresAt - Date.now()) / 1000),
+      const maxAge = getSessionCookieMaxAge(
+        issued.record.keepActive !== false,
+        issued.record.expiresAt,
       );
       setAuthCookie(response, issued.token, maxAge);
     }

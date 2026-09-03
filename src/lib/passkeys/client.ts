@@ -123,7 +123,9 @@ export async function registerPasskey(
   }
 }
 
-export async function authenticateWithPasskey(): Promise<SafeUser> {
+export async function authenticateWithPasskey(
+  keepSessionActive = true,
+): Promise<SafeUser> {
   assertSupport();
   try {
     const start = await postJson<{
@@ -133,7 +135,11 @@ export async function authenticateWithPasskey(): Promise<SafeUser> {
     const credential = await startAuthentication({ optionsJSON: start.options });
     const verified = await postJson<{ user: SafeUser }>(
       "/api/auth/passkeys/authenticate/verify",
-      { ceremonyId: start.ceremonyId, response: credential },
+      {
+        ceremonyId: start.ceremonyId,
+        response: credential,
+        keepSessionActive,
+      },
     );
     await markPasskeySuccessful();
     return verified.user;

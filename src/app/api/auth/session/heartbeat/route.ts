@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { heartbeatAuthSession } from "@/lib/auth/session-store.server";
 import {
+  getSessionCookieMaxAge,
   getSessionTokenFromCookie,
   setAuthCookie,
 } from "@/lib/auth/session-cookie.server";
@@ -31,9 +32,9 @@ export async function GET(request: Request) {
   );
   const token = getSessionTokenFromCookie(cookieHeader);
   if (token) {
-    const maxAge = Math.max(
-      0,
-      Math.floor((session.expiresAt - Date.now()) / 1000),
+    const maxAge = getSessionCookieMaxAge(
+      session.keepActive !== false,
+      session.expiresAt,
     );
     setAuthCookie(response, token, maxAge);
   }

@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import type { AuthenticationResponseJSON } from "@simplewebauthn/server";
-import { setAuthCookie } from "@/lib/auth/session-cookie.server";
+import {
+  getSessionCookieMaxAge,
+  setAuthCookie,
+} from "@/lib/auth/session-cookie.server";
 import { getAuthenticationService } from "@/lib/passkeys/authentication.server";
 import { getBrowserBinding } from "@/lib/passkeys/http.server";
 
@@ -25,14 +28,15 @@ export async function POST(request: Request) {
       ceremonyId: body.ceremonyId,
       browserBinding,
       response: body.response as AuthenticationResponseJSON,
+      keepActive: body.keepSessionActive !== false,
     });
     const response = NextResponse.json(
       { ok: true, user: authenticated.user },
       { headers: noStore },
     );
-    const maxAge = Math.max(
-      0,
-      Math.floor((authenticated.record.expiresAt - Date.now()) / 1000),
+    const maxAge = getSessionCookieMaxAge(
+      authenticated.record.keepActive !== false,
+      authenticated.record.expiresAt,
     );
     setAuthCookie(response, authenticated.token, maxAge);
     return response;

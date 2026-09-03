@@ -1,7 +1,6 @@
 import type { NextResponse } from "next/server";
 
 export const AUTH_COOKIE_NAME = "pricemaster_auth";
-const DEFAULT_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 
 export function getSessionTokenFromCookie(
   cookieHeader: string | null,
@@ -21,7 +20,7 @@ export function getSessionTokenFromCookie(
 }
 
 export function sessionCookieOptions(
-  maxAge = DEFAULT_MAX_AGE_SECONDS,
+  maxAge: number | undefined,
   secure = process.env.NODE_ENV === "production",
 ) {
   return {
@@ -29,14 +28,23 @@ export function sessionCookieOptions(
     sameSite: "lax" as const,
     secure,
     path: "/",
-    maxAge,
+    ...(maxAge === undefined ? {} : { maxAge }),
   };
+}
+
+export function getSessionCookieMaxAge(
+  keepActive: boolean,
+  expiresAt: number,
+  now = Date.now(),
+): number | undefined {
+  if (!keepActive) return undefined;
+  return Math.max(0, Math.floor((expiresAt - now) / 1000));
 }
 
 export function setAuthCookie(
   response: NextResponse,
   token: string,
-  maxAge: number,
+  maxAge?: number,
 ) {
   response.cookies.set(
     AUTH_COOKIE_NAME,

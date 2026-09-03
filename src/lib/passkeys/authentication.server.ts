@@ -62,6 +62,7 @@ interface AuthenticationDependencies {
     role: "admin" | "user" | "superadmin";
     authMethod: "passkey";
     credentialIdHash: string;
+    keepActive?: boolean;
   }): Promise<{ token: string; record: AuthSessionRecord }>;
   now?: () => number;
   generateOptions?: (
@@ -100,6 +101,7 @@ export function createAuthenticationService(
       ceremonyId: string;
       browserBinding: string;
       response: AuthenticationResponseJSON;
+      keepActive?: boolean;
     }) {
       const ceremony = await dependencies.ceremonies.consumeCeremony(
         input.ceremonyId,
@@ -175,6 +177,7 @@ export function createAuthenticationService(
         role: user.role,
         authMethod: "passkey",
         credentialIdHash: passkey.credentialIdHash,
+        keepActive: input.keepActive !== false,
       });
       return {
         token: issued.token,

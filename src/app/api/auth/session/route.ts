@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { readAuthSession } from "@/lib/auth/session-store.server";
 import {
+  getSessionCookieMaxAge,
   getSessionTokenFromCookie,
   setAuthCookie,
 } from "@/lib/auth/session-cookie.server";
@@ -24,7 +25,11 @@ export async function GET(request: Request) {
       ok: true,
       user: authenticated.user,
       session: {
+        id: authenticated.session.id,
         authMethod: authenticated.session.authMethod,
+        keepActive: authenticated.session.keepActive !== false,
+        createdAt: authenticated.session.createdAt,
+        lastSeenAt: authenticated.session.lastSeenAt,
         expiresAt: authenticated.session.expiresAt,
       },
     },
@@ -32,9 +37,9 @@ export async function GET(request: Request) {
   );
   const token = getSessionTokenFromCookie(cookieHeader);
   if (token) {
-    const maxAge = Math.max(
-      0,
-      Math.floor((authenticated.session.expiresAt - Date.now()) / 1000),
+    const maxAge = getSessionCookieMaxAge(
+      authenticated.session.keepActive !== false,
+      authenticated.session.expiresAt,
     );
     setAuthCookie(response, token, maxAge);
   }
