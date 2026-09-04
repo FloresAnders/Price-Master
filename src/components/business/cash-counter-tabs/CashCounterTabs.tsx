@@ -144,7 +144,7 @@ export default function CashCounterTabs() {
         )}
       </div>
 
-      <div className="fixed bottom-4 right-4 z-30 flex flex-col gap-2.5 sm:bottom-6 sm:right-6">
+      <div className="fixed bottom-24 right-4 z-30 flex flex-col gap-2.5 sm:bottom-6 sm:right-6">
         <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
           onClick={() => setSinpeOpen(true)}
           className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/15 border border-emerald-500/25 flex items-center justify-center shadow-lg text-emerald-400 hover:text-emerald-300 transition-all" aria-label="SINPE">
