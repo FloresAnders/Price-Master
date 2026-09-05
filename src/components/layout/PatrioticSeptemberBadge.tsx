@@ -1,5 +1,4 @@
 import Image from "next/image";
-import { Sparkles } from "lucide-react";
 
 export default function PatrioticSeptemberBadge() {
 	return (
@@ -14,9 +13,14 @@ export default function PatrioticSeptemberBadge() {
 					<p className="text-[11px] text-white/55">Mes de la Patria</p>
 				</div>
 			</div>
-			<div className="flex items-center gap-2 text-xs text-white md:hidden">
+		      <div className="flex min-w-0 items-center gap-2 text-white md:hidden">
 				<Image src="/banderaCR.png" alt="Bandera de Costa Rica" width={24} height={16} className="h-4 w-6 rounded-sm object-cover" />
-				<span>15 de Septiembre</span>
+						<div className="min-w-0">
+							<p className="text-[10px] font-semibold leading-tight">
+								15 de Septiembre · Independencia de Costa Rica
+							</p>
+							<p className="text-[9px] leading-tight text-white/55">Mes de la Patria</p>
+						</div>
 			</div>
 		</>
 	);
