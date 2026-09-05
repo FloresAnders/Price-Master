@@ -52,6 +52,7 @@ import { CIERRE_FONDO_VENTAS_MINUTES_AFTER_END } from "../constants";
 import { resolveFacturaPaymentType } from "./facturaPaymentType";
 import { validateFondoGeneralOpeningRequirement } from "../utils/fondo/openingRequirement";
 import { resolveFcrPaymentAmounts } from "../utils/fondo/fcrPaymentAmounts";
+import { invalidateFondoCache } from "@/services/fondo-cache";
 
 import type { Empresas } from "../../../types/firestore";
 
@@ -1710,6 +1711,18 @@ export default function FacturasCreditoPage() {
         batch.set(movRef, stripUndefinedDeep(paymentMovement));
 
         await batch.commit();
+
+        // Misma actualización de caché (IndexedDB) que un movimiento normal al guardar.
+        await invalidateFondoCache({
+          companyId: String(selectedCompany || "").trim(),
+          accountId: targetAccountKey,
+          resource: "movements",
+        });
+        try {
+          localStorage.setItem(movementDocId, JSON.stringify(ledger));
+        } catch (storageError) {
+          console.warn("[FACTURAS] localStorage snapshot write failed:", storageError);
+        }
 
         await loadMovements(selectedCompany);
         showToast(

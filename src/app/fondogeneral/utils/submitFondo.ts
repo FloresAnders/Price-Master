@@ -44,6 +44,7 @@ import {
 import { sendMovementNotification } from "./fondo/notifications";
 import { validateFondoGeneralOpeningRequirement } from "./fondo/openingRequirement";
 import { buildV2MovementsCacheKey } from "../utils/v2movements";
+import { invalidateFondoCache } from "@/services/fondo-cache";
 import type { FondoEntry } from "../types";
 import {
   compressAuditHistory,
@@ -1834,6 +1835,20 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                 setSelectedPendingCreditInvoiceIds([]);
 
                 storageSnapshotRef.current = stripUndefinedDeep(ledger) as any;
+                // Misma actualización de caché (IndexedDB) que un movimiento normal al guardar.
+                await invalidateFondoCache({
+                  companyId: normalizedCompany,
+                  accountId: acctKey,
+                  resource: "movements",
+                });
+                try {
+                  localStorage.setItem(docId, JSON.stringify(ledger));
+                } catch (storageError) {
+                  console.warn(
+                    "[FONDO] localStorage snapshot write failed:",
+                    storageError,
+                  );
+                }
                 try {
                   const cacheKey = buildV2MovementsCacheKey(
                     docId,
