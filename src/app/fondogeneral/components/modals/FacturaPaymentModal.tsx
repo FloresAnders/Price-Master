@@ -298,7 +298,7 @@ export default function FacturaPaymentModal({
                         style: "currency",
                         currency: target.currency,
                         minimumFractionDigits: 0,
-                        maximumFractionDigits: 0,
+                        maximumFractionDigits: 2,
                       },
                     )}
                   </p>
@@ -312,7 +312,7 @@ export default function FacturaPaymentModal({
                       style: "currency",
                       currency: target.currency,
                       minimumFractionDigits: 0,
-                      maximumFractionDigits: 0,
+                      maximumFractionDigits: 2,
                     })}
                   </p>
                 </div>
@@ -325,7 +325,7 @@ export default function FacturaPaymentModal({
                       style: "currency",
                       currency: target.currency,
                       minimumFractionDigits: 0,
-                      maximumFractionDigits: 0,
+                      maximumFractionDigits: 2,
                     })}
                   </p>
                 </div>
@@ -503,7 +503,7 @@ export default function FacturaPaymentModal({
                           style: "currency",
                           currency: target.currency,
                           minimumFractionDigits: 0,
-                          maximumFractionDigits: 0,
+                          maximumFractionDigits: 2,
                         },
                       )}
                     </span>
@@ -515,7 +515,7 @@ export default function FacturaPaymentModal({
                         style: "currency",
                         currency: target.currency,
                         minimumFractionDigits: 0,
-                        maximumFractionDigits: 0,
+                        maximumFractionDigits: 2,
                       })}
                     </span>
                   </div>

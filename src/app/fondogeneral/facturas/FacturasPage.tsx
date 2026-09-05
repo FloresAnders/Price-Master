@@ -3970,12 +3970,12 @@ export default function FacturasCreditoPage() {
                     <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">
                       {Math.max(
                         0,
-                        Math.trunc(Number(paymentTarget.amount) || 0),
+                        roundMoney2(paymentTarget.amount),
                       ).toLocaleString("es-CR", {
                         style: "currency",
                         currency: paymentTarget.currency,
                         minimumFractionDigits: 0,
-                        maximumFractionDigits: 0,
+                        maximumFractionDigits: 2,
                       })}
                     </p>
                   </div>
@@ -3988,7 +3988,7 @@ export default function FacturasCreditoPage() {
                         style: "currency",
                         currency: paymentTarget.currency,
                         minimumFractionDigits: 0,
-                        maximumFractionDigits: 0,
+                        maximumFractionDigits: 2,
                       })}
                     </p>
                   </div>
@@ -4001,7 +4001,7 @@ export default function FacturasCreditoPage() {
                         style: "currency",
                         currency: paymentTarget.currency,
                         minimumFractionDigits: 0,
-                        maximumFractionDigits: 0,
+                        maximumFractionDigits: 2,
                       })}
                     </p>
                   </div>

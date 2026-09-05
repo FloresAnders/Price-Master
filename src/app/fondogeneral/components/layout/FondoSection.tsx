@@ -1956,6 +1956,45 @@ export function FondoSection({
     clearMovementDraft,
   });
 
+  // Montos EXACTOS (con decimales) para el pago de FCR: el redondeo y la
+  // habilitación de "Pagar completo" deben compararse contra el saldo real
+  // (p. ej. ₡14.999,9), no contra su valor truncado.
+  const closingPaymentExactPaid = closingPaymentTarget
+    ? Math.max(0, roundMoney2(closingPaymentTarget.paidAmount))
+    : 0;
+  const closingPaymentExactTotal = closingPaymentTarget
+    ? Math.max(
+        0,
+        roundMoney2(
+          closingPaymentTarget.originalAmount ??
+            closingPaymentTarget.amount,
+        ),
+      )
+    : 0;
+  const closingPaymentExactBalance = closingPaymentTarget
+    ? Math.max(
+        0,
+        Math.min(
+          closingPaymentExactTotal,
+          roundMoney2(
+            closingPaymentTarget.balanceDue ??
+              Math.max(
+                0,
+                closingPaymentExactTotal - closingPaymentExactPaid,
+              ),
+          ),
+        ),
+      )
+    : 0;
+  const closingPaymentTypedAmount = Math.max(
+    0,
+    roundMoney2(closingPaymentAmount),
+  );
+  const closingCanSubmitFullPayment =
+    closingPaymentExactBalance > 0 &&
+    roundMoney2(closingPaymentTypedAmount) ===
+      roundMoney2(closingPaymentExactBalance);
+
   const handleDeleteLatestDailyClosing = useCallback(
     (reason: string) =>
       deleteLatestDailyClosingFn(reason, {
@@ -6646,36 +6685,13 @@ export function FondoSection({
         paymentAmount={closingPaymentAmount}
         paymentNotes={closingPaymentNotes}
         paymentManager2={closingPaymentManager2}
-        selectedPaymentPaid={Math.max(
-          0,
-          Math.trunc(Number(closingPaymentTarget?.paidAmount) || 0),
-        )}
-        selectedPaymentBalance={Math.max(
-          0,
-          Math.trunc(
-            Number(
-              closingPaymentTarget?.balanceDue ??
-                Math.max(
-                  0,
-                  Math.trunc(
-                    Number(
-                      closingPaymentTarget?.originalAmount ??
-                        closingPaymentTarget?.amount,
-                    ) || 0,
-                  ),
-                ) -
-                  Math.max(
-                    0,
-                    Math.trunc(Number(closingPaymentTarget?.paidAmount) || 0),
-                  ),
-            ) || 0,
-          ),
-        )}
+        selectedPaymentPaid={closingPaymentExactPaid}
+        selectedPaymentBalance={closingPaymentExactBalance}
         selectedPaymentStatus={String(
           closingPaymentTarget?.paymentStatus || "PENDIENTE",
         )}
         paymentSubmitting={closingPaymentSubmitting}
-        canSubmitFullPayment={true}
+        canSubmitFullPayment={closingCanSubmitFullPayment}
         allowPartialPayment={true}
         onClose={closeClosingInvoicePaymentModal}
         onPaymentAmountChange={setClosingPaymentAmount}

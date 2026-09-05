@@ -146,6 +146,39 @@ describe("resolveFcrPaymentAmounts (abono / pago completo de FCR)", () => {
     expect(resolved.totalAppliedToInvoice).toBe(15766);
   });
 
+  it("toma en cuenta los decimales: saldo ₡14.999,9 pagado completo debita ₡14.000 y absorbe ₡999,9", () => {
+    const resolved = resolveFcrPaymentAmounts({
+      balance: 14999.9,
+      creditNotesTotal: 0,
+      enteredAmount: 14999.9,
+      mode: "full",
+      currency: "CRC",
+      accountKey: "FondoGeneral",
+    });
+
+    expect(resolved.isFullSettlement).toBe(true);
+    expect(resolved.cashDebit).toBe(14000);
+    expect(resolved.roundingAbsorbed).toBe(999.9);
+    expect(resolved.totalAppliedToInvoice).toBe(14999.9);
+  });
+
+  it("un abono con decimales menor al saldo deja el residuo pendiente", () => {
+    const resolved = resolveFcrPaymentAmounts({
+      balance: 14999.9,
+      creditNotesTotal: 0,
+      enteredAmount: 14999,
+      mode: "partial",
+      currency: "CRC",
+      accountKey: "FondoGeneral",
+    });
+
+    expect(resolved.isFullSettlement).toBe(false);
+    expect(resolved.cashDebit).toBe(14000);
+    expect(resolved.roundingAbsorbed).toBe(999);
+    expect(resolved.totalAppliedToInvoice).toBe(14999);
+    expect(14999.9 - resolved.totalAppliedToInvoice).toBeCloseTo(0.9);
+  });
+
   it("redondeo a la unidad de mil respeta el tope y el redondeo hacia abajo", () => {
     expect(roundFcrCashToThousandFloor(15766, "CRC", "FondoGeneral")).toBe(15000);
     expect(roundFcrCashToThousandFloor(5766, "CRC", "FondoGeneral")).toBe(5000);
