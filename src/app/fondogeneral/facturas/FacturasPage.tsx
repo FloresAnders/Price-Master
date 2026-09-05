@@ -1605,6 +1605,7 @@ export default function FacturasCreditoPage() {
           paymentAmount: paymentAmountToApply,
           updateAt: nowISO,
           manager2: paymentManager2Value || undefined,
+          roundingAbsorbed: resolvedAmounts.roundingAbsorbed,
         });
       const paymentMovementId = String((paymentMovement as any).id || "");
       const targetAccountKey = updatedMovement.accountId;

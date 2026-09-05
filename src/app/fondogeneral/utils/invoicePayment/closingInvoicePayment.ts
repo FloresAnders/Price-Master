@@ -238,6 +238,7 @@ export async function submitClosingInvoicePayment(
     paymentAmount: paymentAmountToApply,
     updateAt: nowISO,
     manager2: paymentManager2Value || undefined,
+    roundingAbsorbed: resolvedAmounts.roundingAbsorbed,
   });
   const paymentMovementId = String((paymentMovement as any).id || "");
   const targetAccountKey: MovementAccountKey = accountKey;

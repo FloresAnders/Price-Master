@@ -16,6 +16,8 @@ export type FondoEntry = {
   amountEgreso: number;
   amountIngreso: number;
   amountPayment?: number;
+  /** Diferencia absorbida como redondeo en un pago de FCR (efectivo aplicado - efectivo debitado). */
+  roundingAbsorbed?: number;
   appliedCreditNotes?: AppliedCreditNote[];
   manager: string;
   manager2?: string;

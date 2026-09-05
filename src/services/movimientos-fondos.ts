@@ -233,11 +233,17 @@ export class MovimientosFondosService {
     paymentAmount: number;
     updateAt: string;
     manager2?: string;
+    /** Diferencia absorbida como redondeo entre el monto aplicado y el debitado. */
+    roundingAbsorbed?: number;
   }): Record<string, unknown> & { id: string } {
     const invoice = input.invoice;
     const paymentAmount = Math.max(
       0,
       Math.round((Number(input.paymentAmount) || 0) * 100) / 100,
+    );
+    const roundingAbsorbed = Math.max(
+      0,
+      Math.round((Number(input.roundingAbsorbed) || 0) * 100) / 100,
     );
     const updateAt = String(input.updateAt || new Date().toISOString());
     const invoiceCreatedAt = String(invoice.createdAt || "");
@@ -263,6 +269,7 @@ export class MovimientosFondosService {
       amountEgreso: paymentAmount,
       amountIngreso: 0,
       amount: paymentAmount,
+      ...(roundingAbsorbed > 0 ? { roundingAbsorbed } : {}),
       manager: invoice.manager,
       ...(Array.isArray(invoice.appliedCreditNotes) &&
       invoice.appliedCreditNotes.length > 0

@@ -5761,14 +5761,27 @@ export function FondoSection({
                                   0,
                                 )
                               : 0;
-                            const appliedCreditNotesAdjustment = Math.max(
-                              0,
-                              Math.abs(
-                                invoiceEgresoAmount -
-                                  appliedCreditNotesTotal -
-                                  normalizedEgreso,
-                              ),
-                            );
+                            // Los pagos de FCR guardan el redondeo absorbido por
+                            // movimiento (p. ej. abono de ₡5,766 sobre factura de
+                            // ₡15,766 debita ₡5,000 y absorbe ₡766). Si el
+                            // movimiento no lo trae (pagos viejos), se deriva del
+                            // total de la factura cuando ya quedó saldada.
+                            const storedRoundingAbsorbed =
+                              typeof fe.roundingAbsorbed === "number" &&
+                              fe.roundingAbsorbed > 0
+                                ? Math.max(0, roundMoney2(fe.roundingAbsorbed))
+                                : 0;
+                            const appliedCreditNotesAdjustment =
+                              storedRoundingAbsorbed > 0
+                                ? storedRoundingAbsorbed
+                                : Math.max(
+                                    0,
+                                    Math.abs(
+                                      invoiceEgresoAmount -
+                                        appliedCreditNotesTotal -
+                                        normalizedEgreso,
+                                    ),
+                                  );
                             const appliedCreditNotesAdjustmentIsPositive =
                               normalizedEgreso >
                               Math.max(0, invoiceEgresoAmount - appliedCreditNotesTotal);
@@ -6390,6 +6403,8 @@ export function FondoSection({
                                                 {appliedCreditNotesAdjustment >
                                                   0 &&
                                                   (!isPaidFcrEntry ||
+                                                    storedRoundingAbsorbed >
+                                                      0 ||
                                                     (owedFcrAmount !== null &&
                                                       owedFcrAmount <= 0)) && (
                                                   <div className="flex w-full items-center gap-0 rounded border border-orange-500/15 bg-orange-500/10 px-2 py-1">

@@ -1771,6 +1771,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                     paymentAmount: paymentAmount,
                     updateAt: nowISO,
                     manager2: manager2?.trim() || undefined,
+                    roundingAbsorbed: roundingAdjustment,
                   });
                 paymentMovements.push(paymentMovement);
 
