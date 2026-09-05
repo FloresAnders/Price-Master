@@ -77,6 +77,8 @@ import {
 } from "../modals";
 import type { UserPermissions } from "../../types/firestore";
 import PasskeyManagerModal from "../auth/PasskeyManagerModal";
+import PatrioticSeptemberBadge from "./PatrioticSeptemberBadge";
+import { isCostaRicaIndependenceSeason } from "@/lib/seasonalTheme";
 
 const ADMIN_SIDEBAR_EXPANDED_WIDTH_PREF_KEY = "adminSidebarWidth";
 const ADMIN_SIDEBAR_COLLAPSED_WIDTH_PREF_KEY = "adminSidebarCollapsedWidth";
@@ -1117,10 +1119,11 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     }
   };
   const isHome = pathname === "/" && window.location.hash === "";
+  const showPatrioticTheme = isCostaRicaIndependenceSeason();
 
   return (
     <>
-      <header className="w-full border-b border-[var(--input-border)] bg-transparent backdrop-blur-sm relative overflow-hidden lg:pl-[var(--admin-sidebar-width)] transition-[padding] duration-300">
+      <header className={`w-full border-b ${showPatrioticTheme ? "border-transparent" : "border-[var(--input-border)]"} bg-transparent backdrop-blur-sm relative overflow-hidden lg:pl-[var(--admin-sidebar-width)] transition-[padding] duration-300`}>
         {/* Main header row */}
         <div
           className="flex items-center justify-between p-4"
@@ -1363,6 +1366,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           )}
 
           <div className="flex items-center gap-2" suppressHydrationWarning>
+            {showPatrioticTheme && <PatrioticSeptemberBadge />}
             {/* User dropdown menu - solo mostrar si hay usuario O si estamos en /home */}
             {(user || pathname === "/home") && (
               <div className="hidden md:flex items-center gap-2">
@@ -1588,6 +1592,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             {/* <ThemeToggle /> */}
           </div>
         </div>
+
+        {showPatrioticTheme && (
+          <div
+            className="h-[10px] bg-[linear-gradient(to_bottom,#002b7f_0%,#002b7f_20%,#fff_20%,#fff_35%,#ce1126_35%,#ce1126_65%,#fff_65%,#fff_80%,#002b7f_80%,#002b7f_100%)]"
+            aria-hidden="true"
+          />
+        )}
 
         {/* Mobile navigation menu */}
         {showMobileMenu && (
