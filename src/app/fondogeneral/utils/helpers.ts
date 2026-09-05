@@ -290,6 +290,55 @@ export const resolveEffectiveEgresoAmount = (
   return egreso > 0 && hasPayment ? payment : egreso;
 };
 
+/**
+ * Construye un mapa `id -> saldo inmediatamente DESPUÉS de cada movimiento`,
+ * caminando hacia atrás desde el saldo actual persistido (currentBalance).
+ *
+ * Si `getApertureAnchor` devuelve un valor para alguna entrada (la apertura de
+ * fondo), la cadena se RE-ANCIA en ese saldo: el saldo de apertura es la verdad
+ * contable del día, de modo que una desviación del ledger persistido (p. ej. un
+ * delta aplicado sin su movimiento, o una apertura re-registrada) deja de inflar
+ * todos los "Saldo anterior". En cuentas sanas el ancla coincide con el walk
+ * hacia atrás y el resultado es idéntico al anterior.
+ */
+export const buildBalanceAfterById = (
+  entries: Array<Partial<FondoEntry>>,
+  currentBalance: number,
+  getApertureAnchor?: (entry: Partial<FondoEntry>) => number | null,
+): Map<string, number> => {
+  const normalize = (value: unknown) => roundMoney2(value);
+
+  const orderedDesc = [...entries].sort((a, b) => {
+    const diff = getPrimaryMovementTime(b) - getPrimaryMovementTime(a);
+    if (diff !== 0) return diff;
+    return String(b.id).localeCompare(String(a.id));
+  });
+
+  let running = normalize(currentBalance);
+  const map = new Map<string, number>();
+  orderedDesc.forEach((entry) => {
+    map.set(String(entry.id), running);
+    running -= normalize(entry.amountIngreso || 0);
+    running += resolveEffectiveEgresoAmount(entry);
+  });
+
+  if (!getApertureAnchor) return map;
+
+  // La apertura más antigua (última en orden descendente) es el ancla del día.
+  for (let i = orderedDesc.length - 1; i >= 0; i -= 1) {
+    const entry = orderedDesc[i];
+    const anchor = getApertureAnchor(entry);
+    if (anchor === null || anchor === undefined) continue;
+    const mapped = map.get(String(entry.id));
+    if (mapped === undefined) continue;
+    const shift = anchor - mapped;
+    if (shift === 0) break;
+    map.forEach((value, key) => map.set(key, value + shift));
+    break;
+  }
+  return map;
+};
+
 export const isPaidFcrMovement = (entry: Partial<FondoEntry>): boolean => {
   if (normalizeInvoiceDocType(entry.invoiceDocType) !== "FCR") return false;
   const hasManager2 =

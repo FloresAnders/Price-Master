@@ -147,6 +147,7 @@ import {
 
   roundCreditNotePaymentAmount,
   roundMoney2,
+  buildBalanceAfterById,
 
   buildStorageKey,
 
@@ -2898,48 +2899,35 @@ export function FondoSection({
 
   const balanceAfterByIdCRC = useMemo(() => {
     // Derivar balances desde el currentBalance real (persistido), no desde initialAmount + subset.
-    // Caminamos hacia atrás: balanceAfter(entry) se obtiene restando deltas de movimientos más recientes.
-    const normalizeAccountAmount = (value: unknown) => {
-      const parsed = Number(value) || 0;
-      return Math.round(parsed * 100) / 100;
-    };
-    let running = normalizeAccountAmount(currentBalanceCRC);
-    const orderedDesc = [...fondoEntries]
-      .filter((e) => ((e.currency as any) || "CRC") === "CRC")
-      .sort((a, b) => {
-        const diff = getPrimaryMovementTime(b) - getPrimaryMovementTime(a);
-        if (diff !== 0) return diff;
-        return String(b.id).localeCompare(String(a.id));
-      });
-    const map = new Map<string, number>();
-    orderedDesc.forEach((entry) => {
-      map.set(entry.id, running);
-      running -= normalizeAccountAmount(entry.amountIngreso || 0);
-      running += resolveEffectiveEgresoAmount(entry);
-    });
-    return map;
+    // Caminamos hacia atrás: balanceAfter(entry) se obtiene restando deltas de movimientos más recientes,
+    // y se re-ancla en el saldo de apertura si la apertura está cargada (ver buildBalanceAfterById).
+    return buildBalanceAfterById(
+      fondoEntries.filter((e) => ((e.currency as any) || "CRC") === "CRC"),
+      currentBalanceCRC,
+      (entry) =>
+        entry.providerCode === APERTURA_FONDO_PROVIDER_CODE &&
+        (entry.openingBalanceCRC !== undefined ||
+          (entry.amountIngreso || 0) > 0)
+          ? roundMoney2(entry.openingBalanceCRC ?? entry.amountIngreso ?? 0)
+          : null,
+    );
   }, [accountKey, fondoEntries, currentBalanceCRC]);
 
   const balanceAfterByIdUSD = useMemo(() => {
-    const normalizeAccountAmount = (value: unknown) => {
-      const parsed = Number(value) || 0;
-      return Math.round(parsed * 100) / 100;
-    };
-    let running = normalizeAccountAmount(currentBalanceUSD);
-    const orderedDesc = [...fondoEntries]
-      .filter((e) => ((e.currency as any) || "CRC") === "USD")
-      .sort((a, b) => {
-        const diff = getPrimaryMovementTime(b) - getPrimaryMovementTime(a);
-        if (diff !== 0) return diff;
-        return String(b.id).localeCompare(String(a.id));
-      });
-    const map = new Map<string, number>();
-    orderedDesc.forEach((entry) => {
-      map.set(entry.id, running);
-      running -= normalizeAccountAmount(entry.amountIngreso || 0);
-      running += resolveEffectiveEgresoAmount(entry);
-    });
-    return map;
+    // La apertura (currency CRC pero con saldo USD) también ancla la cadena USD.
+    return buildBalanceAfterById(
+      fondoEntries.filter(
+        (e) =>
+          ((e.currency as any) || "CRC") === "USD" ||
+          e.providerCode === APERTURA_FONDO_PROVIDER_CODE,
+      ),
+      currentBalanceUSD,
+      (entry) =>
+        entry.providerCode === APERTURA_FONDO_PROVIDER_CODE &&
+        typeof entry.openingBalanceUSD === "number"
+          ? roundMoney2(entry.openingBalanceUSD)
+          : null,
+    );
   }, [accountKey, fondoEntries, currentBalanceUSD]);
 
   useEffect(() => {
