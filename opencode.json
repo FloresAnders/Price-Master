@@ -161,5 +161,6 @@
       ],
       "enabled": true
     }
-  }
+  },
+  "snapshot": false
 }

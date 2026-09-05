@@ -51,6 +51,7 @@ import { getAuthoritativeNowISO } from "@/utils/serverTime";
 import { CIERRE_FONDO_VENTAS_MINUTES_AFTER_END } from "../constants";
 import { resolveFacturaPaymentType } from "./facturaPaymentType";
 import { validateFondoGeneralOpeningRequirement } from "../utils/fondo/openingRequirement";
+import { roundCreditNotePaymentAmount } from "../utils/helpers";
 
 import type { Empresas } from "../../../types/firestore";
 
@@ -1495,7 +1496,34 @@ export default function FacturasCreditoPage() {
         Math.min(totalAmount, totalAmount - selectedPaymentPaid),
       );
       const enteredAmount = enteredPaymentAmount;
-      const paymentAmountToApply = mode === "full" ? balance : enteredAmount;
+      if (enteredAmount > balance) {
+        showToast(
+          "El monto no puede superar el saldo pendiente.",
+          "error",
+          4000,
+        );
+        return;
+      }
+      // Misma regla de redondeo que el pago desde Fondo General: si se paga el
+      // saldo completo (o el modo explícito "full"), el fondo se debita por el
+      // monto redondeado a la unidad de mil y la diferencia queda como redondeo
+      // (el monto pendiente de la factura se absorbe y se marca como pagada).
+      const maxCashPayment = roundCreditNotePaymentAmount(
+        balance,
+        paymentTarget.currency,
+        paymentTarget.accountId,
+      );
+      const isFullSettlement =
+        mode === "full" || enteredAmount >= balance;
+      const paymentAmountToApply = isFullSettlement
+        ? maxCashPayment
+        : enteredAmount;
+      const roundingAdjustment = isFullSettlement
+        ? Math.max(0, balance - paymentAmountToApply)
+        : 0;
+      const totalAppliedToInvoice = roundMoney2(
+        paymentAmountToApply + roundingAdjustment,
+      );
 
       if (mode === "full" && enteredAmount !== balance) {
         showToast(
@@ -1511,9 +1539,9 @@ export default function FacturasCreditoPage() {
         return;
       }
 
-      if (paymentAmountToApply > balance) {
+      if (paymentAmountToApply > maxCashPayment) {
         showToast(
-          "El monto no puede superar el saldo pendiente.",
+          "El monto no puede superar el saldo disponible después del redondeo.",
           "error",
           4000,
         );
@@ -1534,7 +1562,7 @@ export default function FacturasCreditoPage() {
       }
       const nextPaidAmount = Math.min(
         totalAmount,
-        roundMoney2(selectedPaymentPaid + paymentAmountToApply),
+        roundMoney2(selectedPaymentPaid + totalAppliedToInvoice),
       );
       const nextBalanceDue = Math.max(0, roundMoney2(totalAmount - nextPaidAmount));
       const nextStatus =
@@ -3991,6 +4019,39 @@ export default function FacturasCreditoPage() {
                     </p>
                   </div>
                 </div>
+
+                {(() => {
+                  const maxCash = roundCreditNotePaymentAmount(
+                    selectedPaymentBalance,
+                    paymentTarget.currency,
+                    paymentTarget.accountId,
+                  );
+                  const rounding = Math.max(
+                    0,
+                    selectedPaymentBalance - maxCash,
+                  );
+                  const entered = Math.max(0, roundMoney2(paymentAmount));
+                  const payingFull = entered >= selectedPaymentBalance;
+                  if (rounding <= 0 || !payingFull) return null;
+                  return (
+                    <div className="flex items-start gap-2 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                      <RotateCcw className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      <span>
+                        Se aplicará redondeo de{" "}
+                        <span className="font-semibold">
+                          - {maxCash.toLocaleString("es-CR")}{" "}
+                          {paymentTarget.currency}
+                        </span>{" "}
+                        (la factura queda saldada y el fondo se debita por{" "}
+                        <span className="font-semibold">
+                          {rounding.toLocaleString("es-CR")}{" "}
+                          {paymentTarget.currency}
+                        </span>{" "}
+                        menos).
+                      </span>
+                    </div>
+                  );
+                })()}
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="space-y-1 text-sm text-[var(--foreground)]">

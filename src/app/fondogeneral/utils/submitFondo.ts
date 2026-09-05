@@ -600,9 +600,26 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         return sum + Math.max(0, roundMoney2(invoice.balanceDue));
       }, 0)
     : 0;
+  // Al pagar facturas a crédito (FCR) junto con un movimiento, el fondo se
+  // debita por el monto redondeado a la unidad de mil (misma regla que el pago
+  // desde Fondo General); la diferencia queda como redondeo y la factura se
+  // marca pagada por el total.
+  const roundCreditInvoicePayment = (amount: number) =>
+    roundCreditNotePaymentAmount(
+      Math.max(0, roundMoney2(amount)),
+      movementCurrency,
+      accountKey,
+    );
+  const selectedCreditInvoicesRoundedTotal = isEgreso
+    ? selectedProviderPendingCreditInvoices.reduce((sum: number, invoice: any) => {
+        if (!selectedCreditInvoiceIdSet.has(invoice.id)) return sum;
+        if (invoice.currency !== movementCurrency) return sum;
+        return sum + roundCreditInvoicePayment(invoice.balanceDue);
+      }, 0)
+    : 0;
   const egresoBalanceImpact =
     isEgreso && effectiveInvoiceDocType === "FCO"
-      ? roundedInvoicePaymentAmount + selectedCreditInvoicesTotal
+      ? roundedInvoicePaymentAmount + selectedCreditInvoicesRoundedTotal
       : egresoValue;
 
   // Validar que no quede saldo negativo en la moneda del movimiento.
@@ -1704,9 +1721,16 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                 );
                 if (balance <= 0) return;
 
+                // El fondo se debita por el monto redondeado; el redondeo queda
+                // en el fondo y la factura se paga por el total pendiente.
+                const paymentAmount = roundCreditInvoicePayment(balance);
+                const roundingAdjustment = Math.max(0, balance - paymentAmount);
+                const totalAppliedToInvoice = roundMoney2(
+                  paymentAmount + roundingAdjustment,
+                );
                 const nextPaidAmount = Math.min(
                   totalAmount,
-                  roundMoney2(paidAmount + balance),
+                  roundMoney2(paidAmount + totalAppliedToInvoice),
                 );
                 const nextBalanceDue = Math.max(0, totalAmount - nextPaidAmount);
                 const nextStatus =
@@ -1722,7 +1746,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                   amount: totalAmount,
                   originalAmount: totalAmount,
                   amountDue: nextBalanceDue,
-                  amountPayment: balance,
+                  amountPayment: paymentAmount,
                   paidAmount: nextPaidAmount,
                   balanceDue: nextBalanceDue,
                   paymentStatus: nextStatus,
@@ -1744,7 +1768,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                   MovimientosFondosService.buildInvoicePaymentMovement({
                     company: normalizedCompany,
                     invoice: updatedMovement,
-                    paymentAmount: balance,
+                    paymentAmount: paymentAmount,
                     updateAt: nowISO,
                     manager2: manager2?.trim() || undefined,
                   });
@@ -1766,7 +1790,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                   }),
                 );
 
-                totalPaymentApplied += balance;
+                totalPaymentApplied += paymentAmount;
               });
 
               if (totalPaymentApplied > 0) {
