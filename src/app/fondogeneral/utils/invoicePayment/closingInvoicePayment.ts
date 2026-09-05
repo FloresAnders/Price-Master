@@ -16,11 +16,11 @@ import {
 } from "../../../../services/movimientos-fondos";
 import { type FondoEntry } from "../../types";
 import {
-  roundCreditNotePaymentAmount,
   roundMoney2,
   stripUndefinedDeep,
   type PendingCreditNoteOption,
 } from "../helpers";
+import { resolveFcrPaymentAmounts } from "../fondo/fcrPaymentAmounts";
 import { validateFondoGeneralOpeningRequirement } from "../fondo/openingRequirement";
 import { buildV2MovementsCacheKey } from "../v2movements";
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
@@ -123,6 +123,14 @@ export async function submitClosingInvoicePayment(
     ),
   );
   const enteredAmount = Math.max(0, roundMoney2(closingPaymentAmount));
+  if (enteredAmount > balance) {
+    showToast(
+      "El monto no puede superar el saldo pendiente de la factura.",
+      "error",
+      4000,
+    );
+    return;
+  }
   const selectedNoteIds = new Set(closingPaymentCreditNoteIds);
   let remainingForNotes = balance;
   const appliedCreditNotes = selectedProviderPendingCreditNotes.reduce<AppliedCreditNote[]>(
@@ -150,32 +158,19 @@ export async function submitClosingInvoicePayment(
     (sum, note) => sum + Math.max(0, roundMoney2(note.appliedAmount)),
     0,
   );
-  const maxCashPaymentBeforeAdjustment = Math.max(0, balance - creditNotesAmountToApply);
-  const maxCashPayment = roundCreditNotePaymentAmount(
-    maxCashPaymentBeforeAdjustment,
-    closingPaymentTarget.currency,
+  const resolvedAmounts = resolveFcrPaymentAmounts({
+    balance,
+    creditNotesTotal: creditNotesAmountToApply,
+    enteredAmount,
+    mode,
+    currency: closingPaymentTarget.currency,
     accountKey,
-  );
-  const paymentAmountToApply = mode === "full" ? maxCashPayment : enteredAmount;
-  const creditNoteAdjustmentAmount =
-    mode === "full"
-      ? Math.max(0, maxCashPaymentBeforeAdjustment - paymentAmountToApply)
-      : 0;
-  const totalAppliedToInvoice = roundMoney2(
-    paymentAmountToApply + creditNotesAmountToApply + creditNoteAdjustmentAmount,
-  );
+  });
+  const paymentAmountToApply = resolvedAmounts.cashDebit;
+  const totalAppliedToInvoice = resolvedAmounts.totalAppliedToInvoice;
 
   if (paymentAmountToApply <= 0) {
     showToast("Ingrese un monto valido para el pago.", "error", 4000);
-    return;
-  }
-
-  if (paymentAmountToApply > maxCashPayment) {
-    showToast(
-      "El monto no puede superar el saldo disponible despues de aplicar las notas de credito.",
-      "error",
-      4000,
-    );
     return;
   }
 

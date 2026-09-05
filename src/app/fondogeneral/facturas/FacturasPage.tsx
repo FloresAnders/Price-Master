@@ -51,7 +51,7 @@ import { getAuthoritativeNowISO } from "@/utils/serverTime";
 import { CIERRE_FONDO_VENTAS_MINUTES_AFTER_END } from "../constants";
 import { resolveFacturaPaymentType } from "./facturaPaymentType";
 import { validateFondoGeneralOpeningRequirement } from "../utils/fondo/openingRequirement";
-import { roundCreditNotePaymentAmount } from "../utils/helpers";
+import { resolveFcrPaymentAmounts } from "../utils/fondo/fcrPaymentAmounts";
 
 import type { Empresas } from "../../../types/firestore";
 
@@ -1504,26 +1504,21 @@ export default function FacturasCreditoPage() {
         );
         return;
       }
-      // Misma regla de redondeo que el pago desde Fondo General: si se paga el
-      // saldo completo (o el modo explícito "full"), el fondo se debita por el
-      // monto redondeado a la unidad de mil y la diferencia queda como redondeo
-      // (el monto pendiente de la factura se absorbe y se marca como pagada).
-      const maxCashPayment = roundCreditNotePaymentAmount(
+      // Misma regla de redondeo que el pago desde Fondo General: el fondo se
+      // debita por el monto redondeado hacia abajo a la unidad de mil y la
+      // diferencia queda absorbida como redondeo (reduce el saldo pendiente).
+      // Un abono de ₡5,766 sobre un saldo de ₡15,766 debita ₡5,000 y deja el
+      // saldo en ₡10,000; un pago completo de ₡15,766 debita ₡15,000 y salda.
+      const resolvedAmounts = resolveFcrPaymentAmounts({
         balance,
-        paymentTarget.currency,
-        paymentTarget.accountId,
-      );
-      const isFullSettlement =
-        mode === "full" || enteredAmount >= balance;
-      const paymentAmountToApply = isFullSettlement
-        ? maxCashPayment
-        : enteredAmount;
-      const roundingAdjustment = isFullSettlement
-        ? Math.max(0, balance - paymentAmountToApply)
-        : 0;
-      const totalAppliedToInvoice = roundMoney2(
-        paymentAmountToApply + roundingAdjustment,
-      );
+        creditNotesTotal: 0,
+        enteredAmount,
+        mode,
+        currency: paymentTarget.currency,
+        accountKey: paymentTarget.accountId,
+      });
+      const paymentAmountToApply = resolvedAmounts.cashDebit;
+      const totalAppliedToInvoice = resolvedAmounts.totalAppliedToInvoice;
 
       if (mode === "full" && enteredAmount !== balance) {
         showToast(
@@ -1536,15 +1531,6 @@ export default function FacturasCreditoPage() {
 
       if (paymentAmountToApply <= 0) {
         showToast("Ingrese un monto válido para el pago.", "error", 4000);
-        return;
-      }
-
-      if (paymentAmountToApply > maxCashPayment) {
-        showToast(
-          "El monto no puede superar el saldo disponible después del redondeo.",
-          "error",
-          4000,
-        );
         return;
       }
 
@@ -4021,33 +4007,33 @@ export default function FacturasCreditoPage() {
                 </div>
 
                 {(() => {
-                  const maxCash = roundCreditNotePaymentAmount(
-                    selectedPaymentBalance,
-                    paymentTarget.currency,
-                    paymentTarget.accountId,
-                  );
-                  const rounding = Math.max(
-                    0,
-                    selectedPaymentBalance - maxCash,
-                  );
                   const entered = Math.max(0, roundMoney2(paymentAmount));
                   const payingFull = entered >= selectedPaymentBalance;
-                  if (rounding <= 0 || !payingFull) return null;
+                  if (!payingFull || selectedPaymentBalance <= 0) return null;
+                  const resolved = resolveFcrPaymentAmounts({
+                    balance: selectedPaymentBalance,
+                    creditNotesTotal: 0,
+                    enteredAmount: entered,
+                    mode: "full",
+                    currency: paymentTarget.currency,
+                    accountKey: paymentTarget.accountId,
+                  });
+                  if (resolved.roundingAbsorbed <= 0) return null;
                   return (
                     <div className="flex items-start gap-2 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
                       <RotateCcw className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                       <span>
                         Se aplicará redondeo de{" "}
                         <span className="font-semibold">
-                          - {maxCash.toLocaleString("es-CR")}{" "}
+                          {resolved.roundingAbsorbed.toLocaleString("es-CR")}{" "}
                           {paymentTarget.currency}
                         </span>{" "}
                         (la factura queda saldada y el fondo se debita por{" "}
                         <span className="font-semibold">
-                          {rounding.toLocaleString("es-CR")}{" "}
+                          {resolved.cashDebit.toLocaleString("es-CR")}{" "}
                           {paymentTarget.currency}
-                        </span>{" "}
-                        menos).
+                        </span>
+                        ).
                       </span>
                     </div>
                   );

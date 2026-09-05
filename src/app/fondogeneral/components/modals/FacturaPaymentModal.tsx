@@ -10,6 +10,7 @@ import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import type { FacturaMovement } from "../../../../services/facturas";
+import { resolveFcrPaymentAmounts } from "../../utils/fondo/fcrPaymentAmounts";
 
 type PendingCreditNoteOption = {
   id: string;
@@ -46,17 +47,6 @@ type FacturaPaymentModalProps = {
   onToggleCreditNote?: (id: string) => void;
   creditNotesAppliedTotal?: number;
   allowPartialPayment?: boolean;
-};
-
-const roundCreditNotePaymentAmount = (
-  amount: number,
-  currency: "CRC" | "USD",
-  accountKey?: string,
-): number => {
-  const normalized = Math.max(0, Math.round((Number(amount) || 0) * 100) / 100);
-  if (currency !== "CRC") return normalized;
-  if (accountKey && accountKey !== "FondoGeneral") return normalized;
-  return Math.floor(normalized / 1000) * 1000;
 };
 
 export default function FacturaPaymentModal({
@@ -177,33 +167,43 @@ export default function FacturaPaymentModal({
   const creditNotesOverLimit =
     selectedPaymentBalance > 0 &&
     selectedCreditNotesRequestedTotal > selectedPaymentBalance;
-  const maxCashPaymentBeforeAdjustment = Math.max(
-    0,
-    normalizeTargetAmount(selectedPaymentBalance) -
-      normalizeTargetAmount(creditNotesAppliedTotal),
-  );
-  const maxCashPayment =
-    target
-      ? roundCreditNotePaymentAmount(
-          maxCashPaymentBeforeAdjustment,
+  // El monto digitado se aplica completo a la factura; el efectivo se debita
+  // redondeado hacia abajo a la unidad de mil y la diferencia queda absorbida
+  // como redondeo al guardar (no al digitar el monto). Ej.: abono ₡5,766 sobre
+  // saldo ₡15,766 → se debitan ₡5,000, se absorben ₡766 y el saldo queda en ₡10,000.
+  const resolvedAmounts = target
+    ? resolveFcrPaymentAmounts({
+        balance: normalizeTargetAmount(selectedPaymentBalance),
+        creditNotesTotal: normalizeTargetAmount(creditNotesAppliedTotal),
+        enteredAmount: enteredPaymentAmount,
+        mode: allowPartialPayment ? "partial" : "full",
+        currency: target.currency,
+        accountKey: target.accountId,
+      })
+    : null;
+  const adjustmentApplied = resolvedAmounts?.roundingAbsorbed ?? 0;
+  const finalAmountPayment =
+    resolvedAmounts?.totalAppliedToInvoice ??
+    Math.max(
+      0,
+      Math.min(
+        enteredPaymentAmount,
+        normalizeTargetAmount(selectedPaymentBalance) -
+          normalizeTargetAmount(creditNotesAppliedTotal),
+      ) + normalizeTargetAmount(creditNotesAppliedTotal),
+    );
+  const paymentDisplayValue = !target
+    ? paymentAmount
+    : !allowPartialPayment
+      ? formatCurrencyAmount(
+          resolvedAmounts?.totalAppliedToInvoice ??
+            Math.max(
+              0,
+              normalizeTargetAmount(selectedPaymentBalance),
+            ),
           target.currency,
-          target.accountId,
         )
-      : maxCashPaymentBeforeAdjustment;
-  const adjustmentApplied = Math.max(
-    0,
-    maxCashPaymentBeforeAdjustment - maxCashPayment,
-  );
-  const finalAmountPayment = allowPartialPayment
-    ? Math.min(enteredPaymentAmount, maxCashPayment)
-    : maxCashPayment;
-  const paymentDisplayValue = React.useMemo(() => {
-    if (!target) return paymentAmount;
-    if (!allowPartialPayment) {
-      return formatCurrencyAmount(maxCashPayment, target.currency);
-    }
-    return formatPaymentInput(paymentAmount, target.currency);
-  }, [paymentAmount, target, formatPaymentInput, allowPartialPayment, maxCashPayment, formatCurrencyAmount]);
+      : formatPaymentInput(paymentAmount, target.currency);
 
   return (
     <><Drawer
@@ -529,7 +529,7 @@ export default function FacturaPaymentModal({
                   )}
                   {adjustmentApplied > 0 && (
                     <div className="flex items-center justify-between">
-                      <span className="text-cyan-100/70">Monto pendiente</span>
+                      <span className="text-cyan-100/70">Redondeo aplicado</span>
                       <span className="font-semibold text-amber-200">
                         - {formatCurrencyAmount(adjustmentApplied, target.currency)}
                       </span>
