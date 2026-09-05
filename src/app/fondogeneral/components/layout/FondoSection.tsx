@@ -6396,6 +6396,21 @@ export function FondoSection({
                                                     )}
                                                   </span>
                                                 </div>
+                                                {isPaidFcrEntry &&
+                                                  owedFcrAmount !== null && (
+                                                  <div className="flex w-full items-center gap-0 rounded border border-emerald-500/15 bg-emerald-500/10 px-2 py-1">
+                                                    <span className="flex items-center justify-center gap-1 text-xs text-emerald-200">
+                                                      <Banknote className="h-3 w-3 shrink-0" />
+                                                      Saldo restante
+                                                    </span>
+                                                    <span className="w-full pl-4 text-center text-sm font-semibold text-emerald-100 whitespace-nowrap">
+                                                      {formatByCurrency(
+                                                        entryCurrency,
+                                                        owedFcrAmount,
+                                                      )}
+                                                    </span>
+                                                  </div>
+                                                )}
                                                 {appliedCreditNotesTotal >
                                                   0 && (
                                                   <button
