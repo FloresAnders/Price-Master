@@ -75,6 +75,20 @@ const splitDisplaySorteoLines = (value: string): string[] => {
     .filter(Boolean);
 };
 
+const formatUpdateWait = (minutes: number | null) => {
+  if (minutes === null) return "Actualizar no está disponible en este momento.";
+  if (minutes < 1) return "Actualizar estará disponible en menos de 1 min.";
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  const parts = [
+    hours > 0 ? `${hours} h` : "",
+    remainingMinutes > 0 ? `${remainingMinutes} min` : "",
+  ].filter(Boolean);
+
+  return `Actualizar estará disponible en ${parts.join(" ")}.`;
+};
+
 export function GenteCrystalTiemposPanel({
   companyId,
   userRole,
@@ -132,6 +146,9 @@ export function GenteCrystalTiemposPanel({
     now: windowCheckNow,
   });
   const updateBlocked = !updateAccess.allowed;
+  const updateWaitLabel = formatUpdateWait(
+    updateAccess.minutesUntilNextWindow,
+  );
 
   const handleRefresh = async () => {
     const currentAccess = getTiemposTucanUpdateAccess({
@@ -231,15 +248,32 @@ export function GenteCrystalTiemposPanel({
             showFullTicket={showFullTicket}
             onToggle={() => setShowFullTicket((current) => !current)}
           />
-          <button
-            type="button"
-            onClick={() => void handleRefresh()}
-            disabled={loading || updateBlocked}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-cyan-600/45 bg-cyan-950/20 px-4 text-sm font-semibold text-[var(--foreground)] transition hover:border-cyan-400/70 hover:bg-cyan-950/35 disabled:cursor-not-allowed disabled:opacity-55"
+          <span
+            className={`relative inline-flex ${updateBlocked ? "group" : ""}`}
+            tabIndex={updateBlocked ? 0 : undefined}
+            aria-describedby={updateBlocked ? "tiempos-update-wait" : undefined}
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Actualizar
-          </button>
+            <button
+              type="button"
+              onClick={() => void handleRefresh()}
+              disabled={loading || updateBlocked}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-cyan-600/45 bg-cyan-950/20 px-4 text-sm font-semibold text-[var(--foreground)] transition hover:border-cyan-400/70 hover:bg-cyan-950/35 disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+              />
+              Actualizar
+            </button>
+            {updateBlocked && (
+              <span
+                id="tiempos-update-wait"
+                role="tooltip"
+                className="pointer-events-none absolute bottom-full right-0 z-50 mb-2 w-max max-w-72 rounded-md border border-amber-500/35 bg-[var(--card-bg)] px-3 py-2 text-xs font-medium text-amber-200 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus:opacity-100"
+              >
+                {updateWaitLabel}
+              </span>
+            )}
+          </span>
         </div>
       </div>
 

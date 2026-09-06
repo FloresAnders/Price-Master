@@ -1,4 +1,4 @@
-import { isWithinCierreRange } from "./turnoRango";
+import { isWithinCierreRange, TURNO_END_MINUTES } from "./turnoRango";
 
 type TiemposTucanRole = "admin" | "user" | "superadmin" | string | undefined;
 
@@ -15,6 +15,7 @@ type TiemposTucanUpdateAccessArgs = {
 export type TiemposTucanUpdateAccess = {
   allowed: boolean;
   turno: "D" | "N" | null;
+  minutesUntilNextWindow: number | null;
 };
 
 const readWindowMinutes = (value: number | null | undefined, fallback: number) =>
@@ -72,6 +73,20 @@ const isWithinConfiguredWindow = (
   return relative >= -minutesBeforeEnd && relative <= minutesAfterEnd;
 };
 
+const getMinutesUntilNextWindow = (
+  nowMin: number,
+  referenceMinutes: number[],
+  minutesBeforeEnd: number,
+) => {
+  if (referenceMinutes.length === 0) return null;
+
+  return Math.min(
+    ...referenceMinutes.map((referenceMin) =>
+      normalizeMinute(referenceMin - minutesBeforeEnd - nowMin),
+    ),
+  );
+};
+
 export function getTiemposTucanUpdateAccess({
   role,
   horarioCierre,
@@ -81,11 +96,11 @@ export function getTiemposTucanUpdateAccess({
   now = new Date(),
 }: TiemposTucanUpdateAccessArgs): TiemposTucanUpdateAccess {
   if (role === "admin" || role === "superadmin") {
-    return { allowed: true, turno: null };
+    return { allowed: true, turno: null, minutesUntilNextWindow: null };
   }
 
   if (role !== "user") {
-    return { allowed: false, turno: null };
+    return { allowed: false, turno: null, minutesUntilNextWindow: null };
   }
 
   const before = readWindowMinutes(minutesBeforeEnd, 15);
@@ -103,23 +118,42 @@ export function getTiemposTucanUpdateAccess({
       dayEndMin !== null &&
       isWithinConfiguredWindow(nowMin, dayEndMin, before, after)
     ) {
-      return { allowed: true, turno: "D" };
+      return { allowed: true, turno: "D", minutesUntilNextWindow: null };
     }
 
     if (isWithinConfiguredWindow(nowMin, closeMin, before, after)) {
-      return { allowed: true, turno: "N" };
+      return { allowed: true, turno: "N", minutesUntilNextWindow: null };
     }
 
-    return { allowed: false, turno: null };
+    return {
+      allowed: false,
+      turno: null,
+      minutesUntilNextWindow: getMinutesUntilNextWindow(
+        nowMin,
+        dayEndMin === null ? [closeMin] : [dayEndMin, closeMin],
+        before,
+      ),
+    };
   }
 
   if (isWithinCierreRange("D", before, after, now)) {
-    return { allowed: true, turno: "D" };
+    return { allowed: true, turno: "D", minutesUntilNextWindow: null };
   }
 
   if (isWithinCierreRange("N", before, after, now)) {
-    return { allowed: true, turno: "N" };
+    return { allowed: true, turno: "N", minutesUntilNextWindow: null };
   }
 
-  return { allowed: false, turno: null };
+  return {
+    allowed: false,
+    turno: null,
+    minutesUntilNextWindow:
+      nowMin === null
+        ? null
+        : getMinutesUntilNextWindow(
+            nowMin,
+            [TURNO_END_MINUTES.D, TURNO_END_MINUTES.N],
+            before,
+          ),
+  };
 }
