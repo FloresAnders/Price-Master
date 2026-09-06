@@ -2,6 +2,15 @@ import { useState, useMemo, useRef, useCallback } from "react";
 import type { FondoEntry } from "../../types";
 import { FONDO_INGRESO_TYPES, FONDO_EGRESO_TYPES } from "../../constants";
 import { isPaidFcrMovement } from "../../utils/helpers";
+import type { ManualCreditNoteDraft } from "../../utils/fondo/manualCreditNoteDrafts";
+
+export interface ExtraInvoice {
+  invoiceNumber: string;
+  amount: string;
+  observation: string;
+  creditNotes: ManualCreditNoteDraft[];
+  roundUpToThousand?: boolean;
+}
 
 interface Props {
   mode: "all" | "ingreso" | "egreso";
@@ -11,6 +20,7 @@ interface Props {
 export function useMovementForm({ mode, fondoEntries }: Props) {
   const [selectedProvider, setSelectedProvider] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [extraInvoices, setExtraInvoices] = useState<ExtraInvoice[]>([]);
   const defaultPaymentType: FondoEntry["paymentType"] =
     mode === "ingreso"
       ? FONDO_INGRESO_TYPES[0]
@@ -32,6 +42,8 @@ export function useMovementForm({ mode, fondoEntries }: Props) {
   const [movementCurrency, setMovementCurrency] = useState<"CRC" | "USD">("CRC");
   const [invoiceDocType, setInvoiceDocType] = useState<"FCO" | "FCR">("FCO");
   const [roundUpInvoicePayment, setRoundUpInvoicePayment] = useState(false);
+  const [roundUpMainInvoicePayment, setRoundUpMainInvoicePayment] =
+    useState(true);
   const [providerError, setProviderError] = useState("");
   const [invoiceError, setInvoiceError] = useState("");
   const [amountError, setAmountError] = useState("");
@@ -127,6 +139,7 @@ export function useMovementForm({ mode, fondoEntries }: Props) {
   const resetFormFields = useCallback(() => {
     setSelectedProvider("");
     setInvoiceNumber("");
+    setExtraInvoices([]);
     setInvoiceDocType("FCO");
     setEgreso("");
     setIngreso("");
@@ -135,6 +148,7 @@ export function useMovementForm({ mode, fondoEntries }: Props) {
     setNotes("");
     setPaymentType(defaultPaymentType);
     setRoundUpInvoicePayment(false);
+    setRoundUpMainInvoicePayment(true);
     setEditingEntryId(null);
     setProviderError("");
     setInvoiceError("");
@@ -151,6 +165,8 @@ export function useMovementForm({ mode, fondoEntries }: Props) {
     setSelectedProvider,
     invoiceNumber,
     setInvoiceNumber,
+    extraInvoices,
+    setExtraInvoices,
     paymentType,
     setPaymentType,
     egreso,
@@ -179,6 +195,8 @@ export function useMovementForm({ mode, fondoEntries }: Props) {
     setInvoiceDocType,
     roundUpInvoicePayment,
     setRoundUpInvoicePayment,
+    roundUpMainInvoicePayment,
+    setRoundUpMainInvoicePayment,
     providerError,
     setProviderError,
     invoiceError,

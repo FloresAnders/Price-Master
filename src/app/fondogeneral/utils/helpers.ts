@@ -413,6 +413,17 @@ export const roundCreditNotePaymentAmount = (
     : Math.floor(normalized / 1000) * 1000;
 };
 
+export const isCreditNotePaymentRoundUpEligible = (
+  amount: number,
+  currency: MovementCurrencyKey,
+  accountKey?: string,
+): boolean => {
+  const normalized = Math.max(0, roundMoney2(amount));
+  if (currency !== "CRC") return false;
+  if (accountKey && accountKey !== "FondoGeneral") return false;
+  return normalized % 1000 > 500;
+};
+
 export const getChangedFields = (
   before: any,
   after: any,

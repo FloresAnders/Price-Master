@@ -56,6 +56,7 @@ import {
   isInventoryPurchasePaymentType,
   isInventoryPurchaseProviderType,
   isEgresoType,
+  isCreditNotePaymentRoundUpEligible,
   isPaidFcrMovement,
   normalizeInvoiceDocType,
   parseLastCreatedCooldown,
@@ -81,6 +82,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     editingEntryId,
     getTodayInvoiceMMDD,
     invoiceNumber,
+    extraInvoices = [],
     invoiceDocType,
     selectedProvider,
     setProviderError,
@@ -107,6 +109,8 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     egreso,
     ingreso,
     roundUpInvoicePayment = false,
+    roundUpMainInvoicePayment = true,
+    confirmedRoundUpSelections,
     notes,
     movementProviders,
     paymentType,
@@ -129,6 +133,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     persistCreatedMovement,
     setFondoEntries,
     setLedgerSnapshot,
+    setPendingCierreDeCaja,
     movementAutoCloseLocked,
     resetFondoForm,
     setMovementModalOpen,
@@ -153,6 +158,19 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     solicitarApertura = true,
     cierreFondoVentasTurnoSelection = "",
   } = deps;
+
+  const hasConfirmedRoundUpSelections =
+    Array.isArray(confirmedRoundUpSelections) &&
+    confirmedRoundUpSelections.length > 0;
+  const roundUpEnabledForSubmit =
+    hasConfirmedRoundUpSelections || roundUpInvoicePayment;
+  const mainRoundUpSelectedForSubmit = hasConfirmedRoundUpSelections
+    ? confirmedRoundUpSelections[0] === true
+    : roundUpMainInvoicePayment;
+  const extraRoundUpSelectedForSubmit = (extra: any, index: number) =>
+    hasConfirmedRoundUpSelections
+      ? confirmedRoundUpSelections[index + 1] === true
+      : extra.roundUpToThousand !== false;
 
   if (!company) return;
   if (isSaving || movementSubmitInProgressRef.current) return; // Prevenir múltiples envíos
@@ -484,6 +502,55 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     return;
   }
 
+  // Validar facturas adicionales (factura #2 en adelante) antes de persistir.
+  if (!editingEntryId && extraInvoices.length > 0) {
+    if (effectiveInvoiceDocType === "FCR") {
+      showToast(
+        "Las facturas adicionales solo están disponibles para movimientos de contado (FCO).",
+        "warning",
+        5000,
+      );
+      return;
+    }
+    for (let index = 0; index < extraInvoices.length; index += 1) {
+      const extra = extraInvoices[index];
+      const extraInvoiceNumber = String(extra.invoiceNumber || "").trim();
+      const extraAmount = Number.parseFloat(
+        String(extra.amount || "").replace(/\s/g, ""),
+      );
+      if (!/^[0-9]{1,4}$/.test(extraInvoiceNumber)) {
+        showToast(
+          `Ingresa un número de factura válido (1-4 dígitos) en la factura #${index + 2}.`,
+          "warning",
+          5000,
+        );
+        return;
+      }
+      if (!Number.isFinite(extraAmount) || extraAmount <= 0) {
+        showToast(
+          `Ingresa un monto válido en la factura #${index + 2}.`,
+          "warning",
+          5000,
+        );
+        return;
+      }
+      const extraCreditNotesTotal = (extra.creditNotes ?? []).reduce(
+        (sum: number, creditNote: any) =>
+          sum +
+          Math.max(0, roundMoney2(Number(creditNote?.amount) || 0)),
+        0,
+      );
+      if (extraCreditNotesTotal > extraAmount) {
+        showToast(
+          `Las notas de crédito de la factura #${index + 2} superan su monto.`,
+          "warning",
+          5000,
+        );
+        return;
+      }
+    }
+  }
+
   const buildAppliedCreditNotes = (
     invoiceAmount: number,
   ): { notes: AppliedCreditNote[]; total: number; amountPayment: number } => {
@@ -522,7 +589,13 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         Math.max(0, roundMoney2(invoiceAmount) - total),
         movementCurrency,
         accountKey,
-        roundUpInvoicePayment,
+        roundUpEnabledForSubmit &&
+          mainRoundUpSelectedForSubmit &&
+          isCreditNotePaymentRoundUpEligible(
+            Math.max(0, roundMoney2(invoiceAmount) - total),
+            movementCurrency,
+            accountKey,
+          ),
       ),
     };
   };
@@ -591,7 +664,13 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     Math.max(0, egresoValue - totalCreditNotesAppliedAmount),
     movementCurrency,
     accountKey,
-    roundUpInvoicePayment,
+    roundUpEnabledForSubmit &&
+      mainRoundUpSelectedForSubmit &&
+      isCreditNotePaymentRoundUpEligible(
+        Math.max(0, egresoValue - totalCreditNotesAppliedAmount),
+        movementCurrency,
+        accountKey,
+      ),
   );
   const selectedCreditInvoiceIdSet = new Set(selectedPendingCreditInvoiceIds);
   const selectedCreditInvoicesTotal = isEgreso
@@ -622,6 +701,39 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     isEgreso && effectiveInvoiceDocType === "FCO"
       ? roundedInvoicePaymentAmount + selectedCreditInvoicesRoundedTotal
       : egresoValue;
+  const extraInvoicesEgresoTotal =
+    isEgreso && effectiveInvoiceDocType !== "FCR"
+      ? extraInvoices.reduce((sum: number, extra: any, index: number) => {
+          const amount = Number.parseFloat(
+            String(extra.amount || "").replace(/\s/g, ""),
+          );
+          const roundedAmount = Number.isFinite(amount)
+            ? Math.max(0, roundMoney2(amount))
+            : 0;
+          const extraCreditNotesTotal = (extra.creditNotes ?? []).reduce(
+            (ncSum: number, creditNote: any) =>
+              ncSum +
+              Math.max(0, roundMoney2(Number(creditNote?.amount) || 0)),
+            0,
+          );
+          return (
+            sum +
+            roundCreditNotePaymentAmount(
+              Math.max(0, roundedAmount - extraCreditNotesTotal),
+              movementCurrency,
+              accountKey,
+              roundUpEnabledForSubmit &&
+                extraRoundUpSelectedForSubmit(extra, index) &&
+                isCreditNotePaymentRoundUpEligible(
+                  Math.max(0, roundedAmount - extraCreditNotesTotal),
+                  movementCurrency,
+                  accountKey,
+                ),
+            )
+          );
+        }, 0)
+      : 0;
+  const totalEgresoBalanceImpact = egresoBalanceImpact + extraInvoicesEgresoTotal;
 
   // Validar que no quede saldo negativo en la moneda del movimiento.
   // Nota: este límite de "saldo insuficiente" solo aplica para usuarios regulares.
@@ -652,15 +764,15 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         }
       }
     }
-    const resultingBalance = effectiveBalance - egresoBalanceImpact;
+    const resultingBalance = effectiveBalance - totalEgresoBalanceImpact;
     console.log(
-      `Validando saldo negativo: effectiveBalance=${effectiveBalance}, egresoValue=${egresoBalanceImpact}, resultingBalance=${resultingBalance}`,
+      `Validando saldo negativo: effectiveBalance=${effectiveBalance}, egresoValue=${totalEgresoBalanceImpact}, resultingBalance=${resultingBalance}`,
     );
 
     if (resultingBalance < 0) {
       setNegativeBalanceModal({
         open: true,
-        amount: egresoBalanceImpact,
+        amount: totalEgresoBalanceImpact,
         currency: movementCurrency,
         resultingNegativeAmount: resultingBalance,
       });
@@ -1404,7 +1516,13 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                 Math.max(0, egresoValue - totalAppliedCreditNotes),
                 movementCurrency,
                 accountKey,
-                  roundUpInvoicePayment,
+                roundUpEnabledForSubmit &&
+                  mainRoundUpSelectedForSubmit &&
+                  isCreditNotePaymentRoundUpEligible(
+                    Math.max(0, egresoValue - totalAppliedCreditNotes),
+                    movementCurrency,
+                    accountKey,
+                  ),
               )
             : undefined,
         appliedCreditNotes:
@@ -1920,6 +2038,218 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
           }
         } catch (err) {
           console.warn("[FG] Could not upsert Facturas copy:", err);
+        }
+
+        // Crear movimientos adicionales (factura #2 en adelante) como movimientos
+        // independientes con el mismo proveedor, encargado y moneda.
+        // (Las facturas adicionales ya se validaron como FCO antes de persistir.)
+        if (extraInvoices.length > 0) {
+          const silentToast: (
+            msg: string,
+            type?: "success" | "error" | "info" | "warning",
+            duration?: number,
+          ) => void = (message, type, duration) => {
+            if (type === "success") return;
+            showToast(message, type ?? "info", duration);
+          };
+          let runningEntries: FondoEntry[] = [entry, ...fondoEntries];
+          for (let index = 0; index < extraInvoices.length; index += 1) {
+            const extra = extraInvoices[index];
+            const extraInvoiceNumber = String(
+              extra.invoiceNumber || "",
+            ).trim();
+            const extraAmount = Math.max(
+              0,
+              roundMoney2(
+                Number.parseFloat(
+                  String(extra.amount || "").replace(/\s/g, ""),
+                ) || 0,
+              ),
+            );
+            const extraId = `${movementId}-x${index + 1}`;
+            const extraCreditNotes = Array.isArray(extra.creditNotes)
+              ? extra.creditNotes
+              : [];
+            let remainingForCreditNotes = extraAmount;
+            const extraAppliedCreditNotes: AppliedCreditNote[] =
+              extraCreditNotes.reduce((acc: AppliedCreditNote[], creditNote: any) => {
+                if (remainingForCreditNotes <= 0) return acc;
+                const creditNoteAmount = Math.max(
+                  0,
+                  roundMoney2(Number(creditNote?.amount) || 0),
+                );
+                const appliedAmount = Math.min(
+                  remainingForCreditNotes,
+                  creditNoteAmount,
+                );
+                if (appliedAmount <= 0) return acc;
+                remainingForCreditNotes -= appliedAmount;
+                acc.push({
+                  id: `manual-nc-${extraId}-${acc.length + 1}`,
+                  invoiceNumber: String(creditNote?.invoiceNumber || "").trim(),
+                  amount: creditNoteAmount,
+                  appliedAmount,
+                  currency: movementCurrency,
+                  observation:
+                    typeof creditNote?.observation === "string"
+                      ? creditNote.observation.trim() || undefined
+                      : undefined,
+                });
+                return acc;
+              }, []);
+            const extraCreditNotesTotal = extraAppliedCreditNotes.reduce(
+              (sum, creditNote) =>
+                sum + Math.max(0, roundMoney2(creditNote.appliedAmount)),
+              0,
+            );
+            const extraPaymentAmount = roundCreditNotePaymentAmount(
+              Math.max(0, extraAmount - extraCreditNotesTotal),
+              movementCurrency,
+              accountKey,
+              roundUpEnabledForSubmit &&
+                extraRoundUpSelectedForSubmit(extra, index) &&
+                isCreditNotePaymentRoundUpEligible(
+                  Math.max(0, extraAmount - extraCreditNotesTotal),
+                  movementCurrency,
+                  accountKey,
+                ),
+            );
+            const extraEntry: FondoEntry = {
+              id: extraId,
+              empresa: company,
+              accountId: accountKey,
+              providerCode: selectedProvider,
+              invoiceNumber: extraInvoiceNumber.padStart(4, "0"),
+              invoiceDocType: "FCO",
+              paymentType,
+              amountEgreso: isEgreso ? extraAmount : 0,
+              amountIngreso: isIngreso ? extraAmount : 0,
+              ...(isEgreso
+                ? { amountPayment: extraPaymentAmount }
+                : {}),
+              ...(extraAppliedCreditNotes.length > 0
+                ? { appliedCreditNotes: extraAppliedCreditNotes }
+                : {}),
+              manager: effectiveManager,
+              notes: String(extra.observation || "").trim(),
+              createdAt: iso,
+              currency: movementCurrency,
+            };
+            runningEntries = [extraEntry, ...runningEntries];
+            const extraCreated = await persistCreatedMovement(
+              extraEntry,
+              runningEntries,
+              {
+                persistMovementToFirestore,
+                showToast: silentToast,
+                providers,
+                accountKey,
+                company,
+                user,
+                resetFondoForm: () => {},
+                movementAutoCloseLocked,
+                isCajaNegra,
+                setFondoEntries,
+                setLedgerSnapshot,
+                setPendingCierreDeCaja,
+                setMovementModalOpen: () => {},
+                editingInProgressRef,
+                lastMovementDedupeRef,
+                lastMovementCreatedAtRef,
+              },
+            );
+            if (!extraCreated) break;
+            try {
+              if (normalizedCompany.length > 0) {
+                await ProvidersService.incrementMovementCount(
+                  normalizedCompany,
+                  selectedProvider,
+                );
+              }
+            } catch (err) {
+              console.warn(
+                "[FG] Could not increment provider movement count (extra):",
+                err,
+              );
+            }
+            if (shouldMirrorMovementToFacturas && normalizedCompany.length > 0) {
+              try {
+                const extraFacturaCopy: FacturaMovement = {
+                  id: extraId,
+                  empresa: normalizedCompany,
+                  accountId: accountKey,
+                  amount: extraAmount,
+                  providerCode: selectedProvider,
+                  invoiceNumber: extraEntry.invoiceNumber,
+                  invoiceDocType: "FCO",
+                  paymentType,
+                  amountEgreso: extraEntry.amountEgreso,
+                  amountIngreso: extraEntry.amountIngreso,
+                  amountPayment: extraEntry.amountPayment,
+                  appliedCreditNotes: extraEntry.appliedCreditNotes,
+                  manager: effectiveManager,
+                  notes: extraEntry.notes,
+                  createdAt: iso,
+                  currency: movementCurrency === "USD" ? "USD" : "CRC",
+                };
+                await FacturasService.upsertMovement(
+                  normalizedCompany,
+                  extraFacturaCopy,
+                );
+              } catch (err) {
+                console.warn(
+                  "[FG] Could not upsert extra Facturas copy:",
+                  err,
+                );
+              }
+            }
+            if (normalizedCompany.length > 0 && extraAppliedCreditNotes.length > 0) {
+              try {
+                if (shouldMirrorMovementToFacturas) {
+                  await Promise.all(
+                    extraAppliedCreditNotes.map((creditNote, ncIndex) => {
+                      const manualCreditNoteMovement: FacturaMovement = {
+                        id: `${extraId}-NC-${ncIndex + 1}`,
+                        empresa: normalizedCompany,
+                        accountId: accountKey,
+                        amount: creditNote.amount,
+                        amountEgreso: 0,
+                        amountIngreso: creditNote.amount,
+                        amountPayment: creditNote.appliedAmount,
+                        balanceDue: Math.max(
+                          0,
+                          creditNote.amount - creditNote.appliedAmount,
+                        ),
+                        createdAt: iso,
+                        currency: movementCurrency,
+                        invoiceNumber: creditNote.invoiceNumber,
+                        manager: effectiveManager,
+                        manager2: manager2 || undefined,
+                        notes: creditNote.observation ?? "",
+                        invoiceDocType: "NC",
+                        paymentType,
+                        providerCode: selectedProvider,
+                        paidAmount: creditNote.appliedAmount,
+                        paymentStatus:
+                          creditNote.appliedAmount >= creditNote.amount
+                            ? "PAGADA"
+                            : "PARCIAL",
+                      };
+                      return FacturasService.upsertMovement(
+                        normalizedCompany,
+                        manualCreditNoteMovement,
+                      );
+                    }),
+                  );
+                }
+              } catch (err) {
+                console.warn(
+                  "[FG] Could not upsert extra manual NC in Facturas:",
+                  err,
+                );
+              }
+            }
+          }
         }
       }
 

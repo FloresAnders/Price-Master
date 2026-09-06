@@ -145,6 +145,7 @@ import {
   isCierreFondoVentasMovement as isCierreFondoVentasMovementWithProvider,
   parseLastCreatedCooldown,
 
+  isCreditNotePaymentRoundUpEligible,
   roundCreditNotePaymentAmount,
   roundMoney2,
   buildBalanceAfterById,
@@ -247,6 +248,7 @@ type MovementDraftState = {
   invoiceDocType: "FCO" | "FCR";
   paymentType: FondoEntry["paymentType"];
   roundUpInvoicePayment: boolean;
+  roundUpMainInvoicePayment: boolean;
   egreso: string;
   ingreso: string;
   manager: string;
@@ -556,6 +558,8 @@ export function FondoSection({
   const [manualCreditNoteOpen, setManualCreditNoteOpen] = useState(false);
   const [manualCreditNoteTarget, setManualCreditNoteTarget] =
     useState<FondoEntry | null>(null);
+  const [manualCreditNoteExtraInvoiceIndex, setManualCreditNoteExtraInvoiceIndex] =
+    useState<number | null>(null);
   const [manualCreditNoteInvoiceNumber, setManualCreditNoteInvoiceNumber] =
     useState("");
   const [manualCreditNoteAmount, setManualCreditNoteAmount] = useState("");
@@ -749,6 +753,8 @@ export function FondoSection({
     setSelectedProvider,
     invoiceNumber,
     setInvoiceNumber,
+    extraInvoices,
+    setExtraInvoices,
     paymentType,
     setPaymentType,
     egreso,
@@ -805,6 +811,8 @@ export function FondoSection({
     isEditingPaidFcrMovement,
     roundUpInvoicePayment,
     setRoundUpInvoicePayment,
+    roundUpMainInvoicePayment,
+    setRoundUpMainInvoicePayment,
     handleEgresoChange,
     handleIngresoChange,
     handleNotesChange,
@@ -847,6 +855,7 @@ export function FondoSection({
       invoiceDocType,
       paymentType,
       roundUpInvoicePayment,
+      roundUpMainInvoicePayment,
       egreso,
       ingreso,
       manager,
@@ -863,6 +872,7 @@ export function FondoSection({
       invoiceDocType,
       paymentType,
       roundUpInvoicePayment,
+      roundUpMainInvoicePayment,
       egreso,
       ingreso,
       manager,
@@ -914,6 +924,9 @@ export function FondoSection({
         (draft.paymentType || "COMPRA INVENTARIO") as FondoEntry["paymentType"],
       );
       setRoundUpInvoicePayment(Boolean(draft.roundUpInvoicePayment));
+      setRoundUpMainInvoicePayment(
+        draft.roundUpMainInvoicePayment !== false,
+      );
       setEgreso(String(draft.egreso || ""));
       setIngreso(String(draft.ingreso || ""));
       setManager(String(draft.manager || ""));
@@ -951,6 +964,7 @@ export function FondoSection({
     setInvoiceDocType,
     setPaymentType,
     setRoundUpInvoicePayment,
+    setRoundUpMainInvoicePayment,
     setEgreso,
     setIngreso,
     setManager,
@@ -1833,6 +1847,7 @@ export function FondoSection({
   const resetFondoForm = useCallback(() => {
     setSelectedProvider("");
     setInvoiceNumber("");
+    setExtraInvoices([]);
     setInvoiceDocType("FCO");
     setEgreso("");
     setIngreso("");
@@ -1843,6 +1858,7 @@ export function FondoSection({
     setManualCreditNoteDrafts([]);
     setManualCreditNoteOpen(false);
     setManualCreditNoteTarget(null);
+    setManualCreditNoteExtraInvoiceIndex(null);
     setManualCreditNoteInvoiceNumber("");
     setManualCreditNoteAmount("");
     setManualCreditNoteObservation("");
@@ -2131,7 +2147,7 @@ export function FondoSection({
     resolveShiftManagerForNow,
   ]);
 
-  const handleSubmitFondo = async () => {
+  const handleSubmitFondo = async (confirmedRoundUpSelections?: boolean[]) => {
     createMovementValidationIdRef.current += 1;
     await handleSubmitFondoFn({
       company,
@@ -2142,6 +2158,7 @@ export function FondoSection({
       editingEntryId,
       getTodayInvoiceMMDD,
       invoiceNumber,
+      extraInvoices,
       invoiceDocType,
       selectedProvider,
       setProviderError,
@@ -2171,6 +2188,8 @@ export function FondoSection({
       movementProviders,
       paymentType,
       roundUpInvoicePayment,
+      roundUpMainInvoicePayment,
+      confirmedRoundUpSelections,
       setAmountError,
       showToast,
       selectedAppliedCreditNoteIds,
@@ -2244,6 +2263,7 @@ export function FondoSection({
 
     // Allow editing of entries even if previously edited; we accumulate audit history.
     setEditingEntryId(entry.id);
+    setExtraInvoices([]);
     setSelectedProvider(entry.providerCode);
     // Determine the correct payment type: use provider's type if exists, else entry's type
     const correctPaymentType =
@@ -2447,7 +2467,7 @@ export function FondoSection({
     closeMovementModal();
   };
 
-  const openManualCreditNoteModal = async () => {
+  const openManualCreditNoteModal = async (extraInvoiceIndex?: number) => {
     let nowISO: string;
     try {
       nowISO = await getAuthoritativeNowISO();
@@ -2460,26 +2480,48 @@ export function FondoSection({
       );
       return;
     }
+    const isExtraTarget =
+      typeof extraInvoiceIndex === "number" &&
+      extraInvoiceIndex >= 0 &&
+      extraInvoiceIndex < extraInvoices.length;
+    const extraTarget = isExtraTarget
+      ? extraInvoices[extraInvoiceIndex as number]
+      : undefined;
     const currentMovementAmount = Math.max(
       0,
-      Math.round((Number(isEgreso ? egreso : ingreso) || 0) * 100) / 100,
+      Math.round(
+        (Number(
+          extraTarget
+            ? extraTarget.amount
+            : isEgreso
+              ? egreso
+              : ingreso,
+        ) || 0) * 100,
+      ) / 100,
     );
     setManualCreditNoteTarget({
       id: "manual-credit-note-draft",
       providerCode: selectedProvider,
-      invoiceNumber,
+      invoiceNumber: extraTarget
+        ? String(extraTarget.invoiceNumber || "").trim()
+        : invoiceNumber,
       paymentType,
       amountEgreso: isEgreso ? currentMovementAmount : 0,
       amountIngreso: isEgreso ? 0 : currentMovementAmount,
       manager,
       manager2: manager2 || undefined,
-      notes,
+      notes: extraTarget
+        ? String(extraTarget.observation || "").trim()
+        : notes,
       createdAt: nowISO,
       currency: movementCurrency,
       accountId: accountKey,
       empresa: company,
       invoiceDocType: invoiceDocType === "FCR" ? "FCR" : "FCO",
     });
+    setManualCreditNoteExtraInvoiceIndex(
+      isExtraTarget ? (extraInvoiceIndex as number) : null,
+    );
     setManualCreditNoteInvoiceNumber(
       "",
     );
@@ -2493,6 +2535,7 @@ export function FondoSection({
     if (manualCreditNoteSaving) return;
     setManualCreditNoteOpen(false);
     setManualCreditNoteTarget(null);
+    setManualCreditNoteExtraInvoiceIndex(null);
     setManualCreditNoteInvoiceNumber("");
     setManualCreditNoteAmount("");
     setManualCreditNoteObservation("");
@@ -2511,10 +2554,31 @@ export function FondoSection({
       manualCreditNoteDrafts,
       setManualCreditNoteDrafts,
       setSelectedAppliedCreditNoteIds,
+      manualCreditNoteExtraInvoiceIndex,
+      extraInvoices,
+      setExtraInvoices,
       showToast,
       closeManualCreditNoteModal,
     });
   };
+
+  const removeExtraInvoiceCreditNote = useCallback(
+    (index: number, noteId: string) => {
+      setExtraInvoices((prev) =>
+        prev.map((invoice, i) =>
+          i === index
+            ? {
+                ...invoice,
+                creditNotes: (invoice.creditNotes ?? []).filter(
+                  (note) => note.id !== noteId,
+                ),
+              }
+            : invoice,
+        ),
+      );
+    },
+    [setExtraInvoices],
+  );
 
   // Check if current user is the principal admin (owner) of the company
   const isPrincipalAdmin = useMemo(() => {
@@ -2890,12 +2954,22 @@ export function FondoSection({
     return total;
   }, [egreso, selectedAppliedCreditNotes]);
 
+  const mainPaymentBeforeRound = Math.max(
+    0,
+    roundMoney2(egreso) - creditNotesAppliedTotal,
+  );
   const computedAmountPayment = isEgreso
     ? roundCreditNotePaymentAmount(
-        Math.max(0, roundMoney2(egreso) - creditNotesAppliedTotal),
+        mainPaymentBeforeRound,
         movementCurrency,
         accountKey,
-        roundUpInvoicePayment,
+        roundUpInvoicePayment &&
+          roundUpMainInvoicePayment &&
+          isCreditNotePaymentRoundUpEligible(
+            mainPaymentBeforeRound,
+            movementCurrency,
+            accountKey,
+          ),
       )
     : undefined;
 
@@ -3597,6 +3671,7 @@ export function FondoSection({
       (String(value || "").trim().toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME ||
         prov?.name?.toUpperCase() === CIERRE_FONDO_VENTAS_PROVIDER_NAME);
     setCierreFondoVentasTurnoSelection("");
+    setExtraInvoices([]);
 
     if (isCierreFondoVentasValue && canBypassClosingWindows) {
       setClosingTimeRequest(null);
@@ -4615,6 +4690,49 @@ export function FondoSection({
   };
 
   const validateBeforeMovementSubmitConfirm = useCallback(async () => {
+    // Validar facturas adicionales (factura #2 en adelante) antes de abrir la confirmación.
+    if (!editingEntryId && extraInvoices.length > 0 && invoiceDocType !== "FCR") {
+      for (let index = 0; index < extraInvoices.length; index += 1) {
+        const extra = extraInvoices[index];
+        const invoiceNumberValid = /^[0-9]{1,4}$/.test(
+          String(extra.invoiceNumber || "").trim(),
+        );
+        const amountValue = Number.parseFloat(
+          String(extra.amount || "").replace(/\s/g, ""),
+        );
+        const amountValid = Number.isFinite(amountValue) && amountValue > 0;
+        if (!invoiceNumberValid) {
+          showToast(
+            `Ingresa un número de factura válido (1-4 dígitos) en la factura #${index + 2}.`,
+            "warning",
+            5000,
+          );
+          return false;
+        }
+        if (!amountValid) {
+          showToast(
+            `Ingresa un monto válido en la factura #${index + 2}.`,
+            "warning",
+            5000,
+          );
+          return false;
+        }
+        const extraCreditNotesTotal = (extra.creditNotes ?? []).reduce(
+          (sum, creditNote) =>
+            sum + Math.max(0, Math.round((Number(creditNote.amount) || 0) * 100) / 100),
+          0,
+        );
+        if (extraCreditNotesTotal > amountValue) {
+          showToast(
+            `Las notas de crédito de la factura #${index + 2} superan su monto.`,
+            "warning",
+            5000,
+          );
+          return false;
+        }
+      }
+    }
+
     const selectedProviderData = movementProviders.find(
       (provider) => provider.code === selectedProvider,
     );
@@ -4808,6 +4926,8 @@ export function FondoSection({
     resolveEffectiveClosingMinutesAfterEnd,
     showToast,
     isCierreFondoVentasMovement,
+    extraInvoices,
+    invoiceDocType,
   ]);
 
   const handleAdminCompanyChange = useCallback(
@@ -5242,6 +5362,8 @@ export function FondoSection({
         selectedProviderExists={selectedProviderExists}
         invoiceNumber={invoiceNumber}
         onInvoiceNumberChange={handleInvoiceNumberChange}
+        extraInvoices={extraInvoices}
+        onExtraInvoicesChange={setExtraInvoices}
         invoiceDocType={invoiceDocType}
         onInvoiceDocTypeChange={setInvoiceDocType}
         allowCreditInvoiceOption={Boolean(
@@ -5342,7 +5464,12 @@ export function FondoSection({
         amountPayment={computedAmountPayment}
         roundUpToThousand={roundUpInvoicePayment}
         onRoundUpToThousandChange={setRoundUpInvoicePayment}
-        onAddManualCreditNote={openManualCreditNoteModal}
+        roundUpMainInvoicePayment={roundUpMainInvoicePayment}
+        onRoundUpMainInvoicePaymentChange={setRoundUpMainInvoicePayment}
+        onAddManualCreditNote={(extraInvoiceIndex) => {
+          void openManualCreditNoteModal(extraInvoiceIndex);
+        }}
+        onRemoveExtraInvoiceCreditNote={removeExtraInvoiceCreditNote}
         balanceCRC={currentBalanceCRC}
         balanceUSD={currentBalanceUSD}
         isCompraInventarioProvider={isCompraInventarioProvider}

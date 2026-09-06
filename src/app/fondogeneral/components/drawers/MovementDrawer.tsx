@@ -14,6 +14,10 @@ import AgregarMovimiento from "../AgregarMovimiento";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import { useFloatingActionsSuppression } from "@/components/ui/FloatingActionsDock";
 import type { FondoEntry } from "../../types";
+import {
+  isCreditNotePaymentRoundUpEligible,
+  roundCreditNotePaymentAmount,
+} from "../../utils/helpers";
 
 type MovementDrawerProps = ComponentProps<typeof AgregarMovimiento> & {
   open: boolean;
@@ -43,6 +47,8 @@ export function MovementDrawer({
     selectedProvider,
     providers,
     invoiceNumber,
+    extraInvoices = [],
+    notes = "",
     isEgreso,
     egreso,
     ingreso,
@@ -72,14 +78,90 @@ export function MovementDrawer({
     0,
     Math.abs(confirmPaymentBeforeRound - confirmPaymentAmount),
   );
-  const showConfirmRebate = confirmRebateAmount > 0;
-  const showConfirmRounding = confirmRoundingAmount > 0;
   const confirmRoundingPrefix = confirmPaymentAmount >= confirmPaymentBeforeRound ? "+ " : "- ";
+  const [confirmInvoiceIndex, setConfirmInvoiceIndex] = useState(0);
+  const invoicesToConfirm = useMemo(() => {
+    const list: Array<{
+      invoiceNumber: string;
+      amount: number;
+      rebateAmount: number;
+      roundingAmount: number;
+      roundingPrefix: string;
+      observation: string;
+      isMain: boolean;
+      roundUpToThousand: boolean;
+    }> = [
+      {
+        invoiceNumber: invoiceNumber || "—",
+        amount: confirmPaymentAmount,
+        rebateAmount: confirmRebateAmount,
+        roundingAmount: confirmRoundingAmount,
+        roundingPrefix: confirmRoundingPrefix,
+        observation: notes,
+        isMain: true,
+        roundUpToThousand:
+          confirmPaymentAmount > confirmPaymentBeforeRound,
+      },
+      ...extraInvoices.map((extra) => {
+        const extraAmount = Math.max(0, Number(extra.amount) || 0);
+        const extraRebate = Math.min(
+          extraAmount,
+          (extra.creditNotes ?? []).reduce(
+            (sum, creditNote) =>
+              sum + Math.max(0, Number(creditNote.amount) || 0),
+            0,
+          ),
+        );
+        const amountBeforeRound = Math.max(0, extraAmount - extraRebate);
+        const paymentAmount = isEgreso
+          ? roundCreditNotePaymentAmount(
+              amountBeforeRound,
+              currency ?? "CRC",
+              agregarMovimientoProps.accountKey,
+              Boolean(agregarMovimientoProps.roundUpToThousand) &&
+                extra.roundUpToThousand !== false &&
+                isCreditNotePaymentRoundUpEligible(
+                  amountBeforeRound,
+                  currency ?? "CRC",
+                  agregarMovimientoProps.accountKey,
+                ),
+            )
+          : amountBeforeRound;
+        return {
+          invoiceNumber: String(extra.invoiceNumber || "").trim() || "—",
+          amount: paymentAmount,
+          rebateAmount: extraRebate,
+          roundingAmount: Math.abs(amountBeforeRound - paymentAmount),
+          roundingPrefix: paymentAmount > amountBeforeRound ? "+ " : "- ",
+          observation: String(extra.observation || ""),
+          isMain: false,
+          roundUpToThousand: paymentAmount > amountBeforeRound,
+        };
+      }),
+    ];
+    return list;
+  }, [
+    invoiceNumber,
+    confirmPaymentAmount,
+    confirmPaymentBeforeRound,
+    confirmRebateAmount,
+    confirmRoundingAmount,
+    confirmRoundingPrefix,
+    notes,
+    extraInvoices,
+    isEgreso,
+    currency,
+    agregarMovimientoProps.accountKey,
+    agregarMovimientoProps.roundUpToThousand,
+  ]);
+  const activeInvoice =
+    invoicesToConfirm[confirmInvoiceIndex] ?? invoicesToConfirm[0];
   const openConfirmIfAllowed = async () => {
     if (confirmSaveLockedRef.current || isSaving) return;
     if ((agregarMovimientoProps.movementCooldownRemainingMs ?? 0) > 0) return;
     const allowed = await beforeConfirmSubmit?.();
     if (allowed === false) return;
+    setConfirmInvoiceIndex(0);
     setShowConfirmModal(true);
   };
   const handleSaveClick = () => {
@@ -89,7 +171,10 @@ export function MovementDrawer({
     if (confirmSaveLockedRef.current || isSaving) return;
     confirmSaveLockedRef.current = true;
     setConfirmSaveLocked(true);
-    Promise.resolve(onSubmit?.()).finally(() => {
+    const confirmedRoundUpSelections = invoicesToConfirm.map(
+      (invoice) => invoice.roundUpToThousand,
+    );
+    Promise.resolve(onSubmit?.(confirmedRoundUpSelections)).finally(() => {
       confirmSaveLockedRef.current = false;
       setConfirmSaveLocked(false);
       setShowConfirmModal(false);
@@ -198,30 +283,104 @@ export function MovementDrawer({
           title="Confirmar guardado"
           message={
             <>
-              ¿Estás seguro de que deseas guardar este movimiento?
-              <div className="mt-3 space-y-1 rounded-md border border-[var(--input-border)] bg-[var(--card-bg)] p-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-[var(--muted-foreground)]">Proveedor:</span>
-                  <span className="font-medium text-[var(--foreground)]">{providerName}</span>
+              {invoicesToConfirm.length > 1 ? (
+                <span>
+                  Se guardarán {invoicesToConfirm.length} facturas. Revisa cada
+                  una antes de confirmar.
+                </span>
+              ) : (
+                <span>¿Estás seguro de que deseas guardar este movimiento?</span>
+              )}
+              <div className="mt-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                    Factura {confirmInvoiceIndex + 1} de{" "}
+                    {invoicesToConfirm.length}
+                  </span>
+                  {invoicesToConfirm.length > 1 && (
+                    <span className="text-xs text-[var(--muted-foreground)]">
+                      {activeInvoice.isMain ? "Principal" : "Adicional"}
+                    </span>
+                  )}
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-[var(--muted-foreground)]">N° Factura:</span>
-                  <span className="font-medium text-[var(--foreground)]">{invoiceNumber || "—"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[var(--muted-foreground)]">Monto real a pagar:</span>
-                  <span className="font-medium text-[var(--foreground)]">{formatCurrencyValue(confirmPaymentAmount)}</span>
-                </div>
-                {showConfirmRebate && (
+                <div className="space-y-1 rounded-md border border-[var(--input-border)] bg-[var(--card-bg)] p-3 text-sm">
+                  {activeInvoice.isMain && (
+                    <div className="flex justify-between">
+                      <span className="text-[var(--muted-foreground)]">Proveedor:</span>
+                      <span className="font-medium text-[var(--foreground)]">{providerName}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
-                    <span className="text-[var(--muted-foreground)]">Rebajo:</span>
-                    <span className="font-medium text-amber-200">- {formatCurrencyValue(confirmRebateAmount)}</span>
+                    <span className="text-[var(--muted-foreground)]">N° Factura:</span>
+                    <span className="font-medium text-[var(--foreground)]">
+                      {activeInvoice.invoiceNumber}
+                    </span>
                   </div>
-                )}
-                {showConfirmRounding && (
                   <div className="flex justify-between">
-                    <span className="text-[var(--muted-foreground)]">Desde caja:</span>
-                    <span className="font-medium text-amber-200">{confirmRoundingPrefix}{formatCurrencyValue(confirmRoundingAmount)}</span>
+                    <span className="text-[var(--muted-foreground)]">
+                      {activeInvoice.isMain ? "Monto real a pagar:" : "Monto:"}
+                    </span>
+                    <span className="font-medium text-[var(--foreground)]">
+                      {formatCurrencyValue(activeInvoice.amount)}
+                    </span>
+                  </div>
+                  {activeInvoice.rebateAmount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-[var(--muted-foreground)]">Rebajo:</span>
+                      <span className="font-medium text-amber-200">- {formatCurrencyValue(activeInvoice.rebateAmount)}</span>
+                    </div>
+                  )}
+                  {activeInvoice.roundingAmount > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-[var(--muted-foreground)]">Desde caja:</span>
+                      <span className="font-medium text-amber-200">
+                        {activeInvoice.roundingPrefix}
+                        {formatCurrencyValue(activeInvoice.roundingAmount)}
+                      </span>
+                    </div>
+                  )}
+                  {String(activeInvoice.observation || "").trim() && (
+                    <div className="flex justify-between gap-3">
+                      <span className="shrink-0 text-[var(--muted-foreground)]">Observación:</span>
+                      <span className="text-right font-medium text-[var(--foreground)]">
+                        {activeInvoice.observation}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                {invoicesToConfirm.length > 1 && (
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      type="button"
+                      disabled={
+                        confirmInvoiceIndex === 0 ||
+                        confirmSaveLocked ||
+                        isSaving
+                      }
+                      onClick={() =>
+                        setConfirmInvoiceIndex((prev) => Math.max(0, prev - 1))
+                      }
+                      className="rounded border border-[var(--input-border)] px-3 py-1.5 text-xs font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--input-border)]/10 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      ← Anterior
+                    </button>
+                    <button
+                      type="button"
+                      disabled={
+                        confirmInvoiceIndex ===
+                          invoicesToConfirm.length - 1 ||
+                        confirmSaveLocked ||
+                        isSaving
+                      }
+                      onClick={() =>
+                        setConfirmInvoiceIndex((prev) =>
+                          Math.min(invoicesToConfirm.length - 1, prev + 1),
+                        )
+                      }
+                      className="rounded border border-[var(--input-border)] px-3 py-1.5 text-xs font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--input-border)]/10 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Siguiente →
+                    </button>
                   </div>
                 )}
               </div>

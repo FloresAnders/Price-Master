@@ -3,6 +3,8 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   AlertTriangle,
+  ChevronDown,
+  ChevronUp,
   Clock,
   FileText,
   Loader2,
@@ -15,6 +17,7 @@ import {
   XCircle,
 } from "lucide-react";
 import type { FondoMovementType } from "../types";
+import type { ExtraInvoice } from "../hooks/movements/useMovementForm";
 import {
   CIERRE_FONDO_VENTAS_PROVIDER_NAME,
   SINGLE_CLOSING_REASON_MIN_LENGTH,
@@ -27,6 +30,10 @@ import {
   isGastoType,
   isIngresoType,
 } from "../utils/movementTypes/movementTypes";
+import {
+  isCreditNotePaymentRoundUpEligible,
+  roundCreditNotePaymentAmount,
+} from "../utils/helpers";
 
 type ProviderOption = {
   code: string;
@@ -64,6 +71,8 @@ type AgregarMovimientoProps = {
   selectedProviderExists: boolean;
   invoiceNumber: string;
   onInvoiceNumberChange: (value: string) => void;
+  extraInvoices?: ExtraInvoice[];
+  onExtraInvoicesChange?: (invoices: ExtraInvoice[]) => void;
   invoiceDocType: "FCO" | "FCR";
   onInvoiceDocTypeChange: (value: "FCO" | "FCR") => void;
   allowCreditInvoiceOption?: boolean;
@@ -92,7 +101,7 @@ type AgregarMovimientoProps = {
   employeesLoading: boolean;
   editingEntryId: string | null;
   onCancelEditing: () => void;
-  onSubmit: () => void;
+  onSubmit: (confirmedRoundUpSelections?: boolean[]) => void | Promise<void>;
   isSubmitDisabled: boolean;
   isSaving?: boolean;
   movementCooldownRemainingMs?: number;
@@ -120,7 +129,10 @@ type AgregarMovimientoProps = {
   amountPayment?: number;
   roundUpToThousand?: boolean;
   onRoundUpToThousandChange?: (value: boolean) => void;
-  onAddManualCreditNote?: () => void;
+  roundUpMainInvoicePayment?: boolean;
+  onRoundUpMainInvoicePaymentChange?: (value: boolean) => void;
+  onAddManualCreditNote?: (extraInvoiceIndex?: number) => void;
+  onRemoveExtraInvoiceCreditNote?: (index: number, noteId: string) => void;
   // En el type AgregarMovimientoProps agrega:
   balanceCRC?: number;
   balanceUSD?: number;
@@ -146,6 +158,8 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   selectedProviderExists,
   invoiceNumber,
   onInvoiceNumberChange,
+  extraInvoices = [],
+  onExtraInvoicesChange,
   invoiceDocType,
   onInvoiceDocTypeChange,
   allowCreditInvoiceOption = false,
@@ -195,7 +209,10 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   amountPayment,
   roundUpToThousand = false,
   onRoundUpToThousandChange,
+  roundUpMainInvoicePayment = true,
+  onRoundUpMainInvoicePaymentChange,
   onAddManualCreditNote,
+  onRemoveExtraInvoiceCreditNote,
   manager2 = "",
   onManager2Change,
   showManager2 = false,
@@ -274,7 +291,69 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isManagerDropdownOpen, setIsManagerDropdownOpen] = useState(false);
   const [isManager2DropdownOpen, setIsManager2DropdownOpen] = useState(false);
+  const [showIndividualObservations, setShowIndividualObservations] =
+    useState(false);
   const montoRef = useRef<HTMLInputElement>(null);
+  const individualObservationsExpanded =
+    showIndividualObservations && extraInvoices.length > 0;
+
+  const canAddExtraInvoice =
+    !editingEntryId &&
+    invoiceDocType !== "FCR" &&
+    !invoiceDisabled &&
+    extraInvoices.length < 4;
+
+  const addExtraInvoice = () => {
+    if (!canAddExtraInvoice || !onExtraInvoicesChange) return;
+    onExtraInvoicesChange([
+      ...extraInvoices,
+      {
+        invoiceNumber: "",
+        amount: "",
+        observation: individualObservationsExpanded ? "" : notes,
+        creditNotes: [],
+        roundUpToThousand: true,
+      },
+    ]);
+  };
+
+  const updateExtraInvoice = (index: number, patch: Partial<ExtraInvoice>) => {
+    if (!onExtraInvoicesChange) return;
+    onExtraInvoicesChange(
+      extraInvoices.map((invoice, i) =>
+        i === index ? { ...invoice, ...patch } : invoice,
+      ),
+    );
+  };
+
+  const removeExtraInvoice = (index: number) => {
+    if (!onExtraInvoicesChange) return;
+    onExtraInvoicesChange(extraInvoices.filter((_, i) => i !== index));
+  };
+
+  const handleMainNotesChange = (value: string) => {
+    onNotesChange(value);
+    if (!individualObservationsExpanded && onExtraInvoicesChange) {
+      onExtraInvoicesChange(
+        extraInvoices.map((invoice) => ({ ...invoice, observation: value })),
+      );
+    }
+  };
+
+  const toggleIndividualObservations = () => {
+    if (individualObservationsExpanded && onExtraInvoicesChange) {
+      onExtraInvoicesChange(
+        extraInvoices.map((invoice) => ({ ...invoice, observation: notes })),
+      );
+    }
+    setShowIndividualObservations((prev) => !prev);
+  };
+
+  const canAddCreditNoteToInvoice =
+    isEgreso &&
+    invoiceDocType === "FCO" &&
+    !editingEntryId &&
+    Boolean(onAddManualCreditNote);
 
   useEffect(() => {
     if (selectedProvider) {
@@ -387,14 +466,34 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     0,
     baseAmount - appliedCreditNotesTotal,
   );
+  const extraInvoiceAmountsAfterCreditNotes = extraInvoices.map((extra) => {
+    const amount = Math.max(0, normalizeAccountAmount(extra.amount));
+    const requestedCreditNotes = (extra.creditNotes ?? []).reduce(
+      (sum, creditNote) =>
+        sum + Math.max(0, normalizeAccountAmount(creditNote.amount)),
+      0,
+    );
+    return Math.max(0, amount - Math.min(amount, requestedCreditNotes));
+  });
+  const mainRoundUpEligible = isCreditNotePaymentRoundUpEligible(
+    totalAfterCreditNotes,
+    currency,
+    accountKey,
+  );
+  const extraInvoiceRoundUpEligibility =
+    extraInvoiceAmountsAfterCreditNotes.map((amount) =>
+      isCreditNotePaymentRoundUpEligible(amount, currency, accountKey),
+    );
   const roundUpCheckboxVisible =
     isEgreso &&
     invoiceDocType === "FCO" &&
-    currency === "CRC" &&
-    (!accountKey || accountKey === "FondoGeneral") &&
-    totalAfterCreditNotes % 1000 > 500;
+    (mainRoundUpEligible || extraInvoiceRoundUpEligibility.some(Boolean));
   const effectiveRoundUpToThousand =
     roundUpToThousand && roundUpCheckboxVisible;
+  const mainShouldRoundUp =
+    effectiveRoundUpToThousand &&
+    mainRoundUpEligible &&
+    roundUpMainInvoicePayment;
 
   useEffect(() => {
     if (roundUpCheckboxVisible || !roundUpToThousand || !onRoundUpToThousandChange) {
@@ -408,19 +507,75 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   ]);
 
   const totalToSave =
-    isEgreso &&
-    invoiceDocType === "FCO" &&
-    currency === "CRC" &&
-    (!accountKey || accountKey === "FondoGeneral")
-      ? effectiveRoundUpToThousand
-        ? Math.ceil(totalAfterCreditNotes / 1000) * 1000
-        : Math.floor(totalAfterCreditNotes / 1000) * 1000
+    isEgreso && invoiceDocType === "FCO"
+      ? roundCreditNotePaymentAmount(
+          totalAfterCreditNotes,
+          currency,
+          accountKey,
+          mainShouldRoundUp,
+        )
       : totalAfterCreditNotes;
   const adjustmentApplied = Math.abs(totalAfterCreditNotes - totalToSave);
-  const adjustmentLabel = effectiveRoundUpToThousand
+  const adjustmentLabel = mainShouldRoundUp
     ? "Redondeo hacia arriba"
     : "Redondeo Aplicado";
-  const adjustmentPrefix = effectiveRoundUpToThousand ? "+ " : "- ";
+  const adjustmentPrefix = mainShouldRoundUp ? "+ " : "- ";
+
+  // Desglose por factura adicional: monto, NC, redondeo y pago desde caja.
+  const extraInvoiceBreakdown = extraInvoices.map((extra, index) => {
+    const amount = Math.max(0, normalizeAccountAmount(extra.amount));
+    const requestedCreditNotes = (extra.creditNotes ?? []).reduce(
+      (sum, creditNote) =>
+        sum + Math.max(0, normalizeAccountAmount(creditNote.amount)),
+      0,
+    );
+    const appliedCreditNotes = Math.min(amount, requestedCreditNotes);
+    const amountAfterCreditNotes = Math.max(0, amount - appliedCreditNotes);
+    const roundUpEligible = extraInvoiceRoundUpEligibility[index] ?? false;
+    const shouldRoundUp =
+      effectiveRoundUpToThousand &&
+      roundUpEligible &&
+      extra.roundUpToThousand !== false;
+    const payment =
+      isEgreso && invoiceDocType === "FCO"
+        ? roundCreditNotePaymentAmount(
+            amountAfterCreditNotes,
+            currency,
+            accountKey,
+            shouldRoundUp,
+          )
+        : amountAfterCreditNotes;
+    return {
+      amount,
+      appliedCreditNotes,
+      payment,
+      roundUpEligible,
+      shouldRoundUp,
+      adjustment: Math.abs(amountAfterCreditNotes - payment),
+      adjustmentPrefix: payment > amountAfterCreditNotes ? "+ " : "- ",
+      adjustmentLabel: shouldRoundUp
+        ? "Redondeo hacia arriba"
+        : "Redondeo Aplicado",
+    };
+  });
+  const totalExtraPayments = extraInvoiceBreakdown.reduce(
+    (sum, breakdown) => sum + breakdown.payment,
+    0,
+  );
+  const totalToSaveAllInvoices = totalToSave + totalExtraPayments;
+
+  const handleGeneralRoundUpChange = (checked: boolean) => {
+    if (checked) {
+      onRoundUpMainInvoicePaymentChange?.(true);
+      onExtraInvoicesChange?.(
+        extraInvoices.map((invoice) => ({
+          ...invoice,
+          roundUpToThousand: true,
+        })),
+      );
+    }
+    onRoundUpToThousandChange?.(checked);
+  };
 
   const movementCooldownMs = Math.max(0, Number(movementCooldownRemainingMs) || 0);
   const cooldownActive = !editingEntryId && movementCooldownMs > 0;
@@ -431,6 +586,64 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   );
   const cooldownRingRadius = 9;
   const cooldownRingCircumference = 2 * Math.PI * cooldownRingRadius;
+
+  const mainNotesInput = notes.startsWith(SINGLE_CLOSING_REASON_PREFIX) ? (
+    <div
+      className={`
+    ${fieldBase}
+    h-auto min-h-[72px] p-0 overflow-hidden
+    flex flex-col
+    sm:min-h-[44px] sm:flex-row sm:items-stretch
+  `}
+    >
+      <div
+        className="
+      flex min-h-[36px] w-full items-center justify-center
+      bg-cyan-800/30 px-3 py-2
+      text-center text-[10px] font-semibold uppercase leading-tight
+      tracking-wide text-cyan-100/80 select-none
+      sm:min-h-0 sm:w-[45%] sm:border-r sm:border-cyan-800/40
+    "
+      >
+        {SINGLE_CLOSING_REASON_PREFIX}
+      </div>
+
+      <div
+        className="
+      flex w-full min-w-0 items-center
+      border-t border-cyan-800/40
+      sm:border-t-0 sm:w-[55%]
+    "
+      >
+        <input
+          placeholder="Motivo"
+          value={notes.slice(SINGLE_CLOSING_REASON_PREFIX.length)}
+          onChange={(event) =>
+            handleMainNotesChange(
+              SINGLE_CLOSING_REASON_PREFIX + event.target.value,
+            )
+          }
+          onKeyDown={onFieldKeyDown}
+          className="
+        w-full min-w-0 bg-transparent px-3 py-2.5
+        text-sm text-[var(--foreground)] outline-none
+        placeholder:text-cyan-100/50
+      "
+          minLength={SINGLE_CLOSING_REASON_MIN_LENGTH}
+          maxLength={200 - SINGLE_CLOSING_REASON_PREFIX.length}
+        />
+      </div>
+    </div>
+  ) : (
+    <input
+      placeholder="Observacion"
+      value={notes}
+      onChange={(event) => handleMainNotesChange(event.target.value)}
+      onKeyDown={onFieldKeyDown}
+      className={fieldBase}
+      maxLength={200}
+    />
+  );
 
   return (
     <div className="space-y-4">
@@ -715,16 +928,65 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
               <FileText className="h-3.5 w-3.5" />
               Numero factura
             </label>
-            <input
-              placeholder="0000"
-              value={invoiceNumber}
-              onChange={(event) => onInvoiceNumberChange(event.target.value)}
-              onKeyDown={onFieldKeyDown}
-              className={`${fieldBase} ${
-                invoiceError ? "border-red-500" : invoiceBorderClass
-              } ${invoiceDisabled ? "cursor-not-allowed opacity-60" : ""}`}
-              disabled={invoiceDisabled}
-            />
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="w-[78px] shrink-0 text-[10px] font-semibold uppercase tracking-wide text-cyan-100/60">
+                  Factura #1
+                </span>
+                <input
+                  placeholder="0000"
+                  value={invoiceNumber}
+                  onChange={(event) =>
+                    onInvoiceNumberChange(event.target.value)
+                  }
+                  onKeyDown={onFieldKeyDown}
+                  className={`${fieldBase} ${
+                    invoiceError ? "border-red-500" : invoiceBorderClass
+                  } ${invoiceDisabled ? "cursor-not-allowed opacity-60" : ""}`}
+                  disabled={invoiceDisabled}
+                />
+                {canAddExtraInvoice && (
+                  <button
+                    type="button"
+                    aria-label="Agregar factura"
+                    title="Agregar factura"
+                    onClick={addExtraInvoice}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-cyan-500/40 bg-cyan-500/10 text-cyan-100 transition-all duration-150 hover:bg-cyan-500/20 active:scale-[0.97]"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              {extraInvoices.map((extraInvoice, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <span className="w-[78px] shrink-0 text-[10px] font-semibold uppercase tracking-wide text-cyan-100/60">
+                    Factura #{index + 2}
+                  </span>
+                  <input
+                    placeholder="0000"
+                    value={extraInvoice.invoiceNumber}
+                    onChange={(event) =>
+                      updateExtraInvoice(index, {
+                        invoiceNumber: event.target.value
+                          .replace(/\D/g, "")
+                          .slice(0, 4),
+                      })
+                    }
+                    onKeyDown={onFieldKeyDown}
+                    className={fieldBase}
+                  />
+                  <button
+                    type="button"
+                    aria-label={`Quitar factura #${index + 2}`}
+                    title="Quitar factura"
+                    onClick={() => removeExtraInvoice(index)}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-red-500/30 text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-300"
+                  >
+                    <XCircle className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
             {invoiceError && (
               <p className="mt-1 text-xs text-red-400">{invoiceError}</p>
             )}
@@ -795,51 +1057,132 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
             );
           })}
         </div>
-        <input
-          ref={montoRef}
-          placeholder="0"
-          value={formatInputDisplay(isEgreso ? egreso : ingreso)}
-          onChange={(event) => {
-            const amount = sanitizeAmountInput(event.target.value);
-            if (isEgreso) onEgresoChange(amount);
-            else onIngresoChange(amount);
-          }}
-          onKeyDown={onFieldKeyDown}
-          className={`${fieldBase} text-lg font-semibold ${
-            amountError
-              ? "border-red-500"
-              : isEgreso
-                ? egresoBorderClass
-                : ingresoBorderClass
-          } ${currencyEnabled[currency] ? "" : "cursor-not-allowed opacity-50"}`}
-          inputMode="decimal"
-          disabled={!currencyEnabled[currency]}
-        />
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="w-[78px] shrink-0 text-[10px] font-semibold uppercase tracking-wide text-cyan-100/60">
+              Factura #1
+            </span>
+            <input
+              ref={montoRef}
+              placeholder="0"
+              value={formatInputDisplay(isEgreso ? egreso : ingreso)}
+              onChange={(event) => {
+                const amount = sanitizeAmountInput(event.target.value);
+                if (isEgreso) onEgresoChange(amount);
+                else onIngresoChange(amount);
+              }}
+              onKeyDown={onFieldKeyDown}
+              className={`${fieldBase} text-lg font-semibold ${
+                amountError
+                  ? "border-red-500"
+                  : isEgreso
+                    ? egresoBorderClass
+                    : ingresoBorderClass
+              } ${currencyEnabled[currency] ? "" : "cursor-not-allowed opacity-50"}`}
+              inputMode="decimal"
+              disabled={!currencyEnabled[currency]}
+            />
+            {canAddCreditNoteToInvoice && (
+              <button
+                type="button"
+                aria-label="Agregar nota de crédito a la factura #1"
+                title={
+                  !isCompraInventarioProvider
+                    ? "Solo proveedores de tipo Compra Inventario pueden usar notas de crédito"
+                    : "Agregar Nota de Crédito"
+                }
+                onClick={() => onAddManualCreditNote?.()}
+                disabled={!isCompraInventarioProvider}
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded border transition-all duration-150 ${
+                  !isCompraInventarioProvider
+                    ? "cursor-not-allowed border-gray-600/40 bg-gray-700/20 text-gray-500"
+                    : "border-sky-500/40 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 active:scale-[0.97]"
+                }`}
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          {extraInvoices.map((extraInvoice, index) => (
+            <div key={index}>
+              <div className="flex items-center gap-2">
+                <span className="w-[78px] shrink-0 text-[10px] font-semibold uppercase tracking-wide text-cyan-100/60">
+                  Factura #{index + 2}
+                </span>
+                <input
+                  placeholder="0"
+                  value={formatInputDisplay(extraInvoice.amount)}
+                  onChange={(event) =>
+                    updateExtraInvoice(index, {
+                      amount: sanitizeAmountInput(event.target.value),
+                    })
+                  }
+                  onKeyDown={onFieldKeyDown}
+                  className={`${fieldBase} text-lg font-semibold`}
+                  inputMode="decimal"
+                />
+                {canAddCreditNoteToInvoice && (
+                  <button
+                    type="button"
+                    aria-label={`Agregar nota de crédito a la factura #${index + 2}`}
+                    title={
+                      !isCompraInventarioProvider
+                        ? "Solo proveedores de tipo Compra Inventario pueden usar notas de crédito"
+                        : "Agregar Nota de Crédito"
+                    }
+                    onClick={() => onAddManualCreditNote?.(index)}
+                    disabled={!isCompraInventarioProvider}
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded border transition-all duration-150 ${
+                      !isCompraInventarioProvider
+                        ? "cursor-not-allowed border-gray-600/40 bg-gray-700/20 text-gray-500"
+                        : "border-sky-500/40 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 active:scale-[0.97]"
+                    }`}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  aria-label={`Quitar factura #${index + 2}`}
+                  title="Quitar factura"
+                  onClick={() => removeExtraInvoice(index)}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-red-500/30 text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-300"
+                >
+                  <XCircle className="h-4 w-4" />
+                </button>
+              </div>
+              {(extraInvoice.creditNotes ?? []).length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5 pl-[86px]">
+                  {(extraInvoice.creditNotes ?? []).map((creditNote) => (
+                    <span
+                      key={creditNote.id}
+                      className="inline-flex items-center gap-1.5 rounded border border-sky-500/30 bg-sky-500/10 px-2 py-1 text-[11px] font-medium text-sky-200"
+                    >
+                      <span>NC #{creditNote.invoiceNumber}</span>
+                      <span className="font-semibold">
+                        {formatCurrencyAmount(creditNote.amount)}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={`Quitar nota de crédito ${creditNote.invoiceNumber} de la factura #${index + 2}`}
+                        title="Quitar nota de crédito"
+                        onClick={() =>
+                          onRemoveExtraInvoiceCreditNote?.(index, creditNote.id)
+                        }
+                        className="text-sky-200/60 transition-colors hover:text-red-300"
+                      >
+                        <XCircle className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
         {amountError && (
           <p className="mt-1 text-xs text-red-400">{amountError}</p>
         )}
-        {isEgreso &&
-          !editingEntryId &&
-          onAddManualCreditNote && (
-            <button
-              type="button"
-              onClick={onAddManualCreditNote}
-              disabled={!isCompraInventarioProvider}
-              title={
-                !isCompraInventarioProvider
-                  ? "Solo proveedores de tipo Compra Inventario pueden usar notas de crédito"
-                  : undefined
-              }
-              className={`mt-3 inline-flex items-center gap-2 rounded border px-3 py-2 text-xs font-semibold transition-all duration-150 ${
-                !isCompraInventarioProvider
-                  ? "cursor-not-allowed border-gray-600/40 bg-gray-700/20 text-gray-500"
-                  : "border-sky-500/40 bg-sky-500/10 text-sky-300 hover:-translate-y-0.5 hover:border-sky-400 hover:bg-sky-500/20"
-              }`}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Agregar Nota de Crédito
-            </button>
-          )}
         {isEgreso && pendingCreditNotes.length > 0 && !editingEntryId && (
           <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
             <div className="mb-2 flex items-center justify-between gap-2">
@@ -939,66 +1282,58 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
         <div className="grid gap-4">
           {/* Observacion */}
           <div className="">
-            <label className={labelClass}>
-              <MessageSquare className="h-3.5 w-3.5" />
-              Observacion
-            </label>
-            {notes.startsWith(SINGLE_CLOSING_REASON_PREFIX) ? (
-              <div
-                className={`
-    ${fieldBase}
-    h-auto min-h-[72px] p-0 overflow-hidden
-    flex flex-col
-    sm:min-h-[44px] sm:flex-row sm:items-stretch
-  `}
-              >
-                <div
-                  className="
-      flex min-h-[36px] w-full items-center justify-center
-      bg-cyan-800/30 px-3 py-2
-      text-center text-[10px] font-semibold uppercase leading-tight
-      tracking-wide text-cyan-100/80 select-none
-      sm:min-h-0 sm:w-[45%] sm:border-r sm:border-cyan-800/40
-    "
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <label className={labelClass}>
+                <MessageSquare className="h-3.5 w-3.5" />
+                Observacion
+              </label>
+              {extraInvoices.length > 0 && !editingEntryId && (
+                <button
+                  type="button"
+                  onClick={toggleIndividualObservations}
+                  className="inline-flex items-center gap-1 rounded border border-cyan-700/35 bg-cyan-950/25 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-cyan-100/80 transition-colors hover:border-cyan-500/45 hover:bg-cyan-900/25"
                 >
-                  {SINGLE_CLOSING_REASON_PREFIX}
+                  {individualObservationsExpanded ? (
+                    <ChevronUp className="h-3 w-3" />
+                  ) : (
+                    <ChevronDown className="h-3 w-3" />
+                  )}
+                  {individualObservationsExpanded
+                    ? "Ocultar individuales"
+                    : "Observaciones individuales"}
+                </button>
+              )}
+            </div>
+            {individualObservationsExpanded ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-[78px] shrink-0 text-[10px] font-semibold uppercase tracking-wide text-cyan-100/60">
+                    Factura #1
+                  </span>
+                  <div className="min-w-0 flex-1">{mainNotesInput}</div>
                 </div>
-
-                <div
-                  className="
-      flex w-full min-w-0 items-center
-      border-t border-cyan-800/40
-      sm:border-t-0 sm:w-[55%]
-    "
-                >
-                  <input
-                    placeholder="Motivo"
-                    value={notes.slice(SINGLE_CLOSING_REASON_PREFIX.length)}
-                    onChange={(event) =>
-                      onNotesChange(
-                        SINGLE_CLOSING_REASON_PREFIX + event.target.value,
-                      )
-                    }
-                    onKeyDown={onFieldKeyDown}
-                    className="
-        w-full min-w-0 bg-transparent px-3 py-2.5
-        text-sm text-[var(--foreground)] outline-none
-        placeholder:text-cyan-100/50
-      "
-                    minLength={SINGLE_CLOSING_REASON_MIN_LENGTH}
-                    maxLength={200 - SINGLE_CLOSING_REASON_PREFIX.length}
-                  />
-                </div>
+                {extraInvoices.map((extraInvoice, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <span className="w-[78px] shrink-0 text-[10px] font-semibold uppercase tracking-wide text-cyan-100/60">
+                      Factura #{index + 2}
+                    </span>
+                    <input
+                      placeholder="Observacion"
+                      value={extraInvoice.observation}
+                      onChange={(event) =>
+                        updateExtraInvoice(index, {
+                          observation: event.target.value,
+                        })
+                      }
+                      onKeyDown={onFieldKeyDown}
+                      className={fieldBase}
+                      maxLength={200}
+                    />
+                  </div>
+                ))}
               </div>
             ) : (
-              <input
-                placeholder="Observacion"
-                value={notes}
-                onChange={(event) => onNotesChange(event.target.value)}
-                onKeyDown={onFieldKeyDown}
-                className={fieldBase}
-                maxLength={200}
-              />
+              mainNotesInput
             )}
           </div>
 
@@ -1149,35 +1484,192 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
       </section>
 
       <section className={sectionClass}>
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-cyan-100/70">
-            Totales
-          </div>
-          <div className="text-[11px] text-cyan-100/50">Resumen de factura</div>
+        <div className="text-xs font-semibold uppercase tracking-wide text-cyan-100/70">
+          Totales
         </div>
-        <div className="mt-2 grid gap-2 text-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-cyan-100/70">Total factura</span>
-            <span className="font-semibold text-[var(--foreground)]">
+
+        <div role="table" className="mt-2 grid gap-2 text-xs">
+          <div
+            role="row"
+            className={`grid items-center gap-3 ${
+              effectiveRoundUpToThousand
+                ? "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_5.5rem]"
+                : "grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+            }`}
+          >
+            <span role="columnheader" className="text-cyan-100/50">
+              Facturas
+            </span>
+            <span
+              role="columnheader"
+              className="text-right text-cyan-100/50"
+            >
+              {extraInvoices.length > 0
+                ? "Resumen de facturas"
+                : "Resumen de factura"}
+            </span>
+            {effectiveRoundUpToThousand && (
+              <span
+                role="columnheader"
+                aria-label="Redondear hacia arriba"
+                className="text-center text-cyan-100/50"
+              >
+                Redondeo
+              </span>
+            )}
+          </div>
+
+          <div
+            role="row"
+            className={`grid items-center gap-3 ${
+              effectiveRoundUpToThousand
+                ? "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_5.5rem]"
+                : "grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+            }`}
+          >
+            <span role="cell" className="text-cyan-100/70">
+              Factura #1
+            </span>
+            <span
+              role="cell"
+              className="text-right font-semibold text-[var(--foreground)]"
+            >
               {formatCurrencyAmount(baseAmount)}
             </span>
+            {effectiveRoundUpToThousand && (
+              <span role="cell" className="flex justify-center">
+                {mainRoundUpEligible ? (
+                  <input
+                    type="checkbox"
+                    aria-label="Redondear hacia arriba factura #1"
+                    checked={mainShouldRoundUp}
+                    onChange={(event) =>
+                      onRoundUpMainInvoicePaymentChange?.(
+                        event.target.checked,
+                      )
+                    }
+                    className="h-4 w-4 accent-cyan-400"
+                  />
+                ) : (
+                  <span className="text-cyan-100/30">—</span>
+                )}
+              </span>
+            )}
           </div>
           {appliedCreditNotesTotal > 0 && (
-            <div className="flex items-center justify-between">
-              <span className="text-cyan-100/70">NC aplicadas</span>
-              <span className="font-semibold text-amber-200">
+            <div
+              role="row"
+              className={`grid items-center gap-3 ${
+                effectiveRoundUpToThousand
+                  ? "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_5.5rem]"
+                  : "grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+              }`}
+            >
+              <span role="cell" className="pl-4 text-cyan-100/70">
+                NC aplicadas
+              </span>
+              <span role="cell" className="text-right font-semibold text-amber-200">
                 - {formatCurrencyAmount(appliedCreditNotesTotal)}
               </span>
+              {effectiveRoundUpToThousand && <div role="cell" />}
             </div>
           )}
           {adjustmentApplied > 0 && (
-            <div className="flex items-center justify-between">
-              <span className="text-cyan-100/70">{adjustmentLabel}</span>
-              <span className="font-semibold text-amber-200">
+            <div
+              role="row"
+              className={`grid items-center gap-3 ${
+                effectiveRoundUpToThousand
+                  ? "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_5.5rem]"
+                  : "grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+              }`}
+            >
+              <span role="cell" className="pl-4 text-cyan-100/70">
+                {adjustmentLabel}
+              </span>
+              <span role="cell" className="text-right font-semibold text-amber-200">
                 {adjustmentPrefix}{formatCurrencyAmount(adjustmentApplied)}
               </span>
+              {effectiveRoundUpToThousand && <div role="cell" />}
             </div>
           )}
+          {extraInvoiceBreakdown.map((breakdown, index) => (
+            <React.Fragment key={index}>
+              <div
+                role="row"
+                className={`grid items-center gap-3 ${
+                  effectiveRoundUpToThousand
+                    ? "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_5.5rem]"
+                    : "grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+                }`}
+              >
+                <span role="cell" className="text-cyan-100/70">
+                  Factura #{index + 2}
+                </span>
+                <span
+                  role="cell"
+                  className="text-right font-semibold text-[var(--foreground)]"
+                >
+                  {formatCurrencyAmount(breakdown.amount)}
+                </span>
+                {effectiveRoundUpToThousand && (
+                  <span role="cell" className="flex justify-center">
+                    {breakdown.roundUpEligible ? (
+                      <input
+                        type="checkbox"
+                        aria-label={`Redondear hacia arriba factura #${index + 2}`}
+                        checked={breakdown.shouldRoundUp}
+                        onChange={(event) =>
+                          updateExtraInvoice(index, {
+                            roundUpToThousand: event.target.checked,
+                          })
+                        }
+                        className="h-4 w-4 accent-cyan-400"
+                      />
+                    ) : (
+                      <span className="text-cyan-100/30">—</span>
+                    )}
+                  </span>
+                )}
+              </div>
+              {breakdown.appliedCreditNotes > 0 && (
+                <div
+                  role="row"
+                  className={`grid items-center gap-3 ${
+                    effectiveRoundUpToThousand
+                      ? "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_5.5rem]"
+                      : "grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+                  }`}
+                >
+                  <span role="cell" className="pl-4 text-cyan-100/70">
+                    NC aplicadas
+                  </span>
+                  <span role="cell" className="text-right font-semibold text-amber-200">
+                    - {formatCurrencyAmount(breakdown.appliedCreditNotes)}
+                  </span>
+                  {effectiveRoundUpToThousand && <div role="cell" />}
+                </div>
+              )}
+              {breakdown.adjustment > 0 && (
+                <div
+                  role="row"
+                  className={`grid items-center gap-3 ${
+                    effectiveRoundUpToThousand
+                      ? "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_5.5rem]"
+                      : "grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+                  }`}
+                >
+                  <span role="cell" className="pl-4 text-cyan-100/70">
+                    {breakdown.adjustmentLabel}
+                  </span>
+                  <span role="cell" className="text-right font-semibold text-amber-200">
+                    {breakdown.adjustmentPrefix}
+                    {formatCurrencyAmount(breakdown.adjustment)}
+                  </span>
+                  {effectiveRoundUpToThousand && <div role="cell" />}
+                </div>
+              )}
+            </React.Fragment>
+          ))}
           {roundUpCheckboxVisible && onRoundUpToThousandChange && (
               <label className="flex items-center justify-between gap-3 rounded border border-cyan-700/25 bg-cyan-950/10 px-3 py-2 text-xs text-cyan-100/80">
                 <span className="font-medium">Redondear hacia arriba</span>
@@ -1185,7 +1677,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                   type="checkbox"
                   checked={effectiveRoundUpToThousand}
                   onChange={(event) =>
-                    onRoundUpToThousandChange(event.target.checked)
+                    handleGeneralRoundUpChange(event.target.checked)
                   }
                   className="h-4 w-4 accent-cyan-400"
                 />
@@ -1197,7 +1689,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
               Total a guardar
             </span>
             <span className="text-xl font-bold text-cyan-50">
-              {formatCurrencyAmount(totalToSave)}
+              {formatCurrencyAmount(totalToSaveAllInvoices)}
             </span>
           </div>
         </div>
@@ -1240,7 +1732,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
         <button
           type="button"
           className="inline-flex h-11 min-w-[148px] items-center justify-center gap-2 rounded border border-cyan-400/45 bg-cyan-500/20 px-5 text-sm font-semibold text-cyan-50 shadow-sm shadow-cyan-950/20 transition-all duration-150 hover:-translate-y-0.5 hover:border-cyan-300/70 hover:bg-cyan-500/30 hover:shadow-md hover:shadow-cyan-950/30 active:translate-y-0 active:scale-[0.99] disabled:cursor-not-allowed disabled:translate-y-0 disabled:border-[var(--input-border)] disabled:bg-cyan-950/15 disabled:text-[var(--muted-foreground)] disabled:opacity-60"
-          onClick={onSubmit}
+          onClick={() => void onSubmit()}
           disabled={isSubmitDisabled || isSaving || cooldownActive}
         >
           {isSaving ? (

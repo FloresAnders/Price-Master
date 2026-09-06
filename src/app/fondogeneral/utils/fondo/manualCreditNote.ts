@@ -4,6 +4,7 @@ import {
   appendManualCreditNoteDraft,
   type ManualCreditNoteDraft,
 } from "./manualCreditNoteDrafts";
+import type { ExtraInvoice } from "../../hooks/movements/useMovementForm";
 
 export interface SaveManualCreditNoteDeps {
   manualCreditNoteTarget: FondoEntry | null;
@@ -21,6 +22,11 @@ export interface SaveManualCreditNoteDeps {
   ) => void;
   setSelectedAppliedCreditNoteIds: (
     value: string[] | ((prev: string[]) => string[]),
+  ) => void;
+  manualCreditNoteExtraInvoiceIndex: number | null;
+  extraInvoices: ExtraInvoice[];
+  setExtraInvoices: (
+    value: ExtraInvoice[] | ((prev: ExtraInvoice[]) => ExtraInvoice[]),
   ) => void;
   showToast: (
     msg: string,
@@ -82,6 +88,65 @@ export async function handleSaveManualCreditNote(
   deps.setManualCreditNoteSaving(true);
   deps.setManualCreditNoteError("");
   try {
+    const isExtraTarget =
+      deps.manualCreditNoteExtraInvoiceIndex !== null &&
+      deps.manualCreditNoteExtraInvoiceIndex >= 0 &&
+      deps.manualCreditNoteExtraInvoiceIndex < deps.extraInvoices.length;
+    const extraInvoiceIndex = isExtraTarget
+      ? deps.manualCreditNoteExtraInvoiceIndex
+      : null;
+    const extraInvoice =
+      extraInvoiceIndex !== null
+        ? deps.extraInvoices[extraInvoiceIndex]
+        : undefined;
+
+    if (extraInvoice && extraInvoiceIndex !== null) {
+      const alreadyApplied = (extraInvoice.creditNotes ?? []).reduce(
+        (sum, note) => sum + Math.max(0, roundMoney2(note.amount)),
+        0,
+      );
+      if (amountValue + alreadyApplied > targetBaseAmount) {
+        deps.setManualCreditNoteError(
+          `El monto supera el saldo disponible de la factura (${formatByCurrency(
+            targetCurrency,
+            Math.max(0, targetBaseAmount - alreadyApplied),
+          )}).`,
+        );
+        return;
+      }
+      const result = appendManualCreditNoteDraft(
+        extraInvoice.creditNotes ?? [],
+        {
+          invoiceNumber: invoiceNumberValue,
+          amount: amountValue,
+          observation: observationValue || undefined,
+        },
+        [],
+      );
+      const [nextDraft] = result.drafts.slice(-1);
+      deps.setExtraInvoices((prev) =>
+        prev.map((invoice, index) =>
+          index === extraInvoiceIndex
+            ? {
+                ...invoice,
+                creditNotes: nextDraft
+                  ? [...(invoice.creditNotes ?? []), nextDraft]
+                  : (invoice.creditNotes ?? []),
+              }
+            : invoice,
+        ),
+      );
+      deps.showToast(
+        `Nota de crédito manual lista para guardar en la factura #${
+          extraInvoiceIndex + 2
+        }`,
+        "success",
+        3000,
+      );
+      deps.closeManualCreditNoteModal();
+      return;
+    }
+
     const result = appendManualCreditNoteDraft(
       deps.manualCreditNoteDrafts,
       {
