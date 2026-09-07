@@ -2094,11 +2094,15 @@ export function FondoSection({
   );
 
   useEffect(() => {
+    // Fondo General fija el encargado según el turno (sin poder cambiarlo).
+    const isFondoGeneralLocked =
+      isRegularUser && accountKey === "FondoGeneral" && namespace === "fg";
+    // Caja Negra, Tucan y Tiempos también auto-ajustan el encargado según el
+    // horario, pero a diferencia de Fondo General permiten cambiarlo manualmente.
     const shouldAuto =
       isRegularUser &&
-      accountKey === "FondoGeneral" &&
-      namespace === "fg" &&
-      movementModalOpen;
+      movementModalOpen &&
+      (isFondoGeneralLocked || isCajaNegra);
 
     if (!shouldAuto) {
       setManagerLockedByShift(false);
@@ -2122,10 +2126,14 @@ export function FondoSection({
           return;
         }
 
-        setManagerLockedByShift(true);
+        setManagerLockedByShift(isFondoGeneralLocked);
         if (resolution.mode === "auto" && !editingEntryId) {
-          setManager(resolution.manager);
-          setManagerError("");
+          // En Fondo General el encargado queda fijado por turno; en las cuentas
+          // extra solo se rellena si aún no hay uno elegido manualmente.
+          if (isFondoGeneralLocked || !manager.trim()) {
+            setManager(resolution.manager);
+            setManagerError("");
+          }
         }
       } catch (err) {
         console.error("[FG] Error auto-locking manager by shift:", err);
@@ -2141,7 +2149,9 @@ export function FondoSection({
   }, [
     accountKey,
     editingEntryId,
+    isCajaNegra,
     isRegularUser,
+    manager,
     movementModalOpen,
     namespace,
     resolveShiftManagerForNow,

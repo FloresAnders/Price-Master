@@ -1290,10 +1290,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                       ? "text-[var(--tab-text-active)] font-semibold"
                       : "text-[var(--tab-text)] hover:text-[var(--tab-hover-text)] hover:bg-[var(--hover-bg)]"
                   }`}
-                  title="Tiempos"
+                  title="Reporte Tiempos"
                 >
                   <Timer className="w-4 h-4" />
-                  <span className="hidden xl:inline">Tiempos</span>
+                  <span className="hidden xl:inline">Reporte Tiempos</span>
                   {currentHash === `#${TIEMPOS_TUCAN_TAB_ID}` && (
                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--tab-text-active)] rounded-full"></div>
                   )}
@@ -1682,10 +1682,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                         ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
                         : "text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--hover-bg)]"
                     }`}
-                    title="Tiempos"
+                    title="Reporte Tiempos"
                   >
                     <Timer className="w-4 h-4" />
-                    <span>Tiempos</span>
+                    <span>Reporte Tiempos</span>
                   </button>
                 )}
 
