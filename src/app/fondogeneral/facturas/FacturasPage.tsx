@@ -50,6 +50,7 @@ import {
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
 import { CIERRE_FONDO_VENTAS_MINUTES_AFTER_END } from "../constants";
 import { resolveFacturaPaymentType } from "./facturaPaymentType";
+import { resolveCreateInvoiceOpeningDecision } from "./createInvoiceShiftManager";
 import { validateFondoGeneralOpeningRequirement } from "../utils/fondo/openingRequirement";
 import { resolveFcrPaymentAmounts } from "../utils/fondo/fcrPaymentAmounts";
 import { resolveAnnualDateRange } from "../utils/annualDateRange";
@@ -2344,16 +2345,26 @@ export default function FacturasCreditoPage() {
       }
     }
 
+    let openingManager: string | null = null;
+    let openingManagerLockedByShift = false;
+
     if (user?.role === "user") {
       try {
         const nowISO = await getAuthoritativeNowISO();
-        const resolution = await resolveShiftManagerForNow(nowISO);
-        if (resolution?.mode === "missing") {
-          setMissingShiftExpectedShift(resolution.expectedShift);
-          setMissingShiftDateKey(resolution.dateKey);
+        const decision = resolveCreateInvoiceOpeningDecision({
+          fallbackManager: String(user?.name || user?.email || "").trim(),
+          resolution: await resolveShiftManagerForNow(nowISO),
+        });
+
+        if (decision.mode === "missing") {
+          setMissingShiftExpectedShift(decision.expectedShift);
+          setMissingShiftDateKey(decision.dateKey);
           setMissingShiftModalOpen(true);
           return;
         }
+
+        openingManager = decision.manager;
+        openingManagerLockedByShift = decision.managerLockedByShift;
       } catch (err) {
         console.error(
           "[FACTURAS] Error checking control horario before opening drawer:",
@@ -2368,6 +2379,10 @@ export default function FacturasCreditoPage() {
       }
     }
     resetCreateForm();
+    if (openingManager !== null) {
+      setCreateManager(openingManager);
+    }
+    setCreateManagerLockedByShift(openingManagerLockedByShift);
     setCreateDrawerOpen(true);
   };
 
