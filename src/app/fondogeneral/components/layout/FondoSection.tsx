@@ -182,6 +182,33 @@ import {
   cancelDeleteMovement as cancelDeleteMovementFn,
 } from "../../utils/movementDeletion";
 
+export const calculateFondoTotalsByCurrency = (
+  entries: ReadonlyArray<
+    Pick<
+      FondoEntry,
+      "currency" | "amountIngreso" | "amountEgreso" | "amountPayment"
+    >
+  >,
+) => {
+  const totals: Record<
+    "CRC" | "USD",
+    { ingreso: number; egreso: number }
+  > = {
+    CRC: { ingreso: 0, egreso: 0 },
+    USD: { ingreso: 0, egreso: 0 },
+  };
+
+  for (const entry of entries) {
+    const currency = entry.currency === "USD" ? "USD" : "CRC";
+    const ingreso = Math.trunc(entry.amountIngreso || 0);
+    const egreso = Math.trunc(resolveEffectiveEgresoAmount(entry));
+    if (ingreso > 0) totals[currency].ingreso += ingreso;
+    if (egreso > 0) totals[currency].egreso += egreso;
+  }
+
+  return totals;
+};
+
 import { handleCancelPhysicalCount as handleCancelPhysicalCountFn } from "../../utils/physicalCount";
 import { handleDeleteLatestDailyClosing as deleteLatestDailyClosingFn, persistCreatedMovement as persistCreatedMovementFn } from "../../utils/fondo/mutations";
 
@@ -5154,20 +5181,10 @@ export function FondoSection({
     setSuperAdminTotalsOpen(false);
   }, [isSuperAdminUser, isSingleDayFilter, effectiveFromFilter]);
 
-  const totalsByCurrency = useMemo(() => {
-    const acc: Record<"CRC" | "USD", { ingreso: number; egreso: number }> = {
-      CRC: { ingreso: 0, egreso: 0 },
-      USD: { ingreso: 0, egreso: 0 },
-    };
-    for (const e of filteredEntries) {
-      const cur = (e.currency as "CRC" | "USD") || "CRC";
-      const ing = Math.trunc(e.amountIngreso || 0);
-      const eg = Math.trunc(e.amountEgreso || 0);
-      if (ing > 0) acc[cur].ingreso += ing;
-      if (eg > 0) acc[cur].egreso += eg;
-    }
-    return acc;
-  }, [filteredEntries]);
+  const totalsByCurrency = useMemo(
+    () => calculateFondoTotalsByCurrency(filteredEntries),
+    [filteredEntries],
+  );
 
   const getCompanyKey = useCallback(
     (emp: Empresas) =>
