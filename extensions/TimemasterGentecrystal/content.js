@@ -17,8 +17,6 @@
   let pollTimer = null;
   let observer = null;
   let suspenderHasta = 0;
-  let inicializado = false;
-  let ultimoAvisoTicket = null;
   let escaneando = false;
   let contextoInvalidado = false;
   let intencionesVentaLocal = [];
@@ -172,11 +170,17 @@
     return false;
   }
 
-  function detectarTablaPorTiquetes() {
-    // No depende de <thead>. Busca cualquier tabla que contenga al menos una
-    // fila con un número de tiquete real.
-    const tablas = [...document.querySelectorAll('table')];
+  function detectarContenedorTiquetes() {
+    // Nueva pantalla de ventas: los tiquetes viven en tarjetas
+    // (.sales-history-card) dentro de #sales-history-panel, sin <table>.
+    const panel = document.querySelector('#sales-history-panel');
+    if (panel && panel.querySelector('.sales-history-card')) {
+      return panel;
+    }
 
+    // Pantalla anterior: cualquier tabla con al menos una fila que contenga
+    // un número de tiquete real. No depende de <thead>.
+    const tablas = [...document.querySelectorAll('table')];
     for (const tabla of tablas) {
       const filas = [...tabla.querySelectorAll('tr')];
       if (filas.some((fila) => extraerTicket(filaTexto(fila)))) {
@@ -188,8 +192,8 @@
   }
 
   function leerTiquetesVisibles() {
-    const tabla = detectarTablaPorTiquetes();
-    if (!tabla) {
+    const contenedor = detectarContenedorTiquetes();
+    if (!contenedor) {
       return {
         ventas: [],
         borrados: [],
@@ -197,6 +201,12 @@
       };
     }
 
+    // Nueva pantalla: lectura de tarjetas de historial de ventas.
+    if (contenedor.querySelector('.sales-history-card')) {
+      return syncCore.readSalesHistoryCards(contenedor);
+    }
+
+    const tabla = contenedor;
     const filas = [...tabla.querySelectorAll('tr')];
     const ventas = [];
     const borrados = [];
@@ -327,7 +337,7 @@
     });
   }
 
-  async function registrarVentasDesdeModal({ avisarNuevas = true } = {}) {
+  async function registrarVentasDesdeModal() {
     if (contextoInvalidado) return { ok: false, motivo: 'contexto_invalidado' };
 
     const ventasModal = syncCore.readSalesSuccessModal(document);
@@ -389,9 +399,6 @@
         firmasModalesProcesados.delete(primeraFirma);
       }
 
-      if (avisarNuevas && inicializado) {
-        mostrarAviso(ventasCapturadas[ventasCapturadas.length - 1]);
-      }
       log('Venta confirmada desde el modal:', ventasCapturadas);
 
       return {
@@ -410,38 +417,6 @@
       );
       return { ok: false, motivo: 'error', error: String(error?.message || error) };
     }
-  }
-
-  function mostrarAviso(venta) {
-    document.getElementById('tm-gc-toast')?.remove();
-
-    const toast = document.createElement('div');
-    toast.id = 'tm-gc-toast';
-    toast.style.cssText = [
-      'position:fixed',
-      'right:22px',
-      'bottom:22px',
-      'z-index:2147483647',
-      'background:#0f172a',
-      'color:white',
-      'border:1px solid #334155',
-      'border-radius:10px',
-      'padding:12px 14px',
-      'font:13px Arial,sans-serif',
-      'box-shadow:0 10px 30px rgba(0,0,0,.35)',
-      'max-width:460px'
-    ].join(';');
-
-    const titulo = document.createElement('div');
-    titulo.textContent = '✓ TimeMaster detectó una venta';
-    titulo.style.cssText = 'font-weight:700;color:#4ade80;margin-bottom:6px';
-
-    const detalle = document.createElement('div');
-    detalle.textContent = `${venta.hora} · ${venta.sorteo} · ₡${Number(venta.monto).toLocaleString('es-CR')}`;
-
-    toast.append(titulo, detalle);
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 4500);
   }
 
   function detectarClicIngresarVenta(event) {
@@ -496,7 +471,7 @@
       });
   }
 
-  async function sincronizarDesdeTabla({ avisarNuevas = true, forzar = false } = {}) {
+  async function sincronizarDesdeTabla({ forzar = false } = {}) {
     if (contextoInvalidado) return { ok: false, motivo: 'contexto_invalidado' };
     if (escaneando) return { ok: false, motivo: 'escaneando' };
     if (!forzar && Date.now() < suspenderHasta) return { ok: false, motivo: 'cambio_sorteo' };
@@ -560,10 +535,13 @@
         const sorteoExistente = hasSorteo(existente?.sorteo)
           ? existente.sorteo
           : '';
+        // Las tarjetas de la nueva pantalla muestran el sorteo de cada tiquete;
+        // se prefiere sobre el selector cuando está disponible.
+        const sorteoTarjeta = hasSorteo(item.sorteo) ? item.sorteo : '';
         const venta = {
           id: existente?.id || `GC-${item.ticket}`,
           ticket: item.ticket,
-          sorteo: sorteoExistente || sorteo,
+          sorteo: sorteoExistente || sorteoTarjeta || sorteo,
           monto: item.monto,
           fecha: item.fecha || existente?.fecha || fechaFallback(),
           hora: item.hora || existente?.hora || horaFallback(),
@@ -588,7 +566,7 @@
           const actualizado = {
             ...existente,
             ...venta,
-            sorteo: sorteoExistente || sorteo,
+            sorteo: sorteoExistente || sorteoTarjeta || sorteo,
           };
           if (
             existente.sorteo !== actualizado.sorteo ||
@@ -631,14 +609,6 @@
 
       const colaActualizada = await encolarEventos(eventos);
 
-      if (avisarNuevas && inicializado && nuevas.length) {
-        const ultima = [...nuevas].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
-        if (ultima.ticket !== ultimoAvisoTicket) {
-          ultimoAvisoTicket = ultima.ticket;
-          mostrarAviso(ultima);
-        }
-      }
-
       if (nuevas.length) log('Ventas nuevas:', nuevas);
 
       return {
@@ -661,10 +631,10 @@
     }
   }
 
-  function escanearPagina({ avisarNuevas = true, forzar = false } = {}) {
+  function escanearPagina({ forzar = false } = {}) {
     return runSerializedPageOperation(async () => {
-      await registrarVentasDesdeModal({ avisarNuevas });
-      return sincronizarDesdeTabla({ avisarNuevas, forzar });
+      await registrarVentasDesdeModal();
+      return sincronizarDesdeTabla({ forzar });
     });
   }
 
@@ -679,7 +649,7 @@
       clearTimeout(cambioSorteoTimer);
       cambioSorteoTimer = setTimeout(() => {
         if (contextoInvalidado) return;
-        void escanearPagina({ avisarNuevas: false, forzar: true });
+        void escanearPagina({ forzar: true });
       }, CAMBIO_SORTEO_ESPERA_MS + 150);
     });
   }
@@ -690,7 +660,7 @@
       clearTimeout(mutationTimer);
       mutationTimer = setTimeout(() => {
         configurarCambioSorteo();
-        void escanearPagina({ avisarNuevas: true });
+        void escanearPagina();
       }, MUTATION_DEBOUNCE_MS);
     });
 
@@ -703,7 +673,7 @@
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === 'TM_FORCE_SCAN') {
-      escanearPagina({ avisarNuevas: false, forzar: true }).then(sendResponse);
+      escanearPagina({ forzar: true }).then(sendResponse);
       return true;
     }
 
@@ -712,7 +682,7 @@
       obtenerGuardadas().then((ventas) => {
         sendResponse({
           ok: true,
-          version: '1.10.1',
+          version: '1.11.3',
           sorteo: getSorteo(),
           guardadas: ventas.length,
           diagnostico: lectura.diagnostico
@@ -753,19 +723,15 @@
 
     inicioTimer = setTimeout(async () => {
       if (contextoInvalidado) return;
-      const resultado = await escanearPagina({
-        avisarNuevas: false,
-        forzar: true,
-      });
+      const resultado = await escanearPagina({ forzar: true });
       if (resultado.motivo === 'contexto_invalidado') return;
-      inicializado = true;
-      log('Extensión v1.10.1 activa:', resultado);
+      log('Extensión v1.11.3 activa:', resultado);
     }, 600);
 
     pollTimer = setInterval(() => {
       if (contextoInvalidado) return;
       configurarCambioSorteo();
-      void escanearPagina({ avisarNuevas: true });
+      void escanearPagina();
     }, POLL_MS);
   }
 

@@ -1,4 +1,4 @@
-TimeMaster - Gente Crystal v1.10.1
+TimeMaster - Gente Crystal v1.11.3
 
 INSTALACIÓN / ACTUALIZACIÓN
 
@@ -56,6 +56,33 @@ El popup muestra:
 - tiquetes visibles y borrados ignorados;
 - ventas locales guardadas;
 - pendientes, enviando, sincronizados y errores de la cola.
+
+CAMBIOS DE LA VERSIÓN 1.11.3
+
+- Elimina el aviso flotante "TimeMaster detectó una venta" de la pantalla de
+  Gente Crystal. La captura y sincronización continúan funcionando en segundo
+  plano y su estado permanece disponible en el popup de la extensión.
+
+CAMBIOS DE LA VERSIÓN 1.11.2
+
+- Prioriza las ventas capturadas desde el botón local sobre el historial
+  pendiente, evitando que una venta recién ingresada espere detrás de una
+  cola antigua.
+- Los tiquetes normal y especial/reventado que comparten el mismo `saleAt`
+  se envían consecutivamente y se muestran juntos en TimeMaster, conservando
+  el monto y sorteo individual de cada tiquete.
+- Las ventas borradas siguen protegidas por su tombstone y no se reactivan
+  mediante eventos posteriores.
+
+CAMBIOS DE LA VERSIÓN 1.11.0
+
+- Detecta la tabla de tiquetes en la nueva pantalla de ventas, donde Gente
+  Crystal ya no pinta una <table> sino tarjetas de historial
+  (`.sales-history-card` dentro de `#sales-history-panel`).
+- Lee de cada tarjeta el número de tiquete, el monto total y el sorteo
+  individual (útil para ventas en dos sorteos).
+- Conserva la detección por <table> como respaldo para la pantalla anterior
+  de `entradas.php`.
 
 CAMBIOS DE LA VERSIÓN 1.10.1
 

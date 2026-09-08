@@ -146,9 +146,10 @@ async function performFlush() {
   }
   if (!configuration.token) return;
 
-  const queue = await runSerialized(readQueue);
-  const ready = getReadyRecords(queue, Date.now());
-  for (const record of ready) {
+  while (true) {
+    const queue = await runSerialized(readQueue);
+    const [record] = getReadyRecords(queue, Date.now());
+    if (!record) return;
     await sendRecord(record, configuration);
   }
 }

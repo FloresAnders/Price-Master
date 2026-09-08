@@ -233,6 +233,81 @@
     });
   }
 
+  function textOf(node) {
+    return String(node?.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function isDeletedSalesCard(card) {
+    const text = textOf(card);
+    if (/\b(borrad[oa]?|eliminad[oa]?|anulad[oa]?|cancelad[oa]?)\b/i.test(text)) {
+      return true;
+    }
+
+    const tokens = [
+      card.className,
+      card.id,
+      card.getAttribute?.('aria-label'),
+      card.getAttribute?.('title'),
+      card.getAttribute?.('data-status'),
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    return /(borrad|eliminad|anulad|cancelad|deleted|removed|danger)/i.test(
+      tokens,
+    );
+  }
+
+  function readSalesHistoryCards(root) {
+    const cards = [
+      ...(root?.querySelectorAll?.('.sales-history-card') || []),
+    ];
+    const ventas = [];
+    const borrados = [];
+    let filasConTicket = 0;
+
+    for (const card of cards) {
+      const ticketEl = card.querySelector('.sales-history-card__ticket-id');
+      const ticket =
+        String(ticketEl?.textContent || '').trim() ||
+        extractPrintedTicketId(textOf(card));
+      if (!ticket) continue;
+      filasConTicket += 1;
+
+      if (isDeletedSalesCard(card)) {
+        borrados.push(ticket);
+        continue;
+      }
+
+      const totalEl = card.querySelector('.sales-history-card__total');
+      const monto = parseDisplayedMoney(textOf(totalEl));
+      if (monto <= 0) continue;
+
+      const raffleEl = card.querySelector('.sales-history-card__raffle');
+      ventas.push({
+        ticket,
+        monto,
+        sorteo: textOf(raffleEl),
+        fecha: null,
+        hora: null,
+        timestamp: null,
+        timestampPrecisionMs: null,
+      });
+    }
+
+    return {
+      ventas,
+      borrados,
+      diagnostico: {
+        tablaEncontrada: true,
+        filas: cards.length,
+        filasConTicket,
+        ventasValidas: ventas.length,
+        borrados: borrados.length,
+      },
+    };
+  }
+
   function upsertSalesSuccessRecords(currentSales, modalSales, observed) {
     const timestamp = Number(observed?.timestamp);
     const observedTimestamp = Number.isFinite(timestamp) && timestamp > 0
@@ -635,7 +710,33 @@
         }
         return false;
       })
-      .sort((left, right) => left.updatedAt - right.updatedAt);
+      .sort((left, right) => {
+        const leftIsLocal =
+          left.payload?.status === 'active' &&
+          left.payload?.captureOrigin === 'local_button';
+        const rightIsLocal =
+          right.payload?.status === 'active' &&
+          right.payload?.captureOrigin === 'local_button';
+        if (leftIsLocal !== rightIsLocal) return leftIsLocal ? -1 : 1;
+
+        if (leftIsLocal && rightIsLocal) {
+          const leftSaleAt = Date.parse(left.payload.saleAt);
+          const rightSaleAt = Date.parse(right.payload.saleAt);
+          if (leftSaleAt !== rightSaleAt) return rightSaleAt - leftSaleAt;
+
+          const leftSequence = Number(/-(\d+)$/.exec(left.ticketId)?.[1]);
+          const rightSequence = Number(/-(\d+)$/.exec(right.ticketId)?.[1]);
+          if (
+            Number.isSafeInteger(leftSequence) &&
+            Number.isSafeInteger(rightSequence) &&
+            leftSequence !== rightSequence
+          ) {
+            return leftSequence - rightSequence;
+          }
+        }
+
+        return left.updatedAt - right.updatedAt;
+      });
   }
 
   function resetErroredRecords(queue, now = Date.now()) {
@@ -728,6 +829,7 @@
     parseDisplayedMoney,
     parseObservedSaleDateTime,
     parseSalesSuccessModal,
+    readSalesHistoryCards,
     readSalesSuccessModal,
     prepareNewSalesForPrintConfirmation,
     resolveStableSaleTimestamp,
