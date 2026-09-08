@@ -42,6 +42,9 @@ interface UseV2MovementsHydrationProps {
   todayKey: string;
   fromFilter: string | null;
   toFilter: string | null;
+  providerCode?: string | null;
+  paymentType?: string | null;
+  invoiceNumber?: string | null;
   fondoEntriesLength: number;
   beginMovementsLoading: () => void;
   endMovementsLoading: () => void;
@@ -72,6 +75,9 @@ export function useV2MovementsHydration({
   todayKey,
   fromFilter,
   toFilter,
+  providerCode,
+  paymentType,
+  invoiceNumber,
   fondoEntriesLength,
   beginMovementsLoading,
   endMovementsLoading,
@@ -211,6 +217,9 @@ export function useV2MovementsHydration({
         todayKey,
         fromFilter,
         toFilter,
+        providerCode,
+        paymentType,
+        invoiceNumber,
         accountKeyRef,
         v2MovementsCacheRef,
         persistentCacheScope,
@@ -225,6 +234,9 @@ export function useV2MovementsHydration({
       todayKey,
       fromFilter,
       toFilter,
+      providerCode,
+      paymentType,
+      invoiceNumber,
       persistentCacheScope,
     ],
   );

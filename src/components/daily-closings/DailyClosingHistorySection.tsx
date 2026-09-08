@@ -171,6 +171,8 @@ export default function DailyClosingHistorySection({
               <option value="lastmonth">Mes anterior</option>
               <option value="last30">Últimos 30 días</option>
               <option value="month">Mes actual</option>
+              <option value="year">Este año</option>
+              <option value="lastyear">Año anterior</option>
             </select>
           </div>
 

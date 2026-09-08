@@ -161,6 +161,8 @@ import {
 import {
   buildV2MovementsCacheKey,
   resolveV2DocKey,
+  shouldApplyAutomaticMovementRange,
+  shouldShowMovementSearchButton,
 } from "../../utils/v2movements";
 import { useFondoMovementTypes } from "../../hooks/fondo/useFondoMovementTypes";
 import { useSuperAdminUsers } from "../../hooks/movements/useSuperAdminUsers";
@@ -595,6 +597,7 @@ export function FondoSection({
     fondoEntries,
     movementProviders,
     mode,
+    serverFilteringEnabled: accountKey === "FondoGeneral",
   });
   const {
     pageSize,
@@ -639,6 +642,17 @@ export function FondoSection({
     setFiltersDropdownOpen,
     searchQuery,
     setSearchQuery,
+    notesSearchQuery,
+    setNotesSearchQuery,
+    appliedProviderCode,
+    appliedPaymentType,
+    appliedInvoiceNumber,
+    effectiveFromFilter,
+    effectiveToFilter,
+    hasFirestoreFilterDraft,
+    applyServerSearchFilters,
+    applyAutomaticDateRange,
+    resetAppliedSearchFilters,
     rememberFilters,
     setRememberFilters,
     keepFiltersAcrossCompanies,
@@ -1075,8 +1089,18 @@ export function FondoSection({
     currencyEnabled,
     currentDailyKey,
     todayKey,
-    fromFilter,
-    toFilter,
+    fromFilter: effectiveFromFilter,
+    toFilter: effectiveToFilter,
+    providerCode:
+      accountKey === "FondoGeneral" && appliedProviderCode !== "all"
+        ? appliedProviderCode
+        : null,
+    paymentType:
+      accountKey === "FondoGeneral" && appliedPaymentType !== "all"
+        ? appliedPaymentType
+        : null,
+    invoiceNumber:
+      accountKey === "FondoGeneral" ? appliedInvoiceNumber : null,
     fondoEntriesLength: fondoEntries.length,
     beginMovementsLoading,
     endMovementsLoading,
@@ -1106,6 +1130,42 @@ export function FondoSection({
       setMovementsRefreshing(false);
     }
   }, [movementsRefreshing, refreshMovements, showToast]);
+
+  const handleApplyMovementSearch = useCallback(() => {
+    if (!fromFilter || !toFilter) return;
+    applyServerSearchFilters();
+    setPageSize("all");
+    setPageIndex(0);
+  }, [
+    applyServerSearchFilters,
+    fromFilter,
+    setPageIndex,
+    setPageSize,
+    toFilter,
+  ]);
+
+  const handleQuickMovementRangeResolved = useCallback(
+    ({ from, to }: { quickRange: string; from: string; to: string }) => {
+      if (
+        !shouldApplyAutomaticMovementRange({
+          accountKey,
+          hasFirestoreFilterDraft,
+        })
+      )
+        return;
+      applyAutomaticDateRange(from, to);
+    },
+    [accountKey, applyAutomaticDateRange, hasFirestoreFilterDraft],
+  );
+
+  const showMovementSearchButton = shouldShowMovementSearchButton({
+    accountKey,
+    entriesHydrated,
+    fromFilter,
+    toFilter,
+    quickRange,
+    hasFirestoreFilterDraft,
+  });
 
   const shouldPromptPhysicalCount = useCallback(
     (): boolean => {
@@ -1761,14 +1821,18 @@ export function FondoSection({
     if (!docKey) return;
 
     // Only query the remote range when BOTH Desde/Hasta are set.
-    if ((fromFilter && !toFilter) || (!fromFilter && toFilter)) return;
+    if (
+      (effectiveFromFilter && !effectiveToFilter) ||
+      (!effectiveFromFilter && effectiveToFilter)
+    )
+      return;
 
     void ensureV2MovementsLoaded(docKey);
   }, [
     entriesHydrated,
     pageSize,
-    fromFilter,
-    toFilter,
+    effectiveFromFilter,
+    effectiveToFilter,
     currentDailyKey,
     ensureV2MovementsLoaded,
   ]);
@@ -4990,6 +5054,10 @@ export function FondoSection({
         setQuickRange,
         setPageIndex,
       });
+      if (!keepFiltersAcrossCompanies) {
+        setNotesSearchQuery("");
+        resetAppliedSearchFilters();
+      }
     },
     [
       canSelectCompany,
@@ -5041,6 +5109,10 @@ export function FondoSection({
           setQuickRange,
           setPageIndex,
         });
+        if (!keepFiltersAcrossCompanies) {
+          setNotesSearchQuery("");
+          resetAppliedSearchFilters();
+        }
       }
     };
 
@@ -5080,7 +5152,7 @@ export function FondoSection({
       return;
     }
     setSuperAdminTotalsOpen(false);
-  }, [isSuperAdminUser, isSingleDayFilter, fromFilter]);
+  }, [isSuperAdminUser, isSingleDayFilter, effectiveFromFilter]);
 
   const totalsByCurrency = useMemo(() => {
     const acc: Record<"CRC" | "USD", { ingreso: number; egreso: number }> = {
@@ -5264,6 +5336,8 @@ export function FondoSection({
         setIsTypeDropdownOpen={setIsTypeDropdownOpen}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
+        notesSearchQuery={notesSearchQuery}
+        setNotesSearchQuery={setNotesSearchQuery}
         filtersDropdownRef={filtersDropdownRef}
         filtersDropdownOpen={filtersDropdownOpen}
         setFiltersDropdownOpen={setFiltersDropdownOpen}
@@ -5306,6 +5380,11 @@ export function FondoSection({
         entriesHydrated={entriesHydrated}
         refreshMovements={handleRefreshMovements}
         movementsRefreshing={movementsRefreshing}
+        searchingMovements={movementsLoading}
+        showSearchButton={showMovementSearchButton}
+        onSearch={handleApplyMovementSearch}
+        resetAppliedSearchFilters={resetAppliedSearchFilters}
+        onQuickRangeResolved={handleQuickMovementRangeResolved}
       />
 
       {!authLoading && !company && (
@@ -5671,19 +5750,28 @@ export function FondoSection({
                 </div>
               </div>
               <div className="max-h-[28rem] overflow-y-auto sm:max-h-[36rem]">
-                {(fromFilter || toFilter) && (
+                {(effectiveFromFilter || effectiveToFilter) && (
                   <div className="px-2 sm:px-3 py-2">
                     <div className="text-xs sm:text-sm text-[var(--muted-foreground)] flex flex-col sm:flex-row sm:items-center gap-2">
                       <span>
                         Filtro:{" "}
-                        {fromFilter ? formatGroupLabel(fromFilter) : "-"}
-                        {toFilter ? ` ? ${formatGroupLabel(toFilter)}` : ""}
+                        {effectiveFromFilter
+                          ? formatGroupLabel(effectiveFromFilter)
+                          : "-"}
+                        {effectiveToFilter
+                          ? ` ? ${formatGroupLabel(effectiveToFilter)}`
+                          : ""}
                       </span>
                       <button
                         type="button"
                         onClick={() => {
                           setFromFilter(null);
                           setToFilter(null);
+                          setFilterProviderCode("all");
+                          setFilterPaymentType("all");
+                          setSearchQuery("");
+                          setQuickRange(null);
+                          resetAppliedSearchFilters();
                           setPageIndex(0);
                           setPageSize("daily");
                         }}

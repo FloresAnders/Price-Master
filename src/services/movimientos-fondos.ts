@@ -1026,6 +1026,9 @@ export class MovimientosFondosService {
       pageSize?: number;
       cursor?: QueryDocumentSnapshot<DocumentData> | null;
       accountId?: MovementAccountKey;
+      providerCode?: string;
+      paymentType?: string;
+      invoiceNumber?: string;
     },
   ): Promise<{
     items: Array<T & { id: string }>;
@@ -1043,11 +1046,19 @@ export class MovimientosFondosService {
     // Cap range reads. UI should paginate; "daily" mode is hard-capped at 100.
     const pageSize = Math.max(1, Math.min(options.pageSize ?? 100, 100));
     const cursor = options.cursor ?? null;
+    const providerCode = String(options.providerCode || "").trim();
+    const paymentType = String(options.paymentType || "").trim();
+    const invoiceNumber = String(options.invoiceNumber || "").trim();
 
     const constraints: QueryConstraint[] = [
       ...(options.accountId &&
       !this.isStandaloneSubcollectionAccount(options.accountId)
         ? [where("accountId", "==", options.accountId)]
+        : []),
+      ...(providerCode ? [where("providerCode", "==", providerCode)] : []),
+      ...(paymentType ? [where("paymentType", "==", paymentType)] : []),
+      ...(invoiceNumber
+        ? [where("invoiceNumber", "==", invoiceNumber)]
         : []),
       where("createdAt", ">=", startIso),
       where("createdAt", "<", endIsoExclusive),

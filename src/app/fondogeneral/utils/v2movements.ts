@@ -1,6 +1,32 @@
 import type { MovementAccountKey } from "@/services/movimientos-fondos";
 import { buildCostaRicaDayRange } from "./costaRicaDay";
 
+export function shouldApplyAutomaticMovementRange(params: {
+  accountKey: MovementAccountKey;
+  hasFirestoreFilterDraft: boolean;
+}): boolean {
+  // A preset always loads its date range immediately. Pending provider/type/
+  // invoice filters remain staged until the user presses Buscar.
+  return params.accountKey === "FondoGeneral";
+}
+
+export function shouldShowMovementSearchButton(params: {
+  accountKey: MovementAccountKey;
+  entriesHydrated: boolean;
+  fromFilter: string | null;
+  toFilter: string | null;
+  quickRange: string | null;
+  hasFirestoreFilterDraft: boolean;
+}): boolean {
+  return Boolean(
+    params.accountKey === "FondoGeneral" &&
+      params.entriesHydrated &&
+      params.fromFilter &&
+      params.toFilter &&
+      (params.quickRange === null || params.hasFirestoreFilterDraft),
+  );
+}
+
 export function buildV2MovementsCacheKey(
   docKey: string,
   targetAccountKey: MovementAccountKey,
@@ -22,12 +48,34 @@ export function resolveActiveMovementsQuery(params: {
   pageSize: "daily" | number | "all";
   currentDailyKey: string;
   todayKey: string;
+  providerCode?: string | null;
+  paymentType?: string | null;
+  invoiceNumber?: string | null;
 }): {
   queryKey: string;
   startIso: string;
   endIsoExclusive: string;
+  providerCode?: string;
+  paymentType?: string;
+  invoiceNumber?: string;
 } {
   const { fromFilter, toFilter, pageSize, currentDailyKey, todayKey } = params;
+  const providerCode = String(params.providerCode || "").trim();
+  const paymentType = String(params.paymentType || "").trim();
+  const invoiceNumber = String(params.invoiceNumber || "").trim();
+  const filtersKey = JSON.stringify({ providerCode, paymentType, invoiceNumber });
+
+  const withFilters = (range: {
+    queryKey: string;
+    startIso: string;
+    endIsoExclusive: string;
+  }) => ({
+    ...range,
+    queryKey: `${range.queryKey}:filters:${filtersKey}`,
+    ...(providerCode ? { providerCode } : {}),
+    ...(paymentType ? { paymentType } : {}),
+    ...(invoiceNumber ? { invoiceNumber } : {}),
+  });
 
   if (fromFilter && toFilter) {
     const fromKey = fromFilter.trim();
@@ -36,20 +84,20 @@ export function resolveActiveMovementsQuery(params: {
     const endKey = fromKey > toKey ? fromKey : toKey;
     const startRange = buildLocalDayIsoRange(startKey);
     const endRange = buildLocalDayIsoRange(endKey);
-    return {
+    return withFilters({
       queryKey: `range:${startKey}..${endKey}`,
       startIso: startRange.startIso,
       endIsoExclusive: endRange.endIsoExclusive,
-    };
+    });
   }
 
   const dayKey = pageSize === "daily" ? currentDailyKey : todayKey;
   const range = buildLocalDayIsoRange(dayKey);
-  return {
+  return withFilters({
     queryKey: `day:${dayKey}`,
     startIso: range.startIso,
     endIsoExclusive: range.endIsoExclusive,
-  };
+  });
 }
 
 export function resolveV2DocKey(params: {

@@ -12,7 +12,6 @@ import {
   isGastoType,
   getPrimaryMovementDateISO,
   getPrimaryMovementTime,
-  getPrimaryMovementManager,
   dateKeyFromDate,
 } from "../../utils/helpers";
 import { getCostaRicaCurrentDateKey } from "../../utils/costaRicaDay";
@@ -30,12 +29,14 @@ interface Props {
   fondoEntries: FondoEntry[];
   movementProviders: MovementProvider[];
   mode: "all" | "ingreso" | "egreso";
+  serverFilteringEnabled?: boolean;
 }
 
 export function useFondoFilters({
   fondoEntries,
   movementProviders,
   mode,
+  serverFilteringEnabled = false,
 }: Props) {
   const todayKey = useMemo(() => getCostaRicaCurrentDateKey(), []);
 
@@ -136,6 +137,16 @@ export function useFondoFilters({
     }
     return "";
   });
+  const [notesSearchQuery, setNotesSearchQuery] = useState("");
+  const [appliedFromFilter, setAppliedFromFilter] = useState<string | null>(null);
+  const [appliedToFilter, setAppliedToFilter] = useState<string | null>(null);
+  const [appliedProviderCode, setAppliedProviderCode] = useState<string | "all">(
+    "all",
+  );
+  const [appliedPaymentType, setAppliedPaymentType] = useState<
+    FondoEntry["paymentType"] | "all"
+  >("all");
+  const [appliedInvoiceNumber, setAppliedInvoiceNumber] = useState("");
   const [rememberFilters, setRememberFilters] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("fondogeneral-rememberFilters");
@@ -355,10 +366,63 @@ export function useFondoFilters({
     return () => document.removeEventListener("mousedown", handler);
   }, [filtersDropdownOpen]);
 
-  // Reset pageIndex when filter criteria changes
-  useEffect(() => {
+  const applyServerSearchFilters = useCallback(() => {
+    setAppliedFromFilter(fromFilter);
+    setAppliedToFilter(toFilter);
+    setAppliedProviderCode(filterProviderCode);
+    setAppliedPaymentType(filterPaymentType);
+    setAppliedInvoiceNumber(searchQuery.trim());
     setPageIndex(0);
-  }, [filterProviderCode, filterPaymentType, filterEditedOnly, searchQuery, fromFilter, toFilter]);
+  }, [
+    filterPaymentType,
+    filterProviderCode,
+    fromFilter,
+    searchQuery,
+    toFilter,
+  ]);
+
+  const applyAutomaticDateRange = useCallback(
+    (from: string, to: string) => {
+      if (!serverFilteringEnabled) return;
+      setAppliedFromFilter(from);
+      setAppliedToFilter(to);
+      setAppliedProviderCode("all");
+      setAppliedPaymentType("all");
+      setAppliedInvoiceNumber("");
+      setPageIndex(0);
+    },
+    [serverFilteringEnabled],
+  );
+
+  const resetAppliedSearchFilters = useCallback(() => {
+    setAppliedFromFilter(null);
+    setAppliedToFilter(null);
+    setAppliedProviderCode("all");
+    setAppliedPaymentType("all");
+    setAppliedInvoiceNumber("");
+    setNotesSearchQuery("");
+    setPageIndex(0);
+  }, []);
+
+  const effectiveFromFilter = serverFilteringEnabled
+    ? appliedFromFilter
+    : fromFilter;
+  const effectiveToFilter = serverFilteringEnabled ? appliedToFilter : toFilter;
+  const effectiveProviderCode = serverFilteringEnabled
+    ? appliedProviderCode
+    : filterProviderCode;
+  const effectivePaymentType = serverFilteringEnabled
+    ? appliedPaymentType
+    : filterPaymentType;
+  const effectiveInvoiceNumber = serverFilteringEnabled
+    ? appliedInvoiceNumber
+    : searchQuery;
+
+  const hasFirestoreFilterDraft = Boolean(
+    (filterProviderCode && filterProviderCode !== "all") ||
+      (filterPaymentType && filterPaymentType !== "all") ||
+      searchQuery.trim(),
+  );
 
   const displayedEntries = useMemo(() => {
     const sorted = [...fondoEntries].sort(
@@ -382,12 +446,15 @@ export function useFondoFilters({
     let base = displayedEntries.slice();
 
     // date filtering (from/to)
-    if (fromFilter || toFilter) {
+    if (effectiveFromFilter || effectiveToFilter) {
       base = base.filter((entry) => {
         const key = dateKeyFromDate(new Date(getPrimaryMovementDateISO(entry)));
-        if (fromFilter && toFilter) return key >= fromFilter && key <= toFilter;
-        if (fromFilter && !toFilter) return key === fromFilter;
-        if (!fromFilter && toFilter) return key === toFilter;
+        if (effectiveFromFilter && effectiveToFilter)
+          return key >= effectiveFromFilter && key <= effectiveToFilter;
+        if (effectiveFromFilter && !effectiveToFilter)
+          return key === effectiveFromFilter;
+        if (!effectiveFromFilter && effectiveToFilter)
+          return key === effectiveToFilter;
         return true;
       });
     }
@@ -400,13 +467,13 @@ export function useFondoFilters({
     }
 
     // provider filter
-    if (filterProviderCode && filterProviderCode !== "all") {
-      base = base.filter((e) => e.providerCode === filterProviderCode);
+    if (effectiveProviderCode && effectiveProviderCode !== "all") {
+      base = base.filter((e) => e.providerCode === effectiveProviderCode);
     }
 
     // payment type filter
-    if (filterPaymentType && filterPaymentType !== "all") {
-      base = base.filter((e) => e.paymentType === filterPaymentType);
+    if (effectivePaymentType && effectivePaymentType !== "all") {
+      base = base.filter((e) => e.paymentType === effectivePaymentType);
     }
 
     // edited only
@@ -414,31 +481,32 @@ export function useFondoFilters({
       base = base.filter((e) => !!e.isAudit);
     }
 
-    // search across invoice, notes, provider name and manager
-    const q = searchQuery.trim().toLowerCase();
-    if (q.length > 0) {
-      base = base.filter((e) => {
-        const provName = providersMap.get(e.providerCode) ?? "";
-        return (
-          String(e.invoiceNumber).toLowerCase().includes(q) ||
-          String(e.notes ?? "").toLowerCase().includes(q) ||
-          provName.toLowerCase().includes(q) ||
-          String(getPrimaryMovementManager(e) ?? "").toLowerCase().includes(q) ||
-          String(e.paymentType ?? "").toLowerCase().includes(q)
-        );
-      });
+    // Invoice is an exact Firestore-backed filter. Notes remain a local,
+    // partial-text filter over the movements already loaded.
+    const invoice = effectiveInvoiceNumber.trim().toLowerCase();
+    if (invoice) {
+      base = base.filter(
+        (entry) => String(entry.invoiceNumber ?? "").trim().toLowerCase() === invoice,
+      );
+    }
+
+    const notesQuery = notesSearchQuery.trim().toLowerCase();
+    if (notesQuery) {
+      base = base.filter((entry) =>
+        String(entry.notes ?? "").toLowerCase().includes(notesQuery),
+      );
     }
 
     return base;
   }, [
     displayedEntries,
-    fromFilter,
-    toFilter,
-    filterProviderCode,
-    filterPaymentType,
+    effectiveFromFilter,
+    effectiveToFilter,
+    effectiveProviderCode,
+    effectivePaymentType,
     filterEditedOnly,
-    searchQuery,
-    providersMap,
+    effectiveInvoiceNumber,
+    notesSearchQuery,
     mode,
   ]);
 
@@ -579,25 +647,31 @@ export function useFondoFilters({
 
   const isFilterActive = useMemo(() => {
     return Boolean(
-      fromFilter ||
-      toFilter ||
-      (filterProviderCode && filterProviderCode !== "all") ||
-      (filterPaymentType && filterPaymentType !== "all") ||
+      effectiveFromFilter ||
+      effectiveToFilter ||
+      (effectiveProviderCode && effectiveProviderCode !== "all") ||
+      (effectivePaymentType && effectivePaymentType !== "all") ||
       filterEditedOnly ||
-      (searchQuery || "").trim().length > 0,
+      effectiveInvoiceNumber.trim().length > 0 ||
+      notesSearchQuery.trim().length > 0,
     );
   }, [
-    fromFilter,
-    toFilter,
-    filterProviderCode,
-    filterPaymentType,
+    effectiveFromFilter,
+    effectiveToFilter,
+    effectiveProviderCode,
+    effectivePaymentType,
     filterEditedOnly,
-    searchQuery,
+    effectiveInvoiceNumber,
+    notesSearchQuery,
   ]);
 
   const isSingleDayFilter = useMemo(() => {
-    return Boolean(fromFilter && toFilter && fromFilter === toFilter);
-  }, [fromFilter, toFilter]);
+    return Boolean(
+      effectiveFromFilter &&
+        effectiveToFilter &&
+        effectiveFromFilter === effectiveToFilter,
+    );
+  }, [effectiveFromFilter, effectiveToFilter]);
 
   return {
     // Page/pagination state
@@ -650,6 +724,22 @@ export function useFondoFilters({
     setFiltersDropdownOpen,
     searchQuery,
     setSearchQuery,
+    notesSearchQuery,
+    setNotesSearchQuery,
+    appliedFromFilter,
+    appliedToFilter,
+    appliedProviderCode,
+    appliedPaymentType,
+    appliedInvoiceNumber,
+    effectiveFromFilter,
+    effectiveToFilter,
+    effectiveProviderCode,
+    effectivePaymentType,
+    effectiveInvoiceNumber,
+    hasFirestoreFilterDraft,
+    applyServerSearchFilters,
+    applyAutomaticDateRange,
+    resetAppliedSearchFilters,
     rememberFilters,
     setRememberFilters,
     keepFiltersAcrossCompanies,

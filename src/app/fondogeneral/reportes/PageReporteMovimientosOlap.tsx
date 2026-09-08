@@ -24,6 +24,7 @@ import { ProvidersService } from "@/services/providers";
 import ReportMovementsDetailModal, {
   type ReportMovementDetail,
 } from "@/components/modals/ReportMovementsDetailModal";
+import { resolveAnnualDateRange } from "../utils/annualDateRange";
 
 type FondoMovementType = string;
 
@@ -1898,8 +1899,11 @@ export default function ReporteMovimientosPage() {
                     const now = new Date();
                     let from: Date | null = null;
                     let to: Date | null = null;
+                    const annualRange = resolveAnnualDateRange(v, now);
 
-                    if (v === "today") {
+                    if (annualRange) {
+                      ({ from, to } = annualRange);
+                    } else if (v === "today") {
                       const t = new Date(now);
                       from = t;
                       to = t;
@@ -1974,6 +1978,8 @@ export default function ReporteMovimientosPage() {
                   <option value="lastmonth">Mes anterior</option>
                   <option value="last30">Últimos 30 días</option>
                   <option value="month">Mes actual</option>
+                  <option value="year">Este año</option>
+                  <option value="lastyear">Año anterior</option>
                 </select>
               </div>
             </div>

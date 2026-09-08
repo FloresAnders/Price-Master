@@ -54,6 +54,8 @@ interface Props {
   setIsTypeDropdownOpen: Dispatch<SetStateAction<boolean>>;
   searchQuery: string;
   setSearchQuery: Dispatch<SetStateAction<string>>;
+  notesSearchQuery: string;
+  setNotesSearchQuery: Dispatch<SetStateAction<string>>;
   filtersDropdownRef: MutableRefObject<HTMLDivElement | null>;
   filtersDropdownOpen: boolean;
   setFiltersDropdownOpen: Dispatch<SetStateAction<boolean>>;
@@ -94,6 +96,15 @@ interface Props {
   entriesHydrated: boolean;
   refreshMovements: () => void | Promise<void>;
   movementsRefreshing: boolean;
+  searchingMovements: boolean;
+  showSearchButton: boolean;
+  onSearch: () => void;
+  resetAppliedSearchFilters: () => void;
+  onQuickRangeResolved: (range: {
+    quickRange: string;
+    from: string;
+    to: string;
+  }) => void;
 }
 
 export function FondoFiltersToolbar({
@@ -115,6 +126,8 @@ export function FondoFiltersToolbar({
   setIsTypeDropdownOpen,
   searchQuery,
   setSearchQuery,
+  notesSearchQuery,
+  setNotesSearchQuery,
   filtersDropdownRef,
   filtersDropdownOpen,
   setFiltersDropdownOpen,
@@ -155,10 +168,15 @@ export function FondoFiltersToolbar({
   entriesHydrated,
   refreshMovements,
   movementsRefreshing,
+  searchingMovements,
+  showSearchButton,
+  onSearch,
+  resetAppliedSearchFilters,
+  onQuickRangeResolved,
 }: Props) {
   return (
     <section className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/70 p-2 sm:p-3 md:p-4 space-y-3 sm:space-y-4">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] xl:items-center">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-[repeat(4,minmax(0,1fr))_auto] xl:items-center">
         {/* Proveedor: busqueda con autocomplete como en el drawer de agregar movimiento */}
         <div className="relative min-w-0">
           <div className="relative">
@@ -365,15 +383,30 @@ export function FondoFiltersToolbar({
           )}
         </div>
 
-        {/* Buscar factura: mantener input con icono tal como estaba */}
+        {/* Factura: filtro exacto que se aplica en la consulta remota. */}
         <div className="relative min-w-0">
           <input
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Buscar factura, notas..."
+            placeholder="Buscar número de factura"
             className="h-11 w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] py-2 pl-3 pr-11 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] hover:border-[var(--accent)]/60 focus-visible:ring-2 focus-visible:ring-[var(--accent)]/60 focus-visible:ring-offset-1"
-            aria-label="Buscar movimientos"
+            aria-label="Buscar número de factura"
+          />
+          <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded border border-[var(--input-border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)]">
+            <Search className="h-4 w-4" />
+          </span>
+        </div>
+
+        {/* Notas: filtro parcial local; nunca se envía a Firestore. */}
+        <div className="relative min-w-0">
+          <input
+            type="search"
+            value={notesSearchQuery}
+            onChange={(event) => setNotesSearchQuery(event.target.value)}
+            placeholder="Buscar en notas cargadas"
+            className="h-11 w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] py-2 pl-3 pr-11 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] hover:border-[var(--accent)]/60 focus-visible:ring-2 focus-visible:ring-[var(--accent)]/60 focus-visible:ring-offset-1"
+            aria-label="Buscar en notas cargadas"
           />
           <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded border border-[var(--input-border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)]">
             <Search className="h-4 w-4" />
@@ -449,6 +482,21 @@ export function FondoFiltersToolbar({
             </div>
 
             {/* Botón limpiar */}
+            {showSearchButton && (
+              <button
+                type="button"
+                onClick={onSearch}
+                disabled={searchingMovements}
+                className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-cyan-500/60 bg-cyan-500/10 px-3 text-xs font-semibold tracking-wide text-cyan-200 transition-all duration-150 hover:border-cyan-400 hover:bg-cyan-500/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                title="Buscar movimientos con los filtros seleccionados"
+              >
+                <Search
+                  className={`h-3.5 w-3.5 ${searchingMovements ? "animate-pulse" : ""}`}
+                />
+                <span>{searchingMovements ? "Buscando..." : "Buscar"}</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => {
@@ -456,6 +504,7 @@ export function FondoFiltersToolbar({
                 setFilterPaymentType("all");
                 setFilterEditedOnly(false);
                 setSearchQuery("");
+                setNotesSearchQuery("");
                 setFromFilter(null);
                 setToFilter(null);
                 setQuickRange(null);
@@ -468,6 +517,7 @@ export function FondoFiltersToolbar({
                 setCalendarToMonth(new Date(m));
                 setPageSize("daily");
                 setPageIndex(0);
+                resetAppliedSearchFilters();
               }}
               className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--input-border)] bg-transparent px-3 text-xs font-semibold tracking-wide text-[var(--foreground)] transition-all duration-150 hover:border-[var(--accent)] hover:bg-[var(--muted)]/20 active:scale-[0.98] sm:w-auto"
               title="Limpiar filtros"
@@ -506,6 +556,7 @@ export function FondoFiltersToolbar({
               fromButtonRef={fromButtonRef}
               toButtonRef={toButtonRef}
               showTopBorder={false}
+              onQuickRangeResolved={onQuickRangeResolved}
               rightSlot={
                 accountKey === "FondoGeneral" ? (
                   <div className="relative group flex w-full items-end sm:w-auto sm:shrink-0">

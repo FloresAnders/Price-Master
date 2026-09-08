@@ -7,6 +7,7 @@ import {
 } from "../../utils/helpers";
 import type { MovementAccountKey } from "@/services/movimientos-fondos";
 import type { DailyClosingFormValues } from "../../components/modals/DailyClosingModal";
+import { resolveAnnualDateRange } from "../../utils/annualDateRange";
 
 interface Props {
   company: string;
@@ -76,8 +77,11 @@ export function useDailyClosingState({ company, accountKey }: Props) {
       const now = new Date();
       let from: Date | null = null;
       let to: Date | null = null;
+      const annualRange = resolveAnnualDateRange(range, now);
 
-      if (range === "today") {
+      if (annualRange) {
+        ({ from, to } = annualRange);
+      } else if (range === "today") {
         const t = new Date(now);
         from = t;
         to = t;

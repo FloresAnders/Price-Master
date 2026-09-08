@@ -6,6 +6,7 @@ import type {
 } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { dateKeyFromDate } from "../utils/helpers";
+import { resolveAnnualDateRange } from "../utils/annualDateRange";
 
 interface Props {
   quickRange: string | null;
@@ -34,6 +35,11 @@ interface Props {
   showTopBorder?: boolean;
   className?: string;
   disableFuture?: boolean;
+  onQuickRangeResolved?: (range: {
+    quickRange: string;
+    from: string;
+    to: string;
+  }) => void;
 }
 
 function renderMonthCells({
@@ -125,6 +131,7 @@ export function FondoDateRangeFilters({
   showTopBorder = true,
   className,
   disableFuture = true,
+  onQuickRangeResolved,
 }: Props) {
   return (
     <div
@@ -368,7 +375,10 @@ export function FondoDateRangeFilters({
               const now = new Date();
               let from: Date | null = null;
               let to: Date | null = null;
-              if (v === "today") {
+              const annualRange = resolveAnnualDateRange(v, now);
+              if (annualRange) {
+                ({ from, to } = annualRange);
+              } else if (v === "today") {
                 const t = new Date(now);
                 from = to = t;
               } else if (v === "yesterday") {
@@ -415,10 +425,17 @@ export function FondoDateRangeFilters({
                 to = last;
               }
               if (from && to) {
-                setFromFilter(dateKeyFromDate(from));
-                setToFilter(dateKeyFromDate(to));
+                const fromKey = dateKeyFromDate(from);
+                const toKey = dateKeyFromDate(to);
+                setFromFilter(fromKey);
+                setToFilter(toKey);
                 setPageSize("all");
                 setPageIndex(0);
+                onQuickRangeResolved?.({
+                  quickRange: v,
+                  from: fromKey,
+                  to: toKey,
+                });
               }
             }}
           >
@@ -430,6 +447,8 @@ export function FondoDateRangeFilters({
             <option value="lastmonth">Mes anterior</option>
             <option value="last30">Últimos 30 días</option>
             <option value="month">Mes actual</option>
+            <option value="year">Este año</option>
+            <option value="lastyear">Año anterior</option>
           </select>
         </div>
 

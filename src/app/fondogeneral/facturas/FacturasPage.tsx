@@ -52,6 +52,7 @@ import { CIERRE_FONDO_VENTAS_MINUTES_AFTER_END } from "../constants";
 import { resolveFacturaPaymentType } from "./facturaPaymentType";
 import { validateFondoGeneralOpeningRequirement } from "../utils/fondo/openingRequirement";
 import { resolveFcrPaymentAmounts } from "../utils/fondo/fcrPaymentAmounts";
+import { resolveAnnualDateRange } from "../utils/annualDateRange";
 import { invalidateFondoCache } from "@/services/fondo-cache";
 
 import type { Empresas } from "../../../types/firestore";
@@ -3321,7 +3322,10 @@ export default function FacturasCreditoPage() {
                       const now = new Date();
                       let from: Date | null = null;
                       let to: Date | null = null;
-                      if (v === "today") {
+                      const annualRange = resolveAnnualDateRange(v, now);
+                      if (annualRange) {
+                        ({ from, to } = annualRange);
+                      } else if (v === "today") {
                         const t = new Date(now);
                         from = to = t;
                       } else if (v === "yesterday") {
@@ -3379,6 +3383,8 @@ export default function FacturasCreditoPage() {
                     <option value="lastmonth">Mes anterior</option>
                     <option value="last30">Últimos 30 días</option>
                     <option value="month">Mes actual</option>
+                    <option value="year">Este año</option>
+                    <option value="lastyear">Año anterior</option>
                   </select>
                 </div>
               </div>

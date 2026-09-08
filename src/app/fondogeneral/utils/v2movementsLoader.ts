@@ -40,6 +40,9 @@ export interface EnsureV2LoadedDeps {
   todayKey: string;
   fromFilter: string | null;
   toFilter: string | null;
+  providerCode?: string | null;
+  paymentType?: string | null;
+  invoiceNumber?: string | null;
   accountKeyRef: { current: MovementAccountKey };
   v2MovementsCacheRef: { current: Record<string, V2MovementsCacheEntry> };
   persistentCacheScope?: FondoCacheScope;
@@ -100,6 +103,9 @@ export async function ensureV2MovementsLoaded(
     todayKey,
     fromFilter,
     toFilter,
+    providerCode,
+    paymentType,
+    invoiceNumber,
     accountKeyRef,
     v2MovementsCacheRef,
     persistentCacheScope,
@@ -116,13 +122,24 @@ export async function ensureV2MovementsLoaded(
 
   const targetAccountKey = accountKeyRef.current;
   const cacheKey = buildV2MovementsCacheKey(docKey, targetAccountKey);
-  const { queryKey, startIso, endIsoExclusive } = resolveActiveMovementsQuery({
+  const activeQuery = resolveActiveMovementsQuery({
     fromFilter,
     toFilter,
     pageSize,
     currentDailyKey,
     todayKey,
+    providerCode,
+    paymentType,
+    invoiceNumber,
   });
+  const {
+    queryKey,
+    startIso,
+    endIsoExclusive,
+    providerCode: activeProviderCode,
+    paymentType: activePaymentType,
+    invoiceNumber: activeInvoiceNumber,
+  } = activeQuery;
 
   let cached = v2MovementsCacheRef.current[cacheKey] ?? {
     loaded: false,
@@ -147,7 +164,10 @@ export async function ensureV2MovementsLoaded(
       pageSize === "daily" &&
       currentDailyKey === todayKey &&
       !fromFilter &&
-      !toFilter,
+      !toFilter &&
+      !activeProviderCode &&
+      !activePaymentType &&
+      !activeInvoiceNumber,
   );
   let hydratedStalePersistentCache = false;
 
@@ -233,6 +253,9 @@ export async function ensureV2MovementsLoaded(
       gte: startIso,
       lt: endIsoExclusive,
     },
+    providerCode: activeProviderCode || undefined,
+    paymentType: activePaymentType || undefined,
+    invoiceNumber: activeInvoiceNumber || undefined,
     orderBy: "createdAt desc",
     pageSize: remoteBatchSize,
     append,
@@ -274,6 +297,9 @@ export async function ensureV2MovementsLoaded(
           pageSize: remoteBatchSize,
           cursor: shouldReset ? null : nextCache.cursor,
           accountId: targetAccountKey,
+          providerCode: activeProviderCode,
+          paymentType: activePaymentType,
+          invoiceNumber: activeInvoiceNumber,
         }),
         movementLoadTimeoutMs,
       );
