@@ -1,4 +1,4 @@
-TimeMaster - Gente Crystal v1.9.1
+TimeMaster - Gente Crystal v1.10.1
 
 INSTALACIÓN / ACTUALIZACIÓN
 
@@ -8,7 +8,8 @@ INSTALACIÓN / ACTUALIZACIÓN
    esta carpeta `extensions`.
 4. Si ya está instalada, pulsa el botón Recargar de la extensión TimeMaster -
    Gente Crystal.
-5. Abre o recarga https://gentecrystal.net/entradas.php.
+5. Abre o recarga la pantalla de ventas en
+   https://gentecrystal.net/controllers/sales/SalesController.php.
 6. Abre el popup de TimeMaster.
 
 CONFIGURAR LA SINCRONIZACIÓN
@@ -55,6 +56,24 @@ El popup muestra:
 - tiquetes visibles y borrados ignorados;
 - ventas locales guardadas;
 - pendientes, enviando, sincronizados y errores de la cola.
+
+CAMBIOS DE LA VERSIÓN 1.10.1
+
+- Activa el detector en `controllers/sales/SalesController.php`, donde ahora
+  se encuentra el flujo para ingresar ventas.
+- Reconoce el botón `#btn-submit-sale` aunque su texto también incluya el monto
+  total de la venta.
+- Mantiene `entradas.php` como ruta compatible con la pantalla anterior.
+
+CAMBIOS DE LA VERSIÓN 1.10.0
+
+- Captura la venta directamente desde el nuevo modal de confirmación de la
+  pantalla de ventas, sin depender de abrir `print_pagos.php`.
+- Cuando la venta contiene sorteo normal y especial/reventado, empareja cada
+  tiquete con el nombre y monto individual mostrados en el resumen.
+- Conserva la detección de `print_pagos.php` como compatibilidad secundaria.
+- Evita duplicar o cambiar la hora de una venta si el mismo modal se observa
+  varias veces.
 
 CAMBIOS DE LA VERSIÓN 1.9.1
 

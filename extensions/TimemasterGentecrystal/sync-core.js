@@ -19,6 +19,15 @@
   const CONNECTION_SAVE_PASSWORD = 'TIMEMASTER2026!';
   const TICKET_PATTERN = /^\d{4,}-\d{2,6}-\d{5,}$/;
 
+  function createSerializedRunner() {
+    let operationChain = Promise.resolve();
+    return (task) => {
+      const result = operationChain.then(task, task);
+      operationChain = result.catch(() => undefined);
+      return result;
+    };
+  }
+
   function requireTicketId(value) {
     const ticketId = String(value || '').trim();
     if (!TICKET_PATTERN.test(ticketId)) {
@@ -128,6 +137,15 @@
       .toLowerCase() === 'ingresar venta';
   }
 
+  function isIngresarVentaControl(control) {
+    if (String(control?.id || '').trim() === 'btn-submit-sale') return true;
+    return [
+      control?.ariaLabel,
+      control?.value,
+      control?.text,
+    ].some(isIngresarVentaLabel);
+  }
+
   function isConnectionSaveAuthorized(value) {
     return value === CONNECTION_SAVE_PASSWORD;
   }
@@ -135,6 +153,138 @@
   function extractPrintedTicketId(value) {
     const match = String(value || '').match(/\b\d{4,}-\d{2,6}-\d{5,}\b/);
     return match ? match[0] : null;
+  }
+
+  function parseDisplayedMoney(value) {
+    const raw = String(value || '')
+      .replace(/[^\d.,-]/g, '')
+      .trim();
+    if (!raw || raw.startsWith('-')) return 0;
+
+    const lastDot = raw.lastIndexOf('.');
+    const lastComma = raw.lastIndexOf(',');
+    const separatorIndex = Math.max(lastDot, lastComma);
+    let normalized;
+
+    if (lastDot >= 0 && lastComma >= 0) {
+      const integerPart = raw.slice(0, separatorIndex).replace(/[.,]/g, '');
+      const decimalPart = raw.slice(separatorIndex + 1).replace(/[.,]/g, '');
+      normalized = `${integerPart}.${decimalPart}`;
+    } else if (separatorIndex >= 0 && raw.length - separatorIndex - 1 === 2) {
+      normalized = `${raw.slice(0, separatorIndex).replace(/[.,]/g, '')}.${raw.slice(separatorIndex + 1)}`;
+    } else {
+      normalized = raw.replace(/[.,]/g, '');
+    }
+
+    const amount = Number(normalized);
+    return Number.isFinite(amount) && amount > 0 ? amount : 0;
+  }
+
+  function parseSalesSuccessModal(values) {
+    const tickets = String(values?.ticketsText || '').match(
+      /\b\d{4,}-\d{2,6}-\d{5,}\b/g,
+    ) || [];
+    const uniqueTickets = [...new Set(tickets)];
+
+    if (uniqueTickets.length === 1) {
+      const sorteo = String(values?.raffleText || '').trim();
+      const monto = parseDisplayedMoney(values?.totalText);
+      if (!sorteo || monto <= 0) return [];
+      return [{ ticket: uniqueTickets[0], sorteo, monto }];
+    }
+
+    if (uniqueTickets.length !== 2 || values?.splitHidden) return [];
+
+    const mainSorteo = String(values?.mainLabel || '').trim();
+    const companionSorteo = String(values?.companionLabel || '').trim();
+    const mainMonto = parseDisplayedMoney(values?.mainTotal);
+    const companionMonto = parseDisplayedMoney(values?.companionTotal);
+    if (!mainSorteo || !companionSorteo || mainMonto <= 0 || companionMonto <= 0) {
+      return [];
+    }
+
+    return [
+      { ticket: uniqueTickets[0], sorteo: mainSorteo, monto: mainMonto },
+      {
+        ticket: uniqueTickets[1],
+        sorteo: companionSorteo,
+        monto: companionMonto,
+      },
+    ];
+  }
+
+  function readSalesSuccessModal(root) {
+    const panel = root?.querySelector?.('.sales-dialog__panel.sales-success');
+    if (!panel) return [];
+
+    const split = panel.querySelector('#sales-success-split');
+    const text = (selector) =>
+      String(panel.querySelector(selector)?.textContent || '').trim();
+
+    return parseSalesSuccessModal({
+      ticketsText: text('#sales-success-ticket'),
+      raffleText: text('#sales-success-raffle'),
+      totalText: text('#sales-success-total'),
+      splitHidden: !split || split.hidden || split.hasAttribute('hidden'),
+      mainLabel: text('#sales-success-main-label'),
+      mainTotal: text('#sales-success-main-total'),
+      companionLabel: text('#sales-success-companion-label'),
+      companionTotal: text('#sales-success-companion-total'),
+    });
+  }
+
+  function upsertSalesSuccessRecords(currentSales, modalSales, observed) {
+    const timestamp = Number(observed?.timestamp);
+    const observedTimestamp = Number.isFinite(timestamp) && timestamp > 0
+      ? timestamp
+      : Date.now();
+    const byTicket = new Map();
+    const legacySales = [];
+
+    for (const sale of Array.isArray(currentSales) ? currentSales : []) {
+      const ticket = String(sale?.ticket || '').trim();
+      if (ticket) byTicket.set(ticket, sale);
+      else legacySales.push(sale);
+    }
+
+    for (const parsed of Array.isArray(modalSales) ? modalSales : []) {
+      const ticket = requireTicketId(parsed?.ticket);
+      const existing = byTicket.get(ticket);
+      byTicket.set(ticket, {
+        ...(existing || {}),
+        id: existing?.id || `GC-${ticket}`,
+        ticket,
+        sorteo: String(parsed?.sorteo || '').trim(),
+        monto: Number(parsed?.monto),
+        fecha: existing?.fecha || String(observed?.fecha || '').trim(),
+        hora: existing?.hora || String(observed?.hora || '').trim(),
+        captureOrigin: 'local_button',
+        timestamp: resolveStableSaleTimestamp(
+          null,
+          existing?.timestamp,
+          observedTimestamp,
+        ),
+      });
+    }
+
+    return [...legacySales, ...byTicket.values()].sort(
+      (left, right) => Number(left?.timestamp || 0) - Number(right?.timestamp || 0),
+    );
+  }
+
+  function isNewSalesSuccessConfirmation(currentSales, modalSales) {
+    const existingOrigins = new Map(
+      (Array.isArray(currentSales) ? currentSales : []).map((sale) => [
+        String(sale?.ticket || '').trim(),
+        sale?.captureOrigin,
+      ]),
+    );
+    const candidates = Array.isArray(modalSales) ? modalSales : [];
+    return candidates.some(
+      (sale) =>
+        existingOrigins.get(String(sale?.ticket || '').trim()) !==
+        'local_button',
+    );
   }
 
   function validConfirmedLocalTickets(markers, now) {
@@ -561,21 +711,28 @@
     classifyHttpFailure,
     classifyNewSales,
     computeBackoffMs,
+    createSerializedRunner,
     createLocalSaleIntent,
     enqueueEvents,
     extractPrintedTicketId,
     getReadyRecords,
     isConnectionSaveAuthorized,
+    isIngresarVentaControl,
     isIngresarVentaLabel,
     isExtensionContextInvalidatedError,
+    isNewSalesSuccessConfirmation,
     markFailed,
     markSending,
     markSucceeded,
     normalizeApiBaseUrl,
+    parseDisplayedMoney,
     parseObservedSaleDateTime,
+    parseSalesSuccessModal,
+    readSalesSuccessModal,
     prepareNewSalesForPrintConfirmation,
     resolveStableSaleTimestamp,
     resetErroredRecords,
     summarizeQueue,
+    upsertSalesSuccessRecords,
   };
 });

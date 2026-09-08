@@ -6,6 +6,7 @@
   const PENDING_LOCAL_CONFIRMATIONS_KEY =
     'genteCrystalPendingLocalConfirmations';
   const syncCore = globalThis.TimeMasterGenteCrystalSync;
+  const runSerializedPageOperation = syncCore.createSerializedRunner();
   const POLL_MS = 1200;
   const MUTATION_DEBOUNCE_MS = 300;
   const CAMBIO_SORTEO_ESPERA_MS = 1200;
@@ -22,6 +23,7 @@
   let contextoInvalidado = false;
   let intencionesVentaLocal = [];
   let confirmacionesVentaPendientes = [];
+  const firmasModalesProcesados = new Set();
 
   function log(...args) {
     console.log('%c[TimeMaster]', 'color:#22c55e;font-weight:700', ...args);
@@ -90,11 +92,7 @@
     const value = String(texto || '');
     const matches = [...value.matchAll(/[₡¢]\s*([\d.,]+)/g)];
     if (!matches.length) return 0;
-
-    const raw = matches[matches.length - 1][1];
-    const digits = raw.replace(/[^\d]/g, '');
-    const monto = Number(digits || 0);
-    return Number.isFinite(monto) ? monto : 0;
+    return syncCore.parseDisplayedMoney(matches[matches.length - 1][1]);
   }
 
   function extraerFechaHora(texto) {
@@ -329,6 +327,91 @@
     });
   }
 
+  async function registrarVentasDesdeModal({ avisarNuevas = true } = {}) {
+    if (contextoInvalidado) return { ok: false, motivo: 'contexto_invalidado' };
+
+    const ventasModal = syncCore.readSalesSuccessModal(document);
+    if (!ventasModal.length) return { ok: false, motivo: 'sin_modal_completo' };
+
+    const firma = ventasModal
+      .map((venta) => `${venta.ticket}:${venta.sorteo}:${venta.monto}`)
+      .join('|');
+    if (firmasModalesProcesados.has(firma)) {
+      return { ok: true, capturadas: 0, motivo: 'modal_procesado' };
+    }
+
+    try {
+      const ahora = Date.now();
+      const estadoLocal = await obtenerEstadoLocal();
+      const esNuevaConfirmacion = syncCore.isNewSalesSuccessConfirmation(
+        estadoLocal.ventas,
+        ventasModal,
+      );
+      const ventasActualizadas = syncCore.upsertSalesSuccessRecords(
+        estadoLocal.ventas,
+        ventasModal,
+        {
+          timestamp: ahora,
+          fecha: fechaFallback(),
+          hora: horaFallback(),
+        },
+      );
+      const porTicket = new Map(
+        ventasActualizadas.map((venta) => [venta.ticket, venta]),
+      );
+      const ventasCapturadas = ventasModal.map((venta) =>
+        porTicket.get(venta.ticket),
+      );
+      const pendientesActualizados = esNuevaConfirmacion
+        ? estadoLocal.pendientes.slice(1)
+        : estadoLocal.pendientes;
+      const eventos = ventasCapturadas.map((venta) =>
+        syncCore.buildActivePayload(venta),
+      );
+
+      await chrome.storage.local.set({
+        [STORAGE_KEY]: ventasActualizadas,
+        [PENDING_LOCAL_CONFIRMATIONS_KEY]: pendientesActualizados,
+      });
+      confirmacionesVentaPendientes = pendientesActualizados;
+      if (esNuevaConfirmacion) {
+        intencionesVentaLocal = intencionesVentaLocal.slice(1);
+      }
+
+      const colaActualizada = await encolarEventos(eventos);
+      if (!colaActualizada) {
+        return { ok: false, motivo: 'cola_no_actualizada' };
+      }
+
+      firmasModalesProcesados.add(firma);
+      if (firmasModalesProcesados.size > 50) {
+        const primeraFirma = firmasModalesProcesados.values().next().value;
+        firmasModalesProcesados.delete(primeraFirma);
+      }
+
+      if (avisarNuevas && inicializado) {
+        mostrarAviso(ventasCapturadas[ventasCapturadas.length - 1]);
+      }
+      log('Venta confirmada desde el modal:', ventasCapturadas);
+
+      return {
+        ok: true,
+        capturadas: ventasCapturadas.length,
+        colaActualizada,
+      };
+    } catch (error) {
+      if (syncCore.isExtensionContextInvalidatedError(error)) {
+        detenerPorContextoInvalidado();
+        return { ok: false, motivo: 'contexto_invalidado' };
+      }
+      console.error(
+        '[TimeMaster] No se pudo registrar la venta desde el modal:',
+        error,
+      );
+      return { ok: false, motivo: 'error', error: String(error?.message || error) };
+    }
+  }
+
   function mostrarAviso(venta) {
     document.getElementById('tm-gc-toast')?.remove();
 
@@ -370,34 +453,40 @@
     );
     if (!control) return;
 
-    const etiqueta =
-      control instanceof HTMLInputElement
-        ? control.value
-        : control.innerText ||
-          control.textContent ||
-          control.getAttribute('aria-label') ||
-          control.getAttribute('title');
-    if (!syncCore.isIngresarVentaLabel(etiqueta)) return;
+    if (!syncCore.isIngresarVentaControl({
+      id: control.id,
+      ariaLabel: control.getAttribute('aria-label'),
+      value: control instanceof HTMLInputElement ? control.value : '',
+      text:
+        control.innerText ||
+        control.textContent ||
+        control.getAttribute('title'),
+    })) return;
 
     const lectura = leerTiquetesVisibles();
     const ahora = Date.now();
-    intencionesVentaLocal = syncCore.appendLocalSaleIntent(
-      intencionesVentaLocal,
-      [
-        ...lectura.ventas.map((venta) => venta.ticket),
-        ...lectura.borrados
-      ],
-      ahora
-    );
-    confirmacionesVentaPendientes =
-      syncCore.appendPendingLocalConfirmation(
-        confirmacionesVentaPendientes,
+    const ticketsAntesDelClic = [
+      ...lectura.ventas.map((venta) => venta.ticket),
+      ...lectura.borrados,
+    ];
+    void runSerializedPageOperation(async () => {
+      intencionesVentaLocal = syncCore.appendLocalSaleIntent(
+        intencionesVentaLocal,
+        ticketsAntesDelClic,
         ahora,
       );
-    void chrome.storage.local
-      .set({
+      const result = await chrome.storage.local.get(
+        PENDING_LOCAL_CONFIRMATIONS_KEY,
+      );
+      confirmacionesVentaPendientes =
+        syncCore.appendPendingLocalConfirmation(
+          result[PENDING_LOCAL_CONFIRMATIONS_KEY],
+          ahora,
+        );
+      await chrome.storage.local.set({
         [PENDING_LOCAL_CONFIRMATIONS_KEY]: confirmacionesVentaPendientes,
-      })
+      });
+    })
       .catch((error) => {
         if (syncCore.isExtensionContextInvalidatedError(error)) return;
         console.error(
@@ -572,6 +661,13 @@
     }
   }
 
+  function escanearPagina({ avisarNuevas = true, forzar = false } = {}) {
+    return runSerializedPageOperation(async () => {
+      await registrarVentasDesdeModal({ avisarNuevas });
+      return sincronizarDesdeTabla({ avisarNuevas, forzar });
+    });
+  }
+
   function configurarCambioSorteo() {
     if (contextoInvalidado) return;
     const select = getSelectSorteo();
@@ -583,7 +679,7 @@
       clearTimeout(cambioSorteoTimer);
       cambioSorteoTimer = setTimeout(() => {
         if (contextoInvalidado) return;
-        sincronizarDesdeTabla({ avisarNuevas: false, forzar: true });
+        void escanearPagina({ avisarNuevas: false, forzar: true });
       }, CAMBIO_SORTEO_ESPERA_MS + 150);
     });
   }
@@ -594,7 +690,7 @@
       clearTimeout(mutationTimer);
       mutationTimer = setTimeout(() => {
         configurarCambioSorteo();
-        sincronizarDesdeTabla({ avisarNuevas: true });
+        void escanearPagina({ avisarNuevas: true });
       }, MUTATION_DEBOUNCE_MS);
     });
 
@@ -607,7 +703,7 @@
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === 'TM_FORCE_SCAN') {
-      sincronizarDesdeTabla({ avisarNuevas: false, forzar: true }).then(sendResponse);
+      escanearPagina({ avisarNuevas: false, forzar: true }).then(sendResponse);
       return true;
     }
 
@@ -616,7 +712,7 @@
       obtenerGuardadas().then((ventas) => {
         sendResponse({
           ok: true,
-          version: '1.9.1',
+          version: '1.10.1',
           sorteo: getSorteo(),
           guardadas: ventas.length,
           diagnostico: lectura.diagnostico
@@ -657,16 +753,19 @@
 
     inicioTimer = setTimeout(async () => {
       if (contextoInvalidado) return;
-      const resultado = await sincronizarDesdeTabla({ avisarNuevas: false, forzar: true });
+      const resultado = await escanearPagina({
+        avisarNuevas: false,
+        forzar: true,
+      });
       if (resultado.motivo === 'contexto_invalidado') return;
       inicializado = true;
-      log('Extensión v1.9.1 activa:', resultado);
+      log('Extensión v1.10.1 activa:', resultado);
     }, 600);
 
     pollTimer = setInterval(() => {
       if (contextoInvalidado) return;
       configurarCambioSorteo();
-      sincronizarDesdeTabla({ avisarNuevas: true });
+      void escanearPagina({ avisarNuevas: true });
     }, POLL_MS);
   }
 
