@@ -19,6 +19,8 @@ import {
   FloatingActionsDock,
   FloatingActionsProvider,
 } from "../components/ui/FloatingActionsDock";
+import { MaintenanceProvider } from "../contexts/MaintenanceContext";
+import { MaintenanceGate } from "../components/maintenance";
 
 export const metadata = {
   title: "Time Master",
@@ -119,7 +121,7 @@ export default function RootLayout({
               author: {
                 "@type": "Organization",
                 name: "Time Master",
-                url: "https://github.com/FloresAnders/Price-Master",
+                url: "https://github.com/FloresAnders/Time-Master",
               },
             }),
           }}
@@ -131,32 +133,36 @@ export default function RootLayout({
       >
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <AuthWrapper>
-            <PermissionsManager>
-              <XmlEgresosProvider>
-                <FloatingActionsProvider>
-                  <VersionCheckInitializer />
-                  <ReminderNotificationsInitializer />
-                  <SystemNotesInitializer />
-                  <SubscriptionNotice />
-                  <HeaderWrapper /> 
-                  <main role="main" className="flex-1 flex flex-col w-full lg:pl-[var(--admin-sidebar-width)] transition-[padding] duration-300">
-                    <div className="w-full" suppressHydrationWarning>
-                      {children}
-                    </div>
-                  </main>
-                  <OwnerChatWidget />
-                  <FloatingActionsDock />
-                  <BackToTop />
-                  <Footer />
-                </FloatingActionsProvider>
-                </XmlEgresosProvider>
-              <Toaster
-                position="top-right"
-                richColors
-                closeButton
-                duration={3000}
-              />
-            </PermissionsManager>
+            <MaintenanceProvider>
+              <MaintenanceGate>
+                <PermissionsManager>
+                  <XmlEgresosProvider>
+                    <FloatingActionsProvider>
+                      <VersionCheckInitializer />
+                      <ReminderNotificationsInitializer />
+                      <SystemNotesInitializer />
+                      <SubscriptionNotice />
+                      <HeaderWrapper />
+                      <main role="main" className="flex-1 flex flex-col w-full lg:pl-[var(--admin-sidebar-width)] transition-[padding] duration-300">
+                        <div className="w-full" suppressHydrationWarning>
+                          {children}
+                        </div>
+                      </main>
+                      <OwnerChatWidget />
+                      <FloatingActionsDock />
+                      <BackToTop />
+                      <Footer />
+                    </FloatingActionsProvider>
+                  </XmlEgresosProvider>
+                  <Toaster
+                    position="top-right"
+                    richColors
+                    closeButton
+                    duration={3000}
+                  />
+                </PermissionsManager>
+              </MaintenanceGate>
+            </MaintenanceProvider>
           </AuthWrapper>
         </ThemeProvider>
       </body>

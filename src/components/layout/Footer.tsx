@@ -212,7 +212,7 @@ export default function Footer() {
                 </span>
               </a>
               <a
-                href="https://github.com/FloresAnders/Price-Master"
+                href="https://github.com/FloresAnders/Time-Master"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center space-x-3 rounded-xl border-2 border-[var(--input-border)] bg-[var(--card-bg)] p-3 shadow-sm cursor-pointer"

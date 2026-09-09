@@ -14,6 +14,7 @@ import {
   Clipboard,
   Smartphone,
   Clock,
+  ShieldAlert,
 } from "lucide-react";
 import { EmpresasService } from "../services/empresas";
 import { SorteosService } from "../services/sorteos";
@@ -46,6 +47,7 @@ import FondoTypesEditorSection from "./components/FondoTypesEditorSection";
 import UsersEditorSection from "./components/UsersEditorSection";
 import CcssEditorSection from "./components/CcssEditorSection";
 import FuncionesEditorSection from "./components/FuncionesEditorSection";
+import MaintenanceEditorSection from "./components/MaintenanceEditorSection";
 
 type DataFile =
   | "sorteos"
@@ -54,7 +56,8 @@ type DataFile =
   | "ccss"
   | "empresas"
   | "fondoTypes"
-  | "funciones";
+  | "funciones"
+  | "systemMaintenance";
 
 const MAINTENANCE_TAB_STORAGE_KEY = "pricemaster:maintenance-active-tab";
 const MAINTENANCE_TAB_EVENT = "pricemaster:maintenance-tab-change";
@@ -71,6 +74,7 @@ const getStoredMaintenanceTab = (): DataFile => {
     "empresas",
     "fondoTypes",
     "funciones",
+    "systemMaintenance",
   ];
   return validTabs.includes(saved as DataFile) ? (saved as DataFile) : "users";
 };
@@ -332,6 +336,15 @@ export default function DataEditor() {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(MAINTENANCE_TAB_STORAGE_KEY, activeFile);
   }, [activeFile]);
+
+  useEffect(() => {
+    if (
+      activeFile === "systemMaintenance" &&
+      currentUser?.role !== "superadmin"
+    ) {
+      setActiveFile("users");
+    }
+  }, [activeFile, currentUser?.role]);
 
   // Detectar cambios
   const loadData = useCallback(async () => {
@@ -2196,7 +2209,7 @@ export default function DataEditor() {
             ) : null}
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-8 gap-2">
           {[
             {
               key: "users" as DataFile,
@@ -2236,8 +2249,17 @@ export default function DataEditor() {
               icon: List,
               requiresAdmin: true,
             },
+            {
+              key: "systemMaintenance" as DataFile,
+              label: "Modo sistema",
+              icon: ShieldAlert,
+              requiresSuperAdmin: true,
+            },
           ]
             .filter((tab) => !tab.requiresAdmin || currentUser?.role !== "user")
+            .filter(
+              (tab) => !tab.requiresSuperAdmin || currentUser?.role === "superadmin",
+            )
             .map((tab) => {
               const Icon = tab.icon;
               const isActive = activeFile === tab.key;
@@ -2307,6 +2329,8 @@ export default function DataEditor() {
       {activeFile === "funciones" && currentUser?.role !== "user" && (
         <FuncionesEditorSection ownerId={fondoTypesOwnerId} />
       )}
+      {activeFile === "systemMaintenance" &&
+        currentUser?.role === "superadmin" && <MaintenanceEditorSection />}
       {activeFile === "users" && (
         <UsersEditorSection
           usersData={usersData}

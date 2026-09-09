@@ -55,6 +55,11 @@ service cloud.firestore {
         );
     }
 
+    match /systemConfig/{configId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSuperAdmin();
+    }
+
     function canAccessAnotacionScope(data) {
       return isSuperAdmin() ||
         (isRegularAdmin() &&
@@ -726,6 +731,7 @@ service cloud.firestore {
         collection != 'passkeys' &&
         collection != 'webauthnCeremonies' &&
         collection != 'passkeyEnrollmentGrants' &&
+        collection != 'systemConfig' &&
         collection != 'authSessions';
     }
   }
