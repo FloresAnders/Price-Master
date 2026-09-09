@@ -81,6 +81,7 @@ type AgregarMovimientoProps = {
   invoiceDisabled: boolean;
   paymentType: FondoMovementType;
   isEgreso: boolean;
+  isIngreso: boolean;
   egreso: string;
   onEgresoChange: (value: string) => void;
   egresoBorderClass: string;
@@ -168,6 +169,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   invoiceDisabled,
   paymentType,
   isEgreso,
+  isIngreso,
   egreso,
   onEgresoChange,
   egresoBorderClass,
@@ -468,11 +470,13 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   );
   const extraInvoiceAmountsAfterCreditNotes = extraInvoices.map((extra) => {
     const amount = Math.max(0, normalizeAccountAmount(extra.amount));
-    const requestedCreditNotes = (extra.creditNotes ?? []).reduce(
-      (sum, creditNote) =>
-        sum + Math.max(0, normalizeAccountAmount(creditNote.amount)),
-      0,
-    );
+    const requestedCreditNotes = isEgreso
+      ? (extra.creditNotes ?? []).reduce(
+          (sum, creditNote) =>
+            sum + Math.max(0, normalizeAccountAmount(creditNote.amount)),
+          0,
+        )
+      : 0;
     return Math.max(0, amount - Math.min(amount, requestedCreditNotes));
   });
   const mainRoundUpEligible = isCreditNotePaymentRoundUpEligible(
@@ -485,7 +489,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
       isCreditNotePaymentRoundUpEligible(amount, currency, accountKey),
     );
   const roundUpCheckboxVisible =
-    isEgreso &&
+    (isEgreso || isIngreso) &&
     invoiceDocType === "FCO" &&
     (mainRoundUpEligible || extraInvoiceRoundUpEligibility.some(Boolean));
   const effectiveRoundUpToThousand =
@@ -507,7 +511,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   ]);
 
   const totalToSave =
-    isEgreso && invoiceDocType === "FCO"
+    (isEgreso || isIngreso) && invoiceDocType === "FCO"
       ? roundCreditNotePaymentAmount(
           totalAfterCreditNotes,
           currency,
@@ -524,11 +528,13 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   // Desglose por factura adicional: monto, NC, redondeo y pago desde caja.
   const extraInvoiceBreakdown = extraInvoices.map((extra, index) => {
     const amount = Math.max(0, normalizeAccountAmount(extra.amount));
-    const requestedCreditNotes = (extra.creditNotes ?? []).reduce(
-      (sum, creditNote) =>
-        sum + Math.max(0, normalizeAccountAmount(creditNote.amount)),
-      0,
-    );
+    const requestedCreditNotes = isEgreso
+      ? (extra.creditNotes ?? []).reduce(
+          (sum, creditNote) =>
+            sum + Math.max(0, normalizeAccountAmount(creditNote.amount)),
+          0,
+        )
+      : 0;
     const appliedCreditNotes = Math.min(amount, requestedCreditNotes);
     const amountAfterCreditNotes = Math.max(0, amount - appliedCreditNotes);
     const roundUpEligible = extraInvoiceRoundUpEligibility[index] ?? false;
@@ -537,7 +543,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
       roundUpEligible &&
       extra.roundUpToThousand !== false;
     const payment =
-      isEgreso && invoiceDocType === "FCO"
+      (isEgreso || isIngreso) && invoiceDocType === "FCO"
         ? roundCreditNotePaymentAmount(
             amountAfterCreditNotes,
             currency,

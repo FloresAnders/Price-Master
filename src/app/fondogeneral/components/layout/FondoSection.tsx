@@ -3055,19 +3055,21 @@ export function FondoSection({
     return total;
   }, [egreso, selectedAppliedCreditNotes]);
 
-  const mainPaymentBeforeRound = Math.max(
+  const mainAmountBeforeRound = Math.max(
     0,
-    roundMoney2(egreso) - creditNotesAppliedTotal,
+    isEgreso
+      ? roundMoney2(egreso) - creditNotesAppliedTotal
+      : roundMoney2(ingreso),
   );
-  const computedAmountPayment = isEgreso
+  const computedAmountPayment = isEgreso || isIngreso
     ? roundCreditNotePaymentAmount(
-        mainPaymentBeforeRound,
+        mainAmountBeforeRound,
         movementCurrency,
         accountKey,
         roundUpInvoicePayment &&
           roundUpMainInvoicePayment &&
           isCreditNotePaymentRoundUpEligible(
-            mainPaymentBeforeRound,
+            mainAmountBeforeRound,
             movementCurrency,
             accountKey,
           ),
@@ -5480,6 +5482,7 @@ export function FondoSection({
         invoiceDisabled={invoiceDisabled || isEditingPaidFcrMovement}
         paymentType={paymentType}
         isEgreso={isEgreso}
+        isIngreso={isIngreso}
         egreso={egreso}
         onEgresoChange={handleEgresoChange}
         egresoBorderClass={egresoBorderClass}

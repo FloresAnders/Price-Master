@@ -50,6 +50,7 @@ export function MovementDrawer({
     extraInvoices = [],
     notes = "",
     isEgreso,
+    isIngreso,
     egreso,
     ingreso,
     currency,
@@ -64,8 +65,16 @@ export function MovementDrawer({
     currency === "USD"
       ? `$${Number(value).toLocaleString("en-US")}`
       : `₡${Number(value).toLocaleString("es-CR")}`;
-  const confirmBaseAmount = Math.max(0, Number(egreso || 0));
-  const confirmRebateAmount = Math.max(0, Number(agregarMovimientoProps.creditNotesAppliedTotal || 0));
+  const confirmBaseAmount = Math.max(
+    0,
+    Number(isEgreso ? egreso || 0 : ingreso || 0),
+  );
+  const confirmRebateAmount = isEgreso
+    ? Math.max(
+        0,
+        Number(agregarMovimientoProps.creditNotesAppliedTotal || 0),
+      )
+    : 0;
   const confirmPaymentAmount = Math.max(
     0,
     Number(
@@ -104,16 +113,18 @@ export function MovementDrawer({
       },
       ...extraInvoices.map((extra) => {
         const extraAmount = Math.max(0, Number(extra.amount) || 0);
-        const extraRebate = Math.min(
-          extraAmount,
-          (extra.creditNotes ?? []).reduce(
-            (sum, creditNote) =>
-              sum + Math.max(0, Number(creditNote.amount) || 0),
-            0,
-          ),
-        );
+        const extraRebate = isEgreso
+          ? Math.min(
+              extraAmount,
+              (extra.creditNotes ?? []).reduce(
+                (sum, creditNote) =>
+                  sum + Math.max(0, Number(creditNote.amount) || 0),
+                0,
+              ),
+            )
+          : 0;
         const amountBeforeRound = Math.max(0, extraAmount - extraRebate);
-        const paymentAmount = isEgreso
+        const paymentAmount = isEgreso || isIngreso
           ? roundCreditNotePaymentAmount(
               amountBeforeRound,
               currency ?? "CRC",
@@ -150,6 +161,7 @@ export function MovementDrawer({
     notes,
     extraInvoices,
     isEgreso,
+    isIngreso,
     currency,
     agregarMovimientoProps.accountKey,
     agregarMovimientoProps.roundUpToThousand,
@@ -318,7 +330,11 @@ export function MovementDrawer({
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[var(--muted-foreground)]">
-                      {activeInvoice.isMain ? "Monto real a pagar:" : "Monto:"}
+                      {activeInvoice.isMain
+                        ? isIngreso
+                          ? "Monto a guardar:"
+                          : "Monto real a pagar:"
+                        : "Monto:"}
                     </span>
                     <span className="font-medium text-[var(--foreground)]">
                       {formatCurrencyValue(activeInvoice.amount)}
@@ -332,7 +348,9 @@ export function MovementDrawer({
                   )}
                   {activeInvoice.roundingAmount > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-[var(--muted-foreground)]">Desde caja:</span>
+                      <span className="text-[var(--muted-foreground)]">
+                        {isIngreso ? "Redondeo:" : "Desde caja:"}
+                      </span>
                       <span className="font-medium text-amber-200">
                         {activeInvoice.roundingPrefix}
                         {formatCurrencyValue(activeInvoice.roundingAmount)}

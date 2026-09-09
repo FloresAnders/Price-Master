@@ -488,6 +488,21 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
   if (isIngreso && (Number.isNaN(ingresoValue) || ingresoValue <= 0)) return;
 
   const effectiveInvoiceDocType = normalizeInvoiceDocType(invoiceDocType) as "FCO" | "FCR";
+  const roundedIngresoValue =
+    isIngreso && effectiveInvoiceDocType === "FCO"
+      ? roundCreditNotePaymentAmount(
+          ingresoValue,
+          movementCurrency,
+          accountKey,
+          roundUpEnabledForSubmit &&
+            mainRoundUpSelectedForSubmit &&
+            isCreditNotePaymentRoundUpEligible(
+              ingresoValue,
+              movementCurrency,
+              accountKey,
+            ),
+        )
+      : ingresoValue;
   if (!editingEntryId && effectiveInvoiceDocType === "FCR") {
     setInvoiceError(
       "Las facturas a crédito se crean desde Facturas de crédito y notas de crédito.",
@@ -878,7 +893,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
               : 0,
           )}`,
           `creditInvoices=${Math.trunc(selectedCreditInvoicesTotal)}`,
-          `ingreso=${Math.trunc(isIngreso ? ingresoValue : 0)}`,
+          `ingreso=${Math.trunc(isIngreso ? roundedIngresoValue : 0)}`,
           `manager=${(manager || "").trim()}`,
           `currency=${movementCurrency || "CRC"}`,
           `cierreTurno=${String(cierreFondoVentasTurnoSelection || "")}`,
@@ -983,7 +998,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
       const originalAmount = effectiveIsEgreso
         ? original.amountEgreso
         : original.amountIngreso;
-      const newAmount = effectiveIsEgreso ? egresoValue : ingresoValue;
+      const newAmount = effectiveIsEgreso ? egresoValue : roundedIngresoValue;
       const maxEditablePaidFcrAmount = Math.max(
         0,
         roundMoney2(originalAmount),
@@ -1122,7 +1137,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
             invoiceDocType: effectiveInvoiceDocType,
             paymentType: effectivePaymentType,
             amountEgreso: effectiveIsEgreso ? egresoValue : 0,
-            amountIngreso: effectiveIsEgreso ? 0 : ingresoValue,
+            amountIngreso: effectiveIsEgreso ? 0 : roundedIngresoValue,
             amountPayment: nextAmountPayment,
             appliedCreditNotes: nextAppliedCreditNotes,
             manager: effectiveManager,
@@ -1151,7 +1166,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
           empresa: company,
           paymentType: effectivePaymentType,
           amountEgreso: effectiveIsEgreso ? egresoValue : 0,
-          amountIngreso: effectiveIsEgreso ? 0 : ingresoValue,
+          amountIngreso: effectiveIsEgreso ? 0 : roundedIngresoValue,
           amountPayment: nextAmountPayment,
           amountDue: nextAmountDue,
           balanceDue: nextAmountDue,
@@ -1509,7 +1524,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         ...(cierreVentasTurno ? { turno: cierreVentasTurno } : {}),
         ...(cierreVentasSinTurno ? { sinTurno: true } : {}),
         amountEgreso: isEgreso ? egresoValue : 0,
-        amountIngreso: isIngreso ? ingresoValue : 0,
+        amountIngreso: isIngreso ? roundedIngresoValue : 0,
         amountPayment:
           isEgreso && effectiveInvoiceDocType === "FCO"
             ? roundCreditNotePaymentAmount(
@@ -2102,14 +2117,17 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                 sum + Math.max(0, roundMoney2(creditNote.appliedAmount)),
               0,
             );
+            const extraAmountBeforeRounding = isEgreso
+              ? Math.max(0, extraAmount - extraCreditNotesTotal)
+              : extraAmount;
             const extraPaymentAmount = roundCreditNotePaymentAmount(
-              Math.max(0, extraAmount - extraCreditNotesTotal),
+              extraAmountBeforeRounding,
               movementCurrency,
               accountKey,
               roundUpEnabledForSubmit &&
                 extraRoundUpSelectedForSubmit(extra, index) &&
                 isCreditNotePaymentRoundUpEligible(
-                  Math.max(0, extraAmount - extraCreditNotesTotal),
+                  extraAmountBeforeRounding,
                   movementCurrency,
                   accountKey,
                 ),
@@ -2123,7 +2141,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
               invoiceDocType: "FCO",
               paymentType,
               amountEgreso: isEgreso ? extraAmount : 0,
-              amountIngreso: isIngreso ? extraAmount : 0,
+              amountIngreso: isIngreso ? extraPaymentAmount : 0,
               ...(isEgreso
                 ? { amountPayment: extraPaymentAmount }
                 : {}),
