@@ -1,6 +1,76 @@
 import type { BillsMap, CashCounterData } from "./types";
 import { DENOM_ACCENTS, CRC_DENOMS, USD_DENOMS } from "./constants";
 
+const CASH_COUNT_CLIPBOARD_PREFIX = "TIME_MASTER:";
+
+export type CashCountClipboardData = {
+  currency: "CRC" | "USD";
+  bills: BillsMap;
+};
+
+function normalizeTransferBills(
+  currency: "CRC" | "USD",
+  bills: BillsMap,
+): BillsMap {
+  return denomsByCurrency(currency).reduce<BillsMap>((normalized, denom) => {
+    const count = bills[denom.value] ?? 0;
+    normalized[denom.value] = Math.max(0, Math.trunc(count));
+    return normalized;
+  }, {});
+}
+
+export function serializeCashCountClipboard(
+  currency: "CRC" | "USD",
+  bills: BillsMap,
+): string {
+  return `${CASH_COUNT_CLIPBOARD_PREFIX}${JSON.stringify({
+    currency,
+    bills: normalizeTransferBills(currency, bills),
+  })}`;
+}
+
+export function parseCashCountClipboard(
+  text: string,
+): CashCountClipboardData | null {
+  if (!text.startsWith(CASH_COUNT_CLIPBOARD_PREFIX)) return null;
+
+  try {
+    const parsed = JSON.parse(text.slice(CASH_COUNT_CLIPBOARD_PREFIX.length));
+    if (
+      !parsed ||
+      (parsed.currency !== "CRC" && parsed.currency !== "USD") ||
+      !parsed.bills ||
+      typeof parsed.bills !== "object" ||
+      Array.isArray(parsed.bills)
+    ) {
+      return null;
+    }
+
+    const allowedDenominations = new Set(
+      denomsByCurrency(parsed.currency).map((denom) => denom.value),
+    );
+    for (const [denomination, count] of Object.entries(parsed.bills)) {
+      const numericDenomination = Number(denomination);
+      if (
+        !allowedDenominations.has(numericDenomination) ||
+        typeof count !== "number" ||
+        !Number.isFinite(count) ||
+        count < 0 ||
+        !Number.isInteger(count)
+      ) {
+        return null;
+      }
+    }
+
+    return {
+      currency: parsed.currency,
+      bills: normalizeTransferBills(parsed.currency, parsed.bills),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function badgeColor(value: number): string {
   return DENOM_ACCENTS[value] || "bg-neutral-500/20 text-neutral-400 border-neutral-500/25";
 }

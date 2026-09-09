@@ -2,9 +2,10 @@
 
 import { useRef, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { PlusCircle, MinusCircle, Banknote } from "lucide-react";
+import { PlusCircle, MinusCircle, Banknote, Copy } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermissions";
 import type { CashCounterProps } from "../types";
-import { badgeColor, badgeLabel, denomsByCurrency, calcBDBreakdown, fmtCurrency, calcTotal, calcCashDifference, parseBillCountInput, getBillCountKeyAction } from "../utils";
+import { badgeColor, badgeLabel, denomsByCurrency, calcBDBreakdown, fmtCurrency, calcTotal, calcCashDifference, parseBillCountInput, getBillCountKeyAction, parseCashCountClipboard, serializeCashCountClipboard } from "../utils";
 
 export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
   const denoms = denomsByCurrency(data.currency);
@@ -15,7 +16,10 @@ export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
   const vt = data.ventaActual;
   const [saleToAdd, setSaleToAdd] = useState("");
   const [quantityDrafts, setQuantityDrafts] = useState<Record<number, string>>({});
+  const [copied, setCopied] = useState(false);
+  const { copyToClipboard } = usePermissions();
   const refs = useRef<(HTMLInputElement | null)[]>([]);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const ntf = (b: Record<number, number>, e: number, c: "CRC" | "USD", a?: number, v?: number) =>
     onUpdate(id, { ...data, bills: b, extraAmount: e, currency: c, aperturaCaja: a ?? data.aperturaCaja, ventaActual: v ?? data.ventaActual });
@@ -61,6 +65,36 @@ export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
     setSaleToAdd("");
   };
 
+  const copyDenominations = async () => {
+    const success = await copyToClipboard(
+      serializeCashCountClipboard(cur, bills),
+    );
+    if (!success) {
+      alert("No se pudieron copiar las denominaciones.");
+      return;
+    }
+
+    setCopied(true);
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    copiedTimerRef.current = setTimeout(() => setCopied(false), 2000);
+  };
+
+  const pasteDenominations = (event: React.ClipboardEvent<HTMLInputElement>) => {
+    const transferred = parseCashCountClipboard(
+      event.clipboardData.getData("text/plain"),
+    );
+    if (!transferred) return;
+
+    event.preventDefault();
+    if (transferred.currency !== cur) {
+      alert(`Las denominaciones copiadas son de ${transferred.currency}.`);
+      return;
+    }
+
+    setQuantityDrafts({});
+    ntf(transferred.bills, extra, cur);
+  };
+
   const t = calcTotal(bills, extra);
 
   const kd = (e: React.KeyboardEvent<HTMLInputElement>, i: number) => {
@@ -86,6 +120,9 @@ export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
   };
 
   useEffect(() => { refs.current = refs.current.slice(0, denoms.length); }, [denoms.length]);
+  useEffect(() => () => {
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+  }, []);
 
   const diffMsg = (cn = "") => {
     if (ap === 0 && vt === 0) return null;
@@ -151,8 +188,20 @@ export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
               </div>
             </div>
           </div>
-          <div className="rounded-xl border border-white/10 bg-[#050816] px-4 py-3 text-center lg:w-48">
-            <p className="mb-1 text-[10px] font-medium uppercase tracking-[0.16em] text-white/30">Estado</p>
+          <div className="rounded-xl border border-white/10 bg-[#050816] px-4 py-3 text-center lg:w-52">
+            <div className="mb-1 flex items-center justify-center gap-2">
+              <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-white/30">Estado</p>
+              <button
+                type="button"
+                onClick={() => { void copyDenominations(); }}
+                aria-label="Copiar denominaciones"
+                title="Copiar cantidades de las denominaciones"
+                className="inline-flex h-6 items-center gap-1 rounded-md border border-cyan-400/20 bg-cyan-500/10 px-1.5 text-[10px] font-medium text-cyan-200/75 transition-colors hover:border-cyan-400/40 hover:bg-cyan-500/20 hover:text-cyan-100"
+              >
+                <Copy className="h-3 w-3" />
+                {copied ? "Copiado" : "Copiar"}
+              </button>
+            </div>
             {diffMsg("") || <span className="text-xs font-medium text-white/25">Sin datos</span>}
             <p className="mt-1 text-[11px] text-white/25">{fmtCurrency(ap, cur)} / {fmtCurrency(vt, cur)}</p>
           </div>
@@ -213,6 +262,7 @@ export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
                     </motion.button>
                     <input ref={(el) => { refs.current[i] = el; }} type="text" inputMode="text"
                       value={quantityDrafts[den.value] ?? (cnt === 0 ? "" : String(cnt))} onChange={(e) => draftQuantity(den.value, e.target.value)}
+                      onPaste={pasteDenominations}
                       onBlur={() => commitQuantity(den.value)}
                       onKeyDown={(e) => kd(e, i)}
                       className="w-14 text-center bg-[#050816] border border-white/10 rounded-xl py-2 text-white text-sm font-semibold focus:ring-1 focus:ring-cyan-400/35 focus:border-cyan-400/35 outline-none transition-all placeholder-white/10"

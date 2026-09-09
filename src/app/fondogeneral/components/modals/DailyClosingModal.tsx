@@ -5,6 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
   AlertTriangle,
   BarChart3,
@@ -23,6 +24,8 @@ import {
 import { reconcileClosing, type ClosingReconciliation } from "@/domain/reconciliation";
 import {
   getBillCountKeyAction,
+  parseCashCountClipboard,
+  serializeCashCountClipboard,
   parseBillCountInput,
 } from "@/components/business/cash-counter-tabs/utils";
 import type { DailyClosingRecord } from "@/services/daily-closings";
@@ -333,36 +336,18 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     useState<DailyClosingFormValues | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const [copiedBlock, setCopiedBlock] = useState<"CRC" | "USD" | null>(null);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { copyToClipboard } = usePermissions();
 
   const secondaryButtonClass =
     "inline-flex h-11 items-center justify-center rounded-lg border border-[var(--input-border)] px-4 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20 disabled:cursor-not-allowed disabled:opacity-60";
   const primaryButtonClass =
     "inline-flex h-11 min-w-[11rem] items-center justify-center gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-5 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-[var(--accent-hover)] hover:shadow-md active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card-bg)] disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60 disabled:shadow-none";
 
-  const crcFormatter = useMemo(
-    () =>
-      new Intl.NumberFormat("es-CR", {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 2,
-      }),
-    [],
-  );
-  const usdFormatter = useMemo(
-    () =>
-      new Intl.NumberFormat("en-US", {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 2,
-      }),
-    [],
-  );
-  const closingDateFormatter = useMemo(
-    () =>
-      new Intl.DateTimeFormat("es-CR", {
-        dateStyle: "long",
-        timeStyle: "short",
-      }),
-    [],
-  );
+  const crcFormatter = useMemo(() => new Intl.NumberFormat("es-CR", { minimumFractionDigits: 0, maximumFractionDigits: 2 }), []);
+  const usdFormatter = useMemo(() => new Intl.NumberFormat("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 }), []);
+  const closingDateFormatter = useMemo(() => new Intl.DateTimeFormat("es-CR", { dateStyle: "long", timeStyle: "short" }), []);
 
   const formatCurrency = useCallback(
     (currency: "CRC" | "USD", value: number) =>
@@ -760,7 +745,10 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
       }
     };
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    };
   }, [
     editId,
     initialValues,
@@ -842,6 +830,30 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
         const parsed = parseBillCountInput(current);
         return { ...prev, [denom]: parsed > 0 ? String(parsed) : "" };
       });
+    }
+  };
+
+  const handleCountPaste = (
+    event: React.ClipboardEvent<HTMLInputElement>,
+  ) => {
+    const transferred = parseCashCountClipboard(
+      event.clipboardData.getData("text/plain"),
+    );
+    if (!transferred) return;
+
+    event.preventDefault();
+    const pastedCounts = Object.entries(transferred.bills).reduce<CountState>(
+      (counts, [denomination, count]) => {
+        counts[Number(denomination)] = count > 0 ? String(count) : "";
+        return counts;
+      },
+      {},
+    );
+
+    if (transferred.currency === "CRC") {
+      setCrcCounts(pastedCounts);
+    } else {
+      setUsdCounts(pastedCounts);
     }
   };
 
@@ -1055,6 +1067,25 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     setPendingSubmitValues(null);
   };
 
+  const copyBlock = async (currency: "CRC" | "USD", counts: CountState, denominations: readonly number[]) => {
+    const bills = denominations.reduce<Record<number, number>>((acc, denom) => {
+      acc[denom] = normalizeCount(counts[denom]);
+      return acc;
+    }, {});
+
+    const success = await copyToClipboard(
+      serializeCashCountClipboard(currency, bills),
+    );
+    if (!success) {
+      alert("No se pudieron copiar las denominaciones.");
+      return;
+    }
+
+    setCopiedBlock(currency);
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    copiedTimerRef.current = setTimeout(() => setCopiedBlock(null), 2000);
+  };
+
   const handleClearCounts = () => {
     setCrcCounts(buildInitialCounts(CRC_DENOMINATIONS));
     setUsdCounts(buildInitialCounts(USD_DENOMINATIONS));
@@ -1182,6 +1213,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                             onKeyDown={(e) =>
                               handleCountKeyDown(e, "CRC", denom)
                             }
+                            onPaste={handleCountPaste}
                             onBlur={() => commitCount("CRC", denom)}
                             className="w-24 h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-2 pr-8 text-sm text-center text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
                             style={{
@@ -1231,6 +1263,15 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                   Saldo registrado: {formatCurrency("CRC", currentBalanceCRC)} ·
                   Diferencia: {differenceLabel("CRC", diffCRC)}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => copyBlock("CRC", crcCounts, CRC_DENOMINATIONS)}
+                  aria-label={`Copiar ${formatCurrency("CRC", totalCRC).trimStart()}`}
+                  title="Copiar denominaciones"
+                  className={`ml-auto shrink-0 rounded-md border px-2 py-1 text-[10px] font-medium transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 ${copiedBlock === "CRC" ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-200" : "border-[var(--input-border)] bg-[var(--muted)]/10 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"}`}
+                >
+                  {copiedBlock === "CRC" ? "Copiado" : "Copiar"}
+                </button>
               </section>
               <section className="md:border-l md:border-[var(--input-border)] md:pl-6">
                 <h4 className="text-sm font-semibold text-[var(--foreground)] mb-3">
@@ -1258,6 +1299,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                             onKeyDown={(e) =>
                               handleCountKeyDown(e, "USD", denom)
                             }
+                            onPaste={handleCountPaste}
                             onBlur={() => commitCount("USD", denom)}
                             className="w-24 h-11 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-2 pr-8 text-sm text-center text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
                             style={{
@@ -1307,6 +1349,15 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                   Saldo registrado: {formatCurrency("USD", currentBalanceUSD)} ·
                   Diferencia: {differenceLabel("USD", diffUSD)}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => copyBlock("USD", usdCounts, USD_DENOMINATIONS)}
+                  aria-label={`Copiar ${formatCurrency("USD", totalUSD).trimStart()}`}
+                  title="Copiar denominaciones"
+                  className={`ml-auto shrink-0 rounded-md border px-2 py-1 text-[10px] font-medium transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 ${copiedBlock === "USD" ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-200" : "border-[var(--input-border)] bg-[var(--muted)]/10 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"}`}
+                >
+                  {copiedBlock === "USD" ? "Copiado" : "Copiar"}
+                </button>
               </section>
             </div>
             {verificationActive && (

@@ -71,7 +71,9 @@ import {
 import {
   addHomeMenuFavorite,
   getHomeMenuFavorites,
+  getHomeMenuOrder,
   removeHomeMenuFavorite,
+  setHomeMenuOrder,
 } from "../../services/homeMenuFavoritesDb";
 
 const MAINTENANCE_TAB_STORAGE_KEY = "pricemaster:maintenance-active-tab";
@@ -410,16 +412,9 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     (item) => !item.desktopOnly || isDesktopViewport,
   );
 
-  const homeMenuOrderStorageKey = useMemo(() => {
+  const homeMenuUserKey = useMemo(() => {
     if (!currentUser) return null;
-    const userKey = (currentUser.id || currentUser.email || "anonymous").trim();
-    return `pricemaster:home-menu-order:${userKey}`;
-  }, [currentUser]);
-
-  const homeMenuFavoritesStorageKey = useMemo(() => {
-    if (!currentUser) return null;
-    const userKey = (currentUser.id || currentUser.email || "anonymous").trim();
-    return userKey;
+    return (currentUser.id || currentUser.email || "anonymous").trim();
   }, [currentUser]);
 
   const [savedMenuOrder, setSavedMenuOrder] = useState<string[]>([]);
@@ -557,7 +552,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   }, [accessibleFavoriteOptions]);
 
   useEffect(() => {
-    if (!homeMenuFavoritesStorageKey) {
+    if (!homeMenuUserKey) {
       setFavoriteMenuIds([]);
       return;
     }
@@ -567,7 +562,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
 
     const loadFavorites = async () => {
       try {
-        const ids = await getHomeMenuFavorites(homeMenuFavoritesStorageKey);
+        const ids = await getHomeMenuFavorites(homeMenuUserKey);
         if (!cancelled) {
           setFavoriteMenuIds(ids);
         }
@@ -588,41 +583,60 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     return () => {
       cancelled = true;
     };
-  }, [homeMenuFavoritesStorageKey]);
+  }, [homeMenuUserKey]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!homeMenuOrderStorageKey) {
+    if (!homeMenuUserKey) {
       setSavedMenuOrder([]);
       return;
     }
 
-    try {
-      const raw = localStorage.getItem(homeMenuOrderStorageKey);
-      if (!raw) {
-        setSavedMenuOrder([]);
-        return;
+    let cancelled = false;
+    const loadOrder = async () => {
+      try {
+        let order = await getHomeMenuOrder(homeMenuUserKey);
+
+        // Migración única: el orden solía guardarse en localStorage.
+        if (order.length === 0) {
+          try {
+            const legacyStorageKey = `pricemaster:home-menu-order:${homeMenuUserKey}`;
+            const legacyRaw = localStorage.getItem(legacyStorageKey);
+            if (legacyRaw) {
+              const parsed = JSON.parse(legacyRaw);
+              if (Array.isArray(parsed)) {
+                order = parsed.filter((v) => typeof v === "string");
+                await setHomeMenuOrder(homeMenuUserKey, order);
+                localStorage.removeItem(legacyStorageKey);
+              }
+            }
+          } catch {
+            // ignore
+          }
+        }
+
+        if (!cancelled) setSavedMenuOrder(order);
+      } catch (error) {
+        console.error("Error loading HomeMenu order:", error);
+        if (!cancelled) setSavedMenuOrder([]);
       }
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        setSavedMenuOrder(parsed.filter((v) => typeof v === "string"));
-        return;
-      }
-      setSavedMenuOrder([]);
-    } catch {
-      setSavedMenuOrder([]);
-    }
-  }, [homeMenuOrderStorageKey]);
+    };
+
+    void loadOrder();
+    return () => {
+      cancelled = true;
+    };
+  }, [homeMenuUserKey]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!homeMenuFavoritesStorageKey) {
+    if (!homeMenuUserKey) {
       setFavoriteMenuIds([]);
       return;
     }
 
     try {
-      const raw = localStorage.getItem(homeMenuFavoritesStorageKey);
+      const raw = localStorage.getItem(homeMenuUserKey);
       if (!raw) {
         setFavoriteMenuIds([]);
         return;
@@ -637,7 +651,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     } catch {
       setFavoriteMenuIds([]);
     }
-  }, [homeMenuFavoritesStorageKey]);
+  }, [homeMenuUserKey]);
 
   const orderedVisibleMenuItemIds = useMemo(() => {
     const currentIds = visibleMenuItems.map((item) => item.id);
@@ -651,7 +665,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   // If new menu items appear, append them and persist for next reload.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!homeMenuOrderStorageKey) return;
+    if (!homeMenuUserKey) return;
     if (orderedVisibleMenuItemIds.length === 0) return;
 
     // Only auto-sync when there's already a saved order (avoid writing defaults).
@@ -659,15 +673,12 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     if (arraysEqual(orderedVisibleMenuItemIds, savedMenuOrder)) return;
 
     setSavedMenuOrder(orderedVisibleMenuItemIds);
-    try {
-      localStorage.setItem(
-        homeMenuOrderStorageKey,
-        JSON.stringify(orderedVisibleMenuItemIds),
-      );
-    } catch {
-      // ignore
-    }
-  }, [homeMenuOrderStorageKey, orderedVisibleMenuItemIds, savedMenuOrder]);
+    void setHomeMenuOrder(homeMenuUserKey, orderedVisibleMenuItemIds).catch(
+      () => {
+        // ignore
+      },
+    );
+  }, [homeMenuUserKey, orderedVisibleMenuItemIds, savedMenuOrder]);
 
   const orderedVisibleMenuItems = useMemo(() => {
     const byId = new Map(
@@ -1605,7 +1616,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   };
 
   const handleToggleFavorite = async (favorite: HomeMenuFavoriteOption) => {
-    if (!homeMenuFavoritesStorageKey) return;
+    if (!homeMenuUserKey) return;
 
     const isActive = favoriteMenuIds.includes(favorite.id);
     const nextIds = isActive
@@ -1616,20 +1627,20 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
 
     try {
       if (isActive) {
-        await removeHomeMenuFavorite(homeMenuFavoritesStorageKey, favorite.id);
+        await removeHomeMenuFavorite(homeMenuUserKey, favorite.id);
       } else {
-        await addHomeMenuFavorite(homeMenuFavoritesStorageKey, favorite.id);
+        await addHomeMenuFavorite(homeMenuUserKey, favorite.id);
       }
 
       window.dispatchEvent(
         new CustomEvent("pricemaster:home-favorites-change", {
-          detail: { userKey: homeMenuFavoritesStorageKey },
+          detail: { userKey: homeMenuUserKey },
         }),
       );
     } catch (error) {
       console.error("Error updating HomeMenu favorites:", error);
       try {
-        const ids = await getHomeMenuFavorites(homeMenuFavoritesStorageKey);
+        const ids = await getHomeMenuFavorites(homeMenuUserKey);
         setFavoriteMenuIds(ids);
       } catch {
         // ignore secondary errors
@@ -1843,15 +1854,12 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
                       : id,
                   );
                   setSavedMenuOrder(nextOrder);
-                  if (!homeMenuOrderStorageKey) return;
-                  try {
-                    localStorage.setItem(
-                      homeMenuOrderStorageKey,
-                      JSON.stringify(nextOrder),
-                    );
-                  } catch {
-                    // ignore
-                  }
+                  if (!homeMenuUserKey) return;
+                  void setHomeMenuOrder(homeMenuUserKey, nextOrder).catch(
+                    () => {
+                      // ignore
+                    },
+                  );
                 }}
               >
                 <SortableContext

@@ -6,9 +6,16 @@ export type HomeMenuFavoriteRecord = {
   updatedAt: number;
 };
 
+export type HomeMenuOrderRecord = {
+  userKey: string;
+  order: string[];
+  updatedAt: number;
+};
+
 const DB_NAME = "home-menu-favorites-db";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = "favorites";
+const MENU_ORDER_STORE_NAME = "menu-order";
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -32,6 +39,9 @@ function openOnce(): Promise<IDBDatabase> {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME, { keyPath: "compoundKey" });
+      }
+      if (!db.objectStoreNames.contains(MENU_ORDER_STORE_NAME)) {
+        db.createObjectStore(MENU_ORDER_STORE_NAME, { keyPath: "userKey" });
       }
     };
 
@@ -134,5 +144,40 @@ export async function removeHomeMenuFavorite(
   const tx = db.transaction(STORE_NAME, "readwrite");
   const store = tx.objectStore(STORE_NAME);
   store.delete(buildCompoundKey(normalizedUserKey, normalizedFavoriteId));
+  await txDone(tx);
+}
+
+export async function getHomeMenuOrder(userKey: string): Promise<string[]> {
+  const normalizedUserKey = normalizeUserKey(userKey);
+  if (!normalizedUserKey) return [];
+
+  const db = await openHomeMenuFavoritesDb();
+  const tx = db.transaction(MENU_ORDER_STORE_NAME, "readonly");
+  const store = tx.objectStore(MENU_ORDER_STORE_NAME);
+  const record = await requestToPromise(
+    store.get(normalizedUserKey) as IDBRequest<HomeMenuOrderRecord | undefined>,
+  );
+  await txDone(tx);
+
+  return Array.isArray(record?.order)
+    ? record.order.filter((id): id is string => typeof id === "string")
+    : [];
+}
+
+export async function setHomeMenuOrder(
+  userKey: string,
+  order: string[],
+): Promise<void> {
+  const normalizedUserKey = normalizeUserKey(userKey);
+  if (!normalizedUserKey) return;
+
+  const db = await openHomeMenuFavoritesDb();
+  const tx = db.transaction(MENU_ORDER_STORE_NAME, "readwrite");
+  const store = tx.objectStore(MENU_ORDER_STORE_NAME);
+  store.put({
+    userKey: normalizedUserKey,
+    order: order.filter((id) => typeof id === "string"),
+    updatedAt: Date.now(),
+  });
   await txDone(tx);
 }
