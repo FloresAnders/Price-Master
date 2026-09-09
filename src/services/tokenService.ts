@@ -29,10 +29,10 @@ interface TokenSessionData {
 }
 
 export class TokenService {
-  private static readonly SECRET_KEY = "pricemaster_secret_2024"; // En producción usar variable de entorno
+  private static readonly SECRET_KEY = "timemaster_secret_2024"; // En producción usar variable de entorno
   private static readonly TOKEN_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 días en milisegundos
   private static readonly REFRESH_TOKEN_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 días en milisegundos
-  private static readonly STORAGE_KEY = "pricemaster_token_session";
+  private static readonly STORAGE_KEY = "timemaster_token_session";
 
   /**
    * Genera un token simple (sin librería JWT para simplicidad)

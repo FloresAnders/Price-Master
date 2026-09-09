@@ -59,8 +59,8 @@ type DataFile =
   | "funciones"
   | "systemMaintenance";
 
-const MAINTENANCE_TAB_STORAGE_KEY = "pricemaster:maintenance-active-tab";
-const MAINTENANCE_TAB_EVENT = "pricemaster:maintenance-tab-change";
+const MAINTENANCE_TAB_STORAGE_KEY = "timemaster:maintenance-active-tab";
+const MAINTENANCE_TAB_EVENT = "timemaster:maintenance-tab-change";
 const SUPERADMIN_SELF_VIEW = "__self__";
 
 const getStoredMaintenanceTab = (): DataFile => {

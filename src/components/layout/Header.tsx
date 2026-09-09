@@ -310,7 +310,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     if (typeof window !== "undefined") {
       localStorage.setItem("show-calculator", showCalculator.toString());
       window.dispatchEvent(
-        new CustomEvent("pricemaster:preference-change", {
+        new CustomEvent("timemaster:preference-change", {
           detail: { key: "show-calculator" },
         }),
       );
@@ -325,7 +325,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         showCashCounterFloating.toString(),
       );
       window.dispatchEvent(
-        new CustomEvent("pricemaster:preference-change", {
+        new CustomEvent("timemaster:preference-change", {
           detail: { key: "show-cash-counter" },
         }),
       );
@@ -343,7 +343,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       // Notifica a otros componentes en la misma pestaña
       // (el evento 'storage' no se dispara en el mismo documento).
       window.dispatchEvent(
-        new CustomEvent("pricemaster:preference-change", {
+        new CustomEvent("timemaster:preference-change", {
           detail: { key: "show-supplier-week-menu" },
         }),
       );
@@ -359,7 +359,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       );
 
       window.dispatchEvent(
-        new CustomEvent("pricemaster:preference-change", {
+        new CustomEvent("timemaster:preference-change", {
           detail: { key: "enable-home-menu-sort-mobile" },
         }),
       );
@@ -1493,7 +1493,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                               <button
                                 onClick={() => {
                                   setShowUserDropdown(false);
-                                    const sessionKey = "pricemaster_session";
+                                    const sessionKey = "timemaster_session";
                                     const sessionValue = localStorage.getItem(
                                       sessionKey,
                                     );
@@ -1960,7 +1960,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                     onClick={() => {
                       setShowMobileMenu(false);
                       setShowMobileUserActions(false);
-                      const sessionKey = "pricemaster_session";
+                      const sessionKey = "timemaster_session";
                       const sessionValue = localStorage.getItem(sessionKey);
                       localStorage.clear();
                       if (sessionValue !== null) {

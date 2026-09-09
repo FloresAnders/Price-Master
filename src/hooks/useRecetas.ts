@@ -30,7 +30,7 @@ const RECETAS_CACHE_VERSION = 1;
 const recetasMemoryCache = new Map<string, RecetasCacheRecord>();
 
 function buildRecetasCacheKey(company: string): string {
-  return `pricemaster_recetas_cache:${company}`;
+  return `timemaster_recetas_cache:${company}`;
 }
 
 function readSessionRecetasCache(key: string): RecetasCacheRecord | null {

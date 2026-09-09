@@ -266,7 +266,7 @@ export class UsersService {
         !("eliminate" in enrichedActor))
     ) {
       try {
-        const sessionRaw = localStorage.getItem("pricemaster_session");
+        const sessionRaw = localStorage.getItem("timemaster_session");
         if (sessionRaw) {
           const session = JSON.parse(sessionRaw);
           enrichedActor = {

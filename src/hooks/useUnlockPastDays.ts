@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { verifyPassword } from "@/lib/auth/password";
 
-const STORAGE_KEY = "pricemaster_schedule_past_days_unlocked";
-export const PHASH_KEY = "pricemaster_user_phash";
+const STORAGE_KEY = "timemaster_schedule_past_days_unlocked";
+export const PHASH_KEY = "timemaster_user_phash";
 const TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 function parseUnlockedAt(raw: string | null): number {

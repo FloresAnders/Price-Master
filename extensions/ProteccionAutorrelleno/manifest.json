@@ -18,7 +18,7 @@
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "proteccion-autorrelleno@pricemaster.local",
+      "id": "proteccion-autorrelleno@timemaster.local",
       "strict_min_version": "109.0"
     }
   }

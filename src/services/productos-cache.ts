@@ -8,7 +8,7 @@ import { ProductosService } from "@/services/productos";
 import { nowCostaRicaISO } from "@/utils/costaRicaTime";
 
 export const PRODUCTOS_KEY = "productos_cache";
-const PRODUCTOS_CACHE_EVENT = "pricemaster:productos-cache-change";
+const PRODUCTOS_CACHE_EVENT = "timemaster:productos-cache-change";
 
 type ProductosCacheShape = {
   version: number;

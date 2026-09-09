@@ -7,7 +7,7 @@ export type AnotacionLayout = {
   pinned: boolean;
 };
 
-const DB_NAME = "pricemaster-anotaciones";
+const DB_NAME = "timemaster-anotaciones";
 const STORE_NAME = "layouts";
 const DB_VERSION = 1;
 

@@ -1,6 +1,6 @@
 export const SESSION_HEARTBEAT_INTERVAL_MS = 30 * 60 * 1000;
 
-const SESSION_HEARTBEAT_LEASE_KEY = "pricemaster_session_heartbeat_lease";
+const SESSION_HEARTBEAT_LEASE_KEY = "timemaster_session_heartbeat_lease";
 
 type HeartbeatLease = {
   ownerId: string;

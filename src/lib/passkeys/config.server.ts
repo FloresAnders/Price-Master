@@ -42,6 +42,7 @@ export function getWebAuthnConfig(
     (production ? "" : "http://localhost:3000");
   const sessionSecret =
     env.PRICE_MASTER_SESSION_SECRET?.trim() ||
+    env.TIME_MASTER_SESSION_SECRET?.trim() ||
     (production ? "" : "timemaster-local-development-session-secret");
 
   if (!rpID) {
@@ -52,7 +53,7 @@ export function getWebAuthnConfig(
   }
   if (sessionSecret.length < 32) {
     throw new Error(
-      "PRICE_MASTER_SESSION_SECRET must contain at least 32 caracteres.",
+      "TIME_MASTER_SESSION_SECRET must contain at least 32 caracteres.",
     );
   }
 

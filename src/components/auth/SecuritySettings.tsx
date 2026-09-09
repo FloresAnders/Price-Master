@@ -75,7 +75,7 @@ export default function SecuritySettings() {
 
   // Cargar configuración guardada
   useEffect(() => {
-    const savedConfig = localStorage.getItem("pricemaster_security_config");
+    const savedConfig = localStorage.getItem("timemaster_security_config");
     if (savedConfig) {
       try {
         setConfig(JSON.parse(savedConfig));
@@ -120,7 +120,7 @@ export default function SecuritySettings() {
     try {
       // Guardar en localStorage
       localStorage.setItem(
-        "pricemaster_security_config",
+        "timemaster_security_config",
         JSON.stringify(config),
       );
       showToast("Configuración de seguridad guardada exitosamente", "success");

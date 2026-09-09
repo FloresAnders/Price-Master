@@ -123,7 +123,7 @@ export default function SuperAdminBanner() {
               activos • ⏰ Logout automático por inactividad (30 min)
             </span>
             <span className="font-mono">
-              ID: {localStorage.getItem("pricemaster_session_id")?.slice(-8)}
+              ID: {localStorage.getItem("timemaster_session_id")?.slice(-8)}
             </span>
           </div>
         </div>

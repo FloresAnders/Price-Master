@@ -9,7 +9,7 @@ type UsePruebasUnlockOptions = {
   ttlMs?: number;
 };
 
-const DEFAULT_STORAGE_KEY = "pricemaster_pruebas_unlocked";
+const DEFAULT_STORAGE_KEY = "timemaster_pruebas_unlocked";
 const DEFAULT_TTL_MS = 5 * 60 * 1000;
 
 function parseUnlockedAt(raw: string | null): number {

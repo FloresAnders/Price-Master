@@ -12,7 +12,7 @@ export interface SessionSnapshot {
   role?: string;
 }
 
-const SESSION_KEY = "pricemaster_session";
+const SESSION_KEY = "timemaster_session";
 
 const normalizeId = (value: unknown): string | undefined => {
   if (value === null || value === undefined) return undefined;

@@ -159,7 +159,7 @@ export default function HomePage() {
     | { kind: "ok"; user: User }
     | { kind: "invalid"; reason: "missing" | "parse" | "wrong-user" }
   >(() => {
-    const existingSession = safeLocalStorage.getItem("pricemaster_session");
+    const existingSession = safeLocalStorage.getItem("timemaster_session");
     if (!existingSession) {
       return { kind: "invalid", reason: "missing" };
     }

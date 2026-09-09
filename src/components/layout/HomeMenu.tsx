@@ -76,8 +76,8 @@ import {
   setHomeMenuOrder,
 } from "../../services/homeMenuFavoritesDb";
 
-const MAINTENANCE_TAB_STORAGE_KEY = "pricemaster:maintenance-active-tab";
-const MAINTENANCE_TAB_EVENT = "pricemaster:maintenance-tab-change";
+const MAINTENANCE_TAB_STORAGE_KEY = "timemaster:maintenance-active-tab";
+const MAINTENANCE_TAB_EVENT = "timemaster:maintenance-tab-change";
 
 const HOME_GREETINGS = [
   "Todo lo que necesitas, aquí",
@@ -441,11 +441,11 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     };
 
     window.addEventListener("storage", handleStorage);
-    window.addEventListener("pricemaster:preference-change", handlePrefChange);
+    window.addEventListener("timemaster:preference-change", handlePrefChange);
     return () => {
       window.removeEventListener("storage", handleStorage);
       window.removeEventListener(
-        "pricemaster:preference-change",
+        "timemaster:preference-change",
         handlePrefChange,
       );
     };
@@ -457,13 +457,13 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
       if (!favoritesPreferenceHydrated) return;
 
       localStorage.setItem(
-        "pricemaster:home-menu-show-favorites",
+        "timemaster:home-menu-show-favorites",
         showFavoritesView.toString(),
       );
 
       window.dispatchEvent(
-        new CustomEvent("pricemaster:preference-change", {
-          detail: { key: "pricemaster:home-menu-show-favorites" },
+        new CustomEvent("timemaster:preference-change", {
+          detail: { key: "timemaster:home-menu-show-favorites" },
         }),
       );
     }
@@ -473,7 +473,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const savedPreference = localStorage.getItem(
-        "pricemaster:home-menu-show-favorites",
+        "timemaster:home-menu-show-favorites",
       );
       setShowFavoritesView(savedPreference === "true");
       setFavoritesPreferenceHydrated(true);
@@ -485,31 +485,31 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
 
     const readFavoritesViewPreference = () => {
       const savedPreference = localStorage.getItem(
-        "pricemaster:home-menu-show-favorites",
+        "timemaster:home-menu-show-favorites",
       );
       setShowFavoritesView(savedPreference === "true");
     };
 
     const handleStorage = (e: StorageEvent) => {
-      if (e.key === "pricemaster:home-menu-show-favorites") {
+      if (e.key === "timemaster:home-menu-show-favorites") {
         readFavoritesViewPreference();
       }
     };
 
     const handlePrefChange = (e: Event) => {
       const key = (e as CustomEvent)?.detail?.key;
-      if (key === "pricemaster:home-menu-show-favorites") {
+      if (key === "timemaster:home-menu-show-favorites") {
         readFavoritesViewPreference();
       }
     };
 
     window.addEventListener("storage", handleStorage);
-    window.addEventListener("pricemaster:preference-change", handlePrefChange);
+    window.addEventListener("timemaster:preference-change", handlePrefChange);
 
     return () => {
       window.removeEventListener("storage", handleStorage);
       window.removeEventListener(
-        "pricemaster:preference-change",
+        "timemaster:preference-change",
         handlePrefChange,
       );
     };
@@ -600,7 +600,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
         // Migración única: el orden solía guardarse en localStorage.
         if (order.length === 0) {
           try {
-            const legacyStorageKey = `pricemaster:home-menu-order:${homeMenuUserKey}`;
+            const legacyStorageKey = `timemaster:home-menu-order:${homeMenuUserKey}`;
             const legacyRaw = localStorage.getItem(legacyStorageKey);
             if (legacyRaw) {
               const parsed = JSON.parse(legacyRaw);
@@ -786,11 +786,11 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     };
 
     window.addEventListener("storage", handleStorage);
-    window.addEventListener("pricemaster:preference-change", handlePrefChange);
+    window.addEventListener("timemaster:preference-change", handlePrefChange);
     return () => {
       window.removeEventListener("storage", handleStorage);
       window.removeEventListener(
-        "pricemaster:preference-change",
+        "timemaster:preference-change",
         handlePrefChange,
       );
     };
@@ -1287,7 +1287,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     if (!c) return null;
     const wk = weekModel.weekStartKey;
     if (!Number.isFinite(wk)) return null;
-    return `pricemaster:controlpedido:${c}__${wk}`;
+    return `timemaster:controlpedido:${c}__${wk}`;
   }, [companyForProviders, weekModel.weekStartKey]);
 
   const [cachedControlEntries, setCachedControlEntries] = useState<
@@ -1633,7 +1633,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
       }
 
       window.dispatchEvent(
-        new CustomEvent("pricemaster:home-favorites-change", {
+        new CustomEvent("timemaster:home-favorites-change", {
           detail: { userKey: homeMenuUserKey },
         }),
       );

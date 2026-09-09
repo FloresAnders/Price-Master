@@ -36,11 +36,11 @@ type FondoCacheRecord<T = unknown> = {
 };
 
 const CACHE_SCHEMA_VERSION = 1;
-const DATABASE_NAME = "pricemaster-fondo-cache";
+const DATABASE_NAME = "timemaster-fondo-cache";
 const DATABASE_VERSION = 1;
 const STORE_NAME = "records";
-const INVALIDATION_CHANNEL = "pricemaster-fondo-cache-invalidated";
-const INVALIDATION_STORAGE_KEY = "pricemaster_fondo_cache_invalidation";
+const INVALIDATION_CHANNEL = "timemaster-fondo-cache-invalidated";
+const INVALIDATION_STORAGE_KEY = "timemaster_fondo_cache_invalidation";
 
 let databasePromise: Promise<IDBDatabase> | null = null;
 let warnedUnavailable = false;

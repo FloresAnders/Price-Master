@@ -82,12 +82,12 @@ export default function EditProfileModal({
       showToast("Foto de perfil eliminada correctamente.", "success");
       try {
         if (typeof window !== "undefined") {
-          const sessionRaw = window.localStorage.getItem("pricemaster_session");
+          const sessionRaw = window.localStorage.getItem("timemaster_session");
           if (sessionRaw) {
             const sessionData = JSON.parse(sessionRaw);
             delete sessionData.photoUrl;
             window.localStorage.setItem(
-              "pricemaster_session",
+              "timemaster_session",
               JSON.stringify(sessionData),
             );
           }
@@ -332,7 +332,7 @@ export default function EditProfileModal({
 
       try {
         if (typeof window !== "undefined") {
-          const sessionRaw = window.localStorage.getItem("pricemaster_session");
+          const sessionRaw = window.localStorage.getItem("timemaster_session");
           if (sessionRaw) {
             const sessionData = JSON.parse(sessionRaw);
             sessionData.name = payload.name ?? sessionData.name;
@@ -349,7 +349,7 @@ export default function EditProfileModal({
               delete sessionData.photoUrl;
             }
             window.localStorage.setItem(
-              "pricemaster_session",
+              "timemaster_session",
               JSON.stringify(sessionData),
             );
           }

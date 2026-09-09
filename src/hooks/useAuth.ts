@@ -23,8 +23,8 @@ import { clearFondoCacheForUser } from "@/services/fondo-cache";
 import { FondoMovementTypesService } from "@/services/fondo-movement-types";
 
 const AUTH_STATE_EVENT = "timemaster-auth-state";
-const AUTH_SYNC_STORAGE_KEY = "pricemaster_auth_sync";
-const STORAGE_VERSION_KEY = "pricemaster_storage_version";
+const AUTH_SYNC_STORAGE_KEY = "timemaster_auth_sync";
+const STORAGE_VERSION_KEY = "timemaster_storage_version";
 
 interface ServerSessionPayload {
   ok: boolean;
@@ -58,9 +58,9 @@ function normalizedUser(user: User): User {
 }
 
 function clearLegacyAuthState(): void {
-  localStorage.removeItem("pricemaster_session");
-  localStorage.removeItem("pricemaster_session_id");
-  localStorage.removeItem("pricemaster_token_session");
+  localStorage.removeItem("timemaster_session");
+  localStorage.removeItem("timemaster_session_id");
+  localStorage.removeItem("timemaster_token_session");
 }
 
 function publishAuthState(detail: AuthStateDetail): void {
@@ -121,7 +121,7 @@ function useAuthState() {
     FondoMovementTypesService.stopListener();
     releaseSessionHeartbeatLease(localStorage, heartbeatOwnerId.current);
     clearLegacyAuthState();
-    localStorage.removeItem("pricemaster_user_phash");
+    localStorage.removeItem("timemaster_user_phash");
     const next = { user: null, expiresAt: null };
     applyAuthState(next);
     publishAuthState(next);

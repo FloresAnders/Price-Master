@@ -77,11 +77,11 @@ export default function SessionMonitor({
       }
     };
     window.addEventListener("storage", handleStorage);
-    window.addEventListener("pricemaster:preference-change", handlePrefChange);
+    window.addEventListener("timemaster:preference-change", handlePrefChange);
     return () => {
       window.removeEventListener("storage", handleStorage);
       window.removeEventListener(
-        "pricemaster:preference-change",
+        "timemaster:preference-change",
         handlePrefChange,
       );
     };

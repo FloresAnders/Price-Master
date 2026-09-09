@@ -389,7 +389,7 @@ export const sendEmailTrigger = onDocumentCreated(
         "X-Mailer": "Time Master System",
         "Reply-To": gmailUser.value() || "",
       },
-      messageId: `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@pricemaster.local>`,
+      messageId: `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@timemaster.local>`,
       date: new Date(),
     };
 

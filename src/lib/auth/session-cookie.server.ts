@@ -1,6 +1,6 @@
 import type { NextResponse } from "next/server";
 
-export const AUTH_COOKIE_NAME = "pricemaster_auth";
+export const AUTH_COOKIE_NAME = "timemaster_auth";
 
 export function getSessionTokenFromCookie(
   cookieHeader: string | null,

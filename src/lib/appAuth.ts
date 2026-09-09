@@ -1,6 +1,6 @@
 import { getAdminAuth } from './firebase-admin';
 
-const SECRET_KEY = 'pricemaster_secret_2024';
+const SECRET_KEY = 'timemaster_secret_2024';
 
 function b64Decode(input: string) {
   return Buffer.from(input, 'base64').toString('utf8');

@@ -63,7 +63,7 @@ type FloatingActionsVisibilityContextValue = {
 const FloatingActionsVisibilityContext =
   createContext<FloatingActionsVisibilityContextValue | null>(null);
 
-const PINNED_KEY = "pricemaster-floating-actions-pinned";
+const PINNED_KEY = "timemaster-floating-actions-pinned";
 const useIsomorphicLayoutEffect =
   typeof window === "undefined" ? useEffect : useLayoutEffect;
 
