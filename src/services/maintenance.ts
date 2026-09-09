@@ -1,11 +1,11 @@
 import {
   doc,
-  onSnapshot,
   serverTimestamp,
   setDoc,
   type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "@/config/firebase";
+import { subscribeToVersionDoc, type VersionDocSnapshot } from "@/services/version-doc";
 import type { Empresas, User } from "@/types/firestore";
 
 export const DEFAULT_MAINTENANCE_MESSAGE =
@@ -34,7 +34,7 @@ export interface MaintenanceBlock {
   target: MaintenanceTarget;
 }
 
-const maintenanceRef = () => doc(db, "systemConfig", "maintenance");
+const versionRef = () => doc(db, "version", "current");
 
 const normalizeMessage = (value: unknown): string => {
   const message = typeof value === "string" ? value.trim() : "";
@@ -153,6 +153,10 @@ export const normalizeMaintenanceConfig = (
   };
 };
 
+export const normalizeMaintenanceConfigFromVersionSnapshot = (
+  snapshot: VersionDocSnapshot | null,
+): MaintenanceConfig => normalizeMaintenanceConfig(snapshot?.data?.maintenance);
+
 export const getMaintenanceBlock = (
   config: MaintenanceConfig,
   user: User | null | undefined,
@@ -186,16 +190,11 @@ export const subscribeToMaintenance = (
   onValue: (config: MaintenanceConfig) => void,
   onError?: (error: unknown) => void,
 ): Unsubscribe =>
-  onSnapshot(
-    maintenanceRef(),
+  subscribeToVersionDoc(
     (snapshot) => {
-      onValue(
-        snapshot.exists()
-          ? normalizeMaintenanceConfig(snapshot.data())
-          : createDefaultMaintenanceConfig(),
-      );
+      onValue(normalizeMaintenanceConfigFromVersionSnapshot(snapshot));
     },
-    (error) => onError?.(error),
+    onError,
   );
 
 interface MaintenanceWriteBase {
@@ -215,15 +214,17 @@ export const setGlobalMaintenance = async ({
 }: MaintenanceWriteBase): Promise<void> => {
   const auditActor = actor.trim() || "superadmin";
   await setDoc(
-    maintenanceRef(),
+    versionRef(),
     {
-      global: {
-        enabled,
-        message: normalizeMessage(message),
-        enabledAt: enabled ? existingEnabledAt || serverTimestamp() : null,
-        enabledBy: enabled ? existingEnabledBy || auditActor : null,
-        updatedAt: serverTimestamp(),
-        updatedBy: auditActor,
+      maintenance: {
+        global: {
+          enabled,
+          message: normalizeMessage(message),
+          enabledAt: enabled ? existingEnabledAt || serverTimestamp() : null,
+          enabledBy: enabled ? existingEnabledBy || auditActor : null,
+          updatedAt: serverTimestamp(),
+          updatedBy: auditActor,
+        },
       },
     },
     { merge: true },
@@ -241,20 +242,22 @@ export const setCompanyMaintenance = async ({
   const companyKey = buildCompanyMaintenanceKey(company);
   const auditActor = actor.trim() || "superadmin";
   await setDoc(
-    maintenanceRef(),
+    versionRef(),
     {
-      companies: {
-        [companyKey]: {
-          enabled,
-          message: normalizeMessage(message),
-          companyId: String(company.id || companyKey).trim(),
-          companyName: String(company.name || "").trim(),
-          companyLocation: String(company.ubicacion || "").trim(),
-          identifiers: buildCompanyMaintenanceIdentifiers(company),
-          enabledAt: enabled ? existingEnabledAt || serverTimestamp() : null,
-          enabledBy: enabled ? existingEnabledBy || auditActor : null,
-          updatedAt: serverTimestamp(),
-          updatedBy: auditActor,
+      maintenance: {
+        companies: {
+          [companyKey]: {
+            enabled,
+            message: normalizeMessage(message),
+            companyId: String(company.id || companyKey).trim(),
+            companyName: String(company.name || "").trim(),
+            companyLocation: String(company.ubicacion || "").trim(),
+            identifiers: buildCompanyMaintenanceIdentifiers(company),
+            enabledAt: enabled ? existingEnabledAt || serverTimestamp() : null,
+            enabledBy: enabled ? existingEnabledBy || auditActor : null,
+            updatedAt: serverTimestamp(),
+            updatedBy: auditActor,
+          },
         },
       },
     },

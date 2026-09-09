@@ -6,8 +6,10 @@ import {
   DEFAULT_MAINTENANCE_MESSAGE,
   getMaintenanceBlock,
   normalizeMaintenanceConfig,
+  normalizeMaintenanceConfigFromVersionSnapshot,
   type MaintenanceConfig,
 } from "@/services/maintenance";
+import type { VersionDocSnapshot } from "@/services/version-doc";
 import type { User } from "@/types/firestore";
 
 const regularUser: User = {
@@ -99,6 +101,31 @@ describe("normalizeMaintenanceConfig", () => {
         identifiers: [],
       },
       companies: {},
+    });
+  });
+  it("lee mantenimiento desde version/current", () => {
+    const snapshot: VersionDocSnapshot = {
+      id: "current",
+      exists: true,
+      data: {
+        maintenance: {
+          global: {
+            enabled: true,
+            message: "Ventana corta",
+          },
+        },
+      },
+      version: "1",
+      versionstorage: "1",
+      notasDeSistemas: "",
+      systemNotes: [],
+    };
+
+    expect(
+      normalizeMaintenanceConfigFromVersionSnapshot(snapshot).global,
+    ).toMatchObject({
+      enabled: true,
+      message: "Ventana corta",
     });
   });
 });

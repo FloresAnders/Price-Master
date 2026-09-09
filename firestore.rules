@@ -55,9 +55,14 @@ service cloud.firestore {
         );
     }
 
-    match /systemConfig/{configId} {
+    match /version/{documentId} {
       allow read: if isSignedIn();
-      allow create, update, delete: if isSuperAdmin();
+      allow create: if isSignedIn() &&
+        (isSuperAdmin() || !request.resource.data.keys().hasAny(['maintenance']));
+      allow update: if isSignedIn() &&
+        (isSuperAdmin() ||
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['maintenance']));
+      allow delete: if isSuperAdmin();
     }
 
     function canAccessAnotacionScope(data) {
@@ -731,7 +736,7 @@ service cloud.firestore {
         collection != 'passkeys' &&
         collection != 'webauthnCeremonies' &&
         collection != 'passkeyEnrollmentGrants' &&
-        collection != 'systemConfig' &&
+        collection != 'version' &&
         collection != 'authSessions';
     }
   }
