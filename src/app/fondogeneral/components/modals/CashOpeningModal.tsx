@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getBillCountKeyAction,
+  parseCashCountClipboard,
   parseBillCountInput,
 } from "@/components/business/cash-counter-tabs/utils";
 
@@ -247,6 +248,30 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
         const parsed = parseBillCountInput(current);
         return { ...prev, [denom]: parsed > 0 ? String(parsed) : "" };
       });
+    }
+  };
+
+  const handleCountPaste = (
+    event: React.ClipboardEvent<HTMLInputElement>,
+  ) => {
+    const transferred = parseCashCountClipboard(
+      event.clipboardData.getData("text/plain"),
+    );
+    if (!transferred) return;
+
+    event.preventDefault();
+    const pastedCounts = Object.entries(transferred.bills).reduce<CountState>(
+      (counts, [denomination, count]) => {
+        counts[Number(denomination)] = count > 0 ? String(count) : "";
+        return counts;
+      },
+      {},
+    );
+
+    if (transferred.currency === "CRC") {
+      setCrcCounts(pastedCounts);
+    } else {
+      setUsdCounts(pastedCounts);
     }
   };
 
@@ -541,6 +566,7 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
                           onChange={(event) =>
                             handleCountChange("CRC", denom, event.target.value)
                           }
+                          onPaste={handleCountPaste}
                           onKeyDown={(e) => handleCountKeyDown(e, "CRC", denom)}
                           onBlur={() => commitCount("CRC", denom)}
                           className="h-11 w-24 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-2 pr-8 text-center text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
@@ -616,6 +642,7 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
                           onChange={(event) =>
                             handleCountChange("USD", denom, event.target.value)
                           }
+                          onPaste={handleCountPaste}
                           onKeyDown={(e) => handleCountKeyDown(e, "USD", denom)}
                           onBlur={() => commitCount("USD", denom)}
                           className="h-11 w-24 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-2 pr-8 text-center text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"

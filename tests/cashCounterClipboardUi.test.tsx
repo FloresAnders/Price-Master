@@ -13,6 +13,7 @@ vi.mock("@/hooks/usePermissions", () => ({
 }));
 
 import DailyClosingModal from "@/app/fondogeneral/components/modals/DailyClosingModal";
+import CashOpeningModal from "@/app/fondogeneral/components/modals/CashOpeningModal";
 import { CashCounter } from "@/components/business/cash-counter-tabs/components/CashCounter";
 import type { CashCounterData } from "@/components/business/cash-counter-tabs/types";
 
@@ -149,5 +150,52 @@ describe("pegar denominaciones en el cierre diario", () => {
       (screen.getByLabelText("Cantidad 1000 colones") as HTMLInputElement)
         .value,
     ).toBe("4");
+  });
+});
+
+describe("pegar denominaciones en la apertura de fondo", () => {
+  afterEach(cleanup);
+
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it("reemplaza el bloque CRC con las cantidades copiadas de un contador", () => {
+    render(
+      <CashOpeningModal
+        open
+        onClose={vi.fn()}
+        onConfirm={vi.fn()}
+        employees={["Ana"]}
+        loadingEmployees={false}
+        currentBalanceCRC={0}
+        currentBalanceUSD={0}
+        persistDraft={false}
+      />,
+    );
+
+    fireEvent.paste(screen.getByLabelText("Cantidad 20000 colones"), {
+      clipboardData: {
+        getData: () =>
+          'TIME_MASTER:{"currency":"CRC","bills":{"25":200,"50":100,"100":300,"500":20,"1000":7,"2000":9,"5000":11,"10000":8,"20000":0}}',
+      },
+    });
+
+    expect(
+      (screen.getByLabelText("Cantidad 20000 colones") as HTMLInputElement)
+        .value,
+    ).toBe("");
+    expect(
+      (screen.getByLabelText("Cantidad 10000 colones") as HTMLInputElement)
+        .value,
+    ).toBe("8");
+    expect(
+      (screen.getByLabelText("Cantidad 5000 colones") as HTMLInputElement)
+        .value,
+    ).toBe("11");
+    expect(
+      (screen.getByLabelText("Cantidad 25 colones") as HTMLInputElement)
+        .value,
+    ).toBe("200");
   });
 });
