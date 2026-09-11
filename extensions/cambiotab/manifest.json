@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "CambioTab",
+  "version": "1.0.0",
+  "description": "Cambia rapidamente entre las pestanas del punto de venta de Contica.",
+  "content_scripts": [
+    {
+      "matches": ["https://contica.app/app/modules/punto_de_venta/*"],
+      "js": ["tab-core.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
