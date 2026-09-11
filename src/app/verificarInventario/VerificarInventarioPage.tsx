@@ -10,6 +10,7 @@ import ScannerModal from "./ScannerModal";
 import ScanNoticeOverlay, { type ScanNoticeState } from "./ScanNoticeOverlay";
 import { useAuth } from "@/hooks/useAuth";
 import useToast from "@/hooks/useToast";
+import { ScanningService } from "@/services/scanning";
 import { useBarcodeScanner } from "./useBarcodeScanner";
 import type {
   CodigoPendiente,
@@ -234,6 +235,7 @@ export default function VerificarInventarioPage() {
   const [manualPendingCodigo, setManualPendingCodigo] = useState("");
   const [manualPendingNombre, setManualPendingNombre] = useState("");
   const [manualPendingError, setManualPendingError] = useState<string | null>(null);
+  const [sendingPendings, setSendingPendings] = useState(false);
   const [manualSearchCodigo, setManualSearchCodigo] = useState("");
   const [manualSearchError, setManualSearchError] = useState<string | null>(null);
   const [desktopLookupCodigo, setDesktopLookupCodigo] = useState("");
@@ -969,6 +971,65 @@ export default function VerificarInventarioPage() {
     }
   };
 
+  const handleSendPendings = async () => {
+    if (
+      !selectedEmpresaId ||
+      !selectedEmpresa ||
+      selectedEmpresaPendientes.length === 0 ||
+      sendingPendings
+    ) {
+      return;
+    }
+
+    const empresaId = selectedEmpresaId;
+    const pendingsToSend = [...selectedEmpresaPendientes];
+
+    setSendingPendings(true);
+    setError(null);
+    setPendingStatus(null);
+
+    try {
+      await Promise.all(
+        pendingsToSend.map((item) =>
+          ScanningService.addScan({
+            code: item.codigoBarras,
+            productName: item.nombre,
+            ownercompanie: selectedEmpresa.nombre,
+            source: "web",
+            ...(user?.id ? { userId: user.id } : {}),
+            userName: user?.name || "Web",
+            processed: false,
+          }),
+        ),
+      );
+
+      const sentCodes = new Set(
+        pendingsToSend.map((item) => item.codigoBarras),
+      );
+      const currentState = stateRef.current;
+      const nextState: VerificarInventarioState = {
+        ...currentState,
+        pendientesPorEmpresa: {
+          ...currentState.pendientesPorEmpresa,
+          [empresaId]: (currentState.pendientesPorEmpresa[empresaId] ?? []).filter(
+            (item) => !sentCodes.has(item.codigoBarras),
+          ),
+        },
+      };
+
+      await saveVerificarInventarioState(nextState);
+      stateRef.current = nextState;
+      setState(nextState);
+      setPendingStatus(
+        `${pendingsToSend.length} ${pendingsToSend.length === 1 ? "pendiente enviado" : "pendientes enviados"} al historial.`,
+      );
+    } catch {
+      setError("No se pudieron enviar los pendientes al historial.");
+    } finally {
+      setSendingPendings(false);
+    }
+  };
+
   const handleDeletePendings = async () => {
     if (!selectedEmpresaId) return;
 
@@ -1408,6 +1469,14 @@ export default function VerificarInventarioPage() {
               className="rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Exportar
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleSendPendings()}
+              disabled={!selectedEmpresaPendientes.length || sendingPendings}
+              className="hidden items-center justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 lg:inline-flex"
+            >
+              {sendingPendings ? "Enviando…" : "Enviar"}
             </button>
             <button
               type="button"
