@@ -32,6 +32,7 @@ import type { DailyClosingRecord } from "@/services/daily-closings";
 import {
   formatSystemVerificationMoneyInput as formatMoneyInput,
   normalizeSystemVerificationMoneyInput as normalizeMoneyInput,
+  parseSystemVerificationClipboard,
 } from "@/utils/systemVerificationMoneyInput";
 // Usar botones nativos con clases Tailwind en vez de un componente Button central
 
@@ -857,6 +858,22 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     }
   };
 
+  const handleSystemVerificationPaste = (
+    event: React.ClipboardEvent<HTMLInputElement>,
+  ) => {
+    const values = parseSystemVerificationClipboard(
+      event.clipboardData.getData("text/plain"),
+    );
+    if (!values) return;
+
+    event.preventDefault();
+    const [nextR08, nextTucan, nextT11, nextTiempos] = values;
+    setR08(nextR08);
+    setTucanCumulative(nextTucan);
+    setT11(nextT11);
+    setTiemposCumulative(nextTiempos);
+  };
+
   const insertCountFormulaOperator = (
     input: HTMLInputElement,
     operator: "+" | "-",
@@ -1087,8 +1104,16 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   };
 
   const handleClearCounts = () => {
+    setNotes("");
+    setSingleClosingReason("");
     setCrcCounts(buildInitialCounts(CRC_DENOMINATIONS));
     setUsdCounts(buildInitialCounts(USD_DENOMINATIONS));
+    setR08("");
+    setT11("");
+    setTucanCumulative("");
+    setTiemposCumulative("");
+    setTurnoSelection("");
+    onTurnoChange?.(undefined);
   };
   if (!open) return null;
 
@@ -1405,6 +1430,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                           autoComplete="off"
                           autoCorrect="off"
                           spellCheck={false}
+                          onPaste={handleSystemVerificationPaste}
                           className="h-10 w-full rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 pl-7 text-sm text-[var(--foreground)]"
                         />
                       </div>
@@ -1428,6 +1454,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                           autoComplete="off"
                           autoCorrect="off"
                           spellCheck={false}
+                          onPaste={handleSystemVerificationPaste}
                           className="h-10 w-full rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 pl-7 text-sm text-[var(--foreground)]"
                         />
                       </div>

@@ -46,3 +46,28 @@ export function formatSystemVerificationMoneyInput(value: string): string {
     ? `${groupedInteger},${fractionPart}`
     : groupedInteger;
 }
+
+export function parseSystemVerificationClipboard(
+  raw: string,
+): [string, string, string, string] | null {
+  const rows = raw
+    .split(/\r?\n/)
+    .map((row) => row.trim())
+    .filter(Boolean);
+
+  if (rows.length !== 4) return null;
+
+  const values = rows.map((row) => {
+    const currencySymbolIndex = row.lastIndexOf("₡");
+    const amountText =
+      currencySymbolIndex >= 0
+        ? row.slice(currencySymbolIndex + 1)
+        : (row.split("\t").at(-1) ?? "");
+
+    return normalizeSystemVerificationMoneyInput(amountText);
+  });
+
+  if (values.some((value) => !value)) return null;
+
+  return values as [string, string, string, string];
+}

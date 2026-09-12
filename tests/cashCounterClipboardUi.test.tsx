@@ -1,7 +1,14 @@
 // @vitest-environment jsdom
 
 import React from "react";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const clipboard = vi.hoisted(() => ({
@@ -151,6 +158,147 @@ describe("pegar denominaciones en el cierre diario", () => {
         .value,
     ).toBe("4");
   });
+
+  it("limpia todos los campos editables del modal", () => {
+    const onTurnoChange = vi.fn();
+    const { container } = render(
+      <DailyClosingModal
+        open
+        onClose={vi.fn()}
+        onConfirm={vi.fn(async () => null)}
+        onTurnoChange={onTurnoChange}
+        employees={["Ana"]}
+        loadingEmployees={false}
+        managerReadonly
+        currentBalanceCRC={0}
+        currentBalanceUSD={0}
+        cierreFondoVentasMinutesBeforeEnd={0}
+        cierreFondoVentasMinutesAfterEnd={0}
+        systemVerificationEnabled
+        requireSingleClosingReason
+        requireTurnoSelection
+        turno="D"
+        initialValues={{
+          closingDate: "2026-09-12T12:00:00.000-06:00",
+          manager: "Ana",
+          notes: "Notas del cierre",
+          singleClosingReason: "Motivo del cierre único",
+          totalCRC: 20000,
+          totalUSD: 0,
+          breakdownCRC: { 20000: 1 },
+          breakdownUSD: {},
+          turno: "D",
+          r08: 1,
+          t11: 2,
+          tucanCumulative: 3,
+          tiemposCumulative: 4,
+        }}
+      />,
+    );
+
+    vi.clearAllMocks();
+    fireEvent.click(screen.getByRole("button", { name: "Limpiar conteo" }));
+
+    const editableControls = container.querySelectorAll<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >("input:not([readonly]):not([disabled]), textarea:not([disabled]), select:not([disabled])");
+    expect(Array.from(editableControls).every((control) => control.value === "")).toBe(true);
+    expect((container.querySelector("select[disabled]") as HTMLSelectElement).value).toBe("Ana");
+    expect(onTurnoChange).toHaveBeenLastCalledWith(undefined);
+  });
+});
+
+describe("pegar verificación de sistemas desde Excel", () => {
+  afterEach(cleanup);
+
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it.each([
+    {
+      name: "dos columnas con texto",
+      targetIndex: 0,
+      clipboard:
+        "R08Noche\t₡ 87 333,72\nTucanNoche\t₡ 70 130,00\nT11Noche\t₡ 71 750,00\nTiemposNoche\t₡ 32 600,00",
+      expected: [
+        "87\u202f333,72",
+        "70\u202f130,00",
+        "71\u202f750,00",
+        "32\u202f600,00",
+      ],
+    },
+    {
+      name: "una columna con solo valores",
+      targetIndex: 4,
+      clipboard:
+        "₡ 17 204,50\n₡ 17 200,00\n₡ 33 700,00\n₡ 39 150,00",
+      expected: [
+        "17\u202f204,50",
+        "17\u202f200,00",
+        "33\u202f700,00",
+        "39\u202f150,00",
+      ],
+    },
+  ])(
+    "asigna los cuatro valores por posición desde $name",
+    ({ targetIndex, clipboard, expected }) => {
+      render(
+        <DailyClosingModal
+          open
+          onClose={vi.fn()}
+          onConfirm={vi.fn(async () => null)}
+          employees={["Ana"]}
+          loadingEmployees={false}
+          currentBalanceCRC={0}
+          currentBalanceUSD={0}
+          cierreFondoVentasMinutesBeforeEnd={0}
+          cierreFondoVentasMinutesAfterEnd={0}
+          turno="D"
+          initialValues={{
+            closingDate: "2026-09-12T12:00:00.000-06:00",
+            manager: "Ana",
+            notes: "No modificar",
+            totalCRC: 20_000,
+            totalUSD: 0,
+            breakdownCRC: { 20000: 1 },
+            breakdownUSD: {},
+            turno: "D",
+            r08: 1,
+            t11: 2,
+            tucanCumulative: 3,
+            tiemposCumulative: 4,
+          }}
+        />,
+      );
+
+      const section = screen
+        .getByText("Verificacion Contica / Tucan / Tiempos")
+        .closest("section")!;
+      const inputs = within(section).getAllByRole(
+        "textbox",
+      ) as HTMLInputElement[];
+
+      fireEvent.paste(inputs[targetIndex], {
+        clipboardData: { getData: () => clipboard },
+      });
+
+      expect([
+        inputs[0].value,
+        inputs[1].value,
+        inputs[3].value,
+        inputs[4].value,
+      ]).toEqual(expected);
+      expect((screen.getByRole("combobox") as HTMLSelectElement).value).toBe(
+        "Ana",
+      );
+      expect(screen.getByDisplayValue("No modificar")).toBeTruthy();
+      expect(
+        (screen.getByLabelText("Cantidad 20000 colones") as HTMLInputElement)
+          .value,
+      ).toBe("1");
+    },
+  );
 });
 
 describe("pegar denominaciones en la apertura de fondo", () => {
