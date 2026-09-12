@@ -780,7 +780,7 @@ export default function ScanHistoryTable() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto bg-[var(--card-bg)] rounded-lg shadow p-3 sm:p-4 md:p-6 barcode-mobile border-2 border-[var(--input-border)]">
+    <div className="scan-history-mobile mx-auto w-full min-w-0 max-w-6xl overflow-x-hidden rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] p-3 shadow sm:p-4 md:p-6">
       {/* notifications are rendered globally by ToastProvider */}
 
       {/* Verificar permisos del usuario */}
@@ -934,7 +934,8 @@ export default function ScanHistoryTable() {
                       {calendarFromOpen && (
                         <div
                           ref={fromCalendarRef}
-                          className="absolute left-0 top-full mt-1 sm:mt-2 z-50 w-full min-w-[280px] sm:w-72"
+                          data-scan-calendar="from"
+                          className="absolute left-0 top-full z-50 mt-1 w-full min-w-0 max-w-full sm:mt-2 sm:w-72"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <div className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-2 sm:p-3 text-[var(--foreground)] shadow-lg">
@@ -1103,7 +1104,8 @@ export default function ScanHistoryTable() {
                       {calendarToOpen && (
                         <div
                           ref={toCalendarRef}
-                          className="absolute left-0 top-full mt-1 sm:mt-2 z-50 w-full min-w-[280px] sm:w-72"
+                          data-scan-calendar="to"
+                          className="absolute left-0 top-full z-50 mt-1 w-full min-w-0 max-w-full sm:mt-2 sm:w-72"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <div className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-2 sm:p-3 text-[var(--foreground)] shadow-lg">
@@ -1418,7 +1420,7 @@ export default function ScanHistoryTable() {
                   {filteredHistory.map((entry, index) => (
                     <div
                       key={`${entry.code}-${entry.id || index}`}
-                      className="scan-history-row flex flex-col p-3 sm:p-4 bg-[var(--card-bg)] hover:bg-[var(--muted)] rounded-lg border-2 border-[var(--input-border)] hover:border-[var(--accent)]/60 transition-all duration-150 space-y-3"
+                      className="scan-history-row flex min-w-0 flex-col space-y-3 overflow-hidden rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] p-3 transition-all duration-150 hover:border-[var(--accent)]/60 hover:bg-[var(--muted)] sm:p-4"
                     >
                       <div className="flex-1 min-w-0 w-full">
                         <div className="flex flex-col gap-2 mb-2 w-full">
@@ -1439,7 +1441,7 @@ export default function ScanHistoryTable() {
                                 </span>
                               </label>
                             )}
-                            <span className="font-mono text-base sm:text-lg font-semibold text-[var(--foreground)] break-all px-2 py-1 rounded-md border border-[var(--input-border)] bg-[var(--muted)]/20">
+                            <span className="max-w-full break-all rounded-md border border-[var(--input-border)] bg-[var(--muted)]/20 px-2 py-1 font-mono text-base font-semibold text-[var(--foreground)] sm:text-lg">
                               {entry.code}
                             </span>
                             <button
@@ -1459,7 +1461,7 @@ export default function ScanHistoryTable() {
                                   );
                                   notify("¡Nombre copiado!", "blue");
                                 }}
-                                className="text-sm sm:text-base text-[var(--foreground)] font-medium px-3 py-2 rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] hover:border-cyan-500 hover:bg-[var(--muted)] transition-all cursor-pointer uppercase text-left break-words whitespace-normal leading-relaxed"
+                                className="w-full min-w-0 max-w-full cursor-pointer break-words whitespace-normal rounded-lg border-2 border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2 text-left text-sm font-medium uppercase leading-relaxed text-[var(--foreground)] transition-all hover:border-cyan-500 hover:bg-[var(--muted)] sm:w-auto sm:text-base"
                                 title="Clic para copiar nombre"
                               >
                                 {entry.productName.toUpperCase()}
@@ -1468,9 +1470,9 @@ export default function ScanHistoryTable() {
 
                             {/* Ubicación - en la misma línea */}
                             {entry.ownercompanie && (
-                              <span className="text-sm sm:text-base text-[var(--foreground)] px-3 py-2 rounded-lg border border-[var(--input-border)] bg-[var(--muted)]/10 flex items-center gap-2 flex-shrink-0">
+                              <span className="flex w-full min-w-0 max-w-full items-center gap-2 rounded-lg border border-[var(--input-border)] bg-[var(--muted)]/10 px-3 py-2 text-sm text-[var(--foreground)] sm:w-auto sm:text-base">
                                 <MapPin className="w-4 h-4 flex-shrink-0" />
-                                <span className="font-medium whitespace-nowrap">
+                                <span className="min-w-0 break-words whitespace-normal font-medium">
                                   {entry.ownercompanie}
                                 </span>
                               </span>
@@ -1620,9 +1622,9 @@ export default function ScanHistoryTable() {
           {showImagesModal && (
             <div className="fixed inset-0 bg-black bg-opacity-95 z-50 flex flex-col">
               {/* Header */}
-              <div className="bg-black bg-opacity-50 p-4 flex items-center justify-between">
-                <div className="text-white">
-                  <h3 className="text-lg font-semibold">
+              <div className="flex items-center justify-between gap-3 bg-black bg-opacity-50 p-3 sm:p-4">
+                <div className="min-w-0 text-white">
+                  <h3 className="break-all text-base font-semibold sm:text-lg">
                     Imágenes del código: {currentImageCode}
                   </h3>
                   {codeImages.length > 0 && (
@@ -1642,7 +1644,7 @@ export default function ScanHistoryTable() {
               </div>
 
               {/* Content */}
-              <div className="flex-1 p-8 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto p-3 sm:p-8">
                 {loadingImages ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center text-white">
