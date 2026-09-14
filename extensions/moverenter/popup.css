@@ -1,0 +1,145 @@
+:root {
+  color-scheme: light;
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  width: 330px;
+  margin: 0;
+  background: #f4f7fb;
+  color: #172033;
+}
+
+.panel {
+  padding: 18px;
+}
+
+.heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.heading p {
+  margin: 3px 0 0;
+  color: #68738a;
+  font-size: 12px;
+}
+
+.status {
+  border-radius: 999px;
+  background: #e5e9f0;
+  color: #596277;
+  padding: 5px 9px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.status[data-enabled="true"] {
+  background: #d9f8e7;
+  color: #12713f;
+}
+
+.status[data-error="true"] {
+  background: #fee2e2;
+  color: #a32323;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid #dce2ec;
+  border-radius: 12px;
+  background: #fff;
+  padding: 14px;
+  cursor: pointer;
+}
+
+.toggle-row strong,
+.toggle-row small {
+  display: block;
+}
+
+.toggle-row strong {
+  margin-bottom: 3px;
+  font-size: 14px;
+}
+
+.toggle-row small {
+  color: #68738a;
+  font-size: 11px;
+}
+
+.switch {
+  position: relative;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 24px;
+}
+
+.switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.slider {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: #aeb7c7;
+  transition: background 150ms ease;
+}
+
+.slider::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 25%);
+  content: "";
+  transition: transform 150ms ease;
+}
+
+.switch input:checked + .slider {
+  background: #168a52;
+}
+
+.switch input:checked + .slider::after {
+  transform: translateX(20px);
+}
+
+.switch input:focus-visible + .slider {
+  outline: 3px solid rgb(22 138 82 / 25%);
+  outline-offset: 2px;
+}
+
+.hint {
+  margin: 13px 2px 0;
+  color: #68738a;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+code {
+  color: #344057;
+  font-size: 10px;
+}

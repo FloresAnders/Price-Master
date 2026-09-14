@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>moverenter</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="panel">
+      <div class="heading">
+        <div>
+          <h1>moverenter</h1>
+          <p>Impresión automática</p>
+        </div>
+        <span id="automation-status" class="status" aria-live="polite">
+          Desactivado
+        </span>
+      </div>
+
+      <label class="toggle-row" for="automation-toggle">
+        <span>
+          <strong>Imprimir al vender</strong>
+          <small>Pulsa Imprimir cuando aparece el modal.</small>
+        </span>
+        <span class="switch">
+          <input id="automation-toggle" type="checkbox" role="switch">
+          <span class="slider" aria-hidden="true"></span>
+        </span>
+      </label>
+
+      <p class="hint">
+        Para omitir la confirmación final, inicia Edge con
+        <code>--kiosk-printing</code>.
+      </p>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "moverenter",
+  "version": "1.0.0",
+  "description": "Inicia automáticamente la impresión al abrirse el modal de venta de Gente Crystal.",
+  "permissions": ["storage"],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://gentecrystal.net/controllers/sales/SalesController.php*"
+      ],
+      "js": ["moverenter-core.js", "sales-content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "moverenter",
+    "default_popup": "popup.html"
+  }
+}
