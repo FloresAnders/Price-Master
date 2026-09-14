@@ -1,0 +1,83 @@
+#sumatiempos-panel {
+  box-sizing: border-box;
+  z-index: 1050;
+  padding: 18px 20px;
+  border: 1px solid #cbd9df;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 10px 28px rgba(0, 73, 96, 0.14);
+  color: #003f56;
+  font-family: inherit;
+  line-height: 1.35;
+  pointer-events: none;
+}
+
+#sumatiempos-panel[hidden] {
+  display: none !important;
+}
+
+#sumatiempos-panel.sumatiempos-panel--side {
+  position: fixed;
+}
+
+#sumatiempos-panel.sumatiempos-panel--compact {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  width: min(300px, calc(100vw - 32px));
+}
+
+#sumatiempos-panel .sumatiempos-panel__title,
+#sumatiempos-panel .sumatiempos-panel__count {
+  display: block;
+  color: #52717d;
+  font-size: 0.85rem;
+}
+
+#sumatiempos-panel .sumatiempos-panel__title {
+  color: #00536c;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+#sumatiempos-panel .sumatiempos-panel__total {
+  display: block;
+  margin: 4px 0 14px;
+  color: #00536c;
+  font-size: 1.8rem;
+  line-height: 1.15;
+}
+
+#sumatiempos-panel .sumatiempos-panel__breakdown {
+  display: grid;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid #e1eaee;
+  color: #52717d;
+  font-size: 0.85rem;
+}
+
+#sumatiempos-panel .sumatiempos-panel__breakdown span {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#sumatiempos-panel .sumatiempos-panel__breakdown strong {
+  color: #003f56;
+}
+
+#sumatiempos-panel .sumatiempos-panel__count {
+  margin-top: 10px;
+}
+
+@media (max-width: 575px) {
+  #sumatiempos-panel {
+    padding: 14px 16px;
+  }
+
+  #sumatiempos-panel .sumatiempos-panel__total {
+    margin-bottom: 10px;
+    font-size: 1.5rem;
+  }
+}

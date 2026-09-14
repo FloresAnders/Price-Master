@@ -58,5 +58,214 @@
     };
   }
 
-  return { calculateTotals, parseCurrency, parseNumbers };
+  function formatCurrency(amount) {
+    return `₡ ${amount.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  }
+
+  function createSumaTiemposController(document, window) {
+    const watchedInputs = [
+      "#ticket-amount",
+      "#ticket-amount-companion",
+      "#ticket-numbers",
+    ].join(",");
+    let ignoredTicketTotal = 0;
+    let observer = null;
+    let panel = null;
+    let started = false;
+    let suppressOldTicket = false;
+
+    function ensurePanel() {
+      panel = document.querySelector("#sumatiempos-panel");
+      if (panel) return panel;
+
+      panel = document.createElement("aside");
+      panel.id = "sumatiempos-panel";
+      panel.className = "sumatiempos-panel--compact";
+      panel.hidden = true;
+      panel.setAttribute("role", "status");
+      panel.setAttribute("aria-live", "polite");
+      panel.setAttribute("aria-label", "Suma total de la venta");
+      panel.innerHTML = `
+        <span class="sumatiempos-panel__title">Suma total</span>
+        <strong class="sumatiempos-panel__total" data-sumatiempos="grand-total">₡ 0.00</strong>
+        <div class="sumatiempos-panel__breakdown">
+          <span>Tiquete <strong data-sumatiempos="ticket-total">₡ 0.00</strong></span>
+          <span>En captura <strong data-sumatiempos="capture-total">₡ 0.00</strong></span>
+        </div>
+        <span class="sumatiempos-panel__count" data-sumatiempos="count">0 números</span>
+      `;
+      document.body.append(panel);
+      return panel;
+    }
+
+    function companionIsActive(input) {
+      const wrap = document.querySelector("#ticket-companion-wrap");
+      if (!input || input.disabled || !wrap || wrap.hidden) return false;
+      return (
+        wrap.style.display !== "none" &&
+        window.getComputedStyle(wrap).display !== "none"
+      );
+    }
+
+    function readTotals() {
+      const companion = document.querySelector("#ticket-amount-companion");
+      const rawTicketTotal = parseCurrency(
+        document.querySelector("#total-amount")?.textContent,
+      );
+
+      if (suppressOldTicket && rawTicketTotal === 0) {
+        suppressOldTicket = false;
+        ignoredTicketTotal = 0;
+      }
+
+      const effectiveTicketTotal = suppressOldTicket
+        ? Math.max(0, rawTicketTotal - ignoredTicketTotal)
+        : rawTicketTotal;
+
+      return calculateTotals({
+        numbersText: document.querySelector("#ticket-numbers")?.value,
+        mainAmount: document.querySelector("#ticket-amount")?.value,
+        companionAmount: companion?.value,
+        companionActive: companionIsActive(companion),
+        ticketTotal: effectiveTicketTotal,
+      });
+    }
+
+    function setText(selector, value) {
+      const target = panel?.querySelector(selector);
+      if (target && target.textContent !== value) target.textContent = value;
+    }
+
+    function positionPanel() {
+      const capture = document.querySelector(".sales-capture");
+      if (!panel || !capture) return;
+
+      const rect = capture.getBoundingClientRect();
+      const gap = 32;
+      const margin = 16;
+      const availableWidth = window.innerWidth - rect.right - gap - margin;
+
+      if (availableWidth >= 280) {
+        panel.classList.add("sumatiempos-panel--side");
+        panel.classList.remove("sumatiempos-panel--compact");
+        panel.style.left = `${Math.round(rect.right + gap)}px`;
+        panel.style.top = `${Math.max(margin, Math.round(rect.top))}px`;
+        panel.style.width = `${Math.min(320, availableWidth)}px`;
+        panel.style.right = "";
+        panel.style.bottom = "";
+        return;
+      }
+
+      panel.classList.remove("sumatiempos-panel--side");
+      panel.classList.add("sumatiempos-panel--compact");
+      panel.style.left = "";
+      panel.style.top = "";
+      panel.style.width = "";
+      panel.style.right = "";
+      panel.style.bottom = "";
+    }
+
+    function render(totals) {
+      ensurePanel();
+      setText("[data-sumatiempos=grand-total]", formatCurrency(totals.grandTotal));
+      setText("[data-sumatiempos=ticket-total]", formatCurrency(totals.ticketTotal));
+      setText("[data-sumatiempos=capture-total]", formatCurrency(totals.captureTotal));
+      setText(
+        "[data-sumatiempos=count]",
+        `${totals.numberCount} ${totals.numberCount === 1 ? "número" : "números"}`,
+      );
+      panel.hidden = totals.numberCount === 0 && totals.grandTotal === 0;
+      positionPanel();
+    }
+
+    function update() {
+      if (!document.querySelector(".sales-capture")) {
+        ensurePanel().hidden = true;
+        return;
+      }
+      render(readTotals());
+    }
+
+    function reset() {
+      ignoredTicketTotal = parseCurrency(
+        document.querySelector("#total-amount")?.textContent,
+      );
+      suppressOldTicket = true;
+      render(calculateTotals({
+        numbersText: "",
+        mainAmount: 0,
+        companionAmount: 0,
+        companionActive: false,
+        ticketTotal: 0,
+      }));
+    }
+
+    function handleInput(event) {
+      if (event.target?.matches?.(watchedInputs)) update();
+    }
+
+    function handleClick(event) {
+      if (event.target?.closest?.("#btn-submit-sale")) {
+        reset();
+        return;
+      }
+
+      if (event.target?.closest?.("#btn-add, #btn-clear-numbers")) {
+        window.setTimeout(update, 0);
+      }
+    }
+
+    function handleMutations(mutations) {
+      const externalMutation = mutations.some((mutation) => (
+        !panel || !panel.contains(mutation.target)
+      ));
+      if (externalMutation) update();
+    }
+
+    function start() {
+      if (started) return;
+      started = true;
+      ensurePanel();
+      document.addEventListener("input", handleInput, true);
+      document.addEventListener("change", handleInput, true);
+      document.addEventListener("click", handleClick, true);
+      window.addEventListener("resize", positionPanel);
+      window.addEventListener("scroll", positionPanel, true);
+      observer = new window.MutationObserver(handleMutations);
+      observer.observe(document.body, {
+        attributes: true,
+        attributeFilter: ["class", "disabled", "hidden", "style"],
+        characterData: true,
+        childList: true,
+        subtree: true,
+      });
+      update();
+    }
+
+    function destroy() {
+      if (!started) return;
+      observer?.disconnect();
+      document.removeEventListener("input", handleInput, true);
+      document.removeEventListener("change", handleInput, true);
+      document.removeEventListener("click", handleClick, true);
+      window.removeEventListener("resize", positionPanel);
+      window.removeEventListener("scroll", positionPanel, true);
+      panel?.remove();
+      observer = null;
+      panel = null;
+      started = false;
+    }
+
+    return { destroy, start, update };
+  }
+
+  return {
+    calculateTotals,
+    createSumaTiemposController,
+    parseCurrency,
+    parseNumbers,
+  };
 });
