@@ -29,3 +29,6 @@ inmediato.
 
 La extensión funciona únicamente en la pantalla de ventas indicada y no
 requiere permisos de almacenamiento ni acceso adicional a la red.
+
+El archivo icon128.png contiene el ícono de la extensión en formato PNG de
+128 × 128 píxeles.

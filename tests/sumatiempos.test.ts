@@ -266,6 +266,9 @@ describe("SumaTiempos manifest", () => {
     });
     expect(manifest.permissions).toBeUndefined();
     expect(manifest.host_permissions).toBeUndefined();
+    expect(manifest.icons).toEqual({
+      "128": "icon128.png",
+    });
     expect(manifest.content_scripts).toEqual([{
       matches: ["https://gentecrystal.net/controllers/sales/SalesController.php*"],
       js: ["sumatiempos-core.js", "content.js"],
