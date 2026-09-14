@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "SumaTiempos",
+  "version": "1.0.0",
+  "description": "Muestra la suma total del tiquete y los números pendientes en Gente Crystal.",
+  "content_scripts": [
+    {
+      "matches": ["https://gentecrystal.net/controllers/sales/SalesController.php*"],
+      "js": ["sumatiempos-core.js", "content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

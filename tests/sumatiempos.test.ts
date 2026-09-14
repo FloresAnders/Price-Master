@@ -1,4 +1,5 @@
 import { JSDOM } from "jsdom";
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { describe, expect, test } from "vitest";
 
@@ -243,5 +244,33 @@ describe("SumaTiempos DOM controller", () => {
     await flushMutations();
 
     expect(dom.window.document.querySelector<HTMLElement>("#sumatiempos-panel")?.hidden).toBe(true);
+  });
+});
+
+describe("SumaTiempos manifest", () => {
+  test("is permissionless and limited to the sales controller", () => {
+    let manifest: Record<string, unknown> = {};
+    try {
+      manifest = JSON.parse(readFileSync(
+        new URL("../extensions/SumaTiempos/manifest.json", import.meta.url),
+        "utf8",
+      ));
+    } catch {
+      // The first TDD run reaches the assertions before the manifest exists.
+    }
+
+    expect(manifest).toMatchObject({
+      manifest_version: 3,
+      name: "SumaTiempos",
+      version: "1.0.0",
+    });
+    expect(manifest.permissions).toBeUndefined();
+    expect(manifest.host_permissions).toBeUndefined();
+    expect(manifest.content_scripts).toEqual([{
+      matches: ["https://gentecrystal.net/controllers/sales/SalesController.php*"],
+      js: ["sumatiempos-core.js", "content.js"],
+      css: ["content.css"],
+      run_at: "document_idle",
+    }]);
   });
 });
