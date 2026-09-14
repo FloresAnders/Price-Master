@@ -41,6 +41,7 @@ import { DailyClosingsService } from "@/services/daily-closings";
 import { EmpresasService } from "@/services/empresas";
 import { SchedulesService } from "@/services/schedules";
 import CreateInvoiceDrawer from "../components/drawers/CreateInvoiceDrawer";
+import { ManualCreditNoteDrawer } from "../components/drawers/ManualCreditNoteDrawer";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import {
   getEmployeesWithAssignedHoursForDay,
@@ -53,8 +54,20 @@ import { resolveFacturaPaymentType } from "./facturaPaymentType";
 import { resolveCreateInvoiceOpeningDecision } from "./createInvoiceShiftManager";
 import { validateFondoGeneralOpeningRequirement } from "../utils/fondo/openingRequirement";
 import { resolveFcrPaymentAmounts } from "../utils/fondo/fcrPaymentAmounts";
+import {
+  appendManualCreditNoteDraft,
+  type ManualCreditNoteDraft,
+} from "../utils/fondo/manualCreditNoteDrafts";
+import {
+  buildManualCreditNoteMovement,
+  isInvoicePaymentApplicationValid,
+  resolveInvoicePaymentCreditNotes,
+  resolvePendingCreditNoteOptionsForInvoice,
+} from "../utils/invoicePayment/creditNotes";
 import { resolveAnnualDateRange } from "../utils/annualDateRange";
 import { invalidateFondoCache } from "@/services/fondo-cache";
+import { usePendingClosingCreditInvoices } from "../hooks/usePendingClosingCreditInvoices";
+import type { FondoEntry } from "../types";
 
 import type { Empresas } from "../../../types/firestore";
 
@@ -274,6 +287,18 @@ export default function FacturasCreditoPage() {
   const [paymentNotes, setPaymentNotes] = useState("");
   const [paymentManager2, setPaymentManager2] = useState("");
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+  const [paymentCreditNoteIds, setPaymentCreditNoteIds] = useState<string[]>([]);
+  const [paymentManualCreditNotes, setPaymentManualCreditNotes] = useState<
+    ManualCreditNoteDraft[]
+  >([]);
+  const [manualCreditNoteOpen, setManualCreditNoteOpen] = useState(false);
+  const [manualCreditNoteInvoiceNumber, setManualCreditNoteInvoiceNumber] =
+    useState("");
+  const [manualCreditNoteAmount, setManualCreditNoteAmount] = useState("");
+  const [manualCreditNoteObservation, setManualCreditNoteObservation] =
+    useState("");
+  const [manualCreditNoteError, setManualCreditNoteError] = useState("");
+  const [paymentBalances, setPaymentBalances] = useState({ CRC: 0, USD: 0 });
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
   const [createSubmitting, setCreateSubmitting] = useState(false);
   const [createProviderCode, setCreateProviderCode] = useState("");
@@ -312,6 +337,13 @@ export default function FacturasCreditoPage() {
   const [deletionRequestError, setDeletionRequestError] = useState<string | null>(
     null,
   );
+  const {
+    pendingCreditNotes,
+    setPendingCreditNotes,
+  } = usePendingClosingCreditInvoices({
+    company: selectedCompany,
+    enabled: Boolean(selectedCompany) && paymentModalOpen,
+  });
 
   // Filter state (mirrors Fondo toolbar names)
   const [providerFilter, setProviderFilter] = useState("");
@@ -1428,6 +1460,54 @@ export default function FacturasCreditoPage() {
     return resolveFacturaStatusLabel(paymentTarget);
   }, [paymentTarget]);
 
+  const paymentAvailableCreditNotes = useMemo(
+    () =>
+      resolvePendingCreditNoteOptionsForInvoice(
+        pendingCreditNotes,
+        paymentTarget,
+      ),
+    [paymentTarget, pendingCreditNotes],
+  );
+
+  const paymentCreditNoteResolution = useMemo(
+    () =>
+      resolveInvoicePaymentCreditNotes({
+        balance: selectedPaymentBalance,
+        currency: paymentTarget?.currency === "USD" ? "USD" : "CRC",
+        selectedIds: paymentCreditNoteIds,
+        pendingCreditNotes: paymentAvailableCreditNotes,
+        manualCreditNotes: paymentManualCreditNotes,
+      }),
+    [
+      paymentAvailableCreditNotes,
+      paymentCreditNoteIds,
+      paymentManualCreditNotes,
+      paymentTarget?.currency,
+      selectedPaymentBalance,
+    ],
+  );
+
+  const paymentManualCreditNoteTarget = useMemo<FondoEntry | null>(() => {
+    if (!paymentTarget) return null;
+    return {
+      ...paymentTarget,
+      amountEgreso: selectedPaymentBalance,
+      amountIngreso: 0,
+      invoiceDocType: "FCR",
+    };
+  }, [paymentTarget, selectedPaymentBalance]);
+
+  const formatPaymentCurrency = useCallback(
+    (currency: "CRC" | "USD", amount: number) =>
+      amount.toLocaleString(currency === "USD" ? "en-US" : "es-CR", {
+        style: "currency",
+        currency,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      }),
+    [],
+  );
+
   const enteredPaymentAmount = useMemo(
     () => Math.max(0, roundMoney2(paymentAmount)),
     [paymentAmount],
@@ -1440,12 +1520,36 @@ export default function FacturasCreditoPage() {
     [enteredPaymentAmount, selectedPaymentBalance],
   );
 
+  const paymentResolvedAmounts = useMemo(
+    () =>
+      paymentTarget
+        ? resolveFcrPaymentAmounts({
+            balance: selectedPaymentBalance,
+            creditNotesTotal: paymentCreditNoteResolution.total,
+            enteredAmount: enteredPaymentAmount,
+            mode: "partial",
+            currency: paymentTarget.currency,
+            accountKey: paymentTarget.accountId,
+          })
+        : null,
+    [
+      enteredPaymentAmount,
+      paymentCreditNoteResolution.total,
+      paymentTarget,
+      selectedPaymentBalance,
+    ],
+  );
+
   const closePaymentModal = useCallback(() => {
     setPaymentModalOpen(false);
     setPaymentTarget(null);
     setPaymentAmount("");
     setPaymentNotes("");
     setPaymentManager2("");
+    setPaymentCreditNoteIds([]);
+    setPaymentManualCreditNotes([]);
+    setManualCreditNoteOpen(false);
+    setManualCreditNoteError("");
   }, []);
 
   const openPaymentModal = useCallback(
@@ -1464,10 +1568,108 @@ export default function FacturasCreditoPage() {
       setPaymentAmount(String(balance));
       setPaymentNotes(String(movement.notes || ""));
       setPaymentManager2(String(movement.manager2 || ""));
+      setPaymentCreditNoteIds([]);
+      setPaymentManualCreditNotes([]);
+      setPaymentBalances({ CRC: 0, USD: 0 });
       setPaymentModalOpen(true);
+
+      if (selectedCompany) {
+        const docId = MovimientosFondosService.buildCompanyMovementsKey(selectedCompany);
+        void MovimientosFondosService.getDocument(docId)
+          .then((storage) => {
+            const balances = storage?.state?.balancesByAccount ?? [];
+            const resolveBalance = (currency: "CRC" | "USD") => {
+              const entry = balances.find(
+                (item) =>
+                  item.accountId === movement.accountId &&
+                  item.currency === currency,
+              );
+              return Number(entry?.currentBalance ?? entry?.initialBalance ?? 0) || 0;
+            };
+            setPaymentBalances({
+              CRC: resolveBalance("CRC"),
+              USD: resolveBalance("USD"),
+            });
+          })
+          .catch((error) => {
+            console.warn("[FACTURAS] No se pudo cargar el saldo del fondo:", error);
+          });
+      }
     },
-    [pendingCierreDeCaja],
+    [pendingCierreDeCaja, selectedCompany],
   );
+
+  const openPaymentManualCreditNote = useCallback(() => {
+    if (!paymentTarget || selectedPaymentBalance <= 0) return;
+    setManualCreditNoteInvoiceNumber("");
+    setManualCreditNoteAmount("");
+    setManualCreditNoteObservation("");
+    setManualCreditNoteError("");
+    setManualCreditNoteOpen(true);
+  }, [paymentTarget, selectedPaymentBalance]);
+
+  const closePaymentManualCreditNote = useCallback(() => {
+    setManualCreditNoteOpen(false);
+    setManualCreditNoteInvoiceNumber("");
+    setManualCreditNoteAmount("");
+    setManualCreditNoteObservation("");
+    setManualCreditNoteError("");
+  }, []);
+
+  const savePaymentManualCreditNote = useCallback(() => {
+    const invoiceNumber = manualCreditNoteInvoiceNumber.trim().toUpperCase();
+    if (!/^[0-9]{1,4}$/.test(invoiceNumber)) {
+      setManualCreditNoteError(
+        "Ingresa un número de factura válido (1-4 dígitos).",
+      );
+      return;
+    }
+
+    const amount = Math.max(0, roundMoney2(manualCreditNoteAmount));
+    if (amount <= 0) {
+      setManualCreditNoteError("Ingresa un monto mayor a cero.");
+      return;
+    }
+    if (
+      roundMoney2(paymentCreditNoteResolution.requestedTotal + amount) >
+      selectedPaymentBalance
+    ) {
+      setManualCreditNoteError(
+        `El monto supera el saldo disponible para aplicar (${formatPaymentCurrency(
+          paymentTarget?.currency === "USD" ? "USD" : "CRC",
+          Math.max(
+            0,
+            selectedPaymentBalance - paymentCreditNoteResolution.requestedTotal,
+          ),
+        )}).`,
+      );
+      return;
+    }
+
+    const result = appendManualCreditNoteDraft(
+      paymentManualCreditNotes,
+      {
+        invoiceNumber,
+        amount,
+        observation: manualCreditNoteObservation.trim() || undefined,
+      },
+      paymentCreditNoteIds,
+    );
+    setPaymentManualCreditNotes(result.drafts);
+    setPaymentCreditNoteIds(result.selectedIds);
+    closePaymentManualCreditNote();
+  }, [
+    closePaymentManualCreditNote,
+    formatPaymentCurrency,
+    manualCreditNoteAmount,
+    manualCreditNoteInvoiceNumber,
+    manualCreditNoteObservation,
+    paymentCreditNoteIds,
+    paymentCreditNoteResolution.requestedTotal,
+    paymentManualCreditNotes,
+    paymentTarget?.currency,
+    selectedPaymentBalance,
+  ]);
 
   const submitPayment = useCallback(
     async (mode: "partial" | "full") => {
@@ -1507,6 +1709,14 @@ export default function FacturasCreditoPage() {
         );
         return;
       }
+      if (paymentCreditNoteResolution.overLimit) {
+        showToast(
+          "Las notas de credito seleccionadas superan el saldo pendiente.",
+          "error",
+          5000,
+        );
+        return;
+      }
       // Misma regla de redondeo que el pago desde Fondo General: el fondo se
       // debita por el monto redondeado hacia abajo a la unidad de mil y la
       // diferencia queda absorbida como redondeo (reduce el saldo pendiente).
@@ -1514,7 +1724,7 @@ export default function FacturasCreditoPage() {
       // saldo en ₡10,000; un pago completo de ₡15,766 debita ₡15,000 y salda.
       const resolvedAmounts = resolveFcrPaymentAmounts({
         balance,
-        creditNotesTotal: 0,
+        creditNotesTotal: paymentCreditNoteResolution.total,
         enteredAmount,
         mode,
         currency: paymentTarget.currency,
@@ -1532,8 +1742,8 @@ export default function FacturasCreditoPage() {
         return;
       }
 
-      if (paymentAmountToApply <= 0) {
-        showToast("Ingrese un monto válido para el pago.", "error", 4000);
+      if (!isInvoicePaymentApplicationValid(resolvedAmounts)) {
+        showToast("No hay monto por aplicar a la factura.", "error", 4000);
         return;
       }
 
@@ -1562,11 +1772,21 @@ export default function FacturasCreditoPage() {
             : "PENDIENTE";
       const cleanedNotes = paymentNotes.trim();
       const cleanedManager2 = paymentManager2.trim();
-      const paymentAppliedCreditNotes = Array.isArray(
+      const existingAppliedCreditNotes = Array.isArray(
         paymentTarget.appliedCreditNotes,
       )
         ? paymentTarget.appliedCreditNotes
         : [];
+      const manualAppliedCreditNotes = paymentCreditNoteResolution.manualNotes.map(
+        (note, index) => ({
+          ...note,
+          id: `manual-nc-${paymentTarget.id}-${nowISO.replace(/\D/g, "")}-${index + 1}`,
+        }),
+      );
+      const newlyAppliedCreditNotes = [
+        ...paymentCreditNoteResolution.persistedNotes,
+        ...manualAppliedCreditNotes,
+      ];
 
       const paymentManager2Value = cleanedManager2 || null;
 
@@ -1591,7 +1811,10 @@ export default function FacturasCreditoPage() {
         providerCode: paymentTarget.providerCode,
         amountEgreso: paymentTarget.amountEgreso,
         amountIngreso: paymentTarget.amountIngreso,
-        appliedCreditNotes: paymentAppliedCreditNotes,
+        appliedCreditNotes: [
+          ...existingAppliedCreditNotes,
+          ...newlyAppliedCreditNotes,
+        ],
         updateAt: nowISO,
         ...(paymentManager2Value ? { manager2: paymentManager2Value } : {}),
       };
@@ -1599,18 +1822,22 @@ export default function FacturasCreditoPage() {
       const movementDocId =
         MovimientosFondosService.buildCompanyMovementsKey(selectedCompany);
       const paymentMovement =
-        MovimientosFondosService.buildInvoicePaymentMovement({
-          company: selectedCompany,
-          invoice: {
-            ...updatedMovement,
-            paymentType: resolveFacturaPaymentType("PAGADA"),
-          },
-          paymentAmount: paymentAmountToApply,
-          updateAt: nowISO,
-          manager2: paymentManager2Value || undefined,
-          roundingAbsorbed: resolvedAmounts.roundingAbsorbed,
-        });
-      const paymentMovementId = String((paymentMovement as any).id || "");
+        paymentAmountToApply > 0
+          ? MovimientosFondosService.buildInvoicePaymentMovement({
+              company: selectedCompany,
+              invoice: {
+                ...updatedMovement,
+                paymentType: resolveFacturaPaymentType("PAGADA"),
+              },
+              paymentAmount: paymentAmountToApply,
+              updateAt: nowISO,
+              manager2: paymentManager2Value || undefined,
+              roundingAbsorbed: resolvedAmounts.roundingAbsorbed,
+            })
+          : null;
+      const paymentMovementId = paymentMovement
+        ? String((paymentMovement as any).id || "")
+        : "";
       const targetAccountKey = updatedMovement.accountId;
       if (
         targetAccountKey === "CajaNegra" ||
@@ -1663,22 +1890,24 @@ export default function FacturasCreditoPage() {
           MovimientosFondosService.createEmptyMovementStorage(selectedCompany)
             .state;
         const acctKey = targetAccountKey;
-        const currency = paymentMovement.currency as MovementCurrencyKey;
+        const currency = updatedMovement.currency as MovementCurrencyKey;
         const amountToApply = Math.trunc(paymentAmountToApply || 0);
         let found = false;
-        state.balancesByAccount = state.balancesByAccount.map((b) => {
-          if (b.accountId === acctKey && b.currency === currency) {
-            const current =
-              typeof b.currentBalance === "number"
-                ? b.currentBalance
-                : b.initialBalance || 0;
-            const next = current - amountToApply;
-            found = true;
-            return { ...b, currentBalance: next };
-          }
-          return b;
-        });
-        if (!found) {
+        if (amountToApply > 0) {
+          state.balancesByAccount = state.balancesByAccount.map((b) => {
+            if (b.accountId === acctKey && b.currency === currency) {
+              const current =
+                typeof b.currentBalance === "number"
+                  ? b.currentBalance
+                  : b.initialBalance || 0;
+              const next = current - amountToApply;
+              found = true;
+              return { ...b, currentBalance: next };
+            }
+            return b;
+          });
+        }
+        if (amountToApply > 0 && !found) {
           state.balancesByAccount.push({
             accountId: acctKey,
             currency,
@@ -1697,6 +1926,52 @@ export default function FacturasCreditoPage() {
           stripUndefinedDeep(withFacturaPendingForClosing(updatedMovement)),
           { merge: true },
         );
+        paymentCreditNoteResolution.persistedNotes.forEach((note) => {
+          const pendingNote = paymentAvailableCreditNotes.find(
+            (item) => item.id === note.id,
+          );
+          const noteAmount = Math.max(
+            0,
+            roundMoney2(pendingNote?.amount ?? note.amount),
+          );
+          const previousPaid = Math.max(
+            0,
+            roundMoney2(pendingNote?.paidAmount),
+          );
+          const nextNotePaid = Math.min(
+            noteAmount,
+            roundMoney2(previousPaid + note.appliedAmount),
+          );
+          const nextNoteBalance = Math.max(
+            0,
+            roundMoney2(noteAmount - nextNotePaid),
+          );
+          batch.set(
+            FacturasService.buildMovementRef(selectedCompany, note.id),
+            {
+              paidAmount: nextNotePaid,
+              balanceDue: nextNoteBalance,
+              paymentStatus: nextNoteBalance === 0 ? "REBAJADA" : "PARCIAL",
+              isPendingForClosing: nextNoteBalance > 0,
+              updateAt: nowISO,
+            },
+            { merge: true },
+          );
+        });
+        manualAppliedCreditNotes.forEach((note) => {
+          const manualMovement = buildManualCreditNoteMovement({
+            id: note.id,
+            company: selectedCompany,
+            invoice: paymentTarget,
+            note,
+            createdAt: nowISO,
+            manager2: paymentManager2Value || undefined,
+          });
+          batch.set(
+            FacturasService.buildMovementRef(selectedCompany, note.id),
+            stripUndefinedDeep(withFacturaPendingForClosing(manualMovement)),
+          );
+        });
         // Persist ledger main doc
         const mainRef = doc(
           db,
@@ -1705,14 +1980,42 @@ export default function FacturasCreditoPage() {
         );
         batch.set(mainRef, stripUndefinedDeep(ledger) as any);
         // Persist movement in MovimientosFondos subcollection
-        const movRef = MovimientosFondosService.buildMovementRef(
-          docId,
-          paymentMovementId,
-          targetAccountKey,
-        );
-        batch.set(movRef, stripUndefinedDeep(paymentMovement));
+        if (paymentMovement && paymentMovementId) {
+          const movRef = MovimientosFondosService.buildMovementRef(
+            docId,
+            paymentMovementId,
+            targetAccountKey,
+          );
+          batch.set(movRef, stripUndefinedDeep(paymentMovement));
+        }
 
         await batch.commit();
+
+        if (paymentCreditNoteResolution.persistedNotes.length > 0) {
+          setPendingCreditNotes((current) =>
+            current
+              .map((note) => {
+                const applied = paymentCreditNoteResolution.persistedNotes.find(
+                  (item) => item.id === note.id,
+                );
+                if (!applied) return note;
+                const amount = Math.max(
+                  0,
+                  roundMoney2(note.originalAmount ?? note.amount),
+                );
+                const paidAmount = Math.min(
+                  amount,
+                  roundMoney2((note.paidAmount ?? 0) + applied.appliedAmount),
+                );
+                return {
+                  ...note,
+                  paidAmount,
+                  balanceDue: Math.max(0, roundMoney2(amount - paidAmount)),
+                };
+              })
+              .filter((note) => Math.max(0, roundMoney2(note.balanceDue)) > 0),
+          );
+        }
 
         // Misma actualización de caché (IndexedDB) que un movimiento normal al guardar.
         await invalidateFondoCache({
@@ -1728,8 +2031,10 @@ export default function FacturasCreditoPage() {
 
         await loadMovements(selectedCompany);
         showToast(
-          nextStatus === "PAGADA"
-            ? "Factura pagada y movimiento generado."
+          nextStatus === "PAGADA" && paymentAmountToApply <= 0
+            ? "Factura saldada con notas de crédito."
+            : nextStatus === "PAGADA"
+              ? "Factura pagada y movimiento generado."
             : "Abono registrado.",
           "success",
           3500,
@@ -1746,6 +2051,8 @@ export default function FacturasCreditoPage() {
       closePaymentModal,
       loadMovements,
       enteredPaymentAmount,
+      paymentAvailableCreditNotes,
+      paymentCreditNoteResolution,
       paymentManager2,
       paymentNotes,
       paymentTarget,
@@ -1753,6 +2060,7 @@ export default function FacturasCreditoPage() {
       selectedCompany,
       selectedEmpresaMeta?.solicitarApertura,
       selectedPaymentPaid,
+      setPendingCreditNotes,
       showToast,
     ],
   );
@@ -3963,9 +4271,9 @@ export default function FacturasCreditoPage() {
           </div>
         </section>
 
-        {paymentModalOpen && paymentTarget && (
+        {paymentModalOpen && paymentTarget && !manualCreditNoteOpen && (
           <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/65 px-3 py-6 backdrop-blur-sm">
-            <div className="w-full max-w-2xl rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)] shadow-2xl shadow-black/60">
+            <div className="max-h-[calc(100vh-3rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)] shadow-2xl shadow-black/60">
               <div className="flex items-start justify-between gap-4 border-b border-[var(--input-border)] px-4 py-4 sm:px-5">
                 <div>
                   <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
@@ -3996,6 +4304,21 @@ export default function FacturasCreditoPage() {
                   void submitPayment("partial");
                 }}
               >
+                <div className="flex items-center gap-3 rounded-lg border border-cyan-700/20 bg-cyan-950/10 px-3 py-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-cyan-100/50">
+                    Saldo actual
+                  </span>
+                  <div className="ml-auto flex items-center gap-3">
+                    <span className="text-xs font-semibold text-emerald-400">
+                      ₡ {paymentBalances.CRC.toLocaleString("es-CR")}
+                    </span>
+                    <span className="h-3 w-px bg-cyan-700/40" />
+                    <span className="text-xs font-semibold text-blue-400">
+                      $ {paymentBalances.USD.toLocaleString("en-US")}
+                    </span>
+                  </div>
+                </div>
+
                 <div className="grid gap-3 rounded-xl border border-[var(--input-border)] bg-[var(--muted)]/10 p-4 sm:grid-cols-3">
                   <div>
                     <p className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
@@ -4047,7 +4370,7 @@ export default function FacturasCreditoPage() {
                   if (!payingFull || selectedPaymentBalance <= 0) return null;
                   const resolved = resolveFcrPaymentAmounts({
                     balance: selectedPaymentBalance,
-                    creditNotesTotal: 0,
+                    creditNotesTotal: paymentCreditNoteResolution.total,
                     enteredAmount: entered,
                     mode: "full",
                     currency: paymentTarget.currency,
@@ -4144,6 +4467,197 @@ export default function FacturasCreditoPage() {
                   />
                 </label>
 
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-amber-100">
+                      Notas de credito pendientes
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-amber-100">
+                        - {formatPaymentCurrency(
+                          paymentTarget.currency === "USD" ? "USD" : "CRC",
+                          paymentCreditNoteResolution.total,
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label="Agregar nota de crédito manual"
+                        title="Agregar nota de crédito manual"
+                        onClick={openPaymentManualCreditNote}
+                        disabled={paymentSubmitting || selectedPaymentBalance <= 0}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded border border-sky-500/40 bg-sky-500/10 text-sky-200 transition-colors hover:bg-sky-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {paymentAvailableCreditNotes.map((note) => {
+                      const checked = paymentCreditNoteIds.includes(note.id);
+                      const wouldExceed =
+                        !checked &&
+                        roundMoney2(
+                          paymentCreditNoteResolution.requestedTotal +
+                            note.balanceDue,
+                        ) > selectedPaymentBalance;
+                      const disabled = note.balanceDue <= 0 || wouldExceed;
+                      return (
+                        <label
+                          key={note.id}
+                          title={
+                            note.balanceDue <= 0
+                              ? "La NC no tiene saldo disponible"
+                              : wouldExceed
+                                ? "Supera el saldo disponible"
+                                : undefined
+                          }
+                          className={`flex items-center justify-between gap-3 rounded border px-3 py-2 text-sm ${
+                            checked
+                              ? "border-amber-300/45 bg-amber-400/15 text-amber-50"
+                              : "border-amber-500/25 bg-black/10 text-cyan-50"
+                          } ${disabled ? "cursor-not-allowed opacity-45" : "cursor-pointer"}`}
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={disabled}
+                              onChange={() =>
+                                setPaymentCreditNoteIds((current) =>
+                                  current.includes(note.id)
+                                    ? current.filter((id) => id !== note.id)
+                                    : [...current, note.id],
+                                )
+                              }
+                              className="h-4 w-4 accent-amber-400"
+                            />
+                            <span className="truncate font-semibold">
+                              NC #{note.invoiceNumber || note.id}
+                            </span>
+                          </span>
+                          <span className="shrink-0 font-semibold">
+                            {formatPaymentCurrency(note.currency, note.balanceDue)}
+                          </span>
+                        </label>
+                      );
+                    })}
+
+                    {paymentManualCreditNotes.map((note) => (
+                      <div
+                        key={note.id}
+                        className="flex items-center justify-between gap-3 rounded border border-sky-400/35 bg-sky-500/10 px-3 py-2 text-sm text-sky-50"
+                      >
+                        <span className="min-w-0 truncate font-semibold">
+                          NC #{note.invoiceNumber} (manual)
+                        </span>
+                        <span className="flex shrink-0 items-center gap-2 font-semibold">
+                          {formatPaymentCurrency(
+                            paymentTarget.currency === "USD" ? "USD" : "CRC",
+                            note.amount,
+                          )}
+                          <button
+                            type="button"
+                            aria-label={`Quitar nota de crédito manual ${note.invoiceNumber}`}
+                            onClick={() => {
+                              setPaymentManualCreditNotes((current) =>
+                                current.filter((item) => item.id !== note.id),
+                              );
+                              setPaymentCreditNoteIds((current) =>
+                                current.filter((id) => id !== note.id),
+                              );
+                            }}
+                            className="text-sky-100/70 transition-colors hover:text-red-300"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </span>
+                      </div>
+                    ))}
+
+                    {paymentAvailableCreditNotes.length === 0 &&
+                      paymentManualCreditNotes.length === 0 && (
+                        <p className="text-xs text-amber-100/70">
+                          No hay notas pendientes. Puedes agregar una manual.
+                        </p>
+                      )}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-cyan-700/25 bg-cyan-950/10 p-4">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-cyan-100/70">
+                      Totales
+                    </div>
+                    <div className="text-[11px] text-cyan-100/50">
+                      Resumen de pago
+                    </div>
+                  </div>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-cyan-100/70">Monto total factura</span>
+                      <span className="font-semibold text-[var(--foreground)]">
+                        {formatPaymentCurrency(
+                          paymentTarget.currency === "USD" ? "USD" : "CRC",
+                          paymentTarget.originalAmount ?? paymentTarget.amount,
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-cyan-100/70">Pagado</span>
+                      <span className="font-semibold text-[var(--foreground)]">
+                        - {formatPaymentCurrency(
+                          paymentTarget.currency === "USD" ? "USD" : "CRC",
+                          selectedPaymentPaid,
+                        )}
+                      </span>
+                    </div>
+                    {paymentCreditNoteResolution.total > 0 && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-cyan-100/70">Notas de crédito</span>
+                        <span className="font-semibold text-amber-200">
+                          - {formatPaymentCurrency(
+                            paymentTarget.currency === "USD" ? "USD" : "CRC",
+                            paymentCreditNoteResolution.total,
+                          )}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <span className="text-cyan-100/70">Redondeo aplicado</span>
+                      <span className="font-semibold text-amber-200">
+                        - {formatPaymentCurrency(
+                          paymentTarget.currency === "USD" ? "USD" : "CRC",
+                          paymentResolvedAmounts?.roundingAbsorbed ?? 0,
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-cyan-100/70">
+                        Total aplicado a la factura
+                      </span>
+                      <span className="font-semibold text-[var(--foreground)]">
+                        {formatPaymentCurrency(
+                          paymentTarget.currency === "USD" ? "USD" : "CRC",
+                          paymentResolvedAmounts?.totalAppliedToInvoice ?? 0,
+                        )}
+                      </span>
+                    </div>
+                    <div className="h-px bg-cyan-700/25" />
+                    <div className="flex items-center justify-between text-base">
+                      <span className="font-semibold text-[var(--foreground)]">
+                        Total a pagar
+                      </span>
+                      <span className="text-xl font-bold text-cyan-50">
+                        {formatPaymentCurrency(
+                          paymentTarget.currency === "USD" ? "USD" : "CRC",
+                          paymentResolvedAmounts?.cashDebit ?? 0,
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex flex-col-reverse gap-2 border-t border-[var(--input-border)] pt-4 sm:flex-row sm:justify-end">
                   <button
                     type="button"
@@ -4155,17 +4669,53 @@ export default function FacturasCreditoPage() {
                   <button
                     type="button"
                     onClick={() => void submitPayment("partial")}
-                    disabled={paymentSubmitting || selectedPaymentBalance <= 0}
+                    disabled={
+                      paymentSubmitting ||
+                      selectedPaymentBalance <= 0 ||
+                      paymentCreditNoteResolution.overLimit
+                    }
                     className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <CreditCard className="h-4 w-4" />
                     {paymentSubmitting ? "Guardando..." : "Registrar Abono"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void submitPayment("full")}
+                    disabled={
+                      paymentSubmitting ||
+                      selectedPaymentBalance <= 0 ||
+                      !canSubmitFullPayment ||
+                      paymentCreditNoteResolution.overLimit
+                    }
+                    className="inline-flex items-center justify-center rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-4 py-2 text-sm font-semibold text-emerald-100 transition-colors hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {paymentCreditNoteIds.length > 0
+                      ? "Pagar"
+                      : "Pagar completo"}
                   </button>
                 </div>
               </form>
             </div>
           </div>
         )}
+
+        <ManualCreditNoteDrawer
+          open={manualCreditNoteOpen}
+          error={manualCreditNoteError}
+          target={paymentManualCreditNoteTarget}
+          invoiceNumber={manualCreditNoteInvoiceNumber}
+          amount={manualCreditNoteAmount}
+          observation={manualCreditNoteObservation}
+          saving={false}
+          providersMap={providerNameByCode}
+          formatByCurrency={formatPaymentCurrency}
+          onClose={closePaymentManualCreditNote}
+          onInvoiceNumberChange={setManualCreditNoteInvoiceNumber}
+          onAmountChange={setManualCreditNoteAmount}
+          onObservationChange={setManualCreditNoteObservation}
+          onSubmit={savePaymentManualCreditNote}
+        />
 
         {editZeroNCTarget && (
           <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/65 px-3 py-6 backdrop-blur-sm">

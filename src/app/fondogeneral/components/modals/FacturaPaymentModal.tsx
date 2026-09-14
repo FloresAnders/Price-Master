@@ -2,7 +2,7 @@
 
 import React from "react";
 import { createPortal } from "react-dom";
-import { CreditCard, X } from "lucide-react";
+import { CreditCard, Plus, X, XCircle } from "lucide-react";
 import Drawer from "@mui/material/Drawer";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -11,6 +11,7 @@ import IconButton from "@mui/material/IconButton";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import type { FacturaMovement } from "../../../../services/facturas";
 import { resolveFcrPaymentAmounts } from "../../utils/fondo/fcrPaymentAmounts";
+import type { ManualCreditNoteDraft } from "../../utils/fondo/manualCreditNoteDrafts";
 
 type PendingCreditNoteOption = {
   id: string;
@@ -46,6 +47,9 @@ type FacturaPaymentModalProps = {
   selectedCreditNoteIds?: string[];
   onToggleCreditNote?: (id: string) => void;
   creditNotesAppliedTotal?: number;
+  manualCreditNotes?: ManualCreditNoteDraft[];
+  onAddManualCreditNote?: () => void;
+  onRemoveManualCreditNote?: (id: string) => void;
   allowPartialPayment?: boolean;
 };
 
@@ -74,6 +78,9 @@ export default function FacturaPaymentModal({
   selectedCreditNoteIds = [],
   onToggleCreditNote,
   creditNotesAppliedTotal = 0,
+  manualCreditNotes = [],
+  onAddManualCreditNote,
+  onRemoveManualCreditNote,
   allowPartialPayment = true,
 }: FacturaPaymentModalProps) {
   const selectedCreditNoteIdSet = React.useMemo(
@@ -158,12 +165,17 @@ export default function FacturaPaymentModal({
   const enteredPaymentAmount = Math.max(0, normalizeTargetAmount(paymentAmount));
   const selectedCreditNotesRequestedTotal = React.useMemo(() => {
     if (!target) return 0;
-    return pendingCreditNotes.reduce((sum, note) => {
+    const persistedTotal = pendingCreditNotes.reduce((sum, note) => {
       if (!selectedCreditNoteIdSet.has(note.id)) return sum;
       if (note.currency !== target.currency) return sum;
       return sum + Math.max(0, Math.round((Number(note.balanceDue) || 0) * 100) / 100);
     }, 0);
-  }, [pendingCreditNotes, selectedCreditNoteIdSet, target]);
+    const manualTotal = manualCreditNotes.reduce((sum, note) => {
+      if (!selectedCreditNoteIdSet.has(note.id)) return sum;
+      return sum + Math.max(0, Math.round((Number(note.amount) || 0) * 100) / 100);
+    }, 0);
+    return persistedTotal + manualTotal;
+  }, [manualCreditNotes, pendingCreditNotes, selectedCreditNoteIdSet, target]);
   const creditNotesOverLimit =
     selectedPaymentBalance > 0 &&
     selectedCreditNotesRequestedTotal > selectedPaymentBalance;
@@ -182,15 +194,15 @@ export default function FacturaPaymentModal({
       })
     : null;
   const adjustmentApplied = resolvedAmounts?.roundingAbsorbed ?? 0;
-  const finalAmountPayment =
-    resolvedAmounts?.totalAppliedToInvoice ??
+  const cashPaymentAmount =
+    resolvedAmounts?.cashDebit ??
     Math.max(
       0,
       Math.min(
         enteredPaymentAmount,
         normalizeTargetAmount(selectedPaymentBalance) -
           normalizeTargetAmount(creditNotesAppliedTotal),
-      ) + normalizeTargetAmount(creditNotesAppliedTotal),
+      ),
     );
   const paymentDisplayValue = !target
     ? paymentAmount
@@ -390,14 +402,30 @@ export default function FacturaPaymentModal({
                 />
               </label>
 
-              {pendingCreditNotes.length > 0 && (
+              {(pendingCreditNotes.length > 0 ||
+                manualCreditNotes.length > 0 ||
+                Boolean(onAddManualCreditNote)) && (
                 <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
                   <div className="mb-2 flex items-center justify-between gap-2">
                     <div className="text-xs font-semibold uppercase tracking-wide text-amber-100">
                       Notas de credito pendientes
                     </div>
-                    <div className="text-xs font-semibold text-amber-100">
-                      - {formatCurrencyAmount(creditNotesAppliedTotal, target.currency)}
+                    <div className="flex items-center gap-2">
+                      <div className="text-xs font-semibold text-amber-100">
+                        - {formatCurrencyAmount(creditNotesAppliedTotal, target.currency)}
+                      </div>
+                      {onAddManualCreditNote && (
+                        <button
+                          type="button"
+                          aria-label="Agregar nota de crédito manual"
+                          title="Agregar nota de crédito manual"
+                          onClick={onAddManualCreditNote}
+                          disabled={paymentSubmitting || selectedPaymentBalance <= 0}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded border border-sky-500/40 bg-sky-500/10 text-sky-200 transition-colors hover:bg-sky-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -468,6 +496,38 @@ export default function FacturaPaymentModal({
                         </label>
                       );
                     })}
+                    {manualCreditNotes.map((note) => (
+                      <div
+                        key={note.id}
+                        className="flex items-center justify-between gap-3 rounded border border-sky-400/35 bg-sky-500/10 px-3 py-2 text-sm text-sky-50"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate font-semibold">
+                            NC #{note.invoiceNumber} (manual)
+                          </span>
+                          {note.observation && (
+                            <span className="block truncate text-[11px] text-sky-100/70">
+                              {note.observation}
+                            </span>
+                          )}
+                        </span>
+                        <span className="flex shrink-0 items-center gap-2 font-semibold">
+                          {formatCurrencyAmount(note.amount, target.currency)}
+                          {onRemoveManualCreditNote && (
+                            <button
+                              type="button"
+                              aria-label={`Quitar nota de crédito manual ${note.invoiceNumber}`}
+                              title="Quitar nota de crédito manual"
+                              onClick={() => onRemoveManualCreditNote(note.id)}
+                              disabled={paymentSubmitting}
+                              className="text-sky-100/70 transition-colors hover:text-red-300 disabled:opacity-50"
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </button>
+                          )}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                   {creditNotesOverLimit && (
                     <p className="mt-2 text-[11px] text-amber-100/80">
@@ -479,7 +539,7 @@ export default function FacturaPaymentModal({
                     <div className="mt-3 grid grid-cols-2 gap-2 border-t border-amber-500/25 pt-3 text-xs">
                       <div className="text-cyan-100/70">Pago generado</div>
                       <div className="text-right font-semibold text-emerald-200">
-                        {formatCurrencyAmount(finalAmountPayment, target.currency)}
+                        {formatCurrencyAmount(cashPaymentAmount, target.currency)}
                       </div>
                     </div>
                   )}
@@ -535,13 +595,24 @@ export default function FacturaPaymentModal({
                       </span>
                     </div>
                   )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-cyan-100/70">
+                      Total aplicado a la factura
+                    </span>
+                    <span className="font-semibold text-[var(--foreground)]">
+                      {formatCurrencyAmount(
+                        resolvedAmounts?.totalAppliedToInvoice ?? 0,
+                        target.currency,
+                      )}
+                    </span>
+                  </div>
                   <div className="h-px bg-cyan-700/25" />
                   <div className="flex items-center justify-between text-base">
                     <span className="font-semibold text-[var(--foreground)]">
                       Total a pagar
                     </span>
                     <span className="text-xl font-bold text-cyan-50">
-                      {formatCurrencyAmount(finalAmountPayment, target.currency)}
+                      {formatCurrencyAmount(cashPaymentAmount, target.currency)}
                     </span>
                   </div>
                 </div>

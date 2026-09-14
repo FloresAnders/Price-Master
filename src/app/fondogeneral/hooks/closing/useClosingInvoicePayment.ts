@@ -16,7 +16,12 @@ import {
   submitClosingInvoicePayment as submitClosingInvoicePaymentFn,
   type ClosingInvoicePaymentDeps,
 } from "../../utils/invoicePayment/closingInvoicePayment";
-import { roundMoney2, type PendingCreditNoteOption } from "../../utils/helpers";
+import { roundMoney2 } from "../../utils/helpers";
+import type { ManualCreditNoteDraft } from "../../utils/fondo/manualCreditNoteDrafts";
+import {
+  resolveInvoicePaymentCreditNotes,
+  resolvePendingCreditNoteOptionsForInvoice,
+} from "../../utils/invoicePayment/creditNotes";
 
 type V2MovementsCacheEntry = {
   loaded: boolean;
@@ -35,12 +40,13 @@ interface UseClosingInvoicePaymentProps {
   isCajaNegra: boolean;
   pendingCierreDeCaja: boolean;
   pendingClosingCreditInvoices: FacturaMovement[];
-  selectedProviderPendingCreditNotes: PendingCreditNoteOption[];
+  pendingCreditNotes: FacturaMovement[];
   solicitarApertura?: boolean;
   showToast: ClosingInvoicePaymentDeps["showToast"];
   setPendingCierreModalOpen: Dispatch<SetStateAction<boolean>>;
   setPendingClosingCreditInvoices: ClosingInvoicePaymentDeps["setPendingClosingCreditInvoices"];
   setSelectedProviderPendingCreditNotes: ClosingInvoicePaymentDeps["setSelectedProviderPendingCreditNotes"];
+  setPendingCreditNotes: ClosingInvoicePaymentDeps["setPendingCreditNotes"];
   applyLedgerStateFromStorage: ClosingInvoicePaymentDeps["applyLedgerStateFromStorage"];
   rebuildEntriesFromV2Cache: ClosingInvoicePaymentDeps["rebuildEntriesFromV2Cache"];
   storageSnapshotRef: MutableRefObject<MovementStorage<FondoEntry> | null>;
@@ -57,12 +63,13 @@ export function useClosingInvoicePayment({
   isCajaNegra,
   pendingCierreDeCaja,
   pendingClosingCreditInvoices,
-  selectedProviderPendingCreditNotes,
+  pendingCreditNotes,
   solicitarApertura = true,
   showToast,
   setPendingCierreModalOpen,
   setPendingClosingCreditInvoices,
   setSelectedProviderPendingCreditNotes,
+  setPendingCreditNotes,
   applyLedgerStateFromStorage,
   rebuildEntriesFromV2Cache,
   storageSnapshotRef,
@@ -80,6 +87,8 @@ export function useClosingInvoicePayment({
   const [closingPaymentManager2, setClosingPaymentManager2] = useState("");
   const [closingPaymentCreditNoteIds, setClosingPaymentCreditNoteIds] =
     useState<string[]>([]);
+  const [closingPaymentManualCreditNotes, setClosingPaymentManualCreditNotes] =
+    useState<ManualCreditNoteDraft[]>([]);
   const [closingPaymentSubmitting, setClosingPaymentSubmitting] =
     useState(false);
 
@@ -116,6 +125,7 @@ export function useClosingInvoicePayment({
       setClosingPaymentNotes(String(invoice.notes || ""));
       setClosingPaymentManager2(String(invoice.manager2 || ""));
       setClosingPaymentCreditNoteIds([]);
+      setClosingPaymentManualCreditNotes([]);
       setClosingPaymentModalOpen(true);
     },
     [
@@ -134,6 +144,7 @@ export function useClosingInvoicePayment({
     setClosingPaymentNotes("");
     setClosingPaymentManager2("");
     setClosingPaymentCreditNoteIds([]);
+    setClosingPaymentManualCreditNotes([]);
   }, []);
 
   const openSelectedPendingCreditInvoicePayment = useCallback(
@@ -154,11 +165,11 @@ export function useClosingInvoicePayment({
   const handleMovementCreditInvoiceSelect = openSelectedPendingCreditInvoicePayment;
 
   const closingPaymentAvailableCreditNotes = useMemo(() => {
-    if (!closingPaymentTarget) return [];
-    return selectedProviderPendingCreditNotes.filter(
-      (note) => note.currency === closingPaymentTarget.currency,
+    return resolvePendingCreditNoteOptionsForInvoice(
+      pendingCreditNotes,
+      closingPaymentTarget,
     );
-  }, [closingPaymentTarget, selectedProviderPendingCreditNotes]);
+  }, [closingPaymentTarget, pendingCreditNotes]);
 
   const closingPaymentSelectedCreditNotes = useMemo(() => {
     const selectedIds = new Set(closingPaymentCreditNoteIds);
@@ -177,22 +188,23 @@ export function useClosingInvoicePayment({
       0,
       roundMoney2(closingPaymentTarget.paidAmount),
     );
-    let remaining = Math.max(
+    const balance = Math.max(
       0,
       roundMoney2(closingPaymentTarget.balanceDue ?? totalAmount - paidAmount),
     );
-    let total = 0;
-    closingPaymentSelectedCreditNotes.forEach((note) => {
-      if (remaining <= 0) return;
-      const applied = Math.min(
-        remaining,
-        Math.max(0, roundMoney2(note.balanceDue)),
-      );
-      total += applied;
-      remaining -= applied;
-    });
-    return total;
-  }, [closingPaymentSelectedCreditNotes, closingPaymentTarget]);
+    return resolveInvoicePaymentCreditNotes({
+      balance,
+      currency: closingPaymentTarget.currency === "USD" ? "USD" : "CRC",
+      selectedIds: closingPaymentCreditNoteIds,
+      pendingCreditNotes: closingPaymentAvailableCreditNotes,
+      manualCreditNotes: closingPaymentManualCreditNotes,
+    }).total;
+  }, [
+    closingPaymentAvailableCreditNotes,
+    closingPaymentCreditNoteIds,
+    closingPaymentManualCreditNotes,
+    closingPaymentTarget,
+  ]);
 
   const submitClosingInvoicePayment = useCallback(
     (mode: "partial" | "full") =>
@@ -206,14 +218,17 @@ export function useClosingInvoicePayment({
         closingPaymentNotes,
         closingPaymentManager2,
         closingPaymentCreditNoteIds,
-        selectedProviderPendingCreditNotes,
+        closingPaymentManualCreditNotes,
+        selectedProviderPendingCreditNotes: closingPaymentAvailableCreditNotes,
         solicitarApertura,
         showToast,
         setPendingCierreModalOpen,
         setClosingPaymentSubmitting,
         setPendingClosingCreditInvoices,
         setSelectedProviderPendingCreditNotes,
+        setPendingCreditNotes,
         setClosingPaymentCreditNoteIds,
+        setClosingPaymentManualCreditNotes,
         closeClosingInvoicePaymentModal,
         applyLedgerStateFromStorage,
         rebuildEntriesFromV2Cache,
@@ -227,6 +242,7 @@ export function useClosingInvoicePayment({
       applyLedgerStateFromStorage,
       closingPaymentAmount,
       closingPaymentCreditNoteIds,
+      closingPaymentManualCreditNotes,
       closingPaymentManager2,
       closingPaymentNotes,
       closingPaymentTarget,
@@ -237,11 +253,12 @@ export function useClosingInvoicePayment({
       pendingCierreDeCaja,
       persistMovementToFirestore,
       rebuildEntriesFromV2Cache,
-      selectedProviderPendingCreditNotes,
+      closingPaymentAvailableCreditNotes,
       solicitarApertura,
       setPendingCierreModalOpen,
       setPendingClosingCreditInvoices,
       setSelectedProviderPendingCreditNotes,
+      setPendingCreditNotes,
       showToast,
       storageSnapshotRef,
       v2MovementsCacheRef,
@@ -261,6 +278,8 @@ export function useClosingInvoicePayment({
     setClosingPaymentManager2,
     closingPaymentCreditNoteIds,
     setClosingPaymentCreditNoteIds,
+    closingPaymentManualCreditNotes,
+    setClosingPaymentManualCreditNotes,
     closingPaymentSubmitting,
     openClosingInvoicePaymentModal,
     closeClosingInvoicePaymentModal,

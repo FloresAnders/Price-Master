@@ -81,6 +81,7 @@ import { FondoFiltersToolbar } from "../FondoFiltersToolbar";
 import { MovementDrawer } from "../drawers/MovementDrawer";
 import { MovementNotesBlock } from "../MovementNotesBlock";
 import { handleSaveManualCreditNote as handleSaveManualCreditNoteFn } from "../../utils/fondo/manualCreditNote";
+import { shouldKeepPendingCreditNotesLoaded } from "../../utils/invoicePayment/creditNotes";
 import {
   isManualCreditNoteDraftId,
   type ManualCreditNoteDraft,
@@ -596,6 +597,9 @@ export function FondoSection({
     useState("");
   const [manualCreditNoteSaving, setManualCreditNoteSaving] = useState(false);
   const [manualCreditNoteError, setManualCreditNoteError] = useState("");
+  const [manualCreditNoteContext, setManualCreditNoteContext] = useState<
+    "movement" | "closing"
+  >("movement");
   const [manualCreditNoteDrafts, setManualCreditNoteDrafts] = useState<
     ManualCreditNoteDraft[]
   >([]);
@@ -865,6 +869,7 @@ export function FondoSection({
     pendingClosingCreditInvoices,
     setPendingClosingCreditInvoices,
     pendingCreditNotes,
+    setPendingCreditNotes,
     pendingZeroAmountCreditNotes,
     pendingInvoicesLoading,
     pendingInvoicesError,
@@ -875,7 +880,11 @@ export function FondoSection({
     company,
     enabled:
       Boolean(company) &&
-      (movementModalOpen || showPendingClosingCreditInvoices),
+      shouldKeepPendingCreditNotesLoaded({
+        movementModalOpen,
+        pendingSectionOpen: showPendingClosingCreditInvoices,
+        paymentProviderCode: selectedProvider,
+      }),
   });
   const [cierreFondoVentasTurnoSelection, setCierreFondoVentasTurnoSelection] =
     useState<"" | "D" | "N" | "none">("");
@@ -2034,6 +2043,8 @@ export function FondoSection({
     setClosingPaymentManager2,
     closingPaymentCreditNoteIds,
     setClosingPaymentCreditNoteIds,
+    closingPaymentManualCreditNotes,
+    setClosingPaymentManualCreditNotes,
     closingPaymentSubmitting,
     openClosingInvoicePaymentModal,
     closeClosingInvoicePaymentModal,
@@ -2047,12 +2058,13 @@ export function FondoSection({
     isCajaNegra,
     pendingCierreDeCaja,
     pendingClosingCreditInvoices,
-    selectedProviderPendingCreditNotes,
+    pendingCreditNotes,
     solicitarApertura: empresaSolicitaApertura,
     showToast,
     setPendingCierreModalOpen,
     setPendingClosingCreditInvoices,
     setSelectedProviderPendingCreditNotes,
+    setPendingCreditNotes,
     applyLedgerStateFromStorage,
     rebuildEntriesFromV2Cache,
     storageSnapshotRef,
@@ -2569,6 +2581,7 @@ export function FondoSection({
   };
 
   const openManualCreditNoteModal = async (extraInvoiceIndex?: number) => {
+    setManualCreditNoteContext("movement");
     let nowISO: string;
     try {
       nowISO = await getAuthoritativeNowISO();
@@ -2632,6 +2645,47 @@ export function FondoSection({
     setManualCreditNoteOpen(true);
   };
 
+  const openClosingManualCreditNoteModal = async () => {
+    if (!closingPaymentTarget || closingPaymentExactBalance <= 0) return;
+
+    let nowISO: string;
+    try {
+      nowISO = await getAuthoritativeNowISO();
+    } catch (err) {
+      console.error("[FG] Error validating server time for FCR credit note:", err);
+      showToast(
+        "No se pudo validar la hora del servidor. Operación bloqueada.",
+        "error",
+        6000,
+      );
+      return;
+    }
+
+    setManualCreditNoteContext("closing");
+    setManualCreditNoteTarget({
+      id: closingPaymentTarget.id,
+      providerCode: closingPaymentTarget.providerCode,
+      invoiceNumber: closingPaymentTarget.invoiceNumber,
+      paymentType: closingPaymentTarget.paymentType,
+      amountEgreso: closingPaymentExactBalance,
+      amountIngreso: 0,
+      manager: closingPaymentTarget.manager,
+      manager2: closingPaymentManager2 || undefined,
+      notes: closingPaymentNotes,
+      createdAt: nowISO,
+      currency: closingPaymentTarget.currency,
+      accountId: closingPaymentTarget.accountId,
+      empresa: company,
+      invoiceDocType: "FCR",
+    });
+    setManualCreditNoteExtraInvoiceIndex(null);
+    setManualCreditNoteInvoiceNumber("");
+    setManualCreditNoteAmount("");
+    setManualCreditNoteObservation("");
+    setManualCreditNoteError("");
+    setManualCreditNoteOpen(true);
+  };
+
   const closeManualCreditNoteModal = () => {
     if (manualCreditNoteSaving) return;
     setManualCreditNoteOpen(false);
@@ -2644,6 +2698,44 @@ export function FondoSection({
   };
 
   const handleSaveManualCreditNote = async () => {
+    if (manualCreditNoteContext === "closing") {
+      const requestedAmount = Math.max(0, roundMoney2(manualCreditNoteAmount));
+      if (
+        requestedAmount > 0 &&
+        roundMoney2(closingPaymentCreditNotesTotal + requestedAmount) >
+          closingPaymentExactBalance
+      ) {
+        setManualCreditNoteError(
+          `El monto supera el saldo disponible para aplicar (${formatByCurrency(
+            closingPaymentTarget?.currency === "USD" ? "USD" : "CRC",
+            Math.max(
+              0,
+              closingPaymentExactBalance - closingPaymentCreditNotesTotal,
+            ),
+          )}).`,
+        );
+        return;
+      }
+      await handleSaveManualCreditNoteFn({
+        manualCreditNoteTarget,
+        company,
+        manualCreditNoteInvoiceNumber,
+        manualCreditNoteAmount,
+        manualCreditNoteObservation,
+        setManualCreditNoteError,
+        setManualCreditNoteSaving,
+        manualCreditNoteDrafts: closingPaymentManualCreditNotes,
+        setManualCreditNoteDrafts: setClosingPaymentManualCreditNotes,
+        setSelectedAppliedCreditNoteIds: setClosingPaymentCreditNoteIds,
+        manualCreditNoteExtraInvoiceIndex: null,
+        extraInvoices: [],
+        setExtraInvoices,
+        showToast,
+        closeManualCreditNoteModal,
+      });
+      return;
+    }
+
     await handleSaveManualCreditNoteFn({
       manualCreditNoteTarget,
       company,
@@ -6969,6 +7061,18 @@ export function FondoSection({
           );
         }}
         creditNotesAppliedTotal={closingPaymentCreditNotesTotal}
+        manualCreditNotes={closingPaymentManualCreditNotes}
+        onAddManualCreditNote={() => {
+          void openClosingManualCreditNoteModal();
+        }}
+        onRemoveManualCreditNote={(id) => {
+          setClosingPaymentManualCreditNotes((prev) =>
+            prev.filter((note) => note.id !== id),
+          );
+          setClosingPaymentCreditNoteIds((prev) =>
+            prev.filter((noteId) => noteId !== id),
+          );
+        }}
       />
 
       <ConfirmModal
