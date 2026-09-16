@@ -35,6 +35,12 @@ interface SupplierOrderView extends SupplierOrderEntry {
   documentId?: string;
 }
 
+const normalizeProductQuantity = (value: number | string): number => {
+  const parsedQuantity = Number(value);
+  if (!Number.isFinite(parsedQuantity)) return 1;
+  return Math.max(1, Math.trunc(parsedQuantity));
+};
+
 export default function SupplierOrders() {
   /* Verificar permisos del usuario */
   const { user } = useAuth();
@@ -370,7 +376,7 @@ export default function SupplierOrders() {
     const newProduct: Product = {
       id: Date.now().toString(),
       name: productName.trim(),
-      quantity: quantity,
+      quantity: normalizeProductQuantity(quantity),
     };
 
     setProducts((prev) => [...prev, newProduct]);
@@ -392,6 +398,26 @@ export default function SupplierOrders() {
     setProducts((prev) => prev.filter((p) => p.id !== productId));
   };
 
+  const updateProductQuantity = (productId: string, nextValue: string) => {
+    const nextQuantity = normalizeProductQuantity(nextValue);
+
+    setProducts((prev) =>
+      prev.map((product) =>
+        product.id === productId
+          ? { ...product, quantity: nextQuantity }
+          : product,
+      ),
+    );
+  };
+
+  const updateProductName = (productId: string, nextName: string) => {
+    setProducts((prev) =>
+      prev.map((product) =>
+        product.id === productId ? { ...product, name: nextName } : product,
+      ),
+    );
+  };
+
   // Save current order
   const saveOrder = async () => {
     if (!supplierName.trim() || products.length === 0) {
@@ -399,6 +425,11 @@ export default function SupplierOrders() {
         "Por favor completa el nombre del proveedor y agrega al menos un producto.",
         "error",
       );
+      return;
+    }
+
+    if (products.some((product) => !product.name.trim())) {
+      showToast("Cada producto debe tener un nombre.", "error");
       return;
     }
 
@@ -426,7 +457,11 @@ export default function SupplierOrders() {
       orderDate,
       expectedDeliveryDate,
       notes: notes.trim(),
-      products: [...products],
+      products: products.map((product) => ({
+        ...product,
+        name: product.name.trim(),
+        quantity: normalizeProductQuantity(product.quantity),
+      })),
       total: total > 0 ? total : undefined,
       createdAt: existingOrder?.createdAt || now,
       updatedAt: now,
@@ -473,7 +508,12 @@ export default function SupplierOrders() {
     setOrderDate(order.orderDate);
     setExpectedDeliveryDate(order.expectedDeliveryDate || "");
     setNotes(order.notes || "");
-    setProducts([...order.products]);
+    setProducts(
+      order.products.map((product) => ({
+        ...product,
+        quantity: normalizeProductQuantity(product.quantity),
+      })),
+    );
     setEditingOrderId(order.id);
     setEditingDocId(order.documentId || null);
     setIsEditing(true);
@@ -1253,7 +1293,9 @@ export default function SupplierOrders() {
                   type="number"
                   min="1"
                   value={quantity}
-                  onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                  onChange={(e) =>
+                    setQuantity(normalizeProductQuantity(e.target.value))
+                  }
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
@@ -1312,7 +1354,7 @@ export default function SupplierOrders() {
                     </tr>
                   </thead>
                   <tbody>
-                    {products.map((product) => (
+                    {products.map((product, index) => (
                       <tr
                         key={product.id}
                         className="hover:opacity-80"
@@ -1322,13 +1364,34 @@ export default function SupplierOrders() {
                           className="py-2 px-3"
                           style={{ color: "var(--foreground)" }}
                         >
-                          {product.name}
+                          <input
+                            type="text"
+                            value={product.name}
+                            aria-label={`Nombre del producto, línea ${index + 1}`}
+                            onChange={(event) =>
+                              updateProductName(product.id, event.target.value)
+                            }
+                            className="h-9 w-full min-w-48 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-2 text-sm text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/60 focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+                          />
                         </td>
                         <td
                           className="py-2 px-3 text-center"
                           style={{ color: "var(--foreground)" }}
                         >
-                          {product.quantity}
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={product.quantity}
+                            aria-label={`Cantidad del producto, línea ${index + 1}`}
+                            onChange={(event) =>
+                              updateProductQuantity(
+                                product.id,
+                                event.target.value,
+                              )
+                            }
+                            className="h-9 w-24 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-2 text-center text-sm text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/60 focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+                          />
                         </td>
                         <td className="py-2 px-3 text-center">
                           <button
@@ -1352,7 +1415,10 @@ export default function SupplierOrders() {
             <button
               onClick={saveOrder}
               disabled={
-                isSaving || !supplierName.trim() || products.length === 0
+                isSaving ||
+                !supplierName.trim() ||
+                products.length === 0 ||
+                products.some((product) => !product.name.trim())
               }
               className="h-11 px-6 rounded-lg bg-[var(--button-bg)] text-[var(--button-text)] hover:bg-[var(--button-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
             >
