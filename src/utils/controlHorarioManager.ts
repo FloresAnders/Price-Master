@@ -302,10 +302,6 @@ export const getCashOpeningAvailabilityAfterDailyClosing = (args: {
   }
 
   if (latest.turno === "N") {
-    if (isWithinClosingWindow(parseHHMMToMinutes(args.horarioCierre))) {
-      return { allowed: true };
-    }
-
     return {
       allowed: false,
       closingTurno: "N",
