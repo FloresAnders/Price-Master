@@ -1,0 +1,107 @@
+# Conversación: revisión general de Price-Master
+
+Fecha: 2026-09-20  
+Repositorio: `C:\Users\chave\Desktop\Diversion\Price-Master`
+
+> Este registro conserva las solicitudes y respuestas sustantivas de la conversación. Se omiten el razonamiento interno, las llamadas a herramientas y sus salidas extensas.
+
+## Usuario
+
+> haz una revision general y listame que podria mejorarse o corregirse
+
+## Asistente
+
+Se realizó una revisión general sin modificar archivos. El proyecto compila y las pruebas pasan, pero se encontraron riesgos de seguridad, consistencia y mantenimiento.
+
+### Hallazgos prioritarios
+
+1. **Control de acceso de Firestore demasiado amplio — Crítico**
+
+   - `firestore.rules:721-740` permite lectura y escritura a cualquier identidad autenticada sobre las colecciones no excluidas.
+   - Esto puede alcanzar `users`, `mail`, `security_logs`, tokens de recuperación y otras colecciones sensibles.
+   - `Facturas`, `proveedores` y `MovimientosFondos` tampoco comprueban adecuadamente el propietario o la empresa.
+   - Las validaciones que viven solamente en el cliente no forman una frontera de seguridad.
+   - Recomendación: eliminar la regla global permisiva, definir reglas por colección y propietario, mantener usuarios, correos, tokens y sesiones del lado servidor y crear pruebas de reglas contra IDOR y escalamiento de privilegios.
+
+2. **Reglas posiblemente no asociadas a la base de producción — Alto**
+
+   - La aplicación selecciona `restauracion` en producción, pero `firebase.json` no declara explícitamente el identificador de base.
+   - La aplicación usa sesiones propias, mientras las reglas esperan `request.auth` de Firebase Authentication.
+   - Si las reglas actuales están desplegadas, varias operaciones cliente deberían fallar; si la aplicación funciona, las reglas desplegadas podrían ser diferentes.
+   - Recomendación: configurar por separado `(default)` y `restauracion`, unificar el modelo de identidad y verificar las reglas realmente desplegadas.
+
+3. **Endpoints de correo utilizables como relay — Alto**
+
+   - `functions/index.js` contiene una función `testEmail` sin autenticación en código que acepta cualquier destinatario.
+   - `/api/send-email` recibe destinatario, asunto y contenido sin comprobar sesión ni permisos.
+   - El trigger acepta HTML y adjuntos procedentes del documento de Firestore.
+   - Recomendación: retirar funciones de prueba de producción, proteger el envío mediante IAM, App Check o sesión con permiso específico, limitar frecuencia y validar estrictamente el contenido.
+
+4. **Endpoints públicos de Argon2 permiten agotar recursos — Alto**
+
+   - `/api/auth/password/hash` ejecuta Argon2 sin autenticación, límite de tamaño o rate limit.
+   - Cada hash está configurado para utilizar 64 MiB y tres iteraciones.
+   - `/api/auth/password/verify` acepta incluso el hash proporcionado por el solicitante.
+   - Recomendación: realizar hash y verificación únicamente dentro de operaciones protegidas, usar solo hashes obtenidos del servidor, limitar entradas y aplicar un rate limit distribuido.
+
+5. **Cambio de correo expuesto a fuerza bruta y manipulación por ID — Alto**
+
+   - `request-email-change` acepta cualquier `userId` sin comprobar la sesión.
+   - El código tiene seis dígitos y `confirm-email-change` no limita intentos.
+   - Validación, actualización y consumo del código no son atómicos.
+   - Recomendación: derivar el usuario de la sesión, ignorar IDs enviados por el cliente, limitar intentos e implementar la operación en una transacción.
+
+6. **Agregados contables de Cloud Functions no idempotentes — Alto**
+
+   - `handleMovementWrite` incrementa agregados y luego escribe el detalle mediante operaciones separadas.
+   - Los eventos de Firestore pueden repetirse o llegar fuera de orden, por lo que un reintento puede duplicar montos y conteos.
+   - Un cambio de fecha, empresa o `accountId` tampoco descuenta correctamente del grupo anterior.
+   - Recomendación: deduplicar mediante `event.id` dentro de una transacción o recalcular desde una fuente autoritativa, actualizando tanto el grupo anterior como el nuevo.
+
+7. **Vinculación de dispositivos permite sesiones fuera de política — Medio**
+
+   - La comprobación de estado en `device-link/claim` no retorna ni bloquea la operación.
+   - La duración y los permisos provienen del cliente sin límites del servidor.
+   - El botón “Revocar” no tiene una acción asociada.
+   - Recomendación: usar transacciones para las transiciones de estado, permitir solamente duraciones definidas, limitar la sesión vinculada a la sesión autorizadora e implementar revocación real.
+
+8. **Dependencias vulnerables — Alto**
+
+   - Auditoría del proyecto raíz: 25 vulnerabilidades de producción, incluidas 5 críticas y 16 altas.
+   - Auditoría de Cloud Functions: 22 vulnerabilidades, incluidas 3 críticas y 5 altas.
+   - Entre los paquetes relevantes están Next.js, jsPDF, SheetJS/xlsx, Firebase/Protobuf, Nodemailer y dependencias de correo.
+   - Recomendación: actualizar primero Next.js, jsPDF, Firebase y la cadena de correo; para `xlsx`, evaluar una distribución mantenida o una biblioteca alternativa.
+
+### Mejoras de mantenimiento
+
+- `npm run lint` falla con 71 errores y 121 advertencias.
+- Solo hay 14 archivos de pruebas y no cubren reglas Firestore, autenticación, recuperación o cambio de correo, correo ni Cloud Functions.
+- Existen módulos demasiado grandes: `FondoSection.tsx` tiene 7.249 líneas y `FacturasPage.tsx` 4.964.
+- `src/lib/appAuth.ts` contiene una clave fija y una firma casera de 32 bits. No se detectaron consumidores actuales y debería retirarse para impedir su reutilización.
+
+### Verificaciones realizadas
+
+- Tests: 85 de 85 pasaron.
+- TypeScript: pasó.
+- Build de producción: pasó.
+- ESLint: falló con 192 problemas en total.
+- `git diff --check`: limpio.
+- Árbol Git: limpio antes de guardar este documento.
+- No se verificaron en vivo las reglas desplegadas en `restauracion`, el IAM de las Functions ni los flujos contra producción.
+
+### Orden de atención recomendado
+
+1. Cerrar los endpoints públicos de correo y Argon2.
+2. Corregir las reglas y la asociación de la base `restauracion`.
+3. Hacer idempotentes los agregados contables.
+4. Asegurar los flujos de cambio de correo y dispositivos.
+5. Actualizar dependencias.
+6. Corregir lint y ampliar las pruebas automatizadas.
+
+## Usuario
+
+> guarda esta conversacion en un md dentro de data
+
+## Asistente
+
+La conversación quedó guardada en este archivo Markdown dentro de `data/`.
