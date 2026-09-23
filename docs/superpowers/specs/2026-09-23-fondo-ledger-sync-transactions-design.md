@@ -79,7 +79,8 @@ El estado del ledger aceptara campos opcionales, compatibles con documentos
 anteriores:
 
 ```ts
-type LedgerLastChange = {
+type LedgerMovementChange = {
+  kind: "movement";
   revision: number;
   movementId: string;
   operation: "create" | "edit" | "delete";
@@ -88,6 +89,16 @@ type LedgerLastChange = {
   updatedAt: string;
   clientMutationId?: string;
 };
+
+type LedgerSettingsChange = {
+  kind: "settings";
+  revision: number;
+  accountId: MovementAccountKey;
+  updatedAt: string;
+  clientMutationId?: string;
+};
+
+type LedgerLastChange = LedgerMovementChange | LedgerSettingsChange;
 
 type MovementStorageState = {
   // campos existentes
