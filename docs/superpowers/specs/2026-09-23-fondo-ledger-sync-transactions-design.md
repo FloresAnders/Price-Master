@@ -67,11 +67,12 @@ y el nuevo valor. El movimiento original de una edicion o eliminacion siempre
 provendra de Firestore, no del cache del navegador.
 
 La persistencia automatica de configuracion de cuenta (`initialBalance` y
-`enabled`) tampoco podra guardar el documento completo desde
-`storageSnapshotRef.current`. Esa ruta usara una transaccion separada que lea el
-ledger autoritativo, modifique solamente las dos entradas CRC/USD de la cuenta
-activa y preserve el resto del documento. Aplicar un snapshot remoto a la UI no
-debe disparar una escritura de configuracion de vuelta a Firestore.
+`enabled`) que hoy guarda el documento completo desde
+`storageSnapshotRef.current` sera eliminada. La pantalla actual no contiene
+controles de usuario que modifiquen esos valores: solo se hidratan y se
+reinician al cambiar de contexto. Aplicar un snapshot remoto a la UI no debe
+disparar ninguna escritura de vuelta a Firestore. Si en el futuro se agrega un
+editor de configuracion, debera usar una operacion transaccional explicita.
 
 ### 2. Metadatos de revision
 
@@ -90,15 +91,7 @@ type LedgerMovementChange = {
   clientMutationId?: string;
 };
 
-type LedgerSettingsChange = {
-  kind: "settings";
-  revision: number;
-  accountId: MovementAccountKey;
-  updatedAt: string;
-  clientMutationId?: string;
-};
-
-type LedgerLastChange = LedgerMovementChange | LedgerSettingsChange;
+type LedgerLastChange = LedgerMovementChange;
 
 type MovementStorageState = {
   // campos existentes
@@ -198,9 +191,8 @@ mostrara "guardado correctamente" por una escritura solo local.
   - validacion de integridad inmediatamente antes de persistir el cierre.
 - `src/app/fondogeneral/components/layout/FondoSection.tsx`
   - integrar estado de sincronizacion y mensajes de bloqueo;
-  - reemplazar la persistencia automatica ciega de configuracion por una
-    actualizacion transaccional que distinga cambios del usuario de hidratacion
-    remota.
+  - eliminar la persistencia automatica ciega de configuracion y comprobar que
+    la hidratacion remota no genera escrituras reflejas.
 
 ## Pruebas
 
@@ -219,7 +211,6 @@ Se agregaran pruebas para:
 10. Un cierre se bloquea cuando la cadena contable y el ledger divergen.
 11. Un cierre sano conserva el comportamiento actual.
 12. Un snapshot remoto no provoca un bucle de escritura de configuracion.
-13. Dos clientes que actualizan cuentas distintas no se sobrescriben entre si.
 
 La verificacion final incluira pruebas enfocadas, suite completa relevante,
 typecheck, lint aplicable, build y `git diff --check`.
