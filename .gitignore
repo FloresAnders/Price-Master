@@ -17,6 +17,7 @@ service-account*.json
 
 # testing
 /coverage
+/.worktrees/
 
 # next.js
 /.next/
