@@ -74,6 +74,12 @@ reinician al cambiar de contexto. Aplicar un snapshot remoto a la UI no debe
 disparar ninguna escritura de vuelta a Firestore. Si en el futuro se agrega un
 editor de configuracion, debera usar una operacion transaccional explicita.
 
+Las rutas auxiliares que hoy guardan el documento completo para modificar
+`lockedUntil` tambien leeran el ledger dentro de una transaccion y cambiaran
+solo ese campo en la copia autoritativa. La limpieza unica del arreglo legacy
+`operations.movements` usara una actualizacion puntual del campo, sin volver a
+escribir balances.
+
 ### 2. Metadatos de revision
 
 El estado del ledger aceptara campos opcionales, compatibles con documentos
@@ -115,6 +121,8 @@ El hook de hidratacion:
 - cancelara la suscripcion al ocultar la pestaña, cambiar de empresa o desmontar
   el componente;
 - ignorara snapshots locales con `metadata.hasPendingWrites`;
+- no marcara como sincronizado ni aplicara como autoritativo un snapshot con
+  `metadata.fromCache`;
 - aplicara el estado confirmado a `storageSnapshotRef.current` y
   `ledgerSnapshot`;
 - conservara la revision aplicada mas reciente por empresa.
@@ -161,6 +169,17 @@ La comprobacion se ejecutara solo al cerrar, no en cada render. Los movimientos
 se consultaran desde la apertura hasta el instante del cierre y se usara
 `amountPayment` como salida efectiva cuando corresponda.
 
+La comprobacion usara lecturas forzadas al servidor. Leera el ledger antes y
+despues de paginar los movimientos; si `revision` o `updatedAt` cambian durante
+la consulta, repetira el intento de forma acotada. Si no obtiene una vista
+estable o Firestore no esta disponible, bloqueara el cierre.
+
+El cierre usara los saldos autoritativos devueltos por esa comprobacion, no una
+copia React potencialmente atrasada. Al guardar, la transaccion ya existente de
+`DailyClosingsService` leera el ledger y exigira la misma `revision` y
+`updatedAt` validadas. Si hubo un movimiento entre la conciliacion y el commit,
+el cierre abortara en vez de guardar una comparacion obsoleta.
+
 ### 6. Estado de sincronizacion y errores
 
 El hook expondra uno de estos estados:
@@ -185,10 +204,14 @@ mostrara "guardado correctamente" por una escritura solo local.
 - `src/app/fondogeneral/utils/fondo/persistence.ts`
   - reemplazar el calculo desde el snapshot y el batch por la nueva transaccion;
   - actualizar caches solamente despues del resultado confirmado.
+- `src/app/fondogeneral/utils/fondo/mutations.ts`
+  - actualizar `lockedUntil` mediante la copia autoritativa del ledger.
 - `src/app/fondogeneral/hooks/fondo/useV2MovementsHydration.ts`
   - ciclo de vida del listener y aplicacion de revisiones remotas.
 - `src/app/fondogeneral/utils/closing/dailyClosing.ts`
   - validacion de integridad inmediatamente antes de persistir el cierre.
+- `src/services/daily-closings.ts`
+  - precondicion transaccional de revision del ledger al guardar el cierre.
 - `src/app/fondogeneral/components/layout/FondoSection.tsx`
   - integrar estado de sincronizacion y mensajes de bloqueo;
   - eliminar la persistencia automatica ciega de configuracion y comprobar que
@@ -211,6 +234,10 @@ Se agregaran pruebas para:
 10. Un cierre se bloquea cuando la cadena contable y el ledger divergen.
 11. Un cierre sano conserva el comportamiento actual.
 12. Un snapshot remoto no provoca un bucle de escritura de configuracion.
+13. Actualizar `lockedUntil` o limpiar movimientos legacy no sobrescribe un
+    balance mas reciente.
+14. El cierre usa el saldo autoritativo y aborta si la revision cambia antes
+    del commit.
 
 La verificacion final incluira pruebas enfocadas, suite completa relevante,
 typecheck, lint aplicable, build y `git diff --check`.
