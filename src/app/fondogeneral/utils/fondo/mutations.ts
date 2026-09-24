@@ -178,37 +178,23 @@ export async function handleDeleteLatestDailyClosing(
       }
     }
 
-    const baseLedger = deps.storageSnapshotRef.current
-      ? MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(
-        deps.storageSnapshotRef.current,
-        normalizedCompany,
-      )
-      : ((await MovimientosFondosService.getDocument<FondoEntry>(
-        companyKey,
-      )) ??
-        MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
-          normalizedCompany,
-        ));
-
-    baseLedger.company = normalizedCompany;
-    baseLedger.operations = { movements: [] };
-    if (!baseLedger.state) {
-      baseLedger.state =
-        MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
-          normalizedCompany,
-        ).state;
-    }
-    if (lockedUntilAfter) {
-      baseLedger.state.lockedUntil = lockedUntilAfter;
-    } else {
-      delete (baseLedger.state as any).lockedUntil;
-    }
-    baseLedger.state.updatedAt = new Date().toISOString();
-
-    await MovimientosFondosService.saveDocument(companyKey, baseLedger);
-    deps.storageSnapshotRef.current = baseLedger;
+    const ledger = await MovimientosFondosService.updateLedgerLockTransaction<FondoEntry>({
+      docId: companyKey,
+      company: normalizedCompany,
+      lockedUntil: lockedUntilAfter,
+      nowISO: new Date().toISOString(),
+    });
+    deps.storageSnapshotRef.current = ledger;
+    const crc = ledger.state.balancesByAccount.find((balance) => balance.accountId === "FondoGeneral" && balance.currency === "CRC");
+    const usd = ledger.state.balancesByAccount.find((balance) => balance.accountId === "FondoGeneral" && balance.currency === "USD");
+    deps.setLedgerSnapshot({
+      initialCRC: crc?.initialBalance ?? 0,
+      currentCRC: crc?.currentBalance ?? 0,
+      initialUSD: usd?.initialBalance ?? 0,
+      currentUSD: usd?.currentBalance ?? 0,
+    });
     try {
-      localStorage.setItem(companyKey, JSON.stringify(baseLedger));
+      localStorage.setItem(companyKey, JSON.stringify(ledger));
     } catch {
       // ignore storage errors
     }

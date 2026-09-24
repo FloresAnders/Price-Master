@@ -9,6 +9,7 @@ import {
   query,
   runTransaction,
   setDoc,
+  updateDoc,
   serverTimestamp,
   startAfter,
   where,
@@ -914,6 +915,35 @@ export class MovimientosFondosService {
   ): Promise<void> {
     if (!docId) return;
     await FirestoreService.addWithId(this.COLLECTION_NAME, docId, data);
+  }
+
+  static async updateLedgerLockTransaction<TMovement>(input: {
+    docId: string;
+    company: string;
+    lockedUntil: string | null;
+    nowISO: string;
+  }): Promise<MovementStorage<TMovement>> {
+    const ledgerRef = doc(db, this.COLLECTION_NAME, input.docId);
+    return runTransaction(db, async (transaction) => {
+      const snapshot = await transaction.get(ledgerRef);
+      const ledger = snapshot.exists()
+        ? this.ensureMovementStorageShape<TMovement>(snapshot.data(), input.company)
+        : this.createEmptyMovementStorage<TMovement>(input.company);
+      if (input.lockedUntil === null) {
+        delete ledger.state.lockedUntil;
+      } else {
+        ledger.state.lockedUntil = input.lockedUntil;
+      }
+      ledger.state.updatedAt = input.nowISO;
+      transaction.set(ledgerRef, stripUndefinedDeep(ledger) as DocumentData);
+      return ledger;
+    });
+  }
+
+  static async clearLegacyMovements(docId: string): Promise<void> {
+    await updateDoc(doc(db, this.COLLECTION_NAME, docId), {
+      "operations.movements": [],
+    });
   }
 
   static async deleteDocument(docId: string): Promise<void> {

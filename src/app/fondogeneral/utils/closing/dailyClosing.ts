@@ -1045,25 +1045,29 @@ export async function handleConfirmDailyClosing(
     // defensive: ignore
   }
 
-  if (!editingDailyClosingId && storageSnapshotRef.current) {
+  if (!editingDailyClosingId) {
     const normalizedCompanyForLock = (company || "").trim();
-    if (!storageSnapshotRef.current.state) {
-      storageSnapshotRef.current.state =
-        MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(normalizedCompanyForLock).state;
-    }
-    storageSnapshotRef.current.state.lockedUntil = createdAt;
-
     if (normalizedCompanyForLock.length > 0) {
       const companyKey = MovimientosFondosService.buildCompanyMovementsKey(normalizedCompanyForLock);
       try {
-        localStorage.setItem(companyKey, JSON.stringify(storageSnapshotRef.current));
-        void MovimientosFondosService.saveDocument(companyKey, storageSnapshotRef.current)
-          .then(() => console.log("[LOCK-DEBUG] Force saved to Firestore after closing"))
-          .catch((err) => {
-            console.error("Error force saving lockedUntil to Firestore:", err);
-          });
+        const ledger = await MovimientosFondosService.updateLedgerLockTransaction<FondoEntry>({
+          docId: companyKey,
+          company: normalizedCompanyForLock,
+          lockedUntil: createdAt,
+          nowISO: await getAuthoritativeNowISO(),
+        });
+        storageSnapshotRef.current = ledger;
+        const crc = ledger.state.balancesByAccount.find((balance) => balance.accountId === "FondoGeneral" && balance.currency === "CRC");
+        const usd = ledger.state.balancesByAccount.find((balance) => balance.accountId === "FondoGeneral" && balance.currency === "USD");
+        setLedgerSnapshot({
+          initialCRC: crc?.initialBalance ?? 0,
+          currentCRC: crc?.currentBalance ?? 0,
+          initialUSD: usd?.initialBalance ?? 0,
+          currentUSD: usd?.currentBalance ?? 0,
+        });
+        localStorage.setItem(companyKey, JSON.stringify(ledger));
       } catch (err) {
-        console.error("Error force persisting lockedUntil:", err);
+        console.error("Error persisting lockedUntil:", err);
       }
     }
   }
