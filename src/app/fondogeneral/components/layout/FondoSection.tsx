@@ -71,6 +71,7 @@ import CashOpeningModal, { CashOpeningFormValues } from "../modals/CashOpeningMo
 import FacturaPaymentModal from "../modals/FacturaPaymentModal";
 import { FondoTotalsSummary } from "../FondoTotalsSummary";
 import { FondoCurrentBalanceCard } from "../FondoCurrentBalanceCard";
+import { LedgerSyncStatus } from "../LedgerSyncStatus";
 import { PendingCreditInvoicesSection } from "../invoices/PendingCreditInvoicesSection";
 import { FondoMovementsSkeleton } from "../FondoMovementsSkeleton";
 import { MovementActionsCell } from "../MovementActionsCell";
@@ -1110,6 +1111,7 @@ export function FondoSection({
     rebuildEntriesFromV2Cache,
     ensureV2MovementsLoaded,
     movementLoadError,
+    ledgerSyncStatus,
     retryMovements,
     refreshMovements,
     registerLocalMutation,
@@ -2005,10 +2007,6 @@ export function FondoSection({
         {
           company,
           accountKey,
-          initialAmount,
-          initialAmountUSD,
-          currencyEnabled,
-          ledgerSnapshot,
           storageSnapshotRef,
           v2MovementsCacheRef,
           registerLocalMutation,
@@ -2017,10 +2015,6 @@ export function FondoSection({
     [
       company,
       accountKey,
-      initialAmount,
-      initialAmountUSD,
-      currencyEnabled,
-      ledgerSnapshot,
       registerLocalMutation,
     ],
   );
@@ -6772,6 +6766,7 @@ export function FondoSection({
           currentBalanceUSD={currentBalanceUSD}
           formatByCurrency={formatByCurrency}
         />
+        {company && <LedgerSyncStatus status={ledgerSyncStatus} />}
       </div>
 
       <AuditHistoryModal

@@ -103,10 +103,6 @@ describe("MovimientosFondosService.commitLedgerTransaction", () => {
     }, undefined, {
       company,
       accountKey: "FondoGeneral",
-      initialAmount: "0",
-      initialAmountUSD: "0",
-      currencyEnabled: { CRC: true, USD: true },
-      ledgerSnapshot: { initialCRC: 0, currentCRC: 103_000, initialUSD: 0, currentUSD: 0 },
       storageSnapshotRef,
       v2MovementsCacheRef: { current: {} },
       registerLocalMutation: localMutation,
@@ -241,10 +237,6 @@ describe("MovimientosFondosService.commitLedgerTransaction", () => {
     }, undefined, {
       company,
       accountKey: "FondoGeneral",
-      initialAmount: "0",
-      initialAmountUSD: "0",
-      currencyEnabled: { CRC: true, USD: true },
-      ledgerSnapshot: { initialCRC: 0, currentCRC: 103_000, initialUSD: 0, currentUSD: 0 },
       storageSnapshotRef: { current: ledgerAt(103_000) },
       v2MovementsCacheRef: { current: {} },
     });

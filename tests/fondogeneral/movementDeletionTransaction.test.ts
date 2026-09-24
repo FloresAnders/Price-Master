@@ -89,10 +89,6 @@ describe("FCR deletion transaction", () => {
     const persistDeps = {
       company,
       accountKey: "FondoGeneral" as const,
-      initialAmount: "0",
-      initialAmountUSD: "0",
-      currencyEnabled: { CRC: true, USD: true },
-      ledgerSnapshot: { initialCRC: 0, currentCRC: 400, initialUSD: 0, currentUSD: 0 },
       storageSnapshotRef: { current: null },
       v2MovementsCacheRef: { current: {} },
     };
@@ -163,10 +159,6 @@ describe("FCR deletion transaction", () => {
         persistMovementToFirestore(entries, operation, change, extraWrites, {
           company,
           accountKey: "FondoGeneral",
-          initialAmount: "0",
-          initialAmountUSD: "0",
-          currencyEnabled: { CRC: true, USD: true },
-          ledgerSnapshot: { initialCRC: 0, currentCRC: 0, initialUSD: 0, currentUSD: 0 },
           storageSnapshotRef: { current: null },
           v2MovementsCacheRef: { current: {} },
         }),

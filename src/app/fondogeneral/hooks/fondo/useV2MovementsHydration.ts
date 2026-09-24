@@ -18,6 +18,8 @@ import {
   type FondoCacheScope,
 } from "../../../../services/fondo-cache";
 
+export type LedgerSyncState = "connecting" | "synced" | "offline" | "error";
+
 type V2MovementsCacheEntry = {
   loaded: boolean;
   movements: FondoEntry[];
@@ -92,7 +94,7 @@ export function useV2MovementsHydration({
   cacheIdentity,
 }: UseV2MovementsHydrationProps) {
   const [movementLoadError, setMovementLoadError] = useState<Error | null>(null);
-  const [ledgerSyncStatus, setLedgerSyncStatus] = useState<"connecting" | "synced" | "offline" | "error">("connecting");
+  const [ledgerSyncStatus, setLedgerSyncStatus] = useState<LedgerSyncState>("connecting");
   const observedRevisionsRef = useRef(new Map<string, number>());
   const synchronizedRevisionsRef = useRef(new Map<string, number>());
   const dirtyAccountsRef = useRef(new Map<string, number>());

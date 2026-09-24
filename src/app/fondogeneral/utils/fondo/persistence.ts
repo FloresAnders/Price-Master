@@ -3,7 +3,6 @@ import {
   MovimientosFondosService,
   type LedgerExtraWrites,
   type MovementAccountKey,
-  type MovementCurrencyKey,
   type MovementStorage,
 } from "../../../../services/movimientos-fondos";
 import type { FondoEntry } from "../../types";
@@ -34,10 +33,6 @@ type V2MovementsCacheEntry = {
 export interface PersistMovementDeps {
   company: string | null | undefined;
   accountKey: MovementAccountKey;
-  initialAmount: string;
-  initialAmountUSD: string;
-  currencyEnabled: Record<MovementCurrencyKey, boolean>;
-  ledgerSnapshot: LedgerBalanceSnapshot;
   storageSnapshotRef: { current: MovementStorage<FondoEntry> | null };
   v2MovementsCacheRef: { current: Record<string, V2MovementsCacheEntry> };
   registerLocalMutation?: (clientMutationId: string) => void;
