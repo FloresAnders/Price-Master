@@ -98,6 +98,7 @@ export function useV2MovementsHydration({
   const dirtyAccountsRef = useRef(new Map<string, number>());
   const failedAccountsRef = useRef(new Map<string, Error>());
   const dirtySequenceRef = useRef(0);
+  const listenerSessionRef = useRef<{ docKey: string; confirmed: boolean; valid: boolean } | null>(null);
   const localMutationIdsRef = useRef(new Set<string>());
   const context = useMemo(() => ({}), [company, resolvedOwnerId, accountKey]);
   const contextRef = useRef(context);
@@ -213,6 +214,7 @@ export function useV2MovementsHydration({
       options?: { append?: boolean; forceRefresh?: boolean },
     ) => {
       const cacheKey = buildV2MovementsCacheKey(docKey, accountKey);
+      const listenerSession = listenerSessionRef.current;
       const pending = rangeLoadsRef.current.get(cacheKey);
       if (pending) {
         if (!options?.forceRefresh) return pending;
@@ -252,8 +254,14 @@ export function useV2MovementsHydration({
           failedAccountsRef.current.delete(cacheKey);
           if (observedRevision !== undefined) {
             synchronizedRevisionsRef.current.set(cacheKey, observedRevision);
-            setMovementLoadError(null);
-            setLedgerSyncStatus("synced");
+            // Cache repair may finish after disconnect/error. Only its original,
+            // still-confirmed listener session can publish connection status.
+            if (listenerSession && listenerSessionRef.current === listenerSession &&
+              listenerSession.docKey === docKey && listenerSession.valid && listenerSession.confirmed &&
+              navigator.onLine && document.visibilityState === "visible") {
+              setMovementLoadError(null);
+              setLedgerSyncStatus("synced");
+            }
           }
         }
       } finally {
@@ -399,19 +407,25 @@ export function useV2MovementsHydration({
     let disposed = false;
     const stop = () => {
       generation++;
+      if (listenerSessionRef.current) listenerSessionRef.current.valid = false;
+      listenerSessionRef.current = null;
       unsubscribe?.();
       unsubscribe = undefined;
     };
     const start = () => {
       if (disposed || unsubscribe || !online || document.visibilityState !== "visible") return;
       const session = ++generation;
-      const current = () => !disposed && generation === session && contextRef.current === context;
+      const listenerSession = { docKey, confirmed: false, valid: true };
+      listenerSessionRef.current = listenerSession;
+      const current = () => !disposed && generation === session && contextRef.current === context &&
+        listenerSessionRef.current === listenerSession && listenerSession.valid;
       let previousRevision = observedRevisionsRef.current.get(docKey) ?? 0;
       let firstSnapshot = true;
       let queue = Promise.resolve();
       setLedgerSyncStatus("connecting");
       unsubscribe = MovimientosFondosService.subscribeToLedger<FondoEntry>(docKey, (snapshot) => {
         if (!current() || snapshot.hasPendingWrites || snapshot.fromCache) return;
+        listenerSession.confirmed = true;
         // Maintenance writes may change lock state without changing the movement revision.
         storageSnapshotRef.current = snapshot.storage;
         applyLedgerStateFromStorage(snapshot.storage.state);
@@ -493,6 +507,7 @@ export function useV2MovementsHydration({
         });
       }, (error) => {
         if (!current() || !online) return;
+        listenerSession.valid = false;
         setMovementLoadError(error);
         setLedgerSyncStatus("error");
       });

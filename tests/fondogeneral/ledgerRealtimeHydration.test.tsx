@@ -221,4 +221,17 @@ describe("ledger realtime hydration", () => {
     expect(ensureV2MovementsLoaded).toHaveBeenCalledTimes(2);
     expect(result.current.ledgerSyncStatus).toBe("synced");
   });
+  it.each(["offline", "listener-error"] as const)("preserves %s when an old range repair finishes", async (interruption) => {
+    let finish!: () => void;
+    vi.mocked(ensureV2MovementsLoaded).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    const { result } = renderHook(() => useV2MovementsHydration(props));
+    await emit(snapshot(5));
+    if (interruption === "offline") event("offline");
+    else act(() => fail(new Error("listener failed")));
+    const expectedStatus = interruption === "offline" ? "offline" : "error";
+    expect(result.current.ledgerSyncStatus).toBe(expectedStatus);
+    await act(async () => finish());
+    expect(result.current.ledgerSyncStatus).toBe(expectedStatus);
+    if (interruption === "listener-error") expect(result.current.movementLoadError?.message).toBe("listener failed");
+  });
 });
