@@ -1054,7 +1054,7 @@ export async function handleConfirmDailyClosing(
           docId: companyKey,
           company: normalizedCompanyForLock,
           lockedUntil: createdAt,
-          nowISO: await getAuthoritativeNowISO(),
+          nowISO: createdAt,
         });
         storageSnapshotRef.current = ledger;
         const crc = ledger.state.balancesByAccount.find((balance) => balance.accountId === "FondoGeneral" && balance.currency === "CRC");
