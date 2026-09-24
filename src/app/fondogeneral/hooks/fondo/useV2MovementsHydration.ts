@@ -28,6 +28,7 @@ type V2MovementsCacheEntry = {
   startIso?: string;
   endIsoExclusive?: string;
   revision?: number;
+  movementVersions?: Record<string, number>;
 };
 
 interface UseV2MovementsHydrationProps {
@@ -92,7 +93,11 @@ export function useV2MovementsHydration({
 }: UseV2MovementsHydrationProps) {
   const [movementLoadError, setMovementLoadError] = useState<Error | null>(null);
   const [ledgerSyncStatus, setLedgerSyncStatus] = useState<"connecting" | "synced" | "offline" | "error">("connecting");
-  const appliedRevisionsRef = useRef(new Map<string, number>());
+  const observedRevisionsRef = useRef(new Map<string, number>());
+  const synchronizedRevisionsRef = useRef(new Map<string, number>());
+  const dirtyAccountsRef = useRef(new Map<string, number>());
+  const failedAccountsRef = useRef(new Map<string, Error>());
+  const dirtySequenceRef = useRef(0);
   const localMutationIdsRef = useRef(new Set<string>());
   const context = useMemo(() => ({}), [company, resolvedOwnerId, accountKey]);
   const contextRef = useRef(context);
@@ -215,6 +220,8 @@ export function useV2MovementsHydration({
         await pending.catch(() => undefined);
         if (contextRef.current !== context) return;
       }
+      const dirtyVersion = dirtyAccountsRef.current.get(cacheKey);
+      const observedRevision = observedRevisionsRef.current.get(docKey);
       const request = ensureV2MovementsLoadedFn(docKey, options, {
         rebuildEntriesFromV2Cache: (key, account) => {
           if (contextRef.current === context) rebuildEntriesFromV2Cache(key, account);
@@ -239,6 +246,16 @@ export function useV2MovementsHydration({
       rangeLoadsRef.current.set(cacheKey, request);
       try {
         await request;
+        if (options?.forceRefresh && contextRef.current === context &&
+          dirtyAccountsRef.current.get(cacheKey) === dirtyVersion) {
+          dirtyAccountsRef.current.delete(cacheKey);
+          failedAccountsRef.current.delete(cacheKey);
+          if (observedRevision !== undefined) {
+            synchronizedRevisionsRef.current.set(cacheKey, observedRevision);
+            setMovementLoadError(null);
+            setLedgerSyncStatus("synced");
+          }
+        }
       } finally {
         if (rangeLoadsRef.current.get(cacheKey) === request) rangeLoadsRef.current.delete(cacheKey);
       }
@@ -271,6 +288,9 @@ export function useV2MovementsHydration({
     });
     if (!docKey) return Promise.resolve();
     const cacheKey = buildV2MovementsCacheKey(docKey, accountKeyRef.current);
+    if (dirtyAccountsRef.current.has(cacheKey)) {
+      return ensureV2MovementsLoaded(docKey, { forceRefresh: true });
+    }
     const cached = v2MovementsCacheRef.current[cacheKey];
     if (cached) {
       v2MovementsCacheRef.current[cacheKey] = {
@@ -386,7 +406,8 @@ export function useV2MovementsHydration({
       if (disposed || unsubscribe || !online || document.visibilityState !== "visible") return;
       const session = ++generation;
       const current = () => !disposed && generation === session && contextRef.current === context;
-      let previousRevision = appliedRevisionsRef.current.get(docKey) ?? 0;
+      let previousRevision = observedRevisionsRef.current.get(docKey) ?? 0;
+      let firstSnapshot = true;
       let queue = Promise.resolve();
       setLedgerSyncStatus("connecting");
       unsubscribe = MovimientosFondosService.subscribeToLedger<FondoEntry>(docKey, (snapshot) => {
@@ -394,12 +415,28 @@ export function useV2MovementsHydration({
         // Maintenance writes may change lock state without changing the movement revision.
         storageSnapshotRef.current = snapshot.storage;
         applyLedgerStateFromStorage(snapshot.storage.state);
-        setLedgerSyncStatus("synced");
         const nextRevision = snapshot.storage.state.revision ?? 0;
         const lastChange = snapshot.storage.state.lastChange;
-        const action = decideLedgerRevisionSync({ previousRevision, nextRevision, lastChange,
+        const markDirty = (key: string) => {
+          dirtyAccountsRef.current.set(key, ++dirtySequenceRef.current);
+        };
+        if (nextRevision > previousRevision + 1) {
+          // A gap can include changes to any account, including cached inactive tabs.
+          for (const balance of snapshot.storage.state.balancesByAccount) {
+            markDirty(buildV2MovementsCacheKey(docKey, balance.accountId));
+          }
+        } else if (nextRevision > previousRevision && lastChange?.accountId !== accountKey && lastChange) {
+          markDirty(buildV2MovementsCacheKey(docKey, lastChange.accountId));
+        }
+        const action = firstSnapshot && dirtyAccountsRef.current.has(cacheKey)
+          ? { type: "refresh-range" as const }
+          : decideLedgerRevisionSync({ previousRevision, nextRevision, lastChange,
           activeAccountId: accountKey, locallyAppliedMutationIds: localMutationIdsRef.current });
+        firstSnapshot = false;
         previousRevision = Math.max(previousRevision, nextRevision);
+        observedRevisionsRef.current.set(docKey, previousRevision);
+        if (action.type !== "ignore" && action.type !== "ledger-only") markDirty(cacheKey);
+        const dirtyVersion = dirtyAccountsRef.current.get(cacheKey);
         if (action.type === "ledger-only" && lastChange?.clientMutationId) {
           localMutationIdsRef.current.delete(lastChange.clientMutationId);
         }
@@ -412,11 +449,15 @@ export function useV2MovementsHydration({
             v2MovementsCacheRef.current[cacheKey] = {
               ...(cached ?? { loaded: true, cursor: null, exhausted: false, loading: false }),
               movements, revision: (cached?.revision ?? 0) + 1,
+              movementVersions: { ...cached?.movementVersions, [movementId]: (cached?.revision ?? 0) + 1 },
             };
             rebuildEntriesFromV2Cache(docKey, accountKey);
           };
           try {
-            if (action.type === "refresh-range") {
+            // A later movement cannot certify an earlier failed read. Repair the range.
+            const repair = action.type === "refresh-range" ||
+              (failedAccountsRef.current.has(cacheKey) && (action.type === "fetch-one" || action.type === "remove-one"));
+            if (repair) {
               await ensureV2MovementsLoaded(docKey, { forceRefresh: true });
             } else if (action.type === "remove-one") {
               updateCache(action.movementId);
@@ -426,10 +467,26 @@ export function useV2MovementsHydration({
               if (!entry) await ensureV2MovementsLoaded(docKey, { forceRefresh: true });
               else updateCache(action.movementId, entry.accountId === accountKey && movementMatchesActiveQuery(entry, activeQuery) ? entry : undefined);
             }
-            if (current()) appliedRevisionsRef.current.set(docKey, Math.max(appliedRevisionsRef.current.get(docKey) ?? 0, nextRevision));
+            if (!current()) return;
+            if (repair) failedAccountsRef.current.delete(cacheKey);
+            if (action.type !== "ignore" && action.type !== "ledger-only" &&
+              !failedAccountsRef.current.has(cacheKey) && dirtyAccountsRef.current.get(cacheKey) === dirtyVersion) {
+              dirtyAccountsRef.current.delete(cacheKey);
+            }
+            if (!dirtyAccountsRef.current.has(cacheKey) && !failedAccountsRef.current.has(cacheKey)) {
+              synchronizedRevisionsRef.current.set(cacheKey, nextRevision);
+              setMovementLoadError(null);
+              setLedgerSyncStatus("synced");
+            } else if (failedAccountsRef.current.has(cacheKey)) {
+              setMovementLoadError(failedAccountsRef.current.get(cacheKey)!);
+              setLedgerSyncStatus("error");
+            }
           } catch (error) {
             if (current()) {
-              setMovementLoadError(error instanceof Error ? error : new Error(String(error)));
+              const failure = error instanceof Error ? error : new Error(String(error));
+              failedAccountsRef.current.set(cacheKey, failure);
+              markDirty(cacheKey);
+              setMovementLoadError(failure);
               setLedgerSyncStatus("error");
             }
           }

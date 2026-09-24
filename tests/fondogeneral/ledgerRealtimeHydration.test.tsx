@@ -71,6 +71,7 @@ describe("ledger realtime hydration", () => {
     await emit(snapshot(1));
     expect(Service.getMovementById).toHaveBeenCalledExactlyOnceWith("movements_ACME", "m1", "FondoGeneral");
     expect(result.current.v2MovementsCacheRef.current["movements_ACME::FondoGeneral"].movements).toEqual([{ ...movement, amountIngreso: 55 }]);
+    expect(result.current.v2MovementsCacheRef.current["movements_ACME::FondoGeneral"].movementVersions).toEqual({ m1: 1 });
     expect(props.setFondoEntries).toHaveBeenLastCalledWith([expect.objectContaining({ amountIngreso: 55 })]);
   });
   it("refreshes a revision gap once, even with a local latest ID", async () => {
@@ -90,6 +91,7 @@ describe("ledger realtime hydration", () => {
     const { result } = renderHook(() => useV2MovementsHydration(props)); seed(result);
     await emit(snapshot(1, { operation: "delete" }));
     expect(result.current.v2MovementsCacheRef.current["movements_ACME::FondoGeneral"].movements).toEqual([]);
+    expect(result.current.v2MovementsCacheRef.current["movements_ACME::FondoGeneral"].movementVersions).toEqual({ m1: 1 });
     await emit(snapshot(2, { accountId: "BCR" }));
     expect(Service.getMovementById).not.toHaveBeenCalled(); expect(ensureV2MovementsLoaded).not.toHaveBeenCalled();
   });
@@ -109,6 +111,30 @@ describe("ledger realtime hydration", () => {
     expect(result.current.storageSnapshotRef.current?.state.revision).toBe(1);
     expect(result.current.v2MovementsCacheRef.current["movements_ACME::FondoGeneral"].movements).toEqual([movement]);
     expect(result.current.ledgerSyncStatus).toBe("error");
+  });
+  it.each([1, 2])("does not certify a failed fetch on a ledger-only snapshot at revision %s", async (revision) => {
+    const { result } = renderHook(() => useV2MovementsHydration(props)); seed(result);
+    vi.mocked(Service.getMovementById).mockRejectedValueOnce(new Error("server read failed"));
+    await emit(snapshot(1));
+    await emit(snapshot(revision, { accountId: revision === 2 ? "BCR" : "FondoGeneral" }));
+    expect(result.current.ledgerSyncStatus).toBe("error");
+    expect(result.current.movementLoadError?.message).toBe("server read failed");
+    expect(result.current.storageSnapshotRef.current?.state.revision).toBe(revision);
+    visibility("hidden"); visibility("visible");
+    await emit(snapshot(revision, { accountId: "BCR" }));
+    expect(ensureV2MovementsLoaded).toHaveBeenCalledExactlyOnceWith("movements_ACME", { forceRefresh: true }, expect.any(Object));
+    expect(result.current.ledgerSyncStatus).toBe("synced");
+    expect(result.current.movementLoadError).toBeNull();
+  });
+  it("repairs the previously active account once after an inactive remote change", async () => {
+    const { result, rerender } = renderHook((p: Props) => useV2MovementsHydration(p), { initialProps: props }); seed(result);
+    await emit(snapshot(0));
+    rerender({ ...props, accountKey: "BCR" }); await emit(snapshot(0));
+    await emit(snapshot(1, { operation: "edit" }));
+    expect(ensureV2MovementsLoaded).not.toHaveBeenCalled();
+    expect(Service.getMovementById).not.toHaveBeenCalled();
+    rerender(props); await emit(snapshot(1, { operation: "edit" })); await emit(snapshot(1));
+    expect(ensureV2MovementsLoaded).toHaveBeenCalledExactlyOnceWith("movements_ACME", { forceRefresh: true }, expect.objectContaining({ accountKeyRef: { current: "FondoGeneral" } }));
   });
   it.each([{ company: "OTHER" }, { accountKey: "BCR" as const }])("ignores pending fetches after a context switch %j", async (update) => {
     let resolve!: (entry: ServerEntry) => void;
@@ -153,14 +179,16 @@ describe("ledger realtime hydration", () => {
     act(() => deps.rebuildEntriesFromV2Cache("movements_ACME", "FondoGeneral"));
     expect(props.setFondoEntries).not.toHaveBeenCalled();
   });
-  it("retries an interrupted single read after the page becomes visible", async () => {
+  it("repairs an interrupted single read after the page becomes visible", async () => {
     let finish!: (entry: ServerEntry) => void;
     vi.mocked(Service.getMovementById).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
     const { result } = renderHook(() => useV2MovementsHydration(props)); seed(result);
     await emit(snapshot(1)); visibility("hidden");
     await act(async () => finish({ ...movement, amountIngreso: 99 }));
     expect(result.current.v2MovementsCacheRef.current["movements_ACME::FondoGeneral"].movements).toEqual([movement]);
-    visibility("visible"); await emit(snapshot(1)); expect(Service.getMovementById).toHaveBeenCalledTimes(2);
+    visibility("visible"); await emit(snapshot(1));
+    expect(ensureV2MovementsLoaded).toHaveBeenCalledExactlyOnceWith("movements_ACME", { forceRefresh: true }, expect.any(Object));
+    expect(result.current.ledgerSyncStatus).toBe("synced");
   });
   it("serializes a delete after an in-flight edit so the late edit cannot resurrect it", async () => {
     let finish!: (entry: ServerEntry) => void;
@@ -169,5 +197,28 @@ describe("ledger realtime hydration", () => {
     await emit(snapshot(1)); await emit(snapshot(2, { operation: "delete" }));
     await act(async () => finish({ ...movement, amountIngreso: 99 }));
     expect(result.current.v2MovementsCacheRef.current["movements_ACME::FondoGeneral"].movements).toEqual([]);
+  });
+  it("repairs failed movement synchronization when the user retries", async () => {
+    const { result } = renderHook(() => useV2MovementsHydration(props)); seed(result);
+    vi.mocked(Service.getMovementById).mockRejectedValueOnce(new Error("read failed"));
+    await emit(snapshot(1));
+    await act(async () => { await result.current.retryMovements(); });
+    expect(ensureV2MovementsLoaded).toHaveBeenCalledExactlyOnceWith("movements_ACME", { forceRefresh: true }, expect.any(Object));
+    expect(result.current.ledgerSyncStatus).toBe("synced");
+    expect(result.current.movementLoadError).toBeNull();
+  });
+  it("does not skip a failed read when the next active-account change arrives", async () => {
+    const { result } = renderHook(() => useV2MovementsHydration(props)); seed(result);
+    vi.mocked(Service.getMovementById).mockRejectedValueOnce(new Error("read failed"));
+    await emit(snapshot(1));
+    vi.mocked(ensureV2MovementsLoaded).mockRejectedValueOnce(new Error("repair failed"));
+    await emit(snapshot(2, { movementId: "m2" }));
+    expect(result.current.ledgerSyncStatus).toBe("error");
+    await emit(snapshot(2, { movementId: "m2" }));
+    expect(result.current.ledgerSyncStatus).toBe("error");
+    expect(ensureV2MovementsLoaded).toHaveBeenCalledTimes(1);
+    await act(async () => { await result.current.refreshMovements(); });
+    expect(ensureV2MovementsLoaded).toHaveBeenCalledTimes(2);
+    expect(result.current.ledgerSyncStatus).toBe("synced");
   });
 });

@@ -23,6 +23,8 @@ type V2MovementsCacheEntry = {
   startIso?: string;
   endIsoExclusive?: string;
   revision?: number;
+  /** Per-ID cache revision; missing entries with a version are deletion tombstones. */
+  movementVersions?: Record<string, number>;
 };
 
 type MovementPageResult = Awaited<
@@ -307,13 +309,14 @@ export async function ensureV2MovementsLoaded(
       const latestCache = v2MovementsCacheRef.current[cacheKey] ?? cached;
       const latestRevision = latestCache.revision ?? 0;
       const isStale = latestRevision !== startRevision;
-      const baseMovements = isStale && latestCache.loaded ? latestCache.movements : nextCache.movements;
+      const baseMovements = isStale ? latestCache.movements : nextCache.movements;
       const mergedById = new Map<string, FondoEntry>();
 
       for (const movement of baseMovements) {
         mergedById.set(movement.id, movement);
       }
       for (const movement of pageResult.items as FondoEntry[]) {
+        if ((latestCache.movementVersions?.[movement.id] ?? 0) > startRevision) continue;
         mergedById.set(movement.id, movement);
       }
 
@@ -335,7 +338,7 @@ export async function ensureV2MovementsLoaded(
       ) {
         await writePersistentCache(
           persistentCacheScope,
-          pageResult.items as FondoEntry[],
+          mergedMovements,
           CURRENT_DAY_MOVEMENTS_TTL_MS,
         );
       }
