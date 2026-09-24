@@ -136,10 +136,25 @@ export type MovementAccountBalance = MovementCurrencySettings & {
   currency: MovementCurrencyKey;
 };
 
+export type LedgerMovementChange = {
+  kind: "movement";
+  revision: number;
+  movementId: string;
+  operation: "create" | "edit" | "delete";
+  accountId: MovementAccountKey;
+  currency: MovementCurrencyKey;
+  updatedAt: string;
+  clientMutationId?: string;
+};
+
+export type LedgerLastChange = LedgerMovementChange;
+
 export type MovementStorageState = {
   balancesByAccount: MovementAccountBalance[];
   updatedAt: string;
   lockedUntil?: string; // ISO timestamp del último cierre registrado
+  revision?: number;
+  lastChange?: LedgerLastChange;
 };
 
 type LegacyMovementMetadata = {
@@ -550,6 +565,29 @@ export class MovimientosFondosService {
     // Preservar lockedUntil si existe
     if (state?.lockedUntil) {
       result.lockedUntil = state.lockedUntil;
+    }
+
+    const revision = state?.revision;
+    if (typeof revision === "number" && Number.isFinite(revision) && revision >= 0) {
+      result.revision = Math.trunc(revision);
+    }
+
+    const change = state?.lastChange;
+    if (
+      change?.kind === "movement" &&
+      typeof change.revision === "number" &&
+      Number.isFinite(change.revision) &&
+      change.revision >= 0 &&
+      typeof change.movementId === "string" &&
+      change.movementId.length > 0 &&
+      (change.operation === "create" || change.operation === "edit" || change.operation === "delete") &&
+      this.isMovementAccountKey(change.accountId) &&
+      this.isMovementCurrencyKey(change.currency) &&
+      typeof change.updatedAt === "string" &&
+      change.updatedAt.length > 0 &&
+      (change.clientMutationId === undefined || typeof change.clientMutationId === "string")
+    ) {
+      result.lastChange = { ...change, revision: Math.trunc(change.revision) };
     }
 
     return result;
