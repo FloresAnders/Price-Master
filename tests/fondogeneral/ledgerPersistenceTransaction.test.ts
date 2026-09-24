@@ -254,4 +254,54 @@ describe("MovimientosFondosService.commitLedgerTransaction", () => {
     expect(deletes).toHaveBeenCalledWith("db/Facturas/DELIKOR_SINAI/movements/sale-1-NC");
     expect(deletes).toHaveBeenCalledWith("db/Facturas/DELIKOR_SINAI/movements/sale-1-NC-1");
   });
+
+  it("re-reads related documents before writes on every transaction retry", async () => {
+    const attempts: Array<{ events: string[]; sets: Array<[string, unknown]> }> = [];
+    runTransactionMock.mockImplementation(async (_db, callback) => {
+      const attempt = async (paid: number) => {
+        const events: string[] = [];
+        const sets: Array<[string, unknown]> = [];
+        attempts.push({ events, sets });
+        return callback({
+          get: vi.fn(async (ref: string) => {
+            events.push(`read:${ref}`);
+            if (ref.includes("/Facturas/")) return { exists: () => true, data: () => ({ paidAmount: paid }) };
+            if (ref.includes("/movements/")) return { exists: () => true, data: () => movement };
+            return { exists: () => true, data: () => ledgerAt(143_000) };
+          }),
+          set: vi.fn((ref: string, data: unknown) => { events.push(`write:${ref}`); sets.push([ref, data]); }),
+          delete: vi.fn((ref: string) => events.push(`write:${ref}`)),
+          update: vi.fn(),
+        } as never);
+      };
+      await attempt(6_000);
+      return attempt(7_000);
+    });
+
+    await MovimientosFondosService.commitLedgerTransaction({
+      docId,
+      company,
+      operation: "delete",
+      movementId: movement.id,
+      accountId: "FondoGeneral",
+      mutateLedger: ({ ledger }) => ({ ledger }),
+      prepareExtraWrites: async (reader, { before }) => {
+        const invoice = await reader.get("db/Facturas/DELIKOR_SINAI/movements/FAC-1" as never);
+        const paid = Number((invoice.data() as { paidAmount?: number } | undefined)?.paidAmount);
+        return (writer) => writer.set("db/Facturas/DELIKOR_SINAI/movements/FAC-1" as never, {
+          paidAmount: paid - Number(before?.amountIngreso),
+        });
+      },
+    });
+
+    expect(attempts).toHaveLength(2);
+    for (const attempt of attempts) {
+      const firstWrite = attempt.events.findIndex((event) => event.startsWith("write:"));
+      expect(firstWrite).toBe(3);
+    }
+    expect(attempts[1].sets).toContainEqual([
+      "db/Facturas/DELIKOR_SINAI/movements/FAC-1",
+      { paidAmount: 2_000 },
+    ]);
+  });
 });

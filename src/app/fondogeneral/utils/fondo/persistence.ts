@@ -1,7 +1,7 @@
 import { FacturasService } from "../../../../services/facturas";
 import {
   MovimientosFondosService,
-  type LedgerAtomicWriter,
+  type LedgerExtraWrites,
   type MovementAccountKey,
   type MovementCurrencyKey,
   type MovementStorage,
@@ -51,7 +51,7 @@ export async function persistMovementToFirestore(
     deleteId?: string;
     before?: FondoEntry | null;
   } | undefined,
-  extraWrites: ((writer: LedgerAtomicWriter) => void) | undefined,
+  extraWrites: LedgerExtraWrites<FondoEntry> | undefined,
   deps: PersistMovementDeps,
 ): Promise<{
   ok: boolean;
@@ -102,6 +102,9 @@ export async function persistMovementToFirestore(
       movementId,
       accountId: accountKey,
       after: storedMovement,
+      prepareExtraWrites: typeof extraWrites === "function"
+        ? undefined
+        : extraWrites?.prepare,
       mutateLedger: ({ ledger, before }) => {
         const result = applyLedgerMovementMutation({
           storage: MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(
@@ -120,7 +123,7 @@ export async function persistMovementToFirestore(
         return { ledger: result.storage, storedMovement };
       },
       extraWrites: (writer, { before }) => {
-        extraWrites?.(writer);
+        if (typeof extraWrites === "function") extraWrites(writer);
         if (operationType === "delete" && before && shouldDeleteFacturasMirror(before)) {
           const deletedId = before.id;
           writer.delete(FacturasService.buildMovementRef(normalizedCompany, deletedId));

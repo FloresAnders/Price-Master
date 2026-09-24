@@ -1,5 +1,4 @@
-import { getDoc } from "firebase/firestore";
-import type { LedgerAtomicWriter } from "../../../services/movimientos-fondos";
+import type { LedgerExtraWrites } from "../../../services/movimientos-fondos";
 import {
   FacturasService,
   withFacturaPendingForClosing,
@@ -50,7 +49,7 @@ type PersistMovementToFirestore = (
     deleteId?: string;
     before?: FondoEntry | null;
   },
-  extraWrites?: (writer: LedgerAtomicWriter) => void,
+  extraWrites?: LedgerExtraWrites<FondoEntry>,
 ) => Promise<{
   ok: boolean;
   confirmed: boolean;
@@ -201,114 +200,89 @@ export async function confirmDeleteMovement(
     }
 
     const normalizedCompany = String(deps.company || "").trim();
-    let facturaRollbackWrites: ((writer: LedgerAtomicWriter) => void) | undefined;
+    const rollbackAt = normalizedCompany ? await getAuthoritativeNowISO() : "";
+    let linkedInvoiceMissing = false;
+    const facturaRollbackWrites: LedgerExtraWrites<FondoEntry> | undefined =
+      normalizedCompany
+        ? {
+            prepare: async (reader, { before }) => {
+              if (!before || !isPaidFcrMovement(before)) return;
+              const invoiceId = getFcrPaymentInvoiceId(before);
+              if (!invoiceId) return;
 
-    if (normalizedCompany.length > 0 && isPaidFcrMovement(entry)) {
-      const invoiceId = getFcrPaymentInvoiceId(entry);
-      if (invoiceId) {
-        const invoiceRef = FacturasService.buildMovementRef(normalizedCompany, invoiceId);
-        const invoiceSnap = await getDoc(invoiceRef);
-        if (!invoiceSnap.exists()) {
-          deps.showToast(
-            "No se encontró la factura asociada al pago eliminado.",
-            "error",
-            5000,
-          );
-          return;
-        }
+              const invoiceRef = FacturasService.buildMovementRef(normalizedCompany, invoiceId);
+              const invoiceSnap = await reader.get(invoiceRef);
+              if (!invoiceSnap.exists()) {
+                linkedInvoiceMissing = true;
+                throw new Error("FCR_INVOICE_NOT_FOUND");
+              }
+              const invoiceData = invoiceSnap.data() as FacturaMovement;
+              const paymentAmount = getFcrPaymentAmount(before);
+              const totalAmount = Math.max(0, roundMoney2(invoiceData.originalAmount ?? invoiceData.amount));
+              const currentPaid = Math.max(0, roundMoney2(invoiceData.paidAmount));
+              const nextPaid = Math.max(0, Math.min(totalAmount, roundMoney2(currentPaid - paymentAmount)));
+              const nextBalance = Math.max(0, roundMoney2(totalAmount - nextPaid));
+              const nextStatus = nextBalance === 0 ? "PAGADA" : nextPaid > 0 ? "PARCIAL" : "PENDIENTE";
 
-        const invoiceData = invoiceSnap.data() as FacturaMovement;
-        const rollbackAt = await getAuthoritativeNowISO();
-        const paymentAmount = getFcrPaymentAmount(entry);
-        const totalAmount = Math.max(
-          0,
-          roundMoney2(invoiceData.originalAmount ?? invoiceData.amount),
-        );
-        const currentPaid = Math.max(0, roundMoney2(invoiceData.paidAmount));
-        const nextPaid = Math.max(0, Math.min(totalAmount, roundMoney2(currentPaid - paymentAmount)));
-        const nextBalance = Math.max(0, roundMoney2(totalAmount - nextPaid));
-        const nextStatus =
-          nextBalance === 0 ? "PAGADA" : nextPaid > 0 ? "PARCIAL" : "PENDIENTE";
+              const appliedCreditNotes = Array.isArray(before.appliedCreditNotes)
+                ? before.appliedCreditNotes
+                : [];
+              const noteWrites = await Promise.all(
+                appliedCreditNotes.map(async (note) => {
+                  const noteId = String(note?.id || "").trim();
+                  const appliedAmount = Math.max(0, roundMoney2(note?.appliedAmount));
+                  if (!noteId || appliedAmount <= 0) return null;
 
-        const appliedCreditNotes = Array.isArray(entry.appliedCreditNotes)
-          ? entry.appliedCreditNotes
-          : [];
+                  const noteRef = FacturasService.buildMovementRef(normalizedCompany, noteId);
+                  const noteSnap = await reader.get(noteRef);
+                  if (!noteSnap.exists()) return null;
+                  const noteData = noteSnap.data() as FacturaMovement;
+                  const noteTotal = Math.max(0, roundMoney2(noteData.originalAmount ?? noteData.amount));
+                  const currentNotePaid = Math.max(0, roundMoney2(noteData.paidAmount));
+                  const nextNotePaid = Math.max(0, Math.min(noteTotal, roundMoney2(currentNotePaid - appliedAmount)));
+                  const nextNoteBalance = Math.max(0, roundMoney2(noteTotal - nextNotePaid));
+                  const nextNoteStatus = nextNotePaid <= 0
+                    ? "PENDIENTE"
+                    : nextNoteBalance === 0 ? "REBAJADA" : "PARCIAL";
+                  return {
+                    noteRef,
+                    payload: {
+                      ...noteData,
+                      id: noteId,
+                      empresa: normalizedCompany,
+                      paidAmount: nextNotePaid,
+                      balanceDue: nextNoteBalance,
+                      amountDue: nextNoteBalance,
+                      paymentStatus: nextNoteStatus,
+                      updateAt: rollbackAt,
+                    } as FacturaMovement,
+                  };
+                }),
+              );
 
-        const noteWrites = await Promise.all(
-          appliedCreditNotes.map(async (note) => {
-            const noteId = String(note?.id || "").trim();
-            const appliedAmount = Math.max(0, roundMoney2(note?.appliedAmount));
-            if (!noteId || appliedAmount <= 0) return null;
-
-            const noteRef = FacturasService.buildMovementRef(normalizedCompany, noteId);
-            const noteSnap = await getDoc(noteRef);
-            if (!noteSnap.exists()) return null;
-
-            const noteData = noteSnap.data() as FacturaMovement;
-            const noteTotal = Math.max(
-              0,
-              roundMoney2(noteData.originalAmount ?? noteData.amount),
-            );
-            const currentNotePaid = Math.max(0, roundMoney2(noteData.paidAmount));
-            const nextNotePaid = Math.max(
-              0,
-              Math.min(noteTotal, roundMoney2(currentNotePaid - appliedAmount)),
-            );
-            const nextNoteBalance = Math.max(0, roundMoney2(noteTotal - nextNotePaid));
-            const nextNoteStatus =
-              nextNotePaid <= 0
-                ? "PENDIENTE"
-                : nextNoteBalance === 0
-                  ? "REBAJADA"
-                  : "PARCIAL";
-
-            return {
-              noteRef,
-              payload: {
-                ...noteData,
-                id: noteId,
-                empresa: normalizedCompany,
-                paidAmount: nextNotePaid,
-                balanceDue: nextNoteBalance,
-                amountDue: nextNoteBalance,
-                paymentStatus: nextNoteStatus,
-                updateAt: rollbackAt,
-              } as FacturaMovement,
-            };
-          }),
-        );
-
-        facturaRollbackWrites = (batch) => {
-          batch.set(
-            invoiceRef,
-            stripUndefinedDeep(
-              withFacturaPendingForClosing({
-                ...invoiceData,
-                id: invoiceId,
-                empresa: normalizedCompany,
-                paidAmount: nextPaid,
-                balanceDue: nextBalance,
-                amountDue: nextBalance,
-                paymentStatus: nextStatus,
-                updateAt: rollbackAt,
-              }),
-            ),
-            { merge: true },
-          );
-
-          noteWrites.forEach((noteWrite) => {
-            if (!noteWrite) return;
-            batch.set(
-              noteWrite.noteRef,
-              stripUndefinedDeep(
-                withFacturaPendingForClosing(noteWrite.payload),
-              ),
-              { merge: true },
-            );
-          });
-        };
-      }
-    }
+              return (writer) => {
+                writer.set(invoiceRef, stripUndefinedDeep(withFacturaPendingForClosing({
+                  ...invoiceData,
+                  id: invoiceId,
+                  empresa: normalizedCompany,
+                  paidAmount: nextPaid,
+                  balanceDue: nextBalance,
+                  amountDue: nextBalance,
+                  paymentStatus: nextStatus,
+                  updateAt: rollbackAt,
+                })), { merge: true });
+                noteWrites.forEach((noteWrite) => {
+                  if (!noteWrite) return;
+                  writer.set(
+                    noteWrite.noteRef,
+                    stripUndefinedDeep(withFacturaPendingForClosing(noteWrite.payload)),
+                    { merge: true },
+                  );
+                });
+              };
+            },
+          }
+        : undefined;
 
     const updatedEntries = (deps.fondoEntries || []).filter((e) => e.id !== entry.id);
     const saved = await deps.persistMovementToFirestore?.(
@@ -323,7 +297,9 @@ export async function confirmDeleteMovement(
 
     if (!saved?.ok) {
       deps.showToast(
-        "Error al eliminar el movimiento. Por favor, intente de nuevo.",
+        linkedInvoiceMissing
+          ? "No se encontró la factura asociada al pago eliminado."
+          : "Error al eliminar el movimiento. Por favor, intente de nuevo.",
         "error",
         5000,
       );

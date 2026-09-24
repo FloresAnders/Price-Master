@@ -121,7 +121,7 @@ import {
 } from "../../constants";
 
 import { useV2MovementsHydration } from "../../hooks/fondo/useV2MovementsHydration";
-import type { LedgerAtomicWriter } from "@/services/movimientos-fondos";
+import type { LedgerExtraWrites } from "@/services/movimientos-fondos";
 
 import {
   isAutoAdjustmentProvider,
@@ -2000,7 +2000,7 @@ export function FondoSection({
         deleteId?: string;
         before?: FondoEntry | null;
       },
-      extraWrites?: (writer: LedgerAtomicWriter) => void,
+      extraWrites?: LedgerExtraWrites<FondoEntry>,
     ) =>
       persistMovementToFirestoreFn(
         updatedEntries,

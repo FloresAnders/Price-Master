@@ -178,6 +178,16 @@ export type MovementStorage<T = unknown> = {
 };
 
 export type LedgerAtomicWriter = Pick<Transaction, "set" | "update" | "delete">;
+export type LedgerTransactionReader = Pick<Transaction, "get">;
+export type LedgerPreparedWrites<TMovement extends Partial<MovementRecordBase>> = {
+  prepare: (
+    reader: LedgerTransactionReader,
+    context: { before: (TMovement & { id: string }) | null },
+  ) => Promise<((writer: LedgerAtomicWriter) => void) | void>;
+};
+export type LedgerExtraWrites<TMovement extends Partial<MovementRecordBase>> =
+  | ((writer: LedgerAtomicWriter) => void)
+  | LedgerPreparedWrites<TMovement>;
 
 export type LedgerTransactionRequest<
   TMovement extends Partial<MovementRecordBase>,
@@ -200,6 +210,7 @@ export type LedgerTransactionRequest<
     writer: LedgerAtomicWriter,
     context: { before: (TMovement & { id: string }) | null },
   ) => void;
+  prepareExtraWrites?: LedgerPreparedWrites<TMovement>["prepare"];
 };
 
 export type LedgerTransactionResult<
@@ -994,6 +1005,7 @@ export class MovimientosFondosService {
       const ledger = ledgerSnapshot.exists()
         ? this.ensureMovementStorageShape<TStorage>(ledgerSnapshot.data(), request.company)
         : this.createEmptyMovementStorage<TStorage>(request.company);
+      const preparedWrites = await request.prepareExtraWrites?.(transaction, { before });
       const mutation = request.mutateLedger({ ledger, before });
 
       transaction.set(mainRef, stripUndefinedDeep(mutation.ledger) as DocumentData);
@@ -1010,6 +1022,7 @@ export class MovimientosFondosService {
         transaction.set(movementRef, stripUndefinedDeep(record));
       }
       request.extraWrites?.(transaction, { before });
+      preparedWrites?.(transaction);
       return { ledger: mutation.ledger, before };
     });
   }

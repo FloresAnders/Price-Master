@@ -4,7 +4,7 @@ import {
 } from "../../../../services/daily-closings";
 import {
   MovimientosFondosService,
-  type LedgerAtomicWriter,
+  type LedgerExtraWrites,
   type MovementStorage,
 } from "../../../../services/movimientos-fondos";
 import type { FondoEntry } from "../../types";
@@ -38,7 +38,7 @@ type PersistMovementToFirestoreFn = (
     deleteId?: string;
     before?: FondoEntry | null;
   },
-  extraWrites?: (writer: LedgerAtomicWriter) => void,
+  extraWrites?: LedgerExtraWrites<FondoEntry>,
 ) => Promise<{
   ok: boolean;
   confirmed: boolean;
