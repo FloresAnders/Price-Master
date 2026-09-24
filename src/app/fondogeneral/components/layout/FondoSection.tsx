@@ -1112,6 +1112,7 @@ export function FondoSection({
     movementLoadError,
     retryMovements,
     refreshMovements,
+    registerLocalMutation,
   } = useV2MovementsHydration({
     company,
     resolvedOwnerId,
@@ -2010,6 +2011,7 @@ export function FondoSection({
           ledgerSnapshot,
           storageSnapshotRef,
           v2MovementsCacheRef,
+          registerLocalMutation,
         },
       ),
     [
@@ -2019,6 +2021,7 @@ export function FondoSection({
       initialAmountUSD,
       currencyEnabled,
       ledgerSnapshot,
+      registerLocalMutation,
     ],
   );
 

@@ -3,6 +3,8 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  getDocFromServer,
+  onSnapshot,
   getCountFromServer,
   limit,
   orderBy,
@@ -289,6 +291,43 @@ export class MovimientosFondosService {
       this.movementsCollectionRef(docId, accountId),
       movementId,
     );
+  }
+
+  static subscribeToLedger<T = unknown>(
+    docId: string,
+    onNext: (snapshot: {
+      storage: MovementStorage<T>;
+      hasPendingWrites: boolean;
+      fromCache: boolean;
+    }) => void,
+    onError: (error: Error) => void,
+  ): () => void {
+    return onSnapshot(
+      doc(db, this.COLLECTION_NAME, docId),
+      { includeMetadataChanges: true },
+      (snapshot) => onNext({
+        storage: this.ensureMovementStorageShape<T>(snapshot.data(), ""),
+        hasPendingWrites: snapshot.metadata.hasPendingWrites,
+        fromCache: snapshot.metadata.fromCache,
+      }),
+      onError,
+    );
+  }
+
+  static async getMovementById<T = unknown>(
+    docId: string,
+    movementId: string,
+    accountId: MovementAccountKey,
+  ): Promise<(T & { id: string; accountId: MovementAccountKey; currency: MovementCurrencyKey }) | null> {
+    const snapshot = await getDocFromServer(this.buildMovementRef(docId, movementId, accountId));
+    if (!snapshot.exists()) return null;
+    const data = snapshot.data();
+    return {
+      ...data,
+      id: snapshot.id,
+      accountId: this.isMovementAccountKey(data.accountId) ? data.accountId : accountId,
+      currency: this.isMovementCurrencyKey(data.currency) ? data.currency : "CRC",
+    } as T & { id: string; accountId: MovementAccountKey; currency: MovementCurrencyKey };
   }
 
   static buildInvoicePaymentMovement(input: {

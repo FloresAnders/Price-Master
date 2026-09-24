@@ -9,7 +9,8 @@ import {
 } from "../../../../services/movimientos-fondos";
 import type { FondoEntry } from "../../types";
 import { ensureV2MovementsLoaded as ensureV2MovementsLoadedFn } from "../../utils/v2movementsLoader";
-import { buildV2MovementsCacheKey, resolveV2DocKey } from "../../utils/v2movements";
+import { buildV2MovementsCacheKey, resolveV2DocKey, resolveActiveMovementsQuery } from "../../utils/v2movements";
+import { decideLedgerRevisionSync, movementMatchesActiveQuery } from "./ledgerRevisionSync";
 import { sanitizeFondoEntries, isMovementAccountKey } from "../../utils/helpers";
 import {
   subscribeFondoCacheInvalidation,
@@ -90,23 +91,21 @@ export function useV2MovementsHydration({
   cacheIdentity,
 }: UseV2MovementsHydrationProps) {
   const [movementLoadError, setMovementLoadError] = useState<Error | null>(null);
+  const [ledgerSyncStatus, setLedgerSyncStatus] = useState<"connecting" | "synced" | "offline" | "error">("connecting");
+  const appliedRevisionsRef = useRef(new Map<string, number>());
+  const localMutationIdsRef = useRef(new Set<string>());
+  const context = useMemo(() => ({}), [company, resolvedOwnerId, accountKey]);
+  const contextRef = useRef(context);
+  contextRef.current = context;
+  const registerLocalMutation = useCallback((clientMutationId: string) => {
+    const ids = localMutationIdsRef.current;
+    ids.add(clientMutationId);
+    if (ids.size > 100) ids.delete(ids.values().next().value!);
+  }, []);
   const storageSnapshotRef = useRef<MovementStorage<FondoEntry> | null>(null);
   const accountKeyRef = useRef<MovementAccountKey>(accountKey);
-  const v2MovementsCacheRef = useRef<
-    Record<
-      string,
-      {
-        loaded: boolean;
-        movements: FondoEntry[];
-        cursor: QueryDocumentSnapshot<DocumentData> | null;
-        exhausted: boolean;
-        loading: boolean;
-        queryKey?: string;
-        startIso?: string;
-        endIsoExclusive?: string;
-      }
-    >
-  >({});
+  const v2MovementsCacheRef = useRef<Record<string, V2MovementsCacheEntry>>({});
+  const rangeLoadsRef = useRef(new Map<string, Promise<void>>());
 
   useEffect(() => {
     accountKeyRef.current = accountKey;
@@ -204,12 +203,22 @@ export function useV2MovementsHydration({
   );
 
   const ensureV2MovementsLoaded = useCallback(
-    (
+    async (
       docKey: string,
       options?: { append?: boolean; forceRefresh?: boolean },
-    ) =>
-      ensureV2MovementsLoadedFn(docKey, options, {
-        rebuildEntriesFromV2Cache,
+    ) => {
+      const cacheKey = buildV2MovementsCacheKey(docKey, accountKey);
+      const pending = rangeLoadsRef.current.get(cacheKey);
+      if (pending) {
+        if (!options?.forceRefresh) return pending;
+        // The loader skips requests while loading; a gap must refresh after that read.
+        await pending.catch(() => undefined);
+        if (contextRef.current !== context) return;
+      }
+      const request = ensureV2MovementsLoadedFn(docKey, options, {
+        rebuildEntriesFromV2Cache: (key, account) => {
+          if (contextRef.current === context) rebuildEntriesFromV2Cache(key, account);
+        },
         beginMovementsLoading,
         endMovementsLoading,
         pageSize,
@@ -220,11 +229,20 @@ export function useV2MovementsHydration({
         providerCode,
         paymentType,
         invoiceNumber,
-        accountKeyRef,
+        accountKeyRef: { current: accountKey },
         v2MovementsCacheRef,
         persistentCacheScope,
-        onLoadError: setMovementLoadError,
-      }),
+        onLoadError: (error) => {
+          if (contextRef.current === context) setMovementLoadError(error);
+        },
+      });
+      rangeLoadsRef.current.set(cacheKey, request);
+      try {
+        await request;
+      } finally {
+        if (rangeLoadsRef.current.get(cacheKey) === request) rangeLoadsRef.current.delete(cacheKey);
+      }
+    },
     [
       rebuildEntriesFromV2Cache,
       beginMovementsLoading,
@@ -238,6 +256,8 @@ export function useV2MovementsHydration({
       paymentType,
       invoiceNumber,
       persistentCacheScope,
+      accountKey,
+      context,
     ],
   );
 
@@ -346,6 +366,99 @@ export function useV2MovementsHydration({
     }
   }, [currencyEnabled, movementCurrency, setMovementCurrency]);
 
+  useEffect(() => {
+    const docKey = resolveV2DocKey({ company, resolvedOwnerId, accountKey,
+      v2MovementsCache: v2MovementsCacheRef.current, MovimientosFondosService });
+    if (!docKey || (!company.trim() && !resolvedOwnerId)) return;
+    const cacheKey = buildV2MovementsCacheKey(docKey, accountKey);
+    const activeQuery = resolveActiveMovementsQuery({ fromFilter, toFilter, pageSize,
+      currentDailyKey, todayKey, providerCode, paymentType, invoiceNumber });
+    let online = navigator.onLine;
+    let unsubscribe: (() => void) | undefined;
+    let generation = 0;
+    let disposed = false;
+    const stop = () => {
+      generation++;
+      unsubscribe?.();
+      unsubscribe = undefined;
+    };
+    const start = () => {
+      if (disposed || unsubscribe || !online || document.visibilityState !== "visible") return;
+      const session = ++generation;
+      const current = () => !disposed && generation === session && contextRef.current === context;
+      let previousRevision = appliedRevisionsRef.current.get(docKey) ?? 0;
+      let queue = Promise.resolve();
+      setLedgerSyncStatus("connecting");
+      unsubscribe = MovimientosFondosService.subscribeToLedger<FondoEntry>(docKey, (snapshot) => {
+        if (!current() || snapshot.hasPendingWrites || snapshot.fromCache) return;
+        // Maintenance writes may change lock state without changing the movement revision.
+        storageSnapshotRef.current = snapshot.storage;
+        applyLedgerStateFromStorage(snapshot.storage.state);
+        setLedgerSyncStatus("synced");
+        const nextRevision = snapshot.storage.state.revision ?? 0;
+        const lastChange = snapshot.storage.state.lastChange;
+        const action = decideLedgerRevisionSync({ previousRevision, nextRevision, lastChange,
+          activeAccountId: accountKey, locallyAppliedMutationIds: localMutationIdsRef.current });
+        previousRevision = Math.max(previousRevision, nextRevision);
+        if (action.type === "ledger-only" && lastChange?.clientMutationId) {
+          localMutationIdsRef.current.delete(lastChange.clientMutationId);
+        }
+        queue = queue.then(async () => {
+          if (!current()) return;
+          const updateCache = (movementId: string, entry?: FondoEntry) => {
+            const cached = v2MovementsCacheRef.current[cacheKey];
+            const movements = (cached?.movements ?? []).filter((item) => item.id !== movementId);
+            if (entry) movements.push(entry);
+            v2MovementsCacheRef.current[cacheKey] = {
+              ...(cached ?? { loaded: true, cursor: null, exhausted: false, loading: false }),
+              movements, revision: (cached?.revision ?? 0) + 1,
+            };
+            rebuildEntriesFromV2Cache(docKey, accountKey);
+          };
+          try {
+            if (action.type === "refresh-range") {
+              await ensureV2MovementsLoaded(docKey, { forceRefresh: true });
+            } else if (action.type === "remove-one") {
+              updateCache(action.movementId);
+            } else if (action.type === "fetch-one") {
+              const entry = await MovimientosFondosService.getMovementById<FondoEntry>(docKey, action.movementId, accountKey);
+              if (!current()) return;
+              if (!entry) await ensureV2MovementsLoaded(docKey, { forceRefresh: true });
+              else updateCache(action.movementId, entry.accountId === accountKey && movementMatchesActiveQuery(entry, activeQuery) ? entry : undefined);
+            }
+            if (current()) appliedRevisionsRef.current.set(docKey, Math.max(appliedRevisionsRef.current.get(docKey) ?? 0, nextRevision));
+          } catch (error) {
+            if (current()) {
+              setMovementLoadError(error instanceof Error ? error : new Error(String(error)));
+              setLedgerSyncStatus("error");
+            }
+          }
+        });
+      }, (error) => {
+        if (!current() || !online) return;
+        setMovementLoadError(error);
+        setLedgerSyncStatus("error");
+      });
+    };
+    const onVisibility = () => { if (document.visibilityState === "visible") start(); else stop(); };
+    const onOnline = () => { online = true; start(); };
+    const onOffline = () => { online = false; stop(); setLedgerSyncStatus("offline"); };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    if (!online) setLedgerSyncStatus("offline");
+    start();
+    return () => {
+      disposed = true;
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, [company, resolvedOwnerId, accountKey, context, fromFilter, toFilter, pageSize,
+    currentDailyKey, todayKey, providerCode, paymentType, invoiceNumber,
+    applyLedgerStateFromStorage, ensureV2MovementsLoaded, rebuildEntriesFromV2Cache]);
+
   return {
     storageSnapshotRef,
     v2MovementsCacheRef,
@@ -355,5 +468,7 @@ export function useV2MovementsHydration({
     movementLoadError,
     retryMovements,
     refreshMovements,
+    ledgerSyncStatus,
+    registerLocalMutation,
   };
 }
