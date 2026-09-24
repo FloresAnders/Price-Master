@@ -7,8 +7,14 @@ vi.mock("@/utils/serverTime", () => ({
 vi.mock("@/services/daily-closings", () => ({
   DAILY_CLOSING_DUPLICATE_ERROR: "DAILY_CLOSING_DUPLICATE",
   DAILY_CLOSING_SCHEDULE_REQUIRED_ERROR: "SCHEDULE_REQUIRED",
+  LEDGER_CHANGED_BEFORE_CLOSING: "LEDGER_CHANGED_BEFORE_CLOSING",
   DailyClosingsService: { saveClosing: vi.fn(async () => undefined) },
   isValidDailyClosingSchedule: vi.fn(() => true),
+}));
+vi.mock("@/app/fondogeneral/utils/closing/ledgerIntegrity", () => ({
+  buildOperationalStartISO: vi.fn(() => "2026-09-23T12:00:00.000Z"),
+  formatLedgerIntegrityMismatch: vi.fn(),
+  loadLedgerIntegrity: vi.fn(async () => ({ ok: true, reason: "balanced", ledgerCRC: 138_000, ledgerUSD: 0, ledgerRevision: 1, ledgerUpdatedAt: "saved" })),
 }));
 vi.mock("@/services/movimientos-fondos", () => ({
   MovimientosFondosService: {

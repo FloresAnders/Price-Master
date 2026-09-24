@@ -4,6 +4,7 @@ import {
   doc,
   getDocs,
   getDocFromServer,
+  getDocsFromServer,
   onSnapshot,
   getCountFromServer,
   limit,
@@ -887,6 +888,19 @@ export class MovimientosFondosService {
     return this.ensureMovementStorageShape<T>(doc, company);
   }
 
+  static async getDocumentFromServer<T = unknown>(
+    docId: string,
+  ): Promise<MovementStorage<T> | null> {
+    if (!docId) throw new Error("LEDGER_DOCUMENT_REQUIRED");
+    const snapshot = await getDocFromServer(doc(db, this.COLLECTION_NAME, docId));
+    if (!snapshot.exists()) return null;
+    const data = snapshot.data();
+    const ledger = this.ensureMovementStorageShape<T>(data, data.company ?? "");
+    // Never invent a fresh timestamp when comparing legacy server snapshots.
+    ledger.state.updatedAt = typeof data.state?.updatedAt === "string" ? data.state.updatedAt : "";
+    return ledger;
+  }
+
   static async exportBundle<TMovement = unknown, TLedgerMovement = unknown>(
     docId: string,
   ): Promise<MovimientosFondosExportBundle<TMovement, TLedgerMovement> | null> {
@@ -1165,6 +1179,7 @@ export class MovimientosFondosService {
       providerCode?: string;
       paymentType?: string;
       invoiceNumber?: string;
+      source?: "server";
     },
   ): Promise<{
     items: Array<T & { id: string }>;
@@ -1210,7 +1225,9 @@ export class MovimientosFondosService {
         )
       : query(this.movementsCollectionRef(docId, options.accountId), ...constraints);
 
-    const snap: QuerySnapshot<DocumentData> = await getDocs(q);
+    const snap: QuerySnapshot<DocumentData> = options.source === "server"
+      ? await getDocsFromServer(q)
+      : await getDocs(q);
     if (snap.empty) {
       return { items: [], cursor, exhausted: true };
     }
@@ -1224,6 +1241,31 @@ export class MovimientosFondosService {
     const exhausted = snap.size < pageSize;
 
     return { items, cursor: nextCursor, exhausted };
+  }
+
+  static async listAllMovementsByCreatedAtRange<T = unknown>(
+    docId: string,
+    options: { startIso: string; endIsoExclusive: string; accountId: "FondoGeneral" },
+  ): Promise<Array<T & { id: string }>> {
+    const start = Date.parse(options.startIso);
+    const end = Date.parse(options.endIsoExclusive);
+    if (!docId || !Number.isFinite(start) || !Number.isFinite(end) || start >= end) {
+      throw new Error("INVALID_LEDGER_INTEGRITY_RANGE");
+    }
+    const items: Array<T & { id: string }> = [];
+    let cursor: QueryDocumentSnapshot<DocumentData> | null = null;
+    for (;;) {
+      const page: {
+        items: Array<T & { id: string }>;
+        cursor: QueryDocumentSnapshot<DocumentData> | null;
+        exhausted: boolean;
+      } = await this.listMovementsPageByCreatedAtRange<T>(docId, {
+        ...options, pageSize: 100, cursor, source: "server",
+      });
+      items.push(...page.items);
+      if (page.exhausted) return items;
+      cursor = page.cursor;
+    }
   }
 
   static async listAllMovements<T = unknown>(

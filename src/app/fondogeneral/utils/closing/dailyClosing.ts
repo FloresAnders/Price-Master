@@ -8,6 +8,7 @@ import { db } from "@/config/firebase";
 import {
   DAILY_CLOSING_DUPLICATE_ERROR,
   DAILY_CLOSING_SCHEDULE_REQUIRED_ERROR,
+  LEDGER_CHANGED_BEFORE_CLOSING,
   DailyClosingsService,
   isValidDailyClosingSchedule,
   type DailyClosingRecord,
@@ -38,6 +39,12 @@ import {
   validateSingleClosingReason,
 } from "./singleClosingReason";
 import { acquireClosingGuard, releaseClosingGuard, touchClosingGuard } from "./closingGuards";
+import {
+  buildOperationalStartISO,
+  formatLedgerIntegrityMismatch,
+  loadLedgerIntegrity,
+  type LedgerIntegrityResult,
+} from "./ledgerIntegrity";
 
 type LedgerSnapshot = {
   initialCRC: number;
@@ -117,8 +124,6 @@ export async function handleConfirmDailyClosing(
     activeOwnerId,
     beginDailyClosingsRequest,
     company,
-    currentBalanceCRC,
-    currentBalanceUSD,
     dailyClosingSubmitInProgressRef,
     dailyClosings,
     dailyClosingsRequestCountRef,
@@ -195,8 +200,6 @@ export async function handleConfirmDailyClosing(
   }
 
   const createdAt = createdAtISO;
-  const diffCRC = Math.trunc(closing.totalCRC) - Math.trunc(currentBalanceCRC);
-  const diffUSD = Math.trunc(closing.totalUSD) - Math.trunc(currentBalanceUSD);
   const userNotes = closing.notes.trim();
   const singleClosingReason = String(closing.singleClosingReason || "").trim();
   const noMovements = Boolean(closing.noMovements);
@@ -254,6 +257,39 @@ export async function handleConfirmDailyClosing(
     return null;
   }
 
+  const normalizedCompany = (company || "").trim();
+  if (normalizedCompany.length === 0) {
+    setDailyClosingModalOpen(false);
+    showToast("Error: No se pudo identificar la empresa", "error");
+    return null;
+  }
+
+  let integrity: LedgerIntegrityResult;
+  try {
+    integrity = await loadLedgerIntegrity({
+      company: normalizedCompany,
+      accountId: "FondoGeneral",
+      operationalStartISO: buildOperationalStartISO(closingDateKey, horarioApertura!),
+      closingISO: createdAtISO,
+    });
+  } catch {
+    showToast("No se puede cerrar el fondo. No se pudo verificar la integridad del ledger en el servidor. Actualice e inténtelo de nuevo.", "error", 6000);
+    return null;
+  }
+  if (!integrity.ok) {
+    showToast(
+      integrity.reason === "opening-missing"
+        ? "No se puede cerrar el fondo. No se encontró una apertura para el día operativo. Solicite revisión administrativa."
+        : formatLedgerIntegrityMismatch(integrity),
+      "error", 6000,
+    );
+    return null;
+  }
+
+  const currentBalanceCRC = integrity.ledgerCRC;
+  const currentBalanceUSD = integrity.ledgerUSD;
+  const diffCRC = Math.trunc(closing.totalCRC) - Math.trunc(currentBalanceCRC);
+  const diffUSD = Math.trunc(closing.totalUSD) - Math.trunc(currentBalanceUSD);
   const record: DailyClosingRecord = {
     id: editingDailyClosingId ?? `${serverNowMs}`,
     createdAt: editingDailyClosingId
@@ -280,13 +316,6 @@ export async function handleConfirmDailyClosing(
     breakdownUSD: closing.breakdownUSD ?? {},
     ...(reconciliation ? { reconciliation } : {}),
   };
-
-  const normalizedCompany = (company || "").trim();
-  if (normalizedCompany.length === 0) {
-    setDailyClosingModalOpen(false);
-    showToast("Error: No se pudo identificar la empresa", "error");
-    return null;
-  }
 
   let closingGuard: { token: string; docId: string } | null = null;
   try {
@@ -360,6 +389,11 @@ export async function handleConfirmDailyClosing(
       normalizedCompany,
       record,
       dailyClosingSchedule,
+      {
+        ledgerDocId: MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany),
+        expectedRevision: integrity.ledgerRevision,
+        expectedUpdatedAt: integrity.ledgerUpdatedAt,
+      },
     );
     console.log(
       `[CIERRE] ? Cierre guardado exitosamente en Firestore. ID: ${record.id}, Fecha: ${record.closingDate}`,
@@ -400,6 +434,14 @@ export async function handleConfirmDailyClosing(
     }
   } catch (err) {
     console.error("[CIERRE] ? Error guardando cierre en Firestore:", err);
+    if (err instanceof Error && err.message === LEDGER_CHANGED_BEFORE_CLOSING) {
+      if (closingGuard) {
+        await releaseClosingGuard(normalizedCompany, closingGuard).catch(() => undefined);
+        closingGuard = null;
+      }
+      showToast("El saldo cambió mientras se preparaba el cierre. Actualice e inténtelo de nuevo.", "warning", 6000);
+      return null;
+    }
     if (err instanceof Error && err.message.startsWith(DAILY_CLOSING_DUPLICATE_ERROR)) {
       showToast(err.message, "warning", 6000);
       if (closingGuard) {

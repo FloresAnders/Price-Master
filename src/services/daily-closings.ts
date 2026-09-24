@@ -11,6 +11,7 @@ import {
   getAuthoritativeNowMs,
 } from "@/utils/serverTime";
 import { FirestoreService } from "./firestore";
+import { MovimientosFondosService } from "./movimientos-fondos";
 import type { ClosingReconciliation } from "@/domain/reconciliation";
 import { reconcileClosing } from "@/domain/reconciliation";
 
@@ -28,6 +29,13 @@ export type DailyClosingSchedule = {
 
 export const DAILY_CLOSING_DUPLICATE_ERROR =
   "Ya existe un cierre de Fondo General para el día operativo";
+export const LEDGER_CHANGED_BEFORE_CLOSING = "LEDGER_CHANGED_BEFORE_CLOSING";
+
+export type DailyClosingLedgerPrecondition = {
+  ledgerDocId: string;
+  expectedRevision: number;
+  expectedUpdatedAt: string;
+};
 export const DAILY_CLOSING_SCHEDULE_REQUIRED_ERROR =
   "No se puede crear el cierre: configure horarios de apertura y cierre válidos.";
 
@@ -617,6 +625,7 @@ export class DailyClosingsService {
     company: string,
     record: DailyClosingRecord,
     schedule: DailyClosingSchedule,
+    ledgerPrecondition?: DailyClosingLedgerPrecondition,
   ): Promise<void> {
     const docId = this.buildDocumentId(company);
     if (!docId) {
@@ -634,6 +643,19 @@ export class DailyClosingsService {
     const documentRef = doc(db, COLLECTION_NAME, docId);
     await runTransaction(db, async (transaction) => {
       const snapshot = await transaction.get(documentRef);
+      if (ledgerPrecondition) {
+        const ledgerSnapshot = await transaction.get(doc(
+          db, MovimientosFondosService.COLLECTION_NAME, ledgerPrecondition.ledgerDocId,
+        ));
+        const ledgerState = ledgerSnapshot.exists() ? ledgerSnapshot.data().state : null;
+        if (
+          !ledgerSnapshot.exists() ||
+          (ledgerState?.revision ?? 0) !== ledgerPrecondition.expectedRevision ||
+          (ledgerState?.updatedAt ?? "") !== ledgerPrecondition.expectedUpdatedAt
+        ) {
+          throw new Error(LEDGER_CHANGED_BEFORE_CLOSING);
+        }
+      }
       const existingDocument = snapshot.exists()
         ? sanitizeDocument(snapshot.data(), docId)
         : null;
