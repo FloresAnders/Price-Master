@@ -4,6 +4,7 @@ import {
 } from "../../../../services/daily-closings";
 import {
   MovimientosFondosService,
+  type LedgerAtomicWriter,
   type MovementStorage,
 } from "../../../../services/movimientos-fondos";
 import type { FondoEntry } from "../../types";
@@ -21,7 +22,6 @@ import { sendMovementNotification } from "./notifications";
 import {
   CIERRE_FONDO_VENTAS_PROVIDER_NAME,
 } from "../../constants";
-import type { WriteBatch } from "firebase/firestore";
 
 type LedgerSnapshotShape = {
   initialCRC: number;
@@ -38,7 +38,7 @@ type PersistMovementToFirestoreFn = (
     deleteId?: string;
     before?: FondoEntry | null;
   },
-  extraWrites?: (batch: WriteBatch) => void,
+  extraWrites?: (writer: LedgerAtomicWriter) => void,
 ) => Promise<{
   ok: boolean;
   confirmed: boolean;

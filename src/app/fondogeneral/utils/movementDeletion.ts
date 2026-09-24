@@ -1,4 +1,5 @@
-import { getDoc, type WriteBatch } from "firebase/firestore";
+import { getDoc } from "firebase/firestore";
+import type { LedgerAtomicWriter } from "../../../services/movimientos-fondos";
 import {
   FacturasService,
   withFacturaPendingForClosing,
@@ -49,7 +50,7 @@ type PersistMovementToFirestore = (
     deleteId?: string;
     before?: FondoEntry | null;
   },
-  extraWrites?: (batch: WriteBatch) => void,
+  extraWrites?: (writer: LedgerAtomicWriter) => void,
 ) => Promise<{
   ok: boolean;
   confirmed: boolean;
@@ -200,7 +201,7 @@ export async function confirmDeleteMovement(
     }
 
     const normalizedCompany = String(deps.company || "").trim();
-    let facturaRollbackWrites: ((batch: WriteBatch) => void) | undefined;
+    let facturaRollbackWrites: ((writer: LedgerAtomicWriter) => void) | undefined;
 
     if (normalizedCompany.length > 0 && isPaidFcrMovement(entry)) {
       const invoiceId = getFcrPaymentInvoiceId(entry);

@@ -7,6 +7,7 @@ import {
   limit,
   orderBy,
   query,
+  runTransaction,
   setDoc,
   serverTimestamp,
   startAfter,
@@ -18,6 +19,9 @@ import {
   type QuerySnapshot,
   type QueryDocumentSnapshot,
   type DocumentData,
+  type DocumentReference,
+  type DocumentSnapshot,
+  type Transaction,
 } from "firebase/firestore";
 import { db } from "@/config/firebase";
 import { FirestoreService } from "./firestore";
@@ -171,6 +175,39 @@ export type MovementStorage<T = unknown> = {
   configuration: MovementConfiguration;
   operations: MovementOperations<T>;
   state: MovementStorageState;
+};
+
+export type LedgerAtomicWriter = Pick<Transaction, "set" | "update" | "delete">;
+
+export type LedgerTransactionRequest<
+  TMovement extends Partial<MovementRecordBase>,
+  TStorage,
+> = {
+  docId: string;
+  company: string;
+  operation: "create" | "edit" | "delete";
+  movementId: string;
+  accountId: MovementAccountKey;
+  after?: TMovement & { id: string };
+  mutateLedger: (context: {
+    ledger: MovementStorage<TStorage>;
+    before: (TMovement & { id: string }) | null;
+  }) => {
+    ledger: MovementStorage<TStorage>;
+    storedMovement?: TMovement & { id: string };
+  };
+  extraWrites?: (
+    writer: LedgerAtomicWriter,
+    context: { before: (TMovement & { id: string }) | null },
+  ) => void;
+};
+
+export type LedgerTransactionResult<
+  TMovement extends Partial<MovementRecordBase>,
+  TStorage,
+> = {
+  ledger: MovementStorage<TStorage>;
+  before: (TMovement & { id: string }) | null;
 };
 
 export type MovimientosFondosExportBundle<
@@ -931,71 +968,50 @@ export class MovimientosFondosService {
     await deleteDoc(movementRef);
   }
 
-  /**
-   * V2 atomic write: updates the main ledger document (balances/config/state) and a movement doc
-   * in the v2 subcollection in a single batch commit. This prevents cases where a movement exists
-   * but the aggregated balance document did not update (or vice versa) under intermittent networks.
-   */
-  static async commitLedgerAndMovement<
+  static async commitLedgerTransaction<
     TMovement extends Partial<MovementRecordBase>,
-    TStorage = unknown,
+    TStorage,
   >(
-    docId: string,
-    ledger: MovementStorage<TStorage>,
-    change:
-      | {
-          type: "upsert";
-          movement: TMovement & { id: string };
-          accountId?: MovementAccountKey;
-        }
-      | { type: "delete"; movementId: string; accountId?: MovementAccountKey }
-      | { type: "none" },
-    extraWrites?: (batch: WriteBatch) => void,
-  ): Promise<void> {
-    if (!docId) return;
-
-    const batch = writeBatch(db);
-    const mainRef = doc(db, this.COLLECTION_NAME, docId);
-    batch.set(mainRef, stripUndefinedDeep(ledger) as any);
-
-    if (change.type === "upsert") {
-      const movement = change.movement;
-      if (!movement?.id) {
-        throw new Error(
-          "[MovimientosFondosService.commitLedgerAndMovement] upsert requires movement.id",
-        );
+    request: LedgerTransactionRequest<TMovement, TStorage>,
+  ): Promise<LedgerTransactionResult<TMovement, TStorage>> {
+    const mainRef: DocumentReference = doc(db, this.COLLECTION_NAME, request.docId);
+    const movementRef: DocumentReference = this.buildMovementRef(
+      request.docId,
+      request.movementId,
+      request.accountId,
+    );
+    return runTransaction(db, async (transaction) => {
+      const ledgerSnapshot: DocumentSnapshot = await transaction.get(mainRef);
+      const beforeSnapshot: DocumentSnapshot | null = request.operation === "create"
+        ? null
+        : await transaction.get(movementRef);
+      if (beforeSnapshot && !beforeSnapshot.exists()) {
+        throw new Error("MOVEMENT_NOT_FOUND");
       }
-      const resolvedAccountId =
-        (movement as any)?.accountId &&
-        this.isMovementAccountKey((movement as any).accountId)
-          ? ((movement as any).accountId as MovementAccountKey)
-          : change.accountId;
-      const movementRef = doc(
-        this.movementsCollectionRef(docId, resolvedAccountId),
-        movement.id,
-      );
-      const record = this.normalizeMovementRecord({
-        ...(movement as Record<string, unknown>),
-      });
-      delete (record as any).id;
-      (record as any).serverCreatedAt = serverTimestamp();
-      batch.set(movementRef, stripUndefinedDeep(record) as any);
-    } else if (change.type === "delete") {
-      const movementId = change.movementId;
-      if (!movementId) {
-        throw new Error(
-          "[MovimientosFondosService.commitLedgerAndMovement] delete requires movementId",
-        );
-      }
-      const movementRef = doc(
-        this.movementsCollectionRef(docId, change.accountId),
-        movementId,
-      );
-      batch.delete(movementRef);
-    }
+      const before = beforeSnapshot
+        ? { ...(beforeSnapshot.data() as TMovement), id: request.movementId }
+        : null;
+      const ledger = ledgerSnapshot.exists()
+        ? this.ensureMovementStorageShape<TStorage>(ledgerSnapshot.data(), request.company)
+        : this.createEmptyMovementStorage<TStorage>(request.company);
+      const mutation = request.mutateLedger({ ledger, before });
 
-    extraWrites?.(batch);
-    await batch.commit();
+      transaction.set(mainRef, stripUndefinedDeep(mutation.ledger) as DocumentData);
+      if (request.operation === "delete") {
+        transaction.delete(movementRef);
+      } else {
+        const movement = mutation.storedMovement ?? request.after;
+        if (!movement?.id) throw new Error("MOVEMENT_ID_REQUIRED");
+        const record = this.normalizeMovementRecord({
+          ...(movement as Record<string, unknown>),
+        });
+        delete (record as { id?: string }).id;
+        record.serverCreatedAt = serverTimestamp();
+        transaction.set(movementRef, stripUndefinedDeep(record));
+      }
+      request.extraWrites?.(transaction, { before });
+      return { ledger: mutation.ledger, before };
+    });
   }
 
   static async hasAnyV2Movements(docId: string): Promise<boolean> {

@@ -1,8 +1,7 @@
-import { db } from "@/config/firebase";
-import { waitForPendingWrites, type WriteBatch } from "firebase/firestore";
 import { FacturasService } from "../../../../services/facturas";
 import {
   MovimientosFondosService,
+  type LedgerAtomicWriter,
   type MovementAccountKey,
   type MovementCurrencyKey,
   type MovementStorage,
@@ -10,20 +9,15 @@ import {
 import type { FondoEntry } from "../../types";
 import {
   getCanonicalClosingPaymentType,
-  resolveEffectiveEgresoAmount,
   shouldDeleteFacturasMirror,
 } from "../helpers";
-import { APERTURA_FONDO_PROVIDER_CODE } from "../../constants";
 import { buildV2MovementsCacheKey } from "../v2movements";
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
 import { invalidateFondoCache } from "@/services/fondo-cache";
-
-type PersistMovementLedgerSnapshot = {
-  initialCRC: number;
-  currentCRC: number;
-  initialUSD: number;
-  currentUSD: number;
-};
+import {
+  applyLedgerMovementMutation,
+  type LedgerBalanceSnapshot,
+} from "./ledgerState";
 
 type V2MovementsCacheEntry = {
   loaded: boolean;
@@ -43,9 +37,10 @@ export interface PersistMovementDeps {
   initialAmount: string;
   initialAmountUSD: string;
   currencyEnabled: Record<MovementCurrencyKey, boolean>;
-  ledgerSnapshot: PersistMovementLedgerSnapshot;
+  ledgerSnapshot: LedgerBalanceSnapshot;
   storageSnapshotRef: { current: MovementStorage<FondoEntry> | null };
   v2MovementsCacheRef: { current: Record<string, V2MovementsCacheEntry> };
+  registerLocalMutation?: (clientMutationId: string) => void;
 }
 
 export async function persistMovementToFirestore(
@@ -56,438 +51,146 @@ export async function persistMovementToFirestore(
     deleteId?: string;
     before?: FondoEntry | null;
   } | undefined,
-  extraWrites: ((batch: WriteBatch) => void) | undefined,
+  extraWrites: ((writer: LedgerAtomicWriter) => void) | undefined,
   deps: PersistMovementDeps,
 ): Promise<{
   ok: boolean;
   confirmed: boolean;
-  ledgerSnapshot?: PersistMovementLedgerSnapshot;
+  ledgerSnapshot?: LedgerBalanceSnapshot;
+  revision?: number;
+  clientMutationId?: string;
 }> {
-  const {
-    company,
-    accountKey,
-    initialAmount,
-    initialAmountUSD,
-    currencyEnabled,
-    ledgerSnapshot,
-    storageSnapshotRef,
-    v2MovementsCacheRef,
-  } = deps;
-
+  const { company, accountKey, storageSnapshotRef, v2MovementsCacheRef } = deps;
   const normalizedCompany = (company || "").trim();
-  if (normalizedCompany.length === 0) {
+  if (!normalizedCompany) {
     console.error("[PERSIST-IMMEDIATE] No company specified");
     return { ok: false, confirmed: false };
   }
 
-  const companyKey =
-    MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
-
+  const companyKey = MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
   try {
-    const baseStorage = storageSnapshotRef.current
-      ? MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(
-          storageSnapshotRef.current,
-          normalizedCompany,
-        )
-      : MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
-          normalizedCompany,
-        );
+    const nowISO = await getAuthoritativeNowISO();
+    const clientMutationId = crypto.randomUUID();
+    deps.registerLocalMutation?.(clientMutationId);
+    const movementId = change?.upsert?.id ?? change?.deleteId ?? "";
+    if (!movementId) throw new Error("MOVEMENT_ID_REQUIRED");
 
-    baseStorage.company = normalizedCompany;
-
-    // V2: movements live in a subcollection. Never persist the array to the main document.
-    baseStorage.operations = { movements: [] };
-
-    // IMPORTANTE:
-    // Con filtros de rango (Desde/Hasta) en v2, `updatedEntries` puede NO contener
-    // todos los movimientos históricos. Por eso NO podemos recalcular currentBalance
-    // sumando `updatedEntries`. En su lugar, actualizamos balances por delta:
-    // - create: + (ingreso-egreso)
-    // - delete: - (ingreso-egreso)
-    // - edit:   + (after - before)
-
-    const parseBalance = (value: unknown) => {
-      const parsed = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(parsed)) return 0;
-      return Math.round(parsed * 100) / 100;
-    };
-
-    const normalizeCurrency = (value: unknown): MovementCurrencyKey =>
-      value === "USD" ? "USD" : "CRC";
-
-    const movementDelta = (
-      entry: Partial<FondoEntry> | null | undefined,
-    ): { currency: MovementCurrencyKey; delta: number } | null => {
-      if (!entry) return null;
-      const currency = normalizeCurrency(entry.currency);
-      const ingreso = parseBalance((entry as any).amountIngreso ?? 0);
-      const egreso = resolveEffectiveEgresoAmount({
-        ...entry,
-        accountId: entry.accountId ?? accountKey,
-      });
-      return { currency, delta: ingreso - egreso };
-    };
-
-    const normalizedInitialCRC =
-      initialAmount.trim().length > 0 ? initialAmount.trim() : "0";
-    const normalizedInitialUSD =
-      initialAmountUSD.trim().length > 0 ? initialAmountUSD.trim() : "0";
-    const parsedInitialCRC = parseBalance(normalizedInitialCRC);
-    const parsedInitialUSD = parseBalance(normalizedInitialUSD);
-
-    const stateSnapshot =
-      baseStorage.state ??
-      MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
-        normalizedCompany,
-      ).state;
-
-    const existingCRC = stateSnapshot.balancesByAccount.find(
-      (balance) =>
-        balance.accountId === accountKey && balance.currency === "CRC",
-    );
-    const existingUSD = stateSnapshot.balancesByAccount.find(
-      (balance) => balance.accountId === accountKey && balance.currency === "USD",
-    );
-
-    const prevInitialCRC = existingCRC
-      ? parseBalance(existingCRC.initialBalance ?? 0)
-      : parseBalance(ledgerSnapshot.initialCRC);
-    const prevInitialUSD = existingUSD
-      ? parseBalance(existingUSD.initialBalance ?? 0)
-      : parseBalance(ledgerSnapshot.initialUSD);
-    const prevCurrentCRC = existingCRC
-      ? parseBalance(existingCRC.currentBalance ?? prevInitialCRC)
-      : parseBalance(ledgerSnapshot.currentCRC);
-    const prevCurrentUSD = existingUSD
-      ? parseBalance(existingUSD.currentBalance ?? prevInitialUSD)
-      : parseBalance(ledgerSnapshot.currentUSD);
-
-    const deltas: Record<MovementCurrencyKey, number> = { CRC: 0, USD: 0 };
-
-    const resolveBeforeFallback = (): FondoEntry | null => {
-      const targetId =
-        operationType === "delete"
-          ? change?.deleteId
-          : operationType === "edit"
-            ? change?.upsert?.id
-            : null;
-      if (!targetId) return null;
-      const cacheKey = buildV2MovementsCacheKey(companyKey, accountKey);
-      const cached = v2MovementsCacheRef.current[cacheKey];
-      return cached?.movements?.find((m) => m.id === targetId) ?? null;
-    };
-
-    const beforeEntry = change?.before ?? resolveBeforeFallback();
-    const afterEntry = change?.upsert;
-
-    if (operationType === "create") {
-      const isCashOpening =
-        afterEntry?.providerCode === APERTURA_FONDO_PROVIDER_CODE;
-      if (isCashOpening) {
-        const openingCRC = Math.max(
-          0,
-          parseBalance((afterEntry as any)?.openingBalanceCRC ?? 0),
-        );
-        const openingUSD = Math.max(
-          0,
-          parseBalance((afterEntry as any)?.openingBalanceUSD ?? 0),
-        );
-        deltas.CRC += openingCRC - prevCurrentCRC;
-        deltas.USD += openingUSD - prevCurrentUSD;
-      } else {
-        const d = movementDelta(afterEntry);
-        if (d) deltas[d.currency] += d.delta;
-      }
-    } else if (operationType === "delete") {
-      const isCashOpening =
-        beforeEntry?.providerCode === APERTURA_FONDO_PROVIDER_CODE;
-      if (isCashOpening) {
-        const openingCRC = Math.max(
-          0,
-          parseBalance((beforeEntry as any)?.openingBalanceCRC ?? 0),
-        );
-        const openingUSD = Math.max(
-          0,
-          parseBalance((beforeEntry as any)?.openingBalanceUSD ?? 0),
-        );
-        const previousCRC = Math.max(
-          0,
-          parseBalance((beforeEntry as any)?.openingPreviousBalanceCRC ?? 0),
-        );
-        const previousUSD = Math.max(
-          0,
-          parseBalance((beforeEntry as any)?.openingPreviousBalanceUSD ?? 0),
-        );
-        deltas.CRC -= openingCRC - previousCRC;
-        deltas.USD -= openingUSD - previousUSD;
-      } else {
-        const d = movementDelta(beforeEntry);
-        if (d) deltas[d.currency] -= d.delta;
-      }
-    } else if (operationType === "edit") {
-      const isCashOpeningBefore =
-        beforeEntry?.providerCode === APERTURA_FONDO_PROVIDER_CODE;
-      const isCashOpeningAfter =
-        afterEntry?.providerCode === APERTURA_FONDO_PROVIDER_CODE;
-      if (isCashOpeningBefore || isCashOpeningAfter) {
-        const beforeCRC = Math.max(
-          0,
-          parseBalance((beforeEntry as any)?.openingBalanceCRC ?? 0),
-        );
-        const beforeUSD = Math.max(
-          0,
-          parseBalance((beforeEntry as any)?.openingBalanceUSD ?? 0),
-        );
-        const afterCRC = Math.max(
-          0,
-          parseBalance((afterEntry as any)?.openingBalanceCRC ?? 0),
-        );
-        const afterUSD = Math.max(
-          0,
-          parseBalance((afterEntry as any)?.openingBalanceUSD ?? 0),
-        );
-        deltas.CRC += afterCRC - beforeCRC;
-        deltas.USD += afterUSD - beforeUSD;
-      } else {
-        const before = movementDelta(beforeEntry);
-        if (before) deltas[before.currency] -= before.delta;
-        const after = movementDelta(afterEntry);
-        if (after) deltas[after.currency] += after.delta;
-      }
+    let storedMovement: FondoEntry | undefined;
+    if (operationType !== "delete") {
+      const movement = change?.upsert;
+      if (!movement) throw new Error("MOVEMENT_ID_REQUIRED");
+      storedMovement = {
+        ...movement,
+        paymentType: getCanonicalClosingPaymentType(movement),
+        accountId: accountKey,
+        currency: movement.currency === "USD" ? "USD" : "CRC",
+        empresa: normalizedCompany,
+      };
     }
 
-    const nextCurrentCRC =
-      prevCurrentCRC + (parsedInitialCRC - prevInitialCRC) + deltas.CRC;
-    const nextCurrentUSD =
-      prevCurrentUSD + (parsedInitialUSD - prevInitialUSD) + deltas.USD;
-    const nextAccountBalances = stateSnapshot.balancesByAccount.filter(
-      (balance) => balance.accountId !== accountKey,
-    );
-    nextAccountBalances.push(
-      {
-        accountId: accountKey,
-        currency: "CRC",
-        enabled: currencyEnabled.CRC,
-        initialBalance: parsedInitialCRC,
-        currentBalance: nextCurrentCRC,
-      },
-      {
-        accountId: accountKey,
-        currency: "USD",
-        enabled: currencyEnabled.USD,
-        initialBalance: parsedInitialUSD,
-        currentBalance: nextCurrentUSD,
-      },
-    );
-    stateSnapshot.balancesByAccount = nextAccountBalances;
-    stateSnapshot.updatedAt = await getAuthoritativeNowISO();
-
-    // Preservar lockedUntil del snapshot actual si existe
-    if (storageSnapshotRef.current?.state?.lockedUntil) {
-      stateSnapshot.lockedUntil = storageSnapshotRef.current.state.lockedUntil;
-    }
-    baseStorage.state = stateSnapshot;
-
-    // Guardar en Firestore (ledger + movimiento) de forma ATÓMICA
     console.log(`[PERSIST-IMMEDIATE] Guardando ${operationType} a Firestore...`, {
       company: normalizedCompany,
       accountKey,
       entriesCount: updatedEntries.length,
     });
 
-    let cacheUpdater: (() => void) | null = null;
-    let movementChange:
-      | {
-          type: "upsert";
-          movement: FondoEntry & { id: string };
-          accountId?: MovementAccountKey;
-        }
-      | {
-          type: "delete";
-          movementId: string;
-          accountId?: MovementAccountKey;
-        }
-      | { type: "none" } = { type: "none" };
-
-    if (operationType === "delete") {
-      const deleteId = change?.deleteId;
-      if (!deleteId) {
-        throw new Error("[PERSIST-IMMEDIATE] delete requires change.deleteId");
-      }
-      movementChange = {
-        type: "delete",
-        movementId: deleteId,
-        accountId: accountKey,
-      };
-      cacheUpdater = () => {
-        const cacheKey = buildV2MovementsCacheKey(companyKey, accountKey);
-        const cached = v2MovementsCacheRef.current[cacheKey];
-        const revision = (cached?.revision ?? 0) + 1;
-        const nextMovements = cached?.movements?.filter((m) => m.id !== deleteId) ?? [];
-        v2MovementsCacheRef.current[cacheKey] = {
-          ...(cached ?? {
-            loaded: true,
-            movements: [],
-            cursor: null,
-            exhausted: false,
-            loading: false,
-          }),
-          loaded: true,
-          loading: false,
-          revision,
-          movements: nextMovements,
-        };
-      };
-    } else {
-      const movement = change?.upsert;
-      if (!movement) {
-        throw new Error("[PERSIST-IMMEDIATE] create/edit requires change.upsert");
-      }
-      const normalizedCurrency: MovementCurrencyKey =
-        movement.currency === "USD" ? "USD" : "CRC";
-      const canonicalPaymentType = getCanonicalClosingPaymentType(movement);
-      const storedMovement: FondoEntry = {
-        ...(movement as FondoEntry),
-        paymentType: canonicalPaymentType,
-        accountId: accountKey,
-        currency: normalizedCurrency,
-        empresa: normalizedCompany,
-      };
-      movementChange = {
-        type: "upsert",
-        movement: storedMovement,
-        accountId: accountKey,
-      };
-      cacheUpdater = () => {
-        const cacheKey = buildV2MovementsCacheKey(companyKey, accountKey);
-        const cached = v2MovementsCacheRef.current[cacheKey];
-        const revision = (cached?.revision ?? 0) + 1;
-        const next = [
-          storedMovement,
-          ...(cached?.movements ?? []).filter((m) => m.id !== storedMovement.id),
-        ];
-        v2MovementsCacheRef.current[cacheKey] = {
-          ...(cached ?? {
-            loaded: true,
-            movements: [],
-            cursor: null,
-            exhausted: false,
-            loading: false,
-          }),
-          loaded: true,
-          loading: false,
-          revision,
-          movements: next,
-        };
-      };
-    }
-
-    const shouldDeleteFacturaMirror =
-      operationType === "delete" &&
-      beforeEntry &&
-      shouldDeleteFacturasMirror(beforeEntry);
-
-    const mergedExtraWrites =
-      extraWrites || shouldDeleteFacturaMirror
-        ? (batch: WriteBatch) => {
-            extraWrites?.(batch);
-            if (shouldDeleteFacturaMirror) {
-              const deletedId = String(beforeEntry?.id || "");
-              batch.delete(FacturasService.buildMovementRef(normalizedCompany, deletedId));
-              batch.delete(
-                FacturasService.buildMovementRef(normalizedCompany, `${deletedId}-NC`),
-              );
-              const manualCreditNotes = Array.isArray(beforeEntry?.appliedCreditNotes)
-                ? beforeEntry.appliedCreditNotes.filter((note) =>
-                    String(note?.id || "").startsWith(`manual-nc-${deletedId}-`),
-                  )
-                : [];
-              manualCreditNotes.forEach((_, index) => {
-                batch.delete(
-                  FacturasService.buildMovementRef(
-                    normalizedCompany,
-                    `${deletedId}-NC-${index + 1}`,
-                  ),
-                );
-              });
-            }
-          }
-        : undefined;
-
-    await MovimientosFondosService.commitLedgerAndMovement(
-      companyKey,
-      baseStorage,
-      movementChange,
-      mergedExtraWrites,
-    );
-
-    if (cacheUpdater) {
-      try {
-        cacheUpdater();
-      } catch (cacheErr) {
-        console.warn(
-          "[PERSIST-IMMEDIATE] cache update failed after commit:",
-          cacheErr,
-        );
-      }
-    }
-
-    await invalidateFondoCache({
-      companyId: normalizedCompany,
+    let committedSnapshot: LedgerBalanceSnapshot | null = null;
+    const committed = await MovimientosFondosService.commitLedgerTransaction<FondoEntry, FondoEntry>({
+      docId: companyKey,
+      company: normalizedCompany,
+      operation: operationType,
+      movementId,
       accountId: accountKey,
-      resource: "movements",
+      after: storedMovement,
+      mutateLedger: ({ ledger, before }) => {
+        const result = applyLedgerMovementMutation({
+          storage: MovimientosFondosService.ensureMovementStorageShape<FondoEntry>(
+            ledger,
+            normalizedCompany,
+          ),
+          operation: operationType,
+          before,
+          after: storedMovement,
+          nowISO,
+          clientMutationId,
+        });
+        // V2 movement documents live in the subcollection, never in the ledger.
+        result.storage.operations = { movements: [] };
+        committedSnapshot = result.ledgerSnapshot;
+        return { ledger: result.storage, storedMovement };
+      },
+      extraWrites: (writer, { before }) => {
+        extraWrites?.(writer);
+        if (operationType === "delete" && before && shouldDeleteFacturasMirror(before)) {
+          const deletedId = before.id;
+          writer.delete(FacturasService.buildMovementRef(normalizedCompany, deletedId));
+          writer.delete(FacturasService.buildMovementRef(normalizedCompany, `${deletedId}-NC`));
+          const manualCreditNotes = Array.isArray(before.appliedCreditNotes)
+            ? before.appliedCreditNotes.filter((note) =>
+                String(note?.id || "").startsWith(`manual-nc-${deletedId}-`),
+              )
+            : [];
+          manualCreditNotes.forEach((_, index) => {
+            writer.delete(FacturasService.buildMovementRef(
+              normalizedCompany,
+              `${deletedId}-NC-${index + 1}`,
+            ));
+          });
+        }
+      },
     });
 
-    // Guardar snapshot liviano en localStorage DESPUÉS del commit.
-    // Esto evita que un fallo de Firestore deje un snapshot local inconsistente.
+    const cacheKey = buildV2MovementsCacheKey(companyKey, accountKey);
     try {
-      localStorage.setItem(companyKey, JSON.stringify(baseStorage));
+      const cached = v2MovementsCacheRef.current[cacheKey];
+      const movements = operationType === "delete"
+        ? (cached?.movements ?? []).filter((entry) => entry.id !== movementId)
+        : [storedMovement!, ...(cached?.movements ?? []).filter((entry) => entry.id !== movementId)];
+      v2MovementsCacheRef.current[cacheKey] = {
+        ...(cached ?? {
+          loaded: true,
+          movements: [],
+          cursor: null,
+          exhausted: false,
+          loading: false,
+        }),
+        loaded: true,
+        loading: false,
+        revision: (cached?.revision ?? 0) + 1,
+        movements,
+      };
+    } catch (cacheErr) {
+      console.warn("[PERSIST-IMMEDIATE] cache update failed after commit:", cacheErr);
+    }
+
+    try {
+      await invalidateFondoCache({
+        companyId: normalizedCompany,
+        accountId: accountKey,
+        resource: "movements",
+      });
+    } catch (cacheErr) {
+      console.warn("[PERSIST-IMMEDIATE] cache invalidation failed after commit:", cacheErr);
+    }
+
+    try {
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem(companyKey, JSON.stringify(committed.ledger));
+      }
     } catch (storageError) {
       console.warn("[PERSIST-IMMEDIATE] localStorage write failed:", storageError);
     }
-
-    // setDoc puede resolver con escritura local; esperamos un poco por confirmación del backend
-    // para evitar casos de "se guardó" cuando el usuario estaba offline/intermitente.
-    let confirmed = false;
-    try {
-      const timeoutMs = 8000;
-      await Promise.race([
-        waitForPendingWrites(db).then(() => {
-          confirmed = true;
-        }),
-        new Promise<void>((_, reject) => {
-          setTimeout(() => reject(new Error("waitForPendingWrites timeout")), timeoutMs);
-        }),
-      ]);
-    } catch (pendingErr) {
-      console.warn(
-        `[PERSIST-IMMEDIATE] ${operationType} guardado localmente pero sin confirmación del servidor aún`,
-        pendingErr,
-      );
-    }
-
-    console.log(
-      `[PERSIST-IMMEDIATE] ? ${operationType} guardado (confirmed=${confirmed})`,
-    );
-
-    // Actualizar snapshot después de guardar
-    storageSnapshotRef.current = baseStorage;
-
+    storageSnapshotRef.current = committed.ledger;
+    console.log(`[PERSIST-IMMEDIATE] ${operationType} guardado (confirmed=true)`);
     return {
       ok: true,
-      confirmed,
-      ledgerSnapshot: {
-        initialCRC: parsedInitialCRC,
-        currentCRC: nextCurrentCRC,
-        initialUSD: parsedInitialUSD,
-        currentUSD: nextCurrentUSD,
-      },
+      confirmed: true,
+      ledgerSnapshot: committedSnapshot ?? undefined,
+      revision: committed.ledger.state.revision ?? 0,
+      clientMutationId,
     };
   } catch (err) {
-    console.error(
-      `[PERSIST-IMMEDIATE] ? Error guardando ${operationType} a Firestore:`,
-      err,
-    );
+    console.error(`[PERSIST-IMMEDIATE] Error guardando ${operationType} a Firestore:`, err);
     return { ok: false, confirmed: false };
   }
 }

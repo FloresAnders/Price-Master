@@ -121,9 +121,7 @@ import {
 } from "../../constants";
 
 import { useV2MovementsHydration } from "../../hooks/fondo/useV2MovementsHydration";
-import {
-  type WriteBatch,
-} from "firebase/firestore";
+import type { LedgerAtomicWriter } from "@/services/movimientos-fondos";
 
 import {
   isAutoAdjustmentProvider,
@@ -2002,7 +2000,7 @@ export function FondoSection({
         deleteId?: string;
         before?: FondoEntry | null;
       },
-      extraWrites?: (batch: WriteBatch) => void,
+      extraWrites?: (writer: LedgerAtomicWriter) => void,
     ) =>
       persistMovementToFirestoreFn(
         updatedEntries,
