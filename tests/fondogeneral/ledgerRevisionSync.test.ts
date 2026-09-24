@@ -18,6 +18,12 @@ describe("ledger revision decisions", () => {
   it("only applies the ledger for another account", () => {
     expect(decideLedgerRevisionSync({ ...input, lastChange: { ...change, accountId: "BCR" } })).toEqual({ type: "ledger-only" });
   });
+  it("does not fetch a nonexistent cash movement for a credit-note-only payment", () => {
+    expect(decideLedgerRevisionSync({ ...input, lastChange: {
+      kind: "invoice-payment", revision: 5, invoiceId: "FAC-1", accountId: "FondoGeneral",
+      currency: "CRC", updatedAt: change.updatedAt,
+    } })).toEqual({ type: "ledger-only" });
+  });
   it.each([4, 3, 0])("ignores a same or lower revision %s", (nextRevision) => {
     expect(decideLedgerRevisionSync({ ...input, nextRevision })).toEqual({ type: "ignore" });
   });

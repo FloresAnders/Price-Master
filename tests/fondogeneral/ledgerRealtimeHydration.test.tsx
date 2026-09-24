@@ -74,6 +74,24 @@ describe("ledger realtime hydration", () => {
     expect(result.current.v2MovementsCacheRef.current["movements_ACME::FondoGeneral"].movementVersions).toEqual({ m1: 1 });
     expect(props.setFondoEntries).toHaveBeenLastCalledWith([expect.objectContaining({ amountIngreso: 55 })]);
   });
+  it("rejects a late hydration result after a newer listener revision", async () => {
+    const { result } = renderHook(() => useV2MovementsHydration(props));
+    await emit(snapshot(8));
+    const older = snapshot(7).storage;
+    vi.mocked(props.setLedgerSnapshot).mockClear();
+    expect(result.current.applyConfirmedLedger("movements_ACME", older)).toBe(false);
+    expect(result.current.storageSnapshotRef.current?.state.revision).toBe(8);
+    expect(props.setLedgerSnapshot).not.toHaveBeenCalled();
+  });
+  it("does not confirm a reconnected listener from a rejected stale snapshot", async () => {
+    const { result } = renderHook(() => useV2MovementsHydration(props));
+    await emit(snapshot(8));
+    visibility("hidden"); visibility("visible");
+    expect(result.current.ledgerSyncStatus).toBe("connecting");
+    await emit(snapshot(7));
+    await act(async () => { await result.current.ensureV2MovementsLoaded("movements_ACME", { forceRefresh: true }); });
+    expect(result.current.ledgerSyncStatus).toBe("connecting");
+  });
   it("refreshes a revision gap once, even with a local latest ID", async () => {
     const { result } = renderHook(() => useV2MovementsHydration(props));
     result.current.registerLocalMutation("local"); await emit(snapshot(5, { clientMutationId: "local" })); await emit(snapshot(5));

@@ -44,20 +44,31 @@ describe("daily closing ledger lock persistence", () => {
     vi.stubGlobal("localStorage", { setItem: vi.fn(), getItem: vi.fn(), removeItem: vi.fn() });
   });
 
-  it("uses the saved closing timestamp without another time lookup before locking", async () => {
+  it.each([
+    { storageThrows: false, contextAccepted: true },
+    { storageThrows: true, contextAccepted: true },
+    { storageThrows: false, contextAccepted: false },
+  ])("applies committed ledger only for current context: %j", async ({ storageThrows, contextAccepted }) => {
+    if (storageThrows) vi.stubGlobal("localStorage", {
+      setItem: vi.fn(() => { throw new Error("storage unavailable"); }),
+      getItem: vi.fn(), removeItem: vi.fn(),
+    });
     vi.mocked(getAuthoritativeNowISO)
       .mockResolvedValueOnce(closingTime)
       .mockRejectedValue(new Error("second time lookup unavailable"));
     const ledger = {
+      company: "DELIKOR SINAI",
       state: {
         balancesByAccount: [
           { accountId: "FondoGeneral", currency: "CRC", initialBalance: 0, currentBalance: 138_000 },
           { accountId: "FondoGeneral", currency: "USD", initialBalance: 0, currentBalance: 0 },
         ],
         lockedUntil: closingTime,
+        revision: 1,
+        updatedAt: closingTime,
       },
     };
-    vi.mocked(MovimientosFondosService.updateLedgerLockTransaction).mockResolvedValue(ledger as never);
+    vi.mocked(DailyClosingsService.saveClosing).mockResolvedValue(ledger as never);
     const storageSnapshotRef = { current: null as typeof ledger | null };
     const setLedgerSnapshot = vi.fn();
 
@@ -103,6 +114,11 @@ describe("daily closing ledger lock persistence", () => {
       setEditingDailyClosingId: vi.fn(),
       setFondoEntries: vi.fn(),
       setLedgerSnapshot,
+      applyConfirmedLedger: vi.fn((_key, incoming) => {
+        if (contextAccepted) storageSnapshotRef.current = incoming;
+        return contextAccepted;
+      }),
+      isCurrentLedgerContext: vi.fn(() => contextAccepted),
       setPendingCierreDeCaja: vi.fn(),
       showToast: vi.fn(),
       storageSnapshotRef,
@@ -110,17 +126,17 @@ describe("daily closing ledger lock persistence", () => {
     });
 
     expect(DailyClosingsService.saveClosing).toHaveBeenCalledOnce();
-    expect(record?.createdAt).toBe(closingTime);
-    expect(MovimientosFondosService.updateLedgerLockTransaction).toHaveBeenCalledWith({
-      docId: "movements_DELIKOR SINAI",
-      company: "DELIKOR SINAI",
-      lockedUntil: closingTime,
-      nowISO: closingTime,
-    });
+    expect(record?.createdAt ?? null).toBe(contextAccepted ? closingTime : null);
+    expect(MovimientosFondosService.updateLedgerLockTransaction).not.toHaveBeenCalled();
     expect(getAuthoritativeNowISO).toHaveBeenCalledOnce();
-    expect(storageSnapshotRef.current).toBe(ledger);
-    expect(setLedgerSnapshot).toHaveBeenCalledWith({
-      initialCRC: 0, currentCRC: 138_000, initialUSD: 0, currentUSD: 0,
-    });
+    if (contextAccepted) {
+      expect(storageSnapshotRef.current).toBe(ledger);
+      expect(setLedgerSnapshot).toHaveBeenCalledWith({
+        initialCRC: 0, currentCRC: 138_000, initialUSD: 0, currentUSD: 0,
+      });
+    } else {
+      expect(storageSnapshotRef.current).toBeNull();
+      expect(setLedgerSnapshot).not.toHaveBeenCalled();
+    }
   });
 });

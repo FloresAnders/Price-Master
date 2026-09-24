@@ -11,7 +11,7 @@ import {
   getAuthoritativeNowMs,
 } from "@/utils/serverTime";
 import { FirestoreService } from "./firestore";
-import { MovimientosFondosService } from "./movimientos-fondos";
+import { MovimientosFondosService, type MovementStorage } from "./movimientos-fondos";
 import type { ClosingReconciliation } from "@/domain/reconciliation";
 import { reconcileClosing } from "@/domain/reconciliation";
 
@@ -626,7 +626,7 @@ export class DailyClosingsService {
     record: DailyClosingRecord,
     schedule: DailyClosingSchedule,
     ledgerPrecondition?: DailyClosingLedgerPrecondition,
-  ): Promise<void> {
+  ): Promise<MovementStorage<unknown> | null> {
     const docId = this.buildDocumentId(company);
     if (!docId) {
       throw new Error("Company ID is required for saving closing");
@@ -641,12 +641,14 @@ export class DailyClosingsService {
     const updatedAt = await getAuthoritativeNowISO();
     let dateKey = buildDateKeyFromISO(sanitizedRecord.closingDate);
     const documentRef = doc(db, COLLECTION_NAME, docId);
-    await runTransaction(db, async (transaction) => {
+    const committedLedger = await runTransaction(db, async (transaction) => {
       const snapshot = await transaction.get(documentRef);
+      const ledgerRef = ledgerPrecondition
+        ? doc(db, MovimientosFondosService.COLLECTION_NAME, ledgerPrecondition.ledgerDocId)
+        : null;
+      let ledger: MovementStorage<unknown> | null = null;
       if (ledgerPrecondition) {
-        const ledgerSnapshot = await transaction.get(doc(
-          db, MovimientosFondosService.COLLECTION_NAME, ledgerPrecondition.ledgerDocId,
-        ));
+        const ledgerSnapshot = await transaction.get(ledgerRef!);
         const ledgerState = ledgerSnapshot.exists() ? ledgerSnapshot.data().state : null;
         if (
           !ledgerSnapshot.exists() ||
@@ -655,6 +657,9 @@ export class DailyClosingsService {
         ) {
           throw new Error(LEDGER_CHANGED_BEFORE_CLOSING);
         }
+        ledger = MovimientosFondosService.ensureMovementStorageShape(
+          ledgerSnapshot.data(), company,
+        );
       }
       const existingDocument = snapshot.exists()
         ? sanitizeDocument(snapshot.data(), docId)
@@ -739,6 +744,12 @@ export class DailyClosingsService {
         closingsByDate: trimClosingsMap(currentMap),
       };
       transaction.set(documentRef, stripUndefinedDeep(payload));
+      if (ledger && ledgerRef && !isEditing) {
+        ledger.state.lockedUntil = sanitizedRecord.createdAt;
+        ledger.state.updatedAt = updatedAt;
+        transaction.set(ledgerRef, stripUndefinedDeep(ledger));
+      }
+      return ledger;
     });
 
     // Verify the save was successful by reading back the data
@@ -759,6 +770,7 @@ export class DailyClosingsService {
         `Failed to verify closing save: record ${sanitizedRecord.id} not found after save`,
       );
     }
+    return committedLedger;
   }
 
   static async deleteLatestClosing(

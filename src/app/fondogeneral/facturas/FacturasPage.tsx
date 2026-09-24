@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus,
   CalendarDays,
@@ -21,15 +21,12 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { writeBatch, doc } from "firebase/firestore";
-import { db } from "@/config/firebase";
 import { useProviders } from "@/hooks/useProviders";
 import { useAuth } from "@/hooks/useAuth";
 import { useActorOwnership } from "@/hooks/useActorOwnership";
 import useToast from "@/hooks/useToast";
 import {
   FacturasService,
-  withFacturaPendingForClosing,
   type FacturaMovement,
 } from "@/services/facturas";
 import { PendingInvoiceDeletionRequestsService } from "@/services/pending-invoice-deletion-requests";
@@ -64,6 +61,8 @@ import {
   resolveInvoicePaymentCreditNotes,
   resolvePendingCreditNoteOptionsForInvoice,
 } from "../utils/invoicePayment/creditNotes";
+import { commitFcrPayments } from "../utils/invoicePayment/fcrLedgerTransaction";
+import { writeLedgerLocalCacheIfCurrent } from "../hooks/fondo/ledgerSnapshotGuard";
 import { resolveAnnualDateRange } from "../utils/annualDateRange";
 import { invalidateFondoCache } from "@/services/fondo-cache";
 import { usePendingClosingCreditInvoices } from "../hooks/usePendingClosingCreditInvoices";
@@ -107,25 +106,6 @@ const formatInvoiceDocTypeLabel = (value: string) => {
   if (docType === "NC") return "Nota de Credito";
   if (docType === "FCO") return "Factura a Contado";
   return formatMovementType(docType);
-};
-
-// Deep remove undefined (Firestore doesn't accept undefined)
-const stripUndefinedDeep = <T,>(value: T): T => {
-  if (value === undefined) return value;
-  if (Array.isArray(value)) {
-    return value
-      .map((v) => stripUndefinedDeep(v))
-      .filter((v) => v !== undefined) as any as T;
-  }
-  if (value && typeof value === "object") {
-    const out: Record<string, unknown> = {};
-    Object.entries(value as Record<string, unknown>).forEach(([k, v]) => {
-      const cleaned = stripUndefinedDeep(v as any);
-      if (cleaned !== undefined) out[k] = cleaned;
-    });
-    return out as T;
-  }
-  return value;
 };
 
 const buildFacturaMovementId = (): string =>
@@ -267,6 +247,8 @@ export default function FacturasCreditoPage() {
       return company;
     }
   });
+  const selectedCompanyRef = useRef(selectedCompany);
+  selectedCompanyRef.current = selectedCompany;
 
   useEffect(() => {
     if (!isAdminOrSuperAdmin) {
@@ -1759,28 +1741,12 @@ export default function FacturasCreditoPage() {
         );
         return;
       }
-      const nextPaidAmount = Math.min(
-        totalAmount,
-        roundMoney2(selectedPaymentPaid + totalAppliedToInvoice),
-      );
-      const nextBalanceDue = Math.max(0, roundMoney2(totalAmount - nextPaidAmount));
-      const nextStatus =
-        nextBalanceDue === 0
-          ? "PAGADA"
-          : nextPaidAmount > 0
-            ? "PARCIAL"
-            : "PENDIENTE";
       const cleanedNotes = paymentNotes.trim();
       const cleanedManager2 = paymentManager2.trim();
-      const existingAppliedCreditNotes = Array.isArray(
-        paymentTarget.appliedCreditNotes,
-      )
-        ? paymentTarget.appliedCreditNotes
-        : [];
       const manualAppliedCreditNotes = paymentCreditNoteResolution.manualNotes.map(
         (note, index) => ({
           ...note,
-          id: `manual-nc-${paymentTarget.id}-${nowISO.replace(/\D/g, "")}-${index + 1}`,
+          id: `manual-nc-${paymentTarget.id}-${nowISO.replace(/\D/g, "")}-${index + 1}-${crypto.randomUUID()}`,
         }),
       );
       const newlyAppliedCreditNotes = [
@@ -1790,55 +1756,9 @@ export default function FacturasCreditoPage() {
 
       const paymentManager2Value = cleanedManager2 || null;
 
-      const updatedMovement: FacturaMovement = {
-        id: paymentTarget.id,
-        empresa: paymentTarget.empresa,
-        accountId: paymentTarget.accountId,
-        amount: parentInvoiceAmount,
-        originalAmount: parentInvoiceAmount,
-        amountDue: nextBalanceDue,
-        amountPayment: paymentAmountToApply,
-        paidAmount: nextPaidAmount,
-        balanceDue: nextBalanceDue,
-        paymentStatus: nextStatus,
-        createdAt: paymentTarget.createdAt,
-        currency: paymentTarget.currency,
-        invoiceNumber: paymentTarget.invoiceNumber,
-        manager: paymentTarget.manager,
-        notes: cleanedNotes,
-        invoiceDocType: paymentTarget.invoiceDocType,
-        paymentType: resolveFacturaPaymentType(nextStatus),
-        providerCode: paymentTarget.providerCode,
-        amountEgreso: paymentTarget.amountEgreso,
-        amountIngreso: paymentTarget.amountIngreso,
-        appliedCreditNotes: [
-          ...existingAppliedCreditNotes,
-          ...newlyAppliedCreditNotes,
-        ],
-        updateAt: nowISO,
-        ...(paymentManager2Value ? { manager2: paymentManager2Value } : {}),
-      };
-
       const movementDocId =
         MovimientosFondosService.buildCompanyMovementsKey(selectedCompany);
-      const paymentMovement =
-        paymentAmountToApply > 0
-          ? MovimientosFondosService.buildInvoicePaymentMovement({
-              company: selectedCompany,
-              invoice: {
-                ...updatedMovement,
-                paymentType: resolveFacturaPaymentType("PAGADA"),
-              },
-              paymentAmount: paymentAmountToApply,
-              updateAt: nowISO,
-              manager2: paymentManager2Value || undefined,
-              roundingAbsorbed: resolvedAmounts.roundingAbsorbed,
-            })
-          : null;
-      const paymentMovementId = paymentMovement
-        ? String((paymentMovement as any).id || "")
-        : "";
-      const targetAccountKey = updatedMovement.accountId;
+      const targetAccountKey = paymentTarget.accountId;
       if (
         targetAccountKey === "CajaNegra" ||
         targetAccountKey === "Tucan" ||
@@ -1868,128 +1788,27 @@ export default function FacturasCreditoPage() {
 
       setPaymentSubmitting(true);
       try {
-        const docId = movementDocId; // MovimientosFondos document id
-
-        // Load existing ledger (if any)
-        let baseStorage = null;
-        try {
-          baseStorage = await MovimientosFondosService.getDocument(docId);
-        } catch {
-          baseStorage = null;
-        }
-        const ledger =
-          baseStorage ??
-          MovimientosFondosService.createEmptyMovementStorage(selectedCompany);
-        ledger.company = selectedCompany;
-        // Do not persist operations array to main doc; movements are in subcollection
-        ledger.operations = { movements: [] };
-
-        // Adjust balances: subtract payment from currentBalance for the account/currency
-        const state =
-          ledger.state ??
-          MovimientosFondosService.createEmptyMovementStorage(selectedCompany)
-            .state;
-        const acctKey = targetAccountKey;
-        const currency = updatedMovement.currency as MovementCurrencyKey;
-        const amountToApply = Math.trunc(paymentAmountToApply || 0);
-        let found = false;
-        if (amountToApply > 0) {
-          state.balancesByAccount = state.balancesByAccount.map((b) => {
-            if (b.accountId === acctKey && b.currency === currency) {
-              const current =
-                typeof b.currentBalance === "number"
-                  ? b.currentBalance
-                  : b.initialBalance || 0;
-              const next = current - amountToApply;
-              found = true;
-              return { ...b, currentBalance: next };
-            }
-            return b;
-          });
-        }
-        if (amountToApply > 0 && !found) {
-          state.balancesByAccount.push({
-            accountId: acctKey,
-            currency,
-            enabled: true,
-            initialBalance: 0,
-            currentBalance: -amountToApply,
-          });
-        }
-        state.updatedAt = new Date().toISOString();
-        ledger.state = state;
-
-        const batch = writeBatch(db);
-        // Persist Facturas updated invoice
-        batch.set(
-          FacturasService.buildMovementRef(selectedCompany, paymentTarget.id),
-          stripUndefinedDeep(withFacturaPendingForClosing(updatedMovement)),
-          { merge: true },
-        );
-        paymentCreditNoteResolution.persistedNotes.forEach((note) => {
-          const pendingNote = paymentAvailableCreditNotes.find(
-            (item) => item.id === note.id,
-          );
-          const noteAmount = Math.max(
-            0,
-            roundMoney2(pendingNote?.amount ?? note.amount),
-          );
-          const previousPaid = Math.max(
-            0,
-            roundMoney2(pendingNote?.paidAmount),
-          );
-          const nextNotePaid = Math.min(
-            noteAmount,
-            roundMoney2(previousPaid + note.appliedAmount),
-          );
-          const nextNoteBalance = Math.max(
-            0,
-            roundMoney2(noteAmount - nextNotePaid),
-          );
-          batch.set(
-            FacturasService.buildMovementRef(selectedCompany, note.id),
-            {
-              paidAmount: nextNotePaid,
-              balanceDue: nextNoteBalance,
-              paymentStatus: nextNoteBalance === 0 ? "REBAJADA" : "PARCIAL",
-              isPendingForClosing: nextNoteBalance > 0,
-              updateAt: nowISO,
-            },
-            { merge: true },
-          );
-        });
-        manualAppliedCreditNotes.forEach((note) => {
-          const manualMovement = buildManualCreditNoteMovement({
+        const committed = await commitFcrPayments({
+          company: selectedCompany, accountId: targetAccountKey, nowISO,
+          applications: [{
+            invoice: paymentTarget,
+            cashDebit: paymentAmountToApply,
+            totalAppliedToInvoice,
+            roundingAbsorbed: resolvedAmounts.roundingAbsorbed,
+            appliedCreditNotes: newlyAppliedCreditNotes,
+            manualCreditNoteMovements: manualAppliedCreditNotes.map((note) => buildManualCreditNoteMovement({
             id: note.id,
             company: selectedCompany,
             invoice: paymentTarget,
             note,
             createdAt: nowISO,
             manager2: paymentManager2Value || undefined,
-          });
-          batch.set(
-            FacturasService.buildMovementRef(selectedCompany, note.id),
-            stripUndefinedDeep(withFacturaPendingForClosing(manualMovement)),
-          );
+            })),
+            notes: cleanedNotes,
+            manager2: paymentManager2Value || undefined,
+          }],
         });
-        // Persist ledger main doc
-        const mainRef = doc(
-          db,
-          MovimientosFondosService.COLLECTION_NAME,
-          docId,
-        );
-        batch.set(mainRef, stripUndefinedDeep(ledger) as any);
-        // Persist movement in MovimientosFondos subcollection
-        if (paymentMovement && paymentMovementId) {
-          const movRef = MovimientosFondosService.buildMovementRef(
-            docId,
-            paymentMovementId,
-            targetAccountKey,
-          );
-          batch.set(movRef, stripUndefinedDeep(paymentMovement));
-        }
-
-        await batch.commit();
+        const ledger = committed.ledger;
 
         if (paymentCreditNoteResolution.persistedNotes.length > 0) {
           setPendingCreditNotes((current) =>
@@ -2024,16 +1843,18 @@ export default function FacturasCreditoPage() {
           resource: "movements",
         });
         try {
-          localStorage.setItem(movementDocId, JSON.stringify(ledger));
+          if (selectedCompanyRef.current === selectedCompany) {
+            writeLedgerLocalCacheIfCurrent(localStorage, movementDocId, ledger, selectedCompany);
+          }
         } catch (storageError) {
           console.warn("[FACTURAS] localStorage snapshot write failed:", storageError);
         }
 
         await loadMovements(selectedCompany);
         showToast(
-          nextStatus === "PAGADA" && paymentAmountToApply <= 0
+          committed.invoices[0].paymentStatus === "PAGADA" && paymentAmountToApply <= 0
             ? "Factura saldada con notas de crédito."
-            : nextStatus === "PAGADA"
+            : committed.invoices[0].paymentStatus === "PAGADA"
               ? "Factura pagada y movimiento generado."
             : "Abono registrado.",
           "success",
@@ -2051,7 +1872,6 @@ export default function FacturasCreditoPage() {
       closePaymentModal,
       loadMovements,
       enteredPaymentAmount,
-      paymentAvailableCreditNotes,
       paymentCreditNoteResolution,
       paymentManager2,
       paymentNotes,

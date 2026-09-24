@@ -12,7 +12,6 @@ import {
   forceClearClosingGuards,
 } from "./closing/closingGuards";
 import {
-  getFcrPaymentAmount,
   getFcrPaymentInvoiceId,
   getEffectiveLastCreatedAtMs,
   isAutoAdjustmentProvider,
@@ -22,6 +21,7 @@ import {
   stripUndefinedDeep,
 } from "../utils/helpers";
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
+import { resolveFcrRollbackAmounts } from "./invoicePayment/fcrRollbackAmounts";
 
 type LedgerSnapshot = {
   initialCRC: number;
@@ -217,16 +217,20 @@ export async function confirmDeleteMovement(
                 throw new Error("FCR_INVOICE_NOT_FOUND");
               }
               const invoiceData = invoiceSnap.data() as FacturaMovement;
-              const paymentAmount = getFcrPaymentAmount(before);
+              const rollback = resolveFcrRollbackAmounts(before);
               const totalAmount = Math.max(0, roundMoney2(invoiceData.originalAmount ?? invoiceData.amount));
               const currentPaid = Math.max(0, roundMoney2(invoiceData.paidAmount));
-              const nextPaid = Math.max(0, Math.min(totalAmount, roundMoney2(currentPaid - paymentAmount)));
+              const nextPaid = Math.max(0, Math.min(totalAmount, roundMoney2(currentPaid - rollback.invoiceReduction)));
               const nextBalance = Math.max(0, roundMoney2(totalAmount - nextPaid));
               const nextStatus = nextBalance === 0 ? "PAGADA" : nextPaid > 0 ? "PARCIAL" : "PENDIENTE";
 
-              const appliedCreditNotes = Array.isArray(before.appliedCreditNotes)
-                ? before.appliedCreditNotes
-                : [];
+              const appliedCreditNotes = rollback.creditNotesToRelease;
+              const remainingAppliedNotes = [...(invoiceData.appliedCreditNotes ?? [])];
+              for (const note of appliedCreditNotes) {
+                const index = remainingAppliedNotes.findIndex((existing) =>
+                  existing.id === note.id && roundMoney2(existing.appliedAmount) === roundMoney2(note.appliedAmount));
+                if (index >= 0) remainingAppliedNotes.splice(index, 1);
+              }
               const noteWrites = await Promise.all(
                 appliedCreditNotes.map(async (note) => {
                   const noteId = String(note?.id || "").trim();
@@ -269,6 +273,7 @@ export async function confirmDeleteMovement(
                   balanceDue: nextBalance,
                   amountDue: nextBalance,
                   paymentStatus: nextStatus,
+                  appliedCreditNotes: remainingAppliedNotes,
                   updateAt: rollbackAt,
                 })), { merge: true });
                 noteWrites.forEach((noteWrite) => {

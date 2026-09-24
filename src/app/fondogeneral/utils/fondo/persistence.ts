@@ -17,6 +17,7 @@ import {
   applyLedgerMovementMutation,
   type LedgerBalanceSnapshot,
 } from "./ledgerState";
+import { acceptLedgerSnapshot } from "../../hooks/fondo/ledgerSnapshotGuard";
 
 type V2MovementsCacheEntry = {
   loaded: boolean;
@@ -36,6 +37,7 @@ export interface PersistMovementDeps {
   storageSnapshotRef: { current: MovementStorage<FondoEntry> | null };
   v2MovementsCacheRef: { current: Record<string, V2MovementsCacheEntry> };
   registerLocalMutation?: (clientMutationId: string) => void;
+  applyCommittedLedger?: (docKey: string, ledger: MovementStorage<FondoEntry>) => boolean;
 }
 
 export async function persistMovementToFirestore(
@@ -138,52 +140,54 @@ export async function persistMovementToFirestore(
       },
     });
 
-    const cacheKey = buildV2MovementsCacheKey(companyKey, accountKey);
-    try {
-      const cached = v2MovementsCacheRef.current[cacheKey];
-      const movements = operationType === "delete"
-        ? (cached?.movements ?? []).filter((entry) => entry.id !== movementId)
-        : [storedMovement!, ...(cached?.movements ?? []).filter((entry) => entry.id !== movementId)];
-      v2MovementsCacheRef.current[cacheKey] = {
-        ...(cached ?? {
+    const applied = deps.applyCommittedLedger
+      ? deps.applyCommittedLedger(companyKey, committed.ledger)
+      : acceptLedgerSnapshot(storageSnapshotRef, committed.ledger, normalizedCompany);
+    if (applied) {
+      const cacheKey = buildV2MovementsCacheKey(companyKey, accountKey);
+      try {
+        const cached = v2MovementsCacheRef.current[cacheKey];
+        const movements = operationType === "delete"
+          ? (cached?.movements ?? []).filter((entry) => entry.id !== movementId)
+          : [storedMovement!, ...(cached?.movements ?? []).filter((entry) => entry.id !== movementId)];
+        v2MovementsCacheRef.current[cacheKey] = {
+          ...(cached ?? {
+            loaded: true,
+            movements: [],
+            cursor: null,
+            exhausted: false,
+            loading: false,
+          }),
           loaded: true,
-          movements: [],
-          cursor: null,
-          exhausted: false,
           loading: false,
-        }),
-        loaded: true,
-        loading: false,
-        revision: (cached?.revision ?? 0) + 1,
-        movements,
-      };
-    } catch (cacheErr) {
-      console.warn("[PERSIST-IMMEDIATE] cache update failed after commit:", cacheErr);
-    }
-
-    try {
-      await invalidateFondoCache({
-        companyId: normalizedCompany,
-        accountId: accountKey,
-        resource: "movements",
-      });
-    } catch (cacheErr) {
-      console.warn("[PERSIST-IMMEDIATE] cache invalidation failed after commit:", cacheErr);
-    }
-
-    try {
-      if (typeof localStorage !== "undefined") {
-        localStorage.setItem(companyKey, JSON.stringify(committed.ledger));
+          revision: (cached?.revision ?? 0) + 1,
+          movements,
+        };
+      } catch (cacheErr) {
+        console.warn("[PERSIST-IMMEDIATE] cache update failed after commit:", cacheErr);
       }
-    } catch (storageError) {
-      console.warn("[PERSIST-IMMEDIATE] localStorage write failed:", storageError);
+      try {
+        if (typeof localStorage !== "undefined") {
+          localStorage.setItem(companyKey, JSON.stringify(committed.ledger));
+        }
+      } catch (storageError) {
+        console.warn("[PERSIST-IMMEDIATE] localStorage write failed:", storageError);
+      }
+      try {
+        await invalidateFondoCache({
+          companyId: normalizedCompany,
+          accountId: accountKey,
+          resource: "movements",
+        });
+      } catch (cacheErr) {
+        console.warn("[PERSIST-IMMEDIATE] cache invalidation failed after commit:", cacheErr);
+      }
     }
-    storageSnapshotRef.current = committed.ledger;
     console.log(`[PERSIST-IMMEDIATE] ${operationType} guardado (confirmed=true)`);
     return {
       ok: true,
       confirmed: true,
-      ledgerSnapshot: committedSnapshot ?? undefined,
+      ledgerSnapshot: applied ? committedSnapshot ?? undefined : undefined,
       revision: committed.ledger.state.revision ?? 0,
       clientMutationId,
     };

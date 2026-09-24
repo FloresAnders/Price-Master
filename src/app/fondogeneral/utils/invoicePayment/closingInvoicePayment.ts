@@ -1,24 +1,12 @@
-import { db } from "@/config/firebase";
-import { doc, writeBatch, type WriteBatch } from "firebase/firestore";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import {
-  FacturasService,
-  isFacturaPendingForClosing,
-  withFacturaPendingForClosing,
-  type FacturaMovement,
-} from "../../../../services/facturas";
+import type { FacturaMovement } from "../../../../services/facturas";
 import {
   MovimientosFondosService,
   type MovementAccountKey,
-  type MovementCurrencyKey,
   type MovementStorage,
 } from "../../../../services/movimientos-fondos";
 import { type FondoEntry } from "../../types";
-import {
-  roundMoney2,
-  stripUndefinedDeep,
-  type PendingCreditNoteOption,
-} from "../helpers";
+import { roundMoney2, type PendingCreditNoteOption } from "../helpers";
 import { resolveFcrPaymentAmounts } from "../fondo/fcrPaymentAmounts";
 import type { ManualCreditNoteDraft } from "../fondo/manualCreditNoteDrafts";
 import { validateFondoGeneralOpeningRequirement } from "../fondo/openingRequirement";
@@ -30,6 +18,7 @@ import {
 import { invalidateFondoCache } from "@/services/fondo-cache";
 import { buildV2MovementsCacheKey } from "../v2movements";
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
+import { commitFcrPayments } from "./fcrLedgerTransaction";
 
 type V2MovementsCacheEntry = {
   loaded: boolean;
@@ -68,6 +57,7 @@ export interface ClosingInvoicePaymentDeps {
   >;
   closeClosingInvoicePaymentModal: () => void;
   applyLedgerStateFromStorage: (state: any) => void;
+  applyConfirmedLedger: (docKey: string, ledger: MovementStorage<FondoEntry>) => boolean;
   rebuildEntriesFromV2Cache: (docKey: string, targetAccountKey: MovementAccountKey) => void;
   storageSnapshotRef: MutableRefObject<MovementStorage<FondoEntry> | null>;
   v2MovementsCacheRef: MutableRefObject<Record<string, V2MovementsCacheEntry>>;
@@ -102,8 +92,8 @@ export async function submitClosingInvoicePayment(
     setClosingPaymentManualCreditNotes,
     closeClosingInvoicePaymentModal,
     applyLedgerStateFromStorage,
+    applyConfirmedLedger,
     rebuildEntriesFromV2Cache,
-    storageSnapshotRef,
     v2MovementsCacheRef,
     clearMovementDraft,
   } = deps;
@@ -198,175 +188,52 @@ export async function submitClosingInvoicePayment(
   }
 
   const nowISO = await getAuthoritativeNowISO();
-  const nextPaidAmount = Math.min(
-    totalAmount,
-    roundMoney2(paidAmount + totalAppliedToInvoice),
-  );
-  const nextBalanceDue = Math.max(0, roundMoney2(totalAmount - nextPaidAmount));
-  const nextStatus =
-    nextBalanceDue === 0 ? "PAGADA" : nextPaidAmount > 0 ? "PARCIAL" : "PENDIENTE";
   const cleanedNotes = closingPaymentNotes.trim();
   const cleanedManager2 = closingPaymentManager2.trim();
   const paymentManager2Value = cleanedManager2 || null;
   const manualAppliedCreditNotes = creditNoteResolution.manualNotes.map(
     (note, index) => ({
       ...note,
-      id: `manual-nc-${closingPaymentTarget.id}-${nowISO.replace(/\D/g, "")}-${index + 1}`,
+      id: `manual-nc-${closingPaymentTarget.id}-${nowISO.replace(/\D/g, "")}-${index + 1}-${crypto.randomUUID()}`,
     }),
   );
   const appliedCreditNotes = [
     ...persistedAppliedCreditNotes,
     ...manualAppliedCreditNotes,
   ];
-  const nextAppliedCreditNotes = [
-    ...(Array.isArray(closingPaymentTarget.appliedCreditNotes)
-      ? closingPaymentTarget.appliedCreditNotes
-      : []),
-    ...appliedCreditNotes,
-  ];
-
-  const updatedMovement: FacturaMovement = {
-    ...closingPaymentTarget,
-    accountId: accountKey,
-    amount: totalAmount,
-    originalAmount: totalAmount,
-    amountPayment: paymentAmountToApply,
-    amountDue: nextBalanceDue,
-    paidAmount: nextPaidAmount,
-    balanceDue: nextBalanceDue,
-    paymentStatus: nextStatus,
-    notes: cleanedNotes,
-    appliedCreditNotes: nextAppliedCreditNotes.length > 0 ? nextAppliedCreditNotes : undefined,
-    updateAt: nowISO,
-    ...(paymentManager2Value ? { manager2: paymentManager2Value } : {}),
-  };
-
-  const paymentMovement =
-    paymentAmountToApply > 0
-      ? MovimientosFondosService.buildInvoicePaymentMovement({
-          company,
-          invoice: updatedMovement,
-          paymentAmount: paymentAmountToApply,
-          updateAt: nowISO,
-          manager2: paymentManager2Value || undefined,
-          roundingAbsorbed: resolvedAmounts.roundingAbsorbed,
-        })
-      : null;
-  const paymentMovementId = paymentMovement
-    ? String((paymentMovement as any).id || "")
-    : "";
   const targetAccountKey: MovementAccountKey = accountKey;
 
   setClosingPaymentSubmitting(true);
   try {
     const docId = MovimientosFondosService.buildCompanyMovementsKey(company);
 
-    let baseStorage = null;
-    try {
-      baseStorage = await MovimientosFondosService.getDocument(docId);
-    } catch {
-      baseStorage = null;
-    }
-    const ledger = baseStorage ?? MovimientosFondosService.createEmptyMovementStorage(company);
-    ledger.company = company;
-    ledger.operations = { movements: [] };
-
-    const state =
-      ledger.state ?? MovimientosFondosService.createEmptyMovementStorage(company).state;
-    const acctKey = targetAccountKey;
-    const currency = closingPaymentTarget.currency as MovementCurrencyKey;
-    const amountToApply = roundMoney2(paymentAmountToApply || 0);
-    let found = false;
-    if (amountToApply > 0) {
-      state.balancesByAccount = state.balancesByAccount.map((b) => {
-        if (b.accountId === acctKey && b.currency === currency) {
-          const current = typeof b.currentBalance === "number" ? b.currentBalance : b.initialBalance || 0;
-          const next = current - amountToApply;
-          found = true;
-          return { ...b, currentBalance: next };
-        }
-        return b;
-      });
-    }
-    if (amountToApply > 0 && !found) {
-      state.balancesByAccount.push({
-        accountId: acctKey,
-        currency,
-        enabled: true,
-        initialBalance: 0,
-        currentBalance: -amountToApply,
-      });
-    }
-    state.updatedAt = nowISO;
-    ledger.state = state;
-
-    const batch: WriteBatch = writeBatch(db);
-    batch.set(
-      FacturasService.buildMovementRef(company, closingPaymentTarget.id),
-      stripUndefinedDeep(withFacturaPendingForClosing(updatedMovement)),
-      { merge: true },
-    );
-
-    if (persistedAppliedCreditNotes.length > 0) {
-      persistedAppliedCreditNotes.forEach((note) => {
-        const pendingNote = selectedProviderPendingCreditNotes.find((item) => item.id === note.id);
-        const noteAmount = Math.max(0, roundMoney2(pendingNote?.amount ?? note.amount));
-        const previousPaid = Math.max(0, roundMoney2(pendingNote?.paidAmount));
-        const nextPaidAmount = Math.min(
-          noteAmount,
-          roundMoney2(previousPaid + roundMoney2(note.appliedAmount)),
-        );
-        const nextBalanceDue = Math.max(0, roundMoney2(noteAmount - nextPaidAmount));
-
-        const nextStatus = nextBalanceDue === 0 ? "REBAJADA" : "PARCIAL";
-        batch.set(
-          FacturasService.buildMovementRef(company, note.id),
-          {
-            paidAmount: nextPaidAmount,
-            balanceDue: nextBalanceDue,
-            paymentStatus: nextStatus,
-            isPendingForClosing: isFacturaPendingForClosing({
-              invoiceDocType: "NC",
-              amount: noteAmount,
-              originalAmount: noteAmount,
-              paidAmount: nextPaidAmount,
-              balanceDue: nextBalanceDue,
-              paymentStatus: nextStatus,
-            }),
-            updateAt: nowISO,
-          },
-          { merge: true },
-        );
-      });
-    }
-
-    manualAppliedCreditNotes.forEach((note) => {
-      const manualMovement = buildManualCreditNoteMovement({
+    const committed = await commitFcrPayments({
+      company, accountId: targetAccountKey, nowISO,
+      applications: [{
+        invoice: closingPaymentTarget,
+        cashDebit: paymentAmountToApply,
+        totalAppliedToInvoice,
+        roundingAbsorbed: resolvedAmounts.roundingAbsorbed,
+        appliedCreditNotes,
+        manualCreditNoteMovements: manualAppliedCreditNotes.map((note) => buildManualCreditNoteMovement({
         id: note.id,
         company,
         invoice: closingPaymentTarget,
         note,
         createdAt: nowISO,
         manager2: paymentManager2Value || undefined,
-      });
-      batch.set(
-        FacturasService.buildMovementRef(company, note.id),
-        stripUndefinedDeep(withFacturaPendingForClosing(manualMovement)),
-      );
+        })),
+        notes: cleanedNotes,
+        manager2: paymentManager2Value || undefined,
+      }],
     });
-
-    const mainRef = doc(db, MovimientosFondosService.COLLECTION_NAME, docId);
-    batch.set(mainRef, stripUndefinedDeep(ledger) as any);
-    if (paymentMovement && paymentMovementId) {
-      const movRef = MovimientosFondosService.buildMovementRef(docId, paymentMovementId, targetAccountKey);
-      batch.set(movRef, stripUndefinedDeep(paymentMovement));
-    }
-
-    await batch.commit();
+    const ledger = committed.ledger;
+    const confirmedInvoice = committed.invoices[0];
+    const confirmedPayment = committed.paymentMovements[0];
     setPendingClosingCreditInvoices((current) =>
-      nextBalanceDue > 0
+      (confirmedInvoice.balanceDue ?? 0) > 0
         ? current.map((movement) =>
-            movement.id === closingPaymentTarget.id ? updatedMovement : movement,
+            movement.id === closingPaymentTarget.id ? confirmedInvoice : movement,
           )
         : current.filter((movement) => movement.id !== closingPaymentTarget.id),
     );
@@ -411,7 +278,7 @@ export async function submitClosingInvoicePayment(
     }
     setClosingPaymentCreditNoteIds([]);
     setClosingPaymentManualCreditNotes([]);
-    storageSnapshotRef.current = stripUndefinedDeep(ledger) as any;
+    const appliedLedger = applyConfirmedLedger(docId, ledger);
     // Misma actualización de caché (IndexedDB) que un movimiento normal al guardar.
     await invalidateFondoCache({
       companyId: String(company || "").trim(),
@@ -419,14 +286,14 @@ export async function submitClosingInvoicePayment(
       resource: "movements",
     });
     try {
-      localStorage.setItem(docId, JSON.stringify(ledger));
+      if (appliedLedger) localStorage.setItem(docId, JSON.stringify(ledger));
     } catch (storageError) {
       console.warn("[FONDO] localStorage snapshot write failed:", storageError);
     }
     try {
       const cacheKey = buildV2MovementsCacheKey(docId, targetAccountKey);
       const cached = v2MovementsCacheRef.current[cacheKey];
-      if (cached?.loaded && paymentMovement && paymentMovementId) {
+      if (appliedLedger && cached?.loaded && confirmedPayment) {
         const revision = (cached.revision ?? 0) + 1;
         v2MovementsCacheRef.current[cacheKey] = {
           ...cached,
@@ -435,14 +302,13 @@ export async function submitClosingInvoicePayment(
           revision,
           movements: [
             {
-              ...(paymentMovement as unknown as FondoEntry),
-              id: paymentMovementId,
+              ...confirmedPayment,
             },
             ...cached.movements,
           ],
         };
         rebuildEntriesFromV2Cache(docId, targetAccountKey);
-      } else {
+      } else if (appliedLedger) {
         applyLedgerStateFromStorage(ledger.state);
       }
     } catch (refreshErr) {

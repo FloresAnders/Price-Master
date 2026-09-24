@@ -10,7 +10,6 @@ import {
 import {
   FacturasService,
   isFacturaPendingForClosing,
-  withFacturaPendingForClosing,
   type AppliedCreditNote,
   type FacturaMovement,
 } from "../../../services/facturas";
@@ -63,9 +62,10 @@ import {
   resolveEffectiveEgresoAmount,
   roundCreditNotePaymentAmount,
   roundMoney2,
-  stripUndefinedDeep,
 } from "../utils/helpers";
-import { doc, getDoc, serverTimestamp, writeBatch } from "firebase/firestore";
+import { getDoc, writeBatch } from "firebase/firestore";
+import { commitFcrPayments } from "./invoicePayment/fcrLedgerTransaction";
+import { reportFcrPaymentAfterMainSaveFailure } from "./invoicePayment/fcrPartialSaveRecovery";
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
 
 export interface SubmitFondoDeps {
@@ -148,10 +148,11 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     setPendingClosingCreditInvoices,
     selectedProviderPendingCreditInvoices,
     setSelectedPendingCreditInvoiceIds,
+    setFcrPaymentRecovery,
     v2MovementsCacheRef,
     rebuildEntriesFromV2Cache,
     applyLedgerStateFromStorage,
-    storageSnapshotRef,
+    applyConfirmedLedger,
     setNegativeBalanceModal,
     providers,
     movementCurrency,
@@ -1788,6 +1789,8 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
           normalizedCompany.length > 0 &&
           selectedPendingCreditInvoiceIds.length > 0
         ) {
+          let selectedInvoiceNumbers: string[] = [];
+          let paymentsCommitted = false;
           try {
             if (isCajaNegra) {
               showToast(
@@ -1804,6 +1807,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                   invoice.providerCode === selectedProvider &&
                   invoice.currency === movementCurrency,
               );
+              selectedInvoiceNumbers = invoicesToPay.map((invoice: FacturaMovement) => invoice.invoiceNumber);
 
             if (invoicesToPay.length > 0) {
               const docId =
@@ -1811,36 +1815,9 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                   normalizedCompany,
                 );
 
-              let baseStorage = null;
-              try {
-                baseStorage = await MovimientosFondosService.getDocument(docId);
-              } catch {
-                baseStorage = null;
-              }
-
-              const ledger =
-                baseStorage ??
-                MovimientosFondosService.createEmptyMovementStorage(
-                  normalizedCompany,
-                );
-              ledger.company = normalizedCompany;
-              ledger.operations = { movements: [] };
-
-              const state =
-                ledger.state ??
-                MovimientosFondosService.createEmptyMovementStorage(
-                  normalizedCompany,
-                ).state;
               const acctKey = accountKey;
-              const currency = movementCurrency as MovementCurrencyKey;
               const nowISO = entry.createdAt;
-              let totalPaymentApplied = 0;
-
-              const batch = writeBatch(db);
-
-              const paymentMovements: Array<Record<string, unknown>> = [];
-
-              invoicesToPay.forEach((invoice: any) => {
+              const applications = invoicesToPay.flatMap((invoice: FacturaMovement) => {
                 const totalAmount = Math.max(
                   0,
                   roundMoney2(invoice.originalAmount ?? invoice.amount),
@@ -1853,7 +1830,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                   0,
                   roundMoney2(invoice.balanceDue ?? totalAmount - paidAmount),
                 );
-                if (balance <= 0) return;
+                if (balance <= 0) return [];
 
                 // El fondo se debita por el monto redondeado; el redondeo queda
                 // en el fondo y la factura se paga por el total pendiente.
@@ -1862,112 +1839,33 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                 const totalAppliedToInvoice = roundMoney2(
                   paymentAmount + roundingAdjustment,
                 );
-                const nextPaidAmount = Math.min(
-                  totalAmount,
-                  roundMoney2(paidAmount + totalAppliedToInvoice),
-                );
-                const nextBalanceDue = Math.max(0, totalAmount - nextPaidAmount);
-                const nextStatus =
-                  nextBalanceDue === 0
-                    ? "PAGADA"
-                    : nextPaidAmount > 0
-                      ? "PARCIAL"
-                      : "PENDIENTE";
-
-                const updatedMovement: FacturaMovement = {
-                  ...invoice,
-                  accountId: acctKey,
-                  amount: totalAmount,
-                  originalAmount: totalAmount,
-                  amountDue: nextBalanceDue,
-                  amountPayment: paymentAmount,
-                  paidAmount: nextPaidAmount,
-                  balanceDue: nextBalanceDue,
-                  paymentStatus: nextStatus,
-                  updateAt: nowISO,
-                };
-
-                batch.set(
-                  FacturasService.buildMovementRef(
-                    normalizedCompany,
-                    invoice.id,
-                  ),
-                  stripUndefinedDeep(
-                    withFacturaPendingForClosing(updatedMovement),
-                  ),
-                  { merge: true },
-                );
-
-                const paymentMovement =
-                  MovimientosFondosService.buildInvoicePaymentMovement({
-                    company: normalizedCompany,
-                    invoice: updatedMovement,
-                    paymentAmount: paymentAmount,
-                    updateAt: nowISO,
-                    manager2: manager2?.trim() || undefined,
-                    roundingAbsorbed: roundingAdjustment,
-                  });
-                paymentMovements.push(paymentMovement);
-
-                const paymentMovementId = String(
-                  (paymentMovement as any).id || "",
-                );
-                const movRef = MovimientosFondosService.buildMovementRef(
-                  docId,
-                  paymentMovementId,
-                  acctKey,
-                );
-                batch.set(
-                  movRef,
-                  stripUndefinedDeep({
-                    ...paymentMovement,
-                    serverCreatedAt: serverTimestamp(),
-                  }),
-                );
-
-                totalPaymentApplied += paymentAmount;
+                return [{
+                  invoice,
+                  cashDebit: paymentAmount,
+                  totalAppliedToInvoice,
+                  roundingAbsorbed: roundingAdjustment,
+                  appliedCreditNotes: [],
+                  manager2: manager2?.trim() || undefined,
+                }];
               });
 
-              if (totalPaymentApplied > 0) {
-                let found = false;
-                state.balancesByAccount = state.balancesByAccount.map((b) => {
-                  if (b.accountId === acctKey && b.currency === currency) {
-                    const current =
-                      typeof b.currentBalance === "number"
-                        ? b.currentBalance
-                        : b.initialBalance || 0;
-                    const next = current - totalPaymentApplied;
-                    found = true;
-                    return { ...b, currentBalance: next };
-                  }
-                  return b;
+              if (applications.length > 0) {
+                const committed = await commitFcrPayments({
+                  company: normalizedCompany,
+                  accountId: acctKey,
+                  nowISO,
+                  applications,
                 });
-                if (!found) {
-                  state.balancesByAccount.push({
-                    accountId: acctKey,
-                    currency,
-                    enabled: true,
-                    initialBalance: 0,
-                    currentBalance: -totalPaymentApplied,
-                  });
-                }
-                state.updatedAt = nowISO;
-                ledger.state = state;
-
-                const mainRef = doc(
-                  db,
-                  MovimientosFondosService.COLLECTION_NAME,
-                  docId,
-                );
-                batch.set(mainRef, stripUndefinedDeep(ledger) as any);
-                await batch.commit();
+                paymentsCommitted = true;
+                setFcrPaymentRecovery(null);
+                const { ledger, paymentMovements } = committed;
 
                 setPendingClosingCreditInvoices((prev: any[]) =>
                   prev.filter((invoice) => !selectedIds.has(invoice.id)),
                 );
                 setSelectedPendingCreditInvoiceIds([]);
 
-                storageSnapshotRef.current = stripUndefinedDeep(ledger) as any;
+                const appliedLedger = applyConfirmedLedger(docId, ledger);
                 // Misma actualización de caché (IndexedDB) que un movimiento normal al guardar.
                 await invalidateFondoCache({
                   companyId: normalizedCompany,
@@ -1975,7 +1873,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                   resource: "movements",
                 });
                 try {
-                  localStorage.setItem(docId, JSON.stringify(ledger));
+                  if (appliedLedger) localStorage.setItem(docId, JSON.stringify(ledger));
                 } catch (storageError) {
                   console.warn(
                     "[FONDO] localStorage snapshot write failed:",
@@ -1988,22 +1886,18 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                     acctKey,
                   );
                   const cached = v2MovementsCacheRef.current[cacheKey];
-                  if (cached?.loaded) {
+                  if (appliedLedger && cached?.loaded) {
                     const revision = (cached.revision ?? 0) + 1;
-                    const paymentEntries = paymentMovements.map((movement) => ({
-                      ...(movement as unknown as FondoEntry),
-                      id: String((movement as any).id || ""),
-                    }));
                     v2MovementsCacheRef.current[cacheKey] = {
                       ...cached,
                       loaded: true,
                       loading: false,
                       revision,
-                      movements: [...paymentEntries, ...cached.movements],
+                      movements: [...paymentMovements, ...cached.movements],
                     };
                     rebuildEntriesFromV2Cache(docId, acctKey);
                   }
-                  applyLedgerStateFromStorage(ledger.state);
+                  if (appliedLedger) applyLedgerStateFromStorage(ledger.state);
                 } catch (refreshErr) {
                   console.error(
                     "[FONDO] Error refreshing UI after credit invoice payment:",
@@ -2014,10 +1908,19 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
             }
             }
           } catch (err) {
-            console.warn(
-              "[FG] Could not update selected credit invoices:",
-              err,
-            );
+            if (paymentsCommitted) {
+              console.warn("[FG] FCR payments committed; local refresh failed:", err);
+            } else {
+              console.error("[FG] Main movement saved, selected FCR payments failed:", err);
+              reportFcrPaymentAfterMainSaveFailure({
+                company: normalizedCompany,
+                mainMovementId: entry.id,
+                invoiceNumbers: selectedInvoiceNumbers,
+                showToast,
+                clearSelection: () => setSelectedPendingCreditInvoiceIds([]),
+                setRecovery: setFcrPaymentRecovery,
+              });
+            }
           }
         }
 

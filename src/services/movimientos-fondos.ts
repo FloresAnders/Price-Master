@@ -17,7 +17,6 @@ import {
   startAfter,
   where,
   writeBatch,
-  type WriteBatch,
   type Query,
   type QueryConstraint,
   type QuerySnapshot,
@@ -155,7 +154,17 @@ export type LedgerMovementChange = {
   clientMutationId?: string;
 };
 
-export type LedgerLastChange = LedgerMovementChange;
+export type LedgerInvoicePaymentChange = {
+  kind: "invoice-payment";
+  revision: number;
+  invoiceId: string;
+  accountId: MovementAccountKey;
+  currency: MovementCurrencyKey;
+  updatedAt: string;
+  clientMutationId?: string;
+};
+
+export type LedgerLastChange = LedgerMovementChange | LedgerInvoicePaymentChange;
 
 export type MovementStorageState = {
   balancesByAccount: MovementAccountBalance[];
@@ -675,6 +684,15 @@ export class MovimientosFondosService {
       typeof change.updatedAt === "string" &&
       change.updatedAt.length > 0 &&
       (change.clientMutationId === undefined || typeof change.clientMutationId === "string")
+    ) {
+      result.lastChange = { ...change, revision: Math.trunc(change.revision) };
+    } else if (
+      change?.kind === "invoice-payment" &&
+      typeof change.revision === "number" && Number.isFinite(change.revision) && change.revision >= 0 &&
+      typeof change.invoiceId === "string" && change.invoiceId.length > 0 &&
+      this.isMovementAccountKey(change.accountId) &&
+      this.isMovementCurrencyKey(change.currency) &&
+      typeof change.updatedAt === "string" && change.updatedAt.length > 0
     ) {
       result.lastChange = { ...change, revision: Math.trunc(change.revision) };
     }

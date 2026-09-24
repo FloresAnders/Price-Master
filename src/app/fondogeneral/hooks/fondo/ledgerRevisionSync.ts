@@ -23,6 +23,7 @@ export function decideLedgerRevisionSync(input: {
     (lastChange.clientMutationId && locallyAppliedMutationIds.has(lastChange.clientMutationId))) {
     return { type: "ledger-only" };
   }
+  if (lastChange.kind === "invoice-payment") return { type: "ledger-only" };
   return { type: lastChange.operation === "delete" ? "remove-one" : "fetch-one", movementId: lastChange.movementId };
 }
 

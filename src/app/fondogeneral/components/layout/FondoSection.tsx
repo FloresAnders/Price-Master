@@ -93,6 +93,7 @@ import { useActorOwnership } from "../../../../hooks/useActorOwnership";
 import type { FondoEntry, FondoMovementType } from "../../types";
 import { persistMovementToFirestore as persistMovementToFirestoreFn } from "../../utils/fondo/persistence";
 import { handleConfirmDailyClosing as handleConfirmDailyClosingFn } from "../../utils/closing/dailyClosing";
+import type { FcrPaymentRecovery } from "../../utils/invoicePayment/fcrPartialSaveRecovery";
 import {
   getSingleClosingReasonFromNotes,
   SINGLE_CLOSING_REASON_INVALID_MESSAGE,
@@ -568,6 +569,7 @@ export function FondoSection({
     initialUSD: 0,
     currentUSD: 0,
   }));
+  const [fcrPaymentRecovery, setFcrPaymentRecovery] = useState<FcrPaymentRecovery | null>(null);
 
   const [
     showPendingClosingCreditInvoices,
@@ -1108,6 +1110,8 @@ export function FondoSection({
     storageSnapshotRef,
     v2MovementsCacheRef,
     applyLedgerStateFromStorage,
+    applyConfirmedLedger,
+    isCurrentLedgerContext,
     rebuildEntriesFromV2Cache,
     ensureV2MovementsLoaded,
     movementLoadError,
@@ -1668,19 +1672,21 @@ export function FondoSection({
         let resolvedEntries: FondoEntry[] | null = null;
         let resolvedState: MovementStorageState | null = null;
         let hasResolvedSource = false;
+        let staleLedger = false;
         let remoteConfirmedNotFound = false;
         let remoteAnyError = false;
 
         const assignResult = (result: StorageEntriesResult | null) => {
-          if (!result) return false;
+          if (!result || !isMounted) return false;
           if (!matchesSelectedCompany(result.storage)) return false;
+          const leanStorage = { ...result.storage, operations: { movements: [] } };
+          if (!applyConfirmedLedger(companyKey, leanStorage)) {
+            hasResolvedSource = true;
+            staleLedger = true;
+            return true;
+          }
           resolvedEntries = result.entries;
           resolvedState = result.storage?.state ?? null;
-          // Keep snapshot lean: movements are stored in v2 subcollection.
-          storageSnapshotRef.current = {
-            ...result.storage,
-            operations: { movements: [] },
-          };
           hasResolvedSource = true;
           return true;
         };
@@ -1716,7 +1722,7 @@ export function FondoSection({
             MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(
               normalizedCompany,
             );
-          storageSnapshotRef.current = emptyStorage;
+          if (!applyConfirmedLedger(companyKey, emptyStorage)) staleLedger = true;
           resolvedEntries = [];
           resolvedState = emptyStorage.state;
           hasResolvedSource = true;
@@ -1765,7 +1771,7 @@ export function FondoSection({
                     accountId: accountKeyRef.current,
                   }),
                 );
-                storageSnapshotRef.current = fallbackStorage;
+                if (!applyConfirmedLedger(companyKey, fallbackStorage)) staleLedger = true;
               }
             } catch (err) {
               console.error("Error parsing legacy fondo entries:", err);
@@ -1773,7 +1779,7 @@ export function FondoSection({
           }
         }
 
-        if (isMounted) {
+        if (isMounted && !staleLedger) {
           setFondoEntries(resolvedEntries ?? []);
           if (resolvedState) {
             applyLedgerStateFromStorage(resolvedState);
@@ -1805,6 +1811,7 @@ export function FondoSection({
     company,
     fondoTypesLoaded,
     applyLedgerStateFromStorage,
+    applyConfirmedLedger,
     beginMovementsLoading,
     endMovementsLoading,
   ]);
@@ -2010,12 +2017,14 @@ export function FondoSection({
           storageSnapshotRef,
           v2MovementsCacheRef,
           registerLocalMutation,
+          applyCommittedLedger: applyConfirmedLedger,
         },
       ),
     [
       company,
       accountKey,
       registerLocalMutation,
+      applyConfirmedLedger,
     ],
   );
 
@@ -2055,6 +2064,7 @@ export function FondoSection({
     setSelectedProviderPendingCreditNotes,
     setPendingCreditNotes,
     applyLedgerStateFromStorage,
+    applyConfirmedLedger,
     rebuildEntriesFromV2Cache,
     storageSnapshotRef,
     v2MovementsCacheRef,
@@ -2325,9 +2335,11 @@ export function FondoSection({
       setPendingClosingCreditInvoices,
       selectedProviderPendingCreditInvoices,
       setSelectedPendingCreditInvoiceIds,
+      setFcrPaymentRecovery,
       v2MovementsCacheRef,
       rebuildEntriesFromV2Cache,
       applyLedgerStateFromStorage,
+      applyConfirmedLedger,
       storageSnapshotRef,
       setNegativeBalanceModal,
       providers,
@@ -4672,6 +4684,7 @@ export function FondoSection({
       setPendingCierreDeCaja,
       showToast,
       storageSnapshotRef,
+      isCurrentLedgerContext,
       user,
     });
     if (savedRecord) {
@@ -6767,6 +6780,16 @@ export function FondoSection({
           formatByCurrency={formatByCurrency}
         />
         {company && <LedgerSyncStatus status={ledgerSyncStatus} />}
+        {fcrPaymentRecovery?.company === company && (
+          <div role="alert" className="mt-2 rounded border border-amber-400 bg-amber-50 p-3 text-sm text-amber-900">
+            El movimiento {fcrPaymentRecovery.mainMovementId} quedó guardado, pero sus pagos FCR
+            {fcrPaymentRecovery.invoiceNumbers.length > 0 ? ` (${fcrPaymentRecovery.invoiceNumbers.join(", ")})` : ""} no se aplicaron.
+            Pague esas facturas desde FC/NC sin volver a guardar el movimiento.
+            <button type="button" className="ml-2 underline" onClick={() => { window.location.hash = "#facturas"; }}>
+              Ir a FC/NC
+            </button>
+          </div>
+        )}
       </div>
 
       <AuditHistoryModal

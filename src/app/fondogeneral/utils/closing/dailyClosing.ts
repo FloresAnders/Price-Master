@@ -14,6 +14,7 @@ import {
   type DailyClosingRecord,
 } from "@/services/daily-closings";
 import { MovimientosFondosService } from "@/services/movimientos-fondos";
+import { acceptLedgerSnapshot } from "../../hooks/fondo/ledgerSnapshotGuard";
 import type { Dispatch, SetStateAction } from "react";
 import {
   clearDailyClosingModalDraft,
@@ -106,6 +107,8 @@ export interface HandleConfirmDailyClosingDeps {
   setPendingCierreDeCaja: (value: boolean) => void;
   showToast: (message: string, kind?: "success" | "warning" | "error", durationMs?: number) => void;
   storageSnapshotRef: { current: any };
+  applyConfirmedLedger?: (docKey: string, ledger: any) => boolean;
+  isCurrentLedgerContext?: (docKey: string) => boolean;
   user: { email?: string | null; id?: string | null; role?: string | null } | null;
 }
 
@@ -154,6 +157,8 @@ export async function handleConfirmDailyClosing(
     setPendingCierreDeCaja,
     showToast,
     storageSnapshotRef,
+    applyConfirmedLedger,
+    isCurrentLedgerContext,
     user,
   } = deps;
 
@@ -385,7 +390,7 @@ export async function handleConfirmDailyClosing(
 
   beginDailyClosingsRequest();
   try {
-    await DailyClosingsService.saveClosing(
+    const committedLedger = await DailyClosingsService.saveClosing(
       normalizedCompany,
       record,
       dailyClosingSchedule,
@@ -395,6 +400,25 @@ export async function handleConfirmDailyClosing(
         expectedUpdatedAt: integrity.ledgerUpdatedAt,
       },
     );
+    const ledgerDocKey = MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
+    if (isCurrentLedgerContext && !isCurrentLedgerContext(ledgerDocKey)) return null;
+    if (committedLedger && (applyConfirmedLedger
+      ? applyConfirmedLedger(ledgerDocKey, committedLedger)
+      : acceptLedgerSnapshot(storageSnapshotRef, committedLedger, normalizedCompany))) {
+      const crc = committedLedger.state.balancesByAccount.find((balance) => balance.accountId === "FondoGeneral" && balance.currency === "CRC");
+      const usd = committedLedger.state.balancesByAccount.find((balance) => balance.accountId === "FondoGeneral" && balance.currency === "USD");
+      setLedgerSnapshot({
+        initialCRC: crc?.initialBalance ?? 0,
+        currentCRC: crc?.currentBalance ?? 0,
+        initialUSD: usd?.initialBalance ?? 0,
+        currentUSD: usd?.currentBalance ?? 0,
+      });
+      try {
+        localStorage.setItem(ledgerDocKey, JSON.stringify(committedLedger));
+      } catch (storageError) {
+        console.warn("[CIERRE] No se pudo actualizar el caché local del ledger:", storageError);
+      }
+    }
     console.log(
       `[CIERRE] ? Cierre guardado exitosamente en Firestore. ID: ${record.id}, Fecha: ${record.closingDate}`,
     );
@@ -1085,33 +1109,6 @@ export async function handleConfirmDailyClosing(
     }
   } catch {
     // defensive: ignore
-  }
-
-  if (!editingDailyClosingId) {
-    const normalizedCompanyForLock = (company || "").trim();
-    if (normalizedCompanyForLock.length > 0) {
-      const companyKey = MovimientosFondosService.buildCompanyMovementsKey(normalizedCompanyForLock);
-      try {
-        const ledger = await MovimientosFondosService.updateLedgerLockTransaction<FondoEntry>({
-          docId: companyKey,
-          company: normalizedCompanyForLock,
-          lockedUntil: createdAt,
-          nowISO: createdAt,
-        });
-        storageSnapshotRef.current = ledger;
-        const crc = ledger.state.balancesByAccount.find((balance) => balance.accountId === "FondoGeneral" && balance.currency === "CRC");
-        const usd = ledger.state.balancesByAccount.find((balance) => balance.accountId === "FondoGeneral" && balance.currency === "USD");
-        setLedgerSnapshot({
-          initialCRC: crc?.initialBalance ?? 0,
-          currentCRC: crc?.currentBalance ?? 0,
-          initialUSD: usd?.initialBalance ?? 0,
-          currentUSD: usd?.currentBalance ?? 0,
-        });
-        localStorage.setItem(companyKey, JSON.stringify(ledger));
-      } catch (err) {
-        console.error("Error persisting lockedUntil:", err);
-      }
-    }
   }
 
   setEditingDailyClosingId(null);

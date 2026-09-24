@@ -16,6 +16,10 @@ export type FondoEntry = {
   amountEgreso: number;
   amountIngreso: number;
   amountPayment?: number;
+  /** Efectivo realmente debitado por esta aplicación de FCR. */
+  cashDebit?: number;
+  /** Reducción total de la factura por esta aplicación (efectivo, NC y redondeo). */
+  totalAppliedToInvoice?: number;
   /** Diferencia absorbida como redondeo en un pago de FCR (efectivo aplicado - efectivo debitado). */
   roundingAbsorbed?: number;
   appliedCreditNotes?: AppliedCreditNote[];

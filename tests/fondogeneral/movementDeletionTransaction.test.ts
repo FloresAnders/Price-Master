@@ -37,6 +37,9 @@ const serverPayment: FondoEntry = {
   paymentType: "COMPRA INVENTARIO",
   amountEgreso: 50,
   amountIngreso: 0,
+  cashDebit: 50,
+  totalAppliedToInvoice: 80,
+  roundingAbsorbed: 0,
   appliedCreditNotes: [{ id: "NC-SERVER", appliedAmount: 30 } as never],
   manager: "Admin",
   manager2: "Admin",
@@ -117,8 +120,8 @@ describe("FCR deletion transaction", () => {
     }
     const committed = attempts[1].writes;
     expect(committed.find(([ref]) => ref.endsWith("/movements/FAC-123-ABC"))?.[1]).toMatchObject({
-      paidAmount: 300,
-      balanceDue: 200,
+      paidAmount: 270,
+      balanceDue: 230,
       paymentStatus: "PARCIAL",
     });
     expect(committed.find(([ref]) => ref.endsWith("/movements/NC-SERVER"))?.[1]).toMatchObject({
@@ -127,6 +130,39 @@ describe("FCR deletion transaction", () => {
       paymentStatus: "PARCIAL",
     });
     expect(showToast).toHaveBeenCalledWith("Movimiento eliminado exitosamente", "success");
+  });
+
+  it("does not release cumulative credit notes on a legacy payment", async () => {
+    const legacy = { ...serverPayment } as Partial<FondoEntry>;
+    delete legacy.cashDebit;
+    delete legacy.totalAppliedToInvoice;
+    delete legacy.roundingAbsorbed;
+    const reads: string[] = [];
+    const writes: Array<[string, Record<string, unknown>]> = [];
+    vi.mocked(runTransaction).mockImplementation(async (_db, callback) => callback({
+      get: vi.fn(async (ref: string) => {
+        reads.push(ref);
+        if (ref.endsWith(`/movements/${paymentId}`)) return { exists: () => true, data: () => legacy };
+        if (ref.endsWith("/movements/FAC-123-ABC")) return { exists: () => true, data: () => ({ originalAmount: 500, paidAmount: 350 }) };
+        return { exists: () => true, data: () => MovimientosFondosService.createEmptyMovementStorage<FondoEntry>(company) };
+      }),
+      set: vi.fn((ref: string, data: Record<string, unknown>) => writes.push([ref, data])),
+      delete: vi.fn(), update: vi.fn(),
+    } as never));
+    await confirmDeleteMovement({
+      accountKey: "FondoGeneral", company, providers: [], cierreFondoVentasProviderCode: null,
+      latestCierreFondoVentasMovementId: null, isPrincipalAdmin: true, isSuperAdminUser: false,
+      showToast: vi.fn(), setConfirmDeleteEntry: vi.fn(),
+      confirmDeleteEntry: { open: true, entry: stalePayment }, fondoEntries: [stalePayment],
+      storageSnapshotRef: { current: null },
+      persistMovementToFirestore: (entries, operation, change, extraWrites) =>
+        persistMovementToFirestore(entries, operation, change, extraWrites, {
+          company, accountKey: "FondoGeneral", storageSnapshotRef: { current: null },
+          v2MovementsCacheRef: { current: {} },
+        }),
+    } as MovementDeletionDeps);
+    expect(reads.some((ref) => ref.endsWith("/NC-SERVER"))).toBe(false);
+    expect(writes.find(([ref]) => ref.endsWith("/FAC-123-ABC"))?.[1]).toMatchObject({ paidAmount: 300 });
   });
 
   it("reports a missing linked invoice without committing any write", async () => {

@@ -22,8 +22,9 @@ vi.mock("firebase/firestore", () => ({
 
 import { runTransaction } from "firebase/firestore";
 import { MovimientosFondosService } from "@/services/movimientos-fondos";
+import { invalidateFondoCache } from "@/services/fondo-cache";
 import { applyLedgerMovementMutation } from "@/app/fondogeneral/utils/fondo/ledgerState";
-import { persistMovementToFirestore } from "@/app/fondogeneral/utils/fondo/persistence";
+import { persistMovementToFirestore, type PersistMovementDeps } from "@/app/fondogeneral/utils/fondo/persistence";
 import type { FondoEntry } from "@/app/fondogeneral/types";
 
 const runTransactionMock = vi.mocked(runTransaction);
@@ -97,6 +98,7 @@ describe("MovimientosFondosService.commitLedgerTransaction", () => {
     } as never));
     const stale = ledgerAt(103_000);
     const storageSnapshotRef = { current: stale };
+    const v2MovementsCacheRef: PersistMovementDeps["v2MovementsCacheRef"] = { current: {} };
     const localMutation = vi.fn();
     const saved = await persistMovementToFirestore([], "create", {
       upsert: movement as FondoEntry,
@@ -104,7 +106,7 @@ describe("MovimientosFondosService.commitLedgerTransaction", () => {
       company,
       accountKey: "FondoGeneral",
       storageSnapshotRef,
-      v2MovementsCacheRef: { current: {} },
+      v2MovementsCacheRef,
       registerLocalMutation: localMutation,
     });
 
@@ -118,6 +120,69 @@ describe("MovimientosFondosService.commitLedgerTransaction", () => {
       }),
     );
     expect(storageSnapshotRef.current.state.balancesByAccount.find((b) => b.accountId === "FondoGeneral" && b.currency === "CRC")?.currentBalance).toBe(143_000);
+    expect(v2MovementsCacheRef.current[`${docId}::FondoGeneral`].movements[0].id).toBe(movement.id);
+    expect(invalidateFondoCache).toHaveBeenCalledOnce();
+  });
+
+  it("does not replace a newer listener ledger when an older commit resolves", async () => {
+    const server = ledgerAt(103_000);
+    server.state.revision = 6;
+    server.state.updatedAt = "2026-09-23T00:00:00.000Z";
+    const newer = ledgerAt(138_000);
+    newer.state.revision = 8;
+    newer.state.updatedAt = "2026-09-23T00:00:02.000Z";
+    const storageSnapshotRef = { current: newer };
+    const cacheKey = `${docId}::FondoGeneral`;
+    const newerMovement = { ...movement, id: "sale-newer" } as FondoEntry;
+    const cached = {
+      loaded: true, movements: [newerMovement], cursor: null,
+      exhausted: false, loading: false, revision: 3,
+    };
+    const v2MovementsCacheRef = { current: { [cacheKey]: cached } };
+    runTransactionMock.mockImplementation(async (_db, callback) => callback({
+      get: vi.fn(async () => ({ exists: () => true, data: () => server })),
+      set: vi.fn(), delete: vi.fn(), update: vi.fn(),
+    } as never));
+    const result = await persistMovementToFirestore([], "create", {
+      upsert: movement as FondoEntry,
+    }, undefined, {
+      company, accountKey: "FondoGeneral", storageSnapshotRef,
+      v2MovementsCacheRef,
+    });
+    expect(result).toMatchObject({ ok: true, revision: 7 });
+    expect(result.ledgerSnapshot).toBeUndefined();
+    expect(storageSnapshotRef.current.state.revision).toBe(8);
+    expect(storageSnapshotRef.current.state.balancesByAccount.find((b) => b.accountId === "FondoGeneral" && b.currency === "CRC")?.currentBalance).toBe(138_000);
+    expect(v2MovementsCacheRef.current[cacheKey]).toBe(cached);
+    expect(invalidateFondoCache).not.toHaveBeenCalled();
+  });
+
+  it("does not mutate the cache after a company-context switch rejects the commit", async () => {
+    runTransactionMock.mockImplementation(async (_db, callback) => callback({
+      get: vi.fn(async () => ({ exists: () => true, data: () => ledgerAt(138_000) })),
+      set: vi.fn(), delete: vi.fn(), update: vi.fn(),
+    } as never));
+    const cacheKey = `${docId}::FondoGeneral`;
+    const cached = {
+      loaded: true, movements: [{ ...movement, id: "current-company-entry" } as FondoEntry],
+      cursor: null, exhausted: false, loading: false, revision: 3,
+    };
+    const v2MovementsCacheRef = { current: { [cacheKey]: cached } };
+    const storageSnapshotRef = { current: ledgerAt(138_000) };
+    const applyCommittedLedger = vi.fn(() => false);
+
+    const result = await persistMovementToFirestore([], "create", {
+      upsert: movement as FondoEntry,
+    }, undefined, {
+      company, accountKey: "FondoGeneral", storageSnapshotRef,
+      v2MovementsCacheRef, applyCommittedLedger,
+    });
+
+    expect(result).toMatchObject({ ok: true, confirmed: true });
+    expect(result.ledgerSnapshot).toBeUndefined();
+    expect(applyCommittedLedger).toHaveBeenCalledOnce();
+    expect(v2MovementsCacheRef.current[cacheKey]).toBe(cached);
+    expect(invalidateFondoCache).not.toHaveBeenCalled();
   });
 
   it.each(["edit", "delete"] as const)("aborts %s when the server movement is absent", async (operation) => {

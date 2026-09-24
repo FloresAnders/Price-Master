@@ -23,11 +23,15 @@ function snapshots(revision: number | undefined = 4, updatedAt = "saved", exists
 describe("closing transaction ledger precondition", () => {
   it("reads both documents before writing a matching closing", async () => {
     snapshots();
-    await DailyClosingsService.saveClosing("TEST", record, schedule, condition);
+    const ledger = await DailyClosingsService.saveClosing("TEST", record, schedule, condition);
     expect(get).toHaveBeenCalledTimes(2);
     expect(get).toHaveBeenCalledWith("db/MovimientosFondos/movements_TEST");
-    expect(set).toHaveBeenCalledOnce();
+    expect(set).toHaveBeenCalledTimes(2);
     expect(set.mock.calls[0][1]).toMatchObject({ closingsByDate: { "2026-09-23": [expect.objectContaining({ id: "closing" })] } });
+    expect(set).toHaveBeenCalledWith("db/MovimientosFondos/movements_TEST", expect.objectContaining({
+      state: expect.objectContaining({ revision: 4, lockedUntil: record.createdAt }),
+    }));
+    expect(ledger?.state.lockedUntil).toBe(record.createdAt);
     expect(Math.max(...get.mock.invocationCallOrder)).toBeLessThan(set.mock.invocationCallOrder[0]);
   });
   it.each([[5, "saved"], [4, "new timestamp"]])("blocks metadata change (%s, %s) before writes", async (revision, updatedAt) => {
@@ -44,6 +48,6 @@ describe("closing transaction ledger precondition", () => {
   it("accepts a legacy ledger with no revision as zero", async () => {
     get.mockImplementation(async (ref: string) => ref.includes("MovimientosFondos") ? { exists: () => true, data: () => ({ state: { updatedAt: "saved" } }) } : { exists: () => false });
     await DailyClosingsService.saveClosing("TEST", record, schedule, { ...condition, expectedRevision: 0 });
-    expect(set).toHaveBeenCalledOnce();
+    expect(set).toHaveBeenCalledTimes(2);
   });
 });

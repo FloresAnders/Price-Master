@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { acceptLedgerSnapshot } from "./ledgerSnapshotGuard";
 import type { DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 import {
   MovimientosFondosService,
@@ -178,6 +179,18 @@ export function useV2MovementsHydration({
     },
     [accountKey, setCurrencyEnabled, setInitialAmount, setInitialAmountUSD, setLedgerSnapshot],
   );
+
+  const isCurrentLedgerContext = useCallback((docKey: string) =>
+    contextRef.current === context &&
+    docKey === MovimientosFondosService.buildCompanyMovementsKey(company.trim()),
+  [company, context]);
+
+  const applyConfirmedLedger = useCallback((docKey: string, storage: MovementStorage<FondoEntry>) => {
+    if (!isCurrentLedgerContext(docKey) ||
+      !acceptLedgerSnapshot(storageSnapshotRef, storage, company)) return false;
+    applyLedgerStateFromStorage(storage.state);
+    return true;
+  }, [applyLedgerStateFromStorage, company, isCurrentLedgerContext]);
 
   const rebuildEntriesFromV2Cache = useCallback(
     (docKey: string, targetAccountKey: MovementAccountKey) => {
@@ -427,10 +440,9 @@ export function useV2MovementsHydration({
       setLedgerSyncStatus("connecting");
       unsubscribe = MovimientosFondosService.subscribeToLedger<FondoEntry>(docKey, (snapshot) => {
         if (!current() || snapshot.hasPendingWrites || snapshot.fromCache) return;
-        listenerSession.confirmed = true;
         // Maintenance writes may change lock state without changing the movement revision.
-        storageSnapshotRef.current = snapshot.storage;
-        applyLedgerStateFromStorage(snapshot.storage.state);
+        if (!applyConfirmedLedger(docKey, snapshot.storage)) return;
+        listenerSession.confirmed = true;
         const nextRevision = snapshot.storage.state.revision ?? 0;
         const lastChange = snapshot.storage.state.lastChange;
         const markDirty = (key: string) => {
@@ -531,12 +543,14 @@ export function useV2MovementsHydration({
     };
   }, [company, resolvedOwnerId, accountKey, context, fromFilter, toFilter, pageSize,
     currentDailyKey, todayKey, providerCode, paymentType, invoiceNumber,
-    applyLedgerStateFromStorage, ensureV2MovementsLoaded, rebuildEntriesFromV2Cache]);
+    applyConfirmedLedger, ensureV2MovementsLoaded, rebuildEntriesFromV2Cache]);
 
   return {
     storageSnapshotRef,
     v2MovementsCacheRef,
     applyLedgerStateFromStorage,
+    applyConfirmedLedger,
+    isCurrentLedgerContext,
     rebuildEntriesFromV2Cache,
     ensureV2MovementsLoaded,
     movementLoadError,

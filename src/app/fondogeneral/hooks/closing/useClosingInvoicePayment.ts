@@ -48,6 +48,7 @@ interface UseClosingInvoicePaymentProps {
   setSelectedProviderPendingCreditNotes: ClosingInvoicePaymentDeps["setSelectedProviderPendingCreditNotes"];
   setPendingCreditNotes: ClosingInvoicePaymentDeps["setPendingCreditNotes"];
   applyLedgerStateFromStorage: ClosingInvoicePaymentDeps["applyLedgerStateFromStorage"];
+  applyConfirmedLedger: ClosingInvoicePaymentDeps["applyConfirmedLedger"];
   rebuildEntriesFromV2Cache: ClosingInvoicePaymentDeps["rebuildEntriesFromV2Cache"];
   storageSnapshotRef: MutableRefObject<MovementStorage<FondoEntry> | null>;
   v2MovementsCacheRef: MutableRefObject<Record<string, V2MovementsCacheEntry>>;
@@ -71,6 +72,7 @@ export function useClosingInvoicePayment({
   setSelectedProviderPendingCreditNotes,
   setPendingCreditNotes,
   applyLedgerStateFromStorage,
+  applyConfirmedLedger,
   rebuildEntriesFromV2Cache,
   storageSnapshotRef,
   v2MovementsCacheRef,
@@ -231,6 +233,7 @@ export function useClosingInvoicePayment({
         setClosingPaymentManualCreditNotes,
         closeClosingInvoicePaymentModal,
         applyLedgerStateFromStorage,
+        applyConfirmedLedger,
         rebuildEntriesFromV2Cache,
         storageSnapshotRef,
         v2MovementsCacheRef,
@@ -240,6 +243,7 @@ export function useClosingInvoicePayment({
     [
       accountKey,
       applyLedgerStateFromStorage,
+      applyConfirmedLedger,
       closingPaymentAmount,
       closingPaymentCreditNoteIds,
       closingPaymentManualCreditNotes,
