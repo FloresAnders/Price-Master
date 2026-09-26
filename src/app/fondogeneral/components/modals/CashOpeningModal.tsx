@@ -574,7 +574,7 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
                             backgroundColor: "var(--card-bg)",
                             color: "var(--foreground)",
                           }}
-                          inputMode="text"
+                          inputMode="numeric"
                           aria-label={`Cantidad ${denom} colones`}
                           data-cash-count-input="true"
                         />
@@ -650,7 +650,7 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
                             backgroundColor: "var(--card-bg)",
                             color: "var(--foreground)",
                           }}
-                          inputMode="text"
+                          inputMode="numeric"
                           aria-label={`Cantidad ${denom} dólares`}
                           data-cash-count-input="true"
                         />
