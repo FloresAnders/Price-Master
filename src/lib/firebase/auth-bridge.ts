@@ -40,11 +40,21 @@ export async function ensureFirebaseCustomTokenAuth(
         await signOut(auth);
       }
 
-      const response = await fetch("/api/auth/firebase-token", {
-        method: "GET",
-        credentials: "same-origin",
-        cache: "no-store",
-      });
+      // Bounded so a hung request can never leave `firebaseAuthReady` pending
+      // forever (which would silently disable the user/version subscriptions).
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      let response: Response;
+      try {
+        response = await fetch("/api/auth/firebase-token", {
+          method: "GET",
+          credentials: "same-origin",
+          cache: "no-store",
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timer);
+      }
       if (!response.ok) return false;
 
       const data = (await response.json().catch(() => null)) as {
