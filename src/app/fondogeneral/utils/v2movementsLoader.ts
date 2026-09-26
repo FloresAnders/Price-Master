@@ -247,29 +247,31 @@ export async function ensureV2MovementsLoaded(
 
   const remoteBatchSize = computeRemoteBatchSize();
 
-  console.log("[FG-QUERY] MovimientosFondos v2 query", {
-    docKey,
-    accountKey: targetAccountKey,
-    queryKey,
-    createdAt: {
-      gte: startIso,
-      lt: endIsoExclusive,
-    },
-    providerCode: activeProviderCode || undefined,
-    paymentType: activePaymentType || undefined,
-    invoiceNumber: activeInvoiceNumber || undefined,
-    orderBy: "createdAt desc",
-    pageSize: remoteBatchSize,
-    append,
-    forceRefresh,
-    ui: {
-      pageSizeMode: pageSize,
-      currentDailyKey,
-      todayKey,
-      fromFilter,
-      toFilter,
-    },
-  });
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[FG-QUERY] MovimientosFondos v2 query", {
+      docKey,
+      accountKey: targetAccountKey,
+      queryKey,
+      createdAt: {
+        gte: startIso,
+        lt: endIsoExclusive,
+      },
+      providerCode: activeProviderCode || undefined,
+      paymentType: activePaymentType || undefined,
+      invoiceNumber: activeInvoiceNumber || undefined,
+      orderBy: "createdAt desc",
+      pageSize: remoteBatchSize,
+      append,
+      forceRefresh,
+      ui: {
+        pageSizeMode: pageSize,
+        currentDailyKey,
+        todayKey,
+        fromFilter,
+        toFilter,
+      },
+    });
+  }
 
   const shouldReset = forceRefresh || !queryUnchanged || !append;
   const nextCache = {

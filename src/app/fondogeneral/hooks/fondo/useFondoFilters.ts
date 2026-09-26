@@ -9,7 +9,6 @@ import {
   formatMovementType,
   isIngresoType,
   isEgresoType,
-  isGastoType,
   getPrimaryMovementDateISO,
   getPrimaryMovementTime,
   dateKeyFromDate,

@@ -98,7 +98,7 @@ export default function ChangeEmailModal({
     if (!userId) return;
 
     const normalized = newEmail.trim().toLowerCase();
-    const normalizedCode = code.trim();
+    const normalizedCode = code.trim().toUpperCase();
 
     if (!isValidEmail(normalized)) {
       setError("Ingresa un correo válido.");
@@ -207,8 +207,11 @@ export default function ChangeEmailModal({
                   onChange={(e) => setCode(e.target.value)}
                   disabled={busy}
                   className="w-full h-10 px-3 sm:px-4 py-2 sm:py-2.5 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/60 focus-visible:ring-offset-1 transition-colors hover:border-[var(--accent)]/40 disabled:cursor-not-allowed disabled:opacity-60"
-                  placeholder="000000"
-                  inputMode="numeric"
+                  placeholder="CÓDIGO"
+                  inputMode="text"
+                  autoCapitalize="characters"
+                  autoComplete="one-time-code"
+                  maxLength={8}
                 />
               </div>
             </>

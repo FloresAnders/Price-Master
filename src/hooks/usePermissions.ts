@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Camera, CameraPermissionState } from "@capacitor/camera";
 import { Clipboard } from "@capacitor/clipboard";
 import { Capacitor } from "@capacitor/core";

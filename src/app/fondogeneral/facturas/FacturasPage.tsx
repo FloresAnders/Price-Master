@@ -328,18 +328,18 @@ export default function FacturasCreditoPage() {
   });
 
   // Filter state (mirrors Fondo toolbar names)
-  const [providerFilter, setProviderFilter] = useState("");
+  const [, setProviderFilter] = useState("");
   const [filterProviderCode, setFilterProviderCode] = useState<string>("all");
   const [isProviderDropdownOpen, setIsProviderDropdownOpen] = useState(false);
 
-  const [typeFilter, setTypeFilter] = useState("");
+  const [, setTypeFilter] = useState("");
   const [filterPaymentType, setFilterPaymentType] = useState<string>("all");
   const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
 
   const [docTypeFilter, setDocTypeFilter] = useState<
     "all" | "FCR" | "NC" | "FCO"
   >("all");
-  const [docTypeFilterLabel, setDocTypeFilterLabel] = useState("");
+  const [, setDocTypeFilterLabel] = useState("");
   const [isDocTypeDropdownOpen, setIsDocTypeDropdownOpen] = useState(false);
   const [providerDropdownQuery, setProviderDropdownQuery] = useState("");
   const [typeDropdownQuery, setTypeDropdownQuery] = useState("");
@@ -390,7 +390,7 @@ export default function FacturasCreditoPage() {
     filterPartial ||
     filterRebajadas;
   const hasActiveViewFilter = hasActiveStatusFilter || filterEditedOnly;
-  const [rememberFilters, setRememberFilters] = useState(() => {
+  const [rememberFilters] = useState(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("fg_rememberFilters") === "true";
     }
@@ -509,7 +509,7 @@ export default function FacturasCreditoPage() {
   // Recalcular todayKey cada minuto para sesiones largas
   useEffect(() => {
     const id = window.setInterval(() => {
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+       
       setComputedTodayKey(dateKeyFromDate(new Date()));
     }, 60_000);
     return () => window.clearInterval(id);
@@ -1437,11 +1437,6 @@ export default function FacturasCreditoPage() {
     return resolveFacturaPaidAmount(paymentTarget);
   }, [paymentTarget]);
 
-  const selectedPaymentStatus = useMemo(() => {
-    if (!paymentTarget) return "PENDIENTE" as const;
-    return resolveFacturaStatusLabel(paymentTarget);
-  }, [paymentTarget]);
-
   const paymentAvailableCreditNotes = useMemo(
     () =>
       resolvePendingCreditNoteOptionsForInvoice(
@@ -1940,7 +1935,7 @@ export default function FacturasCreditoPage() {
                 latestDailyClosingTs,
               );
             }
-          } catch (err) {
+          } catch {
             if (!cancelled) {
               setPendingCierreDeCaja(false);
               console.log(
@@ -1951,7 +1946,7 @@ export default function FacturasCreditoPage() {
         } else {
           if (!cancelled) setPendingCierreDeCaja(false);
         }
-      } catch (err) {
+      } catch {
         // ignore errors; default to not blocking
       }
     };
@@ -2232,11 +2227,6 @@ export default function FacturasCreditoPage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [movements]);
 
-  // Keep the toolbar JSX structure intact.
-  const FONDO_INGRESO_TYPES = movementTypes;
-  const FONDO_GASTO_TYPES: string[] = [];
-  const FONDO_EGRESO_TYPES: string[] = [];
-
   const pendingSupplierAlerts = useMemo(() => {
     const map = new Map<
       string,
@@ -2282,24 +2272,6 @@ export default function FacturasCreditoPage() {
       return a.providerName.localeCompare(b.providerName, "es");
     });
   }, [movements, providerNameByCode]);
-
-  const selectedProviderPendingAlert = useMemo(
-    () =>
-      filterProviderCode !== "all"
-        ? (pendingSupplierAlerts.find(
-            (item) => item.providerCode === filterProviderCode,
-          ) ?? null)
-        : null,
-    [filterProviderCode, pendingSupplierAlerts],
-  );
-
-  const formatAlertAmount = (currency: MovementCurrencyKey, value: number) =>
-    value.toLocaleString("es-CR", {
-      style: "currency",
-      currency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    });
 
   const filteredMovements = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();

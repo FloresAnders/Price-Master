@@ -23,13 +23,9 @@ const nextConfig: NextConfig & { turbopack?: { root?: string } } = {
     optimizeCss: true,
     optimizePackageImports: ['lucide-react', 'framer-motion'],
   },
-  // A stable build id keeps client caches valid across deploys that don't change
-  // content-hashed chunks (the previous value was `build-<timestamp>`, which
-  // busted caches on every build). Override with BUILD_ID when a fresh id is
-  // actually required.
-  generateBuildId: async () => {
-    return process.env.BUILD_ID || 'timemaster'
-  },
+  // Let Next derive a content-based build id. A constant id would keep clients
+  // holding an old HTML shell pointing at chunk paths that a later deploy may
+  // have removed ("Failed to load chunk").
   // Ensure environment variables are available at build time
   env: {
     NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -56,6 +52,43 @@ const nextConfig: NextConfig & { turbopack?: { root?: string } } = {
     try {
       const publicDir = path.join(process.cwd(), 'public');
       const entries: Array<{ source: string; headers: { key: string; value: string }[] }> = [];
+
+      // Baseline security headers for every route. CSP ships in report-only
+      // mode first so it cannot break rendering while its allowlist is tuned.
+      const securityHeaders = [
+        { key: 'X-Content-Type-Options', value: 'nosniff' },
+        { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+        { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        {
+          key: 'Permissions-Policy',
+          value: 'camera=(self), microphone=(self), geolocation=(self)',
+        },
+        {
+          key: 'Strict-Transport-Security',
+          value: 'max-age=63072000; includeSubDomains',
+        },
+        {
+          key: 'Content-Security-Policy-Report-Only',
+          value: [
+            "default-src 'self'",
+            "base-uri 'self'",
+            "object-src 'none'",
+            "frame-ancestors 'self'",
+            "form-action 'self'",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://www.gstatic.com",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: blob: https://firebasestorage.googleapis.com https://*.googleusercontent.com https://www.gstatic.com",
+            "font-src 'self' data:",
+            "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.cloudfunctions.net https://*.run.app",
+            "frame-src 'self' https://*.firebaseapp.com",
+            "worker-src 'self' blob:",
+          ].join('; '),
+        },
+      ];
+      const securityHeadersEntry = {
+        source: '/:path*',
+        headers: securityHeaders,
+      };
 
       function walk(dir: string, base = '') {
         const items = fs.readdirSync(dir, { withFileTypes: true });
@@ -99,15 +132,28 @@ const nextConfig: NextConfig & { turbopack?: { root?: string } } = {
 
       if (entries.length === 0) {
         return [
+          securityHeadersEntry,
           { source: '/favicon-32x32.png', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable, s-maxage=31536000' }] },
           { source: '/site.webmanifest', headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800' }] }
         ];
       }
 
-      return entries;
+      return [securityHeadersEntry, ...entries];
     } catch (err) {
       console.error('Error generating headers for public files:', err);
       return [
+        {
+          source: '/:path*',
+          headers: [
+            { key: 'X-Content-Type-Options', value: 'nosniff' },
+            { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+            { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+            {
+              key: 'Strict-Transport-Security',
+              value: 'max-age=63072000; includeSubDomains',
+            },
+          ],
+        },
         { source: '/favicon-32x32.png', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable, s-maxage=31536000' }] },
         { source: '/site.webmanifest', headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800' }] }
       ];

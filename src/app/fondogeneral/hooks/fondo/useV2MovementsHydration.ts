@@ -436,6 +436,7 @@ export function useV2MovementsHydration({
         listenerSessionRef.current === listenerSession && listenerSession.valid;
       let previousRevision = observedRevisionsRef.current.get(docKey) ?? 0;
       let firstSnapshot = true;
+      const baselineAdopted = observedRevisionsRef.current.has(docKey);
       let queue = Promise.resolve();
       setLedgerSyncStatus("connecting");
       unsubscribe = MovimientosFondosService.subscribeToLedger<FondoEntry>(docKey, (snapshot) => {
@@ -444,6 +445,13 @@ export function useV2MovementsHydration({
         if (!applyConfirmedLedger(docKey, snapshot.storage)) return;
         listenerSession.confirmed = true;
         const nextRevision = snapshot.storage.state.revision ?? 0;
+        if (firstSnapshot && !baselineAdopted) {
+          // The initial REST hydration already delivered the current page, so
+          // adopt the first snapshot revision as the baseline. Otherwise the
+          // listener sees a false gap (0 -> N) and re-fetches a full page on
+          // every open (~50-100 extra reads).
+          previousRevision = nextRevision;
+        }
         const lastChange = snapshot.storage.state.lastChange;
         const markDirty = (key: string) => {
           dirtyAccountsRef.current.set(key, ++dirtySequenceRef.current);
@@ -456,7 +464,9 @@ export function useV2MovementsHydration({
         } else if (nextRevision > previousRevision && lastChange?.accountId !== accountKey && lastChange) {
           markDirty(buildV2MovementsCacheKey(docKey, lastChange.accountId));
         }
-        const action = firstSnapshot && dirtyAccountsRef.current.has(cacheKey)
+        const action = firstSnapshot &&
+          (dirtyAccountsRef.current.has(cacheKey) ||
+            failedAccountsRef.current.has(cacheKey))
           ? { type: "refresh-range" as const }
           : decideLedgerRevisionSync({ previousRevision, nextRevision, lastChange,
           activeAccountId: accountKey, locallyAppliedMutationIds: localMutationIdsRef.current });

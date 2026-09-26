@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-/* eslint-disable @typescript-eslint/no-require-imports */
+ 
 
 /*
  * Script: Normaliza paymentType a "AJUSTE CIERRE" para todos los movimientos de cierre automático

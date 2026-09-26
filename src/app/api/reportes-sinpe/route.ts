@@ -6,6 +6,7 @@ import {
   getSinpeEmpresa,
 } from "@/services/sinpe-access.server";
 import { readBcrSinpeReport } from "@/services/sinpe-imap.server";
+import { requestClientKey } from "@/lib/security/rate-limit.server";
 
 export const runtime = "nodejs";
 
@@ -56,9 +57,8 @@ const parseRangeDate = (date: unknown, time: unknown) => {
 };
 
 const rateLimitKey = (request: NextRequest, userId: string) => {
-  const forwarded = request.headers.get("x-forwarded-for") || "";
-  const ip = forwarded.split(",")[0]?.trim() || "unknown";
-  return `${ip}:${userId}`;
+  // Untrusted `x-forwarded-for` is ignored unless TRUST_PROXY_HEADERS is set.
+  return `${requestClientKey(request)}:${userId}`;
 };
 
 const isRateLimited = (key: string) => {

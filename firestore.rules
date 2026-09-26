@@ -790,13 +790,12 @@ service cloud.firestore {
         collection != 'authSessions';
     }
 
-    // Compatibilidad temporal con el cliente actual de TimeMaster, que usa
-    // sesiones propias y accede a Firestore sin Firebase Authentication.
-    // IMPORTANTE: las coincidencias de reglas se combinan con OR, por lo que
-    // este bloque permite acceso global hasta la fecha indicada, incluso en
-    // colecciones que tienen reglas mas restrictivas arriba.
-    match /{document=**} {
-      allow read, write: if request.time < timestamp.date(2027, 7, 9);
-    }
+    // NOTA: el cliente ya no accede a Firestore sin autenticacion. La sesion
+    // propia (`timemaster_auth`) se intercambia por un custom token de Firebase
+    // en `/api/auth/firebase-token`, y el navegador firma con
+    // `signInWithCustomToken`. Por eso las reglas de arriba, basadas en
+    // `isSignedIn()`, ya se aplican y no existe un bloque de acceso global.
+    // No reintroducir un `match /{document=**}` sin autenticacion: las reglas
+    // se combinan con OR y anularía todas las restricciones anteriores.
   }
 }

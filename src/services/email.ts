@@ -1,5 +1,5 @@
-import { db } from "@/config/firebase";
-import { collection, addDoc, Timestamp } from "firebase/firestore";
+import { Timestamp } from "firebase-admin/firestore";
+import { getAdminDb } from "@/lib/firebase-admin";
 
 interface EmailAttachment {
   filename: string;
@@ -47,7 +47,8 @@ export class EmailService {
       }
 
       // Guardar en Firestore - esto disparará la Cloud Function
-      await addDoc(collection(db, "mail"), emailData);
+      // Server-only: usa Firebase Admin, así no depende de las reglas del cliente.
+      await getAdminDb().collection("mail").add(emailData);
 
       console.log("✅ Email queued successfully for:", options.to);
     } catch (error) {

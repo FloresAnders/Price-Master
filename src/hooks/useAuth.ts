@@ -21,6 +21,10 @@ import { UsersService } from "@/services/users";
 import { subscribeToVersionDoc } from "@/services/version-doc";
 import { clearFondoCacheForUser } from "@/services/fondo-cache";
 import { FondoMovementTypesService } from "@/services/fondo-movement-types";
+import {
+  clearFirebaseCustomTokenAuth,
+  ensureFirebaseCustomTokenAuth,
+} from "@/lib/firebase/auth-bridge";
 
 const AUTH_STATE_EVENT = "timemaster-auth-state";
 const AUTH_SYNC_STORAGE_KEY = "timemaster_auth_sync";
@@ -103,6 +107,7 @@ function useAuthState() {
   const [loading, setLoading] = useState(true);
   const [sessionExpiresAt, setSessionExpiresAt] = useState<number | null>(null);
   const [sessionWarning, setSessionWarning] = useState(false);
+  const [firebaseAuthReady, setFirebaseAuthReady] = useState(false);
 
   const applyAuthState = useCallback((detail: AuthStateDetail) => {
     setUser(detail.user);
@@ -122,6 +127,8 @@ function useAuthState() {
     releaseSessionHeartbeatLease(localStorage, heartbeatOwnerId.current);
     clearLegacyAuthState();
     localStorage.removeItem("timemaster_user_phash");
+    setFirebaseAuthReady(false);
+    void clearFirebaseCustomTokenAuth();
     const next = { user: null, expiresAt: null };
     applyAuthState(next);
     publishAuthState(next);
@@ -251,6 +258,21 @@ function useAuthState() {
     };
   }, [checkExistingSession, checkSessionHeartbeat]);
 
+  // Bridge the server session into Firebase Auth so Firestore rules apply.
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) {
+      setFirebaseAuthReady(false);
+      return;
+    }
+    let cancelled = false;
+    void ensureFirebaseCustomTokenAuth(user.id).finally(() => {
+      if (!cancelled) setFirebaseAuthReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, user?.id]);
+
   useEffect(() => {
     const handleAuthState = (event: Event) => {
       invalidateSessionChecks();
@@ -286,7 +308,7 @@ function useAuthState() {
   }, [clearClientSession]);
 
   useEffect(() => {
-    if (!isAuthenticated || !user?.id) return;
+    if (!isAuthenticated || !user?.id || !firebaseAuthReady) return;
     return UsersService.subscribeToUser(
       user.id,
       (updatedUser) => {
@@ -303,7 +325,7 @@ function useAuthState() {
       },
       (error) => console.warn("No se pudo actualizar el usuario autenticado", error),
     );
-  }, [clearClientSession, isAuthenticated, user?.id]);
+  }, [clearClientSession, firebaseAuthReady, isAuthenticated, user?.id]);
 
   const logout = useCallback(async (_reason?: string) => {
     void _reason;
@@ -323,6 +345,7 @@ function useAuthState() {
   }, [clearClientSession, user?.email, user?.id]);
 
   useEffect(() => {
+    if (!firebaseAuthReady) return;
     return subscribeToVersionDoc((snapshot) => {
       const nextVersion = snapshot?.versionstorage?.trim();
       if (!nextVersion) return;
@@ -338,7 +361,7 @@ function useAuthState() {
         });
       }
     });
-  }, [logout]);
+  }, [firebaseAuthReady, logout]);
 
   useEffect(() => {
     const updateWarning = () => {

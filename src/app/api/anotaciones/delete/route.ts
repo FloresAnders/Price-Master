@@ -5,6 +5,7 @@ import {
   verifyPasswordServer,
 } from "@/lib/auth/password.server";
 import { readUserIdFromSessionCookie } from "@/lib/auth/session-cookie.server";
+import { requestClientKey } from "@/lib/security/rate-limit.server";
 
 export const runtime = "nodejs";
 
@@ -38,9 +39,8 @@ const normalizeEmpresaDocId = (empresa: string): string => {
 };
 
 function rateLimitKey(request: Request, userId: string) {
-  const forwarded = request.headers.get("x-forwarded-for") || "";
-  const ip = forwarded.split(",")[0]?.trim() || "unknown";
-  return `${ip}:${userId}`;
+  // Untrusted `x-forwarded-for` is ignored unless TRUST_PROXY_HEADERS is set.
+  return `${requestClientKey(request)}:${userId}`;
 }
 
 function isRateLimited(key: string) {

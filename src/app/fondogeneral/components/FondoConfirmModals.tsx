@@ -1,7 +1,7 @@
 "use client";
 
 import ConfirmModal from "../../../components/ui/ConfirmModal";
-import { AlertCircle, CheckCircle2, X, XCircle } from "lucide-react";
+import { AlertCircle, CheckCircle2, X } from "lucide-react";
 
 type ConfirmDeleteEntry = {
   open: boolean;

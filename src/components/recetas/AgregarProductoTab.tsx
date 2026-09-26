@@ -92,7 +92,7 @@ export function AgregarProductoTab() {
     peso: false,
     precio: false,
   });
-  const [lastSaveFeedback, setLastSaveFeedback] = useState<null | {
+  const [, setLastSaveFeedback] = useState<null | {
     type: "add" | "edit";
     nombre: string;
   }>(null);

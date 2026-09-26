@@ -783,7 +783,7 @@ export default function TimingControl() {
 
   // Adaptar TicketEntry a Ticket para TicketCarousel
   const ticketsForCarousel = tickets.map((t) => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+     
     const { code, ...rest } = t;
     return rest;
   });

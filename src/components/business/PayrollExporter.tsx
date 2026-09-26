@@ -13,7 +13,7 @@ import { useActorOwnership } from "../../hooks/useActorOwnership";
 import {
   Calculator,
   DollarSign,
-  Image,
+  Image as ImageIcon,
   Save,
   Calendar,
   MapPin,
@@ -1900,7 +1900,7 @@ export default function PayrollExporter({
                   className="flex-1 sm:flex-none px-4 py-3 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 transition-all shadow-sm flex items-center justify-center gap-2 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed"
                   title="Exportar planillas como imágenes"
                 >
-                  <Image className="w-4 h-4" />
+                  <ImageIcon className="w-4 h-4" />
                   <span className="hidden sm:inline">Exportar Imágenes</span>
                   <span className="sm:hidden">Exportar</span>
                 </button>
@@ -2013,7 +2013,7 @@ export default function PayrollExporter({
                               className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md flex items-center gap-2 transition-colors"
                               title={`Exportar planilla de ${employee.employeeName}`}
                             >
-                              <Image className="w-4 h-4" />
+                              <ImageIcon className="w-4 h-4" />
                               <span className="hidden sm:inline">Exportar</span>
                             </button>
                           </div>

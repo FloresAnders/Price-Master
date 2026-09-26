@@ -62,7 +62,6 @@ export type SupplierWeekSectionProps = {
 export function SupplierWeekSection(props: SupplierWeekSectionProps) {
   const {
     isSupplierWeekRoute,
-    showSupplierWeekInMenu,
     companyForProviders,
     companySelectorValue,
     canChangeCompanyForProviders,

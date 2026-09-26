@@ -85,11 +85,13 @@ export async function persistMovementToFirestore(
       };
     }
 
-    console.log(`[PERSIST-IMMEDIATE] Guardando ${operationType} a Firestore...`, {
-      company: normalizedCompany,
-      accountKey,
-      entriesCount: updatedEntries.length,
-    });
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`[PERSIST-IMMEDIATE] Guardando ${operationType} a Firestore...`, {
+        company: normalizedCompany,
+        accountKey,
+        entriesCount: updatedEntries.length,
+      });
+    }
 
     let committedSnapshot: LedgerBalanceSnapshot | null = null;
     const committed = await MovimientosFondosService.commitLedgerTransaction<FondoEntry, FondoEntry>({
@@ -183,7 +185,9 @@ export async function persistMovementToFirestore(
         console.warn("[PERSIST-IMMEDIATE] cache invalidation failed after commit:", cacheErr);
       }
     }
-    console.log(`[PERSIST-IMMEDIATE] ${operationType} guardado (confirmed=true)`);
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`[PERSIST-IMMEDIATE] ${operationType} guardado (confirmed=true)`);
+    }
     return {
       ok: true,
       confirmed: true,

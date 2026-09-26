@@ -146,7 +146,7 @@ export default function TapTooltip({
       window.removeEventListener("resize", onResizeOrScroll);
       window.removeEventListener("scroll", onResizeOrScroll, true);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [open, isSmallScreen]);
 
   const onSheetHandlePointerDown = (e: React.PointerEvent) => {

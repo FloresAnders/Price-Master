@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { TokenService } from "../services/tokenService";
 
 export default function DeviceLinkClient() {
   const router = useRouter();
@@ -96,8 +97,6 @@ export default function DeviceLinkClient() {
 
                   if (whoData && whoData.user) {
                     // Create token session locally so AuthWrapper recognizes the user
-                    // eslint-disable-next-line @typescript-eslint/no-var-requires
-                    const { TokenService } = require('../services/tokenService');
                     const u = whoData.user;
                     TokenService.createTokenSession(u);
                     setAuthUser(u);
@@ -108,7 +107,7 @@ export default function DeviceLinkClient() {
                     }
                     return;
                   }
-                } catch (e) {
+                } catch {
                   // ignore and fallback to home
                 }
                 if (pollRef.current) {
@@ -131,7 +130,7 @@ export default function DeviceLinkClient() {
             }
           }
         }
-      } catch (err) {
+      } catch {
         // ignore polling errors
       }
     }, 2000);

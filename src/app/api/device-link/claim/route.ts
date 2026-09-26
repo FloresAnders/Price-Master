@@ -17,7 +17,12 @@ export async function POST(req: Request) {
     const now = new Date();
 
     if (data.status && data.status !== 'pending') {
-      // allow scanning only when pending
+      // Only a freshly created request may be scanned. Re-claiming an already
+      // scanned/approved/used request would overwrite its device info.
+      return NextResponse.json(
+        { error: 'invalid_status', currentStatus: data.status },
+        { status: 409 },
+      );
     }
 
     if (data.qrExpiresAt && new Date(data.qrExpiresAt.toDate ? data.qrExpiresAt.toDate() : data.qrExpiresAt) < now) {

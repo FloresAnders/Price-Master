@@ -140,7 +140,7 @@ async function performFlush() {
   let configuration;
   try {
     configuration = await readConfiguration();
-  } catch (error) {
+  } catch {
     console.warn('[TimeMaster] ConfiguraciÃ³n de sincronizaciÃ³n invÃ¡lida.');
     return;
   }

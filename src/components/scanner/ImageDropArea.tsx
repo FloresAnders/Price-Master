@@ -23,7 +23,7 @@ export default function ImageDropArea({
     setDragActive(true);
   };
 
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragLeave = () => {
     setDragActive(false);
   };
 

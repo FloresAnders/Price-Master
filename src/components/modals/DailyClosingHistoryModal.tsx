@@ -8,7 +8,6 @@ import {
   Loader2,
   History,
   Clock,
-  ChevronDown,
   ChevronUp,
 } from "lucide-react";
 import DailyClosingHistorySection from "../daily-closings/DailyClosingHistorySection";

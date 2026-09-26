@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { RecoveryTokenService } from "@/services/recoveryTokenService";
 import { EmailService } from "@/services/email";
-import { db } from "@/config/firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { getAdminDb } from "@/lib/firebase-admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,9 +19,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. Valida que el email exista en la base de datos
-    const usersRef = collection(db, "users");
-    const q = query(usersRef, where("email", "==", email));
-    const querySnapshot = await getDocs(q);
+    const querySnapshot = await getAdminDb()
+      .collection("users")
+      .where("email", "==", email)
+      .limit(1)
+      .get();
 
     if (querySnapshot.empty) {
       // Por seguridad, no revelamos si el email existe o no
@@ -64,10 +65,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Error al procesar la solicitud",
+        error: "No se pudo procesar la solicitud.",
       },
       { status: 500 },
     );

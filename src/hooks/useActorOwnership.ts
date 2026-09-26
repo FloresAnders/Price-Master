@@ -6,7 +6,6 @@ import {
   readActorSessionSnapshot,
   ensureOwnerIdArray,
   resolveActorOwnerId,
-  type SessionSnapshot,
   type ActorLike,
 } from "../utils/actorOwnership";
 

@@ -331,7 +331,7 @@ function MobileScanContent() {
           });
 
           // Get download URL (optional, for verification)
-          const downloadURL = await getDownloadURL(storageRef);
+          await getDownloadURL(storageRef);
 
           // Update images count
           setUploadedImagesCount((prev) => prev + 1);

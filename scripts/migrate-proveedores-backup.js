@@ -1,4 +1,4 @@
-/* eslint-disable no-console */
+ 
 /**
  * Migrate proveedores backup JSON to Firestore
  *

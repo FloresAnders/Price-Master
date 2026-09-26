@@ -69,7 +69,7 @@ function ResetPasswordContent() {
         setTokenValid(false);
         setError("Token inválido");
       }
-    } catch (err) {
+    } catch {
       setTokenValid(false);
       setError("Error al validar el token");
     } finally {

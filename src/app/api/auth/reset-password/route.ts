@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { RecoveryTokenService } from "@/services/recoveryTokenService";
 import { EmailService } from "@/services/email";
 import { hashPasswordServer } from "@/lib/auth/password.server";
-import { db } from "@/config/firebase";
-import { doc, updateDoc } from "firebase/firestore";
+import { getAdminDb } from "@/lib/firebase-admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,9 +64,7 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await hashPasswordServer(newPassword);
 
     // 3. Actualiza en Firestore
-    const userRef = doc(db, "users", userId);
-
-    await updateDoc(userRef, {
+    await getAdminDb().collection("users").doc(userId).update({
       password: hashedPassword,
       lastPasswordChange: Date.now(),
       passwordResetRequired: false,
@@ -88,10 +85,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Error al restablecer la contraseña",
+        error: "No se pudo restablecer la contraseña.",
       },
       { status: 500 },
     );

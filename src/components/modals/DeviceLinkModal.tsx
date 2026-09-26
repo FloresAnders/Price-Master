@@ -15,7 +15,7 @@ export default function DeviceLinkModal({ isOpen, onClose }: DeviceLinkModalProp
   const [loading, setLoading] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [requestId, setRequestId] = useState<string | null>(null);
-  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [, setExpiresAt] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [sessions, setSessions] = useState<any[]>([]);
   const pollRef = useRef<number | null>(null);
@@ -53,7 +53,7 @@ export default function DeviceLinkModal({ isOpen, onClose }: DeviceLinkModalProp
         });
         const data = await res.json();
         if (res.ok && data.sessions) setSessions(data.sessions);
-      } catch (e) {
+      } catch {
         // ignore
       }
     })();
@@ -117,7 +117,7 @@ export default function DeviceLinkModal({ isOpen, onClose }: DeviceLinkModalProp
               }
             }
           }
-        } catch (err) {
+        } catch {
           // ignore
         }
       }, 2000);
@@ -149,7 +149,7 @@ export default function DeviceLinkModal({ isOpen, onClose }: DeviceLinkModalProp
         });
         const sdata = await sres.json();
         if (sres.ok && sdata.sessions) setSessions(sdata.sessions);
-      } catch (e) {
+      } catch {
         // ignore
       }
     } catch (err: any) {

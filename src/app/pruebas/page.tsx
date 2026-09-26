@@ -10,6 +10,10 @@ export default function PruebasPage() {
   const { loading, isSuperAdmin, isAuthenticated } = useAuth();
   const router = useRouter();
 
+  // The shared-password unlock is a non-production convenience. In production
+  // /pruebas is reachable only by an authenticated superadmin.
+  const isProduction = process.env.NODE_ENV === "production";
+
   const { unlocked, password, setPassword, submitting, error, unlock } =
     usePruebasUnlock({
       ttlMs: 5 * 60 * 1000,
@@ -25,8 +29,19 @@ export default function PruebasPage() {
     );
   }
 
-  // Not authenticated: require password unlock.
+  // Not authenticated: require password unlock (non-production only).
   if (!isAuthenticated) {
+    if (isProduction) {
+      return (
+        <div className="max-w-3xl mx-auto p-6">
+          <div className="bg-[var(--card-bg)] border border-[var(--border)] rounded-lg p-6">
+            <h1 className="text-xl font-semibold text-[var(--foreground)]">
+              Acceso restringido
+            </h1>
+          </div>
+        </div>
+      );
+    }
     if (!unlocked) {
       return (
         <div className="max-w-3xl mx-auto p-6">

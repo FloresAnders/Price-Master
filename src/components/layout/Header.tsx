@@ -177,7 +177,6 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     }
   }, []);
   const [showNotifModal, setShowNotifModal] = useState(false);
-  const [showMobileQrModal, setShowMobileQrModal] = useState(false);
   const [hasNewSolicitudes, setHasNewSolicitudes] = useState(false);
   const [hasNewClosingExtensions, setHasNewClosingExtensions] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });

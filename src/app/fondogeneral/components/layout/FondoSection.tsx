@@ -743,10 +743,10 @@ export function FondoSection({
     useState<"D" | "N" | undefined>(currentTurno);
   const [dailyClosingSummaryRecord, setDailyClosingSummaryRecord] =
     useState<DailyClosingRecord | null>(null);
-  const [authoritativeCRDateKey, setAuthoritativeCRDateKey] = useState("");
+  const [, setAuthoritativeCRDateKey] = useState("");
   const [dailyClosingOperationalDateKey, setDailyClosingOperationalDateKey] =
     useState("");
-  const [cierreDRealStatus, setCierreDRealStatus] = useState<{
+  const [, setCierreDRealStatus] = useState<{
     operationalDateKey: string;
     hasCierreD: boolean;
   } | null>(null);
@@ -1064,8 +1064,8 @@ export function FondoSection({
     useState<ClosingTimeRequestState>(null);
   const [closingTimeRequestSaving, setClosingTimeRequestSaving] =
     useState(false);
-  const [hydratedCompany, setHydratedCompany] = useState("");
-  const [hydratedAccountKey, setHydratedAccountKey] =
+  const [, setHydratedCompany] = useState("");
+  const [, setHydratedAccountKey] =
     useState<MovementAccountKey>(accountKey);
   const { pendingCierreDeCaja, setPendingCierreDeCaja } =
     usePendingCierreDeCajaStatus({

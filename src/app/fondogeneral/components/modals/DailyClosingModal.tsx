@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 
 import ConfirmModal from "../../../../components/ui/ConfirmModal";
-import { isWithinCierreRange } from "../../utils/turnoRango";
 import {
   SINGLE_CLOSING_REASON_INVALID_MESSAGE,
   SINGLE_CLOSING_REASON_MIN_LENGTH,
@@ -276,8 +275,6 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   managerReadonly = false,
   turno,
   requireTurnoSelection = false,
-  cierreFondoVentasMinutesBeforeEnd,
-  cierreFondoVentasMinutesAfterEnd,
   previousReconciliation,
   cumulativeContica,
   systemVerificationEnabled = true,

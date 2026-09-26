@@ -26,7 +26,6 @@ export function generateMovementNotificationEmail(data: MovementData): {
   const {
     company,
     providerName,
-    providerCode,
     paymentType,
     invoiceNumber,
     amount,

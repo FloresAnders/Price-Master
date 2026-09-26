@@ -38,10 +38,9 @@ export class MigrationService {
 
       // Migrate each sorteo
       for (const sorteoName of sorteosData as string[]) {
-        const sorteoId = await SorteosService.addSorteo({
+        await SorteosService.addSorteo({
           name: sorteoName,
         });
-        //(`Migrated sorteo: ${sorteoName} (ID: ${sorteoId})`);
       }
 
       //(`Successfully migrated ${sorteosData.length} sorteos to Firestore.`);
@@ -104,8 +103,8 @@ export class MigrationService {
           ],
         });
         //('CCSS configuration reset to default values.');
-      } catch (error) {
-        // eslint-disable-line @typescript-eslint/no-unused-vars
+      } catch {
+         
         //('CCSS configuration not found or already at defaults.');
       }
 
