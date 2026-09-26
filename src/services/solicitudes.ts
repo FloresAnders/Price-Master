@@ -2,12 +2,16 @@ import { FirestoreService } from "./firestore";
 import {
   collection,
   doc,
+  getDocs,
   limit,
   onSnapshot,
   orderBy,
   query,
+  startAfter,
   where,
   writeBatch,
+  type DocumentData,
+  type QueryDocumentSnapshot,
   type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "@/config/firebase";
@@ -98,9 +102,22 @@ export class SolicitudesService {
   }
 
   /**
-   * Get all solicitudes ordered by newest first
+   * Get all solicitudes ordered by newest first.
+   *
+   * The current caller (SolicitudForm) filters by company client-side, so it
+   * needs the full set: `limitCount` stays optional and defaults to no limit to
+   * preserve today's result. Callers that only render a bounded list should use
+   * `listSolicitudesPage` (cursor-based) instead.
    */
-  static async getAllSolicitudes(): Promise<any[]> {
+  static async getAllSolicitudes(options?: {
+    limitCount?: number;
+  }): Promise<any[]> {
+    const limitCount =
+      typeof options?.limitCount === "number" &&
+      Number.isFinite(options.limitCount) &&
+      options.limitCount > 0
+        ? Math.trunc(options.limitCount)
+        : undefined;
     // Use query helper to order by createdAt desc
     try {
       const rows = await FirestoreService.query(
@@ -108,12 +125,42 @@ export class SolicitudesService {
         [],
         "createdAt",
         "desc",
+        limitCount,
       );
       return rows;
     } catch (err) {
       console.error("Error fetching solicitudes:", err);
       return [];
     }
+  }
+
+  /**
+   * Cursor-based pagination for solicitudes (newest first). Lets a caller pull
+   * the collection in bounded pages without changing `getAllSolicitudes`.
+   */
+  static async listSolicitudesPage(options?: {
+    pageSize?: number;
+    cursor?: QueryDocumentSnapshot<DocumentData> | null;
+  }): Promise<{
+    items: any[];
+    cursor: QueryDocumentSnapshot<DocumentData> | null;
+    exhausted: boolean;
+  }> {
+    const pageSize = Math.max(1, Math.min(options?.pageSize ?? 100, 500));
+    const cursor = options?.cursor ?? null;
+    const constraints = [orderBy("createdAt", "desc"), limit(pageSize)];
+    const q = cursor
+      ? query(
+          collection(db, this.COLLECTION_NAME),
+          ...constraints,
+          startAfter(cursor),
+        )
+      : query(collection(db, this.COLLECTION_NAME), ...constraints);
+
+    const snap = await getDocs(q);
+    const items = snap.docs.map((item) => ({ id: item.id, ...item.data() }));
+    const nextCursor = snap.docs[snap.docs.length - 1] ?? cursor;
+    return { items, cursor: nextCursor, exhausted: snap.size < pageSize };
   }
 
   /**
@@ -204,6 +251,7 @@ export class SolicitudesService {
     if (!empresaKey) return [];
 
     try {
+      // Common case: a single query on the normalized `empresaKey` field.
       const byKey = await FirestoreService.query(
         this.COLLECTION_NAME,
         [{ field: "empresaKey", operator: "==", value: empresaKey }],
@@ -211,14 +259,18 @@ export class SolicitudesService {
         "desc",
         limitCount,
       );
-      const exact = await this.getSolicitudesByEmpresa(empresa, limitCount);
-      const merged = new Map<string, any>();
-      [...byKey, ...exact].forEach((row) => {
-        if (row?.id) merged.set(row.id, row);
-      });
-      return sortByCreatedAtDesc(
-        Array.from(merged.values()).filter((row) => !row?.listo),
+      const pendingByKey = sortByCreatedAtDesc(
+        byKey.filter((row) => !row?.listo),
       ).slice(0, limitCount);
+      if (pendingByKey.length > 0) return pendingByKey;
+
+      // Legacy fallback: reached only when the key query returns nothing, for
+      // documents still missing the normalized `empresaKey` field.
+      const exact = await this.getSolicitudesByEmpresa(empresa, limitCount);
+      return sortByCreatedAtDesc(exact.filter((row) => !row?.listo)).slice(
+        0,
+        limitCount,
+      );
     } catch (err) {
       console.error("Error fetching pending solicitudes for empresa", empresa, err);
       return [];

@@ -135,11 +135,13 @@ export function refreshProductosCache(
   notifyCacheChange(company);
 }
 
-export async function obtenerVersionProductos(
-  company: string,
-): Promise<number> {
-  const companyKey = requireCompany(company);
+const VERSION_CACHE_TTL_MS = 10_000;
+const versionReads = new Map<
+  string,
+  { expiresAt: number; promise: Promise<number> }
+>();
 
+async function readVersionFromFirestore(companyKey: string): Promise<number> {
   // Consulta ligera: leer el doc raíz de la empresa (productos/{empresa})
   const root = (await FirestoreService.getById(
     "productos",
@@ -162,6 +164,39 @@ export async function obtenerVersionProductos(
   return 0;
 }
 
+/**
+ * Reads the productos version doc (productos/{empresa}).
+ *
+ * This root document is written with a raw `setDoc` (see
+ * `bumpProductosVersion`), so it is intentionally excluded from the
+ * FirestoreService micro-cache. Instead, repeated reads within a short window
+ * share one request here, and the entry is dropped whenever this module bumps
+ * the version. On the server the cache is skipped (no shared module state).
+ */
+export async function obtenerVersionProductos(
+  company: string,
+): Promise<number> {
+  const companyKey = requireCompany(company);
+
+  if (typeof window === "undefined") {
+    return await readVersionFromFirestore(companyKey);
+  }
+
+  const cached = versionReads.get(companyKey);
+  const now = Date.now();
+  if (cached && cached.expiresAt > now) return cached.promise;
+
+  const promise = readVersionFromFirestore(companyKey).catch((error) => {
+    versionReads.delete(companyKey);
+    throw error;
+  });
+  versionReads.set(companyKey, {
+    expiresAt: now + VERSION_CACHE_TTL_MS,
+    promise,
+  });
+  return promise;
+}
+
 export async function bumpProductosVersion(company: string): Promise<number> {
   const companyKey = requireCompany(company);
 
@@ -178,6 +213,9 @@ export async function bumpProductosVersion(company: string): Promise<number> {
     },
     { merge: true },
   );
+
+  // The cached version is now stale for this company.
+  versionReads.delete(companyKey);
 
   return nextVersion;
 }

@@ -210,11 +210,22 @@ export class PayrollRecordsService {
    */
   static async getRecordsByLocation(
     companieValue: string,
+    options?: { limitCount?: number },
   ): Promise<PayrollRecord[]> {
+    const limitCount =
+      typeof options?.limitCount === "number" &&
+      Number.isFinite(options.limitCount) &&
+      options.limitCount > 0
+        ? Math.trunc(options.limitCount)
+        : undefined;
     try {
-      return await FirestoreService.query(this.COLLECTION_NAME, [
-        { field: "companieValue", operator: "==", value: companieValue },
-      ]);
+      return await FirestoreService.query(
+        this.COLLECTION_NAME,
+        [{ field: "companieValue", operator: "==", value: companieValue }],
+        undefined,
+        "asc",
+        limitCount,
+      );
     } catch (error) {
       console.error("Error getting payroll records by location:", error);
       throw error;
@@ -224,9 +235,24 @@ export class PayrollRecordsService {
   /**
    * Get all payroll records
    */
-  static async getAllRecords(): Promise<PayrollRecord[]> {
+  /**
+   * Get all payroll records.
+   *
+   * Consumers (the viewer's "all" tab and the JSON exporter) need the complete
+   * set, so `limitCount` stays optional and defaults to no limit to preserve the
+   * current result.
+   */
+  static async getAllRecords(options?: {
+    limitCount?: number;
+  }): Promise<PayrollRecord[]> {
+    const limitCount =
+      typeof options?.limitCount === "number" &&
+      Number.isFinite(options.limitCount) &&
+      options.limitCount > 0
+        ? Math.trunc(options.limitCount)
+        : undefined;
     try {
-      return await FirestoreService.getAll(this.COLLECTION_NAME);
+      return await FirestoreService.getAll(this.COLLECTION_NAME, limitCount);
     } catch (error) {
       console.error("Error getting all payroll records:", error);
       throw error;

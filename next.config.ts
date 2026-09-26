@@ -16,12 +16,19 @@ const nextConfig: NextConfig & { turbopack?: { root?: string } } = {
   /* config options here */
   ...(useStaticExport ? { output: 'export', trailingSlash: true, distDir: 'out' } : {}),
   serverExternalPackages: ['imapflow', 'pino', 'thread-stream'],
-  // Optimize CSS in production
+  poweredByHeader: false,
+  // Optimize CSS in production and rewrite barrel imports (lucide-react ships
+  // ~1.5k icon modules) into direct imports so only used icons are bundled.
   experimental: {
     optimizeCss: true,
+    optimizePackageImports: ['lucide-react', 'framer-motion'],
   },
+  // A stable build id keeps client caches valid across deploys that don't change
+  // content-hashed chunks (the previous value was `build-<timestamp>`, which
+  // busted caches on every build). Override with BUILD_ID when a fresh id is
+  // actually required.
   generateBuildId: async () => {
-    return 'build-' + Date.now()
+    return process.env.BUILD_ID || 'timemaster'
   },
   // Ensure environment variables are available at build time
   env: {

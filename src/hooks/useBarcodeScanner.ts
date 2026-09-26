@@ -1,5 +1,22 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { scanImageData } from "@undecaf/zbar-wasm";
+
+// ZBar-WASM is only ever invoked from async scan routines below. Loading it on
+// demand (instead of at module scope) keeps it out of the initial bundle of any
+// component that merely imports this hook, e.g. the global notifications modal.
+type ScanImageData = typeof import("@undecaf/zbar-wasm").scanImageData;
+let scanImageDataPromise: Promise<ScanImageData> | null = null;
+const loadScanImageData = (): Promise<ScanImageData> => {
+  if (!scanImageDataPromise) {
+    scanImageDataPromise = import("@undecaf/zbar-wasm")
+      .then((mod) => mod.scanImageData)
+      .catch((err) => {
+        // Let a later scan retry instead of caching a rejected promise forever.
+        scanImageDataPromise = null;
+        throw err;
+      });
+  }
+  return scanImageDataPromise;
+};
 import {
   detectBasicPatternWithOrientation,
   preprocessImage,
@@ -122,6 +139,7 @@ export function useBarcodeScanner(
         // Helper: intenta ZBar en un ImageData y retorna código si detecta
         const tryZBar = async (variant: ImageData, label: string): Promise<string | null> => {
           try {
+            const scanImageData = await loadScanImageData();
             const symbols = await scanImageData(variant);
             if (symbols && symbols.length > 0) {
               const c = symbols[0].decode();
@@ -420,6 +438,7 @@ export function useBarcodeScanner(
               try {
                 logZbarPriority("ZBAR_START", "Escaneando frame con ZBar-WASM");
                 // PRIMERO ZBAR con validación mejorada
+                const scanImageData = await loadScanImageData();
                 const symbols = await scanImageData(frameData);
                 if (symbols && symbols.length > 0) {
                   const zbarCode = stableZbarCode(symbols[0].decode());

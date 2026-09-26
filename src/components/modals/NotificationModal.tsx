@@ -1,11 +1,36 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import dynamic from "next/dynamic";
+import { Loader2, X } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { SolicitudesService } from "@/services/solicitudes";
-import CameraScanner from "../scanner/CameraScanner";
 import { useBarcodeScanner } from "../../hooks/useBarcodeScanner";
+
+// The camera scanner (and its framer-motion dependency) is only mounted after
+// the user opens the scanner from this modal, so it is loaded on demand instead
+// of shipping in the initial bundle of every route that renders the header.
+const CameraScanner = dynamic(() => import("../scanner/CameraScanner"), {
+  ssr: false,
+  loading: ({ error, retry }: { error?: Error | null; retry?: () => void }) =>
+    error ? (
+      <div className="flex min-h-[200px] w-full flex-col items-center justify-center gap-3 px-4 text-center text-sm text-slate-400">
+        <p>No se pudo cargar el escáner.</p>
+        <button
+          type="button"
+          onClick={() => retry?.()}
+          className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:bg-white/10"
+        >
+          Reintentar
+        </button>
+      </div>
+    ) : (
+      <div className="flex min-h-[200px] w-full items-center justify-center gap-2 text-sm text-slate-400">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Iniciando cámara...
+      </div>
+    ),
+});
 import { ScanningService } from "@/services/scanning";
 import { storage } from "@/config/firebase";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";

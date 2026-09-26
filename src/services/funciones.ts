@@ -511,6 +511,47 @@ export class FuncionesService {
     return result;
   }
 
+  /**
+   * Fetch the per-empresa assignments for several owners in as few queries as
+   * possible (one equality query per owner instead of one document read per
+   * empresa). Returns empresaId -> assigned function ids. Callers must fall back
+   * to `getEmpresaFunciones` for any empresa missing from the map.
+   */
+  static async getEmpresaFuncionesByOwners(
+    ownerIds: string[],
+  ): Promise<Map<string, string[]>> {
+    const uniqueOwners = Array.from(
+      new Set((ownerIds || []).map((x) => String(x).trim()).filter(Boolean)),
+    );
+    const result = new Map<string, string[]>();
+
+    await Promise.all(
+      uniqueOwners.map(async (ownerId) => {
+        const docs = (await FirestoreService.query(this.COLLECTION_NAME, [
+          { field: "ownerId", operator: "==", value: ownerId },
+        ])) as Array<Record<string, unknown>>;
+
+        for (const raw of docs || []) {
+          if (!raw || typeof raw !== "object") continue;
+          // Skip general function definitions; we only want empresa assignments.
+          if (raw.type === "general") continue;
+          const empresaId = String(
+            raw.empresaId ?? raw.id ?? "",
+          ).trim();
+          if (!empresaId) continue;
+          const funciones = Array.isArray(raw.funciones)
+            ? (raw.funciones as unknown[])
+                .map((x) => String(x).trim())
+                .filter(Boolean)
+            : [];
+          result.set(empresaId, funciones);
+        }
+      }),
+    );
+
+    return result;
+  }
+
   static async upsertEmpresaFunciones(params: {
     ownerId: string;
     empresaId: string;

@@ -5,10 +5,22 @@ export class SorteosService {
   private static readonly COLLECTION_NAME = "sorteos";
 
   /**
-   * Get all sorteos
+   * Get all sorteos.
+   *
+   * Callers (dropdowns, export, DataEditor, migration) rely on the complete
+   * set, so `limitCount` stays optional and defaults to no limit to preserve the
+   * current result.
    */
-  static async getAllSorteos(): Promise<Sorteo[]> {
-    return await FirestoreService.getAll(this.COLLECTION_NAME);
+  static async getAllSorteos(options?: {
+    limitCount?: number;
+  }): Promise<Sorteo[]> {
+    const limitCount =
+      typeof options?.limitCount === "number" &&
+      Number.isFinite(options.limitCount) &&
+      options.limitCount > 0
+        ? Math.trunc(options.limitCount)
+        : undefined;
+    return await FirestoreService.getAll(this.COLLECTION_NAME, limitCount);
   }
 
   /**
@@ -55,12 +67,21 @@ export class SorteosService {
   /**
    * Get sorteos ordered by name
    */
-  static async getSorteosOrderedByName(): Promise<Sorteo[]> {
+  static async getSorteosOrderedByName(options?: {
+    limitCount?: number;
+  }): Promise<Sorteo[]> {
+    const limitCount =
+      typeof options?.limitCount === "number" &&
+      Number.isFinite(options.limitCount) &&
+      options.limitCount > 0
+        ? Math.trunc(options.limitCount)
+        : undefined;
     return await FirestoreService.query(
       this.COLLECTION_NAME,
       [],
       "name",
       "asc",
+      limitCount,
     );
   }
 

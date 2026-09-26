@@ -1,8 +1,37 @@
 "use client";
 
 import { useEffect } from "react";
-import { Banknote, X } from "lucide-react";
-import CashCounterTabs from "@/components/business/cash-counter-tabs/CashCounterTabs";
+import dynamic from "next/dynamic";
+import { Banknote, Loader2, X } from "lucide-react";
+
+// The cash counter (and framer-motion, which it depends on) is only needed once
+// the modal is actually opened from the header. Loading it lazily keeps it out
+// of the initial bundle of every route while behaving exactly like before: the
+// modal shell renders immediately and its content fades in as a normal load.
+const CashCounterTabs = dynamic(
+  () => import("@/components/business/cash-counter-tabs/CashCounterTabs"),
+  {
+    ssr: false,
+    loading: ({ error, retry }: { error?: Error | null; retry?: () => void }) =>
+      error ? (
+        <div className="flex h-full min-h-[240px] w-full flex-col items-center justify-center gap-3 px-4 text-center text-sm text-white/70">
+          <p>No se pudo cargar el contador de efectivo.</p>
+          <button
+            type="button"
+            onClick={() => retry?.()}
+            className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/10"
+          >
+            Reintentar
+          </button>
+        </div>
+      ) : (
+        <div className="flex h-full min-h-[240px] w-full items-center justify-center gap-2 text-sm text-white/60">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Cargando contador...
+        </div>
+      ),
+  },
+);
 
 type CashCounterModalProps = {
   isOpen: boolean;

@@ -8,11 +8,9 @@ import { useAuth } from "@/hooks/useAuth";
 import type { ScanHistoryEntry } from "@/types/barcode";
 import { ClientOnlyHomeMenu } from "@/components/layout";
 import { ref, listAll } from "firebase/storage";
-import Pruebas from "@/components/xpruebas/Pruebas";
 import { storage } from "@/config/firebase";
 import { safeLocalStorage, safeWindow } from "@/utils/client";
 import { getDefaultPermissions } from "@/utils/permissions";
-import { TiemposTucanSection } from "@/app/fondogeneral/components";
 import {
   canAccessTiemposTucan,
   isHomeTabId,
@@ -164,6 +162,19 @@ const VerificarInventarioPage = dynamic(
   () => import("@/app/verificarInventario/VerificarInventarioPage"),
   { ssr: false },
 );
+// These two are rendered only on specific tabs (Tiempos Tucán / admin test area),
+// so they follow the same lazy pattern as every other tab component above instead
+// of being pulled into the initial bundle of the landing route.
+const TiemposTucanSection = dynamic(
+  () =>
+    import("@/app/fondogeneral/components/TiemposTucanSection").then((mod) => ({
+      default: mod.TiemposTucanSection,
+    })),
+  { ssr: false },
+);
+const Pruebas = dynamic(() => import("@/components/xpruebas/Pruebas"), {
+  ssr: false,
+});
 
 // 1) Ampliamos ActiveTab para incluir "cashcounter", "controlhorario", "supplierorders", "edit", "scanhistory", "solicitud", "agregarproveedor", "reportes"
 type ActiveTab =

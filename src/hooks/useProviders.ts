@@ -38,16 +38,6 @@ export function useProviders(
     };
   }, [cacheIdentity, company]);
 
-  const filterCompanyProviders = useCallback(
-    (data: ProviderEntry[], trimmedCompany: string) =>
-      data.filter(
-        (provider) =>
-          (provider.company || "").trim().toLowerCase() ===
-          trimmedCompany.toLowerCase(),
-      ),
-    [],
-  );
-
   const fetchProviders = useCallback(async (options?: { skipCache?: boolean }) => {
     const trimmedCompany = (company || "").trim();
     const requestId = ++requestIdRef.current;
@@ -64,9 +54,12 @@ export function useProviders(
 
     try {
       const cacheScope = buildCacheScope();
+      // `ProvidersService.getProviders` already reads the per-company
+      // subcollection (proveedores/{company}/items), so the result is scoped to
+      // the company. The previous client-side re-filter was redundant.
       const applyProviders = (data: ProviderEntry[]) => {
         if (requestId !== requestIdRef.current) return;
-        setProviders(filterCompanyProviders(data, trimmedCompany));
+        setProviders(data);
       };
       const result =
         cacheScope && !options?.skipCache
@@ -105,7 +98,7 @@ export function useProviders(
         setLoading(false);
       }
     }
-  }, [buildCacheScope, company, filterCompanyProviders]);
+  }, [buildCacheScope, company]);
 
   const addProvider = useCallback(
     async (

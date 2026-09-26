@@ -181,12 +181,23 @@ export default function ReminderNotificationsInitializer() {
 
     const nextItems: ReminderSourceItem[] = [];
 
+    const empresasWithId = empresas
+      .map((e) => ({ empresa: e, empresaId: String(e?.id || "").trim() }))
+      .filter((x) => x.empresaId);
+
+    // One query per owner instead of one document read per empresa (N+1).
+    // Empresas missing from the batch fall back to the cached single read.
+    const empresaFuncionesByOwner =
+      await FuncionesService.getEmpresaFuncionesByOwners([
+        ...(actorOwnerIds || []).map((x) => String(x)),
+        ...empresasWithId.map((x) => String(x.empresa?.ownerId || "")),
+      ]);
+
     await Promise.all(
-      empresas
-        .map((e) => ({ empresa: e, empresaId: String(e?.id || "").trim() }))
-        .filter((x) => x.empresaId)
-        .map(async ({ empresa, empresaId }) => {
-          const doc = await FuncionesService.getEmpresaFunciones({ empresaId });
+      empresasWithId.map(async ({ empresa, empresaId }) => {
+          const doc = empresaFuncionesByOwner.has(empresaId)
+            ? { funciones: empresaFuncionesByOwner.get(empresaId) }
+            : await FuncionesService.getEmpresaFunciones({ empresaId });
 
           const visibleGeneralDocs = filterFuncionesGeneralesForEmpresa(
             generalDocs as any,
@@ -274,10 +285,12 @@ export default function ReminderNotificationsInitializer() {
     if (!hasNotificacionesPermission) return;
 
     let cancelled = false;
+    let lastRefreshAt = 0;
 
     const load = async () => {
       try {
         await refreshData();
+        lastRefreshAt = Date.now();
       } catch (err) {
         // Silent: this is a background feature.
         console.warn(
@@ -288,17 +301,32 @@ export default function ReminderNotificationsInitializer() {
     };
 
     void load();
-    const interval = window.setInterval(
-      () => {
-        if (cancelled) return;
-        void load();
-      },
-      15 * 60 * 1000,
-    );
+
+    // Refresh at most hourly, and only while the tab is visible. Returning to a
+    // tab that has been hidden for over 10 minutes triggers a refresh.
+    const REFRESH_INTERVAL_MS = 60 * 60 * 1000;
+    const STALE_AFTER_MS = 10 * 60 * 1000;
+
+    const interval = window.setInterval(() => {
+      if (cancelled) return;
+      if (document.visibilityState !== "visible") return;
+      void load();
+    }, REFRESH_INTERVAL_MS);
+
+    const onVisibility = () => {
+      if (cancelled) return;
+      if (document.visibilityState !== "visible") return;
+      if (lastRefreshAt > 0 && Date.now() - lastRefreshAt < STALE_AFTER_MS) {
+        return;
+      }
+      void load();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       cancelled = true;
       window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [authLoading, currentUser, hasNotificacionesPermission, refreshData]);
 

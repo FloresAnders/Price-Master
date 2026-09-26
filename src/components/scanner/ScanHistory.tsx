@@ -29,7 +29,11 @@ interface ScanHistoryProps extends BaseScanHistoryProps {
 interface ScanHistoryRowProps {
   entry: ScanHistoryEntry;
   idx: number;
-  editingIdx: number | null;
+  // `isEditing` is only true for the row currently being renamed; the draft value
+  // is passed only to that row. Passing the raw `editingIdx`/`editValue` to every
+  // row would change a prop on each keystroke and defeat `memo`, re-rendering the
+  // whole list. Non-editing rows now receive stable props (false / "").
+  isEditing: boolean;
   editValue: string;
   setEditingIdx: React.Dispatch<React.SetStateAction<number | null>>;
   setEditValue: React.Dispatch<React.SetStateAction<string>>;
@@ -45,7 +49,7 @@ interface ScanHistoryRowProps {
 const ScanHistoryRow = memo(function ScanHistoryRow({
   entry,
   idx,
-  editingIdx,
+  isEditing,
   editValue,
   setEditingIdx,
   setEditValue,
@@ -59,7 +63,7 @@ const ScanHistoryRow = memo(function ScanHistoryRow({
   return (
     <div className="scan-history-row flex flex-col bg-[var(--card-bg)] dark:bg-[var(--card-bg)] rounded-2xl px-4 py-3 shadow-lg justify-between transition-all duration-300 w-full">
       <div className="flex flex-col items-start flex-1 min-w-0 w-full">
-        {editingIdx === idx ? (
+        {isEditing ? (
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -474,8 +478,8 @@ export default function ScanHistory({
             key={`${entry.code}-${idx}`}
             entry={entry}
             idx={idx}
-            editingIdx={editingIdx}
-            editValue={editValue}
+            isEditing={editingIdx === idx}
+            editValue={editingIdx === idx ? editValue : ""}
             setEditingIdx={setEditingIdx}
             setEditValue={setEditValue}
             onRename={handleRename}

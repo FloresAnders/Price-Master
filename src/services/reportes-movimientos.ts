@@ -118,6 +118,13 @@ export class ReportesMovimientosService {
     empresa?: string;
     empresas?: string[];
     accountIds?: string[];
+    /**
+     * Optional range cap. `pageSize` bounds each network response and
+     * `maxPages` caps the total pages read; both default so that the full range
+     * is returned (same result as before) to keep report totals correct.
+     */
+    pageSize?: number;
+    maxPages?: number;
   }): Promise<ReporteMovimientosDailyDoc[]> {
     const constraints: QueryConstraint[] = [
       where("date", ">=", opts.fromDate),
@@ -144,10 +151,9 @@ export class ReportesMovimientosService {
 
     constraints.push(orderBy("date", "asc"));
 
-    const q = query(collection(db, "reportes_movimientos"), ...constraints);
-    const snap = await getDocs(q);
-
-    return snap.docs.map((d) => {
+    const mapDoc = (
+      d: QueryDocumentSnapshot<DocumentData>,
+    ): ReporteMovimientosDailyDoc => {
       const data = d.data() as Record<string, unknown>;
       const rawByType = (data as any).byType;
       const byType: ByTypeMap = isPlainObject(rawByType)
@@ -158,7 +164,36 @@ export class ReportesMovimientosService {
         ...(data as any),
         byType: (byType || {}) as any,
       };
-    });
+    };
+
+    // Page through the range instead of pulling it in a single response. By
+    // default every page is read, so the returned set is identical to the
+    // previous single query; callers may pass `maxPages` to cap a huge range.
+    const pageSize = Math.max(1, Math.min(opts.pageSize ?? 1000, 1000));
+    const maxPages =
+      typeof opts.maxPages === "number" &&
+      Number.isFinite(opts.maxPages) &&
+      opts.maxPages > 0
+        ? Math.trunc(opts.maxPages)
+        : Infinity;
+
+    const results: ReporteMovimientosDailyDoc[] = [];
+    let cursor: QueryDocumentSnapshot<DocumentData> | null = null;
+    for (let page = 0; page < maxPages; page += 1) {
+      const pageConstraints: QueryConstraint[] = [
+        ...constraints,
+        ...(cursor ? [startAfter(cursor)] : []),
+        limit(pageSize),
+      ];
+      const snap: QuerySnapshot<DocumentData> = await getDocs(
+        query(collection(db, "reportes_movimientos"), ...pageConstraints),
+      );
+      if (snap.empty) break;
+      results.push(...snap.docs.map(mapDoc));
+      cursor = snap.docs[snap.docs.length - 1] ?? null;
+      if (snap.size < pageSize || !cursor) break;
+    }
+    return results;
   }
 
   static async listDetailItems(opts: {

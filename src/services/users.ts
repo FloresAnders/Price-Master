@@ -2,7 +2,18 @@ import { FirestoreService } from "./firestore";
 import { User } from "../types/firestore";
 import { getDefaultPermissions } from "../utils/permissions";
 import { hashPassword } from "../lib/auth/password";
-import { onSnapshot, doc } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDocs,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  startAfter,
+  type DocumentData,
+  type QueryDocumentSnapshot,
+} from "firebase/firestore";
 import { db } from "@/config/firebase";
 
 const ARGON2_HASH_PREFIX = "$argon2";
@@ -27,9 +38,18 @@ async function preparePasswordForStorage(
 
 export class UsersService {
   private static readonly COLLECTION_NAME = "users";
+  private static readonly PRIMARY_ADMIN_CACHE_TTL_MS = 20_000;
+  private static primaryAdminByOwnerCache = new Map<
+    string,
+    { expiresAt: number; promise: Promise<User | null> }
+  >();
 
   private static normalizeUsername(name: string): string {
     return name.trim().normalize("NFKC").toLocaleLowerCase();
+  }
+
+  private static invalidatePrimaryAdminCache(): void {
+    this.primaryAdminByOwnerCache.clear();
   }
 
   /**
@@ -158,10 +178,40 @@ export class UsersService {
     return await FirestoreService.getById(this.COLLECTION_NAME, id);
   }
 
-  static async getPrimaryAdminByOwner(ownerId: string): Promise<User | null> {
+  /**
+   * Resolve the primary admin for an owner. This is an expensive lookup (a doc
+   * read plus a query) requested by several services, so in the browser the
+   * result is memoized briefly and concurrent calls are de-duplicated. The memo
+   * is invalidated by user writes and skipped on the server, where this module
+   * is a process singleton shared across requests.
+   */
+  static getPrimaryAdminByOwner(ownerId: string): Promise<User | null> {
     const normalized = (ownerId ?? "").trim();
-    if (!normalized) return null;
+    if (!normalized) return Promise.resolve(null);
 
+    if (typeof window === "undefined") {
+      return this.loadPrimaryAdminByOwner(normalized);
+    }
+
+    const cached = this.primaryAdminByOwnerCache.get(normalized);
+    const now = Date.now();
+    if (cached && cached.expiresAt > now) return cached.promise;
+
+    const promise = this.loadPrimaryAdminByOwner(normalized).catch((error) => {
+      console.error("Error resolving primary admin by owner:", error);
+      this.primaryAdminByOwnerCache.delete(normalized);
+      return null;
+    });
+    this.primaryAdminByOwnerCache.set(normalized, {
+      expiresAt: now + this.PRIMARY_ADMIN_CACHE_TTL_MS,
+      promise,
+    });
+    return promise;
+  }
+
+  private static async loadPrimaryAdminByOwner(
+    normalized: string,
+  ): Promise<User | null> {
     let directCandidate: User | null = null;
     try {
       directCandidate = await this.getUserById(normalized);
@@ -227,7 +277,12 @@ export class UsersService {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    return await FirestoreService.add(this.COLLECTION_NAME, userWithTimestamps);
+    const createdId = await FirestoreService.add(
+      this.COLLECTION_NAME,
+      userWithTimestamps,
+    );
+    this.invalidatePrimaryAdminCache();
+    return createdId;
   }
 
   /**
@@ -354,11 +409,12 @@ export class UsersService {
       updateData[key] = (value === undefined ? null : value) as unknown;
     }
 
-    return await FirestoreService.update(
+    await FirestoreService.update(
       this.COLLECTION_NAME,
       id,
       updateData as Partial<User>,
     );
+    this.invalidatePrimaryAdminCache();
   }
 
   /**
@@ -399,7 +455,8 @@ export class UsersService {
    * Delete a user
    */
   static async deleteUser(id: string): Promise<void> {
-    return await FirestoreService.delete(this.COLLECTION_NAME, id);
+    await FirestoreService.delete(this.COLLECTION_NAME, id);
+    this.invalidatePrimaryAdminCache();
   }
 
   /**
@@ -532,13 +589,53 @@ export class UsersService {
   /**
    * Get users ordered by name
    */
-  static async getUsersOrderedByName(): Promise<User[]> {
+  static async getUsersOrderedByName(options?: {
+    limitCount?: number;
+  }): Promise<User[]> {
+    const limitCount =
+      typeof options?.limitCount === "number" &&
+      Number.isFinite(options.limitCount) &&
+      options.limitCount > 0
+        ? Math.trunc(options.limitCount)
+        : undefined;
     return await FirestoreService.query(
       this.COLLECTION_NAME,
       [],
       "name",
       "asc",
+      limitCount,
     );
+  }
+
+  /**
+   * Cursor-based pagination for users ordered by name. `getUsersOrderedByName`
+   * keeps returning the full set (the superadmin selector needs every user).
+   */
+  static async listUsersByNamePage(options?: {
+    pageSize?: number;
+    cursor?: QueryDocumentSnapshot<DocumentData> | null;
+  }): Promise<{
+    items: User[];
+    cursor: QueryDocumentSnapshot<DocumentData> | null;
+    exhausted: boolean;
+  }> {
+    const pageSize = Math.max(1, Math.min(options?.pageSize ?? 100, 500));
+    const cursor = options?.cursor ?? null;
+    const constraints = [orderBy("name", "asc"), limit(pageSize)];
+    const q = cursor
+      ? query(
+          collection(db, this.COLLECTION_NAME),
+          ...constraints,
+          startAfter(cursor),
+        )
+      : query(collection(db, this.COLLECTION_NAME), ...constraints);
+
+    const snap = await getDocs(q);
+    const items = snap.docs.map(
+      (item) => ({ id: item.id, ...item.data() }) as User,
+    );
+    const nextCursor = snap.docs[snap.docs.length - 1] ?? cursor;
+    return { items, cursor: nextCursor, exhausted: snap.size < pageSize };
   }
   /**
    * Search users by name or location

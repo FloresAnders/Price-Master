@@ -56,16 +56,35 @@ const selectedFirestoreDatabaseId =
     : firestoreDatabaseIdRaw;
 export const firestoreDatabaseId = selectedFirestoreDatabaseId || "(default)";
 
+// `ignoreUndefinedProperties` lets the SDK skip `undefined` fields instead of
+// throwing. This only affects raw writes that pass `undefined` directly (e.g.
+// `tx.set`, `updateDoc`): they now succeed with the undefined keys omitted
+// instead of failing. It does NOT replace the existing sanitizers
+// (`sanitizeForFirestore`, `stripUndefinedDeep`) — those drop undefined keys and
+// must stay in place, since defined values are never affected by this flag.
+const baseFirestoreSettings = { ignoreUndefinedProperties: true };
+
 export const db = (() => {
   const isBrowser = typeof window !== "undefined";
   if (!isBrowser) {
-    return selectedFirestoreDatabaseId
-      ? getFirestore(app, selectedFirestoreDatabaseId)
-      : getFirestore(app);
+    try {
+      return selectedFirestoreDatabaseId
+        ? initializeFirestore(
+            app,
+            baseFirestoreSettings,
+            selectedFirestoreDatabaseId,
+          )
+        : initializeFirestore(app, baseFirestoreSettings);
+    } catch {
+      return selectedFirestoreDatabaseId
+        ? getFirestore(app, selectedFirestoreDatabaseId)
+        : getFirestore(app);
+    }
   }
 
   try {
     const settings = {
+      ...baseFirestoreSettings,
       localCache: persistentLocalCache({
         tabManager: persistentMultipleTabManager(),
       }),
@@ -80,6 +99,7 @@ export const db = (() => {
       err,
     );
     const settings = {
+      ...baseFirestoreSettings,
       localCache: memoryLocalCache(),
     };
 

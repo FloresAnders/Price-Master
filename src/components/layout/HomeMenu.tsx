@@ -360,41 +360,39 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
       desktopQuery.removeEventListener("change", syncDesktopViewport);
   }, []);
 
-  // Resolve user permissions once for reuse
-  const resolvedPermissions: UserPermissions | null = (() => {
+  // Resolve user permissions once for reuse. Memoized so the values derived from
+  // it below keep stable identities across renders; otherwise `visibleMenuItems`
+  // would be a new array every render and silently invalidate the `useMemo`s and
+  // the auto-sync `useEffect` that depend on it (React Compiler is not enabled).
+  const resolvedPermissions: UserPermissions | null = useMemo(() => {
     if (!currentUser) return null;
     return currentUser.permissions
       ? currentUser.permissions
       : getDefaultPermissions(currentUser.role || "user");
-  })();
-  const hasAnyFondoAccountAccess = Boolean(
-    resolvedPermissions?.fondogeneral ||
-      resolvedPermissions?.fondogeneralBCR ||
-      resolvedPermissions?.fondogeneralBN ||
-      resolvedPermissions?.fondogeneralBAC ||
-      resolvedPermissions?.cajaNegra ||
-      resolvedPermissions?.tucan ||
-      resolvedPermissions?.tiempos ||
-      resolvedPermissions?.reportetiempos,
+  }, [currentUser]);
+
+  const hasAnyFondoAccountAccess = useMemo(
+    () =>
+      Boolean(
+        resolvedPermissions?.fondogeneral ||
+          resolvedPermissions?.fondogeneralBCR ||
+          resolvedPermissions?.fondogeneralBN ||
+          resolvedPermissions?.fondogeneralBAC ||
+          resolvedPermissions?.cajaNegra ||
+          resolvedPermissions?.tucan ||
+          resolvedPermissions?.tiempos ||
+          resolvedPermissions?.reportetiempos,
+      ),
+    [resolvedPermissions],
   );
 
   // Filter menu items based on user permissions
-  const getVisibleMenuItems = () => {
-    if (!currentUser) {
+  const visibleMenuItems = useMemo((): typeof menuItems => {
+    if (!currentUser || !resolvedPermissions) {
       // If no user is logged in, show no items for security
       return [];
     }
 
-    // Get user permissions or default permissions based on role
-    let userPermissions: UserPermissions;
-    if (currentUser.permissions) {
-      userPermissions = currentUser.permissions;
-    } else {
-      // If no permissions are defined, use default permissions based on role
-      userPermissions = getDefaultPermissions(currentUser.role || "user");
-    }
-
-    // Filter items based on user permissions
     return menuItems.filter((item) => {
       if (item.id === "verificarInventario") {
         return (
@@ -402,14 +400,16 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
         );
       }
       if (item.id === "fondogeneral") return hasAnyFondoAccountAccess;
-      const hasPermission = userPermissions[item.permission];
-      return hasPermission === true;
+      return resolvedPermissions[item.permission] === true;
     });
-  };
+  }, [currentUser, resolvedPermissions, hasAnyFondoAccountAccess]);
 
-  const visibleMenuItems = getVisibleMenuItems();
-  const responsiveVisibleMenuItems = visibleMenuItems.filter(
-    (item) => !item.desktopOnly || isDesktopViewport,
+  const responsiveVisibleMenuItems = useMemo(
+    () =>
+      visibleMenuItems.filter(
+        (item) => !item.desktopOnly || isDesktopViewport,
+      ),
+    [visibleMenuItems, isDesktopViewport],
   );
 
   const homeMenuUserKey = useMemo(() => {

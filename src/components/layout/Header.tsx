@@ -41,7 +41,7 @@ import {
   Fingerprint,
 } from "lucide-react";
 import { CustomIcon } from "@/icons/icons";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   collection,
   query as fbQuery,
@@ -161,6 +161,21 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     DEFAULT_ADMIN_SIDEBAR_COLLAPSED_WIDTH,
   );
   const [isResizingAdminSidebar, setIsResizingAdminSidebar] = useState(false);
+  const adminSidebarRef = useRef<HTMLElement | null>(null);
+  // During a sidebar resize drag the width is written straight to the DOM (and to
+  // the --admin-sidebar-width CSS var) instead of setting state, so a pointer move
+  // no longer re-renders the whole global header. It is committed to state once,
+  // on pointer up.
+  const applyLiveAdminSidebarWidth = useCallback((width: number) => {
+    const node = adminSidebarRef.current;
+    if (node) node.style.width = `${width}px`;
+    if (typeof document !== "undefined") {
+      document.documentElement.style.setProperty(
+        "--admin-sidebar-width",
+        `${width}px`,
+      );
+    }
+  }, []);
   const [showNotifModal, setShowNotifModal] = useState(false);
   const [showMobileQrModal, setShowMobileQrModal] = useState(false);
   const [hasNewSolicitudes, setHasNewSolicitudes] = useState(false);
@@ -199,6 +214,26 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const knownInvoiceDeletionRequestsRef = useRef<Set<string>>(new Set());
   const initializedInvoiceDeletionResponsesRef = useRef(false);
   const knownInvoiceDeletionResponsesRef = useRef<Set<string>>(new Set());
+  // Identity keys let the notification listeners detach while the tab is hidden
+  // without resetting their "already seen" baselines. That way notifications
+  // that arrive while hidden are still detected (and sounded once) on return,
+  // and nothing is duplicated.
+  const solicitudesVisibilityKeyRef = useRef<string | null>(null);
+  const closingExtensionsVisibilityKeyRef = useRef<string | null>(null);
+  const closingExtensionResponsesVisibilityKeyRef = useRef<string | null>(null);
+  const invoiceDeletionRequestsVisibilityKeyRef = useRef<string | null>(null);
+  const invoiceDeletionResponsesVisibilityKeyRef = useRef<string | null>(null);
+  const [isTabVisible, setIsTabVisible] = useState(true);
+
+  useEffect(() => {
+    const updateVisibility = () => {
+      setIsTabVisible(document.visibilityState === "visible");
+    };
+    updateVisibility();
+    document.addEventListener("visibilitychange", updateVisibility);
+    return () =>
+      document.removeEventListener("visibilitychange", updateVisibility);
+  }, []);
   const [currentHash, setCurrentHash] = useState(() => {
     if (typeof window === "undefined") return "";
     return window.location.hash || "";
@@ -414,15 +449,17 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   // Real-time listener for solicitudes for the user's company (onSnapshot)
   useEffect(() => {
     const company = userCompany;
-    if (!company) {
+    const visibilityKey = company || "";
+    if (solicitudesVisibilityKeyRef.current !== visibilityKey) {
+      solicitudesVisibilityKeyRef.current = visibilityKey;
       knownSolicitudesRef.current = new Set();
+      seenSolicitudesRef.current = new Set();
       initializedSolicitudesRef.current = false;
-      return;
     }
 
-    knownSolicitudesRef.current = new Set();
-    seenSolicitudesRef.current = new Set();
-    initializedSolicitudesRef.current = false;
+    if (!company || !isTabVisible) {
+      return;
+    }
 
     try {
       const handleSolicitudesUpdate = (pendingDocs: any[]) => {
@@ -489,15 +526,20 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       console.error("Error setting up solicitudes listener:", err);
       return;
     }
-  }, [isClient, userCompany]);
+  }, [isClient, userCompany, isTabVisible]);
 
   useEffect(() => {
     if (userRole !== "admin" && userRole !== "superadmin") return;
 
     const companyKey = userCompanyKey;
+    const visibilityKey = `${userRole}::${companyKey || ""}`;
+    if (closingExtensionsVisibilityKeyRef.current !== visibilityKey) {
+      closingExtensionsVisibilityKeyRef.current = visibilityKey;
+      knownClosingExtensionsRef.current = new Set();
+      initializedClosingExtensionsRef.current = false;
+    }
 
-    knownClosingExtensionsRef.current = new Set();
-    initializedClosingExtensionsRef.current = false;
+    if (!isTabVisible) return;
 
     try {
       const baseCollection = collection(db, "closingTimeExtensions");
@@ -569,18 +611,20 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       console.error("Error setting up closingTimeExtensions listener:", err);
       return;
     }
-  }, [userCompanyKey, userRole]);
+  }, [userCompanyKey, userRole, isTabVisible]);
 
   useEffect(() => {
     const requestedBy = userRequestedBy;
-    if (!requestedBy) {
+    const visibilityKey = requestedBy || "";
+    if (closingExtensionResponsesVisibilityKeyRef.current !== visibilityKey) {
+      closingExtensionResponsesVisibilityKeyRef.current = visibilityKey;
       knownClosingExtensionResponsesRef.current = new Set();
       initializedClosingExtensionResponsesRef.current = false;
-      return;
     }
 
-    knownClosingExtensionResponsesRef.current = new Set();
-    initializedClosingExtensionResponsesRef.current = false;
+    if (!requestedBy || !isTabVisible) {
+      return;
+    }
 
     try {
       const q = fbQuery(
@@ -647,15 +691,20 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       console.error("Error setting up closing extension responses listener:", err);
       return;
     }
-  }, [userRequestedBy]);
+  }, [userRequestedBy, isTabVisible]);
 
   useEffect(() => {
     if (userRole !== "admin" && userRole !== "superadmin") return;
 
     const companyKey = userCompanyKey;
+    const visibilityKey = `${userRole}::${companyKey || ""}`;
+    if (invoiceDeletionRequestsVisibilityKeyRef.current !== visibilityKey) {
+      invoiceDeletionRequestsVisibilityKeyRef.current = visibilityKey;
+      knownInvoiceDeletionRequestsRef.current = new Set();
+      initializedInvoiceDeletionRequestsRef.current = false;
+    }
 
-    knownInvoiceDeletionRequestsRef.current = new Set();
-    initializedInvoiceDeletionRequestsRef.current = false;
+    if (!isTabVisible) return;
 
     try {
       const baseCollection = collection(db, "pendingInvoiceDeletionRequests");
@@ -733,18 +782,20 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       );
       return;
     }
-  }, [userCompanyKey, userRole]);
+  }, [userCompanyKey, userRole, isTabVisible]);
 
   useEffect(() => {
     const requestedBy = userRequestedBy;
-    if (!requestedBy) {
+    const visibilityKey = requestedBy || "";
+    if (invoiceDeletionResponsesVisibilityKeyRef.current !== visibilityKey) {
+      invoiceDeletionResponsesVisibilityKeyRef.current = visibilityKey;
       knownInvoiceDeletionResponsesRef.current = new Set();
       initializedInvoiceDeletionResponsesRef.current = false;
-      return;
     }
 
-    knownInvoiceDeletionResponsesRef.current = new Set();
-    initializedInvoiceDeletionResponsesRef.current = false;
+    if (!requestedBy || !isTabVisible) {
+      return;
+    }
 
     try {
       const q = fbQuery(
@@ -817,10 +868,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       );
       return;
     }
-  }, [userRequestedBy]);
+  }, [userRequestedBy, isTabVisible]);
 
-  // Navigation tabs with permissions
-  const allTabs = [
+  // Navigation tabs with permissions. Static data with stable identity so that
+  // `visibleTabs` (and anything derived from it) does not see a new array on
+  // every render.
+  const allTabs = useMemo(
+    () => [
     {
       id: "fondogeneral" as ActiveTab,
       name: "Fondo General",
@@ -954,11 +1008,17 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       description: "En mantenimiento",
       permission: "anotaciones" as keyof UserPermissions,
     },
-  ];
+    ],
+    [],
+  );
 
-  // Get user permissions or default if not available
-  const userPermissions =
-    user?.permissions || getDefaultPermissions(user?.role || "user");
+  // Get user permissions or default if not available. Memoized so its identity is
+  // stable (getDefaultPermissions returns a fresh object otherwise), which keeps
+  // `visibleTabs` memoized as well.
+  const userPermissions = useMemo(
+    () => user?.permissions || getDefaultPermissions(user?.role || "user"),
+    [user],
+  );
   const canManageFondoGeneral = Boolean(userPermissions.fondogeneral);
   const canUseFondoAccounts = Boolean(
     userPermissions.fondogeneral ||
@@ -983,18 +1043,27 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     currentHash === "#recetas" || currentHash === "#agregarproducto";
 
   // Filter tabs based on user permissions
-  const visibleTabs = allTabs.filter((tab) => {
-    if (tab.id === "fondogeneral") {
-      return Boolean(
-        canUseFondoAccounts ||
-          canUseTiemposTucan ||
-          canUseInternalDebts ||
-          userPermissions.reportessinpe,
-      );
-    }
-    const hasPermission = userPermissions[tab.permission];
-    return hasPermission;
-  });
+  const visibleTabs = useMemo(
+    () =>
+      allTabs.filter((tab) => {
+        if (tab.id === "fondogeneral") {
+          return Boolean(
+            canUseFondoAccounts ||
+              canUseTiemposTucan ||
+              canUseInternalDebts ||
+              userPermissions.reportessinpe,
+          );
+        }
+        return userPermissions[tab.permission];
+      }),
+    [
+      allTabs,
+      canUseFondoAccounts,
+      canUseTiemposTucan,
+      canUseInternalDebts,
+      userPermissions,
+    ],
+  );
 
   const isHomeRoute = pathname === "/" || pathname === "/home";
   const canShowFondoActions = Boolean(
@@ -2064,6 +2133,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
       {canShowAdminSidebar && (
         <aside
+          ref={adminSidebarRef}
           className={`hidden lg:flex fixed left-0 top-0 z-40 h-screen flex-col border-r border-[var(--input-border)] bg-[var(--background)] shadow-lg overflow-hidden ${
             isResizingAdminSidebar
               ? "transition-none"
@@ -2109,13 +2179,14 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   MIN_ADMIN_SIDEBAR_EXPANDED_WIDTH,
                   MAX_ADMIN_SIDEBAR_EXPANDED_WIDTH,
                 );
-                setAdminSidebarExpandedWidth(latestWidth);
+                applyLiveAdminSidebarWidth(latestWidth);
               };
 
               const handlePointerUp = () => {
                 window.removeEventListener("pointermove", handlePointerMove);
                 window.removeEventListener("pointerup", handlePointerUp);
                 setIsResizingAdminSidebar(false);
+                setAdminSidebarExpandedWidth(latestWidth);
                 void setLayoutPref(
                   ADMIN_SIDEBAR_EXPANDED_WIDTH_PREF_KEY,
                   latestWidth,
@@ -2161,13 +2232,14 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                   MIN_ADMIN_SIDEBAR_COLLAPSED_WIDTH,
                   MAX_ADMIN_SIDEBAR_COLLAPSED_WIDTH,
                 );
-                setAdminSidebarCollapsedWidth(latestWidth);
+                applyLiveAdminSidebarWidth(latestWidth);
               };
 
               const handlePointerUp = () => {
                 window.removeEventListener("pointermove", handlePointerMove);
                 window.removeEventListener("pointerup", handlePointerUp);
                 setIsResizingAdminSidebar(false);
+                setAdminSidebarCollapsedWidth(latestWidth);
                 void setLayoutPref(
                   ADMIN_SIDEBAR_COLLAPSED_WIDTH_PREF_KEY,
                   latestWidth,
