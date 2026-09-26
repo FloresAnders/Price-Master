@@ -1,7 +1,6 @@
 import { ImapFlow } from "imapflow";
 import {
   BCR_SINPE_FROM,
-  BCR_SINPE_SUBJECT,
   isBcrSinpeMessage,
   parseSinpeEmail,
 } from "@/services/sinpe-email.server";

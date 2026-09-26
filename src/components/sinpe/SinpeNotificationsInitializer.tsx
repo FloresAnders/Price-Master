@@ -164,19 +164,20 @@ function SinpeNotificationCard({
 
 export default function SinpeNotificationsInitializer() {
   const { user, loading } = useAuth();
+  const userId = user?.id;
   const seenRef = useRef<Set<string>>(new Set());
   const permissions = useMemo(
     () => normalizeUserPermissions(user?.permissions, user?.role || "user"),
     [user],
   );
-  const seenStorageKey = `${STORAGE_KEY}:${user?.id || "anonymous"}`;
+  const seenStorageKey = `${STORAGE_KEY}:${userId || "anonymous"}`;
 
   useEffect(() => {
     seenRef.current = readSeenEvents(seenStorageKey);
   }, [seenStorageKey]);
 
   useEffect(() => {
-    if (loading || !user || permissions.reportessinpe !== true) return;
+    if (loading || !userId || permissions.reportessinpe !== true) return;
     let cancelled = false;
     let unsubscribers: Array<() => void> = [];
     const realtimeApp =
@@ -274,7 +275,7 @@ export default function SinpeNotificationsInitializer() {
       for (const unsubscribe of unsubscribers) unsubscribe();
       void signOut(realtimeAuth).catch(() => undefined);
     };
-  }, [loading, permissions.reportessinpe, seenStorageKey, user?.id]);
+  }, [loading, permissions.reportessinpe, seenStorageKey, userId]);
 
   return null;
 }

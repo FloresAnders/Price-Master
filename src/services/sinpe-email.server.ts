@@ -51,7 +51,7 @@ const htmlToText = (value: string) =>
     .replace(/\r/g, "");
 
 const toMessageText = (parsed: ParsedMail) =>
-  [parsed.text || "", typeof parsed.html === "string" ? htmlToText(parsed.html) : ""]
+  [typeof parsed.html === "string" ? htmlToText(parsed.html) : "", parsed.text || ""]
     .filter(Boolean)
     .join("\n")
     .replace(/\u00a0/g, " ")
