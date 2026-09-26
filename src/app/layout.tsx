@@ -15,6 +15,7 @@ import { XmlEgresosProvider } from "../components/xml/XmlEgresosProvider";
 import BackToTop from "../components/ui/BackToTop";
 import SubscriptionNotice from "../components/subscription/SubscriptionNotice";
 import OwnerChatWidget from "../components/chat/OwnerChatWidget";
+import SinpeNotificationsInitializer from "../components/sinpe/SinpeNotificationsInitializer";
 import {
   FloatingActionsDock,
   FloatingActionsProvider,
@@ -140,6 +141,7 @@ export default function RootLayout({
                     <FloatingActionsProvider>
                       <VersionCheckInitializer />
                       <ReminderNotificationsInitializer />
+                      <SinpeNotificationsInitializer />
                       <SystemNotesInitializer />
                       <SubscriptionNotice />
                       <HeaderWrapper />

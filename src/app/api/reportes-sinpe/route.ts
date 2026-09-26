@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readAuthSession } from "@/lib/auth/session-store.server";
-import { EmpresasService } from "@/services/empresas";
+import {
+  canAccessSinpeEmpresa,
+  canUseSinpeReports,
+  getSinpeEmpresa,
+} from "@/services/sinpe-access.server";
 import { readBcrSinpeReport } from "@/services/sinpe-imap.server";
-import type { Empresas, User } from "@/types/firestore";
-import { normalizeUserPermissions } from "@/utils/permissions";
 
 export const runtime = "nodejs";
 
@@ -11,7 +13,7 @@ const MAX_RANGE_MS = 48 * 60 * 60 * 1000;
 const API_TIMEOUT_MS = 15_000;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_ATTEMPTS = 6;
-const noStore = { "Cache-Control": "no-store" };
+const noStore = { "Cache-Control": "private, no-store" };
 const attempts = new Map<string, { count: number; resetAt: number }>();
 
 class SinpeReportTimeoutError extends Error {
@@ -53,9 +55,6 @@ const parseRangeDate = (date: unknown, time: unknown) => {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
-const normalizeKey = (value: unknown) =>
-  typeof value === "string" ? value.trim().toLowerCase() : "";
-
 const rateLimitKey = (request: NextRequest, userId: string) => {
   const forwarded = request.headers.get("x-forwarded-for") || "";
   const ip = forwarded.split(",")[0]?.trim() || "unknown";
@@ -92,27 +91,6 @@ const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> =>
     );
   });
 
-const canAccessEmpresa = (user: Omit<User, "password">, empresa: Empresas) => {
-  if (user.role === "superadmin") return true;
-
-  if (user.role === "admin") {
-    const allowedOwners = new Set<string>();
-    const ownerId = normalizeKey(user.ownerId);
-    const userId = normalizeKey(user.id);
-    if (ownerId) allowedOwners.add(ownerId);
-    if (user.eliminate === false && userId) allowedOwners.add(userId);
-    return allowedOwners.has(normalizeKey(empresa.ownerId));
-  }
-
-  if (user.role !== "user") return false;
-  const assigned = normalizeKey(user.ownercompanie);
-  if (!assigned) return false;
-  return [empresa.id, empresa.name, empresa.ubicacion]
-    .map(normalizeKey)
-    .filter(Boolean)
-    .includes(assigned);
-};
-
 export async function POST(request: NextRequest) {
   try {
     const authenticated = await readAuthSession(request.headers.get("cookie"));
@@ -123,11 +101,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const permissions = normalizeUserPermissions(
-      authenticated.user.permissions,
-      authenticated.user.role || "user",
-    );
-    if (!permissions.reportessinpe) {
+    if (!canUseSinpeReports(authenticated.user)) {
       return NextResponse.json(
         { error: "No tienes permisos para usar Reportes SINPE." },
         { status: 403, headers: noStore },
@@ -174,8 +148,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const empresa = await EmpresasService.getEmpresaById(empresaId);
-    if (empresa && !canAccessEmpresa(authenticated.user, empresa)) {
+    const empresa = await getSinpeEmpresa(empresaId);
+    if (empresa && !canAccessSinpeEmpresa(authenticated.user, empresa)) {
       return NextResponse.json(
         { error: "No tienes acceso a esta empresa." },
         { status: 403, headers: noStore },

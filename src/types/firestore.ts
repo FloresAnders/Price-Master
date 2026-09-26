@@ -23,6 +23,7 @@ export interface Empresas {
   ubicacion: string;
   correoConfigEmail?: string;
   correoConfigPassword?: string;
+  isActive?: boolean;
   horarioApertura?: string;
   horarioCierre?: string;
   cierreFondoVentasMinutesBeforeEnd?: number;

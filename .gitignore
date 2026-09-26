@@ -41,12 +41,15 @@ yarn-error.log*
 *.md
 
 !AGENTS.md
+!src/data/gmail_sinpe_setup.md
 !skills/
 !skills/**
 
 
 # Firebase Admin SDK credentials
 serviceAccountKey.json
+# OAuth client credentials
+client_secret_*.apps.googleusercontent.com.json
 
 # vercel
 .vercel

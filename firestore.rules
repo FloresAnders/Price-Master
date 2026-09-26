@@ -2,7 +2,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function isSignedIn() {
-      return request.auth != null;
+      return request.auth != null &&
+        request.auth.token.get('authPurpose', '') != 'sinpe-realtime';
     }
 
     function isAdmin() {
@@ -55,6 +56,18 @@ service cloud.firestore {
         );
     }
 
+    function canReadSinpeRealtime(empresaId) {
+      return request.auth != null &&
+        request.auth.token.get('authPurpose', '') == 'sinpe-realtime' &&
+        exists(/databases/$(database)/documents/sinpeRealtimeSessions/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/sinpeRealtimeSessions/$(request.auth.uid))
+          .data.expiresAt > request.time &&
+        get(/databases/$(database)/documents/sinpeRealtimeSessions/$(request.auth.uid))
+          .data.empresaIds is list &&
+        empresaId in get(/databases/$(database)/documents/sinpeRealtimeSessions/$(request.auth.uid))
+          .data.empresaIds;
+    }
+
     match /version/{documentId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() &&
@@ -83,11 +96,11 @@ service cloud.firestore {
     // Colección de emails - solo escritura desde el cliente, lectura y actualización desde Functions
     match /emails/{emailId} {
       // Permitir crear documentos desde el cliente
-      allow create: if request.auth != null;
-      
+      allow create: if isSignedIn();
+
       // Solo Functions puede actualizar el estado
       allow update: if false;
-      
+
       // Solo lectura para administradores
       allow read: if request.auth != null && request.auth.token.role == 'admin';
     }
@@ -685,6 +698,37 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Gmail OAuth, watch checkpoints and webhook jobs are server-only.
+    match /gmailIntegrations/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /gmailAccountMappings/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /gmailWatches/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /gmailWebhookJobs/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /sinpeRealtimeSessions/{document=**} {
+      allow read, write: if false;
+    }
+
+    // Realtime SINPE events are immutable from clients and scoped by company.
+    match /sinpeEvents/{empresaId} {
+      allow read, write: if false;
+
+      match /events/{eventId} {
+        allow read: if canReadSinpeRealtime(empresaId);
+        allow create, update, delete: if false;
+      }
+    }
+
     // Retired integration collections remain blocked in case historical data
     // still exists. No client or Route Handler consumes these collections.
     match /bcrIntegrationDevices/{document=**} {
@@ -716,10 +760,10 @@ service cloud.firestore {
     match /authSessions/{document=**} {
       allow read, write: if false;
     }
-    
+
     // Otras reglas existentes...
     match /{collection}/{document=**} {
-      allow read, write: if request.auth != null &&
+      allow read, write: if isSignedIn() &&
         collection != 'ownerChats' &&
         collection != 'MovimientosFondos' &&
         collection != 'registrotucan' &&
@@ -730,6 +774,12 @@ service cloud.firestore {
         collection != 'internalDebts' &&
         collection != 'genteCrystalIntegrationDevices' &&
         collection != 'genteCrystalSales' &&
+        collection != 'gmailIntegrations' &&
+        collection != 'gmailAccountMappings' &&
+        collection != 'gmailWatches' &&
+        collection != 'gmailWebhookJobs' &&
+        collection != 'sinpeRealtimeSessions' &&
+        collection != 'sinpeEvents' &&
         collection != 'bcrIntegrationDevices' &&
         collection != 'bcrReceipts' &&
         collection != 'passkeyUsers' &&

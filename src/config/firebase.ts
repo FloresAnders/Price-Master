@@ -9,7 +9,7 @@ import {
 import { getStorage } from "firebase/storage";
 
 // Configuración de Firebase con fallbacks para producción
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "your-api-key-here",
   authDomain:
     process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ||
