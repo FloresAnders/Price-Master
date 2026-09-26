@@ -328,7 +328,7 @@ export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
                       aria-label={`-${den.label}`}>
                       <MinusCircle className="w-[18px] h-[18px] text-rose-200" />
                     </motion.button>
-                    <input ref={(el) => { refs.current[i] = el; }} type="text" inputMode="text"
+                    <input ref={(el) => { refs.current[i] = el; }} type="text" inputMode="numeric"
                       value={quantityDrafts[den.value] ?? (cnt === 0 ? "" : String(cnt))} onChange={(e) => draftQuantity(den.value, e.target.value)}
                       onPaste={pasteDenominations}
                       onBlur={() => commitQuantity(den.value)}

@@ -1242,7 +1242,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                               backgroundColor: "var(--card-bg)",
                               color: "var(--foreground)",
                             }}
-                            inputMode="text"
+                            inputMode="numeric"
                             aria-label={`Cantidad ${denom} colones`}
                             data-cash-count-input="true"
                             data-cash-currency="CRC"
@@ -1328,7 +1328,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                               backgroundColor: "var(--card-bg)",
                               color: "var(--foreground)",
                             }}
-                            inputMode="text"
+                            inputMode="numeric"
                             aria-label={`Cantidad ${denom} dólares`}
                             data-cash-count-input="true"
                             data-cash-currency="USD"
