@@ -25,13 +25,26 @@ import {
 import { firebaseConfig, firestoreDatabaseId } from "@/config/firebase";
 import { useAuth } from "@/hooks/useAuth";
 import { normalizeUserPermissions } from "@/utils/permissions";
+import {
+  requestSinpeNotificationPermission,
+  showSinpeSystemNotification,
+  type SinpeSystemNotificationApi,
+} from "./sinpeBrowserNotifications";
 
 const STORAGE_KEY = "timemaster_seen_sinpe_events_v1";
 const REPLAY_WINDOW_MS = 2 * 60 * 1000;
 const MAX_SEEN_EVENTS = 200;
 const REALTIME_REFRESH_MS = 45 * 60 * 1000;
 const REALTIME_FIREBASE_APP_NAME = "sinpe-realtime";
+const PERMISSION_TOAST_ID = "sinpe-system-notification-permission";
 let persistenceReady: Promise<void> | null = null;
+
+const getSystemNotificationApi = (): SinpeSystemNotificationApi | null => {
+  if (typeof window === "undefined" || !("Notification" in window)) {
+    return null;
+  }
+  return window.Notification as unknown as SinpeSystemNotificationApi;
+};
 
 const ensureInMemoryAuth = (auth: Auth) => {
   if (!persistenceReady) {
@@ -178,6 +191,42 @@ export default function SinpeNotificationsInitializer() {
 
   useEffect(() => {
     if (loading || !userId || permissions.reportessinpe !== true) return;
+    const notificationApi = getSystemNotificationApi();
+    if (!notificationApi || notificationApi.permission !== "default") return;
+
+    toast("Recibe los SINPE aunque estés en otra pestaña", {
+      id: PERMISSION_TOAST_ID,
+      description:
+        "Activa los avisos de TimeMaster para verlos mientras trabajas en Contica.",
+      duration: Infinity,
+      action: {
+        label: "Activar avisos",
+        onClick: () => {
+          void requestSinpeNotificationPermission(notificationApi)
+            .then((permission) => {
+              toast.dismiss(PERMISSION_TOAST_ID);
+              if (permission === "granted") {
+                toast.success("Avisos SINPE activados");
+                return;
+              }
+              toast.error(
+                "Los avisos están bloqueados. Puedes habilitarlos desde la configuración del navegador.",
+              );
+            })
+            .catch(() => {
+              toast.error("No se pudo solicitar el permiso de notificaciones.");
+            });
+        },
+      },
+    });
+
+    return () => {
+      toast.dismiss(PERMISSION_TOAST_ID);
+    };
+  }, [loading, permissions.reportessinpe, userId]);
+
+  useEffect(() => {
+    if (loading || !userId || permissions.reportessinpe !== true) return;
     let cancelled = false;
     let unsubscribers: Array<() => void> = [];
     const realtimeApp =
@@ -234,6 +283,12 @@ export default function SinpeNotificationsInitializer() {
                   id: change.doc.id,
                   ...(change.doc.data() as Omit<SinpeRealtimeEvent, "id">),
                 };
+                showSinpeSystemNotification({
+                  event,
+                  isDocumentHidden: document.hidden,
+                  notificationApi: getSystemNotificationApi(),
+                  focusWindow: () => window.focus(),
+                });
                 toast.custom(
                   (toastId) => (
                     <SinpeNotificationCard event={event} toastId={toastId} />

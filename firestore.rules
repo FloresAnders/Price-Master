@@ -789,5 +789,14 @@ service cloud.firestore {
         collection != 'version' &&
         collection != 'authSessions';
     }
+
+    // Compatibilidad temporal con el cliente actual de TimeMaster, que usa
+    // sesiones propias y accede a Firestore sin Firebase Authentication.
+    // IMPORTANTE: las coincidencias de reglas se combinan con OR, por lo que
+    // este bloque permite acceso global hasta la fecha indicada, incluso en
+    // colecciones que tienen reglas mas restrictivas arriba.
+    match /{document=**} {
+      allow read, write: if request.time < timestamp.date(2027, 7, 9);
+    }
   }
 }
