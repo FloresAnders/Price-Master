@@ -14,6 +14,8 @@ import {
 import { FondoSection } from "./components";
 import { useAuth } from "@/hooks/useAuth";
 import { getDefaultPermissions } from "@/utils/permissions";
+import DuplicateFondoGeneralModal from "./components/modals/DuplicateFondoGeneralModal";
+import { useFondoGeneralTabLock } from "./hooks/useFondoGeneralTabLock";
 
 type TabId =
   | "fondo"
@@ -202,6 +204,19 @@ export default function FondoPage() {
     return availableTabs.find((tab) => tab.id === effectiveActive) || null;
   }, [availableTabs, effectiveActive]);
 
+  const fondoGeneralTabLockStatus = useFondoGeneralTabLock(
+    effectiveActive === "fondo",
+  );
+  const alternativeTabs = useMemo(
+    () => availableTabs.filter((tab) => tab.id !== "fondo"),
+    [availableTabs],
+  );
+  const isDuplicateFondoGeneral =
+    effectiveActive === "fondo" &&
+    fondoGeneralTabLockStatus === "duplicate";
+  const canRenderActiveAccount =
+    effectiveActive !== "fondo" || fondoGeneralTabLockStatus === "owner";
+
   const getCardEntranceStyle = useCallback((index: number) => {
     return {
       transitionDelay: `${Math.min(index * 70, 280)}ms`,
@@ -250,6 +265,17 @@ export default function FondoPage() {
     },
     [effectiveActive, setActive],
   );
+
+  const handleDuplicateBack = useCallback(() => {
+    if (typeof window !== "undefined") window.location.hash = "";
+  }, []);
+
+  const handleDuplicateRandomAccount = useCallback(() => {
+    if (alternativeTabs.length === 0) return;
+    const randomIndex = Math.floor(Math.random() * alternativeTabs.length);
+    const nextTab = alternativeTabs[randomIndex];
+    if (nextTab) setActive(nextTab.id);
+  }, [alternativeTabs, setActive]);
 
   if (loading) {
     return (
@@ -421,13 +447,24 @@ export default function FondoPage() {
           </div>
         </div>
         <div className="flex h-full w-full flex-col rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-3 shadow-sm sm:p-4 md:p-5">
-          {activeTab ? (
+          {activeTab && canRenderActiveAccount ? (
             <div className="w-full flex min-h-0 flex-1">
               <FondoSection
                 namespace={activeTab.namespace}
                 companySelectorPlacement="external"
                 onCompanySelectorChange={handleCompanySelectorChange}
               />
+            </div>
+          ) : activeTab ? (
+            <div className="flex min-h-[180px] flex-1 items-center justify-center rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--muted)]/10 p-4 text-center sm:p-6">
+              {!isDuplicateFondoGeneral && (
+                <div className="flex flex-col items-center gap-3 text-[var(--muted-foreground)]">
+                  <Loader2 className="h-6 w-6 animate-spin" aria-hidden="true" />
+                  <p className="text-xs sm:text-sm">
+                    Verificando la pestaña activa...
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex min-h-[180px] flex-1 items-center justify-center rounded-lg border border-dashed border-[var(--input-border)] bg-[var(--muted)]/10 p-4 text-center sm:p-6">
@@ -513,6 +550,12 @@ export default function FondoPage() {
           </div>
         </div>
       )}
+      <DuplicateFondoGeneralModal
+        open={isDuplicateFondoGeneral}
+        hasAlternativeAccounts={alternativeTabs.length > 0}
+        onBack={handleDuplicateBack}
+        onChooseRandomAccount={handleDuplicateRandomAccount}
+      />
     </div>
   );
 }
