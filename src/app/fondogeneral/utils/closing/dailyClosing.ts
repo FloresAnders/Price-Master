@@ -220,7 +220,11 @@ export async function handleConfirmDailyClosing(
   );
   const closingHasTurno = closing.turno === "D" || closing.turno === "N";
   const previousDayClosing = sameDayClosings.find((item) => item.turno === "D");
-  if (closing.turno === "N" && !previousDayClosing) {
+  if (
+    user?.role !== "superadmin" &&
+    closing.turno === "N" &&
+    !previousDayClosing
+  ) {
     showToast("Debe existir cierre diurno antes del nocturno.", "warning", 5000);
     return null;
   }

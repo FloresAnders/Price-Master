@@ -4607,7 +4607,7 @@ export function FondoSection({
     }
 
     let closingWithCierreManager: DailyClosingFormValues = closing;
-    if (closingHasTurno) {
+    if (closingHasTurno && !isSuperAdminUser) {
       const cierreFondoVentasForDailyClosing =
         getCierreFondoVentasForDailyClosing(operationalDateKey, closing.turno!);
       const cierreFondoVentasManager = String(
@@ -4667,6 +4667,7 @@ export function FondoSection({
       requireSingleClosingReason:
         dailyClosingSingleReasonRequired &&
         !editingDailyClosingId &&
+        !isSuperAdminUser &&
         activeEmpresaForCompany?.unicoCierre !== true,
       systemVerificationEnabled: activeEmpresaForCompany?.verificacionSistemas !== false,
       solicitarApertura: empresaSolicitaApertura,
@@ -6820,6 +6821,7 @@ export function FondoSection({
         requireSingleClosingReason={
           dailyClosingSingleReasonRequired &&
           !editingDailyClosingId &&
+          !isSuperAdminUser &&
           activeEmpresaForCompany?.unicoCierre !== true
         }
         managerReadonly={!editingDailyClosingId}
