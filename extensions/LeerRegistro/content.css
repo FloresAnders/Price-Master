@@ -1,0 +1,53 @@
+.leer-registro-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-left: auto;
+  padding-left: 0.75rem;
+}
+
+#leer-registro-cargar-datos {
+  min-height: 2.25rem;
+  border: 1px solid rgba(34, 211, 238, 0.55);
+  border-radius: 0.5rem;
+  background: rgba(8, 145, 178, 0.18);
+  color: var(--foreground, #f8fafc);
+  padding: 0.45rem 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease,
+    opacity 150ms ease;
+}
+
+#leer-registro-cargar-datos:hover:not(:disabled) {
+  border-color: rgba(34, 211, 238, 0.85);
+  background: rgba(8, 145, 178, 0.3);
+}
+
+#leer-registro-cargar-datos:focus-visible {
+  outline: 2px solid rgba(34, 211, 238, 0.85);
+  outline-offset: 2px;
+}
+
+#leer-registro-cargar-datos:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+#leer-registro-estado {
+  max-width: 32rem;
+  color: var(--muted-foreground, #94a3b8);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+#leer-registro-estado[data-tone='success'] {
+  color: #86efac;
+}
+
+#leer-registro-estado[data-tone='error'] {
+  color: #fca5a5;
+}
