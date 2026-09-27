@@ -18,6 +18,7 @@ import {
   readBearerToken,
 } from "../../../../../lib/gente-crystal/sales.ts";
 import { hashToken } from "../../../../../lib/devices/tokens.ts";
+import { consumeRateLimit } from "../../../../../lib/security/rate-limit.server.ts";
 import { getControlHorarioShiftTiming } from "../../../../../utils/controlHorarioManager.ts";
 import { createGenteCrystalSalesGet } from "./read-route.ts";
 
@@ -27,8 +28,19 @@ interface GenteCrystalSalesPostDependencies {
   now: () => Date;
   hashToken: (token: string) => string;
   createRepository: () => GenteCrystalSalesRepository;
+  consumeLimit?: (
+    scope: string,
+    limit: number,
+    windowMs: number,
+  ) => { allowed: boolean; retryAfterSeconds: number };
   logError?: (message: string, error: unknown) => void;
 }
+
+// Cada POST ejecuta una transaccion de Firestore (2 lecturas + hasta 3
+// escrituras). Con la extension sincronizando ventas reales el volumen es
+// bajo; el limite existe para frenar bucles de reintento o clientes rotos.
+const POST_RATE_LIMIT = 120;
+const POST_RATE_WINDOW_MS = 60 * 1000;
 
 export function createGenteCrystalSalesPost(
   dependencies: GenteCrystalSalesPostDependencies,
@@ -43,6 +55,23 @@ export function createGenteCrystalSalesPost(
 
     try {
       const token = readBearerToken(request.headers.get("authorization"));
+      const rate = (dependencies.consumeLimit ?? consumeRateLimit)(
+        `gente-crystal-sales:${dependencies.hashToken(token)}`,
+        POST_RATE_LIMIT,
+        POST_RATE_WINDOW_MS,
+      );
+      if (!rate.allowed) {
+        return NextResponse.json(
+          { error: "rate_limited" },
+          {
+            status: 429,
+            headers: {
+              "Retry-After": String(Math.max(1, rate.retryAfterSeconds)),
+              "Cache-Control": "no-store",
+            },
+          },
+        );
+      }
       const sale = parseGenteCrystalSale(body);
       const repository = dependencies.createRepository();
       const result = await repository.sync(

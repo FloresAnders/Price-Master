@@ -556,6 +556,9 @@
           )
         };
 
+        const ticketEsNuevo = !existente;
+        let ticketCambio = ticketEsNuevo;
+
         if (!existente) {
           porTicket.set(item.ticket, venta);
           nuevas.push(venta);
@@ -576,10 +579,20 @@
           ) {
             porTicket.set(item.ticket, actualizado);
             cambio = true;
+            ticketCambio = true;
           }
         }
 
-        eventos.push(syncCore.buildActivePayload(porTicket.get(item.ticket)));
+        // Optimizacion de consumo: solo encolar lo que realmente cambio.
+        // Antes se re-enviaba el payload de TODOS los tiquetes visibles en
+        // cada escaneo (cada ~1.2 s), y cada POST al servidor ejecuta una
+        // transaccion de Firestore. El servidor ya deduplica (action
+        // 'already_exists'), pero el trafico HTTP y las lecturas seguian
+        // multiplicandose por el numero de tiquetes visibles.
+        if (ticketCambio) {
+          // porTicket ya contiene la version nueva o actualizada del ticket.
+          eventos.push(syncCore.buildActivePayload(porTicket.get(item.ticket)));
+        }
       }
 
       const cambiosStorage = {};

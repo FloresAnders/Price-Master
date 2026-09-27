@@ -12,6 +12,8 @@ const {
 } = globalThis.TimeMasterGenteCrystalSync;
 
 const QUEUE_KEY = 'genteCrystalSyncQueue';
+// Cuanto tiempo se conserva un registro ya sincronizado antes de podarlo.
+const SYNCED_TTL_MS = 24 * 60 * 60 * 1000;
 const CONFIG_KEY = 'genteCrystalIntegrationConfig';
 const ALARM_NAME = 'tmGcSync';
 const DEFAULT_API_BASE_URL = 'https://www.timemaster.es';
@@ -136,6 +138,22 @@ async function sendRecord(record, configuration) {
   }
 }
 
+function pruneSyncedRecords(queue, now = Date.now()) {
+  // Poda: elimina registros ya sincronizados para que la cola no crezca sin
+  // limite (cada registro sincronizado se reescribe en cada readQueue/write).
+  const next = {};
+  let pruned = false;
+  for (const [ticketId, record] of Object.entries(queue || {})) {
+    const syncedAt = Number(record?.syncedAt || 0);
+    if (record?.state === 'synced' && syncedAt > 0 && now - syncedAt >= SYNCED_TTL_MS) {
+      pruned = true;
+      continue;
+    }
+    next[ticketId] = record;
+  }
+  return pruned ? next : queue;
+}
+
 async function performFlush() {
   let configuration;
   try {
@@ -147,7 +165,17 @@ async function performFlush() {
   if (!configuration.token) return;
 
   while (true) {
-    const queue = await runSerialized(readQueue);
+    // Lectura + poda + escritura en UNA sola tarea de la cadena serializada:
+    // si la poda escribiera en una tarea aparte con el snapshot leido, un
+    // enqueue concurrente (TM_GC_QUEUE_SALES) quedaria en medio y la escritura
+    // de la poda lo pisaria (venta perdida). Mismo patron atomico que
+    // resetErrorsAfterConfigurationChange.
+    const queue = await runSerialized(async () => {
+      const current = await readQueue();
+      const next = pruneSyncedRecords(current, Date.now());
+      if (next !== current) await writeQueue(next);
+      return next;
+    });
     const [record] = getReadyRecords(queue, Date.now());
     if (!record) return;
     await sendRecord(record, configuration);
@@ -188,7 +216,10 @@ async function getPublicStatus() {
 }
 
 function ensureAlarm() {
-  chrome.alarms.create(ALARM_NAME, { periodInMinutes: 1 });
+  // Red de seguridad contra SW muerto: el flujo principal es flush inmediato
+  // al encolar y al instalar/arrancar. Cada minuto despertaba el service
+  // worker sin necesidad y multiplicaba las sesiones de edge request.
+  chrome.alarms.create(ALARM_NAME, { periodInMinutes: 15 });
 }
 
 chrome.runtime.onInstalled.addListener(() => {

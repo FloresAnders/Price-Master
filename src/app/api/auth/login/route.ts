@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 // Force Node runtime for login route (sensitive, do not run on Edge functions)
 export const runtime = "nodejs";
-import { UsersService } from "@/services/users";
+import {
+  findActiveUserByUsernameServer,
+  updateUserPasswordHashServer,
+  backfillUsernameLookupServer,
+} from "@/lib/auth/users.server";
 import {
   verifyPasswordServer,
   hashPasswordServer,
@@ -52,7 +56,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const user = await UsersService.findActiveUserByUsername(username);
+    const user = await findActiveUserByUsernameServer(username);
 
     if (!user) {
       return NextResponse.json(
@@ -71,7 +75,7 @@ export async function POST(request: Request) {
         if (isValid && user.id) {
           try {
             const newHash = await hashPasswordServer(password);
-            await UsersService.updateUser(user.id, { password: newHash });
+            await updateUserPasswordHashServer(user.id, newHash);
             user.password = newHash;
           } catch (err) {
             console.warn(
@@ -95,7 +99,7 @@ export async function POST(request: Request) {
 
     if (user.id && !user.nameNormalized) {
       try {
-        await UsersService.backfillUsernameLookup(user.id, username);
+        await backfillUsernameLookupServer(user.id, username);
       } catch (error) {
         console.warn("Failed to backfill normalized username", user.id, error);
       }

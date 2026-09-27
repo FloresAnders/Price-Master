@@ -1,6 +1,25 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // ========================================================================
+    // VENTANA DE COMPATIBILIDAD — migracion al puente de Firebase Auth
+    // ========================================================================
+    // Las reglas exigen sesion de Firebase (custom token via
+    // /api/auth/firebase-token + signInWithCustomToken). Para que el despliegue
+    // unico (push) no corte a nadie mientras la nueva version se propaga,
+    // isSignedIn() se mantiene ESTRICTO (request.auth != null) y cada `allow`
+    // acepta ademas clientes SIN firmar hasta la fecha de corte, con la misma
+    // apertura que tenia el catch-all anterior (que fue eliminado).
+    //
+    // La fecha de corte debe ser SIEMPRE anterior a 2027-07-09 (techo del
+    // catch-all historico). Tras la fecha, estas clausulas quedan inactivas y
+    // pueden borrarse. NO re-activar acceso anonimo despues del corte.
+    // ========================================================================
+    function isCompatWindow() {
+      return request.auth == null &&
+        request.time < timestamp.date(2026, 10, 1);
+    }
+
     function isSignedIn() {
       return request.auth != null &&
         request.auth.token.get('authPurpose', '') != 'sinpe-realtime';
@@ -69,7 +88,9 @@ service cloud.firestore {
     }
 
     match /version/{documentId} {
-      allow read: if isSignedIn();
+      // El canal de versiones debe seguir visible para clientes viejos durante
+      // la ventana: es lo que dispara su logout+recarga hacia el cliente nuevo.
+      allow read: if isSignedIn() || isCompatWindow();
       allow create: if isSignedIn() &&
         (isSuperAdmin() || !request.resource.data.keys().hasAny(['maintenance']));
       allow update: if isSignedIn() &&
@@ -106,9 +127,10 @@ service cloud.firestore {
     }
 
     match /closingTimeExtensions/{extensionId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() &&
-        (request.resource.data.status == 'pending' || isAdmin());
+      allow read: if isSignedIn() || isCompatWindow();
+      allow create: if isSignedIn() ||
+        (isCompatWindow() &&
+          request.resource.data.status == 'pending');
       allow update: if isAdmin() ||
         (
           isSignedIn() &&
@@ -148,9 +170,10 @@ service cloud.firestore {
     }
 
     match /pendingInvoiceDeletionRequests/{requestId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() &&
-        (request.resource.data.status == 'pending' || isAdmin());
+      allow read: if isSignedIn() || isCompatWindow();
+      allow create: if isSignedIn() ||
+        (isCompatWindow() &&
+          request.resource.data.status == 'pending');
       allow update: if isAdmin() ||
         (
           isSignedIn() &&
@@ -194,7 +217,7 @@ service cloud.firestore {
     }
 
     match /Facturas/{empresaId}/movements/{movementId} {
-      allow read, create, update: if isSignedIn();
+      allow read, create, update: if isSignedIn() || isCompatWindow();
       allow delete: if isAdmin();
     }
 
@@ -329,10 +352,11 @@ service cloud.firestore {
     }
 
     match /registrotucan/{empresaId}/records/{recordId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() &&
-        isRegistroTucanRecord() &&
-        request.resource.data.empresaId == empresaId;
+      allow read: if isSignedIn() || isCompatWindow();
+      allow create: if isSignedIn() ||
+        (isCompatWindow() &&
+          isRegistroTucanRecord() &&
+          request.resource.data.empresaId == empresaId);
       allow update, delete: if isAdmin();
     }
 
@@ -345,26 +369,26 @@ service cloud.firestore {
     }
 
     match /proveedores/{empresaId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isSignedIn() || isCompatWindow();
 
       match /items/{providerCode} {
-        allow read, write: if isSignedIn();
+        allow read, write: if isSignedIn() || isCompatWindow();
       }
     }
 
     match /MovimientosFondos/{docId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isSignedIn() || isCompatWindow();
 
       match /movements/{movementId} {
-        allow read, write: if isSignedIn();
+        allow read, write: if isSignedIn() || isCompatWindow();
       }
 
       match /cajanegra/{movementId} {
-        allow read, write: if isSignedIn();
+        allow read, write: if isSignedIn() || isCompatWindow();
       }
 
       match /tucan/{movementId} {
-        allow read, write: if isSignedIn();
+        allow read, write: if isSignedIn() || isCompatWindow();
       }
 
       match /tiempos/{movementId} {
@@ -761,9 +785,13 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Otras reglas existentes...
+    // Durante la ventana de compatibilidad este bloque tambien acepta clientes
+    // sin firmar (mismo alcance que tenia el catch-all eliminado). Cubre
+    // `users`, `mail`, `security_logs`, `email_change_codes`,
+    // `recovery_tokens`, `reportes_movimientos` y demas colecciones sin
+    // reglas propias. Tras la fecha de corte queda inactivo.
     match /{collection}/{document=**} {
-      allow read, write: if isSignedIn() &&
+      allow read, write: if (isSignedIn() || isCompatWindow()) &&
         collection != 'ownerChats' &&
         collection != 'MovimientosFondos' &&
         collection != 'registrotucan' &&
@@ -790,12 +818,12 @@ service cloud.firestore {
         collection != 'authSessions';
     }
 
-    // NOTA: el cliente ya no accede a Firestore sin autenticacion. La sesion
-    // propia (`timemaster_auth`) se intercambia por un custom token de Firebase
-    // en `/api/auth/firebase-token`, y el navegador firma con
-    // `signInWithCustomToken`. Por eso las reglas de arriba, basadas en
-    // `isSignedIn()`, ya se aplican y no existe un bloque de acceso global.
-    // No reintroducir un `match /{document=**}` sin autenticacion: las reglas
-    // se combinan con OR y anularía todas las restricciones anteriores.
+    // NOTA: el cliente accede a Firestore con Firebase Auth (custom token de
+    // `/api/auth/firebase-token` + `signInWithCustomToken`). Durante la ventana
+    // de compatibilidad (`isCompatWindow`, hasta 2026-10-01) los clientes aun
+    // sin firmar mantienen el acceso que tenian con el catch-all eliminado;
+    // despues del corte todo exige sesion. No reintroducir un
+    // `match /{document=**}` sin autenticacion permanente: las reglas se
+    // combinan con OR y anularia todas las restricciones anteriores.
   }
 }
