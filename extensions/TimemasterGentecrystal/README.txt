@@ -1,4 +1,4 @@
-TimeMaster - Gente Crystal v1.11.3
+TimeMaster - Gente Crystal v1.11.6
 
 INSTALACIÓN / ACTUALIZACIÓN
 
@@ -56,6 +56,13 @@ El popup muestra:
 - tiquetes visibles y borrados ignorados;
 - ventas locales guardadas;
 - pendientes, enviando, sincronizados y errores de la cola.
+
+CAMBIOS DE LA VERSIÓN 1.11.6
+
+- Reduce las solicitudes repetidas al enviar tiquetes y aumenta el intervalo
+  de seguridad del service worker para disminuir el consumo de red y Firestore.
+- Conserva únicamente tiquetes nuevos o modificados en la cola y elimina
+  registros sincronizados antiguos después de 24 horas.
 
 CAMBIOS DE LA VERSIÓN 1.11.3
 

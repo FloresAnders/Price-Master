@@ -695,7 +695,7 @@
       obtenerGuardadas().then((ventas) => {
         sendResponse({
           ok: true,
-          version: '1.11.3',
+          version: '1.11.6',
           sorteo: getSorteo(),
           guardadas: ventas.length,
           diagnostico: lectura.diagnostico
@@ -738,7 +738,7 @@
       if (contextoInvalidado) return;
       const resultado = await escanearPagina({ forzar: true });
       if (resultado.motivo === 'contexto_invalidado') return;
-      log('Extensión v1.11.3 activa:', resultado);
+      log('Extensión v1.11.6 activa:', resultado);
     }, 600);
 
     pollTimer = setInterval(() => {
