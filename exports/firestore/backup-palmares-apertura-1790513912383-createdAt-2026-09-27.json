@@ -1,0 +1,19 @@
+{
+  "projectId": "pricemaster-4a611",
+  "databaseId": "restauracion",
+  "documentPath": "MovimientosFondos/movements_DELIKOR PALMARES/movements/apertura-1790513912383",
+  "capturedBeforeUpdate": {
+    "firestoreUpdateTime": "2026-09-27T22:58:58.368Z",
+    "providerCode": "APERTURA DE FONDO",
+    "accountId": "FondoGeneral",
+    "currency": "CRC",
+    "createdAt": "2026-09-27T13:02:32.340Z",
+    "serverCreatedAt": "2026-09-27T12:58:32.934Z",
+    "openingBalanceCRC": 1192000,
+    "openingPreviousBalanceCRC": 1192000
+  },
+  "intendedUpdate": {
+    "field": "createdAt",
+    "value": "2026-09-27T12:58:32.934Z"
+  }
+}

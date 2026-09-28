@@ -4331,7 +4331,7 @@ export function FondoSection({
     }
 
     const dailyClosingTurnoForNow: "D" | "N" = hasRealD ? "N" : "D";
-    if (canBypassClosingWindows) {
+    if (isSuperAdminUser) {
       const initialValues: DailyClosingFormValues = {
         closingDate: nowISO,
         manager: defaultManager,
@@ -4588,8 +4588,16 @@ export function FondoSection({
   const handleConfirmDailyClosing = async (
     closing: DailyClosingFormValues,
   ): Promise<DailyClosingRecord | null> => {
+    const closingForSubmit =
+      !isSuperAdminUser &&
+      closing.turno !== "D" &&
+      closing.turno !== "N" &&
+      !closing.sinTurno &&
+      (dailyClosingTurno === "D" || dailyClosingTurno === "N")
+        ? { ...closing, turno: dailyClosingTurno }
+        : closing;
     const operationalDateKey = getCostaRicaOperationalDateKey(
-      closing.closingDate,
+      closingForSubmit.closingDate,
       empresaForShiftResolution?.horarioApertura,
     );
     if (!operationalDateKey) {
@@ -4600,16 +4608,20 @@ export function FondoSection({
       );
       return null;
     }
-    const closingHasTurno = closing.turno === "D" || closing.turno === "N";
-    if (!closingHasTurno && !closing.sinTurno) {
+    const closingHasTurno =
+      closingForSubmit.turno === "D" || closingForSubmit.turno === "N";
+    if (!closingHasTurno && !closingForSubmit.sinTurno) {
       showToast("Debe seleccionar el turno del cierre.", "warning", 5000);
       return null;
     }
 
-    let closingWithCierreManager: DailyClosingFormValues = closing;
+    let closingWithCierreManager: DailyClosingFormValues = closingForSubmit;
     if (closingHasTurno && !isSuperAdminUser) {
       const cierreFondoVentasForDailyClosing =
-        getCierreFondoVentasForDailyClosing(operationalDateKey, closing.turno!);
+        getCierreFondoVentasForDailyClosing(
+          operationalDateKey,
+          closingForSubmit.turno!,
+        );
       const cierreFondoVentasManager = String(
         cierreFondoVentasForDailyClosing?.manager || "",
       ).trim();
@@ -4622,12 +4634,12 @@ export function FondoSection({
         return null;
       }
       closingWithCierreManager = {
-        ...closing,
+        ...closingForSubmit,
         manager: cierreFondoVentasManager,
       };
     }
 
-    if (closing.sinTurno && !closing.manager.trim()) {
+    if (closingForSubmit.sinTurno && !closingForSubmit.manager.trim()) {
       showToast(
         "Debe indicar un encargado para guardar el cierre sin turno.",
         "warning",
@@ -4638,8 +4650,8 @@ export function FondoSection({
     const dailyClosingMinutesAfterClose =
       closingHasTurno
         ? await resolveEffectiveClosingMinutesAfterEnd(
-            closing.closingDate,
-            closing.turno!,
+            closingForSubmit.closingDate,
+            closingForSubmit.turno!,
             operationalDateKey,
           )
         : cierreFondoVentasMinutesAfterEnd;
@@ -6827,7 +6839,7 @@ export function FondoSection({
         managerReadonly={!editingDailyClosingId}
         turno={dailyClosingTurno}
         requireTurnoSelection={
-          !editingDailyClosingId && canBypassClosingWindows
+          !editingDailyClosingId && isSuperAdminUser
         }
         cierreFondoVentasMinutesBeforeEnd={cierreFondoVentasMinutesBeforeEnd}
         cierreFondoVentasMinutesAfterEnd={cierreFondoVentasMinutesAfterEnd}

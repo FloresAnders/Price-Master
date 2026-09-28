@@ -1,0 +1,44 @@
+{
+  "projectId": "pricemaster-4a611",
+  "databaseId": "restauracion",
+  "company": "DELIKOR PALMARES",
+  "operationalSchedule": {
+    "horarioApertura": "07:01",
+    "horarioCierre": "23:59",
+    "timezone": "America/Costa_Rica"
+  },
+  "ledgerBeforeUpdate": {
+    "revision": 54,
+    "updatedAt": "2026-09-27T22:21:37.509Z",
+    "currentBalanceCRC": 1121000,
+    "currentBalanceUSD": 100
+  },
+  "documents": [
+    {
+      "documentPath": "MovimientosFondos/movements_DELIKOR PALMARES/movements/apertura-1790513912383",
+      "firestoreUpdateTime": "2026-09-27T23:17:03.823Z",
+      "identity": {
+        "providerCode": "APERTURA DE FONDO",
+        "accountId": "FondoGeneral",
+        "openingBalanceCRC": 1192000,
+        "openingBalanceUSD": 80
+      },
+      "originalCreatedAt": "2026-09-27T12:58:32.934Z",
+      "replacementCreatedAt": "2026-09-27T13:01:00.000Z"
+    },
+    {
+      "documentPath": "MovimientosFondos/movements_DELIKOR PALMARES/movements/2026_09_27-07_00_44_626_FondoGeneral",
+      "firestoreUpdateTime": "2026-09-27T13:00:45.818Z",
+      "identity": {
+        "providerCode": "0132",
+        "invoiceNumber": "2609",
+        "accountId": "FondoGeneral",
+        "currency": "CRC",
+        "amountEgreso": 199000,
+        "amountPayment": 199000
+      },
+      "originalCreatedAt": "2026-09-27T13:00:44.626Z",
+      "replacementCreatedAt": "2026-09-27T13:01:01.000Z"
+    }
+  ]
+}

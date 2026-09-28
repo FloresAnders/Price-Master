@@ -401,7 +401,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     (r08Num === 0 || t11Num === 0 || tucanNum === 0 || tiemposNum === 0);
   const submitDisabled =
     submitting ||
-    turnoSelection === "" ||
+    (requireTurnoSelection && turnoSelection === "") ||
     displayedManager.trim().length === 0 ||
     !hasAnyCash ||
     hasZeroClosingReport ||
@@ -636,7 +636,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     if (submitting) {
       return "Guardando cierre. Espere un momento.";
     }
-    if (turnoSelection === "") {
+    if (requireTurnoSelection && turnoSelection === "") {
       return "Selecciona el turno para poder guardar.";
     }
     if (displayedManager.trim().length === 0) {
