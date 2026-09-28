@@ -5,8 +5,6 @@
   globalThis.__leerRegistroConticaLoaded = true;
 
   const Core = globalThis.LeerRegistroCore;
-  const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
-
   function getSearchButton() {
     return (
       document.querySelector('form.report-filters button[type="submit"][aria-label="Buscar"]') ||
@@ -35,6 +33,22 @@
     option.click();
   }
 
+  function selectClosingDateDescending() {
+    const select = document.querySelector('#bitacora-order-by');
+    if (!select) {
+      throw new Error('No se encontró el orden de los cierres en Contica.');
+    }
+
+    const option = Array.from(select.options).find(
+      (candidate) => candidate.value === 'closing_date',
+    );
+    if (!option) {
+      throw new Error('Contica no ofrece el orden “Fecha de cierre descendente”.');
+    }
+
+    Core.setNativeValue(select, option.value);
+  }
+
   function findViewButtons() {
     return Array.from(document.querySelectorAll('button, a')).filter((element) => {
       if (!Core.isVisible(element)) return false;
@@ -50,24 +64,31 @@
     });
   }
 
-  function getTableOpeningCell(row) {
+  function getTableDateCell(row, dateType) {
     const table = row.closest('table');
     if (!table) return null;
     const headers = Array.from(table.querySelectorAll('thead th'));
-    const openingIndex = headers.findIndex((header) => {
+    const dateIndex = headers.findIndex((header) => {
       const text = Core.normalizeText(header.textContent);
-      return text.includes('fecha') && text.includes('apertura');
+      return text.includes('fecha') && text.includes(dateType);
     });
-    if (openingIndex < 0) return null;
-    return row.querySelectorAll('td')[openingIndex] || null;
+    if (dateIndex < 0) return null;
+    return row.querySelectorAll('td')[dateIndex] || null;
   }
 
-  function getOpeningDate(viewButton) {
+  function parseClosingInfo(value) {
+    const text = String(value || '');
+    const date = Core.parseCostaRicaDate(text);
+    if (!date) return null;
+    return { date, hasTime: /\d{1,2}:\d{2}/.test(text) };
+  }
+
+  function getClosingDate(viewButton) {
     const row = viewButton.closest('tr');
     if (row) {
-      const openingCell = getTableOpeningCell(row);
-      const parsedCellDate = Core.parseCostaRicaDate(openingCell?.textContent);
-      if (parsedCellDate) return parsedCellDate;
+      const closingCell = getTableDateCell(row, 'cierre');
+      const closingInfo = parseClosingInfo(closingCell?.textContent);
+      if (closingInfo) return closingInfo;
     }
 
     const container =
@@ -76,25 +97,61 @@
       viewButton.closest('[class*="item"]') ||
       viewButton.parentElement;
     const text = container?.textContent || '';
-    const openingMatch = text.match(
-      /(?:fecha\s+de\s+)?apertura[^\d]*(\d{1,2}\/\d{1,2}\/\d{4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:a\.?\s*m\.?|p\.?\s*m\.?)?)?)/i,
+    const closingMatch = text.match(
+      /(?:fecha\s+de\s+)?cierre[^\d]*(\d{1,2}\/\d{1,2}\/\d{4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:a\.?\s*m\.?|p\.?\s*m\.?)?)?)/i,
     );
-    if (openingMatch) return Core.parseCostaRicaDate(openingMatch[1]);
+    if (closingMatch) return parseClosingInfo(closingMatch[1]);
 
-    return Core.parseCostaRicaDate(text);
+    return null;
   }
 
-  function findClosestEligibleClosure(now = new Date()) {
-    const threshold = now.getTime() - TWO_HOURS_MS;
-    const candidates = findViewButtons()
-      .map((button) => ({ button, openingDate: getOpeningDate(button) }))
+  function getOperationalDateKey(date) {
+    return Core.formatDateISO(Core.getReportDate(date));
+  }
+
+  function getClosingOperationalDateKey(closingInfo) {
+    return closingInfo.hasTime
+      ? getOperationalDateKey(closingInfo.date)
+      : Core.formatDateISO(closingInfo.date);
+  }
+
+  function inspectClosures(now = new Date()) {
+    const targetDate = getOperationalDateKey(now);
+    const candidates = findViewButtons().map((button) => ({
+      button,
+      closingInfo: getClosingDate(button),
+    }));
+    const matching = candidates
       .filter(
         (candidate) =>
-          candidate.openingDate && candidate.openingDate.getTime() <= threshold,
+          candidate.closingInfo &&
+          getClosingOperationalDateKey(candidate.closingInfo) === targetDate,
       )
-      .sort((left, right) => right.openingDate.getTime() - left.openingDate.getTime());
+      .sort(
+        (left, right) =>
+          right.closingInfo.date.getTime() - left.closingInfo.date.getTime(),
+      );
 
-    return candidates[0] || null;
+    return {
+      targetDate,
+      selected: matching[0] || null,
+      parsedDates: candidates
+        .map((candidate) => candidate.closingInfo?.date)
+        .filter(Boolean)
+        .sort((left, right) => right.getTime() - left.getTime()),
+      unparsedCount: candidates.filter((candidate) => !candidate.closingInfo).length,
+    };
+  }
+
+  function formatDetectedClosing(date) {
+    return new Intl.DateTimeFormat('es-CR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(date);
   }
 
   function findProductTotals() {
@@ -152,6 +209,7 @@
       message: 'Contica no cargó el formulario de cierres.',
     });
     await selectLastSevenDays();
+    selectClosingDateDescending();
     await closeOpenProductModal();
 
     const searchButton = getSearchButton();
@@ -177,13 +235,23 @@
       message: 'Contica no confirmó resultados nuevos para la búsqueda de cierres.',
     });
 
-    const closure = findClosestEligibleClosure(new Date(requestedAt));
-    if (!closure) {
+    const inspection = inspectClosures(new Date(requestedAt));
+    if (!inspection.selected) {
+      const detected = inspection.parsedDates
+        .slice(0, 5)
+        .map(formatDetectedClosing)
+        .join(', ');
+      const details = [
+        detected ? `Cierres detectados: ${detected}.` : 'No se interpretó ninguna fecha de cierre.',
+        inspection.unparsedCount
+          ? `${inspection.unparsedCount} cierre(s) tenían una fecha no reconocida.`
+          : '',
+      ].filter(Boolean).join(' ');
       throw new Error(
-        'No se encontró un cierre de Contica cuya apertura tenga al menos 2 horas.',
+        `No se encontró un cierre de Contica para la fecha operativa ${inspection.targetDate}. ${details}`,
       );
     }
-    closure.button.click();
+    inspection.selected.button.click();
 
     return Core.waitFor(findProductTotals, {
       timeoutMs: 45000,

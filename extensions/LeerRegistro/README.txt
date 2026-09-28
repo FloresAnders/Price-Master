@@ -1,4 +1,4 @@
-LeerRegistro 1.0.0
+LeerRegistro 1.0.2
 ===================
 
 Objetivo
@@ -30,8 +30,11 @@ Esa pestaña solo se cierra automaticamente cuando fue creada por la extension.
 
 Reglas
 ------
-- De 00:01 hasta antes de 01:00 se consulta el dia anterior.
-- Contica usa el cierre mas reciente cuya apertura tenga al menos 2 horas.
+- Desde las 00:00 hasta antes de 01:00 se consulta el dia anterior.
+- Contica usa el cierre mas reciente de la fecha operativa, sin exigir una
+  antiguedad minima. Un cierre de las 16:00 puede cargarse inmediatamente.
+- Los cierres de medianoche que Contica asigna al dia anterior conservan esa
+  fecha operativa.
 - La carga es completa: si una fuente falla, no se modifican los cuatro campos.
 - La extension no guarda claves, usuarios, contrasenas ni datos de sesion.
 

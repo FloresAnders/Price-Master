@@ -5,6 +5,34 @@
   globalThis.__leerRegistroBcrLoaded = true;
 
   const Core = globalThis.LeerRegistroCore;
+  const JOB_STORAGE_KEY = 'leer-registro-bcr-job';
+
+  function readPendingJob() {
+    try {
+      const raw = sessionStorage.getItem(JOB_STORAGE_KEY);
+      if (!raw) return null;
+      const value = JSON.parse(raw);
+      return value && typeof value === 'object' ? value : null;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function writePendingJob(job) {
+    try {
+      sessionStorage.setItem(JOB_STORAGE_KEY, JSON.stringify(job));
+    } catch (_error) {
+      // El reintento del background todavía protege las recargas del documento.
+    }
+  }
+
+  function clearPendingJob() {
+    try {
+      sessionStorage.removeItem(JOB_STORAGE_KEY);
+    } catch (_error) {
+      // El marcador expira al iniciar una consulta con otro requestedAt.
+    }
+  }
 
   function getDocuments(root = document, collected = []) {
     collected.push(root);
@@ -40,7 +68,13 @@
 
         for (let index = cells.length - 1; index > labelIndex; index -= 1) {
           const amount = Core.parseMoney(cells[index].textContent);
-          if (amount !== null) return { amount, row };
+          if (amount !== null) {
+            return {
+              amount,
+              row,
+              signature: Core.normalizeText(row.textContent),
+            };
+          }
         }
       }
     }
@@ -80,10 +114,38 @@
   }
 
   async function collectBcrTotal(requestedAt) {
-    await openCashierPaymentsReport();
-
     const reportDate = Core.getReportDate(new Date(requestedAt));
     const formattedDate = Core.formatDateDDMMYYYY(reportDate);
+    const pendingJob = readPendingJob();
+
+    if (
+      pendingJob?.requestedAt === requestedAt &&
+      pendingJob?.stage === 'awaiting-report'
+    ) {
+      const documentReloaded =
+        Number(pendingJob.pageTimeOrigin) !== performance.timeOrigin;
+      const generatedResult = await Core.waitFor(() => {
+        const currentResult = findTotalGeneral();
+        if (!currentResult) return false;
+        if (documentReloaded) return currentResult;
+        return currentResult.signature !== pendingJob.previousSignature
+          ? currentResult
+          : false;
+      }, {
+        timeoutMs: 60000,
+        message: 'BCR terminó de cargar, pero no mostró el Total General.',
+      });
+      clearPendingJob();
+      return {
+        total: generatedResult.amount,
+        reportDate: Core.formatDateISO(reportDate),
+      };
+    }
+
+    if (pendingJob?.requestedAt !== requestedAt) clearPendingJob();
+
+    await openCashierPaymentsReport();
+
     const startInput = findInDocuments('#ContenidoCentral_txtFechaInicio');
     const endInput = findInDocuments('#ContenidoCentral_txtFechaFin');
     const formatSelect = findInDocuments('#ContenidoCentral_ddlFormatos');
@@ -104,6 +166,13 @@
     }
 
     const previousResult = findTotalGeneral();
+    writePendingJob({
+      requestedAt,
+      reportDate: Core.formatDateISO(reportDate),
+      stage: 'awaiting-report',
+      pageTimeOrigin: performance.timeOrigin,
+      previousSignature: previousResult?.signature || '',
+    });
     generateButton.click();
 
     const generatedResult = await Core.waitFor(() => {
@@ -118,6 +187,8 @@
       timeoutMs: 60000,
       message: 'BCR no confirmó un Total General actualizado del reporte.',
     });
+
+    clearPendingJob();
 
     return {
       total: generatedResult.amount,

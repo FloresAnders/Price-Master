@@ -56,7 +56,7 @@
     const result = new Date(now.getTime());
     const minutesAfterMidnight = result.getHours() * 60 + result.getMinutes();
 
-    if (minutesAfterMidnight >= 1 && minutesAfterMidnight < 60) {
+    if (minutesAfterMidnight >= 0 && minutesAfterMidnight < 60) {
       result.setDate(result.getDate() - 1);
     }
 

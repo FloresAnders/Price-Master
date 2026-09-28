@@ -5,6 +5,7 @@ const BCR_PATTERN =
 const CONTICA_PATTERN = 'https://contica.app/app/modules/cierre/*';
 const TIEMPOS_URL = 'https://www.timemaster.es/#tiempostucan';
 const MESSAGE_TIMEOUT_MS = 130000;
+const BCR_NAVIGATION_RETRIES = 4;
 
 function getErrorMessage(error) {
   return error instanceof Error ? error.message : String(error || 'Error desconocido.');
@@ -87,6 +88,51 @@ async function sendCollectorMessage(tabId, contentFile, message) {
   }
 }
 
+function isClosedMessageChannelError(error) {
+  const message = getErrorMessage(error).toLowerCase();
+  return (
+    message.includes('message channel closed') ||
+    message.includes('receiving end does not exist') ||
+    message.includes('the tab was closed')
+  );
+}
+
+async function waitForTabSettled(tabId, timeoutMs = 45000) {
+  const startedAt = Date.now();
+  let completeSince = null;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const tab = await chrome.tabs.get(tabId);
+    if (tab.status === 'complete') {
+      completeSince ||= Date.now();
+      if (Date.now() - completeSince >= 300) return;
+    } else {
+      completeSince = null;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+
+  throw new Error('BCR no terminó de cargar después de cambiar de página.');
+}
+
+async function sendBcrCollectorMessage(tabId, message) {
+  let lastError;
+
+  for (let attempt = 0; attempt < BCR_NAVIGATION_RETRIES; attempt += 1) {
+    try {
+      return await sendCollectorMessage(tabId, 'bcr-content.js', message);
+    } catch (error) {
+      lastError = error;
+      if (!isClosedMessageChannelError(error)) throw error;
+      await waitForTabSettled(tabId);
+    }
+  }
+
+  throw new Error(
+    `BCR cambió de página demasiadas veces sin completar el reporte: ${getErrorMessage(lastError)}`,
+  );
+}
+
 async function createTiemposTab() {
   const tab = await chrome.tabs.create({ url: TIEMPOS_URL, active: false });
   if (!tab.id) throw new Error('No se pudo abrir el reporte de Tiempos.');
@@ -99,7 +145,7 @@ async function createTiemposTab() {
   }
 }
 
-async function collectAll(requesterTabId) {
+async function collectAll() {
   const requestedAt = Date.now();
   const [bcrTab, conticaTab] = await Promise.all([
     getFirstOpenTab(BCR_PATTERN, 'BCR Corresponsales'),
@@ -109,7 +155,7 @@ async function collectAll(requesterTabId) {
 
   try {
     const [bcr, contica, tiempos] = await Promise.all([
-      sendCollectorMessage(bcrTab.id, 'bcr-content.js', {
+      sendBcrCollectorMessage(bcrTab.id, {
         type: 'LR_COLLECT_BCR',
         requestedAt,
       }),
@@ -150,10 +196,10 @@ async function collectAll(requesterTabId) {
   }
 }
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type !== 'LR_COLLECT_ALL') return false;
 
-  collectAll(sender.tab?.id)
+  collectAll()
     .then((data) => sendResponse({ ok: true, data }))
     .catch((error) => sendResponse({ ok: false, error: getErrorMessage(error) }));
   return true;
