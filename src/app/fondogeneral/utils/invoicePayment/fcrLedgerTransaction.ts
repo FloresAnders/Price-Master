@@ -92,7 +92,7 @@ export async function commitFcrPayments(input: {
 
     for (const [index, application] of input.applications.entries()) {
       const original = { ...invoiceSnapshots[index].data(), id: invoiceIds[index] } as FacturaMovement;
-      if (original.invoiceDocType !== "FCR" || original.accountId !== input.accountId ||
+      if (original.invoiceDocType !== "FCR" ||
         original.currency !== application.invoice.currency ||
         original.providerCode !== application.invoice.providerCode) throw new Error("FCR_INVOICE_CHANGED");
       const total = Math.max(0, roundMoney2(original.originalAmount ?? original.amount));
@@ -114,6 +114,7 @@ export async function commitFcrPayments(input: {
       const status = nextBalance === 0 ? "PAGADA" : "PARCIAL";
       const updated: FacturaMovement = {
         ...original,
+        accountId: input.accountId,
         amount: total, originalAmount: total, amountDue: nextBalance,
         amountPayment: cashDebit, paidAmount: nextPaid, balanceDue: nextBalance,
         paymentStatus: status, updateAt: input.nowISO,

@@ -318,6 +318,13 @@ export async function submitClosingInvoicePayment(
     closeClosingInvoicePaymentModal();
   } catch (error) {
     console.error("[FONDO] Error saving credit invoice payment:", error);
+    if (error instanceof Error && error.message === "FCR_INVOICE_CHANGED") {
+      showToast(
+        "La factura cambió desde que se cargó. Vuelve a abrirla e intenta nuevamente.",
+        "error",
+        6000,
+      );
+    }
   } finally {
     setClosingPaymentSubmitting(false);
   }
