@@ -242,13 +242,22 @@ export const getCashOpeningAvailabilityAfterDailyClosing = (args: {
   nowISO: string;
   horarioApertura?: string | null;
   horarioCierre?: string | null;
+  unicoCierre?: boolean;
   latestDailyClosing?: DailyClosingLike | null;
   shiftChangeMin?: number | null;
   cierreFondoVentasMinutesBeforeEnd?: number | null;
   cierreFondoVentasMinutesAfterEnd?: number | null;
 }): CashOpeningAvailability => {
   const latest = args.latestDailyClosing;
-  if (latest?.turno !== "D" && latest?.turno !== "N") {
+  if (!latest) return { allowed: true };
+  const isSingleClosingBoundary =
+    args.unicoCierre === true ||
+    String(latest.singleClosingReason || "").trim().length > 0;
+  if (
+    !isSingleClosingBoundary &&
+    latest?.turno !== "D" &&
+    latest?.turno !== "N"
+  ) {
     return { allowed: true };
   }
 
@@ -292,7 +301,7 @@ export const getCashOpeningAvailabilityAfterDailyClosing = (args: {
     return { allowed: true };
   }
 
-  if (String(latest.singleClosingReason || "").trim()) {
+  if (isSingleClosingBoundary) {
     return {
       allowed: false,
       closingTurno: "N",

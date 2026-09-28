@@ -78,6 +78,7 @@ export interface HandleConfirmDailyClosingDeps {
   lastDailyClosingSavedAtRef: NumberRef;
   minutesAfterClose?: number | null;
   authorizedOperationalDateKey?: string | null;
+  unicoCierre: boolean;
   requireSingleClosingReason: boolean;
   systemVerificationEnabled: boolean;
   solicitarApertura: boolean;
@@ -140,6 +141,7 @@ export async function handleConfirmDailyClosing(
     lastDailyClosingSavedAtRef,
     minutesAfterClose,
     authorizedOperationalDateKey,
+    unicoCierre,
     requireSingleClosingReason,
     systemVerificationEnabled,
     solicitarApertura,
@@ -221,6 +223,7 @@ export async function handleConfirmDailyClosing(
   const closingHasTurno = closing.turno === "D" || closing.turno === "N";
   const previousDayClosing = sameDayClosings.find((item) => item.turno === "D");
   if (
+    !unicoCierre &&
     user?.role !== "superadmin" &&
     closing.turno === "N" &&
     !previousDayClosing

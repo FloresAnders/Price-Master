@@ -1271,6 +1271,7 @@ export function FondoSection({
           nowISO,
           horarioApertura: empresaForShiftResolution?.horarioApertura,
           horarioCierre: empresaForShiftResolution?.horarioCierre,
+          unicoCierre: empresaForShiftResolution?.unicoCierre === true,
           latestDailyClosing: latestClosing,
           shiftChangeMin: timing?.withinHorario ? timing.shiftChangeMin : null,
           cierreFondoVentasMinutesBeforeEnd,
@@ -1298,6 +1299,7 @@ export function FondoSection({
     [
       empresaForShiftResolution?.horarioApertura,
       empresaForShiftResolution?.horarioCierre,
+      empresaForShiftResolution?.unicoCierre,
       cierreFondoVentasMinutesAfterEnd,
       cierreFondoVentasMinutesBeforeEnd,
       loadLatestDailyClosing,
@@ -4330,7 +4332,12 @@ export function FondoSection({
       console.error("[FG] Error resolving single-closing reason requirement:", err);
     }
 
-    const dailyClosingTurnoForNow: "D" | "N" = hasRealD ? "N" : "D";
+    const dailyClosingTurnoForNow: "D" | "N" =
+      empresaForShiftResolution?.unicoCierre === true
+        ? "N"
+        : hasRealD
+          ? "N"
+          : "D";
     if (isSuperAdminUser) {
       const initialValues: DailyClosingFormValues = {
         closingDate: nowISO,
@@ -4676,6 +4683,7 @@ export function FondoSection({
       lastDailyClosingSavedAtRef,
       minutesAfterClose: dailyClosingMinutesAfterClose,
       authorizedOperationalDateKey: operationalDateKey,
+      unicoCierre: empresaForShiftResolution?.unicoCierre === true,
       requireSingleClosingReason:
         dailyClosingSingleReasonRequired &&
         !editingDailyClosingId &&
