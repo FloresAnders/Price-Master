@@ -1,0 +1,160 @@
+:root {
+  color-scheme: light;
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  width: 370px;
+  margin: 0;
+  background: #f4f7fb;
+  color: #172033;
+}
+
+.panel {
+  padding: 18px;
+}
+
+.heading {
+  margin-bottom: 16px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.heading p {
+  margin: 4px 0 0;
+  color: #68738a;
+  font-size: 12px;
+}
+
+.features {
+  display: grid;
+  gap: 10px;
+}
+
+.feature {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid #dce2ec;
+  border-radius: 12px;
+  background: #fff;
+  padding: 13px;
+  cursor: pointer;
+}
+
+.feature__copy,
+.feature__copy strong,
+.feature__copy small,
+.feature__control {
+  display: block;
+}
+
+.feature__copy {
+  min-width: 0;
+}
+
+.feature__copy strong {
+  margin-bottom: 3px;
+  font-size: 14px;
+}
+
+.feature__copy small {
+  color: #68738a;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.feature__control {
+  flex: 0 0 78px;
+  text-align: right;
+}
+
+.status {
+  min-height: 16px;
+  color: #596277;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.status[data-enabled="true"] {
+  color: #12713f;
+}
+
+.status[data-error="true"] {
+  color: #a32323;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  margin-top: 4px;
+}
+
+.switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.slider {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: #aeb7c7;
+  transition: background 150ms ease;
+}
+
+.slider::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 25%);
+  content: "";
+  transition: transform 150ms ease;
+}
+
+.switch input:checked + .slider {
+  background: #168a52;
+}
+
+.switch input:checked + .slider::after {
+  transform: translateX(20px);
+}
+
+.switch input:focus-visible + .slider {
+  outline: 3px solid rgb(22 138 82 / 25%);
+  outline-offset: 2px;
+}
+
+.switch input:disabled + .slider {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.hint {
+  margin: 14px 2px 0;
+  color: #68738a;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+code {
+  color: #344057;
+  font-size: 10px;
+}

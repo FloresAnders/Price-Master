@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TimeMaster Herramientas</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="panel">
+      <header class="heading">
+        <div>
+          <h1>TimeMaster Herramientas</h1>
+          <p>Contica y Gente Crystal</p>
+        </div>
+      </header>
+
+      <section class="features" aria-label="Herramientas disponibles">
+        <label class="feature" for="tmhCambioTabEnabled-toggle">
+          <span class="feature__copy">
+            <strong>CambioTab</strong>
+            <small>Atajos para cambiar pestañas en Contica.</small>
+          </span>
+          <span class="feature__control">
+            <span id="tmhCambioTabEnabled-status" class="status" aria-live="polite">Activado</span>
+            <span class="switch">
+              <input id="tmhCambioTabEnabled-toggle" type="checkbox" role="switch">
+              <span class="slider" aria-hidden="true"></span>
+            </span>
+          </span>
+        </label>
+
+        <label class="feature" for="tmhSumaTiemposEnabled-toggle">
+          <span class="feature__copy">
+            <strong>SumaTiempos</strong>
+            <small>Total en vivo en Gente Crystal.</small>
+          </span>
+          <span class="feature__control">
+            <span id="tmhSumaTiemposEnabled-status" class="status" aria-live="polite">Activado</span>
+            <span class="switch">
+              <input id="tmhSumaTiemposEnabled-toggle" type="checkbox" role="switch">
+              <span class="slider" aria-hidden="true"></span>
+            </span>
+          </span>
+        </label>
+
+        <label class="feature" for="tmhMoverEnterEnabled-toggle">
+          <span class="feature__copy">
+            <strong>Impresión automática</strong>
+            <small>Pulsa Imprimir cuando aparece el modal.</small>
+          </span>
+          <span class="feature__control">
+            <span id="tmhMoverEnterEnabled-status" class="status" aria-live="polite">Desactivado</span>
+            <span class="switch">
+              <input id="tmhMoverEnterEnabled-toggle" type="checkbox" role="switch">
+              <span class="slider" aria-hidden="true"></span>
+            </span>
+          </span>
+        </label>
+      </section>
+
+      <p class="hint">
+        Para omitir la confirmación final de impresión, inicia Edge con
+        <code>--kiosk-printing</code>.
+      </p>
+    </main>
+    <script src="settings-core.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>
