@@ -37,7 +37,27 @@ describe("EncabezadoImpresion settings", () => {
         maxCharacters: 20,
         lines: ["  Uno ", " ", "Dos"],
       }).lines,
-    ).toEqual(["Uno", "Dos"]);
+    ).toEqual([
+      { text: "Uno", fontFamily: "Arial", fontSize: 14 },
+      { text: "Dos", fontFamily: "Arial", fontSize: 14 },
+    ]);
+  });
+
+  it("conserva fuente y tamaño por línea dentro de los límites", () => {
+    const { normalizeSettings } = requireModule(corePath);
+
+    expect(
+      normalizeSettings({
+        maxCharacters: 40,
+        lines: [
+          { text: "  Título  ", fontFamily: "Segoe Script", fontSize: 24 },
+          { text: "Teléfono", fontFamily: "", fontSize: 99 },
+        ],
+      }).lines,
+    ).toEqual([
+      { text: "Título", fontFamily: "Segoe Script", fontSize: 24 },
+      { text: "Teléfono", fontFamily: "Arial", fontSize: 14 },
+    ]);
   });
 
   it("rechaza límites y líneas que no caben", () => {
@@ -50,6 +70,20 @@ describe("EncabezadoImpresion settings", () => {
       errors: ["La línea 1 supera el límite de 4 caracteres."],
     });
     expect(validateDraft({ maxCharacters: 201, lines: [] }).ok).toBe(false);
+  });
+
+  it("rechaza tamaños de fuente fuera del rango de impresión", () => {
+    const { validateDraft } = requireModule(corePath);
+
+    expect(
+      validateDraft({
+        maxCharacters: 40,
+        lines: [{ text: "Título", fontFamily: "Arial", fontSize: 49 }],
+      }),
+    ).toMatchObject({
+      ok: false,
+      errors: ["El tamaño de la línea 1 debe estar entre 8 y 48 px."],
+    });
   });
 
   it("solo conserva data URLs de PNG, JPEG y WebP", () => {

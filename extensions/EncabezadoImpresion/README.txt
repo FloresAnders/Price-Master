@@ -1,4 +1,4 @@
-ENCABEZADO DE IMPRESIÓN 1.0.0
+ENCABEZADO DE IMPRESIÓN 1.1.0
 ================================
 
 Agrega una imagen y líneas de texto centradas al inicio de los comprobantes
@@ -21,8 +21,12 @@ CONFIGURACIÓN DEL ENCABEZADO
    máximo de 1200 píxeles de ancho y acepta hasta 2 MB después del ajuste.
 3. Defina el límite general de caracteres, entre 1 y 200.
 4. Pulse "+ Añadir línea" para cada texto necesario.
-5. Use Subir, Bajar y Eliminar para controlar el orden.
-6. Revise la vista previa y pulse "Guardar configuración".
+5. Seleccione para cada línea una fuente instalada y un tamaño entre 8 y 48 px.
+6. Use Subir, Bajar y Eliminar para controlar el orden.
+7. Revise la vista previa y pulse "Guardar configuración".
+
+La extensión solicita acceso a la lista de fuentes de Chrome para llenar los
+desplegables. No modifica la configuración de fuentes del navegador.
 
 TUCÁN
 -----
@@ -49,14 +53,16 @@ IMPRESIÓN
 ---------
 
 La imagen aparece primero y conserva su proporción. Después se imprime cada
-texto centrado en su propia línea. Si el límite elegido permite un texto más
-ancho que el papel, el texto se ajusta visualmente sin recortarse.
+texto centrado en su propia línea, con la fuente y el tamaño seleccionados. Si
+el límite elegido permite un texto más ancho que el papel, el texto se ajusta
+visualmente sin recortarse.
 
 VERIFICACIÓN PENDIENTE EN EL ENTORNO REAL
 -----------------------------------------
 
 Las pruebas locales validan la estructura de los dos comprobantes entregados,
-el panel, los límites, permisos y ausencia de encabezados duplicados. La URL
+el panel, las fuentes, tamaños, límites, permisos y ausencia de encabezados
+duplicados. La URL
 definitiva de Junta, la ventana autenticada about:blank generada por BCR y el
 resultado en una impresora térmica física permanecen como condiciones no
 verificadas hasta probarlas en el equipo y las sesiones reales del usuario.

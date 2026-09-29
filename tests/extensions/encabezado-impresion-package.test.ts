@@ -22,7 +22,7 @@ describe("paquete Encabezado de impresión", () => {
 
     expect(manifest.manifest_version).toBe(3);
     expect(manifest.permissions).toEqual(
-      expect.arrayContaining(["storage", "scripting"]),
+      expect.arrayContaining(["storage", "scripting", "fontSettings"]),
     );
     expect(manifest.host_permissions).toEqual([
       "https://www.bcrcorresponsal.bancobcr.com/BCRCorresponsalesExterno/*",

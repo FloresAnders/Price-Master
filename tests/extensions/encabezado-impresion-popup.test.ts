@@ -29,13 +29,18 @@ type StoredSettings = {
   schemaVersion: number;
   imageDataUrl: string;
   maxCharacters: number;
-  lines: string[];
+  lines: Array<
+    string | { text: string; fontFamily: string; fontSize: number }
+  >;
   juntaOrigin: string;
 };
 
 function createChromeApi(
   initial: Partial<StoredSettings> = {},
-  options: { failWrites?: boolean } = {},
+  options: {
+    failWrites?: boolean;
+    fonts?: Array<{ fontId: string; displayName: string }>;
+  } = {},
 ) {
   const current: StoredSettings = {
     schemaVersion: 1,
@@ -48,6 +53,14 @@ function createChromeApi(
   const writes: Record<string, unknown>[] = [];
   return {
     chromeApi: {
+      fontSettings: {
+        getFontList: vi.fn().mockResolvedValue(
+          options.fonts || [
+            { fontId: "Arial", displayName: "Arial" },
+            { fontId: "Courier New", displayName: "Courier New" },
+          ],
+        ),
+      },
       storage: {
         local: {
           async get() {
@@ -152,6 +165,58 @@ describe("EncabezadoImpresion popup", () => {
     expect(dom.window.document.querySelector("#message")?.textContent).toBe(
       "La imagen supera 2 MB.",
     );
+    dom.window.close();
+  });
+
+  it("permite elegir una fuente instalada y tamaño para cada línea", async () => {
+    const dom = new JSDOM(popupMarkup);
+    const { chromeApi, writes } = createChromeApi(
+      {
+        lines: [
+          { text: "Título", fontFamily: "Courier New", fontSize: 22 },
+        ],
+      },
+      {
+        fonts: [
+          { fontId: "Arial", displayName: "Arial" },
+          { fontId: "Courier New", displayName: "Courier New" },
+        ],
+      },
+    );
+    const { createPopupController } = requireModule(popupPath);
+    const controller = createPopupController(dom.window.document, chromeApi, {
+      processImageFile: vi.fn(),
+    });
+    await controller.start();
+
+    const font = dom.window.document.querySelector(
+      ".line-font",
+    ) as HTMLSelectElement;
+    const size = dom.window.document.querySelector(
+      ".line-font-size",
+    ) as HTMLInputElement;
+    const preview = dom.window.document.querySelector(
+      ".ei-preview-line",
+    ) as HTMLElement;
+
+    expect(chromeApi.fontSettings.getFontList).toHaveBeenCalledOnce();
+    expect([...font.options].map((option) => option.value)).toEqual([
+      "Arial",
+      "Courier New",
+    ]);
+    expect(font.value).toBe("Courier New");
+    expect(size.value).toBe("22");
+    expect(preview.style.fontFamily).toContain("Courier New");
+    expect(preview.style.fontSize).toBe("22px");
+
+    font.value = "Arial";
+    font.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+    input(dom, ".line-font-size", "18");
+    await controller.save();
+
+    expect(writes.at(-1)?.[STORAGE_KEY]).toMatchObject({
+      lines: [{ text: "Título", fontFamily: "Arial", fontSize: 18 }],
+    });
     dom.window.close();
   });
 
@@ -272,7 +337,9 @@ describe("EncabezadoImpresion popup", () => {
     expect(dom.window.document.querySelector("#message")?.textContent).toBe(
       "La línea 1 supera el límite de 4 caracteres.",
     );
-    expect(controller.getDraft().lines).toEqual(["Demasiado"]);
+    expect(controller.getDraft().lines).toEqual([
+      { text: "Demasiado", fontFamily: "Arial", fontSize: 14 },
+    ]);
     dom.window.close();
   });
 

@@ -18,7 +18,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -103,7 +104,8 @@ h2 {
 
 input[type="text"],
 input[type="url"],
-input[type="number"] {
+input[type="number"],
+select {
   width: 100%;
   min-height: 36px;
   border: 1px solid #bdcad5;
@@ -146,6 +148,26 @@ input:focus {
   color: #6d7b88;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
+}
+
+.line-style-controls {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) 92px;
+  gap: 8px;
+}
+
+.line-style-field {
+  display: grid;
+  gap: 4px;
+  color: #526372;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.line-font,
+.line-font-size {
+  min-height: 34px;
 }
 
 .line-actions {
@@ -219,6 +241,7 @@ input:focus {
 }
 
 .ei-preview-line {
+  line-height: 1.2;
   white-space: pre-wrap;
 }
 

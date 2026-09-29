@@ -61,10 +61,14 @@
         section.append(image);
       }
 
-      for (const text of value.lines) {
+      for (const configuredLine of value.lines) {
         const line = documentRef.createElement("div");
         line.className = "ei-line";
-        line.textContent = text;
+        line.textContent = configuredLine.text;
+        line.style.fontFamily = settings.fontFamilyStack(
+          configuredLine.fontFamily,
+        );
+        line.style.fontSize = `${configuredLine.fontSize}px`;
         section.append(line);
       }
 

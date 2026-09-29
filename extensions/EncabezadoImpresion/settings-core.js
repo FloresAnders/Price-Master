@@ -13,6 +13,10 @@
     "use strict";
 
     const STORAGE_KEY = "encabezadoImpresionSettingsV1";
+    const DEFAULT_FONT_FAMILY = "Arial";
+    const DEFAULT_FONT_SIZE = 14;
+    const MIN_FONT_SIZE = 8;
+    const MAX_FONT_SIZE = 48;
     const DEFAULT_SETTINGS = Object.freeze({
       schemaVersion: 1,
       imageDataUrl: "",
@@ -21,6 +25,44 @@
       juntaOrigin: "",
     });
     const IMAGE_DATA_URL = /^data:image\/(?:png|jpeg|webp);base64,/i;
+
+    function normalizeFontFamily(value) {
+      return typeof value === "string" && value.trim()
+        ? value.trim().slice(0, 200)
+        : DEFAULT_FONT_FAMILY;
+    }
+
+    function normalizeLine(value) {
+      const source =
+        typeof value === "string"
+          ? { text: value }
+          : value && typeof value === "object"
+            ? value
+            : null;
+      if (!source) return null;
+
+      const text = typeof source.text === "string" ? source.text.trim() : "";
+      if (!text) return null;
+      const fontSize =
+        Number.isInteger(source.fontSize) &&
+        source.fontSize >= MIN_FONT_SIZE &&
+        source.fontSize <= MAX_FONT_SIZE
+          ? source.fontSize
+          : DEFAULT_FONT_SIZE;
+
+      return {
+        text,
+        fontFamily: normalizeFontFamily(source.fontFamily),
+        fontSize,
+      };
+    }
+
+    function fontFamilyStack(value) {
+      const escaped = normalizeFontFamily(value)
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, '\\"');
+      return `"${escaped}", Arial, sans-serif`;
+    }
 
     function normalizeJuntaOrigin(value) {
       if (typeof value !== "string" || !value.trim()) return "";
@@ -55,10 +97,7 @@
           ? value.maxCharacters
           : DEFAULT_SETTINGS.maxCharacters;
       const lines = Array.isArray(value.lines)
-        ? value.lines
-            .filter((line) => typeof line === "string")
-            .map((line) => line.trim())
-            .filter(Boolean)
+        ? value.lines.map(normalizeLine).filter(Boolean)
         : [];
 
       return {
@@ -69,7 +108,7 @@
             ? value.imageDataUrl
             : "",
         maxCharacters,
-        lines: lines.filter((line) => line.length <= maxCharacters),
+        lines: lines.filter((line) => line.text.length <= maxCharacters),
         juntaOrigin: normalizeJuntaOrigin(value.juntaOrigin),
       };
     }
@@ -85,9 +124,22 @@
       const lines = Array.isArray(raw?.lines) ? raw.lines : [];
       if (Number.isInteger(limit)) {
         lines.forEach((line, index) => {
-          if (String(line).trim().length > limit) {
+          const text =
+            typeof line === "string" ? line : String(line?.text || "");
+          if (text.trim().length > limit) {
             errors.push(
               `La línea ${index + 1} supera el límite de ${limit} caracteres.`,
+            );
+          }
+          if (
+            line &&
+            typeof line === "object" &&
+            (!Number.isInteger(line.fontSize) ||
+              line.fontSize < MIN_FONT_SIZE ||
+              line.fontSize > MAX_FONT_SIZE)
+          ) {
+            errors.push(
+              `El tamaño de la línea ${index + 1} debe estar entre ${MIN_FONT_SIZE} y ${MAX_FONT_SIZE} px.`,
             );
           }
         });
@@ -103,8 +155,13 @@
     return {
       STORAGE_KEY,
       DEFAULT_SETTINGS,
+      DEFAULT_FONT_FAMILY,
+      DEFAULT_FONT_SIZE,
+      MIN_FONT_SIZE,
+      MAX_FONT_SIZE,
       normalizeSettings,
       validateDraft,
+      fontFamilyStack,
       normalizeJuntaOrigin,
       originPattern,
     };

@@ -71,6 +71,32 @@ describe("EncabezadoImpresion print core", () => {
     dom.window.close();
   });
 
+  it("aplica la fuente y el tamaño configurados a cada línea", () => {
+    const dom = new JSDOM(tucanHtml);
+    const { insertHeader } = requireModule(corePath);
+
+    insertHeader(dom.window.document, {
+      ...settings,
+      lines: [
+        { text: "Título", fontFamily: "Courier New", fontSize: 24 },
+        { text: "Detalle", fontFamily: "Arial", fontSize: 12 },
+      ],
+    });
+
+    const lines = [
+      ...dom.window.document.querySelectorAll<HTMLElement>(".ei-line"),
+    ];
+    expect(lines.map((line) => line.textContent)).toEqual([
+      "Título",
+      "Detalle",
+    ]);
+    expect(lines[0].style.fontFamily).toContain("Courier New");
+    expect(lines[0].style.fontSize).toBe("24px");
+    expect(lines[1].style.fontFamily).toContain("Arial");
+    expect(lines[1].style.fontSize).toBe("12px");
+    dom.window.close();
+  });
+
   it("no modifica documentos desconocidos ni crea bloques vacíos", () => {
     const unknown = new JSDOM("<main>otro sitio</main>");
     const empty = new JSDOM(tucanHtml);

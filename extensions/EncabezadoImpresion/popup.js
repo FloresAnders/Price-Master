@@ -92,9 +92,60 @@
       const updateJuntaAccess =
         browserDeps.updateJuntaAccess || siteAccess.updateJuntaAccess;
       let draft = { ...settings.DEFAULT_SETTINGS, lines: [] };
+      let installedFonts = [
+        {
+          fontId: settings.DEFAULT_FONT_FAMILY,
+          displayName: settings.DEFAULT_FONT_FAMILY,
+        },
+      ];
       let started = false;
 
       const element = (id) => documentRef.getElementById(id);
+
+      function cloneLines(lines) {
+        return lines.map((line) => ({ ...line }));
+      }
+
+      function availableFontFallback() {
+        return installedFonts.some(
+          (font) => font.fontId === settings.DEFAULT_FONT_FAMILY,
+        )
+          ? settings.DEFAULT_FONT_FAMILY
+          : installedFonts[0]?.fontId || settings.DEFAULT_FONT_FAMILY;
+      }
+
+      function keepAvailableFonts(lines) {
+        const available = new Set(installedFonts.map((font) => font.fontId));
+        const fallback = availableFontFallback();
+        return lines.map((line) => ({
+          ...line,
+          fontFamily: available.has(line.fontFamily)
+            ? line.fontFamily
+            : fallback,
+        }));
+      }
+
+      async function loadInstalledFonts() {
+        try {
+          const result = await chromeApi.fontSettings.getFontList();
+          const seen = new Set();
+          const fonts = (Array.isArray(result) ? result : []).filter((font) => {
+            if (
+              !font ||
+              typeof font.fontId !== "string" ||
+              !font.fontId.trim() ||
+              seen.has(font.fontId)
+            ) {
+              return false;
+            }
+            seen.add(font.fontId);
+            return true;
+          });
+          if (fonts.length > 0) installedFonts = fonts;
+        } catch {
+          // Arial remains available as a safe fallback if Chrome cannot list fonts.
+        }
+      }
 
       function setMessage(message, kind = "info") {
         const target = element("message");
@@ -128,21 +179,61 @@
         container.replaceChildren();
         const limit = safeInputLimit();
 
-        draft.lines.forEach((text, index) => {
+        draft.lines.forEach((configuredLine, index) => {
           const row = documentRef.createElement("div");
           row.className = "line-row";
 
           const field = documentRef.createElement("input");
           field.type = "text";
           field.className = "line-input";
-          field.value = text;
+          field.value = configuredLine.text;
           field.maxLength = limit;
           field.dataset.index = String(index);
           field.setAttribute("aria-label", `Línea ${index + 1}`);
 
           const count = documentRef.createElement("span");
           count.className = "line-count";
-          count.textContent = `${text.length}/${limit}`;
+          count.textContent = `${configuredLine.text.length}/${limit}`;
+
+          const styleControls = documentRef.createElement("div");
+          styleControls.className = "line-style-controls";
+
+          const fontLabel = documentRef.createElement("label");
+          fontLabel.className = "line-style-field line-font-field";
+          fontLabel.textContent = "Fuente";
+          const font = documentRef.createElement("select");
+          font.className = "line-font";
+          font.dataset.index = String(index);
+          font.setAttribute("aria-label", `Fuente de la línea ${index + 1}`);
+          for (const installedFont of installedFonts) {
+            const option = documentRef.createElement("option");
+            option.value = installedFont.fontId;
+            option.textContent = installedFont.displayName || installedFont.fontId;
+            option.style.fontFamily = settings.fontFamilyStack(
+              installedFont.fontId,
+            );
+            font.append(option);
+          }
+          font.value = configuredLine.fontFamily;
+          font.style.fontFamily = settings.fontFamilyStack(
+            configuredLine.fontFamily,
+          );
+          fontLabel.append(font);
+
+          const sizeLabel = documentRef.createElement("label");
+          sizeLabel.className = "line-style-field line-size-field";
+          sizeLabel.textContent = "Tamaño (px)";
+          const size = documentRef.createElement("input");
+          size.type = "number";
+          size.className = "line-font-size";
+          size.min = String(settings.MIN_FONT_SIZE);
+          size.max = String(settings.MAX_FONT_SIZE);
+          size.step = "1";
+          size.value = String(configuredLine.fontSize);
+          size.dataset.index = String(index);
+          size.setAttribute("aria-label", `Tamaño de la línea ${index + 1}`);
+          sizeLabel.append(size);
+          styleControls.append(fontLabel, sizeLabel);
 
           const actions = documentRef.createElement("div");
           actions.className = "line-actions";
@@ -152,7 +243,7 @@
             makeAction("Eliminar", "delete", index),
           );
 
-          row.append(field, count, actions);
+          row.append(field, count, styleControls, actions);
           container.append(row);
         });
       }
@@ -170,11 +261,15 @@
           preview.append(image);
         }
 
-        for (const text of draft.lines) {
-          if (!text.trim()) continue;
+        for (const configuredLine of draft.lines) {
+          if (!configuredLine.text.trim()) continue;
           const line = documentRef.createElement("div");
           line.className = "ei-preview-line";
-          line.textContent = text;
+          line.textContent = configuredLine.text;
+          line.style.fontFamily = settings.fontFamilyStack(
+            configuredLine.fontFamily,
+          );
+          line.style.fontSize = `${configuredLine.fontSize}px`;
           preview.append(line);
         }
 
@@ -205,7 +300,10 @@
         await chromeApi.storage.local.set({
           [settings.STORAGE_KEY]: validation.value,
         });
-        draft = { ...validation.value, lines: [...validation.value.lines] };
+        draft = {
+          ...validation.value,
+          lines: cloneLines(validation.value.lines),
+        };
         render();
         setMessage("Configuración guardada.", "success");
         return true;
@@ -264,7 +362,7 @@
             return false;
           }
 
-          draft = { ...nextValue, lines: [...nextValue.lines] };
+          draft = { ...nextValue, lines: cloneLines(nextValue.lines) };
           const juntaUrl = element("junta-url");
           if (juntaUrl) juntaUrl.value = result.origin;
           setMessage(
@@ -284,23 +382,42 @@
 
       function bindEvents() {
         element("add-line")?.addEventListener("click", () => {
-          draft.lines.push("");
+          draft.lines.push({
+            text: "",
+            fontFamily: availableFontFallback(),
+            fontSize: settings.DEFAULT_FONT_SIZE,
+          });
           renderLines();
           renderPreview();
         });
 
         element("lines")?.addEventListener("input", (event) => {
           const field = event.target;
-          if (!field?.classList?.contains("line-input")) return;
+          if (!field?.classList) return;
           const index = Number(field.dataset.index);
-          if (!Number.isInteger(index) || !draft.lines[index]) {
-            if (draft.lines[index] !== "") return;
+          if (!Number.isInteger(index) || !draft.lines[index]) return;
+
+          if (field.classList.contains("line-input")) {
+            draft.lines[index].text = field.value;
+            const count = field.parentElement?.querySelector(".line-count");
+            if (count) {
+              count.textContent = `${field.value.length}/${safeInputLimit()}`;
+            }
+          } else if (field.classList.contains("line-font-size")) {
+            draft.lines[index].fontSize = Number(field.value);
+          } else {
+            return;
           }
-          draft.lines[index] = field.value;
-          const count = field.parentElement?.querySelector(".line-count");
-          if (count) {
-            count.textContent = `${field.value.length}/${safeInputLimit()}`;
-          }
+          renderPreview();
+        });
+
+        element("lines")?.addEventListener("change", (event) => {
+          const field = event.target;
+          if (!field?.classList?.contains("line-font")) return;
+          const index = Number(field.dataset.index);
+          if (!Number.isInteger(index) || !draft.lines[index]) return;
+          draft.lines[index].fontFamily = field.value;
+          field.style.fontFamily = settings.fontFamilyStack(field.value);
           renderPreview();
         });
 
@@ -308,7 +425,7 @@
           const button = event.target?.closest?.("[data-action]");
           if (!button) return;
           const index = Number(button.dataset.index);
-          if (!Number.isInteger(index) || !draft.lines[index] && draft.lines[index] !== "") return;
+          if (!Number.isInteger(index) || !draft.lines[index]) return;
           if (button.dataset.action === "delete") draft.lines.splice(index, 1);
           if (button.dataset.action === "up" && index > 0) {
             [draft.lines[index - 1], draft.lines[index]] = [
@@ -359,18 +476,19 @@
         if (started) return;
         started = true;
         bindEvents();
+        await loadInstalledFonts();
         const stored = await chromeApi.storage.local.get({
           [settings.STORAGE_KEY]: settings.DEFAULT_SETTINGS,
         });
         const value = settings.normalizeSettings(
           stored?.[settings.STORAGE_KEY],
         );
-        draft = { ...value, lines: [...value.lines] };
+        draft = { ...value, lines: keepAvailableFonts(value.lines) };
         render();
       }
 
       function getDraft() {
-        return { ...draft, lines: [...draft.lines] };
+        return { ...draft, lines: cloneLines(draft.lines) };
       }
 
       return { start, save, selectImage, authorizeJunta, getDraft };
