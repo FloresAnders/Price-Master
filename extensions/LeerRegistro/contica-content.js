@@ -33,7 +33,7 @@
     option.click();
   }
 
-  function selectClosingDateDescending() {
+  async function selectClosingDateDescending() {
     const select = document.querySelector('#bitacora-order-by');
     if (!select) {
       throw new Error('No se encontró el orden de los cierres en Contica.');
@@ -46,7 +46,56 @@
       throw new Error('Contica no ofrece el orden “Fecha de cierre descendente”.');
     }
 
-    Core.setNativeValue(select, option.value);
+    const control = select.closest('.bootstrap-select') || select.parentElement;
+    const toggle = control?.querySelector('button[data-id="bitacora-order-by"]');
+    if (!toggle) {
+      throw new Error('No se encontró el selector visual de orden en Contica.');
+    }
+
+    if (Core.normalizeText(toggle.textContent).includes('fecha de cierre descendente')) {
+      return;
+    }
+
+    toggle.click();
+    let label;
+    try {
+      label = await Core.waitFor(
+        () =>
+          Core.findByText(
+            document,
+            '.dropdown-menu .text',
+            'Fecha de cierre descendente',
+          ),
+        {
+          timeoutMs: 5000,
+          message: 'No se pudo desplegar el orden “Fecha de cierre descendente”.',
+        },
+      );
+    } catch (_error) {
+      Core.setNativeValue(select, option.value);
+      return;
+    }
+    const link = label.closest('a');
+    if (!link) {
+      Core.setNativeValue(select, option.value);
+      return;
+    }
+    link.click();
+
+    try {
+      await Core.waitFor(
+        () =>
+          Core.normalizeText(toggle.textContent).includes(
+            'fecha de cierre descendente',
+          ),
+        {
+          timeoutMs: 5000,
+          message: 'Contica no aplicó el orden por fecha de cierre.',
+        },
+      );
+    } catch (_error) {
+      Core.setNativeValue(select, option.value);
+    }
   }
 
   function findViewButtons() {
@@ -98,7 +147,7 @@
       viewButton.parentElement;
     const text = container?.textContent || '';
     const closingMatch = text.match(
-      /(?:fecha\s+de\s+)?cierre[^\d]*(\d{1,2}\/\d{1,2}\/\d{4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:a\.?\s*m\.?|p\.?\s*m\.?)?)?)/i,
+      /(?:fecha\s+de\s+)?cierre[^\d]*((?:\d{4}\/\d{1,2}\/\d{1,2}|\d{1,2}\/\d{1,2}\/\d{4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:a\.?\s*m\.?|p\.?\s*m\.?)?)?)/i,
     );
     if (closingMatch) return parseClosingInfo(closingMatch[1]);
 
@@ -209,7 +258,7 @@
       message: 'Contica no cargó el formulario de cierres.',
     });
     await selectLastSevenDays();
-    selectClosingDateDescending();
+    await selectClosingDateDescending();
     await closeOpenProductModal();
 
     const searchButton = getSearchButton();

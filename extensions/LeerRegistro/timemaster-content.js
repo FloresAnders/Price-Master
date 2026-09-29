@@ -45,6 +45,13 @@
     return String(alert?.textContent || '').trim();
   }
 
+  function getUpdateAvailabilityMessage() {
+    const button = getUpdateButton();
+    const tooltipId = button?.getAttribute('aria-describedby');
+    const tooltip = tooltipId ? document.getElementById(tooltipId) : null;
+    return String(tooltip?.textContent || '').trim();
+  }
+
   function clearTimeFilters() {
     const panel = getTiemposPanel();
     for (const input of panel.querySelectorAll('input[type="time"]')) {
@@ -65,12 +72,27 @@
     Core.setNativeValue(dateInput, Core.formatDateISO(reportDate));
     clearTimeFilters();
 
-    const updateButton = await Core.waitFor(getUpdateButton, {
+    await Core.waitFor(getUpdateButton, {
       message: 'No se encontró el botón Actualizar del reporte de Tiempos.',
     });
-    if (updateButton.disabled) {
+
+    let updateButton;
+    try {
+      updateButton = await Core.waitFor(
+        () => {
+          const currentButton = getUpdateButton();
+          return currentButton && !currentButton.disabled ? currentButton : false;
+        },
+        {
+          timeoutMs: 10000,
+          message: 'El botón Actualizar sigue bloqueado.',
+        },
+      );
+    } catch (_error) {
+      const availability = getUpdateAvailabilityMessage();
       throw new Error(
-        'El botón Actualizar de Tiempos no está disponible en este momento.',
+        availability ||
+          'El reporte de Tiempos solo puede actualizarse durante la ventana de cierre del turno D o N.',
       );
     }
 

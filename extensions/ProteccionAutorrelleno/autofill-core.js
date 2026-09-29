@@ -1,10 +1,7 @@
 (function initAutofillProtectionCore(global) {
   const DEFAULT_SETTINGS = Object.freeze({
     enabled: true,
-    protectedUrls: [
-      "https://contica.app/app/login/",
-      "https://www.timemaster.es/",
-    ],
+    protectedUrls: [],
     passwordRecord: null,
   });
 

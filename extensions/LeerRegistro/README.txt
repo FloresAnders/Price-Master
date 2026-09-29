@@ -1,4 +1,4 @@
-LeerRegistro 1.0.2
+LeerRegistro 1.0.4
 ===================
 
 Objetivo

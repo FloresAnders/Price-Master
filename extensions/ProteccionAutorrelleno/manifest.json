@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Proteccion de Autorrelleno",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Solicita una contrasena local antes de permitir autorrelleno en sitios configurados.",
   "permissions": ["storage"],
   "host_permissions": ["<all_urls>"],

@@ -156,14 +156,20 @@
 
   function parseCostaRicaDate(value) {
     const text = String(value || '');
-    const match = text.match(
-      /(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(a\.?\s*m\.?|p\.?\s*m\.?)?)?/i,
+    const yearFirst = text.match(
+      /(\d{4})\/(\d{1,2})\/(\d{1,2})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(a\.?\s*m\.?|p\.?\s*m\.?)?)?/i,
     );
+    const dayFirst = yearFirst
+      ? null
+      : text.match(
+          /(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(a\.?\s*m\.?|p\.?\s*m\.?)?)?/i,
+        );
+    const match = yearFirst || dayFirst;
     if (!match) return null;
 
-    const day = Number(match[1]);
+    const day = Number(yearFirst ? match[3] : match[1]);
     const month = Number(match[2]) - 1;
-    const year = Number(match[3]);
+    const year = Number(yearFirst ? match[1] : match[3]);
     let hours = Number(match[4] || 0);
     const minutes = Number(match[5] || 0);
     const seconds = Number(match[6] || 0);
