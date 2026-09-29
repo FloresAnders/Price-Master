@@ -33,7 +33,10 @@ type StoredSettings = {
   juntaOrigin: string;
 };
 
-function createChromeApi(initial: Partial<StoredSettings> = {}) {
+function createChromeApi(
+  initial: Partial<StoredSettings> = {},
+  options: { failWrites?: boolean } = {},
+) {
   const current: StoredSettings = {
     schemaVersion: 1,
     imageDataUrl: "",
@@ -51,6 +54,7 @@ function createChromeApi(initial: Partial<StoredSettings> = {}) {
             return { [STORAGE_KEY]: { ...current, lines: [...current.lines] } };
           },
           async set(value: Record<string, StoredSettings>) {
+            if (options.failWrites) throw new Error("storage failed");
             writes.push(value);
             Object.assign(current, value[STORAGE_KEY]);
           },
@@ -245,6 +249,69 @@ describe("EncabezadoImpresion popup", () => {
     });
     expect(controller.getDraft().juntaOrigin).toBe("https://viejo.test");
     expect(writes).toEqual([]);
+    dom.window.close();
+  });
+
+  it("no autoriza Junta si el borrador tiene una línea fuera del límite", async () => {
+    const dom = new JSDOM(popupMarkup);
+    const { chromeApi, writes } = createChromeApi({ lines: ["Demasiado"] });
+    const updateJuntaAccess = vi.fn();
+    const { createPopupController } = requireModule(popupPath);
+    const controller = createPopupController(dom.window.document, chromeApi, {
+      processImageFile: vi.fn(),
+      updateJuntaAccess,
+    });
+    await controller.start();
+
+    input(dom, "#max-characters", "4");
+    input(dom, "#junta-url", "https://junta.test/factura");
+    await controller.authorizeJunta();
+
+    expect(updateJuntaAccess).not.toHaveBeenCalled();
+    expect(writes).toEqual([]);
+    expect(dom.window.document.querySelector("#message")?.textContent).toBe(
+      "La línea 1 supera el límite de 4 caracteres.",
+    );
+    expect(controller.getDraft().lines).toEqual(["Demasiado"]);
+    dom.window.close();
+  });
+
+  it("restaura el acceso anterior si falla guardar el nuevo origen", async () => {
+    const dom = new JSDOM(popupMarkup);
+    const { chromeApi } = createChromeApi(
+      { juntaOrigin: "https://viejo.test" },
+      { failWrites: true },
+    );
+    const updateJuntaAccess = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, origin: "https://nuevo.test" })
+      .mockResolvedValueOnce({ ok: true, origin: "https://viejo.test" });
+    const { createPopupController } = requireModule(popupPath);
+    const controller = createPopupController(dom.window.document, chromeApi, {
+      processImageFile: vi.fn(),
+      updateJuntaAccess,
+    });
+    await controller.start();
+
+    input(dom, "#junta-url", "https://nuevo.test/factura");
+    await controller.authorizeJunta();
+
+    expect(updateJuntaAccess).toHaveBeenNthCalledWith(
+      1,
+      chromeApi,
+      "https://viejo.test",
+      "https://nuevo.test/factura",
+    );
+    expect(updateJuntaAccess).toHaveBeenNthCalledWith(
+      2,
+      chromeApi,
+      "https://nuevo.test",
+      "https://viejo.test",
+    );
+    expect(controller.getDraft().juntaOrigin).toBe("https://viejo.test");
+    expect(dom.window.document.querySelector("#message")?.textContent).toBe(
+      "No fue posible guardar el sitio de Junta.",
+    );
     dom.window.close();
   });
 });

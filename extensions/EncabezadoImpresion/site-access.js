@@ -1,6 +1,7 @@
 (function initializeSiteAccess(root, factory) {
   const settings =
     typeof module === "object" && module.exports
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       ? require("./settings-core.js")
       : root.EncabezadoImpresionSettings;
   const api = factory(settings);
@@ -47,15 +48,12 @@
         };
       }
 
-      if (next === previous) return { ok: true, origin: previous };
-
       if (!next) {
         if (previous) {
           try {
-            const removed = await chromeApi.permissions.remove({
+            await chromeApi.permissions.remove({
               origins: [settings.originPattern(previous)],
             });
-            if (!removed) throw new Error("permission not removed");
           } catch {
             return {
               ok: false,
@@ -76,32 +74,63 @@
       }
 
       const nextPattern = settings.originPattern(next);
-      const granted = await chromeApi.permissions.request({
-        origins: [nextPattern],
-      });
-      if (!granted) {
+      let nextPermissionWasGranted = false;
+      let registered = [];
+      try {
+        [nextPermissionWasGranted, registered] = await Promise.all([
+          chromeApi.permissions.contains({ origins: [nextPattern] }),
+          chromeApi.scripting.getRegisteredContentScripts({
+            ids: [JUNTA_SCRIPT_ID],
+          }),
+        ]);
+      } catch {
         return {
           ok: false,
           origin: previous,
-          error: "Chrome no concedió acceso al sitio de Junta.",
+          error: "No fue posible revisar el acceso al sitio de Junta.",
         };
       }
 
+      const currentRegistration = registered[0] || null;
+      const registrationMatches = currentRegistration?.matches?.includes(
+        nextPattern,
+      );
+      if (
+        next === previous &&
+        nextPermissionWasGranted &&
+        registrationMatches
+      ) {
+        return { ok: true, origin: previous };
+      }
+
+      let permissionGrantedNow = false;
+      if (!nextPermissionWasGranted) {
+        const granted = await chromeApi.permissions.request({
+          origins: [nextPattern],
+        });
+        if (!granted) {
+          return {
+            ok: false,
+            origin: previous,
+            error: "Chrome no concedió acceso al sitio de Junta.",
+          };
+        }
+        permissionGrantedNow = true;
+      }
+
       try {
-        const registered =
-          await chromeApi.scripting.getRegisteredContentScripts({
-            ids: [JUNTA_SCRIPT_ID],
-          });
         const registration = buildJuntaRegistration(next);
-        if (registered.length > 0) {
+        if (currentRegistration) {
           await chromeApi.scripting.updateContentScripts([registration]);
         } else {
           await chromeApi.scripting.registerContentScripts([registration]);
         }
       } catch {
-        await chromeApi.permissions
-          .remove({ origins: [nextPattern] })
-          .catch(() => {});
+        if (permissionGrantedNow) {
+          await chromeApi.permissions
+            .remove({ origins: [nextPattern] })
+            .catch(() => {});
+        }
         return {
           ok: false,
           origin: previous,
@@ -109,10 +138,34 @@
         };
       }
 
-      if (previous) {
-        await chromeApi.permissions.remove({
-          origins: [settings.originPattern(previous)],
-        });
+      if (previous && previous !== next) {
+        try {
+          await chromeApi.permissions.remove({
+            origins: [settings.originPattern(previous)],
+          });
+        } catch {
+          try {
+            if (currentRegistration) {
+              await chromeApi.scripting.updateContentScripts([
+                buildJuntaRegistration(previous),
+              ]);
+            } else {
+              await chromeApi.scripting.unregisterContentScripts({
+                ids: [JUNTA_SCRIPT_ID],
+              });
+            }
+            if (permissionGrantedNow) {
+              await chromeApi.permissions.remove({ origins: [nextPattern] });
+            }
+          } catch {
+            // Se conserva el error principal; el panel seguirá mostrando el origen anterior.
+          }
+          return {
+            ok: false,
+            origin: previous,
+            error: "No fue posible reemplazar el sitio de Junta.",
+          };
+        }
       }
 
       return { ok: true, origin: next };

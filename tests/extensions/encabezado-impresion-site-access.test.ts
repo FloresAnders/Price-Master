@@ -13,14 +13,18 @@ const accessPath = resolve(
 
 type MockOptions = {
   registered?: boolean;
+  registeredOrigin?: string;
+  hasPermission?: boolean;
   denyRequest?: boolean;
   registerFailure?: boolean;
   updateFailure?: boolean;
-  removeFailure?: boolean;
+  removeFailureOrigin?: string;
+  removeResult?: boolean;
 };
 
 function createChromeApi(options: MockOptions = {}) {
   const calls = {
+    contains: [] as string[][],
     request: [] as string[][],
     remove: [] as string[][],
     register: [] as Record<string, unknown>[],
@@ -29,20 +33,33 @@ function createChromeApi(options: MockOptions = {}) {
   };
   const chromeApi = {
     permissions: {
+      async contains({ origins }: { origins: string[] }) {
+        calls.contains.push(origins);
+        return options.hasPermission === true;
+      },
       async request({ origins }: { origins: string[] }) {
         calls.request.push(origins);
         return !options.denyRequest;
       },
       async remove({ origins }: { origins: string[] }) {
         calls.remove.push(origins);
-        if (options.removeFailure) throw new Error("remove failed");
-        return true;
+        if (origins.includes(options.removeFailureOrigin || "")) {
+          throw new Error("remove failed");
+        }
+        return options.removeResult ?? true;
       },
     },
     scripting: {
       async getRegisteredContentScripts() {
         return options.registered
-          ? [{ id: "encabezado-impresion-junta" }]
+          ? [
+              {
+                id: "encabezado-impresion-junta",
+                matches: [
+                  `${options.registeredOrigin || "https://viejo.test"}/*`,
+                ],
+              },
+            ]
           : [];
       },
       async registerContentScripts(entries: Record<string, unknown>[]) {
@@ -132,7 +149,11 @@ describe("EncabezadoImpresion site access", () => {
 
   it("no solicita de nuevo el mismo origen", async () => {
     const { updateJuntaAccess } = requireModule(accessPath);
-    const { chromeApi, calls } = createChromeApi({ registered: true });
+    const { chromeApi, calls } = createChromeApi({
+      registered: true,
+      registeredOrigin: "https://junta.test",
+      hasPermission: true,
+    });
 
     const result = await updateJuntaAccess(
       chromeApi,
@@ -143,6 +164,27 @@ describe("EncabezadoImpresion site access", () => {
     expect(result).toEqual({ ok: true, origin: "https://junta.test" });
     expect(calls.request).toEqual([]);
     expect(calls.update).toEqual([]);
+  });
+
+  it("repara el mismo origen cuando Chrome perdió su permiso", async () => {
+    const { updateJuntaAccess } = requireModule(accessPath);
+    const { chromeApi, calls } = createChromeApi({
+      registered: true,
+      registeredOrigin: "https://junta.test",
+      hasPermission: false,
+    });
+
+    const result = await updateJuntaAccess(
+      chromeApi,
+      "https://junta.test",
+      "https://junta.test/factura",
+    );
+
+    expect(result).toEqual({ ok: true, origin: "https://junta.test" });
+    expect(calls.request).toEqual([["https://junta.test/*"]]);
+    expect(calls.update[0]).toMatchObject({
+      matches: ["https://junta.test/*"],
+    });
   });
 
   it("retira el sitio anterior solo después de activar el nuevo", async () => {
@@ -196,5 +238,49 @@ describe("EncabezadoImpresion site access", () => {
     expect(result).toEqual({ ok: true, origin: "" });
     expect(calls.remove).toEqual([["https://junta.test/*"]]);
     expect(calls.unregister).toEqual([["encabezado-impresion-junta"]]);
+  });
+
+  it("desregistra Junta aunque el permiso ya hubiera sido retirado", async () => {
+    const { updateJuntaAccess } = requireModule(accessPath);
+    const { chromeApi, calls } = createChromeApi({
+      registered: true,
+      registeredOrigin: "https://junta.test",
+      removeResult: false,
+    });
+
+    const result = await updateJuntaAccess(
+      chromeApi,
+      "https://junta.test",
+      "",
+    );
+
+    expect(result).toEqual({ ok: true, origin: "" });
+    expect(calls.unregister).toEqual([["encabezado-impresion-junta"]]);
+  });
+
+  it("restaura el registro anterior si no puede retirar su permiso", async () => {
+    const { updateJuntaAccess } = requireModule(accessPath);
+    const { chromeApi, calls } = createChromeApi({
+      registered: true,
+      registeredOrigin: "https://viejo.test",
+      removeFailureOrigin: "https://viejo.test/*",
+    });
+
+    const result = await updateJuntaAccess(
+      chromeApi,
+      "https://viejo.test",
+      "https://nuevo.test/factura",
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      origin: "https://viejo.test",
+      error: "No fue posible reemplazar el sitio de Junta.",
+    });
+    expect(calls.update).toHaveLength(2);
+    expect(calls.update[1]).toMatchObject({
+      matches: ["https://viejo.test/*"],
+    });
+    expect(calls.remove.at(-1)).toEqual(["https://nuevo.test/*"]);
   });
 });

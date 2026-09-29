@@ -1,6 +1,7 @@
 (function initializePrintCore(root, factory) {
   const settings =
     typeof module === "object" && module.exports
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       ? require("./settings-core.js")
       : root.EncabezadoImpresionSettings;
   const api = factory(settings);

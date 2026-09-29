@@ -1,14 +1,17 @@
 (function initializePopup(root, factory) {
   const settings =
     typeof module === "object" && module.exports
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       ? require("./settings-core.js")
       : root.EncabezadoImpresionSettings;
   const imageCore =
     typeof module === "object" && module.exports
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       ? require("./image-core.js")
       : root.EncabezadoImpresionImageCore;
   const siteAccess =
     typeof module === "object" && module.exports
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       ? require("./site-access.js")
       : root.EncabezadoImpresionSiteAccess;
   const api = factory(settings, imageCore, siteAccess);
@@ -224,21 +227,44 @@
       async function authorizeJunta() {
         const button = element("authorize-junta");
         const requestedUrl = element("junta-url")?.value || "";
+        const validation = settings.validateDraft(draft);
+        if (!validation.ok) {
+          setMessage(validation.errors[0], "error");
+          return false;
+        }
+
+        const previousOrigin = draft.juntaOrigin;
         if (button) button.disabled = true;
         try {
           const result = await updateJuntaAccess(
             chromeApi,
-            draft.juntaOrigin,
+            previousOrigin,
             requestedUrl,
           );
           if (!result.ok) {
             setMessage(result.error, "error");
             return false;
           }
-          draft.juntaOrigin = result.origin;
-          await chromeApi.storage.local.set({
-            [settings.STORAGE_KEY]: settings.normalizeSettings(draft),
-          });
+
+          const nextValue = {
+            ...validation.value,
+            juntaOrigin: result.origin,
+          };
+          try {
+            await chromeApi.storage.local.set({
+              [settings.STORAGE_KEY]: nextValue,
+            });
+          } catch {
+            await updateJuntaAccess(
+              chromeApi,
+              result.origin,
+              previousOrigin,
+            ).catch(() => {});
+            setMessage("No fue posible guardar el sitio de Junta.", "error");
+            return false;
+          }
+
+          draft = { ...nextValue, lines: [...nextValue.lines] };
           const juntaUrl = element("junta-url");
           if (juntaUrl) juntaUrl.value = result.origin;
           setMessage(
