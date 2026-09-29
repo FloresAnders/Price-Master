@@ -142,6 +142,29 @@ export default function Footer() {
                 <p className="text-xs text-[var(--muted-foreground)]">
                   Todos los derechos reservados.
                 </p>
+                <nav
+                  className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] md:justify-end"
+                  aria-label="Información legal"
+                >
+                  <a
+                    href="/about"
+                    className="text-[var(--muted-foreground)] underline-offset-4 hover:text-[var(--foreground)] hover:underline"
+                  >
+                    Acerca de
+                  </a>
+                  <a
+                    href="/privacy/gmail-sinpe"
+                    className="text-[var(--muted-foreground)] underline-offset-4 hover:text-[var(--foreground)] hover:underline"
+                  >
+                    Privacidad Gmail
+                  </a>
+                  <a
+                    href="/terms"
+                    className="text-[var(--muted-foreground)] underline-offset-4 hover:text-[var(--foreground)] hover:underline"
+                  >
+                    Condiciones
+                  </a>
+                </nav>
               </div>
 
               <div

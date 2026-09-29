@@ -3,7 +3,10 @@ const PUBLIC_ROUTES = new Set([
   "/reset-password",
   "/pruebas",
   "/device-link",
+  "/about",
+  "/privacy/gmail-sinpe",
   "/privacy/gente-crystal-extension",
+  "/terms",
 ]);
 
 export function isPublicRoute(pathname: string): boolean {
