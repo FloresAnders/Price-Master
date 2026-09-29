@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Encabezado de impresión</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="panel">
+      <header class="panel-heading">
+        <p class="eyebrow">Tucán y Junta</p>
+        <h1>Encabezado de impresión</h1>
+        <p class="intro">Añada una imagen y textos centrados antes del comprobante.</p>
+      </header>
+
+      <section class="card" aria-labelledby="image-title">
+        <div class="section-heading">
+          <div>
+            <h2 id="image-title">Imagen</h2>
+            <p>PNG, JPEG o WebP. Máximo 2 MB después de ajustarla.</p>
+          </div>
+        </div>
+        <input id="image-file" class="file-input" type="file" accept="image/png,image/jpeg,image/webp">
+        <button id="remove-image" class="button button-secondary" type="button">Quitar imagen</button>
+      </section>
+
+      <section class="card" aria-labelledby="lines-title">
+        <div class="section-heading section-heading-inline">
+          <div>
+            <h2 id="lines-title">Líneas</h2>
+            <p>Cada texto se imprimirá centrado en su propia línea.</p>
+          </div>
+          <label class="limit-field" for="max-characters">
+            Límite
+            <input id="max-characters" type="number" min="1" max="200" value="40">
+          </label>
+        </div>
+        <div id="lines" class="line-list" aria-label="Líneas del encabezado"></div>
+        <button id="add-line" class="button button-secondary button-wide" type="button">+ Añadir línea</button>
+      </section>
+
+      <section class="card" aria-labelledby="junta-title">
+        <div class="section-heading">
+          <div>
+            <h2 id="junta-title">Sitio de Junta</h2>
+            <p>Pegue una URL de la página de impresión cuando la tenga disponible.</p>
+          </div>
+        </div>
+        <input id="junta-url" type="url" placeholder="https://sitio.ejemplo/ruta" autocomplete="url">
+        <button id="authorize-junta" class="button button-secondary button-wide" type="button">Autorizar sitio de Junta</button>
+      </section>
+
+      <section class="card" aria-labelledby="preview-title">
+        <div class="section-heading">
+          <div>
+            <h2 id="preview-title">Vista previa</h2>
+            <p>Referencia aproximada para papel térmico.</p>
+          </div>
+        </div>
+        <section id="preview" class="receipt-preview" aria-label="Vista previa"></section>
+      </section>
+
+      <footer class="panel-footer">
+        <p id="message" role="status" aria-live="polite"></p>
+        <button id="save" class="button button-primary button-wide" type="button">Guardar configuración</button>
+      </footer>
+    </main>
+
+    <script src="settings-core.js"></script>
+    <script src="image-core.js"></script>
+    <script src="site-access.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>
