@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Encabezado de impresión",
+  "version": "1.0.0",
+  "description": "Agrega una imagen y líneas configurables a los comprobantes de Tucán y Junta.",
+  "permissions": ["storage", "scripting"],
+  "host_permissions": [
+    "https://www.bcrcorresponsal.bancobcr.com/BCRCorresponsalesExterno/*"
+  ],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "128": "icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.bcrcorresponsal.bancobcr.com/BCRCorresponsalesExterno/*"
+      ],
+      "js": ["settings-core.js", "print-core.js", "print-content.js"],
+      "css": ["print-content.css"],
+      "run_at": "document_start",
+      "match_about_blank": true
+    }
+  ]
+}
