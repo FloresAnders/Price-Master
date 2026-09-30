@@ -10,7 +10,12 @@ import sitemap from "@/app/sitemap";
 import { isPublicRoute } from "@/components/auth/publicRoutes";
 import Footer from "@/components/layout/Footer";
 
-const LEGAL_PATHS = ["/about", "/privacy/gmail-sinpe", "/terms"];
+const LEGAL_PATHS = [
+  "/about",
+  "/privacy/gmail-sinpe",
+  "/privacy/encabezado-impresion",
+  "/terms",
+];
 
 describe("páginas públicas legales de TimeMaster", () => {
   it("permite abrir las páginas informativas sin iniciar sesión", () => {
@@ -20,11 +25,14 @@ describe("páginas públicas legales de TimeMaster", () => {
     expect(isPublicRoute("/fondogeneral")).toBe(false);
   });
 
-  it("publica las tres páginas en el sitemap", () => {
+  it("publica las páginas legales en el sitemap", () => {
     const urls = sitemap().map((entry) => entry.url);
 
     expect(urls).toContain("https://www.timemaster.es/about");
     expect(urls).toContain("https://www.timemaster.es/privacy/gmail-sinpe");
+    expect(urls).toContain(
+      "https://www.timemaster.es/privacy/encabezado-impresion",
+    );
     expect(urls).toContain("https://www.timemaster.es/terms");
   });
 
@@ -33,6 +41,7 @@ describe("páginas públicas legales de TimeMaster", () => {
 
     expect(html).toContain('href="/about"');
     expect(html).toContain('href="/privacy/gmail-sinpe"');
+    expect(html).toContain('href="/privacy/encabezado-impresion"');
     expect(html).toContain('href="/terms"');
   });
 });

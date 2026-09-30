@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=1280, initial-scale=1">
+    <title>Resultado impreso</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body { width: 1280px; height: 800px; margin: 0; overflow: hidden; }
+      body {
+        display: grid;
+        grid-template-columns: 510px 1fr;
+        align-items: center;
+        gap: 90px;
+        padding: 54px 86px;
+        background:
+          radial-gradient(circle at 84% 15%, rgb(56 193 216 / 28%), transparent 34%),
+          linear-gradient(135deg, #eef7fa 0 46%, #0d5775 46%, #073c55 100%);
+        font-family: Inter, "Segoe UI", Arial, sans-serif;
+      }
+      .paper-wrap { position: relative; display: grid; place-items: center; }
+      .paper-wrap::before {
+        content: "";
+        position: absolute;
+        width: 460px;
+        height: 680px;
+        border-radius: 45%;
+        background: rgb(13 111 145 / 11%);
+        filter: blur(6px);
+      }
+      .receipt {
+        position: relative;
+        width: 380px;
+        min-height: 670px;
+        padding: 34px 32px 42px;
+        color: #181818;
+        background: #fffef8;
+        box-shadow: 0 28px 65px rgb(16 46 58 / 25%);
+        font-family: "Courier New", monospace;
+        text-align: center;
+      }
+      .receipt::after {
+        content: "";
+        position: absolute;
+        right: 0;
+        bottom: -12px;
+        left: 0;
+        height: 13px;
+        background: linear-gradient(135deg, #fffef8 7px, transparent 0) 0 0/14px 14px repeat-x,
+          linear-gradient(45deg, #fffef8 7px, transparent 0) 7px 0/14px 14px repeat-x;
+      }
+      .brand-mark {
+        display: grid;
+        width: 92px;
+        height: 92px;
+        margin: 0 auto 13px;
+        place-items: center;
+        border-radius: 50%;
+        color: #fff;
+        background: #0d6f91;
+        font-family: "Segoe UI", Arial, sans-serif;
+        font-size: 42px;
+        font-weight: 900;
+      }
+      .custom-title { margin: 0; font-family: Georgia, serif; font-size: 23px; font-weight: 700; }
+      .custom-phone { margin: 5px 0 18px; font-family: Arial, sans-serif; font-size: 16px; }
+      .divider { margin: 13px 0; border: 0; border-top: 1px dashed #555; }
+      .receipt h2 { margin: 0 0 3px; font-size: 25px; }
+      .receipt p { margin: 4px 0; font-size: 13px; line-height: 1.35; }
+      .details { text-align: left; }
+      .row { display: flex; justify-content: space-between; gap: 15px; }
+      .copy { color: #fff; }
+      .copy-kicker {
+        margin: 0 0 18px;
+        color: #bcebf5;
+        font-size: 18px;
+        font-weight: 800;
+        letter-spacing: .15em;
+        text-transform: uppercase;
+      }
+      .copy h1 { max-width: 580px; margin: 0 0 22px; font-size: 58px; line-height: 1.02; letter-spacing: -.045em; }
+      .copy > p:last-of-type { max-width: 550px; margin: 0; color: #d9edf5; font-size: 24px; line-height: 1.42; }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 32px;
+        padding: 12px 18px;
+        border: 1px solid rgb(255 255 255 / 28%);
+        border-radius: 999px;
+        color: #fff;
+        background: rgb(255 255 255 / 11%);
+        font-size: 16px;
+        font-weight: 750;
+      }
+      .badge-dot { width: 10px; height: 10px; border-radius: 50%; background: #74e3c3; box-shadow: 0 0 0 5px rgb(116 227 195 / 16%); }
+    </style>
+  </head>
+  <body>
+    <section class="paper-wrap">
+      <article class="receipt" aria-label="Ejemplo ficticio de comprobante">
+        <div class="brand-mark">E</div>
+        <p class="custom-title">Paga tus servicios aquí</p>
+        <p class="custom-phone">Teléfono 2222-2222</p>
+        <hr class="divider">
+        <h2>TUCÁN</h2>
+        <p>BANCO DE COSTA RICA</p>
+        <p>COMPROBANTE DE EJEMPLO</p>
+        <hr class="divider">
+        <div class="details">
+          <p>NEGOCIO: DEMOSTRACIÓN</p>
+          <p>OPERACIÓN: 000000</p>
+          <p>FECHA: 30/09/2026 10:00</p>
+          <p>DESCRIPCIÓN: PAGO DE SERVICIO</p>
+          <hr class="divider">
+          <p class="row"><span>SUBTOTAL</span><strong>₡10.000,00</strong></p>
+          <p class="row"><span>COMISIÓN</span><strong>₡0,00</strong></p>
+          <p class="row"><span>TOTAL</span><strong>₡10.000,00</strong></p>
+        </div>
+        <hr class="divider">
+        <p>Documento ficticio para demostración</p>
+        <p>Gracias por su preferencia</p>
+      </article>
+    </section>
+    <section class="copy">
+      <p class="copy-kicker">Resultado final</p>
+      <h1>Tu encabezado aparece al imprimir</h1>
+      <p>La imagen y las líneas configuradas se muestran centradas antes del comprobante original.</p>
+      <div class="badge"><span class="badge-dot"></span> Compatible con Tucán y Junta</div>
+    </section>
+  </body>
+</html>

@@ -159,6 +159,12 @@ export default function Footer() {
                     Privacidad Gmail
                   </a>
                   <a
+                    href="/privacy/encabezado-impresion"
+                    className="text-[var(--muted-foreground)] underline-offset-4 hover:text-[var(--foreground)] hover:underline"
+                  >
+                    Privacidad impresión
+                  </a>
+                  <a
                     href="/terms"
                     className="text-[var(--muted-foreground)] underline-offset-4 hover:text-[var(--foreground)] hover:underline"
                   >
