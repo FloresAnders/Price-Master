@@ -18,8 +18,6 @@ const popupMarkup = `
   <input id="max-characters" type="number" min="1" max="200" value="40">
   <div id="lines" aria-label="Líneas del encabezado"></div>
   <button id="add-line" type="button">Añadir línea</button>
-  <input id="junta-url" type="url" placeholder="https://sitio.ejemplo/ruta">
-  <button id="authorize-junta" type="button">Autorizar sitio de Junta</button>
   <section id="preview" aria-label="Vista previa"></section>
   <button id="save" type="button">Guardar configuración</button>
   <p id="message" role="status" aria-live="polite"></p>
@@ -32,7 +30,6 @@ type StoredSettings = {
   lines: Array<
     string | { text: string; fontFamily: string; fontSize: number }
   >;
-  juntaOrigin: string;
 };
 
 function createChromeApi(
@@ -47,7 +44,6 @@ function createChromeApi(
     imageDataUrl: "",
     maxCharacters: 40,
     lines: [],
-    juntaOrigin: "",
     ...initial,
   };
   const writes: Record<string, unknown>[] = [];
@@ -283,102 +279,4 @@ describe("EncabezadoImpresion popup", () => {
     dom.window.close();
   });
 
-  it("conserva Junta cuando Chrome rechaza el sitio nuevo", async () => {
-    const dom = new JSDOM(popupMarkup);
-    const { chromeApi, writes } = createChromeApi({
-      juntaOrigin: "https://viejo.test",
-    });
-    const updateJuntaAccess = vi.fn().mockResolvedValue({
-      ok: false,
-      origin: "https://viejo.test",
-      error: "Chrome no concedió acceso al sitio de Junta.",
-    });
-    const { createPopupController } = requireModule(popupPath);
-    const controller = createPopupController(dom.window.document, chromeApi, {
-      processImageFile: vi.fn(),
-      updateJuntaAccess,
-    });
-    await controller.start();
-
-    input(dom, "#junta-url", "https://nuevo.test/factura");
-    (
-      dom.window.document.querySelector(
-        "#authorize-junta",
-      ) as HTMLButtonElement
-    ).click();
-
-    await vi.waitFor(() => {
-      expect(dom.window.document.querySelector("#message")?.textContent).toBe(
-        "Chrome no concedió acceso al sitio de Junta.",
-      );
-    });
-    expect(controller.getDraft().juntaOrigin).toBe("https://viejo.test");
-    expect(writes).toEqual([]);
-    dom.window.close();
-  });
-
-  it("no autoriza Junta si el borrador tiene una línea fuera del límite", async () => {
-    const dom = new JSDOM(popupMarkup);
-    const { chromeApi, writes } = createChromeApi({ lines: ["Demasiado"] });
-    const updateJuntaAccess = vi.fn();
-    const { createPopupController } = requireModule(popupPath);
-    const controller = createPopupController(dom.window.document, chromeApi, {
-      processImageFile: vi.fn(),
-      updateJuntaAccess,
-    });
-    await controller.start();
-
-    input(dom, "#max-characters", "4");
-    input(dom, "#junta-url", "https://junta.test/factura");
-    await controller.authorizeJunta();
-
-    expect(updateJuntaAccess).not.toHaveBeenCalled();
-    expect(writes).toEqual([]);
-    expect(dom.window.document.querySelector("#message")?.textContent).toBe(
-      "La línea 1 supera el límite de 4 caracteres.",
-    );
-    expect(controller.getDraft().lines).toEqual([
-      { text: "Demasiado", fontFamily: "Arial", fontSize: 14 },
-    ]);
-    dom.window.close();
-  });
-
-  it("restaura el acceso anterior si falla guardar el nuevo origen", async () => {
-    const dom = new JSDOM(popupMarkup);
-    const { chromeApi } = createChromeApi(
-      { juntaOrigin: "https://viejo.test" },
-      { failWrites: true },
-    );
-    const updateJuntaAccess = vi
-      .fn()
-      .mockResolvedValueOnce({ ok: true, origin: "https://nuevo.test" })
-      .mockResolvedValueOnce({ ok: true, origin: "https://viejo.test" });
-    const { createPopupController } = requireModule(popupPath);
-    const controller = createPopupController(dom.window.document, chromeApi, {
-      processImageFile: vi.fn(),
-      updateJuntaAccess,
-    });
-    await controller.start();
-
-    input(dom, "#junta-url", "https://nuevo.test/factura");
-    await controller.authorizeJunta();
-
-    expect(updateJuntaAccess).toHaveBeenNthCalledWith(
-      1,
-      chromeApi,
-      "https://viejo.test",
-      "https://nuevo.test/factura",
-    );
-    expect(updateJuntaAccess).toHaveBeenNthCalledWith(
-      2,
-      chromeApi,
-      "https://nuevo.test",
-      "https://viejo.test",
-    );
-    expect(controller.getDraft().juntaOrigin).toBe("https://viejo.test");
-    expect(dom.window.document.querySelector("#message")?.textContent).toBe(
-      "No fue posible guardar el sitio de Junta.",
-    );
-    dom.window.close();
-  });
 });

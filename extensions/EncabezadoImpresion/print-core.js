@@ -23,12 +23,12 @@
       const tucan = documentRef.querySelector("#tablaComprobantePago");
       if (tucan) return { kind: "tucan", target: tucan };
 
-      const page = documentRef.querySelector(".page");
+      const junta = documentRef.querySelector(".receipt-container");
       if (
-        page?.querySelector(".print-container") &&
-        page.querySelector(".table-receipt")
+        junta?.querySelector(".header-top-row") &&
+        junta.querySelector(".receipt-footer")
       ) {
-        return { kind: "junta", target: page };
+        return { kind: "junta", target: junta };
       }
 
       return null;
@@ -79,23 +79,43 @@
     function createPrintController(documentRef, windowRef, storageArea) {
       let started = false;
       let observer = null;
-      let pending = Promise.resolve(false);
+      let cachedSettings = null;
+      let loadingSettings = null;
+
+      function insertCachedHeader() {
+        if (!cachedSettings) return false;
+        const inserted = insertHeader(documentRef, cachedSettings);
+        if (inserted) observer?.disconnect();
+        return inserted;
+      }
+
+      function loadSettings() {
+        if (!loadingSettings) {
+          loadingSettings = storageArea
+            .get({
+              [settings.STORAGE_KEY]: settings.DEFAULT_SETTINGS,
+            })
+            .then((stored) => {
+              cachedSettings = settings.normalizeSettings(
+                stored?.[settings.STORAGE_KEY],
+              );
+              return cachedSettings;
+            })
+            .catch(() => {
+              loadingSettings = null;
+              return null;
+            });
+        }
+        return loadingSettings;
+      }
 
       function sync() {
-        pending = pending
-          .catch(() => false)
-          .then(async () => {
-            const stored = await storageArea.get({
-              [settings.STORAGE_KEY]: settings.DEFAULT_SETTINGS,
-            });
-            const inserted = insertHeader(
-              documentRef,
-              stored?.[settings.STORAGE_KEY],
-            );
-            if (inserted) observer?.disconnect();
-            return inserted;
-          });
-        return pending;
+        if (cachedSettings) {
+          return Promise.resolve(insertCachedHeader());
+        }
+        return loadSettings().then((value) =>
+          value ? insertCachedHeader() : false,
+        );
       }
 
       function start() {
@@ -103,11 +123,13 @@
         started = true;
 
         observer = new windowRef.MutationObserver(() => {
-          void sync();
+          if (!insertCachedHeader()) void sync();
         });
         observer.observe(documentRef, { childList: true, subtree: true });
         documentRef.addEventListener("DOMContentLoaded", sync, { once: true });
-        windowRef.addEventListener("beforeprint", sync);
+        windowRef.addEventListener("beforeprint", () => {
+          if (!insertCachedHeader()) void sync();
+        });
         void sync();
       }
 

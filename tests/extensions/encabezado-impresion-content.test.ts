@@ -28,7 +28,7 @@ const settings = {
 describe("EncabezadoImpresion print core", () => {
   it.each([
     ["Tucán", tucanHtml, "#tablaComprobantePago"],
-    ["Junta", juntaHtml, ".page"],
+    ["Junta", juntaHtml, ".receipt-container"],
   ])(
     "inserta imagen y líneas al inicio de %s",
     (_name, html, selector) => {
@@ -147,6 +147,37 @@ describe("EncabezadoImpresion print core", () => {
       );
     });
 
+    dom.window.close();
+  });
+
+  it("inserta Junta sincrónicamente en beforeprint cuando la configuración ya está cargada", async () => {
+    const dom = new JSDOM("<!doctype html><html><body></body></html>");
+    const { createPrintController, HEADER_ID } = requireModule(corePath);
+    const storage = {
+      get: vi.fn().mockResolvedValue({
+        encabezadoImpresionSettingsV1: settings,
+      }),
+    };
+    const controller = createPrintController(
+      dom.window.document,
+      dom.window,
+      storage,
+    );
+
+    controller.start();
+    await controller.sync();
+
+    const receipt = dom.window.document.createElement("div");
+    receipt.className = "receipt-container";
+    receipt.innerHTML = `
+      <div class="header-top-row"></div>
+      <div class="receipt-footer"></div>
+    `;
+    dom.window.document.body.append(receipt);
+    dom.window.dispatchEvent(new dom.window.Event("beforeprint"));
+
+    expect(receipt.firstElementChild?.id).toBe(HEADER_ID);
+    expect(storage.get).toHaveBeenCalledOnce();
     dom.window.close();
   });
 });

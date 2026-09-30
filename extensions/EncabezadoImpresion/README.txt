@@ -1,4 +1,4 @@
-ENCABEZADO DE IMPRESIÓN 1.1.0
+ENCABEZADO DE IMPRESIÓN 1.2.0
 ================================
 
 Agrega una imagen y líneas de texto centradas al inicio de los comprobantes
@@ -35,19 +35,15 @@ Tucán queda habilitado al instalar la extensión para las páginas de BCR
 Corresponsales. El encabezado se intenta insertar también en la ventana
 about:blank que BCR usa para construir el comprobante.
 
-JUNTA
------
+JUNTA EN GOOGLE CHROME
+----------------------
 
-La URL de Junta se configura cuando esté disponible:
+Junta queda habilitado directamente para los comprobantes generados en:
+https://puntosventa.jpsenlinea.go.cr/PS.ODB.ODBHandlers/Receipt/Generate
 
-1. Abra una página real del sitio de Junta y copie su URL completa.
-2. Péguela en "Sitio de Junta".
-3. Pulse "Autorizar sitio de Junta" y acepte el permiso de Chrome.
-
-La extensión extrae únicamente el origen (protocolo, dominio y puerto) y no
-conserva la ruta, consulta ni credenciales. Para cambiar el sitio, pegue la
-nueva URL y autorícela. Para revocar el sitio configurado, deje el campo vacío
-y pulse "Autorizar sitio de Junta"; Tucán seguirá funcionando.
+No es necesario configurar ni autorizar manualmente una URL. La extensión
+reconoce el contenedor real del tiquete e inserta el encabezado antes de la
+impresión automática de Google Chrome.
 
 IMPRESIÓN
 ---------
@@ -61,8 +57,9 @@ VERIFICACIÓN PENDIENTE EN EL ENTORNO REAL
 -----------------------------------------
 
 Las pruebas locales validan la estructura de los dos comprobantes entregados,
-el panel, las fuentes, tamaños, límites, permisos y ausencia de encabezados
-duplicados. La URL
-definitiva de Junta, la ventana autenticada about:blank generada por BCR y el
+el panel, las fuentes, tamaños, límites, permisos, el HTML actualizado de Junta
+y la ausencia de encabezados duplicados. Los dos enlaces reales de Junta no
+pudieron consultarse automáticamente porque el servidor respondió 403 fuera de
+la sesión del usuario. La ventana autenticada about:blank generada por BCR y el
 resultado en una impresora térmica física permanecen como condiciones no
-verificadas hasta probarlas en el equipo y las sesiones reales del usuario.
+verificadas hasta probarlas en Google Chrome con las sesiones reales.

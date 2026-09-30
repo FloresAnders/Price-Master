@@ -22,7 +22,6 @@
       imageDataUrl: "",
       maxCharacters: 40,
       lines: [],
-      juntaOrigin: "",
     });
     const IMAGE_DATA_URL = /^data:image\/(?:png|jpeg|webp);base64,/i;
 
@@ -64,23 +63,6 @@
       return `"${escaped}", Arial, sans-serif`;
     }
 
-    function normalizeJuntaOrigin(value) {
-      if (typeof value !== "string" || !value.trim()) return "";
-
-      try {
-        const url = new URL(value.trim());
-        if (url.protocol !== "http:" && url.protocol !== "https:") return "";
-        return url.origin;
-      } catch {
-        return "";
-      }
-    }
-
-    function originPattern(origin) {
-      const normalized = normalizeJuntaOrigin(origin);
-      return normalized ? `${normalized}/*` : "";
-    }
-
     function normalizeSettings(raw) {
       const value = raw && typeof raw === "object" ? raw : {};
       if (
@@ -109,7 +91,6 @@
             : "",
         maxCharacters,
         lines: lines.filter((line) => line.text.length <= maxCharacters),
-        juntaOrigin: normalizeJuntaOrigin(value.juntaOrigin),
       };
     }
 
@@ -162,8 +143,6 @@
       normalizeSettings,
       validateDraft,
       fontFamilyStack,
-      normalizeJuntaOrigin,
-      originPattern,
     };
   },
 );

@@ -15,26 +15,23 @@ function readPngDimensions(relativePath: string) {
 }
 
 describe("paquete Encabezado de impresión", () => {
-  it("limita Tucán y deja Junta como permiso opcional", () => {
+  it("habilita Tucán y el generador fijo de Junta sin permisos opcionales", () => {
     const manifest = JSON.parse(
       readFileSync(resolve(extensionRoot, "manifest.json"), "utf8"),
     );
 
     expect(manifest.manifest_version).toBe(3);
-    expect(manifest.permissions).toEqual(
-      expect.arrayContaining(["storage", "scripting", "fontSettings"]),
-    );
+    expect(manifest.permissions).toEqual(["storage", "fontSettings"]);
     expect(manifest.host_permissions).toEqual([
       "https://www.bcrcorresponsal.bancobcr.com/BCRCorresponsalesExterno/*",
+      "https://puntosventa.jpsenlinea.go.cr/*",
     ]);
     expect(manifest.host_permissions).not.toContain("<all_urls>");
-    expect(manifest.optional_host_permissions).toEqual([
-      "http://*/*",
-      "https://*/*",
-    ]);
+    expect(manifest).not.toHaveProperty("optional_host_permissions");
     expect(manifest.content_scripts[0]).toMatchObject({
       matches: [
         "https://www.bcrcorresponsal.bancobcr.com/BCRCorresponsalesExterno/*",
+        "https://puntosventa.jpsenlinea.go.cr/PS.ODB.ODBHandlers/Receipt/Generate*",
       ],
       js: ["settings-core.js", "print-core.js", "print-content.js"],
       css: ["print-content.css"],
@@ -57,7 +54,6 @@ describe("paquete Encabezado de impresión", () => {
         ],
       ),
       "image-core.js",
-      "site-access.js",
       "popup.css",
       "README.txt",
     ];
@@ -69,16 +65,18 @@ describe("paquete Encabezado de impresión", () => {
       width: 128,
       height: 128,
     });
+    expect(existsSync(resolve(extensionRoot, "site-access.js"))).toBe(false);
   });
 
-  it("documenta la autorización y los límites de validación real", () => {
+  it("documenta el acceso fijo de Junta y los límites de validación real", () => {
     const readme = readFileSync(
       resolve(extensionRoot, "README.txt"),
       "utf8",
     );
     const normalized = readme.replace(/\s+/g, " ");
 
-    expect(readme).toContain("Autorizar sitio de Junta");
+    expect(readme).toContain("puntosventa.jpsenlinea.go.cr");
+    expect(readme).not.toContain("Autorizar sitio de Junta");
     expect(readme).toContain("about:blank");
     expect(readme).toContain("impresora térmica");
     expect(normalized).toContain("condiciones no verificadas");

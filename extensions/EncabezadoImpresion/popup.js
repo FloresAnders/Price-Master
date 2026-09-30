@@ -9,12 +9,7 @@
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       ? require("./image-core.js")
       : root.EncabezadoImpresionImageCore;
-  const siteAccess =
-    typeof module === "object" && module.exports
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      ? require("./site-access.js")
-      : root.EncabezadoImpresionSiteAccess;
-  const api = factory(settings, imageCore, siteAccess);
+  const api = factory(settings, imageCore);
 
   if (typeof module === "object" && module.exports) {
     module.exports = api;
@@ -27,7 +22,7 @@
   }
 })(
   typeof globalThis !== "undefined" ? globalThis : this,
-  function buildPopup(settings, imageCore, siteAccess) {
+  function buildPopup(settings, imageCore) {
     "use strict";
 
     function readFileAsDataUrl(file, windowRef) {
@@ -89,8 +84,6 @@
       const processSelectedImage =
         browserDeps.processImageFile ||
         ((file) => processImageFile(file, documentRef));
-      const updateJuntaAccess =
-        browserDeps.updateJuntaAccess || siteAccess.updateJuntaAccess;
       let draft = { ...settings.DEFAULT_SETTINGS, lines: [] };
       let installedFonts = [
         {
@@ -283,9 +276,7 @@
 
       function render() {
         const limit = element("max-characters");
-        const juntaUrl = element("junta-url");
         if (limit) limit.value = String(draft.maxCharacters);
-        if (juntaUrl) juntaUrl.value = draft.juntaOrigin;
         renderLines();
         renderPreview();
       }
@@ -319,64 +310,6 @@
         } catch (error) {
           setMessage(error?.message || "No fue posible procesar la imagen.", "error");
           return false;
-        }
-      }
-
-      async function authorizeJunta() {
-        const button = element("authorize-junta");
-        const requestedUrl = element("junta-url")?.value || "";
-        const validation = settings.validateDraft(draft);
-        if (!validation.ok) {
-          setMessage(validation.errors[0], "error");
-          return false;
-        }
-
-        const previousOrigin = draft.juntaOrigin;
-        if (button) button.disabled = true;
-        try {
-          const result = await updateJuntaAccess(
-            chromeApi,
-            previousOrigin,
-            requestedUrl,
-          );
-          if (!result.ok) {
-            setMessage(result.error, "error");
-            return false;
-          }
-
-          const nextValue = {
-            ...validation.value,
-            juntaOrigin: result.origin,
-          };
-          try {
-            await chromeApi.storage.local.set({
-              [settings.STORAGE_KEY]: nextValue,
-            });
-          } catch {
-            await updateJuntaAccess(
-              chromeApi,
-              result.origin,
-              previousOrigin,
-            ).catch(() => {});
-            setMessage("No fue posible guardar el sitio de Junta.", "error");
-            return false;
-          }
-
-          draft = { ...nextValue, lines: cloneLines(nextValue.lines) };
-          const juntaUrl = element("junta-url");
-          if (juntaUrl) juntaUrl.value = result.origin;
-          setMessage(
-            result.origin
-              ? "Sitio de Junta autorizado."
-              : "Sitio de Junta desactivado.",
-            "success",
-          );
-          return true;
-        } catch {
-          setMessage("No fue posible actualizar el sitio de Junta.", "error");
-          return false;
-        } finally {
-          if (button) button.disabled = false;
         }
       }
 
@@ -467,9 +400,6 @@
             setMessage("No fue posible guardar la configuración.", "error"),
           );
         });
-        element("authorize-junta")?.addEventListener("click", () => {
-          void authorizeJunta();
-        });
       }
 
       async function start() {
@@ -491,7 +421,7 @@
         return { ...draft, lines: cloneLines(draft.lines) };
       }
 
-      return { start, save, selectImage, authorizeJunta, getDraft };
+      return { start, save, selectImage, getDraft };
     }
 
     return { processImageFile, createPopupController };

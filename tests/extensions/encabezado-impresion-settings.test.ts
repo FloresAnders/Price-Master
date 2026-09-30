@@ -25,8 +25,18 @@ describe("EncabezadoImpresion settings", () => {
       imageDataUrl: "",
       maxCharacters: 40,
       lines: [],
-      juntaOrigin: "",
     });
+  });
+
+  it("descarta la configuración heredada del URL de Junta", () => {
+    const { normalizeSettings } = requireModule(corePath);
+
+    expect(
+      normalizeSettings({
+        schemaVersion: 1,
+        juntaOrigin: "https://sitio-anterior.test",
+      }),
+    ).not.toHaveProperty("juntaOrigin");
   });
 
   it("conserva el orden, recorta bordes y omite líneas vacías", () => {
