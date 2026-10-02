@@ -12,6 +12,8 @@ import { hasPermission } from "../../../utils/permissions";
 import { useControlHorario } from "./hooks/useControlHorario";
 import type { WorkedRangeRow } from "./hooks/useScheduleExport";
 import EmployeeTooltipSummary from "./components/EmployeeTooltipSummary";
+import DelifoodShiftCell from "./components/DelifoodShiftCell";
+import { getDelifoodHoursTooltip } from "./delifoodShiftHours";
 import {
   isUserAdmin, userCanChangeEmpresa,
   getShiftOptions, getCellStyle, getStateLabel,
@@ -220,11 +222,7 @@ export default function ControlHorario({ currentUser }: Props = {}) {
 
         {/* Legend */}
         <div className="mb-6 p-4 bg-[var(--card-bg)] border border-[var(--input-border)] rounded-lg flex flex-wrap gap-6 justify-center">
-          {h.isDelifoodEmpresa ? (
-            <><LegendItem color="#06b6d4" label="Con horas registradas" /><LegendItem color="var(--card-bg)" label="Sin horas registradas" border /></>
-          ) : (
-            <><LegendItem color="#0ea5e9" label="N - Nocturno" /><LegendItem color="#eab308" label="D - Diurno" /><LegendItem color="#a855f7" label="L - Libre" /><LegendItem color="#10b981" label="V - Vacaciones" /><LegendItem color="#f59e0b" label="I - Incapacidad" /></>
-          )}
+          <><LegendItem color="#0ea5e9" label="N - Nocturno" /><LegendItem color="#eab308" label="D - Diurno" /><LegendItem color="#a855f7" label="L - Libre" /><LegendItem color="#10b981" label="V - Vacaciones" /><LegendItem color="#f59e0b" label="I - Incapacidad" /></>
         </div>
 
         {/* Schedule Grid */}
@@ -270,21 +268,33 @@ export default function ControlHorario({ currentUser }: Props = {}) {
                       const cellDate = new Date(h.year, h.month, day);
                       const now = new Date(); now.setHours(0, 0, 0, 0);
                       let disabled = cellDate < now && !h.editPastDaysEnabled;
+                      const value = h.pendingCellValues[name]?.[day.toString()] ?? h.scheduleData[name]?.[day.toString()] ?? "";
 
                       if (h.isDelifoodEmpresa) {
-                        const hrs = h.delifoodHoursData[name]?.[day.toString()]?.hours || 0;
+                        const hours = h.delifoodHoursData[name]?.[day.toString()]?.hours;
+                        if (["V", "I"].includes(value) && !isUserAdmin(h.user)) {
+                          return (
+                            <td key={day} className="border border-[var(--input-border)] p-0" style={{ minWidth: h.fullMonthView ? "32px" : "40px" }}>
+                              <div className="w-full h-full p-1 text-center font-semibold text-xs flex items-center justify-center" style={{ ...getCellStyle(value), minWidth: h.fullMonthView ? "32px" : "40px", height: "40px", cursor: "not-allowed" }}
+                                title={`${getDelifoodHoursTooltip(value, hours)} - Solo ADMIN puede modificar`}>{value}</div>
+                            </td>
+                          );
+                        }
                         return (
                           <td key={day} className="border border-[var(--input-border)] p-0" style={{ minWidth: h.fullMonthView ? "32px" : "40px" }}>
-                            <button onClick={() => !disabled && h.handleDelifoodCellClick(name, day)}
-                              className={`w-full h-full p-1 text-center font-semibold cursor-pointer text-xs border-none outline-none ${disabled ? "bg-[var(--muted)] text-[var(--muted-foreground)] cursor-not-allowed" : ""}`}
-                              style={{ minWidth: h.fullMonthView ? "32px" : "40px", height: "40px", backgroundColor: hrs > 0 ? "#d1fae5" : "var(--card-bg)", color: hrs > 0 ? "#065f46" : "var(--foreground)" }}
+                            <DelifoodShiftCell
+                              value={value}
+                              hours={hours}
                               disabled={disabled}
-                            >{hrs > 0 ? `${hrs}h` : "▼"}</button>
+                              shiftOptions={shiftOptions}
+                              onChange={(nextValue) => h.handleCellChange(name, day, nextValue)}
+                              onOpenHours={() => h.handleDelifoodHoursOpen(name, day)}
+                              fullMonthView={h.fullMonthView}
+                            />
                           </td>
                         );
                       }
 
-                      const value = h.pendingCellValues[name]?.[day.toString()] ?? h.scheduleData[name]?.[day.toString()] ?? "";
                       if (!isUserAdmin(h.user) && ["V", "I"].includes(value)) disabled = true;
 
                       if (["V", "I"].includes(value) && !isUserAdmin(h.user)) {
@@ -545,7 +555,7 @@ export default function ControlHorario({ currentUser }: Props = {}) {
 
       {h.isDelifoodEmpresa && (
         <DelifoodHoursModal isOpen={h.delifoodModal.isOpen}
-          onClose={() => h.setDelifoodModal({ isOpen: false, employeeName: "", day: 0, currentHours: 0 })}
+          onClose={() => h.setDelifoodModal({ isOpen: false, employeeName: "", day: 0, shift: "", currentHours: 0 })}
           onSave={h.handleDelifoodHoursSave}
           employeeName={h.delifoodModal.employeeName} day={h.delifoodModal.day}
           month={h.month} year={h.year} empresaValue={h.empresa} currentHours={h.delifoodModal.currentHours}
