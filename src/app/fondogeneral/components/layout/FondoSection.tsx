@@ -428,6 +428,11 @@ export function FondoSection({
   const [missingShiftExpectedShift, setMissingShiftExpectedShift] =
     useState<ShiftCode>("D");
   const [missingShiftDateKey, setMissingShiftDateKey] = useState("");
+  const [delifoodShiftEmployees, setDelifoodShiftEmployees] = useState<
+    string[]
+  >([]);
+  const [delifoodShiftEmployeesLoading, setDelifoodShiftEmployeesLoading] =
+    useState(false);
   const createMovementValidationIdRef = useRef(0);
   const [dailyClosingSingleReasonRequired, setDailyClosingSingleReasonRequired] =
     useState(false);
@@ -468,26 +473,41 @@ export function FondoSection({
       resolvedEmpresa: activeEmpresaForCompany,
     });
   const empresaForShiftResolution = useMemo<Empresas | null>(() => {
+    let resolved: Empresas | null = null;
     if (!activeEmpresaForCompany && !companyData) return null;
-    if (!activeEmpresaForCompany) return companyData;
-    if (!companyData) return activeEmpresaForCompany;
+    if (!activeEmpresaForCompany) resolved = companyData;
+    else if (!companyData) resolved = activeEmpresaForCompany;
+    else {
+      const activeEmployees = Array.isArray(activeEmpresaForCompany.empleados)
+        ? activeEmpresaForCompany.empleados
+        : [];
+      const metadataEmployees = Array.isArray(companyData.empleados)
+        ? companyData.empleados
+        : [];
 
-    const activeEmployees = Array.isArray(activeEmpresaForCompany.empleados)
-      ? activeEmpresaForCompany.empleados
-      : [];
-    const metadataEmployees = Array.isArray(companyData.empleados)
-      ? companyData.empleados
-      : [];
+      resolved = {
+        ...activeEmpresaForCompany,
+        ...companyData,
+        empleados:
+          metadataEmployees.length >= activeEmployees.length
+            ? metadataEmployees
+            : activeEmployees,
+      };
+    }
 
-    return {
-      ...activeEmpresaForCompany,
-      ...companyData,
-      empleados:
-        metadataEmployees.length >= activeEmployees.length
-          ? metadataEmployees
-          : activeEmployees,
-    };
-  }, [activeEmpresaForCompany, companyData]);
+    return resolved && isDelifoodCompany
+      ? {
+          ...resolved,
+          horarioApertura: "10:00",
+          horarioCierre: "23:00",
+          cierreFondoVentasMinutesBeforeEnd: 15,
+          cierreFondoVentasMinutesAfterEnd: 91,
+          unicoCierre: false,
+        }
+      : resolved;
+  }, [activeEmpresaForCompany, companyData, isDelifoodCompany]);
+  const empresaUsesSingleClosing =
+    empresaForShiftResolution?.unicoCierre === true;
   const cierreFondoVentasMinutesBeforeEnd =
     empresaForShiftResolution?.cierreFondoVentasMinutesBeforeEnd ??
     CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END;
@@ -501,6 +521,7 @@ export function FondoSection({
     getFGMonthlySchedulesCached,
     resolveShiftManagerForNow,
     resolveShiftTimingForNow,
+    resolveShiftEmployeesForNow,
   } = useShiftScheduleResolver({
     company,
     empresa: empresaForShiftResolution,
@@ -1271,7 +1292,7 @@ export function FondoSection({
           nowISO,
           horarioApertura: empresaForShiftResolution?.horarioApertura,
           horarioCierre: empresaForShiftResolution?.horarioCierre,
-          unicoCierre: empresaForShiftResolution?.unicoCierre === true,
+          unicoCierre: empresaUsesSingleClosing,
           latestDailyClosing: latestClosing,
           shiftChangeMin: timing?.withinHorario ? timing.shiftChangeMin : null,
           cierreFondoVentasMinutesBeforeEnd,
@@ -1299,7 +1320,7 @@ export function FondoSection({
     [
       empresaForShiftResolution?.horarioApertura,
       empresaForShiftResolution?.horarioCierre,
-      empresaForShiftResolution?.unicoCierre,
+      empresaUsesSingleClosing,
       cierreFondoVentasMinutesAfterEnd,
       cierreFondoVentasMinutesBeforeEnd,
       loadLatestDailyClosing,
@@ -1422,7 +1443,7 @@ export function FondoSection({
     manager,
   ]);
 
-  const employeeOptions = useMemo(() => {
+  const baseEmployeeOptions = useMemo(() => {
     // Superadmin: allow selecting any user while keeping self/current value visible.
     if (isSuperAdminUser) {
       const unique = new Set<string>();
@@ -1472,6 +1493,24 @@ export function FondoSection({
     superAdminUsers,
     manager,
   ]);
+
+  const shouldFilterDelifoodMovementManagers =
+    isDelifoodCompany &&
+    accountKey === "FondoGeneral" &&
+    namespace === "fg" &&
+    movementModalOpen &&
+    !editingEntryId;
+  const employeeOptions = useMemo(
+    () =>
+      shouldFilterDelifoodMovementManagers
+        ? delifoodShiftEmployees
+        : baseEmployeeOptions,
+    [
+      baseEmployeeOptions,
+      delifoodShiftEmployees,
+      shouldFilterDelifoodMovementManagers,
+    ],
+  );
 
   useEffect(() => {
     const normalizedCompany = (company || "").trim();
@@ -2198,6 +2237,51 @@ export function FondoSection({
   );
 
   useEffect(() => {
+    if (!shouldFilterDelifoodMovementManagers) {
+      setDelifoodShiftEmployeesLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const tick = async () => {
+      setDelifoodShiftEmployeesLoading(true);
+      try {
+        const nowISO = await getAuthoritativeNowISO();
+        const resolution = await resolveShiftEmployeesForNow(nowISO);
+        if (cancelled || !resolution) return;
+
+        const employees =
+          resolution.mode === "available" ? resolution.employees : [];
+        setDelifoodShiftEmployees(employees);
+        setManager((current: string) =>
+          employees.includes(current) ? current : employees[0] || "",
+        );
+        setManagerError("");
+      } catch (err) {
+        console.error("[FG] Error loading DELIFOOD shift employees:", err);
+        if (!cancelled) {
+          setDelifoodShiftEmployees([]);
+          setManager("");
+        }
+      } finally {
+        if (!cancelled) setDelifoodShiftEmployeesLoading(false);
+      }
+    };
+
+    void tick();
+    const interval = window.setInterval(tick, 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [
+    resolveShiftEmployeesForNow,
+    setManager,
+    setManagerError,
+    shouldFilterDelifoodMovementManagers,
+  ]);
+
+  useEffect(() => {
     // Fondo General fija el encargado según el turno (sin poder cambiarlo).
     const isFondoGeneralLocked =
       isRegularUser && accountKey === "FondoGeneral" && namespace === "fg";
@@ -2206,7 +2290,8 @@ export function FondoSection({
     const shouldAuto =
       isRegularUser &&
       movementModalOpen &&
-      (isFondoGeneralLocked || isCajaNegra);
+      (isFondoGeneralLocked || isCajaNegra) &&
+      !isDelifoodCompany;
 
     if (!shouldAuto) {
       setManagerLockedByShift(false);
@@ -2254,6 +2339,7 @@ export function FondoSection({
     accountKey,
     editingEntryId,
     isCajaNegra,
+    isDelifoodCompany,
     isRegularUser,
     manager,
     movementModalOpen,
@@ -2283,9 +2369,12 @@ export function FondoSection({
       accountKey,
       namespace,
       isDelifoodCompany,
-      activeEmpresaForCompany,
+      empresaUsesSingleClosing,
+      activeEmpresaForCompany: empresaForShiftResolution,
       getFGMonthlySchedulesCached,
       resolveShiftTimingForNow,
+      resolveShiftEmployeesForNow,
+      setDelifoodShiftEmployees,
       setMissingShiftExpectedShift,
       setMissingShiftDateKey,
       setMissingShiftModalOpen,
@@ -2882,7 +2971,7 @@ export function FondoSection({
         if (entry.turno === "D" || entry.turno === "N") return entry.turno;
         return isWithinFondoVentasNightClosingWindow({
           nowISO: String(entry.createdAt || ""),
-          horarioCierre: activeEmpresaForCompany?.horarioCierre,
+          horarioCierre: empresaForShiftResolution?.horarioCierre,
           minutesBeforeEnd: cierreFondoVentasMinutesBeforeEnd,
           minutesAfterEnd: cierreFondoVentasMinutesAfterEnd,
         })
@@ -2903,7 +2992,7 @@ export function FondoSection({
       );
     },
     [
-      activeEmpresaForCompany?.horarioCierre,
+      empresaForShiftResolution?.horarioCierre,
       cierreFondoVentasMinutesAfterEnd,
       cierreFondoVentasMinutesBeforeEnd,
       empresaForShiftResolution?.horarioApertura,
@@ -3770,7 +3859,10 @@ export function FondoSection({
           const referenceShiftLabel = closingShift === "D" ? "D" : "N";
           const referenceMinutesAfterEnd =
             closingShift === "N"
-              ? cierreFondoVentasMinutesAfterEnd * 2 + extraMinutesAfterEndByShift.N
+              ? isDelifoodCompany
+                ? effectiveNightMinutesAfterEnd
+                : cierreFondoVentasMinutesAfterEnd * 2 +
+                  extraMinutesAfterEndByShift.N
               : effectiveDayMinutesAfterEnd;
           const referenceShiftEndLabel =
             referenceShiftLabel === "D"
@@ -3868,7 +3960,7 @@ export function FondoSection({
             !canBypassClosingWindows &&
             closingShift === "N" &&
             closingsToday.length === 0 &&
-            activeEmpresaForCompany?.unicoCierre !== true &&
+            !empresaUsesSingleClosing &&
             !notes.startsWith(SINGLE_CLOSING_REASON_PREFIX)
           ) {
             setNotes(SINGLE_CLOSING_REASON_PREFIX);
@@ -3886,14 +3978,14 @@ export function FondoSection({
             );
           const isInNightClosingWindow = isWithinFondoVentasNightClosingWindow({
             nowISO,
-            horarioCierre: activeEmpresaForCompany?.horarioCierre,
+            horarioCierre: empresaForShiftResolution?.horarioCierre,
             minutesBeforeEnd: cierreFondoVentasMinutesBeforeEnd,
             minutesAfterEnd: effectiveNightMinutesAfterEnd,
           });
           const isPostCloseGraceOnNextDay =
             isFondoVentasPostCloseGraceOnNextDay({
               nowISO,
-              horarioCierre: activeEmpresaForCompany?.horarioCierre,
+              horarioCierre: empresaForShiftResolution?.horarioCierre,
               minutesAfterEnd: effectiveNightMinutesAfterEnd,
           });
           if (isInNightClosingWindow && !isPostCloseGraceOnNextDay) {
@@ -3915,7 +4007,7 @@ export function FondoSection({
             }
             if (
               todayClosings.length === 0 &&
-              activeEmpresaForCompany?.unicoCierre !== true &&
+              !empresaUsesSingleClosing &&
               !notes.startsWith(SINGLE_CLOSING_REASON_PREFIX)
             ) {
               setNotes(SINGLE_CLOSING_REASON_PREFIX);
@@ -4041,15 +4133,18 @@ export function FondoSection({
     setInvoiceNumber(value.replace(/\D/g, "").slice(0, 4));
     setInvoiceError(""); // Clear error when user starts typing
   };
-  const managerOptionsLoading = Boolean(isSuperAdminUser)
-    ? superAdminUsersLoading
-    : employeesLoading;
+  const managerOptionsLoading = shouldFilterDelifoodMovementManagers
+    ? delifoodShiftEmployeesLoading
+    : Boolean(isSuperAdminUser)
+      ? superAdminUsersLoading
+      : employeesLoading;
 
   const managerSelectDisabled =
     !company ||
     managerOptionsLoading ||
     employeeOptions.length === 0 ||
-    (isRegularUser &&
+    (!isDelifoodCompany &&
+      isRegularUser &&
       accountKey === "FondoGeneral" &&
       namespace === "fg" &&
       managerLockedByShift);
@@ -4141,6 +4236,45 @@ export function FondoSection({
       return;
     }
 
+    let delifoodEmployeesForOpen: string[] | null = null;
+    if (
+      isDelifoodCompany &&
+      accountKey === "FondoGeneral" &&
+      namespace === "fg"
+    ) {
+      try {
+        const nowISO = await getAuthoritativeNowISO();
+        const resolution = await resolveShiftEmployeesForNow(nowISO);
+        if (!resolution || resolution.mode === "manual") {
+          showToast(
+            "Los movimientos de DELIFOOD están fuera del horario operativo y de la ventana posterior de cierre.",
+            "warning",
+            6000,
+          );
+          return;
+        }
+        if (resolution.mode === "missing") {
+          setMissingShiftExpectedShift(resolution.expectedShift);
+          setMissingShiftDateKey(resolution.dateKey);
+          setMissingShiftModalOpen(true);
+          return;
+        }
+        delifoodEmployeesForOpen = resolution.employees;
+        setDelifoodShiftEmployees(resolution.employees);
+      } catch (err) {
+        console.error(
+          "[FG] Error checking DELIFOOD shift employees before opening movement:",
+          err,
+        );
+        showToast(
+          "No se pudo validar la hora del servidor. Movimiento bloqueado.",
+          "error",
+          6000,
+        );
+        return;
+      }
+    }
+
     const shouldValidateShift =
       isRegularUser &&
       accountKey === "FondoGeneral" &&
@@ -4203,6 +4337,10 @@ export function FondoSection({
 
     // Abrir primero; la validación de red no debe bloquear respuesta visual.
     openCreateMovementDrawer();
+    if (delifoodEmployeesForOpen) {
+      setManager(delifoodEmployeesForOpen[0] || "");
+      setManagerError("");
+    }
     if (shouldValidateShift) {
       void resolveMissingShift().then((missingShift) => {
         if (
@@ -4292,7 +4430,7 @@ export function FondoSection({
           );
         const isInNightClosingWindow = isWithinFondoVentasNightClosingWindow({
           nowISO,
-          horarioCierre: activeEmpresaForCompany?.horarioCierre,
+          horarioCierre: empresaForShiftResolution?.horarioCierre,
           minutesBeforeEnd: cierreFondoVentasMinutesBeforeEnd,
           minutesAfterEnd: effectiveNightMinutesAfterEnd,
         });
@@ -4311,7 +4449,7 @@ export function FondoSection({
           (entry) =>
             !isWithinFondoVentasNightClosingWindow({
               nowISO: String(entry.createdAt || ""),
-              horarioCierre: activeEmpresaForCompany.horarioCierre,
+              horarioCierre: empresaForShiftResolution?.horarioCierre,
               minutesBeforeEnd: cierreFondoVentasMinutesBeforeEnd,
               minutesAfterEnd: cierreFondoVentasMinutesAfterEnd,
             }),
@@ -4319,7 +4457,7 @@ export function FondoSection({
         const hasNightClosing = recentClosings.some((entry) =>
           isWithinFondoVentasNightClosingWindow({
             nowISO: String(entry.createdAt || ""),
-            horarioCierre: activeEmpresaForCompany.horarioCierre,
+            horarioCierre: empresaForShiftResolution?.horarioCierre,
             minutesBeforeEnd: cierreFondoVentasMinutesBeforeEnd,
             minutesAfterEnd: cierreFondoVentasMinutesAfterEnd,
           }),
@@ -4333,7 +4471,7 @@ export function FondoSection({
     }
 
     const dailyClosingTurnoForNow: "D" | "N" =
-      empresaForShiftResolution?.unicoCierre === true
+      empresaUsesSingleClosing
         ? "N"
         : hasRealD
           ? "N"
@@ -4683,12 +4821,12 @@ export function FondoSection({
       lastDailyClosingSavedAtRef,
       minutesAfterClose: dailyClosingMinutesAfterClose,
       authorizedOperationalDateKey: operationalDateKey,
-      unicoCierre: empresaForShiftResolution?.unicoCierre === true,
+      unicoCierre: empresaUsesSingleClosing,
       requireSingleClosingReason:
         dailyClosingSingleReasonRequired &&
         !editingDailyClosingId &&
         !isSuperAdminUser &&
-        activeEmpresaForCompany?.unicoCierre !== true,
+        !empresaUsesSingleClosing,
       systemVerificationEnabled: activeEmpresaForCompany?.verificacionSistemas !== false,
       solicitarApertura: empresaSolicitaApertura,
       loadedDailyClosingKeysRef,
@@ -4836,7 +4974,7 @@ export function FondoSection({
       const nowMs = new Date(nowISO).getTime();
       const operationalDateKey = getCostaRicaOperationalDateKey(
         nowISO,
-        activeEmpresaForCompany.horarioApertura,
+        empresaForShiftResolution?.horarioApertura,
       );
       const effectiveNightMinutesAfterEnd =
         await resolveEffectiveClosingMinutesAfterEnd(
@@ -4855,7 +4993,7 @@ export function FondoSection({
           ageMs <= 24 * 60 * 60 * 1000 &&
           !isWithinFondoVentasNightClosingWindow({
             nowISO: createdAt,
-            horarioCierre: activeEmpresaForCompany.horarioCierre,
+            horarioCierre: empresaForShiftResolution?.horarioCierre,
             minutesBeforeEnd:
               activeEmpresaForCompany.cierreFondoVentasMinutesBeforeEnd ??
               CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
@@ -4867,7 +5005,7 @@ export function FondoSection({
       });
       const isInNightClosingWindow = isWithinFondoVentasNightClosingWindow({
         nowISO,
-        horarioCierre: activeEmpresaForCompany.horarioCierre,
+        horarioCierre: empresaForShiftResolution?.horarioCierre,
         minutesBeforeEnd:
           activeEmpresaForCompany.cierreFondoVentasMinutesBeforeEnd ??
           CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
@@ -4876,7 +5014,7 @@ export function FondoSection({
       const isPostCloseGraceOnNextDay =
         isFondoVentasPostCloseGraceOnNextDay({
           nowISO,
-          horarioCierre: activeEmpresaForCompany.horarioCierre,
+          horarioCierre: empresaForShiftResolution?.horarioCierre,
           minutesAfterEnd: effectiveNightMinutesAfterEnd,
         });
 
@@ -4907,7 +5045,7 @@ export function FondoSection({
           isWithinWindow &&
           !isPostCloseGraceOnNextDay &&
           !hasRecentDayClosing &&
-          activeEmpresaForCompany.unicoCierre !== true
+          !empresaUsesSingleClosing
         ) {
           const singleClosingReason = getSingleClosingReasonFromNotes(notes);
           if (!validateSingleClosingReason(singleClosingReason).valid) {
@@ -4924,7 +5062,7 @@ export function FondoSection({
         isInNightClosingWindow &&
         !isPostCloseGraceOnNextDay &&
         !hasRecentDayClosing &&
-        activeEmpresaForCompany.unicoCierre !== true
+        !empresaUsesSingleClosing
       ) {
         const singleClosingReason = getSingleClosingReasonFromNotes(notes);
         if (!validateSingleClosingReason(singleClosingReason).valid) {
@@ -6842,7 +6980,7 @@ export function FondoSection({
           dailyClosingSingleReasonRequired &&
           !editingDailyClosingId &&
           !isSuperAdminUser &&
-          activeEmpresaForCompany?.unicoCierre !== true
+          !empresaUsesSingleClosing
         }
         managerReadonly={!editingDailyClosingId}
         turno={dailyClosingTurno}

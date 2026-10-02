@@ -41,7 +41,7 @@ import CreateInvoiceDrawer from "../components/drawers/CreateInvoiceDrawer";
 import { ManualCreditNoteDrawer } from "../components/drawers/ManualCreditNoteDrawer";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import {
-  getEmployeesWithAssignedHoursForDay,
+  resolveEmployeesFromControlHorario,
   resolveManagerFromControlHorario,
   type ShiftCode,
 } from "@/utils/controlHorarioManager";
@@ -134,11 +134,6 @@ const dateKeyInCostaRica = (iso: string): string => {
   } catch {
     return "";
   }
-};
-
-const dayFromDateKey = (dateKey: string): number | null => {
-  const day = Number(String(dateKey || "").split("-")[2]);
-  return Number.isInteger(day) && day > 0 ? day : null;
 };
 
 const formatKeyToDisplay = (key: string): string => {
@@ -866,38 +861,77 @@ export default function FacturasCreditoPage() {
 
   const resolveDelifoodHourlyEmployeesForNow = useCallback(
     async (nowISO: string) => {
-      if (!isSelectedDelifoodCompany) return null;
+      if (!isSelectedDelifoodCompany || !selectedEmpresaMeta) return null;
 
       const companyKeysToTry = getSelectedCompanyKeys();
       if (companyKeysToTry.length === 0) return null;
 
-      const ymParts = new Intl.DateTimeFormat("en-US", {
+      const yearMonthFormatter = new Intl.DateTimeFormat("en-US", {
         timeZone: "America/Costa_Rica",
         year: "numeric",
         month: "2-digit",
-      }).formatToParts(new Date(nowISO));
+      });
+      const ymParts = yearMonthFormatter.formatToParts(new Date(nowISO));
       const year = Number(ymParts.find((p) => p.type === "year")?.value);
       const month1 = Number(ymParts.find((p) => p.type === "month")?.value);
       const month0 = Math.max(0, Math.min(11, month1 - 1));
       const dateKey = dateKeyInCostaRica(nowISO);
-      const day = dayFromDateKey(dateKey);
-      if (!Number.isFinite(year) || !Number.isFinite(month1) || day === null) {
+      if (!Number.isFinite(year) || !Number.isFinite(month1)) {
         return { dateKey, employees: [] };
       }
 
+      const scheduleMonths = new Map<string, { year: number; month0: number }>();
+      scheduleMonths.set(`${year}-${month0}`, { year, month0 });
+      const previousParts = yearMonthFormatter.formatToParts(
+        new Date(new Date(nowISO).getTime() - 24 * 60 * 60 * 1000),
+      );
+      const previousYear = Number(
+        previousParts.find((p) => p.type === "year")?.value,
+      );
+      const previousMonth1 = Number(
+        previousParts.find((p) => p.type === "month")?.value,
+      );
+      if (Number.isFinite(previousYear) && Number.isFinite(previousMonth1)) {
+        const previousMonth0 = Math.max(0, Math.min(11, previousMonth1 - 1));
+        scheduleMonths.set(`${previousYear}-${previousMonth0}`, {
+          year: previousYear,
+          month0: previousMonth0,
+        });
+      }
       const schedulesLists = await Promise.all(
-        companyKeysToTry.map((key) => getMonthlySchedulesCached(key, year, month0)),
+        companyKeysToTry.flatMap((key) =>
+          Array.from(scheduleMonths.values()).map((target) =>
+            getMonthlySchedulesCached(key, target.year, target.month0),
+          ),
+        ),
       );
-      const employees = getEmployeesWithAssignedHoursForDay(
-        schedulesLists.flat(),
-        day,
-      );
-      return { dateKey, employees };
+      const resolution = resolveEmployeesFromControlHorario({
+        nowISO,
+        empresa: selectedEmpresaMeta,
+        monthSchedules: schedulesLists.flat(),
+        nightGraceMinutes: 91,
+      });
+      if (resolution.mode === "manual") {
+        return { dateKey, employees: [], outsideHorario: true as const };
+      }
+      if (resolution.mode === "missing") {
+        return {
+          dateKey: resolution.dateKey,
+          employees: [],
+          expectedShift: resolution.expectedShift,
+        };
+      }
+      return {
+        dateKey: resolution.dateKey,
+        employees: resolution.employees,
+        expectedShift: resolution.expectedShift,
+      };
     },
     [
       getMonthlySchedulesCached,
       getSelectedCompanyKeys,
       isSelectedDelifoodCompany,
+      selectedEmpresaMeta,
     ],
   );
 
@@ -1074,7 +1108,14 @@ export default function FacturasCreditoPage() {
         const resolution = await resolveDelifoodHourlyEmployeesForNow(nowISO);
         const employeesWithHours = resolution?.employees ?? [];
         setDelifoodHourlyEmployees(employeesWithHours);
+        if (resolution?.outsideHorario) {
+          setCreateFormError(
+            "La operación está fuera del horario de DELIFOOD y de la ventana posterior de cierre.",
+          );
+          return;
+        }
         if (employeesWithHours.length === 0) {
+          setMissingShiftExpectedShift(resolution?.expectedShift || "D");
           setMissingShiftDateKey(resolution?.dateKey || dateKeyInCostaRica(nowISO));
           setMissingShiftModalOpen(true);
           return;
@@ -2424,7 +2465,16 @@ export default function FacturasCreditoPage() {
         const resolution = await resolveDelifoodHourlyEmployeesForNow(nowISO);
         const employeesWithHours = resolution?.employees ?? [];
         setDelifoodHourlyEmployees(employeesWithHours);
+        if (resolution?.outsideHorario) {
+          showToast(
+            "La operación está fuera del horario de DELIFOOD y de la ventana posterior de cierre.",
+            "warning",
+            6000,
+          );
+          return;
+        }
         if (employeesWithHours.length === 0) {
+          setMissingShiftExpectedShift(resolution?.expectedShift || "D");
           setMissingShiftDateKey(resolution?.dateKey || dateKeyInCostaRica(nowISO));
           setMissingShiftModalOpen(true);
           return;
@@ -4696,12 +4746,10 @@ export default function FacturasCreditoPage() {
 
         <ConfirmModal
           open={missingShiftModalOpen}
-          title={
-            isSelectedDelifoodCompany ? "Horas no asignadas" : "Turno no asignado"
-          }
+          title="Turno no asignado"
           message={
             isSelectedDelifoodCompany
-              ? `No se cuenta con encargados con horas asignadas para ${missingShiftDateKey || "hoy"}. Debes asignarlas en Control Horario para continuar.`
+              ? `No se cuenta con encargados asignados al turno ${missingShiftExpectedShift} para ${missingShiftDateKey || "hoy"}. Debes asignar el turno en Control Horario para continuar.`
               : `No se cuenta con un turno (${missingShiftExpectedShift}) asignado para ${missingShiftDateKey || "hoy"}. Debes asignarlo en Control Horario para continuar.`
           }
           confirmText="Ir a Control Horario"

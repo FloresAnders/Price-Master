@@ -93,9 +93,12 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     accountKey,
     namespace,
     isDelifoodCompany,
+    empresaUsesSingleClosing,
     activeEmpresaForCompany,
     getFGMonthlySchedulesCached,
     resolveShiftTimingForNow,
+    resolveShiftEmployeesForNow,
+    setDelifoodShiftEmployees,
     setMissingShiftExpectedShift,
     setMissingShiftDateKey,
     setMissingShiftModalOpen,
@@ -293,6 +296,49 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     }
   }
 
+  const shouldValidateDelifoodManager =
+    isDelifoodCompany &&
+    accountKey === "FondoGeneral" &&
+    namespace === "fg" &&
+    !editingEntryId;
+  if (shouldValidateDelifoodManager) {
+    try {
+      const resolution = await resolveShiftEmployeesForNow(nowISO);
+      if (!resolution || resolution.mode === "manual") {
+        setManagerError("Fuera del horario operativo de DELIFOOD");
+        showToast(
+          "Los movimientos de DELIFOOD están fuera del horario operativo y de la ventana posterior de cierre.",
+          "warning",
+          6000,
+        );
+        return;
+      }
+      if (resolution.mode === "missing") {
+        setMissingShiftExpectedShift(resolution.expectedShift);
+        setMissingShiftDateKey(resolution.dateKey);
+        setMissingShiftModalOpen(true);
+        return;
+      }
+
+      setDelifoodShiftEmployees(resolution.employees);
+      if (!resolution.employees.includes(effectiveManager)) {
+        setManagerError(
+          `Selecciona un encargado asignado al turno ${resolution.expectedShift}.`,
+        );
+        return;
+      }
+    } catch (err) {
+      console.error("[FG] Error validating DELIFOOD shift manager:", err);
+      setManagerError("No se pudo validar el turno actual");
+      showToast(
+        "No se pudo validar la hora del servidor. Guardado bloqueado.",
+        "error",
+        6000,
+      );
+      return;
+    }
+  }
+
   if (isEditingPaidFcrMovement) {
     setManagerError("");
     setManager2Error("");
@@ -435,7 +481,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
           isInNightClosingWindow &&
           !isPostCloseGraceOnNextDay &&
           !hasDayClosingForOperationalDate &&
-          activeEmpresaForCompany.unicoCierre !== true
+          !empresaUsesSingleClosing
         ) {
           shouldPrefixSingleClosingReason = true;
           const singleClosingReason = getSingleClosingReasonFromNotes(trimmedNotes);

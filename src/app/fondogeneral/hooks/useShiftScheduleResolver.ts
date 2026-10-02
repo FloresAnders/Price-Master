@@ -3,6 +3,7 @@ import { SchedulesService } from "@/services/schedules";
 import type { Empresas } from "@/types/firestore";
 import {
   getControlHorarioShiftTiming,
+  resolveEmployeesFromControlHorario,
   resolveManagerFromControlHorario,
 } from "@/utils/controlHorarioManager";
 
@@ -238,6 +239,48 @@ export function useShiftScheduleResolver(args: {
     [company, empresa, closingMovements, getFGMonthlySchedulesCached, providers],
   );
 
+  const resolveShiftEmployeesForNow = useCallback(
+    async (nowISO: string) => {
+      if (!empresa) return null;
+
+      const companyKeysToTry = getCompanyKeysToTry(company, empresa);
+      if (companyKeysToTry.length === 0) return null;
+
+      const ymParts = getCostaRicaYearMonthParts(nowISO);
+      if (!ymParts) return null;
+
+      const scheduleMonths = new Map<string, { year: number; month0: number }>();
+      scheduleMonths.set(`${ymParts.year}-${ymParts.month0}`, ymParts);
+      const previousNightParts = getPreviousNightShiftDateParts(nowISO, empresa);
+      if (previousNightParts) {
+        scheduleMonths.set(
+          `${previousNightParts.year}-${previousNightParts.month0}`,
+          previousNightParts,
+        );
+      }
+      const schedulesLists = await Promise.all(
+        companyKeysToTry.flatMap((key) =>
+          Array.from(scheduleMonths.values()).map(({ year, month0 }) =>
+            getFGMonthlySchedulesCached(key, year, month0),
+          ),
+        ),
+      );
+
+      return resolveEmployeesFromControlHorario({
+        nowISO,
+        empresa,
+        monthSchedules: schedulesLists.flat(),
+        nightGraceMinutes: cierreFondoVentasMinutesAfterEnd,
+      });
+    },
+    [
+      cierreFondoVentasMinutesAfterEnd,
+      company,
+      empresa,
+      getFGMonthlySchedulesCached,
+    ],
+  );
+
   const resolvePreviousNightManagerForNow = useCallback(
     async (nowISO: string) => {
       if (!empresa) return null;
@@ -266,6 +309,7 @@ export function useShiftScheduleResolver(args: {
     getFGMonthlySchedulesCached,
     resolveShiftManagerForNow,
     resolveShiftTimingForNow,
+    resolveShiftEmployeesForNow,
     resolvePreviousNightManagerForNow,
   };
 }
