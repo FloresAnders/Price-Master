@@ -54,6 +54,7 @@ export interface DelifoodModalState {
   isOpen: boolean;
   employeeName: string;
   day: number;
+  shift?: string;
   currentHours: number;
 }
 
