@@ -60,18 +60,13 @@ export default function EmployeeTooltipSummary({
   user,
 }: Props) {
   const [summary, setSummary] = React.useState<EmployeeSummary | null>(null);
+  const isDelifoodEmpresa = [empresaValue, empresaLabel].some(
+    (candidate) => normalizeKey(candidate) === "delifood",
+  );
 
   React.useEffect(() => {
     const fetchSummary = async () => {
       try {
-        const configOwnerId = empresaOwnerId || user?.ownerId || user?.id || "";
-        const configs = await CcssConfigService.getAllCcssConfigsByOwner(
-          configOwnerId,
-        );
-        const companyCandidates = [empresaLabel, empresaValue]
-          .map(normalizeKey)
-          .filter(Boolean);
-
         let workedDaysInPeriod = 0;
         let totalHours = 0;
 
@@ -98,6 +93,22 @@ export default function EmployeeTooltipSummary({
           });
         }
 
+        if (isDelifoodEmpresa) {
+          setSummary({
+            workedDays: workedDaysInPeriod,
+            hours: totalHours,
+            colones: 0,
+          });
+          return;
+        }
+
+        const configOwnerId = empresaOwnerId || user?.ownerId || user?.id || "";
+        const configs = await CcssConfigService.getAllCcssConfigsByOwner(
+          configOwnerId,
+        );
+        const companyCandidates = [empresaLabel, empresaValue]
+          .map(normalizeKey)
+          .filter(Boolean);
         const companyConfig = findCompanyConfig(configs, companyCandidates);
         const configuredHourlyRate = Number(companyConfig?.valorhora);
         const fallbackHourlyRate = Number(companyConfig?.pagoTotalPH);
@@ -135,6 +146,7 @@ export default function EmployeeTooltipSummary({
     usesConfiguredShiftHours,
     configuredShiftHours,
     delifoodHoursData,
+    isDelifoodEmpresa,
     user?.id,
     user?.ownerId,
   ]);
@@ -152,10 +164,14 @@ export default function EmployeeTooltipSummary({
       <div>
         <b>Horas trabajadas:</b> {summary.hours}
       </div>
-      <div>
-        <b>Salario:</b> {"\u20a1"}
-        {summary.colones.toLocaleString("es-CR", { minimumFractionDigits: 2 })}
-      </div>
+      {!isDelifoodEmpresa && (
+        <div>
+          <b>Salario:</b> {"\u20a1"}
+          {summary.colones.toLocaleString("es-CR", {
+            minimumFractionDigits: 2,
+          })}
+        </div>
+      )}
     </>
   );
 }
