@@ -161,6 +161,7 @@ export function useControlHorario(propUser?: FirestoreUser | null) {
     changeMonth: cal.changeMonth,
     updateScheduleCell: shift.updateScheduleCell,
     handleCellChange: shift.handleCellChange,
+    handleDelifoodHoursOpen: shift.handleDelifoodHoursOpen,
     handleDelifoodCellClick: shift.handleDelifoodCellClick,
     handleDelifoodHoursSave: shift.handleDelifoodHoursSave,
     exportScheduleAsImage: exp.exportScheduleAsImage,

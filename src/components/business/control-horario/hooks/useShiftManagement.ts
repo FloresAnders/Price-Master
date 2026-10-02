@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import { SchedulesService } from "../../../../services/schedules";
+import {
+  getDelifoodDefaultHours,
+  getDelifoodEffectiveHours,
+} from "../delifoodShiftHours";
 import type { ScheduleData, DelifoodHoursData, ConfirmModalState, DelifoodModalState } from "../types";
 
 interface Props {
@@ -23,6 +27,7 @@ export function useShiftManagement(props: Props) {
     empresa, empresas, scheduleData, setScheduleData,
     delifoodHoursData, setDelifoodHoursData,
     year, month, user, showToast,
+    isDelifoodEmpresa,
   } = props;
 
   const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
@@ -31,7 +36,7 @@ export function useShiftManagement(props: Props) {
   const [modalLoading, setModalLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [delifoodModal, setDelifoodModal] = useState<DelifoodModalState>({
-    isOpen: false, employeeName: "", day: 0, currentHours: 0,
+    isOpen: false, employeeName: "", day: 0, shift: "", currentHours: 0,
   });
   const [pendingCellValues, setPendingCellValues] = useState<ScheduleData>({});
 
@@ -71,7 +76,7 @@ export function useShiftManagement(props: Props) {
       return;
     }
 
-    if (newValue && ["N", "D"].includes(newValue)) {
+    if (!isDelifoodEmpresa && newValue && ["N", "D"].includes(newValue)) {
       const existing = Object.keys(scheduleData).find(
         (emp) => emp !== employeeName && scheduleData[emp]?.[day] === newValue,
       );
@@ -81,7 +86,7 @@ export function useShiftManagement(props: Props) {
       }
     }
 
-    if (newValue === "L") {
+    if (!isDelifoodEmpresa && newValue === "L") {
       const count = Object.keys(scheduleData).filter(
         (emp) => emp !== employeeName && scheduleData[emp]?.[day] === "L",
       ).length;
@@ -133,11 +138,36 @@ export function useShiftManagement(props: Props) {
         const hoursPerShift = empresas
           .find((e) => e.value === empresa)
           ?.employees?.find((e) => e.name === employeeName)?.hoursPerShift;
-        await SchedulesService.updateScheduleShift(empresa, employeeName, year, month, parseInt(day), newValue, { horasPorDia: hoursPerShift });
+        const delifoodHours = getDelifoodDefaultHours(newValue);
+        await SchedulesService.updateScheduleShift(
+          empresa,
+          employeeName,
+          year,
+          month,
+          parseInt(day),
+          newValue,
+          isDelifoodEmpresa
+            ? { horasPorDia: delifoodHours > 0 ? delifoodHours : null }
+            : { horasPorDia: hoursPerShift },
+        );
         setScheduleData((prev) => ({
           ...prev,
           [employeeName]: { ...(prev[employeeName] || {}), [day]: newValue },
         }));
+        if (isDelifoodEmpresa) {
+          setDelifoodHoursData((prev) => {
+            const nextEmployee = { ...(prev[employeeName] || {}) };
+            if (delifoodHours > 0) {
+              nextEmployee[day] = { hours: delifoodHours };
+            } else {
+              delete nextEmployee[day];
+            }
+            return {
+              ...prev,
+              [employeeName]: nextEmployee,
+            };
+          });
+        }
         clearPendingValue();
         showToast(newValue.trim() ? "Horario actualizado" : "Turno eliminado", "success");
       } catch {
@@ -167,13 +197,16 @@ export function useShiftManagement(props: Props) {
     updateScheduleCell(employeeName, day.toString(), value);
   };
 
-  const handleDelifoodCellClick = (employeeName: string, day: number) => {
+  const handleDelifoodHoursOpen = (employeeName: string, day: number) => {
     if (!canEditDate(day)) {
       showToast("No puedes editar días de quincenas pasadas.", "warning");
       return;
     }
-    const currentHours = delifoodHoursData[employeeName]?.[day.toString()]?.hours || 0;
-    setDelifoodModal({ isOpen: true, employeeName, day, currentHours });
+    const shift = scheduleData[employeeName]?.[day.toString()] || "";
+    if (!shift) return;
+    const savedHours = delifoodHoursData[employeeName]?.[day.toString()]?.hours;
+    const currentHours = getDelifoodEffectiveHours(shift, savedHours);
+    setDelifoodModal({ isOpen: true, employeeName, day, shift, currentHours });
   };
 
   const handleDelifoodHoursSave = async (hours: number) => {
@@ -182,28 +215,34 @@ export function useShiftManagement(props: Props) {
 
     if (!canEditDate(day)) {
       showToast("No puedes editar días de quincenas pasadas.", "warning");
-      return;
+      throw new Error("No se puede editar este día.");
     }
 
     try {
       setSaving(true);
       await SchedulesService.updateScheduleHours(empresa, employeeName, year, month, day, hours);
+      if (hours <= 0) {
+        setScheduleData((prev) => {
+          const nextEmployee = { ...(prev[employeeName] || {}) };
+          delete nextEmployee[day.toString()];
+          return { ...prev, [employeeName]: nextEmployee };
+        });
+      }
       setDelifoodHoursData((prev) => {
-        const next = { ...prev };
+        const nextEmployee = { ...(prev[employeeName] || {}) };
         if (hours <= 0) {
-          if (next[employeeName]) delete next[employeeName][day.toString()];
+          delete nextEmployee[day.toString()];
         } else {
-          if (!next[employeeName]) next[employeeName] = {};
-          next[employeeName][day.toString()] = { hours };
+          nextEmployee[day.toString()] = { hours };
         }
-        return next;
+        return { ...prev, [employeeName]: nextEmployee };
       });
       showToast(hours <= 0 ? "Registro eliminado" : "Horas guardadas", "success");
-    } catch {
+    } catch (error) {
       showToast("Error al guardar horas", "error");
+      throw error;
     } finally {
       setSaving(false);
-      setDelifoodModal({ isOpen: false, employeeName: "", day: 0, currentHours: 0 });
     }
   };
 
@@ -211,6 +250,9 @@ export function useShiftManagement(props: Props) {
     saving, confirmModal, setConfirmModal, modalLoading,
     delifoodModal, setDelifoodModal,
     pendingCellValues, cancelConfirmModal,
-    updateScheduleCell, handleCellChange, handleDelifoodCellClick, handleDelifoodHoursSave,
+    updateScheduleCell, handleCellChange,
+    handleDelifoodHoursOpen,
+    handleDelifoodCellClick: handleDelifoodHoursOpen,
+    handleDelifoodHoursSave,
   };
 }

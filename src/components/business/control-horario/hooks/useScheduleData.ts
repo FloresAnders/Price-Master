@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { SchedulesService } from "../../../../services/schedules";
 import type { ScheduleEntry } from "../../../../services/schedules";
 import type { ScheduleData, DelifoodHoursData } from "../types";
+import { getDelifoodEffectiveHours } from "../delifoodShiftHours";
 
 interface Props {
   empresa: string;
@@ -66,9 +67,12 @@ export function useScheduleData(props: Props) {
           if (entry.shift?.trim()) {
             newData[entry.employeeName][entry.day.toString()] = entry.shift;
           }
-          if (entry.horasPorDia != null && entry.horasPorDia > 0) {
+          const effectiveHours = isDelifoodEmpresa
+            ? getDelifoodEffectiveHours(entry.shift, entry.horasPorDia)
+            : Number(entry.horasPorDia) || 0;
+          if (effectiveHours > 0) {
             if (!newDelifood[entry.employeeName]) newDelifood[entry.employeeName] = {};
-            newDelifood[entry.employeeName][entry.day.toString()] = { hours: entry.horasPorDia };
+            newDelifood[entry.employeeName][entry.day.toString()] = { hours: effectiveHours };
           }
         });
 
