@@ -1,4 +1,4 @@
-import { getStateLabel } from "./utils";
+import { getCellStyle, getStateLabel } from "./utils";
 
 export type DelifoodShift = "D" | "N" | "L" | "V" | "I";
 
@@ -23,4 +23,41 @@ export function getDelifoodHoursTooltip(
   savedHours?: number,
 ): string {
   return `${getStateLabel(shift)} - ${getDelifoodEffectiveHours(shift, savedHours)} h`;
+}
+
+export function sumDelifoodHoursForDays(
+  shiftsByDay: Record<string, string> | undefined,
+  hoursByDay: Record<string, { hours: number }> | undefined,
+  days: number[],
+): { workedDays: number; totalHours: number } {
+  let workedDays = 0;
+  let totalHours = 0;
+
+  days.forEach((day) => {
+    const dayKey = String(day);
+    const shift = shiftsByDay?.[dayKey] || "";
+    if (!shift) return;
+    const hours = getDelifoodEffectiveHours(
+      shift,
+      hoursByDay?.[dayKey]?.hours,
+    );
+    if (hours <= 0) return;
+    workedDays += 1;
+    totalHours += hours;
+  });
+
+  return { workedDays, totalHours };
+}
+
+export function getDelifoodExportCell(shift: string): {
+  label: string;
+  backgroundColor: string;
+  textColor: string;
+} {
+  const style = getCellStyle(shift);
+  return {
+    label: shift,
+    backgroundColor: style.backgroundColor,
+    textColor: style.color,
+  };
 }

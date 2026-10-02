@@ -5,6 +5,11 @@ import { ref, deleteObject } from "firebase/storage";
 import { storage } from "@/config/firebase";
 import { SchedulesService } from "../../../../services/schedules";
 import type { QrState, ScheduleData, DelifoodHoursData } from "../types";
+import {
+  getDelifoodEffectiveHours,
+  getDelifoodExportCell,
+  sumDelifoodHoursForDays,
+} from "../delifoodShiftHours";
 
 interface Props {
   user: { name?: string; role?: string } | null;
@@ -255,8 +260,7 @@ export function useScheduleExport(props: Props) {
 
           let hours = 0;
           if (isDelifoodEmpresa) {
-            const rawHours = Number(entry.horasPorDia);
-            if (Number.isFinite(rawHours) && rawHours > 0) hours = rawHours;
+            hours = getDelifoodEffectiveHours(entry.shift, entry.horasPorDia);
           } else if (entry.shift === "D" || entry.shift === "N") {
             const rawHours = Number(entry.horasPorDia);
             hours =
@@ -492,7 +496,11 @@ export function useScheduleExport(props: Props) {
       names.forEach((empName, ei) => {
         let sv = 0;
         if (isDelifoodEmpresa) {
-          sv = daysToShow.reduce((t, d) => t + (delifoodHoursData[empName]?.[d.toString()]?.hours || 0), 0);
+          sv = sumDelifoodHoursForDays(
+            scheduleData[empName],
+            delifoodHoursData[empName],
+            daysToShow,
+          ).totalHours;
         } else {
           sv = daysToShow.filter((d) => ["N", "D"].includes(scheduleData[empName]?.[d.toString()] || "")).length;
         }
@@ -508,10 +516,11 @@ export function useScheduleExport(props: Props) {
         daysToShow.forEach((day, di) => {
           const x = daysX + di * cellW;
           if (isDelifoodEmpresa) {
-            const h = delifoodHoursData[empName]?.[day.toString()]?.hours || 0;
-            const bg = h > 0 ? "#d1fae5" : ei % 2 === 0 ? "#f8fafc" : "#ffffff";
-            ctx.fillStyle = bg; ctx.fillRect(x, yPos, cellW, cellH); ctx.strokeRect(x, yPos, cellW, cellH);
-            if (h > 0) { ctx.fillStyle = "#065f46"; ctx.font = "bold 16px Arial"; ctx.textAlign = "center"; ctx.fillText(h.toString(), x + cellW / 2, yPos + cellH / 2 + 6); }
+            const shift = scheduleData[empName]?.[day.toString()] || "";
+            const cell = getDelifoodExportCell(shift);
+            ctx.fillStyle = shift ? cell.backgroundColor : ei % 2 === 0 ? "#f8fafc" : "#ffffff";
+            ctx.fillRect(x, yPos, cellW, cellH); ctx.strokeRect(x, yPos, cellW, cellH);
+            if (cell.label) { ctx.fillStyle = cell.textColor; ctx.font = "bold 18px Arial"; ctx.textAlign = "center"; ctx.fillText(cell.label, x + cellW / 2, yPos + cellH / 2 + 6); }
           } else {
             const shift = scheduleData[empName]?.[day.toString()] || "";
             const colorMap: Record<string, [string, string]> = { N: ["#87CEEB", "#000"], D: ["#FFFF00", "#000"], L: ["#FF00FF", "#fff"], V: ["#28a745", "#fff"], I: ["#fd7e14", "#fff"] };
@@ -534,14 +543,12 @@ export function useScheduleExport(props: Props) {
       ctx.font = "bold 20px Arial";
       ctx.fillStyle = "#1f2937";
       ctx.textAlign = "center";
-      ctx.fillText(isDelifoodEmpresa ? "Leyenda de Horas" : "Leyenda de Turnos", canvas.width / 2, yPos);
+      ctx.fillText("Leyenda de Turnos", canvas.width / 2, yPos);
       yPos += 40;
 
-      const legendItems = isDelifoodEmpresa
-        ? [{ label: "Verde = Con horas", color: "#d1fae5" }, { label: "Vacío = Sin horas", color: "#f9fafb" }, { label: "Número = Horas", color: "#ffffff" }]
-        : [{ label: "N = Nocturno", color: "#87CEEB" }, { label: "D = Diurno", color: "#FFFF00" }, { label: "L = Libre", color: "#FF00FF" }, { label: "Vacío = Sin asignar", color: "#f9fafb" }];
+      const legendItems = [{ label: "N = Nocturno", color: "#87CEEB" }, { label: "D = Diurno", color: "#FFFF00" }, { label: "L = Libre", color: "#FF00FF" }, { label: "Vacío = Sin asignar", color: "#f9fafb" }];
 
-      const liW = isDelifoodEmpresa ? 250 : 200;
+      const liW = 200;
       const liSX = (canvas.width - legendItems.length * liW) / 2;
       legendItems.forEach((item, i) => {
         const x = liSX + i * liW;
@@ -593,15 +600,20 @@ export function useScheduleExport(props: Props) {
       names.forEach((name) => {
         let sv = 0;
         if (isDelifoodEmpresa) {
-          sv = daysToShow.reduce((t, d) => t + (delifoodHoursData?.[name]?.[d.toString()]?.hours || 0), 0);
+          sv = sumDelifoodHoursForDays(
+            scheduleData?.[name],
+            delifoodHoursData?.[name],
+            daysToShow,
+          ).totalHours;
         } else {
           sv = daysToShow.filter((d) => ["N", "D"].includes(scheduleData?.[name]?.[d.toString()] || "")).length;
         }
         html += `<tr><td style="border:1px solid #d1d5db;padding:6px 10px;font-weight:bold;background:#f3f4f6;">${name}</td>`;
         daysToShow.forEach((d) => {
           if (isDelifoodEmpresa) {
-            const h = delifoodHoursData?.[name]?.[d.toString()]?.hours || 0;
-            html += `<td style="border:1px solid #d1d5db;padding:6px 10px;background:${h > 0 ? "#d1fae5" : "#fff"};text-align:center;color:#065f46;font-weight:${h > 0 ? "bold" : "normal"};">${h > 0 ? h : ""}</td>`;
+            const shift = scheduleData?.[name]?.[d.toString()] || "";
+            const cell = getDelifoodExportCell(shift);
+            html += `<td style="border:1px solid #d1d5db;padding:6px 10px;background:${shift ? cell.backgroundColor : "#fff"};text-align:center;color:${shift ? cell.textColor : "#000"};font-weight:${shift ? "bold" : "normal"};">${escapeHtml(cell.label)}</td>`;
           } else {
             const v = scheduleData?.[name]?.[d.toString()] || "";
             const colorMap: Record<string, string> = { N: "#87CEEB", D: "#FFFF00", L: "#FF00FF", V: "#28a745", I: "#fd7e14" };

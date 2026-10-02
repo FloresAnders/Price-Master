@@ -4,6 +4,7 @@ import React from "react";
 import { CcssConfigService } from "../../../../services/ccss-config";
 import type { EmployeeSummary } from "../types";
 import type { CcssConfig } from "../../../../types/firestore";
+import { sumDelifoodHoursForDays } from "../delifoodShiftHours";
 
 function normalizeKey(value: unknown): string {
   return String(value ?? "")
@@ -72,16 +73,13 @@ export default function EmployeeTooltipSummary({
         let totalHours = 0;
 
         if (isDelifoodEmpresa) {
-          totalHours = daysToShow.reduce((total, day) => {
-            const hours =
-              delifoodHoursData[employeeName]?.[day.toString()]?.hours || 0;
-            return total + hours;
-          }, 0);
-          workedDaysInPeriod = daysToShow.filter((day) => {
-            const hours =
-              delifoodHoursData[employeeName]?.[day.toString()]?.hours || 0;
-            return hours > 0;
-          }).length;
+          const totals = sumDelifoodHoursForDays(
+            shiftsByDay,
+            delifoodHoursData[employeeName],
+            daysToShow,
+          );
+          totalHours = totals.totalHours;
+          workedDaysInPeriod = totals.workedDays;
         } else {
           const hoursPerDay = Number(employeeConfig?.hoursPerShift) || 0;
           daysToShow.forEach((day) => {
