@@ -513,7 +513,7 @@ export class SchedulesService {
     month: number,
     day: number,
     shift: string,
-    options?: { horasPorDia?: number },
+    options?: { horasPorDia?: number | null },
   ): Promise<void> {
     const ref = doc(
       db,
@@ -539,11 +539,29 @@ export class SchedulesService {
       }
 
       const entry: DayEntry = { shift: cleanShift };
-      if (cleanShift === "D" || cleanShift === "N") {
+      if (
+        typeof options?.horasPorDia === "number" &&
+        Number.isFinite(options.horasPorDia) &&
+        options.horasPorDia > 0
+      ) {
+        entry.horasPorDia = options.horasPorDia;
+      } else if (
+        (cleanShift === "D" || cleanShift === "N") &&
+        options?.horasPorDia === undefined
+      ) {
         entry.horasPorDia =
-          typeof options?.horasPorDia === "number"
-            ? options.horasPorDia
-            : await getDefaultHoursPerShift(locationValue, employeeName);
+          await getDefaultHoursPerShift(locationValue, employeeName);
+      }
+
+      if (snap.exists()) {
+        tx.update(
+          ref,
+          new FieldPath("employees", employeeName, dayKey),
+          entry,
+          "updatedAt",
+          new Date(),
+        );
+        return;
       }
 
       tx.set(
@@ -577,36 +595,51 @@ export class SchedulesService {
     );
     const dayKey = String(day);
 
-    if (horasPorDia <= 0) {
-      const snap = await getDoc(ref);
-      if (!snap.exists()) return;
-      await updateDoc(
+    let didWrite = false;
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists()) {
+        if (horasPorDia <= 0) return;
+        throw new Error("No existe un turno asignado para personalizar horas.");
+      }
+
+      const data = snap.data() as FirestoreDoc;
+      const currentEntry = data.employees?.[employeeName]?.[dayKey] as
+        | DayEntry
+        | undefined;
+
+      if (horasPorDia <= 0) {
+        if (!currentEntry) return;
+        tx.update(
+          ref,
+          new FieldPath("employees", employeeName, dayKey),
+          deleteField(),
+          "updatedAt",
+          new Date(),
+        );
+        didWrite = true;
+        return;
+      }
+
+      const currentShift = String(currentEntry?.shift || "").trim();
+      if (!currentShift) {
+        throw new Error("No existe un turno asignado para personalizar horas.");
+      }
+
+      tx.update(
         ref,
         new FieldPath("employees", employeeName, dayKey),
-        deleteField(),
+        { shift: currentShift, horasPorDia },
         "updatedAt",
         new Date(),
       );
+      didWrite = true;
+    });
+
+    if (didWrite) {
       const { invalidateScheduleFortnightCache } = await import("./schedule-fortnight-cache");
       await invalidateScheduleFortnightCache(locationValue, year, month, day);
-      return;
     }
-
-    await setDoc(
-      ref,
-      {
-        company: locationValue,
-        year,
-        month,
-        employees: {
-          [employeeName]: { [dayKey]: { shift: "L", horasPorDia } },
-        },
-        updatedAt: new Date(),
-      },
-      { merge: true },
-    );
-    const { invalidateScheduleFortnightCache } = await import("./schedule-fortnight-cache");
-    await invalidateScheduleFortnightCache(locationValue, year, month, day);
   }
 
   static async migrateHorasPorDia(

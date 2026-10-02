@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import { Clock, Save, X } from "lucide-react";
-import { SchedulesService } from "../../services/schedules";
 
 interface DelifoodHoursModalProps {
   isOpen: boolean;
@@ -15,7 +14,7 @@ interface DelifoodHoursModalProps {
   empresaValue?: string;
   locationValue?: string;
   currentHours?: number;
-  onSave: (hours: number) => void;
+  onSave: (hours: number) => Promise<void>;
 }
 
 export default function DelifoodHoursModal({
@@ -25,8 +24,6 @@ export default function DelifoodHoursModal({
   day,
   month,
   year,
-  empresaValue,
-  locationValue,
   currentHours = 0,
   onSave,
 }: DelifoodHoursModalProps) {
@@ -52,18 +49,7 @@ export default function DelifoodHoursModal({
       setSaving(true);
       setError("");
 
-      // Actualizar en la base de datos
-      await SchedulesService.updateScheduleHours(
-        empresaValue || locationValue || "",
-        employeeName,
-        year,
-        month,
-        day,
-        hours,
-      );
-
-      // Notificar al componente padre
-      onSave(hours);
+      await onSave(hours);
       onClose();
     } catch (error) {
       console.error("Error saving hours:", error);
