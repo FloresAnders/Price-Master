@@ -6,6 +6,9 @@
   const cambioTab = isCommonJs
     ? require("./cambiotab-core.js")
     : root.TimeMasterHerramientasCambioTab;
+  const cerrarImpresionContica = isCommonJs
+    ? null
+    : root.TimeMasterHerramientasCerrarImpresionContica;
   const api = factory(settings);
 
   root.TimeMasterHerramientasContica = api;
@@ -16,6 +19,8 @@
       .createConticaController({
         storage: root.chrome.storage,
         tabController: cambioTab.createTabController(root.document),
+        printInvoiceCloser:
+          cerrarImpresionContica.createPrintInvoiceCloser(root.document),
         settings,
       })
       .start();
@@ -25,22 +30,46 @@
 ) {
   "use strict";
 
-  const SETTING_KEY = "tmhCambioTabEnabled";
+  const CAMBIO_TAB_SETTING_KEY = "tmhCambioTabEnabled";
+  const CERRAR_IMPRESION_SETTING_KEY = "tmhCerrarImpresionConticaEnabled";
 
-  function createConticaController({ storage, tabController, settings }) {
+  function createConticaController({
+    storage,
+    tabController,
+    printInvoiceCloser,
+    settings,
+  }) {
     const settingsCore = settings || settingsApi;
+    const modalCloser = printInvoiceCloser || { start() {}, stop() {} };
     let started = false;
 
-    function applyEnabled(enabled) {
+    function applyCambioTabEnabled(enabled) {
       if (enabled) tabController.start();
       else tabController.stop();
     }
 
+    function applyCerrarImpresionEnabled(enabled) {
+      if (enabled) modalCloser.start();
+      else modalCloser.stop();
+    }
+
     function handleStorageChange(changes, areaName) {
       if (areaName !== "local") return;
-      const enabled = settingsCore.readChangedSetting(changes, SETTING_KEY);
-      if (enabled === undefined) return;
-      applyEnabled(enabled);
+      const cambioTabEnabled = settingsCore.readChangedSetting(
+        changes,
+        CAMBIO_TAB_SETTING_KEY,
+      );
+      if (cambioTabEnabled !== undefined) {
+        applyCambioTabEnabled(cambioTabEnabled);
+      }
+
+      const cerrarImpresionEnabled = settingsCore.readChangedSetting(
+        changes,
+        CERRAR_IMPRESION_SETTING_KEY,
+      );
+      if (cerrarImpresionEnabled !== undefined) {
+        applyCerrarImpresionEnabled(cerrarImpresionEnabled);
+      }
     }
 
     function start() {
@@ -49,7 +78,9 @@
       storage.onChanged.addListener(handleStorageChange);
       storage.local.get(settingsCore.DEFAULT_SETTINGS, (stored) => {
         if (!started) return;
-        applyEnabled(settingsCore.normalizeSettings(stored)[SETTING_KEY]);
+        const normalized = settingsCore.normalizeSettings(stored);
+        applyCambioTabEnabled(normalized[CAMBIO_TAB_SETTING_KEY]);
+        applyCerrarImpresionEnabled(normalized[CERRAR_IMPRESION_SETTING_KEY]);
       });
     }
 
@@ -58,6 +89,7 @@
       started = false;
       storage.onChanged.removeListener(handleStorageChange);
       tabController.stop();
+      modalCloser.stop();
     }
 
     return { start, destroy };

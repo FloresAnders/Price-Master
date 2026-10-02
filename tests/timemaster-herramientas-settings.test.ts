@@ -1,10 +1,12 @@
 import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
 
 type Settings = {
   tmhCambioTabEnabled: boolean;
+  tmhCerrarImpresionConticaEnabled: boolean;
   tmhSumaTiemposEnabled: boolean;
   tmhMoverEnterEnabled: boolean;
 };
@@ -26,6 +28,10 @@ const settingsPath = resolve(
 const popupPath = resolve(
   process.cwd(),
   "extensions/TimeMasterHerramientas/popup.js",
+);
+const popupHtmlPath = resolve(
+  process.cwd(),
+  "extensions/TimeMasterHerramientas/popup.html",
 );
 
 const loadSettings = () => requireModule(settingsPath) as SettingsCore;
@@ -56,6 +62,8 @@ type PopupCore = {
 const popupMarkup = `
   <input id="tmhCambioTabEnabled-toggle" type="checkbox">
   <span id="tmhCambioTabEnabled-status"></span>
+  <input id="tmhCerrarImpresionConticaEnabled-toggle" type="checkbox">
+  <span id="tmhCerrarImpresionConticaEnabled-status"></span>
   <input id="tmhSumaTiemposEnabled-toggle" type="checkbox">
   <span id="tmhSumaTiemposEnabled-status"></span>
   <input id="tmhMoverEnterEnabled-toggle" type="checkbox">
@@ -91,11 +99,12 @@ function createChromeApi(
 }
 
 describe("TimeMaster Herramientas settings", () => {
-  it("aplica los tres valores iniciales cuando no hay preferencias guardadas", () => {
+  it("aplica los cuatro valores iniciales cuando no hay preferencias guardadas", () => {
     const { normalizeSettings } = loadSettings();
 
     expect(normalizeSettings({})).toEqual({
       tmhCambioTabEnabled: true,
+      tmhCerrarImpresionConticaEnabled: false,
       tmhSumaTiemposEnabled: true,
       tmhMoverEnterEnabled: false,
     });
@@ -107,16 +116,19 @@ describe("TimeMaster Herramientas settings", () => {
     expect(
       normalizeSettings({
         tmhCambioTabEnabled: false,
+        tmhCerrarImpresionConticaEnabled: true,
         tmhSumaTiemposEnabled: "false",
         tmhMoverEnterEnabled: true,
       }),
     ).toEqual({
       tmhCambioTabEnabled: false,
+      tmhCerrarImpresionConticaEnabled: true,
       tmhSumaTiemposEnabled: true,
       tmhMoverEnterEnabled: true,
     });
     expect(normalizeSettings(null)).toEqual({
       tmhCambioTabEnabled: true,
+      tmhCerrarImpresionConticaEnabled: false,
       tmhSumaTiemposEnabled: true,
       tmhMoverEnterEnabled: false,
     });
@@ -142,14 +154,19 @@ describe("TimeMaster Herramientas settings", () => {
 });
 
 describe("TimeMaster Herramientas popup", () => {
-  it("renderiza los tres valores iniciales en controles independientes", () => {
-    const dom = new JSDOM(popupMarkup);
+  it("renderiza los cuatro valores iniciales en controles independientes", () => {
+    const dom = new JSDOM(readFileSync(popupHtmlPath, "utf8"));
     const { chromeApi } = createChromeApi({});
     const { createPopupController } = requireModule(popupPath) as PopupCore;
     const controller = createPopupController(dom.window.document, chromeApi);
 
     controller.start();
 
+    expect(
+      (dom.window.document.getElementById(
+        "tmhCerrarImpresionConticaEnabled-toggle",
+      ) as HTMLInputElement).checked,
+    ).toBe(false);
     expect(
       (dom.window.document.getElementById(
         "tmhCambioTabEnabled-toggle",
@@ -169,6 +186,11 @@ describe("TimeMaster Herramientas popup", () => {
       dom.window.document.getElementById("tmhCambioTabEnabled-status")
         ?.textContent,
     ).toBe("Activado");
+    expect(
+      dom.window.document.getElementById(
+        "tmhCerrarImpresionConticaEnabled-status",
+      )?.textContent,
+    ).toBe("Desactivado");
     expect(
       dom.window.document.getElementById("tmhMoverEnterEnabled-status")
         ?.textContent,

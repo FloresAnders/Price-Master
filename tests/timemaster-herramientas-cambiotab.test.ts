@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { JSDOM } from "jsdom";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 type TabController = { start: () => void; stop: () => void };
 type TabCore = {
@@ -19,6 +19,10 @@ const contentPath = resolve(
 );
 
 const loadCore = () => requireModule(corePath) as TabCore;
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 type StorageChange = Record<string, { newValue?: unknown; oldValue?: unknown }>;
 
@@ -184,6 +188,66 @@ describe("TimeMaster Herramientas CambioTab", () => {
 });
 
 describe("TimeMaster Herramientas en Contica", () => {
+  it("activa el cierre del modal inmediatamente al cambiar su interruptor", () => {
+    vi.useFakeTimers();
+    const dom = new JSDOM(`
+      <div id="printInvoice" class="modal in" aria-modal="true" style="display: block">
+        <button class="esc-button" data-dismiss="modal">X [ESC]</button>
+      </div>
+    `);
+    const storage = createStorage({
+      tmhCambioTabEnabled: false,
+      tmhCerrarImpresionConticaEnabled: false,
+    });
+    const closeButton = dom.window.document.querySelector(".esc-button")!;
+    let clicks = 0;
+    closeButton.addEventListener("click", () => {
+      clicks += 1;
+    });
+    const { createPrintInvoiceCloser } = requireModule(
+      resolve(
+        process.cwd(),
+        "extensions/TimeMasterHerramientas/cerrarimpresioncontica-core.js",
+      ),
+    ) as {
+      createPrintInvoiceCloser: (document: Document) => TabController;
+    };
+    const { createConticaController } = requireModule(contentPath) as {
+      createConticaController: (options: Record<string, unknown>) => {
+        start: () => void;
+        destroy: () => void;
+      };
+    };
+    const controller = createConticaController({
+      storage,
+      tabController: { start: vi.fn(), stop: vi.fn() },
+      printInvoiceCloser: createPrintInvoiceCloser(dom.window.document),
+      settings: requireModule(
+        resolve(
+          process.cwd(),
+          "extensions/TimeMasterHerramientas/settings-core.js",
+        ),
+      ),
+    });
+
+    controller.start();
+    vi.advanceTimersByTime(5_000);
+    expect(clicks).toBe(0);
+
+    storage.emit({ tmhCerrarImpresionConticaEnabled: { newValue: true } });
+    vi.advanceTimersByTime(4_999);
+    expect(clicks).toBe(0);
+    vi.advanceTimersByTime(1);
+    expect(clicks).toBe(1);
+
+    storage.emit({ tmhCerrarImpresionConticaEnabled: { newValue: false } });
+    vi.advanceTimersByTime(5_000);
+    expect(clicks).toBe(1);
+
+    controller.destroy();
+    dom.window.close();
+  });
+
   it("aplica el valor inicial y los cambios sin duplicar el controlador", () => {
     const dom = createTabsDom();
     const storage = createStorage({ tmhCambioTabEnabled: true });

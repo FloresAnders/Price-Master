@@ -14,7 +14,7 @@ describe("paquete TimeMaster Herramientas", () => {
     expect(manifest).toMatchObject({
       manifest_version: 3,
       name: "TimeMaster Herramientas",
-      version: "1.0.0",
+      version: "1.0.1",
       permissions: ["storage"],
       icons: { "128": "icon128.png" },
       action: { default_popup: "popup.html" },
@@ -24,7 +24,12 @@ describe("paquete TimeMaster Herramientas", () => {
     expect(manifest.content_scripts).toEqual([
       {
         matches: ["https://contica.app/app/modules/punto_de_venta/*"],
-        js: ["settings-core.js", "cambiotab-core.js", "contica-content.js"],
+        js: [
+          "settings-core.js",
+          "cambiotab-core.js",
+          "cerrarimpresioncontica-core.js",
+          "contica-content.js",
+        ],
         run_at: "document_idle",
       },
       {

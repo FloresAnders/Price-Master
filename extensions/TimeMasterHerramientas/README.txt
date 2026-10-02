@@ -1,9 +1,10 @@
-TIMEMASTER HERRAMIENTAS 1.0.0
+TIMEMASTER HERRAMIENTAS 1.0.1
 ================================
 
-Esta extensión reúne CambioTab, SumaTiempos y MoverEnter en una sola instalación.
-Las tres extensiones originales permanecen como respaldo, pero deben estar
-desactivadas mientras se usa esta versión para evitar acciones duplicadas.
+Esta extensión reúne CambioTab, cierre automático del modal de impresión de
+Contica, SumaTiempos y MoverEnter en una sola instalación. Las tres extensiones
+originales permanecen como respaldo, pero deben estar desactivadas mientras se
+usa esta versión para evitar acciones duplicadas.
 
 INSTALACIÓN EN EDGE O CHROME
 ----------------------------
@@ -17,6 +18,7 @@ INSTALACIÓN EN EDGE O CHROME
 CONTROLES Y VALORES INICIALES
 -----------------------------
 - CambioTab en Contica: activado.
+- Cierre del modal de impresión en Contica: desactivado.
 - SumaTiempos en Gente Crystal: activado.
 - Impresión automática en Gente Crystal: desactivada.
 
@@ -31,6 +33,14 @@ Sitio: https://contica.app/app/modules/punto_de_venta/*
 - Ctrl+Alt+Flecha izquierda: pestaña disponible anterior.
 - Ctrl+Alt+1 a Ctrl+Alt+7: abrir directamente esa pestaña.
 - También acepta los números del teclado numérico.
+
+CIERRE DEL MODAL DE IMPRESIÓN EN CONTICA
+----------------------------------------
+Sitio: https://contica.app/app/modules/punto_de_venta/*
+
+Al activarlo, la extensión detecta cada apertura de #printInvoice, espera cinco
+segundos y pulsa una sola vez el botón X / ESC del mismo modal. La espera se
+cancela si el modal se cierra antes o si la herramienta se desactiva.
 
 SUMATIEMPOS EN GENTE CRYSTAL
 ----------------------------

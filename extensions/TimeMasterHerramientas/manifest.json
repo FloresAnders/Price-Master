@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "TimeMaster Herramientas",
-  "version": "1.0.0",
-  "description": "Atajos de Contica, suma de tiempos e impresión automática para Gente Crystal.",
+  "version": "1.0.1",
+  "description": "Atajos y cierre del modal de impresión en Contica, suma de tiempos e impresión automática para Gente Crystal.",
   "permissions": ["storage"],
   "icons": {
     "128": "icon128.png"
@@ -13,7 +13,12 @@
   "content_scripts": [
     {
       "matches": ["https://contica.app/app/modules/punto_de_venta/*"],
-      "js": ["settings-core.js", "cambiotab-core.js", "contica-content.js"],
+      "js": [
+        "settings-core.js",
+        "cambiotab-core.js",
+        "cerrarimpresioncontica-core.js",
+        "contica-content.js"
+      ],
       "run_at": "document_idle"
     },
     {
