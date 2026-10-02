@@ -64,6 +64,7 @@ import {
   MovementStorage,
   MovementStorageState,
 } from "../../../../services/movimientos-fondos";
+import { calculateFondoGeneralDailyRounding } from "../../utils/fondo/dailyRounding";
 
 
 import DailyClosingModal, { DailyClosingFormValues } from "../modals/DailyClosingModal";
@@ -5232,6 +5233,10 @@ export function FondoSection({
     () => calculateFondoTotalsByCurrency(filteredEntries),
     [filteredEntries],
   );
+  const todayRoundingSummary = useMemo(
+    () => calculateFondoGeneralDailyRounding(fondoEntries, todayKey),
+    [fondoEntries, todayKey],
+  );
 
   const getCompanyKey = useCallback(
     (emp: Empresas) =>
@@ -6918,6 +6923,12 @@ export function FondoSection({
           currentBalanceCRC={currentBalanceCRC}
           currentBalanceUSD={currentBalanceUSD}
           formatByCurrency={formatByCurrency}
+          todayRoundingSummary={
+            accountKey === "FondoGeneral" &&
+            todayRoundingSummary.movementCount > 0
+              ? todayRoundingSummary
+              : undefined
+          }
         />
         {company && <LedgerSyncStatus status={ledgerSyncStatus} />}
         {fcrPaymentRecovery?.company === company && (

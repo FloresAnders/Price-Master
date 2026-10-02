@@ -33,6 +33,7 @@ import {
 import {
   isCreditNotePaymentRoundUpEligible,
   roundCreditNotePaymentAmount,
+  roundMoney2,
 } from "../utils/helpers";
 
 type ProviderOption = {
@@ -569,6 +570,15 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     0,
   );
   const totalToSaveAllInvoices = totalToSave + totalExtraPayments;
+  const totalBeforeRoundingAllInvoices =
+    totalAfterCreditNotes +
+    extraInvoiceAmountsAfterCreditNotes.reduce(
+      (sum, amount) => sum + amount,
+      0,
+    );
+  const cashDifference = roundMoney2(
+    totalToSaveAllInvoices - totalBeforeRoundingAllInvoices,
+  );
 
   const handleGeneralRoundUpChange = (checked: boolean) => {
     if (checked) {
@@ -1698,6 +1708,17 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
               {formatCurrencyAmount(totalToSaveAllInvoices)}
             </span>
           </div>
+          {cashDifference !== 0 && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium text-cyan-100/70">
+                Diferencia de caja
+              </span>
+              <span className="font-semibold text-amber-200">
+                {cashDifference > 0 ? "+ " : "- "}
+                {formatCurrencyAmount(Math.abs(cashDifference))}
+              </span>
+            </div>
+          )}
         </div>
       </section>
 

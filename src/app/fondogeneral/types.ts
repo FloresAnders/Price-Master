@@ -22,6 +22,8 @@ export type FondoEntry = {
   totalAppliedToInvoice?: number;
   /** Diferencia absorbida como redondeo en un pago de FCR (efectivo aplicado - efectivo debitado). */
   roundingAbsorbed?: number;
+  /** Ajuste firmado aplicado al monto: redondeado - monto antes de redondear. */
+  roundingAdjustment?: number;
   appliedCreditNotes?: AppliedCreditNote[];
   manager: string;
   manager2?: string;

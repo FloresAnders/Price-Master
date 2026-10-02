@@ -858,6 +858,9 @@ export const sanitizeFondoEntries = (
     const roundingAbsorbed = normalizeOptionalEntryAmount(
       (entry as any).roundingAbsorbed,
     );
+    const roundingAdjustment = normalizeOptionalEntryAmount(
+      (entry as any).roundingAdjustment,
+    );
     const appliedCreditNotes = Array.isArray((entry as any).appliedCreditNotes)
       ? ((entry as any).appliedCreditNotes as any[])
           .map((note) => {
@@ -924,6 +927,9 @@ export const sanitizeFondoEntries = (
       amountPayment,
       ...(roundingAbsorbed !== undefined && roundingAbsorbed > 0
         ? { roundingAbsorbed }
+        : {}),
+      ...(roundingAdjustment !== undefined && roundingAdjustment !== 0
+        ? { roundingAdjustment }
         : {}),
       appliedCreditNotes:
         appliedCreditNotes && appliedCreditNotes.length > 0

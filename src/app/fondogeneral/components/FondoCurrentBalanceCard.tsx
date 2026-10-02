@@ -7,6 +7,10 @@ type FondoCurrentBalanceCardProps = {
   currentBalanceCRC: number;
   currentBalanceUSD: number;
   formatByCurrency: (currency: Currency, amount: number) => string;
+  todayRoundingSummary?: {
+    total: number;
+    movementCount: number;
+  };
 };
 
 export function FondoCurrentBalanceCard({
@@ -14,6 +18,7 @@ export function FondoCurrentBalanceCard({
   currentBalanceCRC,
   currentBalanceUSD,
   formatByCurrency,
+  todayRoundingSummary,
 }: FondoCurrentBalanceCardProps) {
   if (enabledBalanceCurrencies.length === 0) {
     return null;
@@ -47,6 +52,24 @@ export function FondoCurrentBalanceCard({
                 </div>
               );
             })}
+            {todayRoundingSummary && todayRoundingSummary.movementCount > 0 && (
+              <div className="rounded-xl border border-orange-400/20 bg-orange-500/10 px-4 py-4 text-center">
+                <div className="text-xs uppercase tracking-wide text-orange-100/65">
+                  Redondeo de hoy
+                </div>
+                <div className="mt-2 text-2xl font-semibold leading-none tracking-tight text-orange-100">
+                  {todayRoundingSummary.total > 0
+                    ? "+"
+                    : todayRoundingSummary.total < 0
+                      ? "-"
+                      : ""}
+                  {formatByCurrency(
+                    "CRC",
+                    Math.abs(todayRoundingSummary.total),
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           {/* Registrar cierre moved next to 'Agregar movimiento' per UI changes */}
         </div>

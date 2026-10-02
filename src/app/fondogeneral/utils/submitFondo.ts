@@ -1159,6 +1159,16 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                 accountKey,
               )
             : undefined;
+        const nextAmountBeforeRounding = effectiveIsEgreso
+          ? Math.max(0, egresoValue - nextAppliedTotal)
+          : ingresoValue;
+        const nextRoundedAmount = effectiveIsEgreso
+          ? (nextAmountPayment ?? egresoValue)
+          : roundedIngresoValue;
+        const nextRoundingAdjustment =
+          effectiveInvoiceDocType === "FCO"
+            ? roundMoney2(nextRoundedAmount - nextAmountBeforeRounding)
+            : 0;
 
         // Crear registro simplificado con solo los campos que cambiaron
         const changedFields = getChangedFields(
@@ -1215,6 +1225,12 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
           amountEgreso: effectiveIsEgreso ? egresoValue : 0,
           amountIngreso: effectiveIsEgreso ? 0 : roundedIngresoValue,
           amountPayment: nextAmountPayment,
+          roundingAdjustment:
+            effectiveInvoiceDocType === "FCO"
+              ? nextRoundingAdjustment !== 0
+                ? nextRoundingAdjustment
+                : undefined
+              : e.roundingAdjustment,
           amountDue: nextAmountDue,
           balanceDue: nextAmountDue,
           appliedCreditNotes:
@@ -1560,6 +1576,26 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
           (sum, note) => sum + Math.max(0, roundMoney2(note.appliedAmount)),
           0,
         );
+      const mainAmountBeforeRounding = isEgreso
+        ? Math.max(0, egresoValue - totalAppliedCreditNotes)
+        : ingresoValue;
+      const mainRoundedAmount = isEgreso
+        ? roundCreditNotePaymentAmount(
+            mainAmountBeforeRounding,
+            movementCurrency,
+            accountKey,
+            roundUpEnabledForSubmit &&
+              mainRoundUpSelectedForSubmit &&
+              isCreditNotePaymentRoundUpEligible(
+                mainAmountBeforeRounding,
+                movementCurrency,
+                accountKey,
+              ),
+          )
+        : roundedIngresoValue;
+      const mainRoundingAdjustment = roundMoney2(
+        mainRoundedAmount - mainAmountBeforeRounding,
+      );
       const entry: FondoEntry = {
         id: movementId,
         empresa: company,
@@ -1572,20 +1608,12 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         ...(cierreVentasSinTurno ? { sinTurno: true } : {}),
         amountEgreso: isEgreso ? egresoValue : 0,
         amountIngreso: isIngreso ? roundedIngresoValue : 0,
+        ...(mainRoundingAdjustment !== 0
+          ? { roundingAdjustment: mainRoundingAdjustment }
+          : {}),
         amountPayment:
           isEgreso && effectiveInvoiceDocType === "FCO"
-            ? roundCreditNotePaymentAmount(
-                Math.max(0, egresoValue - totalAppliedCreditNotes),
-                movementCurrency,
-                accountKey,
-                roundUpEnabledForSubmit &&
-                  mainRoundUpSelectedForSubmit &&
-                  isCreditNotePaymentRoundUpEligible(
-                    Math.max(0, egresoValue - totalAppliedCreditNotes),
-                    movementCurrency,
-                    accountKey,
-                  ),
-              )
+            ? mainRoundedAmount
             : undefined,
         appliedCreditNotes:
            appliedCreditNotes.length > 0 ? appliedCreditNotes : undefined,
@@ -2081,6 +2109,9 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                   accountKey,
                 ),
             );
+            const extraRoundingAdjustment = roundMoney2(
+              extraPaymentAmount - extraAmountBeforeRounding,
+            );
             const extraEntry: FondoEntry = {
               id: extraId,
               empresa: company,
@@ -2091,6 +2122,9 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
               paymentType,
               amountEgreso: isEgreso ? extraAmount : 0,
               amountIngreso: isIngreso ? extraPaymentAmount : 0,
+              ...(extraRoundingAdjustment !== 0
+                ? { roundingAdjustment: extraRoundingAdjustment }
+                : {}),
               ...(isEgreso
                 ? { amountPayment: extraPaymentAmount }
                 : {}),
