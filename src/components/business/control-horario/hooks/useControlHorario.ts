@@ -99,26 +99,31 @@ export function useControlHorario(propUser?: FirestoreUser | null) {
 
   // Sub-hooks
   const cal = useCalendarState();
-  const isDelifoodEmpresa = empresa.toLowerCase().includes("delifood");
-  const names = Array.from(new Set(empresas.find((l) => l.value === empresa)?.names || []));
+  const selectedEmpresaMeta =
+    empresas.find((item) => item.key === empresaKey) ||
+    empresas.find((item) => item.value === empresa);
+  const configuredShiftHours = selectedEmpresaMeta?.configuredShiftHours ?? null;
+  const usesConfiguredShiftHours = configuredShiftHours !== null;
+  const names = Array.from(new Set(selectedEmpresaMeta?.names || []));
 
   const sd = useScheduleData({
     empresa, namesList: names,
     year: cal.year, month: cal.month,
     selectedPeriod: cal.selectedPeriod, fullMonthView: cal.fullMonthView,
     daysInMonth: cal.daysInMonth,
-    isDelifoodEmpresa, user, assignedEmpresaValue, showToast,
+    usesConfiguredShiftHours, configuredShiftHours,
+    user, assignedEmpresaValue, showToast,
   });
 
   const shift = useShiftManagement({
-    empresa, empresas, isDelifoodEmpresa,
+    empresa, empresas, usesConfiguredShiftHours, configuredShiftHours,
     scheduleData: sd.scheduleData, setScheduleData: sd.setScheduleData,
     delifoodHoursData: sd.delifoodHoursData, setDelifoodHoursData: sd.setDelifoodHoursData,
     year: cal.year, month: cal.month, user, showToast,
   });
 
   useIncompleteDaysAlert({
-    empresa, isDelifoodEmpresa,
+    empresa, usesConfiguredShiftHours,
     year: cal.year, month: cal.month,
     selectedPeriod: cal.selectedPeriod, fullMonthView: cal.fullMonthView,
     daysInMonth: cal.daysInMonth,
@@ -130,7 +135,9 @@ export function useControlHorario(propUser?: FirestoreUser | null) {
     daysToShow: cal.daysToShow,
     fullMonthView: cal.fullMonthView, viewMode: cal.viewMode,
     monthName: cal.monthName, month: cal.month, year: cal.year,
-    selectedPeriod: cal.selectedPeriod, isDelifoodEmpresa,
+    selectedPeriod: cal.selectedPeriod,
+    isDelifoodEmpresa: usesConfiguredShiftHours,
+    configuredShiftHours,
     scheduleData: sd.scheduleData, delifoodHoursData: sd.delifoodHoursData, showToast,
   });
 
@@ -152,7 +159,7 @@ export function useControlHorario(propUser?: FirestoreUser | null) {
     unlockPastDays,
     isExporting: exp.isExporting,
     qrState: exp.qrState, setQrState: exp.setQrState,
-    isDelifoodEmpresa, names,
+    usesConfiguredShiftHours, configuredShiftHours, names,
     year: cal.year, month: cal.month, monthName: cal.monthName, daysInMonth: cal.daysInMonth, daysToShow: cal.daysToShow,
     delifoodHoursData: sd.delifoodHoursData,
     pendingCellValues: shift.pendingCellValues,

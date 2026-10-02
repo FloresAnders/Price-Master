@@ -7,7 +7,7 @@ import type { ScheduleData } from "../types";
 
 interface Props {
   empresa: string;
-  isDelifoodEmpresa: boolean;
+  usesConfiguredShiftHours: boolean;
   year: number;
   month: number;
   selectedPeriod: "1-15" | "16-30" | "monthly";
@@ -20,7 +20,7 @@ interface Props {
 
 export function useIncompleteDaysAlert(props: Props) {
   const {
-    empresa, isDelifoodEmpresa, year, month,
+    empresa, usesConfiguredShiftHours, year, month,
     selectedPeriod, fullMonthView, daysInMonth,
     scheduleData, empresas, showToast,
   } = props;
@@ -29,7 +29,7 @@ export function useIncompleteDaysAlert(props: Props) {
   const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!empresa || isDelifoodEmpresa) return;
+    if (!empresa || usesConfiguredShiftHours) return;
 
     const empresaEmployees = empresas.find((l) => l.value === empresa)?.names;
     if (!empresaEmployees?.length) return;
@@ -87,5 +87,5 @@ export function useIncompleteDaysAlert(props: Props) {
     return () => {
       if (timerRef.current) window.clearTimeout(timerRef.current);
     };
-  }, [empresa, isDelifoodEmpresa, year, month, selectedPeriod, fullMonthView, daysInMonth, scheduleData, empresas, showToast, incompletePastDaysSignature]);
+  }, [empresa, usesConfiguredShiftHours, year, month, selectedPeriod, fullMonthView, daysInMonth, scheduleData, empresas, showToast, incompletePastDaysSignature]);
 }

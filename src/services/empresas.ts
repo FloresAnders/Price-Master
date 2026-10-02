@@ -23,6 +23,13 @@ export class EmpresasService {
     return Math.max(0, Math.round(parsed));
   }
 
+  private static normalizeShiftHours(value: unknown): number | undefined {
+    if (value === undefined || value === null || value === "") return undefined;
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
+    return Math.round(parsed * 100) / 100;
+  }
+
   private static normalizeBoolean(value: unknown, fallback = true): boolean {
     if (value === undefined || value === null || value === "") return fallback;
     if (typeof value === "boolean") return value;
@@ -206,6 +213,16 @@ export class EmpresasService {
           EmpresasService.normalizeClosingWindowMinutes(
             e.cierreFondoVentasMinutesAfterEnd,
           ),
+        configurarHorasTurno: EmpresasService.normalizeBoolean(
+          (e as any).configurarHorasTurno,
+          false,
+        ),
+        horasTurnoD: EmpresasService.normalizeShiftHours(
+          (e as any).horasTurnoD,
+        ),
+        horasTurnoN: EmpresasService.normalizeShiftHours(
+          (e as any).horasTurnoN,
+        ),
         mostrarInfoPago: EmpresasService.normalizeBoolean(
           (e as any).mostrarInfoPago,
         ),
@@ -253,6 +270,16 @@ export class EmpresasService {
         EmpresasService.normalizeClosingWindowMinutes(
           (doc as any).cierreFondoVentasMinutesAfterEnd,
         ),
+      configurarHorasTurno: EmpresasService.normalizeBoolean(
+        (doc as any).configurarHorasTurno,
+        false,
+      ),
+      horasTurnoD: EmpresasService.normalizeShiftHours(
+        (doc as any).horasTurnoD,
+      ),
+      horasTurnoN: EmpresasService.normalizeShiftHours(
+        (doc as any).horasTurnoN,
+      ),
       mostrarInfoPago: EmpresasService.normalizeBoolean(
         (doc as any).mostrarInfoPago,
       ),
@@ -324,6 +351,12 @@ export class EmpresasService {
           EmpresasService.normalizeClosingWindowMinutes(
             empresa.cierreFondoVentasMinutesAfterEnd,
           ),
+        configurarHorasTurno: EmpresasService.normalizeBoolean(
+          empresa.configurarHorasTurno,
+          false,
+        ),
+        horasTurnoD: EmpresasService.normalizeShiftHours(empresa.horasTurnoD),
+        horasTurnoN: EmpresasService.normalizeShiftHours(empresa.horasTurnoN),
         mostrarInfoPago: EmpresasService.normalizeBoolean(
           empresa.mostrarInfoPago,
         ),
@@ -358,6 +391,12 @@ export class EmpresasService {
         EmpresasService.normalizeClosingWindowMinutes(
           empresa.cierreFondoVentasMinutesAfterEnd,
         ),
+      configurarHorasTurno: EmpresasService.normalizeBoolean(
+        empresa.configurarHorasTurno,
+        false,
+      ),
+      horasTurnoD: EmpresasService.normalizeShiftHours(empresa.horasTurnoD),
+      horasTurnoN: EmpresasService.normalizeShiftHours(empresa.horasTurnoN),
       mostrarInfoPago: EmpresasService.normalizeBoolean(
         empresa.mostrarInfoPago,
       ),
@@ -395,6 +434,22 @@ export class EmpresasService {
         EmpresasService.normalizeClosingWindowMinutes(
           patch.cierreFondoVentasMinutesAfterEnd,
         );
+    }
+    if ("configurarHorasTurno" in patch) {
+      patch.configurarHorasTurno = EmpresasService.normalizeBoolean(
+        patch.configurarHorasTurno,
+        false,
+      );
+    }
+    if ("horasTurnoD" in patch) {
+      patch.horasTurnoD = EmpresasService.normalizeShiftHours(
+        patch.horasTurnoD,
+      );
+    }
+    if ("horasTurnoN" in patch) {
+      patch.horasTurnoN = EmpresasService.normalizeShiftHours(
+        patch.horasTurnoN,
+      );
     }
     if ("mostrarInfoPago" in patch) {
       patch.mostrarInfoPago = EmpresasService.normalizeBoolean(

@@ -214,7 +214,7 @@ export default function ControlHorario({ currentUser }: Props = {}) {
               )}
               <button onClick={h.exportQuincenaToPNG} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-gradient-to-r from-cyan-500 to-teal-500 text-white rounded-lg" disabled={h.isExporting}>
                 <ChevronDown className="w-5 h-5" />
-                {h.isDelifoodEmpresa ? "Exportar Horas" : "Exportar Quincena"}
+                {h.usesConfiguredShiftHours ? "Exportar Horas" : "Exportar Quincena"}
               </button>
             </div>
           </div>
@@ -254,7 +254,7 @@ export default function ControlHorario({ currentUser }: Props = {}) {
                           <div className="min-w-[180px] text-left whitespace-pre-line">
                             <EmployeeTooltipSummary employeeName={name} empresaValue={h.empresa} empresaLabel={selectedEmpresaMeta?.label}
                               employeeConfig={selectedEmpresaMeta?.employees?.find((e) => e.name === name)} shiftsByDay={h.scheduleData[name]}
-                              year={h.year} month={h.month} daysToShow={h.daysToShow} isDelifoodEmpresa={h.isDelifoodEmpresa} delifoodHoursData={h.delifoodHoursData} empresaOwnerId={selectedEmpresaMeta?.ownerId} user={h.user}
+                              year={h.year} month={h.month} daysToShow={h.daysToShow} usesConfiguredShiftHours={h.usesConfiguredShiftHours} configuredShiftHours={h.configuredShiftHours} delifoodHoursData={h.delifoodHoursData} empresaOwnerId={selectedEmpresaMeta?.ownerId} user={h.user}
                             />
                           </div>
                         }>
@@ -270,13 +270,13 @@ export default function ControlHorario({ currentUser }: Props = {}) {
                       let disabled = cellDate < now && !h.editPastDaysEnabled;
                       const value = h.pendingCellValues[name]?.[day.toString()] ?? h.scheduleData[name]?.[day.toString()] ?? "";
 
-                      if (h.isDelifoodEmpresa) {
+                      if (h.usesConfiguredShiftHours) {
                         const hours = h.delifoodHoursData[name]?.[day.toString()]?.hours;
                         if (["V", "I"].includes(value) && !isUserAdmin(h.user)) {
                           return (
                             <td key={day} className="border border-[var(--input-border)] p-0" style={{ minWidth: h.fullMonthView ? "32px" : "40px" }}>
                               <div className="w-full h-full p-1 text-center font-semibold text-xs flex items-center justify-center" style={{ ...getCellStyle(value), minWidth: h.fullMonthView ? "32px" : "40px", height: "40px", cursor: "not-allowed" }}
-                                title={`${getDelifoodHoursTooltip(value, hours)} - Solo ADMIN puede modificar`}>{value}</div>
+                                title={`${getDelifoodHoursTooltip(value, hours, h.configuredShiftHours)} - Solo ADMIN puede modificar`}>{value}</div>
                             </td>
                           );
                         }
@@ -285,6 +285,7 @@ export default function ControlHorario({ currentUser }: Props = {}) {
                             <DelifoodShiftCell
                               value={value}
                               hours={hours}
+                              configuredShiftHours={h.configuredShiftHours}
                               disabled={disabled}
                               shiftOptions={shiftOptions}
                               onChange={(nextValue) => h.handleCellChange(name, day, nextValue)}
@@ -553,7 +554,7 @@ export default function ControlHorario({ currentUser }: Props = {}) {
         </div>
       )}
 
-      {h.isDelifoodEmpresa && (
+      {h.usesConfiguredShiftHours && (
         <DelifoodHoursModal isOpen={h.delifoodModal.isOpen}
           onClose={() => h.setDelifoodModal({ isOpen: false, employeeName: "", day: 0, shift: "", currentHours: 0 })}
           onSave={h.handleDelifoodHoursSave}

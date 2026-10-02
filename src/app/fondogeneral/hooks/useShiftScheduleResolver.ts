@@ -6,6 +6,7 @@ import {
   resolveEmployeesFromControlHorario,
   resolveManagerFromControlHorario,
 } from "@/utils/controlHorarioManager";
+import { getConfiguredShiftHours } from "@/utils/companyShiftHours";
 
 const FG_SCHEDULES_CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -185,9 +186,22 @@ export function useShiftScheduleResolver(args: {
       const ymParts = getCostaRicaYearMonthParts(nowISO);
       if (!ymParts) return null;
 
+      const scheduleMonths = new Map<string, { year: number; month0: number }>();
+      scheduleMonths.set(`${ymParts.year}-${ymParts.month0}`, ymParts);
+      if (getConfiguredShiftHours(empresa)) {
+        const previousNightParts = getPreviousNightShiftDateParts(nowISO, empresa);
+        if (previousNightParts) {
+          scheduleMonths.set(
+            `${previousNightParts.year}-${previousNightParts.month0}`,
+            previousNightParts,
+          );
+        }
+      }
       const schedulesLists = await Promise.all(
-        companyKeysToTry.map((key) =>
-          getFGMonthlySchedulesCached(key, ymParts.year, ymParts.month0),
+        companyKeysToTry.flatMap((key) =>
+          Array.from(scheduleMonths.values()).map(({ year, month0 }) =>
+            getFGMonthlySchedulesCached(key, year, month0),
+          ),
         ),
       );
       const monthSchedules = schedulesLists.flat();
@@ -221,9 +235,22 @@ export function useShiftScheduleResolver(args: {
       const ymParts = getCostaRicaYearMonthParts(nowISO);
       if (!ymParts) return null;
 
+      const scheduleMonths = new Map<string, { year: number; month0: number }>();
+      scheduleMonths.set(`${ymParts.year}-${ymParts.month0}`, ymParts);
+      if (getConfiguredShiftHours(empresa)) {
+        const previousNightParts = getPreviousNightShiftDateParts(nowISO, empresa);
+        if (previousNightParts) {
+          scheduleMonths.set(
+            `${previousNightParts.year}-${previousNightParts.month0}`,
+            previousNightParts,
+          );
+        }
+      }
       const schedulesLists = await Promise.all(
-        companyKeysToTry.map((key) =>
-          getFGMonthlySchedulesCached(key, ymParts.year, ymParts.month0),
+        companyKeysToTry.flatMap((key) =>
+          Array.from(scheduleMonths.values()).map(({ year, month0 }) =>
+            getFGMonthlySchedulesCached(key, year, month0),
+          ),
         ),
       );
       const monthSchedules = schedulesLists.flat();

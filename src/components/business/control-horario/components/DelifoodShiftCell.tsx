@@ -4,10 +4,12 @@ import React from "react";
 import type { ShiftOption } from "../types";
 import { getCellStyle } from "../utils";
 import { getDelifoodHoursTooltip } from "../delifoodShiftHours";
+import type { ConfiguredShiftHours } from "@/utils/companyShiftHours";
 
 interface Props {
   value: string;
   hours?: number;
+  configuredShiftHours: ConfiguredShiftHours | null;
   disabled: boolean;
   shiftOptions: ShiftOption[];
   onChange: (value: string) => void;
@@ -18,6 +20,7 @@ interface Props {
 export default function DelifoodShiftCell({
   value,
   hours,
+  configuredShiftHours,
   disabled,
   shiftOptions,
   onChange,
@@ -25,7 +28,7 @@ export default function DelifoodShiftCell({
   fullMonthView = false,
 }: Props) {
   const tooltip = value
-    ? getDelifoodHoursTooltip(value, hours)
+    ? getDelifoodHoursTooltip(value, hours, configuredShiftHours)
     : "Asignar turno";
 
   return (

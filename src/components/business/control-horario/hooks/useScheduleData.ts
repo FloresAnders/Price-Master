@@ -5,6 +5,7 @@ import { SchedulesService } from "../../../../services/schedules";
 import type { ScheduleEntry } from "../../../../services/schedules";
 import type { ScheduleData, DelifoodHoursData } from "../types";
 import { getDelifoodEffectiveHours } from "../delifoodShiftHours";
+import type { ConfiguredShiftHours } from "@/utils/companyShiftHours";
 
 interface Props {
   empresa: string;
@@ -12,7 +13,8 @@ interface Props {
   month: number;
   selectedPeriod: "1-15" | "16-30" | "monthly";
   fullMonthView: boolean;
-  isDelifoodEmpresa: boolean;
+  usesConfiguredShiftHours: boolean;
+  configuredShiftHours: ConfiguredShiftHours | null;
   user: { role?: string } | null;
   assignedEmpresaValue: string | null;
   showToast: (msg: string, type: "success" | "error" | "warning") => void;
@@ -23,7 +25,8 @@ interface Props {
 export function useScheduleData(props: Props) {
   const {
     empresa, year, month, selectedPeriod, fullMonthView,
-    isDelifoodEmpresa, user, assignedEmpresaValue, showToast,
+    usesConfiguredShiftHours, configuredShiftHours,
+    user, assignedEmpresaValue, showToast,
     namesList, daysInMonth,
   } = props;
 
@@ -39,7 +42,7 @@ export function useScheduleData(props: Props) {
     const loadScheduleData = async () => {
       if (!empresa || !namesList.length) return;
 
-      const loadKey = `${empresa}|${year}|${month}|${isDelifoodEmpresa}|${startDay}-${endDay}`;
+      const loadKey = `${empresa}|${year}|${month}|${usesConfiguredShiftHours}|${configuredShiftHours?.dayHours ?? ""}|${configuredShiftHours?.nightHours ?? ""}|${startDay}-${endDay}`;
       if (scheduleLoadInFlightKeyRef.current === loadKey) return;
       scheduleLoadInFlightKeyRef.current = loadKey;
 
@@ -67,8 +70,12 @@ export function useScheduleData(props: Props) {
           if (entry.shift?.trim()) {
             newData[entry.employeeName][entry.day.toString()] = entry.shift;
           }
-          const effectiveHours = isDelifoodEmpresa
-            ? getDelifoodEffectiveHours(entry.shift, entry.horasPorDia)
+          const effectiveHours = usesConfiguredShiftHours
+            ? getDelifoodEffectiveHours(
+                entry.shift,
+                entry.horasPorDia,
+                configuredShiftHours,
+              )
             : Number(entry.horasPorDia) || 0;
           if (effectiveHours > 0) {
             if (!newDelifood[entry.employeeName]) newDelifood[entry.employeeName] = {};
@@ -88,7 +95,7 @@ export function useScheduleData(props: Props) {
     };
 
     loadScheduleData();
-  }, [empresa, year, month, isDelifoodEmpresa, startDay, endDay, isMonthly, namesList, user, assignedEmpresaValue, showToast]);
+  }, [empresa, year, month, usesConfiguredShiftHours, configuredShiftHours, startDay, endDay, isMonthly, namesList, user, assignedEmpresaValue, showToast]);
 
   return { scheduleData, setScheduleData, delifoodHoursData, setDelifoodHoursData, startDay, endDay };
 }

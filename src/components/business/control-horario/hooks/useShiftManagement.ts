@@ -7,6 +7,7 @@ import {
   getDelifoodEffectiveHours,
 } from "../delifoodShiftHours";
 import type { ScheduleData, DelifoodHoursData, ConfirmModalState, DelifoodModalState } from "../types";
+import type { ConfiguredShiftHours } from "@/utils/companyShiftHours";
 
 interface Props {
   empresa: string;
@@ -19,7 +20,8 @@ interface Props {
   month: number;
   user: { role?: string } | null;
   showToast: (msg: string, type: "success" | "error" | "warning") => void;
-  isDelifoodEmpresa: boolean;
+  usesConfiguredShiftHours: boolean;
+  configuredShiftHours: ConfiguredShiftHours | null;
 }
 
 export function useShiftManagement(props: Props) {
@@ -27,7 +29,8 @@ export function useShiftManagement(props: Props) {
     empresa, empresas, scheduleData, setScheduleData,
     delifoodHoursData, setDelifoodHoursData,
     year, month, user, showToast,
-    isDelifoodEmpresa,
+    usesConfiguredShiftHours,
+    configuredShiftHours,
   } = props;
 
   const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
@@ -76,7 +79,7 @@ export function useShiftManagement(props: Props) {
       return;
     }
 
-    if (!isDelifoodEmpresa && newValue && ["N", "D"].includes(newValue)) {
+    if (!usesConfiguredShiftHours && newValue && ["N", "D"].includes(newValue)) {
       const existing = Object.keys(scheduleData).find(
         (emp) => emp !== employeeName && scheduleData[emp]?.[day] === newValue,
       );
@@ -86,7 +89,7 @@ export function useShiftManagement(props: Props) {
       }
     }
 
-    if (!isDelifoodEmpresa && newValue === "L") {
+    if (!usesConfiguredShiftHours && newValue === "L") {
       const count = Object.keys(scheduleData).filter(
         (emp) => emp !== employeeName && scheduleData[emp]?.[day] === "L",
       ).length;
@@ -138,7 +141,10 @@ export function useShiftManagement(props: Props) {
         const hoursPerShift = empresas
           .find((e) => e.value === empresa)
           ?.employees?.find((e) => e.name === employeeName)?.hoursPerShift;
-        const delifoodHours = getDelifoodDefaultHours(newValue);
+        const configuredHours = getDelifoodDefaultHours(
+          newValue,
+          configuredShiftHours,
+        );
         await SchedulesService.updateScheduleShift(
           empresa,
           employeeName,
@@ -146,19 +152,21 @@ export function useShiftManagement(props: Props) {
           month,
           parseInt(day),
           newValue,
-          isDelifoodEmpresa
-            ? { horasPorDia: delifoodHours > 0 ? delifoodHours : null }
+          usesConfiguredShiftHours
+            ? {
+                horasPorDia: configuredHours > 0 ? configuredHours : null,
+              }
             : { horasPorDia: hoursPerShift },
         );
         setScheduleData((prev) => ({
           ...prev,
           [employeeName]: { ...(prev[employeeName] || {}), [day]: newValue },
         }));
-        if (isDelifoodEmpresa) {
+        if (usesConfiguredShiftHours) {
           setDelifoodHoursData((prev) => {
             const nextEmployee = { ...(prev[employeeName] || {}) };
-            if (delifoodHours > 0) {
-              nextEmployee[day] = { hours: delifoodHours };
+            if (configuredHours > 0) {
+              nextEmployee[day] = { hours: configuredHours };
             } else {
               delete nextEmployee[day];
             }
@@ -205,7 +213,11 @@ export function useShiftManagement(props: Props) {
     const shift = scheduleData[employeeName]?.[day.toString()] || "";
     if (!shift) return;
     const savedHours = delifoodHoursData[employeeName]?.[day.toString()]?.hours;
-    const currentHours = getDelifoodEffectiveHours(shift, savedHours);
+    const currentHours = getDelifoodEffectiveHours(
+      shift,
+      savedHours,
+      configuredShiftHours,
+    );
     setDelifoodModal({ isOpen: true, employeeName, day, shift, currentHours });
   };
 

@@ -10,6 +10,7 @@ import {
   getDelifoodExportCell,
   sumDelifoodHoursForDays,
 } from "../delifoodShiftHours";
+import type { ConfiguredShiftHours } from "@/utils/companyShiftHours";
 
 interface Props {
   user: { name?: string; role?: string } | null;
@@ -24,6 +25,7 @@ interface Props {
   year: number;
   selectedPeriod: "1-15" | "16-30" | "monthly";
   isDelifoodEmpresa: boolean;
+  configuredShiftHours: ConfiguredShiftHours | null;
   scheduleData: ScheduleData;
   delifoodHoursData: DelifoodHoursData;
   showToast: (msg: string, type: "success" | "error" | "warning") => void;
@@ -83,7 +85,8 @@ const dateKey = (year: number, month: number, day: number) =>
 export function useScheduleExport(props: Props) {
   const {
     user, names, empresa, empresas, daysToShow, fullMonthView, viewMode,
-    monthName, month, year, selectedPeriod, isDelifoodEmpresa, scheduleData, delifoodHoursData, showToast,
+    monthName, month, year, selectedPeriod, isDelifoodEmpresa,
+    configuredShiftHours, scheduleData, delifoodHoursData, showToast,
   } = props;
 
   const [isExporting, setIsExporting] = useState(false);
@@ -260,7 +263,11 @@ export function useScheduleExport(props: Props) {
 
           let hours = 0;
           if (isDelifoodEmpresa) {
-            hours = getDelifoodEffectiveHours(entry.shift, entry.horasPorDia);
+            hours = getDelifoodEffectiveHours(
+              entry.shift,
+              entry.horasPorDia,
+              configuredShiftHours,
+            );
           } else if (entry.shift === "D" || entry.shift === "N") {
             const rawHours = Number(entry.horasPorDia);
             hours =
@@ -314,6 +321,7 @@ export function useScheduleExport(props: Props) {
   }, [
     empresa,
     empresas,
+    configuredShiftHours,
     isDelifoodEmpresa,
     names,
     showToast,
@@ -500,6 +508,7 @@ export function useScheduleExport(props: Props) {
             scheduleData[empName],
             delifoodHoursData[empName],
             daysToShow,
+            configuredShiftHours,
           ).totalHours;
         } else {
           sv = daysToShow.filter((d) => ["N", "D"].includes(scheduleData[empName]?.[d.toString()] || "")).length;
@@ -604,6 +613,7 @@ export function useScheduleExport(props: Props) {
             scheduleData?.[name],
             delifoodHoursData?.[name],
             daysToShow,
+            configuredShiftHours,
           ).totalHours;
         } else {
           sv = daysToShow.filter((d) => ["N", "D"].includes(scheduleData?.[name]?.[d.toString()] || "")).length;

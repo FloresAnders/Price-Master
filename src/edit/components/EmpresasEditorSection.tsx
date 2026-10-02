@@ -5,6 +5,10 @@ import { Eye, EyeOff, Mail, Plus, Trash2 } from "lucide-react";
 
 import { EmpresasService } from "../../services/empresas";
 import type { User } from "../../types/firestore";
+import {
+  getConfiguredShiftSummary,
+  validateCompanyShiftHours,
+} from "../../utils/companyShiftHours";
 
 type Props = {
   empresasData: any[];
@@ -198,6 +202,9 @@ export default function EmpresasEditorSection({
                 horarioCierre: "",
                 cierreFondoVentasMinutesBeforeEnd: 15,
                 cierreFondoVentasMinutesAfterEnd: 90,
+                configurarHorasTurno: false,
+                horasTurnoD: undefined,
+                horasTurnoN: undefined,
                 mostrarInfoPago: true,
                 unicoCierre: false,
                 verificacionSistemas: true,
@@ -230,6 +237,8 @@ export default function EmpresasEditorSection({
           {(() => {
             const key = getEmpresaKey(empresa, idx);
             const isEditing = isEditingEmpresa(empresa, idx);
+            const shiftHoursError = validateCompanyShiftHours(empresa);
+            const shiftHoursSummary = getConfiguredShiftSummary(empresa);
 
             return (
               <>
@@ -314,6 +323,16 @@ export default function EmpresasEditorSection({
                         </p>
                         <p className="text-sm sm:text-base font-semibold text-[var(--foreground)] break-words">
                           {empresa.verificacionSistemas !== false ? "Activa" : "Inactiva"}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2.5 sm:px-4 sm:py-3">
+                        <p className="text-[10px] sm:text-xs font-medium text-[var(--muted-foreground)]">
+                          Horas por turno
+                        </p>
+                        <p className="text-sm sm:text-base font-semibold text-[var(--foreground)] break-words">
+                          {empresa.configurarHorasTurno === true
+                            ? shiftHoursSummary || "Configuración incompleta"
+                            : "Desactivada"}
                         </p>
                       </div>
                       {currentUser?.role === "superadmin" && (
@@ -568,6 +587,93 @@ export default function EmpresasEditorSection({
                         />
                         Solicitar apertura
                       </label>
+
+                      <label className="flex items-center gap-2 text-xs sm:text-sm">
+                        <input
+                          type="checkbox"
+                          checked={empresa.configurarHorasTurno === true}
+                          onChange={(e) => {
+                            const copy = [...empresasData];
+                            copy[idx] = {
+                              ...copy[idx],
+                              configurarHorasTurno: e.target.checked,
+                            };
+                            setEmpresasData(copy);
+                          }}
+                        />
+                        Configurar horas turno
+                      </label>
+
+                      {empresa.configurarHorasTurno === true && (
+                        <div className="sm:col-span-2 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-3 sm:p-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs sm:text-sm font-medium mb-1">
+                                Horas turno D:
+                              </label>
+                              <input
+                                type="number"
+                                min="0.25"
+                                step="0.25"
+                                value={empresa.horasTurnoD ?? ""}
+                                onChange={(e) => {
+                                  const copy = [...empresasData];
+                                  copy[idx] = {
+                                    ...copy[idx],
+                                    horasTurnoD:
+                                      e.target.value === ""
+                                        ? undefined
+                                        : Number(e.target.value),
+                                  };
+                                  setEmpresasData(copy);
+                                }}
+                                className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
+                                style={{
+                                  background: "var(--input-bg)",
+                                  color: "var(--foreground)",
+                                }}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs sm:text-sm font-medium mb-1">
+                                Horas turno N:
+                              </label>
+                              <input
+                                type="number"
+                                min="0.25"
+                                step="0.25"
+                                value={empresa.horasTurnoN ?? ""}
+                                onChange={(e) => {
+                                  const copy = [...empresasData];
+                                  copy[idx] = {
+                                    ...copy[idx],
+                                    horasTurnoN:
+                                      e.target.value === ""
+                                        ? undefined
+                                        : Number(e.target.value),
+                                  };
+                                  setEmpresasData(copy);
+                                }}
+                                className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
+                                style={{
+                                  background: "var(--input-bg)",
+                                  color: "var(--foreground)",
+                                }}
+                              />
+                            </div>
+                          </div>
+                          {shiftHoursSummary && !shiftHoursError && (
+                            <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+                              {shiftHoursSummary}
+                            </p>
+                          )}
+                          {shiftHoursError && (
+                            <p className="mt-2 text-xs text-red-500">
+                              {shiftHoursError}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div className="mt-4 sm:mt-5">
@@ -933,6 +1039,12 @@ export default function EmpresasEditorSection({
                         onClick={async () => {
                           try {
                             const e = empresasData[idx];
+                            const configurationError =
+                              validateCompanyShiftHours(e);
+                            if (configurationError) {
+                              showToast(configurationError, "error", 6000);
+                              return;
+                            }
                             const empresaHasChanges =
                               empresaEditSnapshots[key] !==
                               getEmpresaComparableSnapshot(e);
@@ -982,6 +1094,10 @@ export default function EmpresasEditorSection({
                                       e.cierreFondoVentasMinutesBeforeEnd,
                                     cierreFondoVentasMinutesAfterEnd:
                                       e.cierreFondoVentasMinutesAfterEnd,
+                                    configurarHorasTurno:
+                                      e.configurarHorasTurno === true,
+                                    horasTurnoD: e.horasTurnoD,
+                                    horasTurnoN: e.horasTurnoN,
                                     mostrarInfoPago:
                                       e.mostrarInfoPago !== false,
                                     unicoCierre: e.unicoCierre === true,

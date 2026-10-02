@@ -28,6 +28,9 @@ export interface Empresas {
   horarioCierre?: string;
   cierreFondoVentasMinutesBeforeEnd?: number;
   cierreFondoVentasMinutesAfterEnd?: number;
+  configurarHorasTurno?: boolean;
+  horasTurnoD?: number;
+  horasTurnoN?: number;
   mostrarInfoPago?: boolean;
   unicoCierre?: boolean;
   verificacionSistemas?: boolean;
@@ -318,6 +321,7 @@ export interface ScheduleEntry {
   month: number;
   day: number;
   shift: string; // 'N', 'D', 'L', or empty string
+  horasPorDia?: number;
   createdAt?: Date;
   updatedAt?: Date;
 }

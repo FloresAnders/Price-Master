@@ -5,6 +5,7 @@ import { CcssConfigService } from "../../../../services/ccss-config";
 import type { EmployeeSummary } from "../types";
 import type { CcssConfig } from "../../../../types/firestore";
 import { sumDelifoodHoursForDays } from "../delifoodShiftHours";
+import type { ConfiguredShiftHours } from "@/utils/companyShiftHours";
 
 function normalizeKey(value: unknown): string {
   return String(value ?? "")
@@ -35,7 +36,8 @@ interface Props {
   year: number;
   month: number;
   daysToShow: number[];
-  isDelifoodEmpresa?: boolean;
+  usesConfiguredShiftHours?: boolean;
+  configuredShiftHours?: ConfiguredShiftHours | null;
   delifoodHoursData?: {
     [employeeName: string]: { [day: string]: { hours: number } };
   };
@@ -52,7 +54,8 @@ export default function EmployeeTooltipSummary({
   year,
   month,
   daysToShow,
-  isDelifoodEmpresa = false,
+  usesConfiguredShiftHours = false,
+  configuredShiftHours = null,
   delifoodHoursData = {},
   user,
 }: Props) {
@@ -72,11 +75,12 @@ export default function EmployeeTooltipSummary({
         let workedDaysInPeriod = 0;
         let totalHours = 0;
 
-        if (isDelifoodEmpresa) {
+        if (usesConfiguredShiftHours) {
           const totals = sumDelifoodHoursForDays(
             shiftsByDay,
             delifoodHoursData[employeeName],
             daysToShow,
+            configuredShiftHours,
           );
           totalHours = totals.totalHours;
           workedDaysInPeriod = totals.workedDays;
@@ -128,7 +132,8 @@ export default function EmployeeTooltipSummary({
     year,
     month,
     daysToShow,
-    isDelifoodEmpresa,
+    usesConfiguredShiftHours,
+    configuredShiftHours,
     delifoodHoursData,
     user?.id,
     user?.ownerId,
@@ -141,7 +146,7 @@ export default function EmployeeTooltipSummary({
   return (
     <>
       <div>
-        <b>{isDelifoodEmpresa ? "Dias con horas:" : "Dias trabajados:"}</b>{" "}
+        <b>{usesConfiguredShiftHours ? "Dias con horas:" : "Dias trabajados:"}</b>{" "}
         {summary.workedDays}
       </div>
       <div>

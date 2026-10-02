@@ -40,6 +40,7 @@ import {
 import ScheduleReportTab from "../components/business/ScheduleReportTab";
 import ConfirmModal from "../components/ui/ConfirmModal";
 import { resolveActorOwnerId } from "../utils/actorOwnership";
+import { validateCompanyShiftHours } from "../utils/companyShiftHours";
 
 import EmpresasEditorSection from "./components/EmpresasEditorSection";
 import SorteosEditorSection from "./components/SorteosEditorSection";
@@ -805,6 +806,12 @@ export default function DataEditor() {
 
       // Guardar empresas
       try {
+        for (const empresa of empresasData) {
+          const configurationError = validateCompanyShiftHours(empresa);
+          if (configurationError) {
+            throw new Error(`${empresa.name || "Empresa"}: ${configurationError}`);
+          }
+        }
         const existingEmpresas = await EmpresasService.getAllEmpresas();
         const currentUserEditBy = getUserEditBy(currentUser);
         for (const e of existingEmpresas) {
@@ -837,6 +844,9 @@ export default function DataEditor() {
               empresa.cierreFondoVentasMinutesBeforeEnd,
             cierreFondoVentasMinutesAfterEnd:
               empresa.cierreFondoVentasMinutesAfterEnd,
+            configurarHorasTurno: empresa.configurarHorasTurno === true,
+            horasTurnoD: empresa.horasTurnoD,
+            horasTurnoN: empresa.horasTurnoN,
             mostrarInfoPago: empresa.mostrarInfoPago !== false,
             unicoCierre: empresa.unicoCierre === true,
             verificacionSistemas: empresa.verificacionSistemas !== false,
@@ -847,6 +857,11 @@ export default function DataEditor() {
         }
       } catch (err) {
         console.warn("Error al guardar empresas:", err);
+        showToast(
+          err instanceof Error ? err.message : "Error al guardar empresas",
+          "error",
+          6000,
+        );
       }
 
       // Guardar tipos de movimientos de fondo (para superadmins y admins)

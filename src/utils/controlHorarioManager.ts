@@ -1,5 +1,6 @@
 import type { Empresas, EmpresaEmpleado } from "@/types/firestore";
 import type { ScheduleEntry } from "@/services/schedules";
+import { getConfiguredShiftHours } from "@/utils/companyShiftHours";
 
 export const COSTA_RICA_TZ = "America/Costa_Rica";
 
@@ -445,19 +446,6 @@ const normalizeName = (value: unknown) =>
     .trim()
     .toLowerCase();
 
-const normalizeCompanyName = (value: unknown) =>
-  String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "");
-
-export const isDelifoodEmpresa = (
-  empresa: Empresas | null | undefined,
-): boolean =>
-  [empresa?.name, empresa?.ubicacion, empresa?.id].some(
-    (value) => normalizeCompanyName(value) === "delifood",
-  );
-
 const getEmployeeHoursPerShift = (
   empresa: Empresas | null | undefined,
   employeeName: string,
@@ -476,9 +464,15 @@ export const findBestSchedule = (
   schedules: ScheduleEntry[],
   day: number,
   shift: ShiftCode,
+  targetMonth?: { year: number; month0: number },
 ): ScheduleEntry | undefined => {
   const matches = schedules.filter(
-    (entry) => entry.day === day && String(entry.shift || "").trim() === shift,
+    (entry) =>
+      entry.day === day &&
+      (!targetMonth ||
+        (Number(entry.year) === targetMonth.year &&
+          Number(entry.month) === targetMonth.month0)) &&
+      String(entry.shift || "").trim() === shift,
   );
   if (matches.length === 0) return undefined;
 
@@ -553,9 +547,8 @@ const getDayShiftHours = (
   empresa: Empresas | null | undefined,
   entryD: ScheduleEntry | undefined,
 ): number => {
-  // DELIFOOD opera siempre de 10:00 a 17:00 en turno D. Las horas
-  // personalizadas de un colaborador no deben mover el límite operativo.
-  if (isDelifoodEmpresa(empresa)) return 7;
+  const configured = getConfiguredShiftHours(empresa);
+  if (configured) return configured.dayHours;
 
   const employeeHours = entryD?.employeeName
     ? getEmployeeHoursPerShift(empresa, entryD.employeeName)
@@ -640,13 +633,9 @@ export const resolveManagerFromControlHorario = (args: {
   if (!parts)
     return { mode: "manual", withinHorario: false, reason: "invalid_now" };
 
-  const isDelifood = isDelifoodEmpresa(args.empresa);
-  const openMin = isDelifood
-    ? 10 * 60
-    : parseHHMMToMinutes(args.empresa?.horarioApertura);
-  const closeMin = isDelifood
-    ? 23 * 60
-    : parseHHMMToMinutes(args.empresa?.horarioCierre);
+  const configuredShiftHours = getConfiguredShiftHours(args.empresa);
+  const openMin = parseHHMMToMinutes(args.empresa?.horarioApertura);
+  const closeMin = parseHHMMToMinutes(args.empresa?.horarioCierre);
   if (openMin === null || closeMin === null) {
     return {
       mode: "manual",
@@ -660,11 +649,27 @@ export const resolveManagerFromControlHorario = (args: {
     return { mode: "manual", withinHorario: false, reason: "outside_horario" };
   }
 
-  const dateKey = `${parts.year}-${String(parts.month1).padStart(2, "0")}-${String(
+  const calendarDateKey = `${parts.year}-${String(parts.month1).padStart(2, "0")}-${String(
     parts.day,
   ).padStart(2, "0")}`;
+  const dateKey = configuredShiftHours
+    ? getCostaRicaOperationalDateKey(
+        args.nowISO,
+        args.empresa?.horarioApertura,
+      ) ?? calendarDateKey
+    : calendarDateKey;
+  const scheduleDay = Number(dateKey.slice(-2));
+  const [scheduleYear, scheduleMonth1] = dateKey.split("-").map(Number);
+  const targetMonth = configuredShiftHours
+    ? { year: scheduleYear, month0: scheduleMonth1 - 1 }
+    : undefined;
 
-  const entryD = findBestSchedule(args.monthSchedules, parts.day, "D");
+  const entryD = findBestSchedule(
+    args.monthSchedules,
+    scheduleDay,
+    "D",
+    targetMonth,
+  );
   const dayHours = getDayShiftHours(args.empresa, entryD);
   const shiftChangeMin = openMin + Math.round(dayHours * 60);
   const expectedShift = isExpectedDayShiftNow(nowMin, openMin, shiftChangeMin)
@@ -672,7 +677,7 @@ export const resolveManagerFromControlHorario = (args: {
     : "N";
 
   if (
-    expectedShift === "D" &&
+    (!configuredShiftHours || expectedShift === "D") &&
     (!entryD || !String(entryD.employeeName || "").trim())
   ) {
     return { mode: "missing", withinHorario: true, expectedShift, dateKey };
@@ -681,10 +686,8 @@ export const resolveManagerFromControlHorario = (args: {
   const closingExistsToday =
     getFondoVentasShiftFromClosings({
       nowISO: args.nowISO,
-      horarioApertura: isDelifood
-        ? "10:00"
-        : args.empresa?.horarioApertura,
-      horarioCierre: isDelifood ? "23:00" : args.empresa?.horarioCierre,
+      horarioApertura: args.empresa?.horarioApertura,
+      horarioCierre: args.empresa?.horarioCierre,
       closingMovements: args.closingMovements,
       providers: args.providers,
       cierreFondoVentasProviderCode: args.cierreFondoVentasProviderCode,
@@ -703,7 +706,7 @@ export const resolveManagerFromControlHorario = (args: {
   })();
 
   if (
-    !isDelifood &&
+    !configuredShiftHours &&
     expectedShift === "N" &&
     isWithinShiftGrace &&
     !closingExistsToday &&
@@ -718,7 +721,12 @@ export const resolveManagerFromControlHorario = (args: {
   }
 
   if (expectedShift === "N") {
-    const entryN = findBestSchedule(args.monthSchedules, parts.day, "N");
+    const entryN = findBestSchedule(
+      args.monthSchedules,
+      scheduleDay,
+      "N",
+      targetMonth,
+    );
     if (!entryN || !String(entryN.employeeName || "").trim()) {
       return {
         mode: "missing",
@@ -771,13 +779,8 @@ export const getControlHorarioShiftTiming = (args: {
   const parts = getCRParts(now);
   if (!parts) return { withinHorario: false, reason: "invalid_now" };
 
-  const isDelifood = isDelifoodEmpresa(args.empresa);
-  const openMin = isDelifood
-    ? 10 * 60
-    : parseHHMMToMinutes(args.empresa?.horarioApertura);
-  const closeMin = isDelifood
-    ? 23 * 60
-    : parseHHMMToMinutes(args.empresa?.horarioCierre);
+  const openMin = parseHHMMToMinutes(args.empresa?.horarioApertura);
+  const closeMin = parseHHMMToMinutes(args.empresa?.horarioCierre);
   if (openMin === null || closeMin === null) {
     return { withinHorario: false, reason: "missing_horario_config" };
   }
@@ -787,12 +790,34 @@ export const getControlHorarioShiftTiming = (args: {
     return { withinHorario: false, reason: "outside_horario" };
   }
 
-  const dateKey = `${parts.year}-${String(parts.month1).padStart(2, "0")}-${String(
+  const configuredShiftHours = getConfiguredShiftHours(args.empresa);
+  const calendarDateKey = `${parts.year}-${String(parts.month1).padStart(2, "0")}-${String(
     parts.day,
   ).padStart(2, "0")}`;
+  const dateKey = configuredShiftHours
+    ? getCostaRicaOperationalDateKey(
+        args.nowISO,
+        args.empresa?.horarioApertura,
+      ) ?? calendarDateKey
+    : calendarDateKey;
+  const scheduleDay = Number(dateKey.slice(-2));
+  const [scheduleYear, scheduleMonth1] = dateKey.split("-").map(Number);
+  const targetMonth = configuredShiftHours
+    ? { year: scheduleYear, month0: scheduleMonth1 - 1 }
+    : undefined;
 
-  const entryD = findBestSchedule(args.monthSchedules, parts.day, "D");
-  const entryN = findBestSchedule(args.monthSchedules, parts.day, "N");
+  const entryD = findBestSchedule(
+    args.monthSchedules,
+    scheduleDay,
+    "D",
+    targetMonth,
+  );
+  const entryN = findBestSchedule(
+    args.monthSchedules,
+    scheduleDay,
+    "N",
+    targetMonth,
+  );
   const dayHours = getDayShiftHours(args.empresa, entryD);
 
   const shiftChangeMin = openMin + Math.round(dayHours * 60);
@@ -824,7 +849,7 @@ export const resolveEmployeesFromControlHorario = (args: {
   if (!timing.withinHorario) {
     if (
       timing.reason === "outside_horario" &&
-      isDelifoodEmpresa(args.empresa)
+      getConfiguredShiftHours(args.empresa)
     ) {
       const parts = getCRParts(new Date(args.nowISO));
       const graceMinutes = Math.max(
@@ -833,19 +858,25 @@ export const resolveEmployeesFromControlHorario = (args: {
       );
       if (parts && graceMinutes > 0) {
         const nowMin = parts.hour * 60 + parts.minute;
-        const closeMin = 23 * 60;
+        const closeMin = parseHHMMToMinutes(args.empresa?.horarioCierre);
+        if (closeMin === null) {
+          return {
+            mode: "manual",
+            withinHorario: false,
+            reason: timing.reason,
+          };
+        }
         const graceEndMin = closeMin + graceMinutes;
         const isSameDayGrace =
           nowMin >= closeMin && nowMin <= Math.min(graceEndMin, 1439);
         const isNextDayGrace =
           graceEndMin >= 1440 && nowMin <= graceEndMin - 1440;
-        const targetDateKey = isNextDayGrace
-          ? getPreviousDateKey(parts)
-          : `${parts.year}-${String(parts.month1).padStart(2, "0")}-${String(
-              parts.day,
-            ).padStart(2, "0")}`;
+        const targetDateKey = getCostaRicaOperationalDateKey(
+          args.nowISO,
+          args.empresa?.horarioApertura,
+        );
 
-        if (isSameDayGrace || isNextDayGrace) {
+        if ((isSameDayGrace || isNextDayGrace) && targetDateKey) {
           const targetDay = Number(targetDateKey.slice(-2));
           const [targetYear, targetMonth1] = targetDateKey
             .split("-")

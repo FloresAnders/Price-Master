@@ -5,6 +5,7 @@ export interface MappedEmpresa {
   label: string;
   value: string;
   mostrarInfoPago: boolean;
+  configuredShiftHours: import("../../../utils/companyShiftHours").ConfiguredShiftHours | null;
   names: string[];
   employees: {
     name: string;

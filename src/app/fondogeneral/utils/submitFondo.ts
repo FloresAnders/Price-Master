@@ -92,13 +92,13 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     isRegularUser,
     accountKey,
     namespace,
-    isDelifoodCompany,
+    configurarHorasTurno,
     empresaUsesSingleClosing,
     activeEmpresaForCompany,
     getFGMonthlySchedulesCached,
     resolveShiftTimingForNow,
     resolveShiftEmployeesForNow,
-    setDelifoodShiftEmployees,
+    setConfiguredShiftEmployees,
     setMissingShiftExpectedShift,
     setMissingShiftDateKey,
     setMissingShiftModalOpen,
@@ -225,7 +225,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     accountKey === "FondoGeneral" &&
     namespace === "fg" &&
     !editingEntryId &&
-    !isDelifoodCompany;
+    !configurarHorasTurno;
 
   if (shouldAutoManagerFromControlHorario) {
     try {
@@ -296,18 +296,18 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     }
   }
 
-  const shouldValidateDelifoodManager =
-    isDelifoodCompany &&
+  const shouldValidateConfiguredShiftManager =
+    configurarHorasTurno &&
     accountKey === "FondoGeneral" &&
     namespace === "fg" &&
     !editingEntryId;
-  if (shouldValidateDelifoodManager) {
+  if (shouldValidateConfiguredShiftManager) {
     try {
       const resolution = await resolveShiftEmployeesForNow(nowISO);
       if (!resolution || resolution.mode === "manual") {
-        setManagerError("Fuera del horario operativo de DELIFOOD");
+        setManagerError("Fuera del horario operativo configurado");
         showToast(
-          "Los movimientos de DELIFOOD están fuera del horario operativo y de la ventana posterior de cierre.",
+          "Los movimientos están fuera del horario operativo y de la ventana posterior de cierre.",
           "warning",
           6000,
         );
@@ -320,7 +320,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         return;
       }
 
-      setDelifoodShiftEmployees(resolution.employees);
+      setConfiguredShiftEmployees(resolution.employees);
       if (!resolution.employees.includes(effectiveManager)) {
         setManagerError(
           `Selecciona un encargado asignado al turno ${resolution.expectedShift}.`,
@@ -328,7 +328,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         return;
       }
     } catch (err) {
-      console.error("[FG] Error validating DELIFOOD shift manager:", err);
+      console.error("[FG] Error validating configured shift manager:", err);
       setManagerError("No se pudo validar el turno actual");
       showToast(
         "No se pudo validar la hora del servidor. Guardado bloqueado.",

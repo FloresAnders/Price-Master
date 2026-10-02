@@ -46,6 +46,7 @@ import {
   type ShiftCode,
 } from "@/utils/controlHorarioManager";
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
+import { getConfiguredShiftHours } from "@/utils/companyShiftHours";
 import { CIERRE_FONDO_VENTAS_MINUTES_AFTER_END } from "../constants";
 import { resolveFacturaPaymentType } from "./facturaPaymentType";
 import { resolveCreateInvoiceOpeningDecision } from "./createInvoiceShiftManager";
@@ -522,7 +523,7 @@ export default function FacturasCreditoPage() {
     string | null
   >(null);
   const [companyEmployees, setCompanyEmployees] = useState<string[]>([]);
-  const [delifoodHourlyEmployees, setDelifoodHourlyEmployees] = useState<
+  const [configuredShiftEmployees, setConfiguredShiftEmployees] = useState<
     string[]
   >([]);
   const [employeesLoading, setEmployeesLoading] = useState(false);
@@ -588,16 +589,9 @@ export default function FacturasCreditoPage() {
     );
   }, [availableCompanies, selectedCompany]);
 
-  const isSelectedDelifoodCompany = useMemo(
-    () =>
-      [selectedCompany, selectedEmpresaMeta?.name, selectedEmpresaMeta?.ubicacion]
-        .some((value) =>
-          String(value || "")
-            .trim()
-            .toLowerCase()
-            .includes("delifood"),
-        ),
-    [selectedCompany, selectedEmpresaMeta],
+  const selectedUsesConfiguredShiftHours = useMemo(
+    () => getConfiguredShiftHours(selectedEmpresaMeta) !== null,
+    [selectedEmpresaMeta],
   );
 
   const getSelectedCompanyKeys = useCallback(() => {
@@ -778,9 +772,9 @@ export default function FacturasCreditoPage() {
       if (name) unique.add(name);
     };
 
-    if (isSelectedDelifoodCompany) {
-      delifoodHourlyEmployees.forEach((name) => add(name));
-      if (delifoodHourlyEmployees.includes(paymentManager2)) add(paymentManager2);
+    if (selectedUsesConfiguredShiftHours) {
+      configuredShiftEmployees.forEach((name) => add(name));
+      if (configuredShiftEmployees.includes(paymentManager2)) add(paymentManager2);
       return Array.from(unique).sort((a, b) =>
         a.localeCompare(b, "es", { sensitivity: "base" }),
       );
@@ -800,8 +794,8 @@ export default function FacturasCreditoPage() {
     );
   }, [
     companyEmployees,
-    delifoodHourlyEmployees,
-    isSelectedDelifoodCompany,
+    configuredShiftEmployees,
+    selectedUsesConfiguredShiftHours,
     paymentManager2,
     user?.email,
     user?.name,
@@ -859,9 +853,9 @@ export default function FacturasCreditoPage() {
     );
   }, [createProviderCode, providers]);
 
-  const resolveDelifoodHourlyEmployeesForNow = useCallback(
+  const resolveConfiguredShiftEmployeesForNow = useCallback(
     async (nowISO: string) => {
-      if (!isSelectedDelifoodCompany || !selectedEmpresaMeta) return null;
+      if (!selectedUsesConfiguredShiftHours || !selectedEmpresaMeta) return null;
 
       const companyKeysToTry = getSelectedCompanyKeys();
       if (companyKeysToTry.length === 0) return null;
@@ -909,7 +903,9 @@ export default function FacturasCreditoPage() {
         nowISO,
         empresa: selectedEmpresaMeta,
         monthSchedules: schedulesLists.flat(),
-        nightGraceMinutes: 91,
+        nightGraceMinutes:
+          selectedEmpresaMeta.cierreFondoVentasMinutesAfterEnd ??
+          CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
       });
       if (resolution.mode === "manual") {
         return { dateKey, employees: [], outsideHorario: true as const };
@@ -930,7 +926,7 @@ export default function FacturasCreditoPage() {
     [
       getMonthlySchedulesCached,
       getSelectedCompanyKeys,
-      isSelectedDelifoodCompany,
+      selectedUsesConfiguredShiftHours,
       selectedEmpresaMeta,
     ],
   );
@@ -946,14 +942,14 @@ export default function FacturasCreditoPage() {
     setCreateCurrency("CRC");
     setCreateNotes("");
     setCreateManager(
-      isSelectedDelifoodCompany
-        ? delifoodHourlyEmployees[0] || ""
+      selectedUsesConfiguredShiftHours
+        ? configuredShiftEmployees[0] || ""
         : String(user?.name || user?.email || "").trim(),
     );
     setCreateFormError(null);
   }, [
-    delifoodHourlyEmployees,
-    isSelectedDelifoodCompany,
+    configuredShiftEmployees,
+    selectedUsesConfiguredShiftHours,
     user?.email,
     user?.name,
   ]);
@@ -1014,7 +1010,7 @@ export default function FacturasCreditoPage() {
   useEffect(() => {
     const shouldAuto = user?.role === "user" && createDrawerOpen;
 
-    if (!shouldAuto || isSelectedDelifoodCompany) {
+    if (!shouldAuto || selectedUsesConfiguredShiftHours) {
       setCreateManagerLockedByShift(false);
       return;
     }
@@ -1053,7 +1049,7 @@ export default function FacturasCreditoPage() {
     };
   }, [
     createDrawerOpen,
-    isSelectedDelifoodCompany,
+    selectedUsesConfiguredShiftHours,
     resolveShiftManagerForNow,
     user?.role,
   ]);
@@ -1103,14 +1099,14 @@ export default function FacturasCreditoPage() {
     }
     let effectiveManager = String(createManager || "").trim();
 
-    if (isSelectedDelifoodCompany) {
+    if (selectedUsesConfiguredShiftHours) {
       try {
-        const resolution = await resolveDelifoodHourlyEmployeesForNow(nowISO);
+        const resolution = await resolveConfiguredShiftEmployeesForNow(nowISO);
         const employeesWithHours = resolution?.employees ?? [];
-        setDelifoodHourlyEmployees(employeesWithHours);
+        setConfiguredShiftEmployees(employeesWithHours);
         if (resolution?.outsideHorario) {
           setCreateFormError(
-            "La operación está fuera del horario de DELIFOOD y de la ventana posterior de cierre.",
+            "La operación está fuera del horario configurado y de la ventana posterior de cierre.",
           );
           return;
         }
@@ -1125,7 +1121,7 @@ export default function FacturasCreditoPage() {
           return;
         }
       } catch (err) {
-        console.error("[FACTURAS] Error resolving DELIFOOD hours:", err);
+        console.error("[FACTURAS] Error resolving configured shift hours:", err);
         setCreateFormError(
           "No se pudo validar la hora del servidor. Guardado bloqueado.",
         );
@@ -1133,7 +1129,7 @@ export default function FacturasCreditoPage() {
       }
     }
 
-    if (user?.role === "user" && !isSelectedDelifoodCompany) {
+    if (user?.role === "user" && !selectedUsesConfiguredShiftHours) {
       try {
         const resolution = await resolveShiftManagerForNow(nowISO);
         if (resolution) {
@@ -1217,11 +1213,11 @@ export default function FacturasCreditoPage() {
     createProviderCode,
     loadMovements,
     resetCreateForm,
-    resolveDelifoodHourlyEmployeesForNow,
+    resolveConfiguredShiftEmployeesForNow,
     resolveShiftManagerForNow,
     selectedCompany,
     showToast,
-    isSelectedDelifoodCompany,
+    selectedUsesConfiguredShiftHours,
     user?.role,
   ]);
 
@@ -2076,7 +2072,7 @@ export default function FacturasCreditoPage() {
   useEffect(() => {
     if (!selectedCompany) {
       setCompanyEmployees([]);
-      setDelifoodHourlyEmployees([]);
+      setConfiguredShiftEmployees([]);
       setEmployeesLoading(false);
       return;
     }
@@ -2092,21 +2088,21 @@ export default function FacturasCreditoPage() {
   }, [availableCompanies, getCompanyKey, selectedCompany]);
 
   useEffect(() => {
-    if (!isSelectedDelifoodCompany) {
-      setDelifoodHourlyEmployees([]);
+    if (!selectedUsesConfiguredShiftHours) {
+      setConfiguredShiftEmployees([]);
       return;
     }
 
     let cancelled = false;
     setEmployeesLoading(true);
     getAuthoritativeNowISO()
-      .then((nowISO) => resolveDelifoodHourlyEmployeesForNow(nowISO))
+      .then((nowISO) => resolveConfiguredShiftEmployeesForNow(nowISO))
       .then((resolution) => {
-        if (!cancelled) setDelifoodHourlyEmployees(resolution?.employees ?? []);
+        if (!cancelled) setConfiguredShiftEmployees(resolution?.employees ?? []);
       })
       .catch((error) => {
-        console.error("[FACTURAS] Error loading DELIFOOD hourly employees:", error);
-        if (!cancelled) setDelifoodHourlyEmployees([]);
+        console.error("[FACTURAS] Error loading configured shift employees:", error);
+        if (!cancelled) setConfiguredShiftEmployees([]);
       })
       .finally(() => {
         if (!cancelled) setEmployeesLoading(false);
@@ -2115,16 +2111,20 @@ export default function FacturasCreditoPage() {
     return () => {
       cancelled = true;
     };
-  }, [isSelectedDelifoodCompany, resolveDelifoodHourlyEmployeesForNow]);
+  }, [selectedUsesConfiguredShiftHours, resolveConfiguredShiftEmployeesForNow]);
 
   useEffect(() => {
-    if (!isSelectedDelifoodCompany || !createDrawerOpen) return;
+    if (!selectedUsesConfiguredShiftHours || !createDrawerOpen) return;
     setCreateManager((current) =>
-      delifoodHourlyEmployees.includes(current)
+      configuredShiftEmployees.includes(current)
         ? current
-        : delifoodHourlyEmployees[0] || "",
+        : configuredShiftEmployees[0] || "",
     );
-  }, [createDrawerOpen, delifoodHourlyEmployees, isSelectedDelifoodCompany]);
+  }, [
+    configuredShiftEmployees,
+    createDrawerOpen,
+    selectedUsesConfiguredShiftHours,
+  ]);
 
   useEffect(() => {
     if (!isAdminOrSuperAdmin) return;
@@ -2459,15 +2459,15 @@ export default function FacturasCreditoPage() {
       return;
     }
 
-    if (isSelectedDelifoodCompany) {
+    if (selectedUsesConfiguredShiftHours) {
       try {
         const nowISO = await getAuthoritativeNowISO();
-        const resolution = await resolveDelifoodHourlyEmployeesForNow(nowISO);
+        const resolution = await resolveConfiguredShiftEmployeesForNow(nowISO);
         const employeesWithHours = resolution?.employees ?? [];
-        setDelifoodHourlyEmployees(employeesWithHours);
+        setConfiguredShiftEmployees(employeesWithHours);
         if (resolution?.outsideHorario) {
           showToast(
-            "La operación está fuera del horario de DELIFOOD y de la ventana posterior de cierre.",
+            "La operación está fuera del horario configurado y de la ventana posterior de cierre.",
             "warning",
             6000,
           );
@@ -2485,7 +2485,7 @@ export default function FacturasCreditoPage() {
         setCreateDrawerOpen(true);
         return;
       } catch (err) {
-        console.error("[FACTURAS] Error checking DELIFOOD hours:", err);
+        console.error("[FACTURAS] Error checking configured shift hours:", err);
         showToast(
           "No se pudo validar la hora del servidor. Apertura bloqueada.",
           "error",
@@ -4748,7 +4748,7 @@ export default function FacturasCreditoPage() {
           open={missingShiftModalOpen}
           title="Turno no asignado"
           message={
-            isSelectedDelifoodCompany
+            selectedUsesConfiguredShiftHours
               ? `No se cuenta con encargados asignados al turno ${missingShiftExpectedShift} para ${missingShiftDateKey || "hoy"}. Debes asignar el turno en Control Horario para continuar.`
               : `No se cuenta con un turno (${missingShiftExpectedShift}) asignado para ${missingShiftDateKey || "hoy"}. Debes asignarlo en Control Horario para continuar.`
           }

@@ -1,4 +1,5 @@
 import type { User as FirestoreUser } from "../../../types/firestore";
+import { getConfiguredShiftHours } from "../../../utils/companyShiftHours";
 import type { MappedEmpresa, ScheduleData, ShiftOption } from "./types";
 import { SHIFT_OPTIONS_BASE, ADMIN_SHIFT_OPTIONS, ALL_SHIFT_COLORS } from "./constants";
 
@@ -178,6 +179,7 @@ export function filterEmpresasByUser(
       label: e.name || e.ubicacion || e.id || "Empresa",
       value: e.ubicacion || e.name || e.id || "",
       mostrarInfoPago: e.mostrarInfoPago !== false,
+      configuredShiftHours: getConfiguredShiftHours(e),
       names: controlHorarioEmployees.map((emp: any) => emp.Empleado || ""),
       employees: controlHorarioEmployees.map((emp: any) => ({
         name: emp.Empleado || "",
