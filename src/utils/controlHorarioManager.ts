@@ -743,6 +743,15 @@ export const resolveManagerFromControlHorario = (args: {
     };
   }
 
+  if (!entryD || !String(entryD.employeeName || "").trim()) {
+    return {
+      mode: "missing",
+      withinHorario: true,
+      expectedShift: "D",
+      dateKey,
+    };
+  }
+
   return {
     mode: "auto",
     withinHorario: true,
