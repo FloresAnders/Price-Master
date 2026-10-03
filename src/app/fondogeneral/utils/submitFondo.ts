@@ -67,6 +67,7 @@ import { getDoc, writeBatch } from "firebase/firestore";
 import { commitFcrPayments } from "./invoicePayment/fcrLedgerTransaction";
 import { reportFcrPaymentAfterMainSaveFailure } from "./invoicePayment/fcrPartialSaveRecovery";
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
+import { calculateTotalRoundingSummary } from "./fondo/totalRounding";
 
 export interface SubmitFondoDeps {
   [key: string]: any;
@@ -113,6 +114,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     ingreso,
     roundUpInvoicePayment = false,
     roundUpMainInvoicePayment = true,
+    roundUpTotalToThousand = false,
     confirmedRoundUpSelections,
     notes,
     movementProviders,
@@ -759,43 +761,74 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         return sum + roundCreditInvoicePayment(invoice.balanceDue);
       }, 0)
     : 0;
-  const egresoBalanceImpact =
-    isEgreso && effectiveInvoiceDocType === "FCO"
-      ? roundedInvoicePaymentAmount + selectedCreditInvoicesRoundedTotal
-      : egresoValue;
-  const extraInvoicesEgresoTotal =
-    isEgreso && effectiveInvoiceDocType !== "FCR"
-      ? extraInvoices.reduce((sum: number, extra: any, index: number) => {
-          const amount = Number.parseFloat(
-            String(extra.amount || "").replace(/\s/g, ""),
-          );
-          const roundedAmount = Number.isFinite(amount)
-            ? Math.max(0, roundMoney2(amount))
-            : 0;
-          const extraCreditNotesTotal = (extra.creditNotes ?? []).reduce(
-            (ncSum: number, creditNote: any) =>
-              ncSum +
+  const mainAmountBeforeGroupRounding = isEgreso
+    ? Math.max(0, egresoValue - totalCreditNotesAppliedAmount)
+    : ingresoValue;
+  const mainIndividualRoundedAmount = isEgreso
+    ? roundedInvoicePaymentAmount
+    : roundedIngresoValue;
+  const extraInvoiceRoundingRows: Array<{
+    amount: number;
+    creditNotesTotal: number;
+    amountBeforeRounding: number;
+    individualRoundedAmount: number;
+  }> = extraInvoices.map(
+    (extra: any, index: number) => {
+      const parsedAmount = Number.parseFloat(
+        String(extra.amount || "").replace(/\s/g, ""),
+      );
+      const amount = Number.isFinite(parsedAmount)
+        ? Math.max(0, roundMoney2(parsedAmount))
+        : 0;
+      const creditNotesTotal = isEgreso
+        ? (extra.creditNotes ?? []).reduce(
+            (sum: number, creditNote: any) =>
+              sum +
               Math.max(0, roundMoney2(Number(creditNote?.amount) || 0)),
             0,
-          );
-          return (
-            sum +
-            roundCreditNotePaymentAmount(
-              Math.max(0, roundedAmount - extraCreditNotesTotal),
-              movementCurrency,
-              accountKey,
-              roundUpEnabledForSubmit &&
-                extraRoundUpSelectedForSubmit(extra, index) &&
-                isCreditNotePaymentRoundUpEligible(
-                  Math.max(0, roundedAmount - extraCreditNotesTotal),
-                  movementCurrency,
-                  accountKey,
-                ),
-            )
-          );
-        }, 0)
-      : 0;
-  const totalEgresoBalanceImpact = egresoBalanceImpact + extraInvoicesEgresoTotal;
+          )
+        : 0;
+      const amountBeforeRounding = Math.max(0, amount - creditNotesTotal);
+      const individualRoundedAmount = roundCreditNotePaymentAmount(
+        amountBeforeRounding,
+        movementCurrency,
+        accountKey,
+        roundUpEnabledForSubmit &&
+          extraRoundUpSelectedForSubmit(extra, index) &&
+          isCreditNotePaymentRoundUpEligible(
+            amountBeforeRounding,
+            movementCurrency,
+            accountKey,
+          ),
+      );
+      return {
+        amount,
+        creditNotesTotal,
+        amountBeforeRounding,
+        individualRoundedAmount,
+      };
+    },
+  );
+  const groupRoundingSummary = calculateTotalRoundingSummary({
+    amountsBeforeRounding: [
+      mainAmountBeforeGroupRounding,
+      ...extraInvoiceRoundingRows.map((row) => row.amountBeforeRounding),
+    ],
+    individualRoundedAmounts: [
+      mainIndividualRoundedAmount,
+      ...extraInvoiceRoundingRows.map((row) => row.individualRoundedAmount),
+    ],
+    roundTotalUp:
+      Boolean(roundUpTotalToThousand) &&
+      !editingEntryId &&
+      effectiveInvoiceDocType === "FCO",
+    currency: movementCurrency,
+    accountKey,
+  });
+  const totalEgresoBalanceImpact =
+    isEgreso && effectiveInvoiceDocType === "FCO"
+      ? groupRoundingSummary.finalTotal + selectedCreditInvoicesRoundedTotal
+      : egresoValue;
 
   // Validar que no quede saldo negativo en la moneda del movimiento.
   // Nota: este límite de "saldo insuficiente" solo aplica para usuarios regulares.
@@ -1231,6 +1264,8 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                 ? nextRoundingAdjustment
                 : undefined
               : e.roundingAdjustment,
+          totalRoundingAdjustment:
+            e.totalRoundingAdjustment !== undefined ? 0 : undefined,
           amountDue: nextAmountDue,
           balanceDue: nextAmountDue,
           appliedCreditNotes:
@@ -1579,22 +1614,14 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
       const mainAmountBeforeRounding = isEgreso
         ? Math.max(0, egresoValue - totalAppliedCreditNotes)
         : ingresoValue;
-      const mainRoundedAmount = isEgreso
-        ? roundCreditNotePaymentAmount(
-            mainAmountBeforeRounding,
-            movementCurrency,
-            accountKey,
-            roundUpEnabledForSubmit &&
-              mainRoundUpSelectedForSubmit &&
-              isCreditNotePaymentRoundUpEligible(
-                mainAmountBeforeRounding,
-                movementCurrency,
-                accountKey,
-              ),
-          )
-        : roundedIngresoValue;
+      const mainRoundedAmount = mainIndividualRoundedAmount;
+      const mainEffectiveRoundedAmount =
+        groupRoundingSummary.effectiveRoundedAmounts[0] ?? mainRoundedAmount;
       const mainRoundingAdjustment = roundMoney2(
         mainRoundedAmount - mainAmountBeforeRounding,
+      );
+      const mainTotalRoundingAdjustment = roundMoney2(
+        mainEffectiveRoundedAmount - mainRoundedAmount,
       );
       const entry: FondoEntry = {
         id: movementId,
@@ -1607,13 +1634,16 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         ...(cierreVentasTurno ? { turno: cierreVentasTurno } : {}),
         ...(cierreVentasSinTurno ? { sinTurno: true } : {}),
         amountEgreso: isEgreso ? egresoValue : 0,
-        amountIngreso: isIngreso ? roundedIngresoValue : 0,
+        amountIngreso: isIngreso ? mainEffectiveRoundedAmount : 0,
         ...(mainRoundingAdjustment !== 0
           ? { roundingAdjustment: mainRoundingAdjustment }
           : {}),
+        ...(mainTotalRoundingAdjustment !== 0
+          ? { totalRoundingAdjustment: mainTotalRoundingAdjustment }
+          : {}),
         amountPayment:
           isEgreso && effectiveInvoiceDocType === "FCO"
-            ? mainRoundedAmount
+            ? mainEffectiveRoundedAmount
             : undefined,
         appliedCreditNotes:
            appliedCreditNotes.length > 0 ? appliedCreditNotes : undefined,
@@ -2097,20 +2127,17 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
             const extraAmountBeforeRounding = isEgreso
               ? Math.max(0, extraAmount - extraCreditNotesTotal)
               : extraAmount;
-            const extraPaymentAmount = roundCreditNotePaymentAmount(
-              extraAmountBeforeRounding,
-              movementCurrency,
-              accountKey,
-              roundUpEnabledForSubmit &&
-                extraRoundUpSelectedForSubmit(extra, index) &&
-                isCreditNotePaymentRoundUpEligible(
-                  extraAmountBeforeRounding,
-                  movementCurrency,
-                  accountKey,
-                ),
-            );
+            const extraPaymentAmount =
+              extraInvoiceRoundingRows[index]?.individualRoundedAmount ??
+              extraAmountBeforeRounding;
+            const extraEffectivePaymentAmount =
+              groupRoundingSummary.effectiveRoundedAmounts[index + 1] ??
+              extraPaymentAmount;
             const extraRoundingAdjustment = roundMoney2(
               extraPaymentAmount - extraAmountBeforeRounding,
+            );
+            const extraTotalRoundingAdjustment = roundMoney2(
+              extraEffectivePaymentAmount - extraPaymentAmount,
             );
             const extraEntry: FondoEntry = {
               id: extraId,
@@ -2121,12 +2148,15 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
               invoiceDocType: "FCO",
               paymentType,
               amountEgreso: isEgreso ? extraAmount : 0,
-              amountIngreso: isIngreso ? extraPaymentAmount : 0,
+              amountIngreso: isIngreso ? extraEffectivePaymentAmount : 0,
               ...(extraRoundingAdjustment !== 0
                 ? { roundingAdjustment: extraRoundingAdjustment }
                 : {}),
+              ...(extraTotalRoundingAdjustment !== 0
+                ? { totalRoundingAdjustment: extraTotalRoundingAdjustment }
+                : {}),
               ...(isEgreso
-                ? { amountPayment: extraPaymentAmount }
+                ? { amountPayment: extraEffectivePaymentAmount }
                 : {}),
               ...(extraAppliedCreditNotes.length > 0
                 ? { appliedCreditNotes: extraAppliedCreditNotes }

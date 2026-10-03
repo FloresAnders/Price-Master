@@ -186,6 +186,7 @@ describe("persistencia del ajuste de redondeo", () => {
       amountEgreso: 0,
       amountIngreso: 11_000,
       roundingAdjustment: -220,
+      totalRoundingAdjustment: -1_000,
       manager: "ALICIA",
       notes: "",
       createdAt: "2026-10-02T18:00:00.000Z",
@@ -206,8 +207,68 @@ describe("persistencia del ajuste de redondeo", () => {
       expect.any(Array),
       "edit",
       expect.objectContaining({
-        upsert: expect.objectContaining({ roundingAdjustment: 200 }),
+        upsert: expect.objectContaining({
+          roundingAdjustment: 200,
+          totalRoundingAdjustment: 0,
+        }),
       }),
     );
+  });
+
+  it("guarda el total conjunto redondeado que eligió la persona cajera", async () => {
+    const { deps, savedEntries } = makeSubmitDeps({
+      isEgreso: true,
+      isIngreso: false,
+      egreso: "3139.34",
+      ingreso: "",
+      paymentType: "COMPRA",
+      movementProviders: [
+        { code: "VENTAS", name: "VENTAS", category: "Egreso" },
+      ],
+      extraInvoices: [
+        {
+          invoiceNumber: "2222",
+          amount: "46963.89",
+          observation: "",
+          creditNotes: [],
+          roundUpToThousand: true,
+        },
+        {
+          invoiceNumber: "3333",
+          amount: "85545.14",
+          observation: "",
+          creditNotes: [],
+          roundUpToThousand: true,
+        },
+      ],
+      roundUpInvoicePayment: true,
+      confirmedRoundUpSelections: [false, true, true],
+      roundUpTotalToThousand: false,
+    });
+
+    await handleSubmitFondo(deps);
+
+    expect(savedEntries).toHaveLength(3);
+    expect(savedEntries.map((entry) => entry.amountPayment)).toEqual([
+      3_000,
+      47_000,
+      85_000,
+    ]);
+    expect(savedEntries.map((entry) => entry.roundingAdjustment)).toEqual([
+      -139.34,
+      36.11,
+      454.86,
+    ]);
+    expect(savedEntries.map((entry) => entry.totalRoundingAdjustment)).toEqual([
+      undefined,
+      undefined,
+      -1_000,
+    ]);
+    expect(
+      savedEntries.reduce(
+        (sum, entry) => sum + Number(entry.amountPayment || 0),
+        0,
+      ),
+    ).toBe(135_000);
   });
 });

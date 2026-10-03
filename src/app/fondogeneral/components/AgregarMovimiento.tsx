@@ -33,8 +33,8 @@ import {
 import {
   isCreditNotePaymentRoundUpEligible,
   roundCreditNotePaymentAmount,
-  roundMoney2,
 } from "../utils/helpers";
+import { calculateTotalRoundingSummary } from "../utils/fondo/totalRounding";
 
 type ProviderOption = {
   code: string;
@@ -133,6 +133,8 @@ type AgregarMovimientoProps = {
   onRoundUpToThousandChange?: (value: boolean) => void;
   roundUpMainInvoicePayment?: boolean;
   onRoundUpMainInvoicePaymentChange?: (value: boolean) => void;
+  roundUpTotalToThousand?: boolean;
+  onRoundUpTotalToThousandChange?: (value: boolean) => void;
   onAddManualCreditNote?: (extraInvoiceIndex?: number) => void;
   onRemoveExtraInvoiceCreditNote?: (index: number, noteId: string) => void;
   // En el type AgregarMovimientoProps agrega:
@@ -214,6 +216,8 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   onRoundUpToThousandChange,
   roundUpMainInvoicePayment = true,
   onRoundUpMainInvoicePaymentChange,
+  roundUpTotalToThousand = false,
+  onRoundUpTotalToThousandChange,
   onAddManualCreditNote,
   onRemoveExtraInvoiceCreditNote,
   manager2 = "",
@@ -565,20 +569,55 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
         : "Redondeo Aplicado",
     };
   });
-  const totalExtraPayments = extraInvoiceBreakdown.reduce(
-    (sum, breakdown) => sum + breakdown.payment,
-    0,
-  );
-  const totalToSaveAllInvoices = totalToSave + totalExtraPayments;
+  const individualRoundedAmounts = [
+    totalToSave,
+    ...extraInvoiceBreakdown.map((breakdown) => breakdown.payment),
+  ];
   const totalBeforeRoundingAllInvoices =
     totalAfterCreditNotes +
     extraInvoiceAmountsAfterCreditNotes.reduce(
       (sum, amount) => sum + amount,
       0,
     );
-  const cashDifference = roundMoney2(
-    totalToSaveAllInvoices - totalBeforeRoundingAllInvoices,
-  );
+  const totalRoundingCheckboxVisible =
+    (isEgreso || isIngreso) &&
+    invoiceDocType === "FCO" &&
+    currency === "CRC" &&
+    (!accountKey || accountKey === "FondoGeneral") &&
+    extraInvoices.length > 0 &&
+    isCreditNotePaymentRoundUpEligible(
+      totalBeforeRoundingAllInvoices,
+      currency,
+      accountKey,
+    );
+  const totalRoundingSummary = calculateTotalRoundingSummary({
+    amountsBeforeRounding: [
+      totalAfterCreditNotes,
+      ...extraInvoiceAmountsAfterCreditNotes,
+    ],
+    individualRoundedAmounts,
+    roundTotalUp:
+      roundUpTotalToThousand && totalRoundingCheckboxVisible,
+    currency,
+    accountKey,
+  });
+  const totalToSaveAllInvoices = totalRoundingSummary.finalTotal;
+  const cashDifference = totalRoundingSummary.cashDifference;
+
+  useEffect(() => {
+    if (
+      totalRoundingCheckboxVisible ||
+      !roundUpTotalToThousand ||
+      !onRoundUpTotalToThousandChange
+    ) {
+      return;
+    }
+    onRoundUpTotalToThousandChange(false);
+  }, [
+    totalRoundingCheckboxVisible,
+    roundUpTotalToThousand,
+    onRoundUpTotalToThousandChange,
+  ]);
 
   const handleGeneralRoundUpChange = (checked: boolean) => {
     if (checked) {
@@ -1718,6 +1757,20 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                 {formatCurrencyAmount(Math.abs(cashDifference))}
               </span>
             </div>
+          )}
+          {totalRoundingCheckboxVisible && onRoundUpTotalToThousandChange && (
+            <label className="flex items-center justify-between gap-3 rounded border border-cyan-700/25 bg-cyan-950/10 px-3 py-2 text-xs text-cyan-100/80">
+              <span className="font-medium">Redondear el total hacia arriba</span>
+              <input
+                type="checkbox"
+                aria-label="Redondear el total hacia arriba"
+                checked={roundUpTotalToThousand}
+                onChange={(event) =>
+                  onRoundUpTotalToThousandChange(event.target.checked)
+                }
+                className="h-4 w-4 accent-cyan-400"
+              />
+            </label>
           )}
         </div>
       </section>

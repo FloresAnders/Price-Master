@@ -24,6 +24,8 @@ export type FondoEntry = {
   roundingAbsorbed?: number;
   /** Ajuste firmado aplicado al monto: redondeado - monto antes de redondear. */
   roundingAdjustment?: number;
+  /** Corrección distribuida al aplicar redondeo sobre el total del grupo. */
+  totalRoundingAdjustment?: number;
   appliedCreditNotes?: AppliedCreditNote[];
   manager: string;
   manager2?: string;

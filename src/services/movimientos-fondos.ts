@@ -51,6 +51,7 @@ export type MovementRecordBase = {
   amountIngreso?: number;
   amountPayment?: number;
   roundingAdjustment?: number;
+  totalRoundingAdjustment?: number;
   appliedCreditNotes?: unknown[];
   manager2?: string;
   updateAt?: string;

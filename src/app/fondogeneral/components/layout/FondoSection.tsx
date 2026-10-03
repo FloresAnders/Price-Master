@@ -64,7 +64,11 @@ import {
   MovementStorage,
   MovementStorageState,
 } from "../../../../services/movimientos-fondos";
-import { calculateFondoGeneralDailyRounding } from "../../utils/fondo/dailyRounding";
+import {
+  calculateFondoGeneralDailyRounding,
+  resolveIndividualMovementRoundingAdjustment,
+  resolveTotalMovementRoundingAdjustment,
+} from "../../utils/fondo/dailyRounding";
 
 
 import DailyClosingModal, { DailyClosingFormValues } from "../modals/DailyClosingModal";
@@ -281,6 +285,7 @@ type MovementDraftState = {
   paymentType: FondoEntry["paymentType"];
   roundUpInvoicePayment: boolean;
   roundUpMainInvoicePayment: boolean;
+  roundUpTotalToThousand: boolean;
   egreso: string;
   ingreso: string;
   manager: string;
@@ -869,6 +874,7 @@ export function FondoSection({
     handleManager2Change,
     cancelOpenCreateMovement,
   } = useMovementForm({ mode, fondoEntries });
+  const [roundUpTotalToThousand, setRoundUpTotalToThousand] = useState(false);
   const {
     pendingClosingCreditInvoices,
     setPendingClosingCreditInvoices,
@@ -910,6 +916,7 @@ export function FondoSection({
       paymentType,
       roundUpInvoicePayment,
       roundUpMainInvoicePayment,
+      roundUpTotalToThousand,
       egreso,
       ingreso,
       manager,
@@ -927,6 +934,7 @@ export function FondoSection({
       paymentType,
       roundUpInvoicePayment,
       roundUpMainInvoicePayment,
+      roundUpTotalToThousand,
       egreso,
       ingreso,
       manager,
@@ -981,6 +989,7 @@ export function FondoSection({
       setRoundUpMainInvoicePayment(
         draft.roundUpMainInvoicePayment !== false,
       );
+      setRoundUpTotalToThousand(Boolean(draft.roundUpTotalToThousand));
       setEgreso(String(draft.egreso || ""));
       setIngreso(String(draft.ingreso || ""));
       setManager(String(draft.manager || ""));
@@ -1990,6 +1999,7 @@ export function FondoSection({
     setManualCreditNoteError("");
     setPaymentType("COMPRA INVENTARIO");
     setNotes("");
+    setRoundUpTotalToThousand(false);
     setEditingEntryId(null);
     // Clear all validation errors
     setProviderError("");
@@ -2374,6 +2384,7 @@ export function FondoSection({
       paymentType,
       roundUpInvoicePayment,
       roundUpMainInvoicePayment,
+      roundUpTotalToThousand,
       confirmedRoundUpSelections,
       setAmountError,
       showToast,
@@ -5625,6 +5636,8 @@ export function FondoSection({
         onRoundUpToThousandChange={setRoundUpInvoicePayment}
         roundUpMainInvoicePayment={roundUpMainInvoicePayment}
         onRoundUpMainInvoicePaymentChange={setRoundUpMainInvoicePayment}
+        roundUpTotalToThousand={roundUpTotalToThousand}
+        onRoundUpTotalToThousandChange={setRoundUpTotalToThousand}
         onAddManualCreditNote={(extraInvoiceIndex) => {
           void openManualCreditNoteModal(extraInvoiceIndex);
         }}
@@ -6105,9 +6118,18 @@ export function FondoSection({
                               fe.roundingAbsorbed > 0
                                 ? Math.max(0, roundMoney2(fe.roundingAbsorbed))
                                 : 0;
+                            const individualRoundingAdjustment =
+                              resolveIndividualMovementRoundingAdjustment(fe);
+                            const totalRoundingAdjustment =
+                              resolveTotalMovementRoundingAdjustment(fe);
+                            const hasStoredRoundingBreakdown =
+                              (typeof fe.roundingAdjustment === "number" &&
+                                Number.isFinite(fe.roundingAdjustment)) ||
+                              totalRoundingAdjustment !== 0 ||
+                              storedRoundingAbsorbed > 0;
                             const appliedCreditNotesAdjustment =
-                              storedRoundingAbsorbed > 0
-                                ? storedRoundingAbsorbed
+                              hasStoredRoundingBreakdown
+                                ? Math.abs(individualRoundingAdjustment)
                                 : Math.max(
                                     0,
                                     Math.abs(
@@ -6117,11 +6139,18 @@ export function FondoSection({
                                     ),
                                   );
                             const appliedCreditNotesAdjustmentIsPositive =
-                              normalizedEgreso >
-                              Math.max(0, invoiceEgresoAmount - appliedCreditNotesTotal);
-                            const appliedCreditNotesAdjustmentLabel = appliedCreditNotesAdjustmentIsPositive
-                              ? "Redondeo"
-                              : "Redondeo";
+                              hasStoredRoundingBreakdown
+                                ? individualRoundingAdjustment > 0
+                                : normalizedEgreso >
+                                  Math.max(
+                                    0,
+                                    invoiceEgresoAmount -
+                                      appliedCreditNotesTotal,
+                                  );
+                            const appliedCreditNotesAdjustmentLabel =
+                              totalRoundingAdjustment !== 0
+                                ? "Redondeo individual"
+                                : "Redondeo";
                             const appliedCreditNotesAdjustmentPrefix = appliedCreditNotesAdjustmentIsPositive
                               ? "+"
                               : "-";
@@ -6766,6 +6795,28 @@ export function FondoSection({
                                                       {formatByCurrency(
                                                         entryCurrency,
                                                         appliedCreditNotesAdjustment,
+                                                      )}
+                                                    </span>
+                                                  </div>
+                                                )}
+                                                {totalRoundingAdjustment !== 0 && (
+                                                  <div className="flex w-full items-center gap-1 rounded border border-violet-500/15 bg-violet-500/10 px-2 py-1">
+                                                    <span
+                                                      className="flex min-w-0 flex-1 items-center gap-1 text-xs leading-tight text-violet-200"
+                                                      title="Ajuste por redondeo del total"
+                                                    >
+                                                      <Layers className="h-3 w-3 shrink-0" />
+                                                      Ajuste del total
+                                                    </span>
+                                                    <span className="flex shrink-0 items-center justify-end gap-1 text-sm font-semibold text-violet-200 whitespace-nowrap">
+                                                      {totalRoundingAdjustment > 0
+                                                        ? "+"
+                                                        : "-"}
+                                                      {formatByCurrency(
+                                                        entryCurrency,
+                                                        Math.abs(
+                                                          totalRoundingAdjustment,
+                                                        ),
                                                       )}
                                                     </span>
                                                   </div>
