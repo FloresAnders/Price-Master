@@ -59,10 +59,12 @@ export function CounterSidebar({
                       </span>
                     </div>
                   </div>
-                  <div role="button" onClick={(e) => { e.stopPropagation(); onRename(i); }}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-white/20 hover:text-cyan-300 rounded-lg hover:bg-cyan-500/10" aria-label="Renombrar">
-                    <Edit3 className="w-3 h-3" />
-                  </div>
+                  {!tab.accountId && (
+                    <div role="button" onClick={(e) => { e.stopPropagation(); onRename(i); }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-white/20 hover:text-cyan-300 rounded-lg hover:bg-cyan-500/10" aria-label="Renombrar">
+                      <Edit3 className="w-3 h-3" />
+                    </div>
+                  )}
                 </div>
               </button>
             </div>

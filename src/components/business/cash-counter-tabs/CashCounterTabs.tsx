@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Lock as LockIcon, Banknote, Layers, Smartphone, Calculator as CalculatorIcon,
@@ -17,15 +17,44 @@ import { RenameModal } from "./components/RenameModal";
 import { CurrencyModal } from "./components/CurrencyModal";
 import { MenuModal } from "./components/MenuModal";
 import CalculatorModal from "../../modals/CalculatorModal";
+import { getDefaultPermissions } from "@/utils/permissions";
+import { getAvailableFondoAccountTabs } from "@/lib/fondoAccountTabs";
+import type { MovementAccountKey } from "@/services/movimientos-fondos";
 
-export default function CashCounterTabs() {
+type CashCounterTabsProps = {
+  requestedAccountId?: MovementAccountKey;
+};
+
+export default function CashCounterTabs({ requestedAccountId }: CashCounterTabsProps) {
   const { user } = useAuth();
+  const permissions = user?.permissions || getDefaultPermissions(user?.role || "user");
+  const activeAccounts = useMemo(
+    () =>
+      getAvailableFondoAccountTabs({
+        fondogeneral: permissions.fondogeneral,
+        fondogeneralBCR: permissions.fondogeneralBCR,
+        fondogeneralBN: permissions.fondogeneralBN,
+        fondogeneralBAC: permissions.fondogeneralBAC,
+        cajaNegra: permissions.cajaNegra,
+        tucan: permissions.tucan,
+        tiempos: permissions.tiempos,
+      }),
+    [
+      permissions.fondogeneral,
+      permissions.fondogeneralBCR,
+      permissions.fondogeneralBN,
+      permissions.fondogeneralBAC,
+      permissions.cajaNegra,
+      permissions.tucan,
+      permissions.tiempos,
+    ],
+  );
   const {
     data, active, setActive, lastSaved, saving,
     add, del, upd,
     dragIdx, overIdx, hDS, hDO, hDL, hDrop, hDE,
     exp, imp, clear, storageInfo,
-  } = useCashCounter();
+  } = useCashCounter(activeAccounts, requestedAccountId);
 
   const [calcOpen, setCalcOpen] = useState(false);
   const [sinpeOpen, setSinpeOpen] = useState(false);
@@ -35,7 +64,25 @@ export default function CashCounterTabs() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showExtra, setShowExtra] = useState(false);
   const [showBD, setShowBD] = useState(false);
-  const activeCounter = data[active];
+  const activeAccountIds = useMemo(
+    () => new Set(activeAccounts.map((account) => account.accountId)),
+    [activeAccounts],
+  );
+  const visibleCounters = useMemo(
+    () => data
+      .map((counter, index) => ({ counter, index }))
+      .filter(({ counter }) => !counter.accountId || activeAccountIds.has(counter.accountId)),
+    [activeAccountIds, data],
+  );
+  const activeVisibleIndex = visibleCounters.findIndex((entry) => entry.index === active);
+  const resolvedActiveVisibleIndex = activeVisibleIndex >= 0 ? activeVisibleIndex : 0;
+  const activeEntry = visibleCounters[resolvedActiveVisibleIndex];
+  const activeCounter = activeEntry?.counter;
+
+  useEffect(() => {
+    if (visibleCounters.length === 0 || activeVisibleIndex >= 0) return;
+    setActive(visibleCounters[0].index);
+  }, [activeVisibleIndex, setActive, visibleCounters]);
   const activeCurrencyLabel = activeCounter?.currency === "CRC" ? "Colones" : "Dólares";
 
   if (!hasPermission(user?.permissions, "cashcounter")) {
@@ -105,23 +152,23 @@ export default function CashCounterTabs() {
 
       <div className="mx-auto flex max-w-[1800px] flex-col gap-4 px-3 sm:gap-6 sm:px-6 lg:flex-row">
         <CounterSidebar
-          data={data}
-          active={active}
-          onSelect={setActive}
-          onRename={(i) => { setRenameIdx(i); setRenameOpen(true); }}
+          data={visibleCounters.map((entry) => entry.counter)}
+          active={resolvedActiveVisibleIndex}
+          onSelect={(i) => setActive(visibleCounters[i]?.index ?? 0)}
+          onRename={(i) => { setRenameIdx(visibleCounters[i]?.index ?? 0); setRenameOpen(true); }}
           onAdd={add}
-          dragIdx={dragIdx}
-          overIdx={overIdx}
-          onDragStart={hDS}
-          onDragOver={hDO}
+          dragIdx={visibleCounters.findIndex((entry) => entry.index === dragIdx)}
+          overIdx={visibleCounters.findIndex((entry) => entry.index === overIdx)}
+          onDragStart={(event, i) => hDS(event, visibleCounters[i]?.index ?? 0)}
+          onDragOver={(event, i) => hDO(event, visibleCounters[i]?.index ?? 0)}
           onDragLeave={hDL}
-          onDrop={hDrop}
+          onDrop={(event, i) => hDrop(event, visibleCounters[i]?.index ?? 0)}
           onDragEnd={hDE}
         />
 
         <div className="flex-1 min-w-0 order-1 lg:order-2">
-          {data.length > 0 ? (
-            <CashCounter id={active} data={data[active]} showBD={showBD} onUpdate={upd} />
+          {activeEntry ? (
+            <CashCounter id={activeEntry.index} data={activeEntry.counter} showBD={showBD} onUpdate={upd} />
           ) : (
             <div className="text-center text-white/15 flex flex-col items-center py-12">
               <Inbox className="w-12 h-12 mb-3 opacity-30" />
@@ -130,16 +177,17 @@ export default function CashCounterTabs() {
           )}
         </div>
 
-        {data.length > 0 && (
+        {activeEntry && (
           <RightPanel
-            data={data[active]}
+            data={activeEntry.counter}
             showExtra={showExtra}
             setShowExtra={setShowExtra}
             showBD={showBD}
             setShowBD={setShowBD}
-            onUpdate={(d) => upd(active, d)}
+            onUpdate={(d) => upd(activeEntry.index, d)}
             onCurrencyOpen={() => setCurrencyOpen(true)}
-            onDelete={() => del(active)}
+            onDelete={() => del(activeEntry.index)}
+            canDelete={!activeEntry.counter.accountId}
           />
         )}
       </div>
@@ -158,9 +206,9 @@ export default function CashCounterTabs() {
       </div>
 
       <AnimatePresence>{calcOpen && <CalculatorModal isOpen={calcOpen} onClose={() => setCalcOpen(false)} />}</AnimatePresence>
-      <AnimatePresence>{sinpeOpen && <SinpeModal isOpen={sinpeOpen} onClose={() => setSinpeOpen(false)} currency={data[active]?.currency || "CRC"} />}</AnimatePresence>
+      <AnimatePresence>{sinpeOpen && <SinpeModal isOpen={sinpeOpen} onClose={() => setSinpeOpen(false)} currency={activeCounter?.currency || "CRC"} />}</AnimatePresence>
       <AnimatePresence>{renameOpen && <RenameModal isOpen={renameOpen} currentName={data[renameIdx]?.name || ""} onSave={(n) => upd(renameIdx, { ...data[renameIdx], name: n })} onClose={() => setRenameOpen(false)} />}</AnimatePresence>
-      <AnimatePresence>{currencyOpen && <CurrencyModal isOpen={currencyOpen} currentCurrency={data[active]?.currency || "CRC"} onSave={(c) => upd(active, { ...data[active], currency: c, bills: {}, extraAmount: 0, aperturaCaja: 0, ventaActual: 0 })} onClose={() => setCurrencyOpen(false)} />}</AnimatePresence>
+      <AnimatePresence>{currencyOpen && activeEntry && <CurrencyModal isOpen={currencyOpen} currentCurrency={activeEntry.counter.currency} onSave={(c) => upd(activeEntry.index, { ...activeEntry.counter, currency: c, bills: {}, extraAmount: 0, aperturaCaja: 0, ventaActual: 0 })} onClose={() => setCurrencyOpen(false)} />}</AnimatePresence>
       <AnimatePresence>{menuOpen && <MenuModal isOpen={menuOpen} onClose={() => setMenuOpen(false)} onExport={exp} onImport={imp} onClear={clear} storageInfo={storageInfo()} />}</AnimatePresence>
     </div>
   );

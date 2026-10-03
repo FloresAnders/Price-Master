@@ -79,6 +79,8 @@ import type { UserPermissions } from "../../types/firestore";
 import PasskeyManagerModal from "../auth/PasskeyManagerModal";
 import PatrioticSeptemberBadge from "./PatrioticSeptemberBadge";
 import { isCostaRicaIndependenceSeason } from "@/lib/seasonalTheme";
+import type { MovementAccountKey } from "@/services/movimientos-fondos";
+import { OPEN_CASH_COUNTER_EVENT } from "@/components/business/cash-counter-tabs/accountCounters";
 
 const ADMIN_SIDEBAR_EXPANDED_WIDTH_PREF_KEY = "adminSidebarWidth";
 const ADMIN_SIDEBAR_COLLAPSED_WIDTH_PREF_KEY = "adminSidebarCollapsedWidth";
@@ -201,6 +203,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   );
   const [showCalculatorModal, setShowCalculatorModal] = useState(false);
   const [showCashCounterModal, setShowCashCounterModal] = useState(false);
+  const [cashCounterAccountId, setCashCounterAccountId] =
+    useState<MovementAccountKey>();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const initializedSolicitudesRef = useRef(false);
   const knownSolicitudesRef = useRef<Set<string>>(new Set());
@@ -254,7 +258,23 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     setShowCalculatorModal(true);
   }, []);
   const openCashCounterFloating = useCallback(() => {
+    setCashCounterAccountId(undefined);
     setShowCashCounterModal(true);
+  }, []);
+
+  useEffect(() => {
+    const handleOpenCashCounter = (event: Event) => {
+      const accountId = (
+        event as CustomEvent<{ accountId?: MovementAccountKey }>
+      ).detail?.accountId;
+      if (!accountId) return;
+      setCashCounterAccountId(accountId);
+      setShowCashCounterModal(true);
+    };
+
+    window.addEventListener(OPEN_CASH_COUNTER_EVENT, handleOpenCashCounter);
+    return () =>
+      window.removeEventListener(OPEN_CASH_COUNTER_EVENT, handleOpenCashCounter);
   }, []);
 
   useFloatingAction({
@@ -2393,7 +2413,11 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       {/* Global Cash Counter Modal */}
       <CashCounterModal
         isOpen={showCashCounterModal}
-        onClose={() => setShowCashCounterModal(false)}
+        requestedAccountId={cashCounterAccountId}
+        onClose={() => {
+          setShowCashCounterModal(false);
+          setCashCounterAccountId(undefined);
+        }}
       />
     </>
   );

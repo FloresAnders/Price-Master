@@ -1,4 +1,5 @@
 import type { CashCounterData } from "@/components/business/cash-counter-tabs/types";
+import type { MovementAccountKey } from "@/services/movimientos-fondos";
 
 export type CashCounterSnapshot = {
   counters: CashCounterData[];
@@ -16,6 +17,18 @@ const DB_NAME = "cash-counter-db";
 const DB_VERSION = 1;
 const STORE_NAME = "snapshots";
 const SNAPSHOT_KEY = "cashCounters";
+const LEGACY_STORAGE_KEY = "cashCounters";
+export const CASH_COUNTER_SNAPSHOT_EVENT = "price-master:cash-counter-snapshot";
+
+const ACCOUNT_IDS = new Set<MovementAccountKey>([
+  "FondoGeneral",
+  "BCR",
+  "BN",
+  "BAC",
+  "CajaNegra",
+  "Tucan",
+  "Tiempos",
+]);
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -100,8 +113,12 @@ function normalizeBills(value: unknown): Record<number, number> {
 
 function normalizeCounter(item: unknown, index: number): CashCounterData {
   const counter = item && typeof item === "object" ? item as Record<string, unknown> : {};
+  const accountId = ACCOUNT_IDS.has(counter.accountId as MovementAccountKey)
+    ? counter.accountId as MovementAccountKey
+    : undefined;
 
   return {
+    ...(accountId ? { accountId } : {}),
     name: typeof counter.name === "string" && counter.name.trim()
       ? counter.name
       : `Contador ${index + 1}`,
@@ -166,6 +183,24 @@ export async function getCashCounterSnapshot(): Promise<CashCounterSnapshot | un
   return record ? normalizeCashCounterSnapshot(record.value) : undefined;
 }
 
+export async function getOrCreateCashCounterSnapshot(): Promise<CashCounterSnapshot> {
+  const stored = await getCashCounterSnapshot();
+  if (stored) return stored;
+
+  const legacyRaw = typeof window !== "undefined"
+    ? window.localStorage.getItem(LEGACY_STORAGE_KEY)
+    : null;
+  const snapshot = legacyRaw
+    ? normalizeCashCounterSnapshot(JSON.parse(legacyRaw))
+    : createDefaultCashCounterSnapshot();
+
+  await saveCashCounterSnapshot(snapshot);
+  if (legacyRaw && typeof window !== "undefined") {
+    window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+  }
+  return snapshot;
+}
+
 export async function saveCashCounterSnapshot(snapshot: CashCounterSnapshot): Promise<void> {
   const db = await openCashCounterDb();
   const tx = db.transaction(STORE_NAME, "readwrite");
@@ -176,6 +211,14 @@ export async function saveCashCounterSnapshot(snapshot: CashCounterSnapshot): Pr
     updatedAt: Date.now(),
   } satisfies CashCounterRecord);
   await txDone(tx);
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent(CASH_COUNTER_SNAPSHOT_EVENT, {
+        detail: normalizeCashCounterSnapshot(snapshot),
+      }),
+    );
+  }
 }
 
 export async function clearCashCounterSnapshot(): Promise<void> {

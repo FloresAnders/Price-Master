@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Banknote, Loader2, X } from "lucide-react";
+import type { MovementAccountKey } from "@/services/movimientos-fondos";
 
 // The cash counter (and framer-motion, which it depends on) is only needed once
 // the modal is actually opened from the header. Loading it lazily keeps it out
@@ -36,11 +37,13 @@ const CashCounterTabs = dynamic(
 type CashCounterModalProps = {
   isOpen: boolean;
   onClose: () => void;
+  requestedAccountId?: MovementAccountKey;
 };
 
 export default function CashCounterModal({
   isOpen,
   onClose,
+  requestedAccountId,
 }: CashCounterModalProps) {
   useEffect(() => {
     if (!isOpen) return;
@@ -80,7 +83,7 @@ export default function CashCounterModal({
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-white/10 bg-[#050816] shadow-2xl">
-          <CashCounterTabs />
+          <CashCounterTabs requestedAccountId={requestedAccountId} />
         </div>
       </div>
     </div>

@@ -16,20 +16,19 @@ import { useAuth } from "@/hooks/useAuth";
 import { getDefaultPermissions } from "@/utils/permissions";
 import DuplicateFondoGeneralModal from "./components/modals/DuplicateFondoGeneralModal";
 import { useFondoGeneralTabLock } from "./hooks/useFondoGeneralTabLock";
+import {
+  getAvailableFondoAccountTabs,
+  type FondoAccountTab,
+  type FondoAccountTabId,
+} from "@/lib/fondoAccountTabs";
+import { useFondoAccountCashCounters } from "@/components/business/cash-counter-tabs/hooks/useFondoAccountCashCounters";
+import {
+  formatAccountCashCounterAmount,
+  openCashCounterForAccount,
+} from "@/components/business/cash-counter-tabs/accountCounters";
 
-type TabId =
-  | "fondo"
-  | "bcr"
-  | "bn"
-  | "bac"
-  | "cajanegra"
-  | "tucan"
-  | "tiempos";
-type FondoTab = {
-  id: TabId;
-  label: string;
-  namespace: "fg" | "bcr" | "bn" | "bac" | "cn" | "tc" | "ti";
-};
+type TabId = FondoAccountTabId;
+type FondoTab = FondoAccountTab;
 
 const TAB_VISUALS: Record<
   TabId,
@@ -116,35 +115,28 @@ export default function FondoPage() {
       permissions.tucan ||
       permissions.tiempos,
   );
-  const availableTabs = useMemo<FondoTab[]>(() => {
-    if (!hasAnyFondoAccountAccess) return [];
-
-    const list: FondoTab[] = [];
-    if (permissions.fondogeneral)
-      list.push({ id: "fondo", label: "Fondo General", namespace: "fg" });
-    if (permissions.fondogeneralBCR)
-      list.push({ id: "bcr", label: "Cuenta BCR", namespace: "bcr" });
-    if (permissions.fondogeneralBN)
-      list.push({ id: "bn", label: "Cuenta BN", namespace: "bn" });
-    if (permissions.fondogeneralBAC)
-      list.push({ id: "bac", label: "Cuenta BAC", namespace: "bac" });
-    if (permissions.cajaNegra)
-      list.push({ id: "cajanegra", label: "Caja Negra", namespace: "cn" });
-    if (permissions.tucan)
-      list.push({ id: "tucan", label: "Tucan", namespace: "tc" });
-    if (permissions.tiempos)
-      list.push({ id: "tiempos", label: "Tiempos", namespace: "ti" });
-    return list;
-  }, [
-    hasAnyFondoAccountAccess,
-    permissions.fondogeneral,
-    permissions.fondogeneralBCR,
-    permissions.fondogeneralBN,
-    permissions.fondogeneralBAC,
-    permissions.cajaNegra,
-    permissions.tucan,
-    permissions.tiempos,
-  ]);
+  const availableTabs = useMemo<FondoTab[]>(
+    () =>
+      getAvailableFondoAccountTabs({
+        fondogeneral: permissions.fondogeneral,
+        fondogeneralBCR: permissions.fondogeneralBCR,
+        fondogeneralBN: permissions.fondogeneralBN,
+        fondogeneralBAC: permissions.fondogeneralBAC,
+        cajaNegra: permissions.cajaNegra,
+        tucan: permissions.tucan,
+        tiempos: permissions.tiempos,
+      }),
+    [
+      permissions.fondogeneral,
+      permissions.fondogeneralBCR,
+      permissions.fondogeneralBN,
+      permissions.fondogeneralBAC,
+      permissions.cajaNegra,
+      permissions.tucan,
+      permissions.tiempos,
+    ],
+  );
+  const accountCashCounterTotals = useFondoAccountCashCounters(availableTabs);
 
   const [active, setActiveState] = useState<TabId | "">(() => {
     if (typeof window === "undefined") return "fondo";
@@ -384,16 +376,14 @@ export default function FondoPage() {
                     const isActive = effectiveActive === tab.id;
                     const visual = TAB_VISUALS[tab.id];
                     const Icon = visual.icon;
+                    const cashCounterAmount = formatAccountCashCounterAmount(
+                      accountCashCounterTotals[tab.accountId],
+                    );
                     return (
-                      <button
+                      <div
                         key={tab.id}
-                        type="button"
-                        role="tab"
-                        tabIndex={isActive ? 0 : -1}
-                        aria-selected={isActive}
-                        onClick={() => handleAccountTabClick(tab.id)}
                         style={getCardEntranceStyle(index)}
-                        className={`group relative flex min-h-[68px] w-[230px] max-w-[calc(100vw-2.5rem)] flex-none items-center gap-3 rounded-lg border px-3 py-2 text-left transition-all duration-700 ease-out motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)] lg:min-w-[210px] lg:max-w-[260px] lg:flex-1 lg:basis-[210px] ${
+                        className={`group relative min-h-[68px] w-[230px] max-w-[calc(100vw-2.5rem)] flex-none rounded-lg border text-left transition-all duration-700 ease-out motion-reduce:transition-none lg:min-w-[210px] lg:max-w-[260px] lg:flex-1 lg:basis-[210px] ${
                           accountsSectionVisible
                             ? "opacity-100 translate-y-0"
                             : "opacity-0 translate-y-4"
@@ -403,34 +393,52 @@ export default function FondoPage() {
                             : "border-[var(--input-border)] bg-[#0e1418] text-[var(--muted-foreground)] hover:border-[var(--input-border)] hover:bg-[#141c21] hover:text-[var(--foreground)]"
                         }`}
                       >
-                        <span
-                          className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg border ${
-                            isActive ? visual.activeTone : visual.tone
-                          }`}
+                        <button
+                          type="button"
+                          role="tab"
+                          tabIndex={isActive ? 0 : -1}
+                          aria-selected={isActive}
+                          onClick={() => handleAccountTabClick(tab.id)}
+                          className="flex min-h-[68px] w-full items-center gap-3 rounded-lg px-3 py-2 pr-20 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
                         >
-                          {visual.logoSrc ? (
-                            <img
-                              src={visual.logoSrc}
-                              alt={tab.label}
-                              className="h-8 w-8 object-contain"
-                              draggable={false}
-                            />
-                          ) : Icon ? (
-                            <Icon className="h-5 w-5" />
-                          ) : null}
-                        </span>
-                        <span className="min-w-0 flex-1 pr-1">
-                          <span className="block whitespace-normal text-sm font-semibold leading-tight">
-                            {tab.label}
+                          <span
+                            className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg border ${
+                              isActive ? visual.activeTone : visual.tone
+                            }`}
+                          >
+                            {visual.logoSrc ? (
+                              <img
+                                src={visual.logoSrc}
+                                alt={tab.label}
+                                className="h-8 w-8 object-contain"
+                                draggable={false}
+                              />
+                            ) : Icon ? (
+                              <Icon className="h-5 w-5" />
+                            ) : null}
                           </span>
-                          <span className="mt-0.5 block whitespace-normal text-xs leading-tight text-[var(--muted-foreground)]">
-                            {visual.helper}
+                          <span className="min-w-0 flex-1 pr-1">
+                            <span className="block whitespace-normal text-sm font-semibold leading-tight">
+                              {tab.label}
+                            </span>
+                            <span className="mt-0.5 block whitespace-normal text-xs leading-tight text-[var(--muted-foreground)]">
+                              {visual.helper}
+                            </span>
                           </span>
-                        </span>
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Abrir contador de ${tab.label}: ${cashCounterAmount}`}
+                          title={`Abrir contador de ${tab.label}: ${cashCounterAmount}`}
+                          onClick={() => openCashCounterForAccount(tab.accountId)}
+                          className="absolute right-2 top-2 z-10 max-w-[76px] truncate rounded-full border border-emerald-400/30 bg-emerald-500/15 px-2 py-1 text-[11px] font-semibold tabular-nums text-emerald-200 transition hover:border-emerald-300/60 hover:bg-emerald-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+                        >
+                          {cashCounterAmount}
+                        </button>
                         {isActive && (
                           <span className="absolute bottom-1 left-3 right-3 h-0.5 rounded-full bg-[var(--accent)]" />
                         )}
-                      </button>
+                      </div>
                     );
                   })}
                 </div>

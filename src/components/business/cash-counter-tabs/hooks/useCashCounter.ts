@@ -1,22 +1,19 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { CashCounterData } from "../types";
+import type { FondoAccountTab } from "@/lib/fondoAccountTabs";
+import type { MovementAccountKey } from "@/services/movimientos-fondos";
+import { reconcileAccountCashCounters } from "../accountCounters";
 import {
   clearCashCounterSnapshot,
   createDefaultCashCounterSnapshot,
-  getCashCounterSnapshot,
+  getOrCreateCashCounterSnapshot,
   normalizeCashCounterSnapshot,
   saveCashCounterSnapshot,
 } from "@/services/cashCounterDb";
 
 const LEGACY_STORAGE_KEY = "cashCounters";
-
-function readLegacySnapshot(): unknown | undefined {
-  const raw = window.localStorage.getItem(LEGACY_STORAGE_KEY);
-  if (!raw) return undefined;
-  return JSON.parse(raw);
-}
 
 function snapshotFromState(counters: CashCounterData[], activeTab: number) {
   return normalizeCashCounterSnapshot({
@@ -26,29 +23,35 @@ function snapshotFromState(counters: CashCounterData[], activeTab: number) {
   });
 }
 
-export function useCashCounter() {
+export function useCashCounter(
+  activeAccounts: readonly FondoAccountTab[] = [],
+  requestedAccountId?: MovementAccountKey,
+) {
   const [data, setData] = useState<CashCounterData[]>([]);
   const [active, setActive] = useState(0);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [canAutoSave, setCanAutoSave] = useState(false);
+  const initialActiveAccountsRef = useRef(activeAccounts);
+  const appliedRequestedAccountIdRef = useRef<MovementAccountKey | undefined>(
+    undefined,
+  );
 
   useEffect(() => {
     let cancelled = false;
 
     const hydrate = async () => {
       try {
-        let snapshot = await getCashCounterSnapshot();
+        let snapshot = await getOrCreateCashCounterSnapshot();
 
-        if (!snapshot) {
-          const legacy = readLegacySnapshot();
-          snapshot = legacy
-            ? normalizeCashCounterSnapshot(legacy)
-            : createDefaultCashCounterSnapshot();
-
+        const counters = reconcileAccountCashCounters(
+          snapshot.counters,
+          initialActiveAccountsRef.current,
+        );
+        if (counters !== snapshot.counters) {
+          snapshot = { ...snapshot, counters };
           await saveCashCounterSnapshot(snapshot);
-          if (legacy) window.localStorage.removeItem(LEGACY_STORAGE_KEY);
         }
 
         if (cancelled) return;
@@ -71,6 +74,34 @@ export function useCashCounter() {
     hydrate();
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    setData((current) => {
+      const reconciled = reconcileAccountCashCounters(current, activeAccounts);
+      if (reconciled === current) return current;
+      setCanAutoSave(true);
+      return reconciled;
+    });
+  }, [activeAccounts, hydrated]);
+
+  useEffect(() => {
+    if (!requestedAccountId) {
+      appliedRequestedAccountIdRef.current = undefined;
+      return;
+    }
+    if (
+      !hydrated ||
+      appliedRequestedAccountIdRef.current === requestedAccountId
+    ) return;
+    const requestedIndex = data.findIndex(
+      (counter) => counter.accountId === requestedAccountId,
+    );
+    if (requestedIndex >= 0) {
+      appliedRequestedAccountIdRef.current = requestedAccountId;
+      setActive(requestedIndex);
+    }
+  }, [data, hydrated, requestedAccountId]);
 
   const save = useCallback(async (counters: CashCounterData[], activeTab: number) => {
     setSaving(true);
@@ -103,6 +134,7 @@ export function useCashCounter() {
   }, [data.length]);
 
   const del = useCallback((i: number) => {
+    if (data[i]?.accountId) return;
     if (data.length <= 1) { alert("No puedes eliminar el último."); return; }
     const d = data.filter((_, j) => j !== i);
     let a = active;
@@ -117,7 +149,14 @@ export function useCashCounter() {
     setCanAutoSave(true);
     setData((current) => {
       const n = [...current];
-      n[i] = d;
+      const currentCounter = current[i];
+      n[i] = currentCounter?.accountId
+        ? {
+            ...d,
+            accountId: currentCounter.accountId,
+            name: currentCounter.name,
+          }
+        : d;
       return n;
     });
   }, []);
@@ -189,7 +228,11 @@ export function useCashCounter() {
       const reader = new FileReader();
       reader.onload = (ev) => {
         try {
-          const snapshot = normalizeCashCounterSnapshot(JSON.parse(ev.target?.result as string));
+          const imported = normalizeCashCounterSnapshot(JSON.parse(ev.target?.result as string));
+          const snapshot = {
+            ...imported,
+            counters: reconcileAccountCashCounters(imported.counters, activeAccounts),
+          };
           setCanAutoSave(true);
           setData(snapshot.counters);
           setActive(snapshot.activeTab);
@@ -199,7 +242,7 @@ export function useCashCounter() {
       reader.readAsText(f);
     };
     inp.click();
-  }, []);
+  }, [activeAccounts]);
 
   const storageInfo = useCallback(() => {
     try {
@@ -214,7 +257,11 @@ export function useCashCounter() {
         try {
           await clearCashCounterSnapshot();
           window.localStorage.removeItem(LEGACY_STORAGE_KEY);
-          const snapshot = createDefaultCashCounterSnapshot();
+          const initial = createDefaultCashCounterSnapshot();
+          const snapshot = {
+            ...initial,
+            counters: reconcileAccountCashCounters(initial.counters, activeAccounts),
+          };
           setCanAutoSave(true);
           setData(snapshot.counters);
           setActive(snapshot.activeTab);
@@ -222,7 +269,7 @@ export function useCashCounter() {
         } catch { alert("❌ Error."); }
       })();
     }
-  }, [storageInfo]);
+  }, [activeAccounts, storageInfo]);
 
   return {
     data, active, setActive, lastSaved, saving, save,

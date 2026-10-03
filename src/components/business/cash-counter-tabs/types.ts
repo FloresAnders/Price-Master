@@ -1,6 +1,9 @@
+import type { MovementAccountKey } from "@/services/movimientos-fondos";
+
 export type BillsMap = Record<number, number>;
 
 export type CashCounterData = {
+  accountId?: MovementAccountKey;
   name: string;
   bills: BillsMap;
   extraAmount: number;
@@ -40,4 +43,5 @@ export interface RightPanelProps {
   onUpdate: (d: CashCounterData) => void;
   onCurrencyOpen: () => void;
   onDelete: () => void;
+  canDelete?: boolean;
 }

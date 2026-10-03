@@ -33,6 +33,7 @@ export function RightPanel({
   onUpdate,
   onCurrencyOpen,
   onDelete,
+  canDelete = true,
 }: RightPanelProps) {
   const bills = data.bills;
   const extra = data.extraAmount;
@@ -431,7 +432,7 @@ export function RightPanel({
                 bg: "bg-red-500/10 hover:bg-red-500/20",
                 action: () => setConfirmOpen(true),
               },
-            ].map((b) => (
+            ].filter((button) => button.label !== "Eliminar" || canDelete).map((b) => (
               <button
                 key={b.label}
                 onClick={b.action}
