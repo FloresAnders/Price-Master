@@ -87,6 +87,7 @@ import { CompanySelectorContent } from "../CompanySelectorContent";
 import { FondoFiltersToolbar } from "../FondoFiltersToolbar";
 import { MovementDrawer } from "../drawers/MovementDrawer";
 import { MovementNotesBlock } from "../MovementNotesBlock";
+import { ResizableMovementsViewport } from "../ResizableMovementsViewport";
 import { handleSaveManualCreditNote as handleSaveManualCreditNoteFn } from "../../utils/fondo/manualCreditNote";
 import { shouldKeepPendingCreditNotesLoaded } from "../../utils/invoicePayment/creditNotes";
 import {
@@ -5832,7 +5833,7 @@ export function FondoSection({
                   </div>
                 </div>
               </div>
-              <div className="max-h-[28rem] overflow-y-auto sm:max-h-[36rem]">
+              <ResizableMovementsViewport>
                 {(effectiveFromFilter || effectiveToFilter) && (
                   <div className="px-2 sm:px-3 py-2">
                     <div className="text-xs sm:text-sm text-[var(--muted-foreground)] flex flex-col sm:flex-row sm:items-center gap-2">
@@ -6949,7 +6950,7 @@ export function FondoSection({
                     )}
                   </table>
                 </div>
-              </div>
+              </ResizableMovementsViewport>
             </div>
           )}
 
