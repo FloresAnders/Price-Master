@@ -96,6 +96,9 @@ export function useV2MovementsHydration({
 }: UseV2MovementsHydrationProps) {
   const [movementLoadError, setMovementLoadError] = useState<Error | null>(null);
   const [ledgerSyncStatus, setLedgerSyncStatus] = useState<LedgerSyncState>("connecting");
+  const [pendingNightDailyClosing, setPendingNightDailyClosing] = useState<
+    MovementStorageState["pendingNightDailyClosing"] | null
+  >(null);
   const observedRevisionsRef = useRef(new Map<string, number>());
   const synchronizedRevisionsRef = useRef(new Map<string, number>());
   const dirtyAccountsRef = useRef(new Map<string, number>());
@@ -141,6 +144,7 @@ export function useV2MovementsHydration({
   const applyLedgerStateFromStorage = useCallback(
     (state?: MovementStorageState | null) => {
       if (!state) return;
+      setPendingNightDailyClosing(state.pendingNightDailyClosing ?? null);
 
       const parseBalance = (value: unknown) => {
         const parsed = typeof value === "number" ? value : Number(value);
@@ -396,6 +400,7 @@ export function useV2MovementsHydration({
     setInitialAmount("0");
     setInitialAmountUSD("0");
     storageSnapshotRef.current = null;
+    setPendingNightDailyClosing(null);
   }, [company, accountKey, setCurrencyEnabled, setInitialAmount, setInitialAmountUSD, setMovementCurrency]);
 
   useEffect(() => {
@@ -567,6 +572,7 @@ export function useV2MovementsHydration({
     retryMovements,
     refreshMovements,
     ledgerSyncStatus,
+    pendingNightDailyClosing,
     registerLocalMutation,
   };
 }

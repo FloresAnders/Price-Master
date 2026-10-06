@@ -100,6 +100,7 @@ import { useActorOwnership } from "../../../../hooks/useActorOwnership";
 import type { FondoEntry, FondoMovementType } from "../../types";
 import { persistMovementToFirestore as persistMovementToFirestoreFn } from "../../utils/fondo/persistence";
 import { handleConfirmDailyClosing as handleConfirmDailyClosingFn } from "../../utils/closing/dailyClosing";
+import { getPendingNightDailyClosingStatus } from "../../utils/closing/pendingNightDailyClosing";
 import type { FcrPaymentRecovery } from "../../utils/invoicePayment/fcrPartialSaveRecovery";
 import {
   getSingleClosingReasonFromNotes,
@@ -1129,6 +1130,7 @@ export function FondoSection({
     ensureV2MovementsLoaded,
     movementLoadError,
     ledgerSyncStatus,
+    pendingNightDailyClosing,
     retryMovements,
     refreshMovements,
     registerLocalMutation,
@@ -1166,6 +1168,82 @@ export function FondoSection({
     setMovementCurrency,
     cacheIdentity: fondoCacheIdentity,
   });
+  const [pendingNightClosingDeadlineReached, setPendingNightClosingDeadlineReached] =
+    useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timerId: number | null = null;
+
+    const clearTimer = () => {
+      if (timerId !== null) window.clearTimeout(timerId);
+      timerId = null;
+    };
+
+    if (accountKey !== "FondoGeneral" || !pendingNightDailyClosing) {
+      setPendingNightClosingDeadlineReached(false);
+      return clearTimer;
+    }
+
+    const checkDeadline = async () => {
+      clearTimer();
+      try {
+        const nowISO = await getAuthoritativeNowISO();
+        if (cancelled) return;
+        const status = getPendingNightDailyClosingStatus(
+          pendingNightDailyClosing,
+          nowISO,
+        );
+        if (status === "due") {
+          setPendingNightClosingDeadlineReached(true);
+          return;
+        }
+        setPendingNightClosingDeadlineReached(false);
+        const remainingMs =
+          Date.parse(pendingNightDailyClosing.dueAt) - Date.parse(nowISO);
+        timerId = window.setTimeout(
+          () => void checkDeadline(),
+          Math.max(250, Math.min(60_000, remainingMs + 50)),
+        );
+      } catch (error) {
+        if (cancelled) return;
+        console.error(
+          "[FG] Error validating pending night closing deadline:",
+          error,
+        );
+        const locallyDue =
+          getPendingNightDailyClosingStatus(
+            pendingNightDailyClosing,
+            new Date().toISOString(),
+          ) === "due";
+        setPendingNightClosingDeadlineReached(locallyDue);
+        if (!locallyDue) {
+          timerId = window.setTimeout(() => void checkDeadline(), 30_000);
+        }
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") void checkDeadline();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    void checkDeadline();
+
+    return () => {
+      cancelled = true;
+      clearTimer();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [
+    accountKey,
+    pendingNightDailyClosing,
+  ]);
+
+  const requiredNightDailyClosingActive = Boolean(
+    accountKey === "FondoGeneral" &&
+      pendingNightDailyClosing &&
+      pendingNightClosingDeadlineReached,
+  );
   const [movementsRefreshing, setMovementsRefreshing] = useState(false);
   const handleRefreshMovements = useCallback(async () => {
     if (movementsRefreshing) return;
@@ -2497,7 +2575,7 @@ export function FondoSection({
     [accountKey],
   );
 
-  const refreshRealDailyClosingsForOperationalDay = async (
+  const refreshRealDailyClosingsForOperationalDay = useCallback(async (
     operationalDateKey: string,
   ) => {
     setDailyClosingOperationalDateKey(operationalDateKey);
@@ -2537,7 +2615,14 @@ export function FondoSection({
     } finally {
       finishDailyClosingsRequest();
     }
-  };
+  }, [
+    beginDailyClosingsRequest,
+    company,
+    empresaForShiftResolution?.horarioApertura,
+    finishDailyClosingsRequest,
+    setDailyClosings,
+    setDailyClosingsHydrated,
+  ]);
 
   const handleEditMovement = async (entry: FondoEntry) => {
     // Superadmin should not edit "CIERRE FONDO VENTAS"; they should delete it.
@@ -2958,6 +3043,14 @@ export function FondoSection({
             Date.parse(String(a.createdAt || "")),
         );
 
+      if (
+        cierreEntries.length === 0 &&
+        turno === "N" &&
+        pendingNightDailyClosing?.operationalDateKey === operationalDateKey
+      ) {
+        return { manager: pendingNightDailyClosing.manager };
+      }
+
       if (cierreEntries.length === 0) return null;
 
       const resolveTurno = (entry: FondoEntry): "D" | "N" | undefined => {
@@ -2992,6 +3085,7 @@ export function FondoSection({
       empresaForShiftResolution?.horarioApertura,
       fondoEntries,
       isCierreFondoVentasMovement,
+      pendingNightDailyClosing,
     ],
   );
 
@@ -4537,7 +4631,102 @@ export function FondoSection({
     setDailyClosingModalOpen(true);
   };
 
+  const handleOpenRequiredNightDailyClosing = useCallback(async () => {
+    if (!requiredNightDailyClosingActive || !pendingNightDailyClosing) return;
+
+    if (
+      dailyClosingModalOpen &&
+      dailyClosingTurno === "N" &&
+      dailyClosingOperationalDateKey ===
+        pendingNightDailyClosing.operationalDateKey
+    ) {
+      return;
+    }
+
+    const initialValues: DailyClosingFormValues = {
+      closingDate: pendingNightDailyClosing.createdAt,
+      manager: pendingNightDailyClosing.manager,
+      notes: "",
+      singleClosingReason: "",
+      noMovements: false,
+      noMovementsReason: "",
+      totalCRC: currentBalanceCRC,
+      totalUSD: currentBalanceUSD,
+      breakdownCRC: {},
+      breakdownUSD: {},
+      turno: "N",
+      r08: 0,
+      t11: 0,
+      tucanCumulative: 0,
+      tiemposCumulative: 0,
+    };
+
+    setEditingDailyClosingId(null);
+    setDailyClosingOperationalDateKey(
+      pendingNightDailyClosing.operationalDateKey,
+    );
+    setDailyClosingTurno("N");
+    setDailyClosingSingleReasonRequired(false);
+    setDailyClosingInitialValues(initialValues);
+    setDailyClosingModalOpen(true);
+
+    try {
+      const { closingsForOperationalDay } =
+        await refreshRealDailyClosingsForOperationalDay(
+          pendingNightDailyClosing.operationalDateKey,
+        );
+      const alreadyClosed = closingsForOperationalDay.some(
+        (closing) =>
+          inferDailyClosingTurno(
+            closing,
+            closingsForOperationalDay,
+            empresaForShiftResolution?.horarioApertura,
+          ) === "N",
+      );
+      if (alreadyClosed) {
+        setPendingNightClosingDeadlineReached(false);
+        setDailyClosingModalOpen(false);
+        setDailyClosingInitialValues(null);
+        void refreshMovements();
+      }
+    } catch (error) {
+      console.error(
+        "[FG] Error refreshing the required night daily closing:",
+        error,
+      );
+      showToast(
+        "El cierre N sigue pendiente; no se pudo actualizar su información.",
+        "error",
+        6000,
+      );
+    }
+  }, [
+    currentBalanceCRC,
+    currentBalanceUSD,
+    dailyClosingModalOpen,
+    dailyClosingOperationalDateKey,
+    dailyClosingTurno,
+    empresaForShiftResolution?.horarioApertura,
+    pendingNightDailyClosing,
+    refreshMovements,
+    refreshRealDailyClosingsForOperationalDay,
+    requiredNightDailyClosingActive,
+    setDailyClosingInitialValues,
+    setDailyClosingModalOpen,
+    setEditingDailyClosingId,
+    showToast,
+  ]);
+
+  useEffect(() => {
+    if (!requiredNightDailyClosingActive) return;
+    void handleOpenRequiredNightDailyClosing();
+  }, [
+    handleOpenRequiredNightDailyClosing,
+    requiredNightDailyClosingActive,
+  ]);
+
   const handleCloseDailyClosing = () => {
+    if (requiredNightDailyClosingActive) return;
     setDailyClosingModalOpen(false);
     setEditingDailyClosingId(null);
     setDailyClosingInitialValues(null);
@@ -7007,6 +7196,7 @@ export function FondoSection({
       <DailyClosingModal
         key={`daily-${dailyClosingModalOpen ? "open" : "closed"}-${editingDailyClosingId ?? dailyClosingInitialValues?.closingDate ?? "new"}`}
         open={dailyClosingModalOpen}
+        dismissible={!requiredNightDailyClosingActive}
         onClose={handleCloseDailyClosing}
         onConfirm={handleConfirmDailyClosing}
         onTurnoChange={setDailyClosingTurno}

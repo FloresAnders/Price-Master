@@ -237,6 +237,7 @@ const resolveInitialTurnoSelection = (
 
 type DailyClosingModalProps = {
   open: boolean;
+  dismissible?: boolean;
   onClose: () => void;
   onConfirm: (values: DailyClosingFormValues) => Promise<DailyClosingRecord | null>;
   onTurnoChange?: (turno: "D" | "N" | undefined) => void;
@@ -261,6 +262,7 @@ type DailyClosingModalProps = {
 
 const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   open,
+  dismissible = true,
   onClose,
   onConfirm,
   onTurnoChange,
@@ -738,7 +740,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
       );
     }
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && dismissible) {
         onClose();
       }
     };
@@ -749,6 +751,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     };
   }, [
     editId,
+    dismissible,
     initialValues,
     onClose,
     onTurnoChange,
@@ -1132,6 +1135,15 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+          {!dismissible && (
+            <div
+              role="alert"
+              className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100"
+            >
+              El cierre N del día anterior está pendiente. Debes guardarlo antes
+              de continuar con los movimientos del Fondo General.
+            </div>
+          )}
           <div className="flex flex-col gap-6">
             <div className="grid gap-3 md:grid-cols-2">
               <div className="flex flex-col gap-1">

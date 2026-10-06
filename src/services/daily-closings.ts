@@ -14,6 +14,7 @@ import { FirestoreService } from "./firestore";
 import { MovimientosFondosService, type MovementStorage } from "./movimientos-fondos";
 import type { ClosingReconciliation } from "@/domain/reconciliation";
 import { reconcileClosing } from "@/domain/reconciliation";
+import { clearPendingNightDailyClosingForSavedClosing } from "@/app/fondogeneral/utils/closing/pendingNightDailyClosing";
 
 const COSTA_RICA_TZ = "America/Costa_Rica";
 const DEFAULT_MINUTES_AFTER_CLOSE = 45;
@@ -745,6 +746,19 @@ export class DailyClosingsService {
       };
       transaction.set(documentRef, stripUndefinedDeep(payload));
       if (ledger && ledgerRef && !isEditing) {
+        const remainingPending =
+          clearPendingNightDailyClosingForSavedClosing(
+            ledger.state.pendingNightDailyClosing,
+            {
+              turno: sanitizedRecord.turno,
+              operationalDateKey,
+            },
+          );
+        if (remainingPending) {
+          ledger.state.pendingNightDailyClosing = remainingPending;
+        } else {
+          delete ledger.state.pendingNightDailyClosing;
+        }
         ledger.state.lockedUntil = sanitizedRecord.createdAt;
         ledger.state.updatedAt = updatedAt;
         transaction.set(ledgerRef, stripUndefinedDeep(ledger));

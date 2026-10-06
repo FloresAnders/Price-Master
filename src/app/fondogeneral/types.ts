@@ -1,5 +1,8 @@
 import type { AppliedCreditNote } from "@/services/facturas";
-import type { MovementAccountKey } from "@/services/movimientos-fondos";
+import type {
+  MovementAccountKey,
+  PendingNightDailyClosing,
+} from "@/services/movimientos-fondos";
 
 export type FondoMovementType = string;
 
@@ -52,4 +55,5 @@ export type FondoEntry = {
   requiresOpening?: boolean;
   turno?: "D" | "N";
   sinTurno?: true;
+  pendingNightDailyClosing?: PendingNightDailyClosing;
 };

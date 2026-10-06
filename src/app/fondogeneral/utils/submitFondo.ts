@@ -68,6 +68,7 @@ import { commitFcrPayments } from "./invoicePayment/fcrLedgerTransaction";
 import { reportFcrPaymentAfterMainSaveFailure } from "./invoicePayment/fcrPartialSaveRecovery";
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
 import { calculateTotalRoundingSummary } from "./fondo/totalRounding";
+import { buildPendingNightDailyClosing } from "./closing/pendingNightDailyClosing";
 
 export interface SubmitFondoDeps {
   [key: string]: any;
@@ -1623,6 +1624,18 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
       const mainTotalRoundingAdjustment = roundMoney2(
         mainEffectiveRoundedAmount - mainRoundedAmount,
       );
+      const pendingNightDailyClosing = cierreOperationalDateKey
+        ? buildPendingNightDailyClosing({
+            movementId,
+            turno: cierreVentasTurno,
+            createdAt: iso,
+            operationalDateKey: cierreOperationalDateKey,
+            manager: effectiveManager,
+            minutesAfterEnd: cierreFondoVentasBaseMinutesAfterEnd,
+            horarioApertura: activeEmpresaForCompany?.horarioApertura,
+            horarioCierre: activeEmpresaForCompany?.horarioCierre,
+          })
+        : null;
       const entry: FondoEntry = {
         id: movementId,
         empresa: company,
@@ -1633,6 +1646,9 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         paymentType,
         ...(cierreVentasTurno ? { turno: cierreVentasTurno } : {}),
         ...(cierreVentasSinTurno ? { sinTurno: true } : {}),
+        ...(pendingNightDailyClosing
+          ? { pendingNightDailyClosing }
+          : {}),
         amountEgreso: isEgreso ? egresoValue : 0,
         amountIngreso: isIngreso ? mainEffectiveRoundedAmount : 0,
         ...(mainRoundingAdjustment !== 0

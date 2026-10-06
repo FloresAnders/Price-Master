@@ -6,6 +6,7 @@ import type {
   MovementCurrencyKey,
   MovementStorage,
 } from "@/services/movimientos-fondos";
+import { getPendingNightDailyClosingStatus } from "../closing/pendingNightDailyClosing";
 
 export type LedgerBalanceSnapshot = {
   initialCRC: number;
@@ -73,6 +74,18 @@ export function applyLedgerMovementMutation(
   }
   if (operation === "delete" && !before) throw new Error("Delete requires before movement");
 
+  if (
+    operation === "create" &&
+    after &&
+    accountOf(after) === "FondoGeneral" &&
+    getPendingNightDailyClosingStatus(
+      input.storage.state.pendingNightDailyClosing,
+      input.nowISO,
+    ) === "due"
+  ) {
+    throw new Error("PENDING_NIGHT_DAILY_CLOSING");
+  }
+
   const movement = operation === "delete" ? before! : after!;
   const accountKey = accountOf(movement);
   const storage: MovementStorage<FondoEntry> = {
@@ -125,6 +138,18 @@ export function applyLedgerMovementMutation(
   } else {
     adjustMovement(before!, -1);
     adjustMovement(after!, 1);
+  }
+
+  if (operation === "delete") {
+    if (
+      storage.state.pendingNightDailyClosing?.movementId === before!.id
+    ) {
+      delete storage.state.pendingNightDailyClosing;
+    }
+  } else if (after?.pendingNightDailyClosing) {
+    storage.state.pendingNightDailyClosing = {
+      ...after.pendingNightDailyClosing,
+    };
   }
 
   const previousRevision = input.storage.state.revision;

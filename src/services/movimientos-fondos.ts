@@ -41,6 +41,17 @@ export type MovementAccountKey =
   | "Tucan"
   | "Tiempos";
 
+export type PendingNightDailyClosing = {
+  version: 1;
+  movementId: string;
+  turno: "N";
+  createdAt: string;
+  dueAt: string;
+  operationalDateKey: string;
+  manager: string;
+  minutesAfterEnd: number;
+};
+
 export type MovementRecordBase = {
   id: string;
   createdAt: string;
@@ -55,6 +66,7 @@ export type MovementRecordBase = {
   appliedCreditNotes?: unknown[];
   manager2?: string;
   updateAt?: string;
+  pendingNightDailyClosing?: PendingNightDailyClosing;
 };
 
 const ACCOUNT_KEYS: MovementAccountKey[] = [
@@ -174,6 +186,7 @@ export type MovementStorageState = {
   lockedUntil?: string; // ISO timestamp del último cierre registrado
   revision?: number;
   lastChange?: LedgerLastChange;
+  pendingNightDailyClosing?: PendingNightDailyClosing;
 };
 
 type LegacyMovementMetadata = {
@@ -665,6 +678,33 @@ export class MovimientosFondosService {
     // Preservar lockedUntil si existe
     if (state?.lockedUntil) {
       result.lockedUntil = state.lockedUntil;
+    }
+
+    const pending = state?.pendingNightDailyClosing;
+    if (
+      pending?.version === 1 &&
+      pending.turno === "N" &&
+      typeof pending.movementId === "string" &&
+      pending.movementId.trim().length > 0 &&
+      typeof pending.createdAt === "string" &&
+      Number.isFinite(Date.parse(pending.createdAt)) &&
+      typeof pending.dueAt === "string" &&
+      Number.isFinite(Date.parse(pending.dueAt)) &&
+      typeof pending.operationalDateKey === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(pending.operationalDateKey) &&
+      typeof pending.manager === "string" &&
+      typeof pending.minutesAfterEnd === "number" &&
+      Number.isFinite(pending.minutesAfterEnd) &&
+      pending.minutesAfterEnd >= 0
+    ) {
+      result.pendingNightDailyClosing = {
+        ...pending,
+        movementId: pending.movementId.trim(),
+        createdAt: new Date(pending.createdAt).toISOString(),
+        dueAt: new Date(pending.dueAt).toISOString(),
+        manager: pending.manager.trim(),
+        minutesAfterEnd: Math.trunc(pending.minutesAfterEnd),
+      };
     }
 
     const revision = state?.revision;
