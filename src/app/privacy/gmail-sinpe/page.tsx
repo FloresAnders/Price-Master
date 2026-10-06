@@ -37,7 +37,7 @@ export default function GmailSinpePrivacyPage() {
             Política de Privacidad de Gmail y SINPE
           </h1>
           <p className="mt-5 text-sm text-slate-300 sm:text-base">
-            Última actualización: 29 de septiembre de 2026
+            Última actualización: 6 de octubre de 2026
           </p>
         </header>
 
@@ -128,6 +128,20 @@ export default function GmailSinpePrivacyPage() {
               notificación SINPE admitida. Los datos se analizan mediante reglas
               determinísticas; no se utilizan para entrenar modelos de
               inteligencia artificial.
+            </p>
+          </section>
+
+          <section className={sectionClassName} aria-labelledby="ai-ncii">
+            <h2 id="ai-ncii" className={headingClassName}>
+              Uso responsable y exclusión de AI NCII
+            </h2>
+            <p className={paragraphClassName}>
+              TimeMaster no utiliza las APIs de Google ni la información
+              obtenida de Gmail para crear, procesar, almacenar, distribuir o
+              facilitar imágenes o videos íntimos no consensuados, incluidos
+              contenidos íntimos no consensuados generados por inteligencia
+              artificial (AI NCII). La integración no genera ni analiza
+              imágenes y no utiliza inteligencia artificial.
             </p>
           </section>
 

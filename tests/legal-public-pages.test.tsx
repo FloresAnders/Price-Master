@@ -7,6 +7,8 @@ vi.mock("@/hooks/useVersion", () => ({
 }));
 
 import sitemap from "@/app/sitemap";
+import AboutTimeMasterPage from "@/app/about/page";
+import GmailSinpePrivacyPage from "@/app/privacy/gmail-sinpe/page";
 import { isPublicRoute } from "@/components/auth/publicRoutes";
 import Footer from "@/components/layout/Footer";
 
@@ -43,5 +45,17 @@ describe("páginas públicas legales de TimeMaster", () => {
     expect(html).toContain('href="/privacy/gmail-sinpe"');
     expect(html).toContain('href="/privacy/encabezado-impresion"');
     expect(html).toContain('href="/terms"');
+  });
+
+  it("explica el propósito de Gmail y excluye explícitamente AI NCII", () => {
+    const aboutHtml = renderToStaticMarkup(<AboutTimeMasterPage />);
+    const privacyHtml = renderToStaticMarkup(<GmailSinpePrivacyPage />);
+
+    expect(aboutHtml).toContain("Propósito del acceso a las APIs de Google");
+    expect(aboutHtml).toContain("únicamente para detectar correos");
+    expect(aboutHtml).toContain("AI NCII");
+    expect(aboutHtml).toContain("imágenes o videos íntimos no consensuados");
+    expect(privacyHtml).toContain("AI NCII");
+    expect(privacyHtml).toContain("imágenes o videos íntimos no consensuados");
   });
 });

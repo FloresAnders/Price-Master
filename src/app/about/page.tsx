@@ -71,6 +71,34 @@ export default function AboutTimeMasterPage() {
             </p>
           </section>
 
+          <section className={cardClassName} aria-labelledby="google-api-purpose">
+            <h2 id="google-api-purpose" className={headingClassName}>
+              Propósito del acceso a las APIs de Google
+            </h2>
+            <p className={paragraphClassName}>
+              TimeMaster utiliza Gmail API únicamente para detectar correos de
+              confirmación de transferencias SINPE en cuentas vinculadas
+              voluntariamente. Los datos necesarios de esas transferencias se
+              convierten en notificaciones y registros visibles solo para los
+              usuarios autorizados de la empresa. TimeMaster no utiliza los
+              datos de Gmail para publicidad, perfilado ni otros propósitos.
+            </p>
+          </section>
+
+          <section className={cardClassName} aria-labelledby="ai-ncii">
+            <h2 id="ai-ncii" className={headingClassName}>
+              Uso responsable y exclusión de AI NCII
+            </h2>
+            <p className={paragraphClassName}>
+              TimeMaster no utiliza las APIs de Google ni la información
+              obtenida de Gmail para crear, procesar, almacenar, distribuir o
+              facilitar imágenes o videos íntimos no consensuados, incluidos
+              contenidos íntimos no consensuados generados por inteligencia
+              artificial (AI NCII). La integración no genera ni analiza
+              imágenes y no utiliza inteligencia artificial.
+            </p>
+          </section>
+
           <section className={cardClassName} aria-labelledby="control">
             <h2 id="control" className={headingClassName}>
               Control y transparencia
