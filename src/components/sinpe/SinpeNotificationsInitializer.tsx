@@ -30,6 +30,7 @@ import {
   showSinpeSystemNotification,
   type SinpeSystemNotificationApi,
 } from "./sinpeBrowserNotifications";
+import { canReceiveSinpeNotifications } from "./sinpeNotificationPreference";
 
 const STORAGE_KEY = "timemaster_seen_sinpe_events_v1";
 const REPLAY_WINDOW_MS = 2 * 60 * 1000;
@@ -185,12 +186,19 @@ export default function SinpeNotificationsInitializer() {
   );
   const seenStorageKey = `${STORAGE_KEY}:${userId || "anonymous"}`;
 
+  const canReceiveNotifications = canReceiveSinpeNotifications({
+    role: user?.role,
+    hasSinpePermission: permissions.reportessinpe === true,
+    preference: user?.sinpeNotificationsEnabled,
+    preferenceLoaded: user?.sinpeNotificationsPreferenceLoaded,
+  });
+
   useEffect(() => {
     seenRef.current = readSeenEvents(seenStorageKey);
   }, [seenStorageKey]);
 
   useEffect(() => {
-    if (loading || !userId || permissions.reportessinpe !== true) return;
+    if (loading || !userId || !canReceiveNotifications) return;
     const notificationApi = getSystemNotificationApi();
     if (!notificationApi || notificationApi.permission !== "default") return;
 
@@ -223,10 +231,10 @@ export default function SinpeNotificationsInitializer() {
     return () => {
       toast.dismiss(PERMISSION_TOAST_ID);
     };
-  }, [loading, permissions.reportessinpe, userId]);
+  }, [canReceiveNotifications, loading, userId]);
 
   useEffect(() => {
-    if (loading || !userId || permissions.reportessinpe !== true) return;
+    if (loading || !userId || !canReceiveNotifications) return;
     let cancelled = false;
     let unsubscribers: Array<() => void> = [];
     const realtimeApp =
@@ -330,7 +338,7 @@ export default function SinpeNotificationsInitializer() {
       for (const unsubscribe of unsubscribers) unsubscribe();
       void signOut(realtimeAuth).catch(() => undefined);
     };
-  }, [loading, permissions.reportessinpe, seenStorageKey, userId]);
+  }, [canReceiveNotifications, loading, seenStorageKey, userId]);
 
   return null;
 }

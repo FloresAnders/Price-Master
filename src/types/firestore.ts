@@ -244,6 +244,8 @@ export interface User {
   // Campo para marcar eliminación lógica; por defecto false
   eliminate?: boolean;
   permissions?: UserPermissions;
+  sinpeNotificationsEnabled?: boolean;
+  sinpeNotificationsPreferenceLoaded?: boolean;
   subscription?: UserSubscription;
   photoUrl?: string;
   createdAt?: Date;

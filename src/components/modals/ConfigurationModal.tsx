@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   X,
   Settings,
@@ -11,9 +12,13 @@ import {
   Calculator,
   GripVertical,
   Banknote,
+  BellRing,
+  BellOff,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
+import useToast from "../../hooks/useToast";
 import TokenInfo from "../session/TokenInfo";
+import { canConfigureSinpeNotifications } from "../sinpe/sinpeNotificationPreference";
 
 interface ConfigurationModalProps {
   isOpen: boolean;
@@ -46,7 +51,61 @@ export default function ConfigurationModal({
   onToggleHomeMenuSortMobile,
   onLogoutClick,
 }: ConfigurationModalProps) {
-  const { user } = useAuth();
+  const { user, updateCurrentUser } = useAuth();
+  const { showToast } = useToast();
+  const [savingSinpeNotifications, setSavingSinpeNotifications] =
+    useState(false);
+  const canConfigureSinpe = canConfigureSinpeNotifications(user?.role);
+  const sinpeNotificationsPreferenceLoaded =
+    !canConfigureSinpe || user?.sinpeNotificationsPreferenceLoaded === true;
+  const sinpeNotificationsEnabled =
+    sinpeNotificationsPreferenceLoaded &&
+    user?.sinpeNotificationsEnabled !== false;
+
+  const updateSinpeNotificationPreference = async (enabled: boolean) => {
+    if (
+      !canConfigureSinpe ||
+      !sinpeNotificationsPreferenceLoaded ||
+      savingSinpeNotifications
+    ) {
+      return;
+    }
+    setSavingSinpeNotifications(true);
+    try {
+      const response = await fetch("/api/users/sinpe-notifications", {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      if (!response.ok) {
+        throw new Error("sinpe_notification_preference_failed");
+      }
+      const payload = (await response.json()) as {
+        sinpeNotificationsEnabled?: unknown;
+      };
+      if (typeof payload.sinpeNotificationsEnabled !== "boolean") {
+        throw new Error("sinpe_notification_preference_invalid_response");
+      }
+      updateCurrentUser({
+        sinpeNotificationsEnabled: payload.sinpeNotificationsEnabled,
+        sinpeNotificationsPreferenceLoaded: true,
+      });
+      showToast(
+        enabled
+          ? "Notificaciones SINPE activadas"
+          : "Notificaciones SINPE desactivadas",
+        "success",
+      );
+    } catch {
+      showToast(
+        "No se pudo guardar la preferencia de notificaciones SINPE",
+        "error",
+      );
+    } finally {
+      setSavingSinpeNotifications(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -144,6 +203,76 @@ export default function ConfigurationModal({
                     : "Activa para mostrar el temporizador de sesión flotante"}
                 </div>
               </div>
+
+              {canConfigureSinpe && (
+                <div className="rounded-lg border border-white/10 bg-slate-900/50 p-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      {sinpeNotificationsEnabled ? (
+                        <BellRing className="h-5 w-5 text-emerald-400" />
+                      ) : (
+                        <BellOff className="h-5 w-5 text-slate-500" />
+                      )}
+                      <div>
+                        <div className="font-medium text-slate-200">
+                          Notificaciones SINPE
+                        </div>
+                        <div className="text-sm text-slate-400">
+                          {!sinpeNotificationsPreferenceLoaded
+                            ? "Cargando preferencia..."
+                            : sinpeNotificationsEnabled
+                              ? "Recibir avisos de nuevos SINPE"
+                              : "Avisos de SINPE desactivados"}
+                        </div>
+                      </div>
+                    </div>
+                    <label
+                      className={`flex items-center ${
+                        savingSinpeNotifications ||
+                        !sinpeNotificationsPreferenceLoaded
+                          ? "cursor-wait opacity-60"
+                          : "cursor-pointer"
+                      }`}
+                    >
+                      <div className="relative">
+                        <input
+                          type="checkbox"
+                          aria-label="Recibir notificaciones SINPE"
+                          checked={sinpeNotificationsEnabled}
+                          disabled={
+                            savingSinpeNotifications ||
+                            !sinpeNotificationsPreferenceLoaded
+                          }
+                          onChange={(event) =>
+                            void updateSinpeNotificationPreference(
+                              event.target.checked,
+                            )
+                          }
+                          className="sr-only"
+                        />
+                        <div
+                          className={`block h-6 w-12 rounded-full transition-colors duration-200 ease-in-out ${
+                            sinpeNotificationsEnabled
+                              ? "bg-emerald-600 shadow-lg"
+                              : "bg-slate-600"
+                          }`}
+                        />
+                        <div
+                          className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ease-in-out ${
+                            sinpeNotificationsEnabled
+                              ? "translate-x-6"
+                              : "translate-x-0"
+                          }`}
+                        />
+                      </div>
+                    </label>
+                  </div>
+                  <div className="mt-3 text-xs text-slate-400">
+                    Esta preferencia se guarda para tu usuario en todos tus
+                    dispositivos.
+                  </div>
+                </div>
+              )}
 
               {/* Toggle para Calculadora Siempre Visible */}
               <div className="rounded-lg border border-white/10 bg-slate-900/50 p-4">

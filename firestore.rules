@@ -753,6 +753,13 @@ service cloud.firestore {
       }
     }
 
+    // Each user can observe their own preference so active sessions stay in
+    // sync. Writes remain server-only through the authenticated route.
+    match /sinpeNotificationPreferences/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow write: if false;
+    }
+
     // Retired integration collections remain blocked in case historical data
     // still exists. No client or Route Handler consumes these collections.
     match /bcrIntegrationDevices/{document=**} {
@@ -808,6 +815,7 @@ service cloud.firestore {
         collection != 'gmailWebhookJobs' &&
         collection != 'sinpeRealtimeSessions' &&
         collection != 'sinpeEvents' &&
+        collection != 'sinpeNotificationPreferences' &&
         collection != 'bcrIntegrationDevices' &&
         collection != 'bcrReceipts' &&
         collection != 'passkeyUsers' &&

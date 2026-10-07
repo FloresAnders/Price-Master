@@ -21,6 +21,7 @@ import { UsersService } from "@/services/users";
 import { subscribeToVersionDoc } from "@/services/version-doc";
 import { clearFondoCacheForUser } from "@/services/fondo-cache";
 import { FondoMovementTypesService } from "@/services/fondo-movement-types";
+import { subscribeToSinpeNotificationPreference } from "@/services/sinpe-notification-preferences.client";
 import {
   clearFirebaseCustomTokenAuth,
   ensureFirebaseCustomTokenAuth,
@@ -58,6 +59,15 @@ function normalizedUser(user: User): User {
       user.permissions,
       user.role || "user",
     ),
+  };
+}
+
+function withPendingSinpeNotificationPreference(user: User): User {
+  if (user.role !== "admin" && user.role !== "superadmin") return user;
+  return {
+    ...user,
+    sinpeNotificationsEnabled: undefined,
+    sinpeNotificationsPreferenceLoaded: false,
   };
 }
 
@@ -114,6 +124,12 @@ function useAuthState() {
     setIsAuthenticated(Boolean(detail.user));
     setSessionExpiresAt(detail.expiresAt);
     if (!detail.user) setSessionWarning(false);
+  }, []);
+
+  const updateCurrentUser = useCallback((updates: Partial<User>) => {
+    setUser((current) =>
+      current ? normalizedUser({ ...current, ...updates }) : current,
+    );
   }, []);
 
   const invalidateSessionChecks = useCallback(() => {
@@ -180,7 +196,9 @@ function useAuthState() {
       }
 
       applyAuthState({
-        user: normalizedUser(payload.user),
+        user: withPendingSinpeNotificationPreference(
+          normalizedUser(payload.user),
+        ),
         expiresAt: Number(payload.session?.expiresAt || 0) || null,
       });
     } catch (error) {
@@ -321,11 +339,50 @@ function useAuthState() {
           }).catch(() => undefined);
           return;
         }
-        setUser(normalizedUser(updatedUser));
+        setUser((current) =>
+          normalizedUser({
+            ...updatedUser,
+            sinpeNotificationsEnabled:
+              current?.sinpeNotificationsEnabled,
+            sinpeNotificationsPreferenceLoaded:
+              current?.sinpeNotificationsPreferenceLoaded,
+          }),
+        );
       },
       (error) => console.warn("No se pudo actualizar el usuario autenticado", error),
     );
   }, [clearClientSession, firebaseAuthReady, isAuthenticated, user?.id]);
+
+  useEffect(() => {
+    if (
+      !isAuthenticated ||
+      !firebaseAuthReady ||
+      !user?.id ||
+      (user.role !== "admin" && user.role !== "superadmin")
+    ) {
+      return;
+    }
+    return subscribeToSinpeNotificationPreference(
+      user.id,
+      (enabled) => {
+        updateCurrentUser({
+          sinpeNotificationsEnabled: enabled,
+          sinpeNotificationsPreferenceLoaded: true,
+        });
+      },
+      (error) =>
+        console.warn(
+          "No se pudo sincronizar la preferencia de notificaciones SINPE",
+          error,
+        ),
+    );
+  }, [
+    firebaseAuthReady,
+    isAuthenticated,
+    updateCurrentUser,
+    user?.id,
+    user?.role,
+  ]);
 
   const logout = useCallback(async (_reason?: string) => {
     void _reason;
@@ -383,7 +440,9 @@ function useAuthState() {
       void _useTokens;
       invalidateSessionChecks();
       clearLegacyAuthState();
-      const safeUser = normalizedUser(userData);
+      const safeUser = withPendingSinpeNotificationPreference(
+        normalizedUser(userData),
+      );
       const role = safeUser.role || "user";
       const expiresAt =
         Date.now() + SESSION_DURATION_HOURS[role] * 60 * 60 * 1000;
@@ -432,6 +491,7 @@ function useAuthState() {
     useTokenAuth: false,
     login,
     logout,
+    updateCurrentUser,
     isAdmin,
     isSuperAdmin,
     canChangeOwnercompanie,
