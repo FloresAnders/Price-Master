@@ -18,7 +18,9 @@ export function buildPendingNightDailyClosing(args: {
   minutesAfterEnd: number;
   horarioApertura?: string | null;
   horarioCierre?: string | null;
+  singleClosing?: boolean;
 }): PendingNightDailyClosing | null {
+  if (args.singleClosing) return null;
   if (args.turno !== "N") return null;
 
   const createdAtMs = Date.parse(args.createdAt);

@@ -57,7 +57,7 @@ client_secret_*.apps.googleusercontent.com.json
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
+/tests/*
 # mobile setup - Android
 /android/*
 

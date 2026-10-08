@@ -1641,6 +1641,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
             minutesAfterEnd: cierreFondoVentasBaseMinutesAfterEnd,
             horarioApertura: activeEmpresaForCompany?.horarioApertura,
             horarioCierre: activeEmpresaForCompany?.horarioCierre,
+            singleClosing: shouldPrefixSingleClosingReason,
           })
         : null;
       const entry: FondoEntry = {
