@@ -6,6 +6,7 @@ import {
   resolveCashOpeningDayShiftHours,
 } from "@/app/fondogeneral/utils/fondo/cashOpeningEnforcement";
 import { sanitizeFondoEntries } from "@/app/fondogeneral/utils/helpers";
+import { getCashOpeningAvailabilityAfterDailyClosing } from "@/utils/controlHorarioManager";
 
 const baseConfig = {
   horarioApertura: "08:00",
@@ -280,5 +281,46 @@ describe("resolveCashOpeningEnforcementWindow", () => {
       openingTurno: "D",
       openingTimestampAdjusted: true,
     });
+  });
+});
+
+describe("getCashOpeningAvailabilityAfterDailyClosing", () => {
+  const sinaiDayClosing = {
+    horarioApertura: "08:00",
+    horarioCierre: "23:59",
+    latestDailyClosing: {
+      createdAt: "2026-10-07T21:47:03.519Z", // 15:47:03 CR
+      closingDate: "2026-10-07T21:46:31.444Z",
+      turno: "D" as const,
+    },
+    shiftChangeMin: 16 * 60,
+    cierreFondoVentasMinutesBeforeEnd: 15,
+    cierreFondoVentasMinutesAfterEnd: 45,
+  };
+
+  it.each([
+    "2026-10-07T21:50:18.466Z", // 15:50:18 CR
+    "2026-10-07T21:59:59.999Z", // 15:59:59 CR
+  ])("blocks reopening after a D close before the N shift starts at %s", (nowISO) => {
+    expect(
+      getCashOpeningAvailabilityAfterDailyClosing({
+        nowISO,
+        ...sinaiDayClosing,
+      }),
+    ).toEqual({
+      allowed: false,
+      closingTurno: "D",
+      waitUntilLabel: "16:00",
+      reason: "next_shift_not_started",
+    });
+  });
+
+  it("allows reopening when the N shift starts", () => {
+    expect(
+      getCashOpeningAvailabilityAfterDailyClosing({
+        nowISO: "2026-10-07T22:00:00.000Z", // 16:00:00 CR
+        ...sinaiDayClosing,
+      }),
+    ).toEqual({ allowed: true });
   });
 });
