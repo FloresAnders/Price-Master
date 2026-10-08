@@ -1,11 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Bell,
   BellOff,
   ChevronDown,
   MessageCircle,
+  Pin,
+  PinOff,
   Send,
   X,
 } from "lucide-react";
@@ -27,6 +36,13 @@ import { useFloatingAction } from "@/components/ui/FloatingActionsDock";
 import type { User } from "@/types/firestore";
 import { useSessionListenerPreferences } from "@/contexts/SessionListenerPreferencesContext";
 import { shouldSubscribeChatReadState } from "@/services/layoutPrefsDb";
+import {
+  formatOwnerChatDateLabel,
+  getOwnerChatMessageDate,
+  readOwnerChatPinnedPreference,
+  shouldShowOwnerChatDateDivider,
+  writeOwnerChatPinnedPreference,
+} from "./ownerChatPresentation";
 
 type OwnerOption = {
   id: string;
@@ -81,6 +97,7 @@ export default function OwnerChatWidget() {
     loaded: sessionListenerPreferencesLoaded,
   } = useSessionListenerPreferences();
   const [open, setOpen] = useState(false);
+  const [pinned, setPinned] = useState<boolean | null>(null);
   const [messageText, setMessageText] = useState("");
   const [messages, setMessages] = useState<OwnerChatMessage[]>([]);
   const [readState, setReadState] = useState<OwnerChatReadState>({
@@ -133,6 +150,7 @@ export default function OwnerChatWidget() {
   const unreadBadge =
     unreadCount > 0 ? (unreadCount > 99 ? "99+" : unreadCount) : undefined;
   const canShowFloatingAction = isAuthenticated && Boolean(user);
+  const isPinned = pinned === true;
   const openChatFloating = useCallback(() => {
     setOpen(true);
   }, []);
@@ -147,6 +165,21 @@ export default function OwnerChatWidget() {
     variant: "primary",
     visible: canShowFloatingAction,
   });
+
+  useEffect(() => {
+    let active = true;
+    deferStateUpdate(() => {
+      if (active) setPinned(readOwnerChatPinnedPreference());
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (pinned === null) return;
+    writeOwnerChatPinnedPreference(pinned);
+  }, [pinned]);
 
   const playIncomingSound = useCallback(() => {
     if (readState.muted || typeof window === "undefined") return;
@@ -383,14 +416,19 @@ export default function OwnerChatWidget() {
     <>
       {open && (
         <div className="fixed inset-0 z-[99990] pointer-events-none">
-          <button
-            type="button"
-            aria-label="Cerrar chat"
-            className="absolute inset-0 cursor-default bg-black/20 pointer-events-auto"
-            onClick={() => setOpen(false)}
-          />
+          {!isPinned && (
+            <button
+              type="button"
+              aria-label="Cerrar chat"
+              className="absolute inset-0 cursor-default bg-black/20 pointer-events-auto"
+              onClick={() => setOpen(false)}
+            />
+          )}
 
-          <aside className="absolute bottom-5 right-5 top-5 flex w-[min(390px,calc(100vw-24px))] flex-col overflow-hidden rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] shadow-2xl pointer-events-auto">
+          <aside
+            aria-label="Chat del equipo"
+            className="absolute bottom-5 right-5 top-5 flex w-[min(390px,calc(100vw-24px))] flex-col overflow-hidden rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] shadow-2xl pointer-events-auto"
+          >
             <div className="flex items-start gap-3 border-b border-[var(--input-border)] px-4 py-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-white">
                 <MessageCircle className="h-5 w-5" />
@@ -408,6 +446,23 @@ export default function OwnerChatWidget() {
                   {activeOwnerLabel}
                 </p>
               </div>
+              <button
+                type="button"
+                aria-label={isPinned ? "Desanclar chat" : "Anclar chat"}
+                title={isPinned ? "Desanclar chat" : "Anclar chat"}
+                onClick={() => setPinned((current) => !(current ?? false))}
+                className={`rounded-md p-2 hover:bg-black/10 hover:text-[var(--foreground)] ${
+                  isPinned
+                    ? "bg-[var(--primary)]/15 text-[var(--primary)]"
+                    : "text-[var(--muted-foreground)]"
+                }`}
+              >
+                {isPinned ? (
+                  <PinOff className="h-4 w-4" />
+                ) : (
+                  <Pin className="h-4 w-4" />
+                )}
+              </button>
               <button
                 type="button"
                 aria-label={readState.muted ? "Activar sonido" : "Silenciar"}
@@ -474,8 +529,16 @@ export default function OwnerChatWidget() {
                 </div>
               )}
 
-              {messages.map((message) => {
+              {messages.map((message, index) => {
                 const mine = message.senderId === user.id;
+                const messageDate = getOwnerChatMessageDate(message);
+                const showDateDivider = shouldShowOwnerChatDateDivider(
+                  messages,
+                  index,
+                );
+                const dateLabel = messageDate
+                  ? formatOwnerChatDateLabel(messageDate)
+                  : "";
                 const scheduleInfo = message.senderScheduleManager
                   ? {
                       company: message.senderScheduleCompany || "",
@@ -483,10 +546,23 @@ export default function OwnerChatWidget() {
                     }
                   : resolvedSchedulesByMessageId[message.id];
                 return (
-                  <div
-                    key={message.id}
-                    className={`flex ${mine ? "justify-end" : "justify-start"}`}
-                  >
+                  <Fragment key={message.id}>
+                    {showDateDivider && messageDate && (
+                      <div
+                        role="separator"
+                        aria-label={`Mensajes de ${dateLabel}`}
+                        className="flex items-center gap-3 py-1"
+                      >
+                        <span className="h-px flex-1 bg-[var(--input-border)]" />
+                        <span className="rounded-full border border-[var(--input-border)] bg-[var(--card-bg)] px-2.5 py-1 text-[10px] font-semibold text-[var(--muted-foreground)] shadow-sm">
+                          {dateLabel}
+                        </span>
+                        <span className="h-px flex-1 bg-[var(--input-border)]" />
+                      </div>
+                    )}
+                    <div
+                      className={`flex ${mine ? "justify-end" : "justify-start"}`}
+                    >
                     <div
                       className={`max-w-[82%] px-3.5 py-2.5 text-sm shadow-sm ${
                         mine
@@ -535,7 +611,8 @@ export default function OwnerChatWidget() {
                         </span>
                       </div>
                     </div>
-                  </div>
+                    </div>
+                  </Fragment>
                 );
               })}
               <div ref={bottomRef} />
