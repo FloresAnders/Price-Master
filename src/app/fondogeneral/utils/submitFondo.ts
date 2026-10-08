@@ -68,7 +68,10 @@ import { commitFcrPayments } from "./invoicePayment/fcrLedgerTransaction";
 import { reportFcrPaymentAfterMainSaveFailure } from "./invoicePayment/fcrPartialSaveRecovery";
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
 import { calculateTotalRoundingSummary } from "./fondo/totalRounding";
-import { buildPendingNightDailyClosing } from "./closing/pendingNightDailyClosing";
+import {
+  buildPendingNightDailyClosing,
+  shouldBypassPendingNightDailyClosing,
+} from "./closing/pendingNightDailyClosing";
 
 export interface SubmitFondoDeps {
   [key: string]: any;
@@ -370,6 +373,10 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     String(selectedProvider || "").trim().toUpperCase() ===
       CIERRE_FONDO_VENTAS_PROVIDER_NAME;
   const canBypassClosingWindows = isAdminUser || isSuperAdminUser;
+  const bypassPendingNightDailyClosing = shouldBypassPendingNightDailyClosing({
+    isAdminOrSuperAdmin: canBypassClosingWindows,
+    bloquearCierre: activeEmpresaForCompany?.bloquearCierre,
+  });
   const cierreFondoVentasBaseMinutesAfterEnd =
     activeEmpresaForCompany?.cierreFondoVentasMinutesAfterEnd ??
     CIERRE_FONDO_VENTAS_MINUTES_AFTER_END;
@@ -1974,7 +1981,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                   company: normalizedCompany,
                   accountId: acctKey,
                   nowISO,
-                  bypassPendingNightDailyClosing: canBypassClosingWindows,
+                  bypassPendingNightDailyClosing,
                   applications,
                 });
                 paymentsCommitted = true;

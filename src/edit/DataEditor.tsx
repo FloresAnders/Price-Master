@@ -874,6 +874,7 @@ export default function DataEditor() {
             unicoCierre: empresa.unicoCierre === true,
             verificacionSistemas: empresa.verificacionSistemas !== false,
             solicitarApertura: empresa.solicitarApertura !== false,
+            bloquearCierre: empresa.bloquearCierre !== false,
             editBy: empresaHasChanges ? currentUserEditBy : empresa.editBy,
             empleados: empresa.empleados || [],
           });

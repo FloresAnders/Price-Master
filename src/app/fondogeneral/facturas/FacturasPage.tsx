@@ -51,6 +51,7 @@ import { CIERRE_FONDO_VENTAS_MINUTES_AFTER_END } from "../constants";
 import { resolveFacturaPaymentType } from "./facturaPaymentType";
 import { resolveCreateInvoiceOpeningDecision } from "./createInvoiceShiftManager";
 import { validateFondoGeneralOpeningRequirement } from "../utils/fondo/openingRequirement";
+import { shouldBypassPendingNightDailyClosing } from "../utils/closing/pendingNightDailyClosing";
 import { resolveFcrPaymentAmounts } from "../utils/fondo/fcrPaymentAmounts";
 import {
   appendManualCreditNoteDraft,
@@ -1822,7 +1823,10 @@ export default function FacturasCreditoPage() {
       try {
         const committed = await commitFcrPayments({
           company: selectedCompany, accountId: targetAccountKey, nowISO,
-          bypassPendingNightDailyClosing: isAdminOrSuperAdmin,
+          bypassPendingNightDailyClosing: shouldBypassPendingNightDailyClosing({
+            isAdminOrSuperAdmin,
+            bloquearCierre: selectedEmpresaMeta?.bloquearCierre,
+          }),
           applications: [{
             invoice: paymentTarget,
             cashDebit: paymentAmountToApply,
@@ -1912,6 +1916,7 @@ export default function FacturasCreditoPage() {
       paymentTarget,
       pendingCierreDeCaja,
       selectedCompany,
+      selectedEmpresaMeta?.bloquearCierre,
       selectedEmpresaMeta?.solicitarApertura,
       selectedPaymentPaid,
       setPendingCreditNotes,

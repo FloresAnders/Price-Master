@@ -54,6 +54,10 @@ export class EmpresasService {
     return EmpresasService.normalizeBoolean(value, true);
   }
 
+  private static normalizeBloquearCierre(value: unknown): boolean {
+    return EmpresasService.normalizeBoolean(value, true);
+  }
+
   private static cloneEmpresas(list: Empresas[]): Empresas[] {
     return (list || []).map((e) => ({
       ...e,
@@ -235,6 +239,9 @@ export class EmpresasService {
         solicitarApertura: EmpresasService.normalizeSolicitarApertura(
           (e as any).solicitarApertura,
         ),
+        bloquearCierre: EmpresasService.normalizeBloquearCierre(
+          (e as any).bloquearCierre,
+        ),
         empleados: EmpresasService.normalizeEmpleados(e.empleados as unknown),
       }));
       if (generation === this.cacheGeneration) {
@@ -291,6 +298,9 @@ export class EmpresasService {
       ),
       solicitarApertura: EmpresasService.normalizeSolicitarApertura(
         (doc as any).solicitarApertura,
+      ),
+      bloquearCierre: EmpresasService.normalizeBloquearCierre(
+        (doc as any).bloquearCierre,
       ),
       empleados: EmpresasService.normalizeEmpleados(
         (doc as any).empleados as unknown,
@@ -369,6 +379,9 @@ export class EmpresasService {
         solicitarApertura: EmpresasService.normalizeSolicitarApertura(
           empresa.solicitarApertura,
         ),
+        bloquearCierre: EmpresasService.normalizeBloquearCierre(
+          empresa.bloquearCierre,
+        ),
         editBy: empresa.editBy || "",
         empleados: empleadosToSave,
       });
@@ -406,6 +419,9 @@ export class EmpresasService {
       ),
       solicitarApertura: EmpresasService.normalizeSolicitarApertura(
         empresa.solicitarApertura,
+      ),
+      bloquearCierre: EmpresasService.normalizeBloquearCierre(
+        empresa.bloquearCierre,
       ),
       editBy: empresa.editBy || "",
       empleados: empleadosToSave,
@@ -470,6 +486,11 @@ export class EmpresasService {
     if ("solicitarApertura" in patch) {
       patch.solicitarApertura = EmpresasService.normalizeSolicitarApertura(
         patch.solicitarApertura,
+      );
+    }
+    if ("bloquearCierre" in patch) {
+      patch.bloquearCierre = EmpresasService.normalizeBloquearCierre(
+        patch.bloquearCierre,
       );
     }
     return await FirestoreService.update(

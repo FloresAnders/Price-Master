@@ -35,6 +35,7 @@ export interface Empresas {
   unicoCierre?: boolean;
   verificacionSistemas?: boolean;
   solicitarApertura?: boolean;
+  bloquearCierre?: boolean;
   editBy?: string;
   empleados: EmpresaEmpleado[];
 }

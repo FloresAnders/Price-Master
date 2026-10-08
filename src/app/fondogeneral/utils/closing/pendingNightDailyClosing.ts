@@ -2,6 +2,13 @@ import type { PendingNightDailyClosing } from "@/services/movimientos-fondos";
 
 export type { PendingNightDailyClosing } from "@/services/movimientos-fondos";
 
+export function shouldBypassPendingNightDailyClosing(args: {
+  isAdminOrSuperAdmin: boolean;
+  bloquearCierre?: boolean | null;
+}): boolean {
+  return args.isAdminOrSuperAdmin || args.bloquearCierre === false;
+}
+
 export function buildPendingNightDailyClosing(args: {
   movementId: string;
   turno?: "D" | "N";

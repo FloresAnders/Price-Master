@@ -209,6 +209,7 @@ export default function EmpresasEditorSection({
                 unicoCierre: false,
                 verificacionSistemas: true,
                 solicitarApertura: true,
+                bloquearCierre: true,
                 empleados: [
                   {
                     Empleado: "",
@@ -307,6 +308,14 @@ export default function EmpresasEditorSection({
                         </p>
                         <p className="text-sm sm:text-base font-semibold text-[var(--foreground)] break-words">
                           {empresa.solicitarApertura !== false ? "Activa" : "Omitida"}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2.5 sm:px-4 sm:py-3">
+                        <p className="text-[10px] sm:text-xs font-medium text-[var(--muted-foreground)]">
+                          Bloquear cierre
+                        </p>
+                        <p className="text-sm sm:text-base font-semibold text-[var(--foreground)] break-words">
+                          {empresa.bloquearCierre !== false ? "Activo" : "Omitido"}
                         </p>
                       </div>
                       <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2.5 sm:px-4 sm:py-3">
@@ -586,6 +595,22 @@ export default function EmpresasEditorSection({
                           }}
                         />
                         Solicitar apertura
+                      </label>
+
+                      <label className="flex items-center gap-2 text-xs sm:text-sm">
+                        <input
+                          type="checkbox"
+                          checked={empresa.bloquearCierre !== false}
+                          onChange={(e) => {
+                            const copy = [...empresasData];
+                            copy[idx] = {
+                              ...copy[idx],
+                              bloquearCierre: e.target.checked,
+                            };
+                            setEmpresasData(copy);
+                          }}
+                        />
+                        Bloquear cierre
                       </label>
 
                       <label className="flex items-center gap-2 text-xs sm:text-sm">
@@ -1105,6 +1130,8 @@ export default function EmpresasEditorSection({
                                       e.verificacionSistemas !== false,
                                     solicitarApertura:
                                       e.solicitarApertura !== false,
+                                    bloquearCierre:
+                                      e.bloquearCierre !== false,
                                     editBy: currentUserEditBy,
                                     empleados: e.empleados || [],
                                   });

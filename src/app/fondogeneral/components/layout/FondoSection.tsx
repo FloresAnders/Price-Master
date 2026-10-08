@@ -100,7 +100,10 @@ import { useActorOwnership } from "../../../../hooks/useActorOwnership";
 import type { FondoEntry, FondoMovementType } from "../../types";
 import { persistMovementToFirestore as persistMovementToFirestoreFn } from "../../utils/fondo/persistence";
 import { handleConfirmDailyClosing as handleConfirmDailyClosingFn } from "../../utils/closing/dailyClosing";
-import { getPendingNightDailyClosingStatus } from "../../utils/closing/pendingNightDailyClosing";
+import {
+  getPendingNightDailyClosingStatus,
+  shouldBypassPendingNightDailyClosing,
+} from "../../utils/closing/pendingNightDailyClosing";
 import type { FcrPaymentRecovery } from "../../utils/invoicePayment/fcrPartialSaveRecovery";
 import {
   getSingleClosingReasonFromNotes,
@@ -505,6 +508,10 @@ export function FondoSection({
     CIERRE_FONDO_VENTAS_MINUTES_AFTER_END;
   const empresaSolicitaApertura =
     empresaForShiftResolution?.solicitarApertura !== false;
+  const bypassPendingNightDailyClosing = shouldBypassPendingNightDailyClosing({
+    isAdminOrSuperAdmin: canBypassClosingWindows,
+    bloquearCierre: empresaForShiftResolution?.bloquearCierre,
+  });
 
   const {
     getFGMonthlySchedulesCached,
@@ -1241,7 +1248,7 @@ export function FondoSection({
 
   const requiredNightDailyClosingActive = Boolean(
     accountKey === "FondoGeneral" &&
-      !canBypassClosingWindows &&
+      !bypassPendingNightDailyClosing &&
       pendingNightDailyClosing &&
       pendingNightClosingDeadlineReached,
   );
@@ -2127,7 +2134,7 @@ export function FondoSection({
         {
           company,
           accountKey,
-          bypassPendingNightDailyClosing: canBypassClosingWindows,
+          bypassPendingNightDailyClosing,
           storageSnapshotRef,
           v2MovementsCacheRef,
           registerLocalMutation,
@@ -2137,7 +2144,7 @@ export function FondoSection({
     [
       company,
       accountKey,
-      canBypassClosingWindows,
+      bypassPendingNightDailyClosing,
       registerLocalMutation,
       applyConfirmedLedger,
     ],
@@ -2169,7 +2176,7 @@ export function FondoSection({
     company,
     accountKey,
     isCajaNegra,
-    bypassPendingNightDailyClosing: canBypassClosingWindows,
+    bypassPendingNightDailyClosing,
     pendingCierreDeCaja,
     pendingClosingCreditInvoices,
     pendingCreditNotes,

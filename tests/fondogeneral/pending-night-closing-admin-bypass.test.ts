@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { shouldBypassPendingNightDailyClosing } from "@/app/fondogeneral/utils/closing/pendingNightDailyClosing";
 import { applyLedgerMovementMutation } from "@/app/fondogeneral/utils/fondo/ledgerState";
 import type { FondoEntry } from "@/app/fondogeneral/types";
 import { MovimientosFondosService } from "@/services/movimientos-fondos";
@@ -30,6 +31,38 @@ const newMovement = {
 };
 
 describe("bloqueo por cierre nocturno pendiente", () => {
+  it("conserva el bloqueo para usuario regular cuando el campo falta o está activo", () => {
+    expect(
+      shouldBypassPendingNightDailyClosing({
+        isAdminOrSuperAdmin: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldBypassPendingNightDailyClosing({
+        isAdminOrSuperAdmin: false,
+        bloquearCierre: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("omite el bloqueo para usuario regular cuando la empresa lo desactiva", () => {
+    expect(
+      shouldBypassPendingNightDailyClosing({
+        isAdminOrSuperAdmin: false,
+        bloquearCierre: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("mantiene la excepción administrativa aunque la empresa active el bloqueo", () => {
+    expect(
+      shouldBypassPendingNightDailyClosing({
+        isAdminOrSuperAdmin: true,
+        bloquearCierre: true,
+      }),
+    ).toBe(true);
+  });
+
   it("mantiene bloqueado al usuario regular", () => {
     expect(() =>
       applyLedgerMovementMutation({
