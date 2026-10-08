@@ -22,6 +22,7 @@ import {
 } from "../components/ui/FloatingActionsDock";
 import { MaintenanceProvider } from "../contexts/MaintenanceContext";
 import { MaintenanceGate } from "../components/maintenance";
+import { SessionListenerPreferencesProvider } from "../contexts/SessionListenerPreferencesContext";
 
 export const metadata = {
   title: "Time Master",
@@ -134,9 +135,10 @@ export default function RootLayout({
       >
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <AuthWrapper>
-            <MaintenanceProvider>
-              <MaintenanceGate>
-                <PermissionsManager>
+            <SessionListenerPreferencesProvider>
+              <MaintenanceProvider>
+                <MaintenanceGate>
+                  <PermissionsManager>
                   <XmlEgresosProvider>
                     <FloatingActionsProvider>
                       <VersionCheckInitializer />
@@ -162,9 +164,10 @@ export default function RootLayout({
                     closeButton
                     duration={3000}
                   />
-                </PermissionsManager>
-              </MaintenanceGate>
-            </MaintenanceProvider>
+                  </PermissionsManager>
+                </MaintenanceGate>
+              </MaintenanceProvider>
+            </SessionListenerPreferencesProvider>
           </AuthWrapper>
         </ThemeProvider>
       </body>

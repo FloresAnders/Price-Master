@@ -102,3 +102,87 @@ export async function setLayoutPref<T = unknown>(
 
   await txDone(tx);
 }
+
+export type SessionListenerPreferenceKey =
+  | "pendingCompanyRequests"
+  | "chatReadMuteState";
+
+export type SessionListenerPreferences = Record<
+  SessionListenerPreferenceKey,
+  boolean
+>;
+
+export const DEFAULT_SESSION_LISTENER_PREFERENCES: SessionListenerPreferences = {
+  pendingCompanyRequests: false,
+  chatReadMuteState: false,
+};
+
+const sessionListenerPreferenceKey = (
+  userId: string,
+  preference: SessionListenerPreferenceKey,
+): string => `session-listener:${userId.trim()}:${preference}`;
+
+export async function getSessionListenerPreferences(
+  userId: string,
+): Promise<SessionListenerPreferences> {
+  const normalizedUserId = userId.trim();
+  if (!normalizedUserId) return { ...DEFAULT_SESSION_LISTENER_PREFERENCES };
+
+  const [pendingCompanyRequests, chatReadMuteState] = await Promise.all([
+    getLayoutPref<boolean>(
+      sessionListenerPreferenceKey(
+        normalizedUserId,
+        "pendingCompanyRequests",
+      ),
+    ),
+    getLayoutPref<boolean>(
+      sessionListenerPreferenceKey(normalizedUserId, "chatReadMuteState"),
+    ),
+  ]);
+
+  return {
+    pendingCompanyRequests: pendingCompanyRequests === true,
+    chatReadMuteState: chatReadMuteState === true,
+  };
+}
+
+export async function setSessionListenerPreference(
+  userId: string,
+  preference: SessionListenerPreferenceKey,
+  enabled: boolean,
+): Promise<void> {
+  const normalizedUserId = userId.trim();
+  if (!normalizedUserId) return;
+  await setLayoutPref(
+    sessionListenerPreferenceKey(normalizedUserId, preference),
+    enabled === true,
+  );
+}
+
+export function shouldSubscribePendingCompanyRequests(input: {
+  loaded: boolean;
+  enabled: boolean;
+  company: string;
+  tabVisible: boolean;
+}): boolean {
+  return (
+    input.loaded &&
+    input.enabled &&
+    input.tabVisible &&
+    input.company.trim().length > 0
+  );
+}
+
+export function shouldSubscribeChatReadState(input: {
+  loaded: boolean;
+  enabled: boolean;
+  ownerId: string;
+  userId: string;
+}): boolean {
+  return (
+    input.loaded &&
+    input.enabled &&
+    input.ownerId.trim().length > 0 &&
+    input.userId.trim().length > 0
+  );
+}

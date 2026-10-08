@@ -662,6 +662,29 @@ export default function DataEditor() {
     }
   }, [currentUser?.role, selectedAdminId, superadminAdminUsers]);
 
+  useEffect(() => {
+    if (currentUser?.role === "user" || !fondoTypesOwnerId) return;
+    let cancelled = false;
+    let releaseTypesListener: (() => void) | null = null;
+
+    void FondoMovementTypesService.acquireListener(fondoTypesOwnerId)
+      .then((release) => {
+        if (cancelled) {
+          release();
+          return;
+        }
+        releaseTypesListener = release;
+      })
+      .catch((error) => {
+        console.error("Error starting editor movement types listener:", error);
+      });
+
+    return () => {
+      cancelled = true;
+      releaseTypesListener?.();
+    };
+  }, [currentUser?.role, fondoTypesOwnerId]);
+
   // Listener para actualizaciones en tiempo real de tipos de fondo
   useEffect(() => {
     const handleFondoTypesUpdate = async (event: Event) => {

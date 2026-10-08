@@ -25,6 +25,8 @@ import {
 import { UsersService } from "@/services/users";
 import { useFloatingAction } from "@/components/ui/FloatingActionsDock";
 import type { User } from "@/types/firestore";
+import { useSessionListenerPreferences } from "@/contexts/SessionListenerPreferencesContext";
+import { shouldSubscribeChatReadState } from "@/services/layoutPrefsDb";
 
 type OwnerOption = {
   id: string;
@@ -74,6 +76,10 @@ function buildOwnerLabel(
 
 export default function OwnerChatWidget() {
   const { user, isAuthenticated } = useAuth();
+  const {
+    preferences: sessionListenerPreferences,
+    loaded: sessionListenerPreferencesLoaded,
+  } = useSessionListenerPreferences();
   const [open, setOpen] = useState(false);
   const [messageText, setMessageText] = useState("");
   const [messages, setMessages] = useState<OwnerChatMessage[]>([]);
@@ -95,6 +101,12 @@ export default function OwnerChatWidget() {
   const isSuperAdmin = user?.role === "superadmin";
   const activeOwnerId = isSuperAdmin ? selectedOwnerId : userOwnerId;
   const currentUserId = user?.id || "";
+  const chatReadStateListenerEnabled = shouldSubscribeChatReadState({
+    loaded: sessionListenerPreferencesLoaded,
+    enabled: sessionListenerPreferences.chatReadMuteState,
+    ownerId: activeOwnerId,
+    userId: currentUserId,
+  });
   const activeOwnerLabel = buildOwnerLabel(
     user,
     ownerOptions.find((option) => option.id === selectedOwnerId)?.label || "",
@@ -106,13 +118,18 @@ export default function OwnerChatWidget() {
   }, [messages]);
 
   const unreadCount = useMemo(() => {
-    if (!currentUserId) return 0;
+    if (!currentUserId || !chatReadStateListenerEnabled) return 0;
     return messages.filter(
       (message) =>
         message.senderId !== currentUserId &&
         compareTimestamp(message.createdAt, readState.lastReadAt) > 0,
     ).length;
-  }, [currentUserId, messages, readState.lastReadAt]);
+  }, [
+    chatReadStateListenerEnabled,
+    currentUserId,
+    messages,
+    readState.lastReadAt,
+  ]);
   const unreadBadge =
     unreadCount > 0 ? (unreadCount > 99 ? "99+" : unreadCount) : undefined;
   const canShowFloatingAction = isAuthenticated && Boolean(user);
@@ -295,7 +312,7 @@ export default function OwnerChatWidget() {
   }, [messages, resolvedSchedulesByMessageId]);
 
   useEffect(() => {
-    if (!activeOwnerId || !user?.id) {
+    if (!chatReadStateListenerEnabled) {
       let active = true;
       deferStateUpdate(() => {
         if (active) setReadState({ lastReadAt: null, muted: false });
@@ -307,7 +324,7 @@ export default function OwnerChatWidget() {
 
     const unsubscribe = subscribeOwnerChatReadState(
       activeOwnerId,
-      user.id,
+      currentUserId,
       setReadState,
       (listenError) => {
         console.warn("Error listening chat read state:", listenError);
@@ -315,7 +332,7 @@ export default function OwnerChatWidget() {
     );
 
     return () => unsubscribe();
-  }, [activeOwnerId, user?.id]);
+  }, [activeOwnerId, chatReadStateListenerEnabled, currentUserId]);
 
   useEffect(() => {
     if (!open) return;

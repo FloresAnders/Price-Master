@@ -14,11 +14,16 @@ import {
   Banknote,
   BellRing,
   BellOff,
+  ChevronDown,
+  ClipboardList,
+  MessageCircle,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import useToast from "../../hooks/useToast";
 import TokenInfo from "../session/TokenInfo";
 import { canConfigureSinpeNotifications } from "../sinpe/sinpeNotificationPreference";
+import { useSessionListenerPreferences } from "@/contexts/SessionListenerPreferencesContext";
+import type { SessionListenerPreferenceKey } from "@/services/layoutPrefsDb";
 
 interface ConfigurationModalProps {
   isOpen: boolean;
@@ -52,7 +57,15 @@ export default function ConfigurationModal({
   onLogoutClick,
 }: ConfigurationModalProps) {
   const { user, updateCurrentUser } = useAuth();
+  const {
+    preferences: sessionListenerPreferences,
+    loaded: sessionListenerPreferencesLoaded,
+    setPreference: setSessionListenerPreference,
+  } = useSessionListenerPreferences();
   const { showToast } = useToast();
+  const [sessionPermissionsOpen, setSessionPermissionsOpen] = useState(false);
+  const [savingSessionPreference, setSavingSessionPreference] =
+    useState<SessionListenerPreferenceKey | null>(null);
   const [savingSinpeNotifications, setSavingSinpeNotifications] =
     useState(false);
   const canConfigureSinpe = canConfigureSinpeNotifications(user?.role);
@@ -107,6 +120,25 @@ export default function ConfigurationModal({
     }
   };
 
+  const updateSessionListenerPreference = async (
+    preference: SessionListenerPreferenceKey,
+    enabled: boolean,
+  ) => {
+    if (!sessionListenerPreferencesLoaded || savingSessionPreference) return;
+    setSavingSessionPreference(preference);
+    try {
+      await setSessionListenerPreference(preference, enabled);
+      showToast(
+        enabled ? "Listener de sesión activado" : "Listener de sesión desactivado",
+        "success",
+      );
+    } catch {
+      showToast("No se pudo guardar el permiso de sesión", "error");
+    } finally {
+      setSavingSessionPreference(null);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -155,6 +187,124 @@ export default function ConfigurationModal({
             </h3>
             <div className="space-y-4">
               <TokenInfo isOpen={true} onClose={() => {}} inline={true} />
+
+              <div className="overflow-hidden rounded-lg border border-white/10 bg-slate-900/50">
+                <button
+                  type="button"
+                  aria-expanded={sessionPermissionsOpen}
+                  aria-controls="session-listener-permissions"
+                  onClick={() => setSessionPermissionsOpen((current) => !current)}
+                  className="flex w-full items-center justify-between gap-4 p-4 text-left"
+                >
+                  <div>
+                    <div className="font-medium text-slate-200">
+                      Permisos de sesión
+                    </div>
+                    <div className="mt-1 text-sm text-slate-400">
+                      Controla conexiones en tiempo real de esta sesión.
+                    </div>
+                  </div>
+                  <ChevronDown
+                    className={`h-5 w-5 shrink-0 text-slate-400 transition-transform ${
+                      sessionPermissionsOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {sessionPermissionsOpen && (
+                  <div
+                    id="session-listener-permissions"
+                    className="space-y-3 border-t border-white/10 p-4"
+                  >
+                    {([
+                      {
+                        key: "pendingCompanyRequests" as const,
+                        title: "Solicitudes pendientes de la empresa",
+                        description:
+                          "Escucha solicitudes nuevas y muestra indicador y sonido en tiempo real.",
+                        Icon: ClipboardList,
+                      },
+                      {
+                        key: "chatReadMuteState" as const,
+                        title: "Estado de lectura/silencio del chat",
+                        description:
+                          "Sincroniza mensajes leídos, contador pendiente y silencio del chat.",
+                        Icon: MessageCircle,
+                      },
+                    ] satisfies Array<{
+                      key: SessionListenerPreferenceKey;
+                      title: string;
+                      description: string;
+                      Icon: typeof ClipboardList;
+                    }>).map(({ key, title, description, Icon }) => {
+                      const enabled = sessionListenerPreferences[key];
+                      const saving = savingSessionPreference === key;
+                      return (
+                        <div
+                          key={key}
+                          className="rounded-lg border border-white/10 bg-slate-950/50 p-4"
+                        >
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex min-w-0 items-center gap-3">
+                              <Icon
+                                className={`h-5 w-5 shrink-0 ${
+                                  enabled ? "text-cyan-400" : "text-slate-500"
+                                }`}
+                              />
+                              <div className="font-medium text-slate-200">
+                                {title}
+                              </div>
+                            </div>
+                            <label
+                              className={`flex shrink-0 items-center ${
+                                saving || !sessionListenerPreferencesLoaded
+                                  ? "cursor-wait opacity-60"
+                                  : "cursor-pointer"
+                              }`}
+                            >
+                              <div className="relative">
+                                <input
+                                  type="checkbox"
+                                  aria-label={title}
+                                  checked={enabled}
+                                  disabled={
+                                    saving || !sessionListenerPreferencesLoaded
+                                  }
+                                  onChange={(event) =>
+                                    void updateSessionListenerPreference(
+                                      key,
+                                      event.target.checked,
+                                    )
+                                  }
+                                  className="sr-only"
+                                />
+                                <div
+                                  className={`block h-6 w-12 rounded-full transition-colors ${
+                                    enabled ? "bg-cyan-600" : "bg-slate-600"
+                                  }`}
+                                />
+                                <div
+                                  className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+                                    enabled ? "translate-x-6" : "translate-x-0"
+                                  }`}
+                                />
+                              </div>
+                            </label>
+                          </div>
+                          <p className="mt-3 text-xs text-slate-400">
+                            {!sessionListenerPreferencesLoaded
+                              ? "Cargando preferencia..."
+                              : description}
+                          </p>
+                        </div>
+                      );
+                    })}
+                    <p className="text-xs text-slate-500">
+                      Desactivados por defecto. Preferencias guardadas en este navegador.
+                    </p>
+                  </div>
+                )}
+              </div>
 
               {/* Toggle para FloatingSessionTimer */}
               <div className="rounded-lg border border-white/10 bg-slate-900/50 p-4">

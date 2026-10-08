@@ -951,6 +951,7 @@ export function ProviderSection({ id }: { id?: string }) {
   // Cargar tipos de movimientos de fondo desde la base de datos (con caché y sincronización en tiempo real)
   useEffect(() => {
     let isMounted = true;
+    let releaseTypesListener: (() => void) | null = null;
     setFondoTypesLoaded(false);
     setIngresoTypes([]);
     setGastoTypes([]);
@@ -1010,6 +1011,17 @@ export function ProviderSection({ id }: { id?: string }) {
 
     // Cargar tipos iniciales (desde caché o DB)
     loadTypes();
+    void FondoMovementTypesService.acquireListener(activeOwnerId)
+      .then((release) => {
+        if (!isMounted) {
+          release();
+          return;
+        }
+        releaseTypesListener = release;
+      })
+      .catch((error) => {
+        console.error("Error starting fondo movement types listener:", error);
+      });
 
     // Escuchar actualizaciones en tiempo real
     window.addEventListener(
@@ -1019,6 +1031,7 @@ export function ProviderSection({ id }: { id?: string }) {
 
     return () => {
       isMounted = false;
+      releaseTypesListener?.();
       window.removeEventListener(
         "fondoMovementTypesUpdated",
         handleFondoTypesUpdate,

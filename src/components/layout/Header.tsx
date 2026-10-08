@@ -81,6 +81,8 @@ import PatrioticSeptemberBadge from "./PatrioticSeptemberBadge";
 import { isCostaRicaIndependenceSeason } from "@/lib/seasonalTheme";
 import type { MovementAccountKey } from "@/services/movimientos-fondos";
 import { OPEN_CASH_COUNTER_EVENT } from "@/components/business/cash-counter-tabs/accountCounters";
+import { useSessionListenerPreferences } from "@/contexts/SessionListenerPreferencesContext";
+import { shouldSubscribePendingCompanyRequests } from "@/services/layoutPrefsDb";
 
 const ADMIN_SIDEBAR_EXPANDED_WIDTH_PREF_KEY = "adminSidebarWidth";
 const ADMIN_SIDEBAR_COLLAPSED_WIDTH_PREF_KEY = "adminSidebarCollapsedWidth";
@@ -139,6 +141,10 @@ interface HeaderProps {
 
 export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const { logout, user } = useAuth();
+  const {
+    preferences: sessionListenerPreferences,
+    loaded: sessionListenerPreferencesLoaded,
+  } = useSessionListenerPreferences();
   const userRole = user?.role;
   const userCompany = String(
     (user as any)?.ownercompanie || (user as any)?.ownerCompanie || "",
@@ -227,6 +233,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   const invoiceDeletionRequestsVisibilityKeyRef = useRef<string | null>(null);
   const invoiceDeletionResponsesVisibilityKeyRef = useRef<string | null>(null);
   const [isTabVisible, setIsTabVisible] = useState(true);
+  const showPendingCompanyRequestsNotification =
+    sessionListenerPreferencesLoaded &&
+    sessionListenerPreferences.pendingCompanyRequests &&
+    hasNewSolicitudes;
 
   useEffect(() => {
     const updateVisibility = () => {
@@ -476,7 +486,14 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       initializedSolicitudesRef.current = false;
     }
 
-    if (!company || !isTabVisible) {
+    if (
+      !shouldSubscribePendingCompanyRequests({
+        loaded: sessionListenerPreferencesLoaded,
+        enabled: sessionListenerPreferences.pendingCompanyRequests,
+        company,
+        tabVisible: isTabVisible,
+      })
+    ) {
       return;
     }
 
@@ -545,7 +562,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       console.error("Error setting up solicitudes listener:", err);
       return;
     }
-  }, [isClient, userCompany, isTabVisible]);
+  }, [
+    isClient,
+    userCompany,
+    isTabVisible,
+    sessionListenerPreferences.pendingCompanyRequests,
+    sessionListenerPreferencesLoaded,
+  ]);
 
   useEffect(() => {
     if (userRole !== "admin" && userRole !== "superadmin") return;
@@ -1646,7 +1669,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               title="Notificaciones"
             >
               <Bell className="w-5 h-5 text-[var(--foreground)]" />
-              {(hasNewSolicitudes || hasNewClosingExtensions) && (
+              {(showPendingCompanyRequestsNotification ||
+                hasNewClosingExtensions) && (
                 <span className="absolute top-0 right-0 inline-flex w-2 h-2 bg-red-500 rounded-full transform translate-x-1 -translate-y-1" />
               )}
             </button>

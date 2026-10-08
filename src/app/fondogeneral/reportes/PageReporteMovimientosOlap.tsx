@@ -255,6 +255,7 @@ export default function ReporteMovimientosPage() {
 
   useEffect(() => {
     let cancelled = false;
+    let releaseTypesListener: (() => void) | null = null;
 
     const loadMovementTypeCategories = async () => {
       try {
@@ -288,9 +289,23 @@ export default function ReporteMovimientosPage() {
     };
 
     void loadMovementTypeCategories();
+    if (reportOwnerId) {
+      void FondoMovementTypesService.acquireListener(reportOwnerId)
+        .then((release) => {
+          if (cancelled) {
+            release();
+            return;
+          }
+          releaseTypesListener = release;
+        })
+        .catch((error) => {
+          console.error("Error starting report movement types listener:", error);
+        });
+    }
 
     return () => {
       cancelled = true;
+      releaseTypesListener?.();
     };
   }, [reportOwnerId]);
 

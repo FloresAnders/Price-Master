@@ -37,10 +37,13 @@ const normalizeCachedTypes = (
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 };
 
-// Listener global para detectar cambios en tiempo real
-let globalListener: Unsubscribe | null = null;
-let globalListenerKey: string | null = null;
-let listenerGeneration = 0;
+type ActiveTypesListener = {
+  unsubscribe: Unsubscribe;
+  references: number;
+};
+
+const activeTypesListeners = new Map<string, ActiveTypesListener>();
+let listenerEpoch = 0;
 
 const normalizePathSegment = (value: string): string =>
   value
@@ -450,30 +453,28 @@ export class FondoMovementTypesService {
     }
   }
 
-  /**
-   * Inicializa el listener global de Firestore para sincronización en tiempo real
-   */
-  static async initializeListener(ownerId?: string | null): Promise<void> {
-    const requestGeneration = ++listenerGeneration;
+  static async acquireListener(
+    ownerId?: string | null,
+  ): Promise<() => void> {
+    const acquisitionEpoch = listenerEpoch;
     const context = await this.resolveStorageContext(ownerId);
-
-    if (requestGeneration !== listenerGeneration) return;
-
+    if (acquisitionEpoch !== listenerEpoch) {
+      return () => {};
+    }
     if (!context.scopeId) {
-      this.stopListener();
-      console.log("[FondoMovementTypes] No scopeId, skipping listener");
-      return;
+      return () => {};
     }
 
-    const listenerKey = this.getCacheKey(context.scopeId);
-
-    if (globalListener && globalListenerKey === listenerKey) {
-      console.log("[FondoMovementTypes] Listener already active");
-      return;
-    }
-
-    if (globalListener) {
-      this.stopListener();
+    const listenerKey = context.scopeId;
+    const existing = activeTypesListeners.get(listenerKey);
+    if (existing) {
+      existing.references += 1;
+      let released = false;
+      return () => {
+        if (released) return;
+        released = true;
+        this.releaseListener(listenerKey, existing);
+      };
     }
 
     console.log("[FondoMovementTypes] Initializing Firestore listener...");
@@ -481,7 +482,7 @@ export class FondoMovementTypesService {
     const collectionRef = this.getCollectionRef(context.scopeId);
     const q = query(collectionRef, orderBy("order", "asc"));
 
-    globalListener = onSnapshot(
+    const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
         console.log(
@@ -519,19 +520,43 @@ export class FondoMovementTypesService {
       },
     );
 
-    globalListenerKey = listenerKey;
+    const activeListener: ActiveTypesListener = {
+      unsubscribe,
+      references: 1,
+    };
+    activeTypesListeners.set(listenerKey, activeListener);
+
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.releaseListener(listenerKey, activeListener);
+    };
+  }
+
+  private static releaseListener(
+    listenerKey: string,
+    expectedListener: ActiveTypesListener,
+  ): void {
+    const active = activeTypesListeners.get(listenerKey);
+    if (!active || active !== expectedListener) return;
+    active.references -= 1;
+    if (active.references > 0) return;
+    active.unsubscribe();
+    activeTypesListeners.delete(listenerKey);
   }
 
   /**
    * Detiene el listener global
    */
   static stopListener(): void {
-    listenerGeneration += 1;
-    if (globalListener) {
-      console.log("[FondoMovementTypes] Stopping listener...");
-      globalListener();
-      globalListener = null;
-      globalListenerKey = null;
+    listenerEpoch += 1;
+    if (activeTypesListeners.size > 0) {
+      console.log("[FondoMovementTypes] Stopping listeners...");
+      for (const active of activeTypesListeners.values()) {
+        active.unsubscribe();
+      }
+      activeTypesListeners.clear();
     }
   }
 
@@ -562,7 +587,6 @@ export class FondoMovementTypesService {
     const cached = this.readCache(context.scopeId);
     if (cached && Array.isArray(cached.types)) {
       console.log("[FondoMovementTypes] Loaded from cache");
-      await this.initializeListener(ownerId);
       return cached.types;
     }
 
@@ -574,8 +598,6 @@ export class FondoMovementTypesService {
       scopeId: context.scopeId,
       types,
     });
-
-    await this.initializeListener(ownerId);
 
     return types;
   }
