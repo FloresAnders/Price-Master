@@ -696,7 +696,7 @@ service cloud.firestore {
 
       match /messages/{messageId} {
         allow read: if canReadOwnerChat(ownerId);
-        allow create: if isOwnerChatMember(ownerId) &&
+        allow create: if (isSuperAdmin() || isOwnerChatMember(ownerId)) &&
           hasOwnerChatMessageShape(ownerId);
         allow update, delete: if false;
       }

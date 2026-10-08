@@ -58,6 +58,10 @@ client_secret_*.apps.googleusercontent.com.json
 *.tsbuildinfo
 next-env.d.ts
 /tests/*
+!/tests/owner-chat-superadmin.test.tsx
+!/tests/firestore/
+/tests/firestore/*
+!/tests/firestore/owner-chat-superadmin.rules.test.ts
 !/tests/fondogeneral/
 /tests/fondogeneral/*
 !/tests/fondogeneral/cash-opening-enforcement.test.ts

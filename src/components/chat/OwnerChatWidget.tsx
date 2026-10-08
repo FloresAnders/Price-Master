@@ -545,6 +545,12 @@ export default function OwnerChatWidget() {
                       manager: message.senderScheduleManager,
                     }
                   : resolvedSchedulesByMessageId[message.id];
+                const senderLabel =
+                  message.senderRole === "superadmin"
+                    ? `${message.senderName} · Superadmin`
+                    : mine
+                      ? "Tú"
+                      : message.senderName;
                 return (
                   <Fragment key={message.id}>
                     {showDateDivider && messageDate && (
@@ -579,7 +585,7 @@ export default function OwnerChatWidget() {
                         }`}
                       >
                         <span className="min-w-0 truncate">
-                          {mine ? "Tú" : message.senderName}
+                          {senderLabel}
                         </span>
 
                         {message.senderRole === "user" &&
@@ -624,43 +630,37 @@ export default function OwnerChatWidget() {
               </div>
             )}
 
-            {isSuperAdmin ? (
-              <div className="border-t border-[var(--input-border)] px-4 py-3 text-xs text-[var(--muted-foreground)]">
-                Vista solo lectura para superadmin.
-              </div>
-            ) : (
-              <form
-                className="flex gap-2 border-t border-[var(--input-border)] p-3"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void sendMessage();
+            <form
+              className="flex gap-2 border-t border-[var(--input-border)] p-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void sendMessage();
+              }}
+            >
+              <textarea
+                value={messageText}
+                onChange={(event) => setMessageText(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    void sendMessage();
+                  }
                 }}
+                rows={1}
+                maxLength={2000}
+                placeholder="Escribe un mensaje"
+                disabled={!activeOwnerId}
+                className="max-h-28 min-h-10 flex-1 resize-none rounded-md border border-[var(--input-border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)] focus:ring-2 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
+              />
+              <button
+                type="submit"
+                aria-label="Enviar"
+                disabled={!activeOwnerId || !messageText.trim()}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--primary)] text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <textarea
-                  value={messageText}
-                  onChange={(event) => setMessageText(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey) {
-                      event.preventDefault();
-                      void sendMessage();
-                    }
-                  }}
-                  rows={1}
-                  maxLength={2000}
-                  placeholder="Escribe un mensaje"
-                  disabled={!activeOwnerId}
-                  className="max-h-28 min-h-10 flex-1 resize-none rounded-md border border-[var(--input-border)] bg-[var(--background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)] focus:ring-2 focus:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
-                />
-                <button
-                  type="submit"
-                  aria-label="Enviar"
-                  disabled={!activeOwnerId || !messageText.trim()}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--primary)] text-white disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Send className="h-4 w-4" />
-                </button>
-              </form>
-            )}
+                <Send className="h-4 w-4" />
+              </button>
+            </form>
           </aside>
         </div>
       )}
