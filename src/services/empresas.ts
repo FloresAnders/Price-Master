@@ -308,6 +308,55 @@ export class EmpresasService {
     } as Empresas;
   }
 
+  static async getEmpresaByIdFromServer(id: string): Promise<Empresas | null> {
+    const empresaId = String(id || "").trim();
+    if (!empresaId) return null;
+    const doc = await FirestoreService.getByIdFromServer(
+      this.COLLECTION_NAME,
+      empresaId,
+    );
+    if (!doc) return null;
+    return {
+      ...(doc as Empresas),
+      cierreFondoVentasMinutesBeforeEnd:
+        EmpresasService.normalizeClosingWindowMinutes(
+          (doc as any).cierreFondoVentasMinutesBeforeEnd,
+        ),
+      cierreFondoVentasMinutesAfterEnd:
+        EmpresasService.normalizeClosingWindowMinutes(
+          (doc as any).cierreFondoVentasMinutesAfterEnd,
+        ),
+      configurarHorasTurno: EmpresasService.normalizeBoolean(
+        (doc as any).configurarHorasTurno,
+        false,
+      ),
+      horasTurnoD: EmpresasService.normalizeShiftHours(
+        (doc as any).horasTurnoD,
+      ),
+      horasTurnoN: EmpresasService.normalizeShiftHours(
+        (doc as any).horasTurnoN,
+      ),
+      mostrarInfoPago: EmpresasService.normalizeBoolean(
+        (doc as any).mostrarInfoPago,
+      ),
+      unicoCierre: EmpresasService.normalizeUnicoCierre(
+        (doc as any).unicoCierre,
+      ),
+      verificacionSistemas: EmpresasService.normalizeVerificacionSistemas(
+        (doc as any).verificacionSistemas,
+      ),
+      solicitarApertura: EmpresasService.normalizeSolicitarApertura(
+        (doc as any).solicitarApertura,
+      ),
+      bloquearCierre: EmpresasService.normalizeBloquearCierre(
+        (doc as any).bloquearCierre,
+      ),
+      empleados: EmpresasService.normalizeEmpleados(
+        (doc as any).empleados as unknown,
+      ),
+    } as Empresas;
+  }
+
   /**
    * Add a new empresa. If empresa.id is provided, create with that id.
    */

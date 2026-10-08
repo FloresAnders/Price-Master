@@ -47,6 +47,12 @@ export type FondoEntry = {
   openingPreviousBalanceUSD?: number;
   openingBreakdownCRC?: Record<number, number>;
   openingBreakdownUSD?: Record<number, number>;
+  /** Hora real del servidor en que se registró la apertura. */
+  openingRegisteredAt?: string;
+  /** Turno cuya ventana obligatoria originó la apertura. */
+  openingTurno?: "D" | "N";
+  /** Indica que createdAt fue llevado a dos minutos antes del cierre. */
+  openingTimestampAdjusted?: boolean;
   closingBalanceCRC?: number;
   closingBalanceUSD?: number;
   isAudit?: boolean;

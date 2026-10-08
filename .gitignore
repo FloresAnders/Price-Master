@@ -58,6 +58,10 @@ client_secret_*.apps.googleusercontent.com.json
 *.tsbuildinfo
 next-env.d.ts
 /tests/*
+!/tests/fondogeneral/
+/tests/fondogeneral/*
+!/tests/fondogeneral/cash-opening-enforcement.test.ts
+!/tests/fondogeneral/cash-opening-required-modal.test.tsx
 # mobile setup - Android
 /android/*
 

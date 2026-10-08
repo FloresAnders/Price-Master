@@ -96,6 +96,7 @@ export type CashOpeningFormValues = {
 
 type CashOpeningModalProps = {
   open: boolean;
+  required?: boolean;
   onClose: () => void;
   onConfirm: (values: CashOpeningFormValues) => void | Promise<unknown>;
   initialValues?: CashOpeningFormValues | null;
@@ -110,6 +111,7 @@ type CashOpeningModalProps = {
 
 const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
   open,
+  required = false,
   onClose,
   onConfirm,
   initialValues,
@@ -497,19 +499,19 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
       if (event.key !== "Escape") return;
       event.preventDefault();
       event.stopPropagation();
-      onClose();
+      if (!required) onClose();
     };
 
     window.addEventListener("keydown", handleKeyDown, true);
     return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [open, onClose]);
+  }, [open, onClose, required]);
 
   if (!open) return null;
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
-      onClick={onClose}
+      onClick={required ? undefined : onClose}
     >
       <div
         ref={modalRef}
@@ -523,22 +525,29 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
           if (event.key !== "Escape") return;
           event.preventDefault();
           event.stopPropagation();
-          onClose();
+          if (!required) onClose();
         }}
       >
         <div className="relative border-b border-[var(--input-border)] px-6 py-5">
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar modal"
-            className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--muted-foreground)] transition-colors hover:border-[var(--accent)]/50 hover:text-[var(--foreground)]"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          {!required ? (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Cerrar modal"
+              className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--muted-foreground)] transition-colors hover:border-[var(--accent)]/50 hover:text-[var(--foreground)]"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          ) : null}
           <div className="space-y-1 pr-12 text-center">
             <h3 id="cash-opening-title" className="text-lg font-semibold sm:text-xl">
               Apertura de fondo
             </h3>
+            {required ? (
+              <p className="text-sm font-semibold text-amber-400">
+                Esta apertura es obligatoria para continuar con movimientos y cierres.
+              </p>
+            ) : null}
             <p className="text-xs text-[var(--muted-foreground)] sm:text-sm">
               Si hay diferencia, se ajusta y se notifica automáticamente.
             </p>

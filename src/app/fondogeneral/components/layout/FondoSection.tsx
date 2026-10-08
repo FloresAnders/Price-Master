@@ -48,6 +48,7 @@ import {
 } from "@/utils/controlHorarioManager";
 import { getConfiguredShiftHours } from "@/utils/companyShiftHours";
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
+import { EmpresasService } from "@/services/empresas";
 import {
   DailyClosingsService,
   type DailyClosingRecord,
@@ -111,6 +112,13 @@ import {
   validateSingleClosingReason,
 } from "../../utils/closing/singleClosingReason";
 import { handleConfirmCashOpening as handleConfirmCashOpeningFn } from "../../utils/fondo/cashOpening";
+import {
+  isOpeningRequirementEligibleForEnforcement,
+  resolveCashOpeningEnforcementWindow,
+  resolveCashOpeningDayShiftHours,
+  type CashOpeningEnforcementDecision,
+  type RequiredCashOpeningWindow,
+} from "../../utils/fondo/cashOpeningEnforcement";
 import { resetStateForCompanyChange } from "../../utils/companyReset";
 import { useMovementsLoadingState } from "../../hooks/movements/useMovementsLoadingState";
 import { useShiftScheduleResolver } from "../../hooks/useShiftScheduleResolver";
@@ -329,6 +337,10 @@ export function FondoSection({
     useState<CashOpeningFormValues | null>(null);
   const [cashOpeningEditingEntry, setCashOpeningEditingEntry] =
     useState<FondoEntry | null>(null);
+  const [requiredCashOpeningWindow, setRequiredCashOpeningWindow] =
+    useState<RequiredCashOpeningWindow | null>(null);
+  const requiredCashOpeningWindowRef =
+    useRef<RequiredCashOpeningWindow | null>(null);
   const openingSubmitInProgressRef = useRef(false);
   const canSelectCompany = isAdminUser || isSuperAdminUser;
   const [resolvedCompany, setResolvedCompany] = useState(() => assignedCompany);
@@ -561,6 +573,142 @@ export function FondoSection({
       cierreFondoVentasMinutesAfterEnd,
       company,
       empresaForShiftResolution?.horarioApertura,
+    ],
+  );
+
+  const resolveFreshCashOpeningContext = useCallback(
+    async (nowISO: string) => {
+      const idsToTry = Array.from(
+        new Set(
+          [empresaForShiftResolution?.id, company]
+            .map((value) => String(value || "").trim())
+            .filter(Boolean),
+        ),
+      );
+      let freshEmpresa: Empresas | null = null;
+      for (const empresaId of idsToTry) {
+        freshEmpresa = await EmpresasService.getEmpresaByIdFromServer(empresaId);
+        if (freshEmpresa) break;
+      }
+      if (!freshEmpresa) {
+        throw new Error("CASH_OPENING_COMPANY_CONFIG_UNAVAILABLE");
+      }
+
+      const operationalDateKey = getCostaRicaOperationalDateKey(
+        nowISO,
+        freshEmpresa.horarioApertura,
+      );
+      const openMatch = String(freshEmpresa.horarioApertura || "")
+        .trim()
+        .match(/^(\d{1,2}):(\d{2})$/);
+      if (!operationalDateKey || !openMatch) {
+        throw new Error("CASH_OPENING_SCHEDULE_UNAVAILABLE");
+      }
+      const normalizedOpen = `${String(Number(openMatch[1])).padStart(2, "0")}:${openMatch[2]}`;
+      const referenceISO = new Date(
+        `${operationalDateKey}T${normalizedOpen}:00.000-06:00`,
+      ).toISOString();
+      const [year, month1] = operationalDateKey.split("-").map(Number);
+      if (!Number.isFinite(year) || !Number.isFinite(month1)) {
+        throw new Error("CASH_OPENING_SCHEDULE_UNAVAILABLE");
+      }
+
+      const companyKeys = Array.from(
+        new Set(
+          [company, freshEmpresa.id, freshEmpresa.name, freshEmpresa.ubicacion]
+            .map((value) => String(value || "").trim())
+            .filter(Boolean),
+        ),
+      );
+      const schedules = (
+        await Promise.all(
+          companyKeys.map((key) =>
+            getFGMonthlySchedulesCached(key, year, month1 - 1),
+          ),
+        )
+      ).flat();
+      const timing = getControlHorarioShiftTiming({
+        nowISO: referenceISO,
+        empresa: freshEmpresa,
+        monthSchedules: schedules,
+        closingMovements: fondoEntries,
+        providers: movementProviders,
+      });
+      if (!timing.withinHorario) {
+        throw new Error("CASH_OPENING_SHIFT_TIMING_UNAVAILABLE");
+      }
+      const dayShiftHours = resolveCashOpeningDayShiftHours({
+        empresa: freshEmpresa,
+        entryD: timing.entryD,
+      });
+      if (dayShiftHours === null) {
+        throw new Error("CASH_OPENING_SHIFT_HOURS_UNAVAILABLE");
+      }
+
+      const decision = resolveCashOpeningEnforcementWindow({
+        nowISO,
+        horarioApertura: freshEmpresa.horarioApertura,
+        horarioCierre: freshEmpresa.horarioCierre,
+        dayShiftHours,
+        minutesBeforeEnd:
+          freshEmpresa.cierreFondoVentasMinutesBeforeEnd ??
+          CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
+        minutesAfterEnd:
+          freshEmpresa.cierreFondoVentasMinutesAfterEnd ??
+          CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
+      });
+
+      return { decision, empresa: freshEmpresa, timing };
+    },
+    [
+      company,
+      empresaForShiftResolution?.id,
+      fondoEntries,
+      getFGMonthlySchedulesCached,
+      movementProviders,
+    ],
+  );
+
+  const resolveRequiredCashOpeningWindow = useCallback(
+    async (
+      nowISO: string,
+      evaluatedDecision?: CashOpeningEnforcementDecision,
+    ): Promise<RequiredCashOpeningWindow | null> => {
+      const decision =
+        evaluatedDecision ??
+        (await resolveFreshCashOpeningContext(nowISO)).decision;
+      if (decision.status === "unavailable") {
+        throw new Error("CASH_OPENING_WINDOW_UNAVAILABLE");
+      }
+      if (decision.status !== "required") return null;
+
+      const validation = await validateFondoGeneralOpeningRequirement({
+        company,
+        accountKey,
+        solicitarApertura: empresaSolicitaApertura,
+      });
+      if (validation.allowed || validation.reason !== "opening_required") {
+        return null;
+      }
+      const latestClosingISO = validation.latestClosing
+        ? String(
+            validation.latestClosing.createdAt ||
+              validation.latestClosing.closingDate ||
+              "",
+          )
+        : null;
+      return isOpeningRequirementEligibleForEnforcement({
+        window: decision,
+        latestClosingISO,
+      })
+        ? decision
+        : null;
+    },
+    [
+      accountKey,
+      company,
+      empresaSolicitaApertura,
+      resolveFreshCashOpeningContext,
     ],
   );
 
@@ -1346,7 +1494,9 @@ export function FondoSection({
   const validateCashOpeningShiftWindow = useCallback(
     async (nowISO: string): Promise<boolean> => {
       try {
-        const timing = await resolveShiftTimingForNow(nowISO);
+        const freshContext = await resolveFreshCashOpeningContext(nowISO);
+        const timing = freshContext.timing;
+        const freshEmpresa = freshContext.empresa;
         const latestClosing = await loadLatestDailyClosing();
         const latestClosingTurno =
           latestClosing?.turno === "D" || latestClosing?.turno === "N"
@@ -1357,7 +1507,7 @@ export function FondoSection({
         );
         const latestClosingOperationalDateKey = getCostaRicaOperationalDateKey(
           latestClosingISO,
-          empresaForShiftResolution?.horarioApertura,
+          freshEmpresa.horarioApertura,
         );
         const effectiveMinutesAfterEnd = latestClosingTurno
           ? await resolveEffectiveClosingMinutesAfterEnd(
@@ -1368,12 +1518,14 @@ export function FondoSection({
           : cierreFondoVentasMinutesAfterEnd;
         const availability = getCashOpeningAvailabilityAfterDailyClosing({
           nowISO,
-          horarioApertura: empresaForShiftResolution?.horarioApertura,
-          horarioCierre: empresaForShiftResolution?.horarioCierre,
-          unicoCierre: empresaUsesSingleClosing,
+          horarioApertura: freshEmpresa.horarioApertura,
+          horarioCierre: freshEmpresa.horarioCierre,
+          unicoCierre: freshEmpresa.unicoCierre === true,
           latestDailyClosing: latestClosing,
-          shiftChangeMin: timing?.withinHorario ? timing.shiftChangeMin : null,
-          cierreFondoVentasMinutesBeforeEnd,
+          shiftChangeMin: timing.shiftChangeMin,
+          cierreFondoVentasMinutesBeforeEnd:
+            freshEmpresa.cierreFondoVentasMinutesBeforeEnd ??
+            CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
           cierreFondoVentasMinutesAfterEnd: effectiveMinutesAfterEnd,
         });
         if (availability.allowed) return true;
@@ -1396,14 +1548,10 @@ export function FondoSection({
       return false;
     },
     [
-      empresaForShiftResolution?.horarioApertura,
-      empresaForShiftResolution?.horarioCierre,
-      empresaUsesSingleClosing,
       cierreFondoVentasMinutesAfterEnd,
-      cierreFondoVentasMinutesBeforeEnd,
       loadLatestDailyClosing,
+      resolveFreshCashOpeningContext,
       resolveEffectiveClosingMinutesAfterEnd,
-      resolveShiftTimingForNow,
       showToast,
     ],
   );
@@ -4475,6 +4623,38 @@ export function FondoSection({
       );
       return;
     }
+
+    if (empresaSolicitaApertura) {
+      const openingValidation = await validateFondoGeneralOpeningRequirement({
+        company,
+        accountKey,
+        solicitarApertura: empresaSolicitaApertura,
+      });
+      if (!openingValidation.allowed) {
+        if (openingValidation.reason === "validation_failed") {
+          showToast(openingValidation.message, "error", 7000);
+          return;
+        }
+        try {
+          const requiredWindow = isRegularUser
+            ? await resolveRequiredCashOpeningWindow(nowISO)
+            : null;
+          if (requiredWindow) {
+            await openCashOpeningModalForNow(nowISO, requiredWindow);
+          } else {
+            setConfirmPhysicalCountOpen(true);
+          }
+        } catch (error) {
+          console.error("[FG] Error validating opening before daily closing:", error);
+          showToast(
+            "No se pudo validar la configuracion horaria. Cierre bloqueado.",
+            "error",
+            6000,
+          );
+        }
+        return;
+      }
+    }
     setAuthoritativeCRDateKey(
       getCostaRicaOperationalDateKey(
         nowISO,
@@ -4756,11 +4936,45 @@ export function FondoSection({
     setPendingCierreModalOpen(false);
   }, []);
 
+  const openCashOpeningModalForNow = useCallback(
+    async (
+      nowISO: string,
+      requiredWindow: RequiredCashOpeningWindow | null,
+    ) => {
+      let openingManager = (user?.name || user?.email || "").trim();
+      if (isRegularUser) {
+        const resolution = await resolveShiftManagerForNow(nowISO);
+        if (resolution?.mode === "auto") {
+          openingManager = resolution.manager;
+        }
+      }
+
+      setCashOpeningEditingEntry(null);
+      requiredCashOpeningWindowRef.current = requiredWindow;
+      setRequiredCashOpeningWindow(requiredWindow);
+      setCashOpeningInitialValues({
+        openingDate: requiredWindow?.effectiveOpeningISO ?? nowISO,
+        manager: openingManager,
+        notes: "",
+        totalCRC: currentBalanceCRC,
+        totalUSD: currentBalanceUSD,
+        breakdownCRC: {},
+        breakdownUSD: {},
+      });
+      setCashOpeningModalOpen(true);
+    },
+    [
+      currentBalanceCRC,
+      currentBalanceUSD,
+      isRegularUser,
+      resolveShiftManagerForNow,
+      user?.email,
+      user?.name,
+    ],
+  );
+
   const handleOpenCashOpening = useCallback(async () => {
     setConfirmPhysicalCountOpen(false);
-    setCashOpeningEditingEntry(null);
-
-    let openingManager = (user?.name || user?.email || "").trim();
     let nowISO: string;
     try {
       nowISO = await getAuthoritativeNowISO();
@@ -4776,55 +4990,130 @@ export function FondoSection({
 
     if (!canBypassClosingWindows && !(await validateCashOpeningShiftWindow(nowISO))) return;
 
-    if (isRegularUser) {
-      try {
-        const resolution = await resolveShiftManagerForNow(nowISO);
-        if (resolution?.mode === "auto") {
-          openingManager = resolution.manager;
-        }
-        setCashOpeningInitialValues({
-          openingDate: nowISO,
-          manager: openingManager,
-          notes: "",
-          totalCRC: currentBalanceCRC,
-          totalUSD: currentBalanceUSD,
-          breakdownCRC: {},
-          breakdownUSD: {},
-        });
-      } catch (err) {
-        console.error("[CASH_OPENING] Error resolving shift manager:", err);
-        showToast(
-          "No se pudo validar la hora del servidor. Apertura bloqueada.",
-          "error",
-          6000,
-        );
-        return;
-      }
-    } else {
-      setCashOpeningInitialValues({
-        openingDate: nowISO,
-        manager: openingManager,
-        notes: "",
-        totalCRC: currentBalanceCRC,
-        totalUSD: currentBalanceUSD,
-        breakdownCRC: {},
-        breakdownUSD: {},
-      });
+    try {
+      const requiredWindow = isRegularUser
+        ? await resolveRequiredCashOpeningWindow(nowISO)
+        : null;
+      await openCashOpeningModalForNow(nowISO, requiredWindow);
+    } catch (err) {
+      console.error("[CASH_OPENING] Error resolving opening window:", err);
+      showToast(
+        "No se pudo validar la configuracion horaria. Apertura bloqueada.",
+        "error",
+        6000,
+      );
+      return;
     }
-    setCashOpeningModalOpen(true);
   }, [
-    currentBalanceCRC,
-    currentBalanceUSD,
-    setConfirmPhysicalCountOpen,
-    setCashOpeningInitialValues,
-    setCashOpeningModalOpen,
-    user?.email,
-    user?.name,
-    isRegularUser,
-    resolveShiftManagerForNow,
-    showToast,
     canBypassClosingWindows,
+    isRegularUser,
+    openCashOpeningModalForNow,
+    resolveRequiredCashOpeningWindow,
+    setConfirmPhysicalCountOpen,
+    showToast,
     validateCashOpeningShiftWindow,
+  ]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timerId: number | null = null;
+
+    const clearTimer = () => {
+      if (timerId !== null) window.clearTimeout(timerId);
+      timerId = null;
+    };
+
+    if (
+      !isRegularUser ||
+      accountKey !== "FondoGeneral" ||
+      isCajaNegra ||
+      !empresaSolicitaApertura ||
+      cashOpeningEditingEntry
+    ) {
+      requiredCashOpeningWindowRef.current = null;
+      setRequiredCashOpeningWindow(null);
+      return clearTimer;
+    }
+
+    const checkRequiredOpening = async () => {
+      clearTimer();
+      let nextCheckMs = 30_000;
+      try {
+        const nowISO = await getAuthoritativeNowISO();
+        const nowMs = Date.parse(nowISO);
+        const { decision } = await resolveFreshCashOpeningContext(nowISO);
+        if (decision.status === "unavailable") {
+          throw new Error("CASH_OPENING_WINDOW_UNAVAILABLE");
+        }
+        const requiredWindow = await resolveRequiredCashOpeningWindow(
+          nowISO,
+          decision,
+        );
+        const nextTransitionISO =
+          decision.status === "required"
+            ? decision.releaseISO
+            : decision.nextTransitionISO;
+        const nextTransitionMs = Date.parse(nextTransitionISO);
+        if (Number.isFinite(nowMs) && Number.isFinite(nextTransitionMs)) {
+          nextCheckMs = Math.max(250, nextTransitionMs - nowMs + 100);
+        }
+        if (cancelled) return;
+
+        if (requiredWindow) {
+          requiredCashOpeningWindowRef.current = requiredWindow;
+          setRequiredCashOpeningWindow(requiredWindow);
+          if (!cashOpeningModalOpen) {
+            await openCashOpeningModalForNow(nowISO, requiredWindow);
+          }
+        } else {
+          const wasRequired = requiredCashOpeningWindowRef.current !== null;
+          requiredCashOpeningWindowRef.current = null;
+          setRequiredCashOpeningWindow(null);
+          if (wasRequired && cashOpeningModalOpen) {
+            setCashOpeningModalOpen(false);
+            setCashOpeningInitialValues(null);
+          }
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error(
+            "[CASH_OPENING] Error checking mandatory opening window:",
+            error,
+          );
+        }
+      }
+
+      if (!cancelled) {
+        timerId = window.setTimeout(
+          () => void checkRequiredOpening(),
+          nextCheckMs,
+        );
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void checkRequiredOpening();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    void checkRequiredOpening();
+
+    return () => {
+      cancelled = true;
+      clearTimer();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [
+    accountKey,
+    cashOpeningEditingEntry,
+    cashOpeningModalOpen,
+    empresaSolicitaApertura,
+    isCajaNegra,
+    isRegularUser,
+    openCashOpeningModalForNow,
+    resolveFreshCashOpeningContext,
+    resolveRequiredCashOpeningWindow,
   ]);
 
   const buildCashOpeningInitialValuesFromEntry = useCallback(
@@ -4851,6 +5140,8 @@ export function FondoSection({
 
   const handleEditCashOpening = useCallback(
     (entry: FondoEntry) => {
+      requiredCashOpeningWindowRef.current = null;
+      setRequiredCashOpeningWindow(null);
       setCashOpeningEditingEntry(entry);
       setCashOpeningInitialValues(buildCashOpeningInitialValuesFromEntry(entry));
       setCashOpeningModalOpen(true);
@@ -4859,6 +5150,7 @@ export function FondoSection({
   );
 
   const handleCloseCashOpening = useCallback(() => {
+    if (requiredCashOpeningWindowRef.current) return;
     setCashOpeningModalOpen(false);
     setCashOpeningInitialValues(null);
     setCashOpeningEditingEntry(null);
@@ -4866,6 +5158,7 @@ export function FondoSection({
 
   const handleConfirmCashOpening = useCallback(
     async (opening: CashOpeningFormValues) => {
+      let requiredWindowForSave: RequiredCashOpeningWindow | null = null;
       if (!cashOpeningEditingEntry && !canBypassClosingWindows) {
         let nowISO: string;
         try {
@@ -4880,6 +5173,17 @@ export function FondoSection({
           return null;
         }
         if (!(await validateCashOpeningShiftWindow(nowISO))) return null;
+        try {
+          requiredWindowForSave = await resolveRequiredCashOpeningWindow(nowISO);
+        } catch (err) {
+          console.error("[CASH_OPENING] Error validating opening timing:", err);
+          showToast(
+            "No se pudo validar la configuracion horaria. Apertura bloqueada.",
+            "error",
+            6000,
+          );
+          return null;
+        }
       }
 
       const apEntry = await handleConfirmCashOpeningFn(opening, {
@@ -4898,8 +5202,13 @@ export function FondoSection({
         setCashOpeningInitialValues,
         openingSubmitInProgressRef,
         existingEntry: cashOpeningEditingEntry,
+        requiredWindow: requiredWindowForSave,
       });
-      if (apEntry) setLatestMovementOverall(apEntry);
+      if (apEntry) {
+        requiredCashOpeningWindowRef.current = null;
+        setRequiredCashOpeningWindow(null);
+        setLatestMovementOverall(apEntry);
+      }
       return apEntry ?? null;
     },
     [
@@ -4920,6 +5229,7 @@ export function FondoSection({
       cashOpeningEditingEntry,
       canBypassClosingWindows,
       setLatestMovementOverall,
+      resolveRequiredCashOpeningWindow,
       validateCashOpeningShiftWindow,
     ],
   );
@@ -4935,6 +5245,39 @@ export function FondoSection({
       (dailyClosingTurno === "D" || dailyClosingTurno === "N")
         ? { ...closing, turno: dailyClosingTurno }
         : closing;
+    if (!editingDailyClosingId && empresaSolicitaApertura) {
+      const openingValidation = await validateFondoGeneralOpeningRequirement({
+        company,
+        accountKey,
+        solicitarApertura: empresaSolicitaApertura,
+      });
+      if (!openingValidation.allowed) {
+        if (openingValidation.reason === "validation_failed") {
+          showToast(openingValidation.message, "error", 7000);
+          return null;
+        }
+        try {
+          const nowISO = await getAuthoritativeNowISO();
+          const requiredWindow = isRegularUser
+            ? await resolveRequiredCashOpeningWindow(nowISO)
+            : null;
+          setDailyClosingModalOpen(false);
+          if (requiredWindow) {
+            await openCashOpeningModalForNow(nowISO, requiredWindow);
+          } else {
+            setConfirmPhysicalCountOpen(true);
+          }
+        } catch (error) {
+          console.error("[FG] Error validating opening before closing save:", error);
+          showToast(
+            "No se pudo validar la configuracion horaria. Cierre bloqueado.",
+            "error",
+            6000,
+          );
+        }
+        return null;
+      }
+    }
     const operationalDateKey = getCostaRicaOperationalDateKey(
       closingForSubmit.closingDate,
       empresaForShiftResolution?.horarioApertura,
@@ -7346,6 +7689,7 @@ export function FondoSection({
       <CashOpeningModal
         key={`cash-opening-${cashOpeningModalOpen ? "open" : "closed"}-${cashOpeningEditingEntry?.id ?? cashOpeningInitialValues?.openingDate ?? "new"}`}
         open={cashOpeningModalOpen}
+        required={Boolean(requiredCashOpeningWindow && !cashOpeningEditingEntry)}
         onClose={handleCloseCashOpening}
         onConfirm={handleConfirmCashOpening}
         initialValues={cashOpeningInitialValues}

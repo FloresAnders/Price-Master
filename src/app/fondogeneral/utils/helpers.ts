@@ -956,6 +956,18 @@ export const sanitizeFondoEntries = (
       openingPreviousBalanceUSD: normalizeOptionalEntryAmount((entry as any).openingPreviousBalanceUSD),
       openingBreakdownCRC: (entry as any).openingBreakdownCRC ?? undefined,
       openingBreakdownUSD: (entry as any).openingBreakdownUSD ?? undefined,
+      openingRegisteredAt:
+        typeof entry.openingRegisteredAt === "string"
+          ? entry.openingRegisteredAt
+          : undefined,
+      openingTurno:
+        entry.openingTurno === "D" || entry.openingTurno === "N"
+          ? entry.openingTurno
+          : undefined,
+      openingTimestampAdjusted:
+        typeof entry.openingTimestampAdjusted === "boolean"
+          ? entry.openingTimestampAdjusted
+          : undefined,
       turno: entry.turno === "D" || entry.turno === "N" ? entry.turno : undefined,
       sinTurno: entry.sinTurno ? true : undefined,
       isAudit: !!entry.isAudit,

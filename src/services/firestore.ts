@@ -3,6 +3,7 @@ import {
   doc,
   getDocs,
   getDoc,
+  getDocFromServer,
   addDoc,
   setDoc,
   updateDoc,
@@ -400,6 +401,34 @@ export class FirestoreService {
     } catch (error) {
       console.error(
         `Error getting document ${id} from ${collectionName}:`,
+        error,
+      );
+      throw error;
+    }
+  }
+
+  /** Get a single document from the backend, bypassing local and micro caches. */
+  static async getByIdFromServer(
+    collectionName: string,
+    id: string,
+  ): Promise<any | null> {
+    try {
+      return await this.readThroughCache<any | null>(
+        "getById",
+        collectionName,
+        { id, source: "server" },
+        async () => {
+          const docSnap = await getDocFromServer(doc(db, collectionName, id));
+          return docSnap.exists()
+            ? { id: docSnap.id, ...docSnap.data() }
+            : null;
+        },
+        cloneSingleRecord,
+        { allowCache: false },
+      );
+    } catch (error) {
+      console.error(
+        `Error getting document ${id} from ${collectionName} on server:`,
         error,
       );
       throw error;

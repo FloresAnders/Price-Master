@@ -11,6 +11,10 @@ import { APERTURA_FONDO_PROVIDER_CODE, AUTO_ADJUSTMENT_OPENING_TYPE } from "../.
 import type { FondoEntry } from "../../types";
 import type { CashOpeningFormValues } from "../../components/modals/CashOpeningModal";
 import { buildCashOpeningEmailTemplate } from "@/services/email-templates/cash-opening";
+import {
+  buildCashOpeningPersistenceTiming,
+  type RequiredCashOpeningWindow,
+} from "./cashOpeningEnforcement";
 
 type ShowToast = (
   message: string,
@@ -34,6 +38,7 @@ export interface HandleConfirmCashOpeningDeps {
   setCashOpeningInitialValues: (value: CashOpeningFormValues | null) => void;
   openingSubmitInProgressRef: { current: boolean };
   existingEntry?: FondoEntry | null;
+  requiredWindow?: RequiredCashOpeningWindow | null;
 }
 
 export async function handleConfirmCashOpening(
@@ -56,6 +61,7 @@ export async function handleConfirmCashOpening(
     setCashOpeningInitialValues,
     openingSubmitInProgressRef,
     existingEntry,
+    requiredWindow,
   } = deps;
 
   if (accountKey !== "FondoGeneral") {
@@ -83,7 +89,20 @@ export async function handleConfirmCashOpening(
   openingSubmitInProgressRef.current = true;
   try {
     const createdAtISO = await getAuthoritativeNowISO();
-    const createdAtDate = new Date(createdAtISO);
+    const persistenceTiming = requiredWindow
+      ? buildCashOpeningPersistenceTiming({
+          registeredAtISO: createdAtISO,
+          window: requiredWindow,
+        })
+      : {
+          createdAt: createdAtISO,
+          openingRegisteredAt: createdAtISO,
+          openingTurno: undefined,
+          openingTimestampAdjusted: false,
+        };
+    const movementCreatedAt =
+      existingEntry?.createdAt ?? persistenceTiming.createdAt;
+    const createdAtDate = new Date(movementCreatedAt);
     const normalizedCompany = (company || "").trim();
     if (normalizedCompany.length === 0) {
       showToast("Error: No se pudo identificar la empresa", "error");
@@ -91,7 +110,6 @@ export async function handleConfirmCashOpening(
     }
 
     const baseNotes = opening.notes.trim();
-    const movementCreatedAt = existingEntry?.createdAt ?? createdAtISO;
     const dd = String(createdAtDate.getDate()).padStart(2, "0");
     const mm = String(createdAtDate.getMonth() + 1).padStart(2, "0");
     const yyyy = createdAtDate.getFullYear();
@@ -111,6 +129,12 @@ export async function handleConfirmCashOpening(
         existingEntry?.openingPreviousBalanceUSD ?? Math.trunc(currentBalanceUSD),
       openingBreakdownCRC: opening.breakdownCRC ?? {},
       openingBreakdownUSD: opening.breakdownUSD ?? {},
+      openingRegisteredAt:
+        existingEntry?.openingRegisteredAt ?? persistenceTiming.openingRegisteredAt,
+      openingTurno: existingEntry?.openingTurno ?? persistenceTiming.openingTurno,
+      openingTimestampAdjusted:
+        existingEntry?.openingTimestampAdjusted ??
+        persistenceTiming.openingTimestampAdjusted,
     } as const;
 
     const movementNotes = () => {
@@ -253,7 +277,7 @@ export async function handleConfirmCashOpening(
       const emailTemplate = buildCashOpeningEmailTemplate({
         company: normalizedCompany,
         accountKey,
-        openingDateISO: createdAtISO,
+        openingDateISO: movementCreatedAt,
         manager: managerName,
         totalCRC,
         totalUSD,
