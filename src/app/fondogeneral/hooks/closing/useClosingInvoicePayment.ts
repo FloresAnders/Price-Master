@@ -38,6 +38,7 @@ interface UseClosingInvoicePaymentProps {
   company: ClosingInvoicePaymentDeps["company"];
   accountKey: MovementAccountKey;
   isCajaNegra: boolean;
+  bypassPendingNightDailyClosing: boolean;
   pendingCierreDeCaja: boolean;
   pendingClosingCreditInvoices: FacturaMovement[];
   pendingCreditNotes: FacturaMovement[];
@@ -62,6 +63,7 @@ export function useClosingInvoicePayment({
   company,
   accountKey,
   isCajaNegra,
+  bypassPendingNightDailyClosing,
   pendingCierreDeCaja,
   pendingClosingCreditInvoices,
   pendingCreditNotes,
@@ -214,6 +216,7 @@ export function useClosingInvoicePayment({
         company,
         accountKey,
         isCajaNegra,
+        bypassPendingNightDailyClosing,
         pendingCierreDeCaja,
         closingPaymentTarget,
         closingPaymentAmount,
@@ -244,6 +247,7 @@ export function useClosingInvoicePayment({
       accountKey,
       applyLedgerStateFromStorage,
       applyConfirmedLedger,
+      bypassPendingNightDailyClosing,
       closingPaymentAmount,
       closingPaymentCreditNoteIds,
       closingPaymentManualCreditNotes,

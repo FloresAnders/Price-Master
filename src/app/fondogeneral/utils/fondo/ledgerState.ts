@@ -24,6 +24,7 @@ export type LedgerMovementMutationInput = {
   before?: LedgerMovementValue | null;
   after?: LedgerMovementValue | null;
   nowISO: string;
+  bypassPendingNightDailyClosing: boolean;
   clientMutationId?: string;
 };
 
@@ -78,6 +79,7 @@ export function applyLedgerMovementMutation(
     operation === "create" &&
     after &&
     accountOf(after) === "FondoGeneral" &&
+    !input.bypassPendingNightDailyClosing &&
     getPendingNightDailyClosingStatus(
       input.storage.state.pendingNightDailyClosing,
       input.nowISO,

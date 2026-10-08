@@ -1822,6 +1822,7 @@ export default function FacturasCreditoPage() {
       try {
         const committed = await commitFcrPayments({
           company: selectedCompany, accountId: targetAccountKey, nowISO,
+          bypassPendingNightDailyClosing: isAdminOrSuperAdmin,
           applications: [{
             invoice: paymentTarget,
             cashDebit: paymentAmountToApply,
@@ -1902,6 +1903,7 @@ export default function FacturasCreditoPage() {
     },
     [
       closePaymentModal,
+      isAdminOrSuperAdmin,
       loadMovements,
       enteredPaymentAmount,
       paymentCreditNoteResolution,

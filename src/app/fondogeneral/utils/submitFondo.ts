@@ -1974,6 +1974,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                   company: normalizedCompany,
                   accountId: acctKey,
                   nowISO,
+                  bypassPendingNightDailyClosing: canBypassClosingWindows,
                   applications,
                 });
                 paymentsCommitted = true;

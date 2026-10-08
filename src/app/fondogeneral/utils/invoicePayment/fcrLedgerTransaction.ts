@@ -38,6 +38,7 @@ export async function commitFcrPayments(input: {
   company: string;
   accountId: MovementAccountKey;
   nowISO: string;
+  bypassPendingNightDailyClosing: boolean;
   applications: FcrPaymentApplication[];
 }): Promise<FcrPaymentCommit> {
   const company = input.company.trim();
@@ -147,6 +148,7 @@ export async function commitFcrPayments(input: {
         ledger = applyLedgerMovementMutation({
           storage: ledger, operation: "create", after: movement,
           nowISO: input.nowISO,
+          bypassPendingNightDailyClosing: input.bypassPendingNightDailyClosing,
         }).storage;
       } else {
         const revision = (ledger.state.revision ?? 0) + 1;

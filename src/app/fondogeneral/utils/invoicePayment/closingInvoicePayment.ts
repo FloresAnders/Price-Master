@@ -36,6 +36,7 @@ export interface ClosingInvoicePaymentDeps {
   company: string | null | undefined;
   accountKey: MovementAccountKey;
   isCajaNegra: boolean;
+  bypassPendingNightDailyClosing: boolean;
   pendingCierreDeCaja: boolean;
   closingPaymentTarget: FacturaMovement | null;
   closingPaymentAmount: string;
@@ -73,6 +74,7 @@ export async function submitClosingInvoicePayment(
     company,
     accountKey,
     isCajaNegra,
+    bypassPendingNightDailyClosing,
     pendingCierreDeCaja,
     closingPaymentTarget,
     closingPaymentAmount,
@@ -209,6 +211,7 @@ export async function submitClosingInvoicePayment(
 
     const committed = await commitFcrPayments({
       company, accountId: targetAccountKey, nowISO,
+      bypassPendingNightDailyClosing,
       applications: [{
         invoice: closingPaymentTarget,
         cashDebit: paymentAmountToApply,

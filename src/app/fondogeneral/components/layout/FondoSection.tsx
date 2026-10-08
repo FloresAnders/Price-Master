@@ -1241,6 +1241,7 @@ export function FondoSection({
 
   const requiredNightDailyClosingActive = Boolean(
     accountKey === "FondoGeneral" &&
+      !canBypassClosingWindows &&
       pendingNightDailyClosing &&
       pendingNightClosingDeadlineReached,
   );
@@ -2126,6 +2127,7 @@ export function FondoSection({
         {
           company,
           accountKey,
+          bypassPendingNightDailyClosing: canBypassClosingWindows,
           storageSnapshotRef,
           v2MovementsCacheRef,
           registerLocalMutation,
@@ -2135,6 +2137,7 @@ export function FondoSection({
     [
       company,
       accountKey,
+      canBypassClosingWindows,
       registerLocalMutation,
       applyConfirmedLedger,
     ],
@@ -2166,6 +2169,7 @@ export function FondoSection({
     company,
     accountKey,
     isCajaNegra,
+    bypassPendingNightDailyClosing: canBypassClosingWindows,
     pendingCierreDeCaja,
     pendingClosingCreditInvoices,
     pendingCreditNotes,

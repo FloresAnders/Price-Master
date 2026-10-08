@@ -34,6 +34,7 @@ type V2MovementsCacheEntry = {
 export interface PersistMovementDeps {
   company: string | null | undefined;
   accountKey: MovementAccountKey;
+  bypassPendingNightDailyClosing: boolean;
   storageSnapshotRef: { current: MovementStorage<FondoEntry> | null };
   v2MovementsCacheRef: { current: Record<string, V2MovementsCacheEntry> };
   registerLocalMutation?: (clientMutationId: string) => void;
@@ -114,6 +115,7 @@ export async function persistMovementToFirestore(
           before,
           after: storedMovement,
           nowISO,
+          bypassPendingNightDailyClosing: deps.bypassPendingNightDailyClosing,
           clientMutationId,
         });
         // V2 movement documents live in the subcollection, never in the ledger.
