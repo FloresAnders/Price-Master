@@ -1,6 +1,22 @@
+@import "driver.js/dist/driver.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.fondo-general-driver-popover {
+  max-width: min(24rem, calc(100vw - 2rem));
+  color: #111827;
+}
+
+.fondo-general-driver-popover .driver-popover-title {
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.fondo-general-driver-popover .driver-popover-description {
+  line-height: 1.5;
+}
 
 @layer base {
   /* Variables modo claro */

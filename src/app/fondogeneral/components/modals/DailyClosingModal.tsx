@@ -9,12 +9,20 @@ import { usePermissions } from "@/hooks/usePermissions";
 import {
   AlertTriangle,
   BarChart3,
+  BookOpen,
   CheckCircle2,
   Clock3,
   RefreshCw,
 } from "lucide-react";
+import type { Driver } from "driver.js";
 
 import ConfirmModal from "../../../../components/ui/ConfirmModal";
+import FondoGeneralTutorialModal from "@/components/tutorials/fondo-general/FondoGeneralTutorialModal";
+import { loadFondoGeneralDriver } from "@/components/tutorials/fondo-general/fondoGeneralDriver";
+import {
+  fondoGeneralSteps,
+  type FondoGeneralTutorialStep,
+} from "@/config/tutorials/fondoGeneralSteps";
 import {
   SINGLE_CLOSING_REASON_INVALID_MESSAGE,
   SINGLE_CLOSING_REASON_MIN_LENGTH,
@@ -338,6 +346,13 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
 
   const [copiedBlock, setCopiedBlock] = useState<"CRC" | "USD" | null>(null);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [tutorialStepIndex, setTutorialStepIndex] = useState(0);
+  const [tutorialTargetError, setTutorialTargetError] = useState<string | null>(null);
+  const [tutorialHighlightActive, setTutorialHighlightActive] = useState(false);
+  const tutorialDriverRef = useRef<Driver | null>(null);
+  const tutorialRestoreOnDestroyRef = useRef(false);
+  const tutorialDriverLaunchRef = useRef(0);
   const { copyToClipboard } = usePermissions();
 
   const secondaryButtonClass =
@@ -676,6 +691,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     storedTiemposTurnoD,
     formatCurrency,
     requireSingleClosingReason,
+    requireTurnoSelection,
     selectedSinTurno,
     singleClosingReason,
     submitting,
@@ -740,6 +756,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
       );
     }
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || tutorialOpen || tutorialHighlightActive) return;
       if (event.key === "Escape" && dismissible) {
         onClose();
       }
@@ -757,8 +774,29 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     onTurnoChange,
     open,
     requireTurnoSelection,
+    tutorialHighlightActive,
+    tutorialOpen,
     turno,
   ]);
+
+  useEffect(() => {
+    if (open) return;
+    tutorialDriverLaunchRef.current += 1;
+    tutorialRestoreOnDestroyRef.current = false;
+    tutorialDriverRef.current?.destroy();
+    tutorialDriverRef.current = null;
+    setTutorialOpen(false);
+    setTutorialHighlightActive(false);
+  }, [open]);
+
+  useEffect(() => {
+    return () => {
+      tutorialDriverLaunchRef.current += 1;
+      tutorialRestoreOnDestroyRef.current = false;
+      tutorialDriverRef.current?.destroy();
+      tutorialDriverRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     if (open) return;
@@ -1115,6 +1153,95 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     setTurnoSelection("");
     onTurnoChange?.(undefined);
   };
+
+  const handleOpenTutorial = () => {
+    setTutorialStepIndex(0);
+    setTutorialTargetError(null);
+    setTutorialOpen(true);
+  };
+
+  const handleCloseTutorial = () => {
+    setTutorialTargetError(null);
+    setTutorialOpen(false);
+  };
+
+  const handleShowTutorialTarget = async (step: FondoGeneralTutorialStep) => {
+    if (!step.targetSelector) return;
+
+    const target = document.querySelector<HTMLElement>(step.targetSelector);
+    if (!target || target.getClientRects().length === 0) {
+      setTutorialTargetError(
+        "Este control no está disponible en este momento. Puede continuar con la explicación sin modificar el cierre.",
+      );
+      return;
+    }
+
+    setTutorialTargetError(null);
+    setTutorialOpen(false);
+    setTutorialHighlightActive(true);
+    tutorialRestoreOnDestroyRef.current = true;
+    const launchId = ++tutorialDriverLaunchRef.current;
+    target.scrollIntoView({ block: "center", behavior: "smooth" });
+
+    try {
+      const { driver } = await loadFondoGeneralDriver();
+      if (launchId !== tutorialDriverLaunchRef.current) return;
+      if (!target.isConnected) {
+        setTutorialHighlightActive(false);
+        setTutorialOpen(true);
+        setTutorialTargetError(
+          "El control dejó de estar disponible. Puede continuar con la explicación sin modificar el cierre.",
+        );
+        return;
+      }
+
+      const finishHighlight = () => {
+        tutorialDriverRef.current = null;
+        setTutorialHighlightActive(false);
+        if (tutorialRestoreOnDestroyRef.current) {
+          tutorialRestoreOnDestroyRef.current = false;
+          setTutorialOpen(true);
+        }
+      };
+      const tutorialDriver = driver({
+        animate: true,
+        smoothScroll: true,
+        allowClose: true,
+        allowKeyboardControl: true,
+        overlayClickBehavior: "close",
+        showButtons: ["close"],
+        closeBtnLabel: "Volver a la guía",
+        stagePadding: 8,
+        stageRadius: 10,
+        popoverClass: "fondo-general-driver-popover",
+        onDestroyStarted: (_element, _driverStep, { driver: activeDriver }) => {
+          finishHighlight();
+          activeDriver.destroy();
+        },
+        onDestroyed: finishHighlight,
+      });
+      tutorialDriverRef.current = tutorialDriver;
+      tutorialDriver.highlight({
+        element: target,
+        popover: {
+          title: `Paso ${step.number} de ${fondoGeneralSteps.length}: ${step.title}`,
+          description: step.description,
+          side: "top",
+          align: "center",
+          showButtons: ["close"],
+          closeBtnLabel: "Volver a la guía",
+        },
+      });
+    } catch {
+      if (launchId !== tutorialDriverLaunchRef.current) return;
+      tutorialRestoreOnDestroyRef.current = false;
+      setTutorialHighlightActive(false);
+      setTutorialTargetError(
+        "No se pudo iniciar el resaltado. Puede continuar con la explicación sin modificar el cierre.",
+      );
+      setTutorialOpen(true);
+    }
+  };
   if (!open) return null;
 
   return (
@@ -1131,7 +1258,16 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
           <h3 className="text-lg font-semibold text-center">
             Cierre diario del fondo
           </h3>
-          <div className="flex-1" />
+          <div className="flex flex-1 justify-end">
+            <button
+              type="button"
+              onClick={handleOpenTutorial}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[var(--input-border)] px-3 text-xs font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+            >
+              <BookOpen className="h-4 w-4" aria-hidden="true" />
+              Ver guía
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
@@ -1413,7 +1549,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                     </div>
                   </div>
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-3" data-tour="fondo-verificacion-campos">
                 <div className="hidden grid-cols-3 gap-3 text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)] md:grid"><span>Contica</span><span>Reporte acumulado</span><span>Diferencia turno</span></div>
                 {[
                   ["R08", r08, setR08, "Tucán", tucanCumulative, setTucanCumulative, conticaTucanDiff],
@@ -1440,6 +1576,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                           autoCorrect="off"
                           spellCheck={false}
                           onPaste={handleSystemVerificationPaste}
+                          aria-label={conticaLabel as string}
                           className="h-10 w-full rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 pl-7 text-sm text-[var(--foreground)]"
                         />
                       </div>
@@ -1464,6 +1601,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                           autoCorrect="off"
                           spellCheck={false}
                           onPaste={handleSystemVerificationPaste}
+                          aria-label={externalLabel as string}
                           className="h-10 w-full rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 pl-7 text-sm text-[var(--foreground)]"
                         />
                       </div>
@@ -1500,7 +1638,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                 )}
               </div>
               {reconciliationPreview && (
-                <div className="mt-4 space-y-3">
+                <div className="mt-4 space-y-3" data-tour="fondo-verificacion-resultado">
                   <div className="grid gap-3 md:grid-cols-2">
                     {[
                       {
@@ -1754,6 +1892,18 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
         confirmDisabled={submitting}
         onConfirm={handleConfirmDifferences}
         onCancel={handleCancelDifferences}
+      />
+      <FondoGeneralTutorialModal
+        open={tutorialOpen}
+        steps={fondoGeneralSteps}
+        currentIndex={tutorialStepIndex}
+        targetError={tutorialTargetError}
+        onIndexChange={(index) => {
+          setTutorialTargetError(null);
+          setTutorialStepIndex(index);
+        }}
+        onShowTarget={handleShowTutorialTarget}
+        onClose={handleCloseTutorial}
       />
     </div>
   );
