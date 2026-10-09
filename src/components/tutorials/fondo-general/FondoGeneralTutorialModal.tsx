@@ -1,4 +1,4 @@
-import { Eye, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useEffect, useId, useRef } from "react";
 
 import type { FondoGeneralTutorialStep } from "@/config/tutorials/fondoGeneralSteps";
@@ -13,7 +13,6 @@ type FondoGeneralTutorialModalProps = {
   currentIndex: number;
   targetError?: string | null;
   onIndexChange: (index: number) => void;
-  onShowTarget: (step: FondoGeneralTutorialStep) => void;
   onClose: () => void;
 };
 
@@ -30,7 +29,6 @@ export default function FondoGeneralTutorialModal({
   currentIndex,
   targetError,
   onIndexChange,
-  onShowTarget,
   onClose,
 }: FondoGeneralTutorialModalProps) {
   const titleId = useId();
@@ -136,18 +134,6 @@ export default function FondoGeneralTutorialModal({
         <main className={styles.content}>
           <p className={styles.description}>{step.description}</p>
           {step.image && step.alt ? <TutorialStepImage key={step.id} src={step.image} alt={step.alt} /> : null}
-          {step.targetSelector ? (
-            <div className={styles.liveTargetCard}>
-              <Eye aria-hidden="true" />
-              <div>
-                <strong>Este paso se muestra en la pantalla real.</strong>
-                <span>El modal se ocultará mientras se resalta el control, sin cambiar sus valores.</span>
-              </div>
-              <button type="button" onClick={() => onShowTarget(step)}>
-                Resaltar en TM
-              </button>
-            </div>
-          ) : null}
           {targetError ? <p className={styles.targetError} role="alert">{targetError}</p> : null}
           <p className={styles.disclaimer}>
             Esta guía es informativa: avanzar o finalizar no verifica ni guarda el cierre.

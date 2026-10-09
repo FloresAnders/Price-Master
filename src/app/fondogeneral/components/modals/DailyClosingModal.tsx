@@ -19,10 +19,8 @@ import type { Driver } from "driver.js";
 import ConfirmModal from "../../../../components/ui/ConfirmModal";
 import FondoGeneralTutorialModal from "@/components/tutorials/fondo-general/FondoGeneralTutorialModal";
 import { loadFondoGeneralDriver } from "@/components/tutorials/fondo-general/fondoGeneralDriver";
-import {
-  fondoGeneralSteps,
-  type FondoGeneralTutorialStep,
-} from "@/config/tutorials/fondoGeneralSteps";
+import { useFloatingActionsSuppression } from "@/components/ui/FloatingActionsDock";
+import { fondoGeneralSteps } from "@/config/tutorials/fondoGeneralSteps";
 import {
   SINGLE_CLOSING_REASON_INVALID_MESSAGE,
   SINGLE_CLOSING_REASON_MIN_LENGTH,
@@ -351,8 +349,11 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const [tutorialTargetError, setTutorialTargetError] = useState<string | null>(null);
   const [tutorialHighlightActive, setTutorialHighlightActive] = useState(false);
   const tutorialDriverRef = useRef<Driver | null>(null);
-  const tutorialRestoreOnDestroyRef = useRef(false);
   const tutorialDriverLaunchRef = useRef(0);
+  useFloatingActionsSuppression(
+    "fondo-general-closing-tutorial",
+    tutorialOpen || tutorialHighlightActive,
+  );
   const { copyToClipboard } = usePermissions();
 
   const secondaryButtonClass =
@@ -782,7 +783,6 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   useEffect(() => {
     if (open) return;
     tutorialDriverLaunchRef.current += 1;
-    tutorialRestoreOnDestroyRef.current = false;
     tutorialDriverRef.current?.destroy();
     tutorialDriverRef.current = null;
     setTutorialOpen(false);
@@ -792,7 +792,6 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   useEffect(() => {
     return () => {
       tutorialDriverLaunchRef.current += 1;
-      tutorialRestoreOnDestroyRef.current = false;
       tutorialDriverRef.current?.destroy();
       tutorialDriverRef.current = null;
     };
@@ -1165,11 +1164,19 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     setTutorialOpen(false);
   };
 
-  const handleShowTutorialTarget = async (step: FondoGeneralTutorialStep) => {
-    if (!step.targetSelector) return;
+  const handleStartTutorialLiveTour = async () => {
+    const liveSteps = fondoGeneralSteps.filter((step) => step.targetSelector);
+    const liveTour = liveSteps.map((step) => ({
+      step,
+      target: document.querySelector<HTMLElement>(step.targetSelector!),
+    }));
 
-    const target = document.querySelector<HTMLElement>(step.targetSelector);
-    if (!target || target.getClientRects().length === 0) {
+    if (
+      liveTour.length === 0 ||
+      liveTour.some(
+        ({ target }) => !target || target.getClientRects().length === 0,
+      )
+    ) {
       setTutorialTargetError(
         "Este control no está disponible en este momento. Puede continuar con la explicación sin modificar el cierre.",
       );
@@ -1179,14 +1186,20 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     setTutorialTargetError(null);
     setTutorialOpen(false);
     setTutorialHighlightActive(true);
-    tutorialRestoreOnDestroyRef.current = true;
     const launchId = ++tutorialDriverLaunchRef.current;
-    target.scrollIntoView({ block: "center", behavior: "smooth" });
+    liveTour[0].target?.scrollIntoView({ block: "center", behavior: "smooth" });
 
     try {
       const { driver } = await loadFondoGeneralDriver();
       if (launchId !== tutorialDriverLaunchRef.current) return;
-      if (!target.isConnected) {
+      if (
+        liveTour.some(
+          ({ target }) =>
+            !target ||
+            !target.isConnected ||
+            target.getClientRects().length === 0,
+        )
+      ) {
         setTutorialHighlightActive(false);
         setTutorialOpen(true);
         setTutorialTargetError(
@@ -1195,13 +1208,9 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
         return;
       }
 
-      const finishHighlight = () => {
+      const finishLiveTour = () => {
         tutorialDriverRef.current = null;
         setTutorialHighlightActive(false);
-        if (tutorialRestoreOnDestroyRef.current) {
-          tutorialRestoreOnDestroyRef.current = false;
-          setTutorialOpen(true);
-        }
       };
       const tutorialDriver = driver({
         animate: true,
@@ -1209,32 +1218,42 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
         allowClose: true,
         allowKeyboardControl: true,
         overlayClickBehavior: "close",
-        showButtons: ["close"],
-        closeBtnLabel: "Volver a la guía",
+        showButtons: ["previous", "next", "close"],
+        nextBtnText: "Siguiente",
+        prevBtnText: "Anterior",
+        doneBtnText: "Finalizar guía",
+        closeBtnLabel: "Cerrar guía",
         stagePadding: 8,
         stageRadius: 10,
         popoverClass: "fondo-general-driver-popover",
+        steps: liveTour.map(({ step, target }, index) => ({
+          element: target!,
+          popover: {
+            title: `Paso ${step.number} de ${fondoGeneralSteps.length}: ${step.title}`,
+            description: step.description,
+            side: "top",
+            align: "center",
+            showButtons:
+              index === 0
+                ? (["next", "close"] as const)
+                : (["previous", "next", "close"] as const),
+            nextBtnText:
+              index === liveTour.length - 1 ? "Finalizar guía" : "Siguiente",
+            prevBtnText: "Anterior",
+            doneBtnText: "Finalizar guía",
+            closeBtnLabel: "Cerrar guía",
+          },
+        })),
         onDestroyStarted: (_element, _driverStep, { driver: activeDriver }) => {
-          finishHighlight();
+          finishLiveTour();
           activeDriver.destroy();
         },
-        onDestroyed: finishHighlight,
+        onDestroyed: finishLiveTour,
       });
       tutorialDriverRef.current = tutorialDriver;
-      tutorialDriver.highlight({
-        element: target,
-        popover: {
-          title: `Paso ${step.number} de ${fondoGeneralSteps.length}: ${step.title}`,
-          description: step.description,
-          side: "top",
-          align: "center",
-          showButtons: ["close"],
-          closeBtnLabel: "Volver a la guía",
-        },
-      });
+      tutorialDriver.drive(0);
     } catch {
       if (launchId !== tutorialDriverLaunchRef.current) return;
-      tutorialRestoreOnDestroyRef.current = false;
       setTutorialHighlightActive(false);
       setTutorialTargetError(
         "No se pudo iniciar el resaltado. Puede continuar con la explicación sin modificar el cierre.",
@@ -1259,14 +1278,16 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
             Cierre diario del fondo
           </h3>
           <div className="flex flex-1 justify-end">
-            <button
-              type="button"
-              onClick={handleOpenTutorial}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[var(--input-border)] px-3 text-xs font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
-            >
-              <BookOpen className="h-4 w-4" aria-hidden="true" />
-              Ver guía
-            </button>
+            {systemVerificationEnabled && (
+              <button
+                type="button"
+                onClick={handleOpenTutorial}
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[var(--input-border)] px-3 text-xs font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+              >
+                <BookOpen className="h-4 w-4" aria-hidden="true" />
+                Ver guía
+              </button>
+            )}
           </div>
         </div>
 
@@ -1899,10 +1920,14 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
         currentIndex={tutorialStepIndex}
         targetError={tutorialTargetError}
         onIndexChange={(index) => {
+          const step = fondoGeneralSteps[index];
+          if (step?.targetSelector) {
+            void handleStartTutorialLiveTour();
+            return;
+          }
           setTutorialTargetError(null);
           setTutorialStepIndex(index);
         }}
-        onShowTarget={handleShowTutorialTarget}
         onClose={handleCloseTutorial}
       />
     </div>
