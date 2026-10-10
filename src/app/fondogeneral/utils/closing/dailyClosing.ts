@@ -13,7 +13,10 @@ import {
   isValidDailyClosingSchedule,
   type DailyClosingRecord,
 } from "@/services/daily-closings";
-import { MovimientosFondosService } from "@/services/movimientos-fondos";
+import {
+  MovimientosFondosService,
+  type PendingNightDailyClosing,
+} from "@/services/movimientos-fondos";
 import { acceptLedgerSnapshot } from "../../hooks/fondo/ledgerSnapshotGuard";
 import type { Dispatch, SetStateAction } from "react";
 import {
@@ -44,6 +47,7 @@ import {
   buildOperationalStartISO,
   formatLedgerIntegrityMismatch,
   loadLedgerIntegrity,
+  loadPendingNightDailyClosingIntegrity,
   type LedgerIntegrityResult,
 } from "./ledgerIntegrity";
 
@@ -78,6 +82,7 @@ export interface HandleConfirmDailyClosingDeps {
   lastDailyClosingSavedAtRef: NumberRef;
   minutesAfterClose?: number | null;
   authorizedOperationalDateKey?: string | null;
+  pendingNightDailyClosing?: PendingNightDailyClosing | null;
   unicoCierre: boolean;
   requireSingleClosingReason: boolean;
   systemVerificationEnabled: boolean;
@@ -141,6 +146,7 @@ export async function handleConfirmDailyClosing(
     lastDailyClosingSavedAtRef,
     minutesAfterClose,
     authorizedOperationalDateKey,
+    pendingNightDailyClosing,
     unicoCierre,
     requireSingleClosingReason,
     systemVerificationEnabled,
@@ -216,6 +222,13 @@ export async function handleConfirmDailyClosing(
       closingDateValue.toISOString(),
       horarioApertura,
     ) ?? closingDateValue.toISOString().slice(0, 10);
+  const resolvesPendingNightDailyClosing = Boolean(
+    pendingNightDailyClosing &&
+    closing.turno === "N" &&
+    closingDateKey === pendingNightDailyClosing.operationalDateKey &&
+    closingDateValue.getTime() ===
+      Date.parse(pendingNightDailyClosing.createdAt),
+  );
   const sameDayClosings = dailyClosings.filter((item) =>
     item.id !== editingDailyClosingId &&
     (getCostaRicaOperationalDateKey(item.closingDate, horarioApertura) ?? item.closingDate.slice(0, 10)) === closingDateKey,
@@ -278,14 +291,31 @@ export async function handleConfirmDailyClosing(
 
   let integrity: LedgerIntegrityResult;
   try {
-    integrity = await loadLedgerIntegrity({
-      company: normalizedCompany,
-      accountId: "FondoGeneral",
-      operationalStartISO: buildOperationalStartISO(closingDateKey, horarioApertura!),
-      closingISO: createdAtISO,
-    });
-  } catch {
-    showToast("No se puede cerrar el fondo. No se pudo verificar la integridad del ledger en el servidor. Actualice e inténtelo de nuevo.", "error", 6000);
+    const operationalStartISO = buildOperationalStartISO(
+      closingDateKey,
+      horarioApertura!,
+    );
+    integrity = resolvesPendingNightDailyClosing
+      ? await loadPendingNightDailyClosingIntegrity({
+          company: normalizedCompany,
+          accountId: "FondoGeneral",
+          operationalStartISO,
+          pending: pendingNightDailyClosing!,
+        })
+      : await loadLedgerIntegrity({
+          company: normalizedCompany,
+          accountId: "FondoGeneral",
+          operationalStartISO,
+          closingISO: createdAtISO,
+        });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "";
+    const message = code === "PENDING_FONDO_VENTAS_CLOSING_NOT_FOUND"
+      ? "No se puede cerrar el fondo. No se encontró el cierre Fondo Ventas N que originó el pendiente."
+      : code === "PENDING_NIGHT_DAILY_CLOSING_CHANGED"
+        ? "El cierre N pendiente cambió en otro dispositivo. Actualice la pantalla."
+        : "No se puede cerrar el fondo. No se pudo verificar la integridad del ledger en el servidor. Actualice e inténtelo de nuevo.";
+    showToast(message, "error", 6000);
     return null;
   }
   if (!integrity.ok) {

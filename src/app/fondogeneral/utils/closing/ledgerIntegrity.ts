@@ -1,4 +1,5 @@
 import { MovimientosFondosService } from "@/services/movimientos-fondos";
+import type { PendingNightDailyClosing } from "@/services/movimientos-fondos";
 import { APERTURA_FONDO_PROVIDER_CODE } from "../../constants";
 import type { FondoEntry } from "../../types";
 import { formatByCurrency, resolveEffectiveEgresoAmount, roundMoney2 } from "../helpers";
@@ -35,6 +36,41 @@ export type LedgerIntegrityResult = LedgerIntegrityCalculation & {
 
 export const LEDGER_CHANGED_DURING_INTEGRITY_CHECK = "LEDGER_CHANGED_DURING_INTEGRITY_CHECK";
 
+const matchesPendingNightDailyClosing = (
+  candidate: PendingNightDailyClosing | null | undefined,
+  expected: PendingNightDailyClosing,
+) =>
+  Boolean(
+    candidate &&
+    candidate.version === 1 &&
+    candidate.turno === "N" &&
+    candidate.movementId === expected.movementId &&
+    candidate.operationalDateKey === expected.operationalDateKey &&
+    Date.parse(candidate.createdAt) === Date.parse(expected.createdAt),
+  );
+
+const calculateBalancesFromOpening = (
+  opening: IntegrityMovement,
+  movements: IntegrityMovement[],
+) => {
+  let expectedCRC = roundMoney2(opening.openingBalanceCRC);
+  let expectedUSD = roundMoney2(opening.openingBalanceUSD);
+  const openingMs = Date.parse(opening.createdAt);
+  for (const movement of movements) {
+    if (
+      movement.id === opening.id ||
+      movement.providerCode === APERTURA_FONDO_PROVIDER_CODE ||
+      Date.parse(movement.createdAt) <= openingMs
+    ) continue;
+    const delta =
+      roundMoney2(movement.amountIngreso) -
+      resolveEffectiveEgresoAmount(movement);
+    if (movement.currency === "USD") expectedUSD = roundMoney2(expectedUSD + delta);
+    else expectedCRC = roundMoney2(expectedCRC + delta);
+  }
+  return { expectedCRC, expectedUSD };
+};
+
 export function calculateLedgerIntegrity(input: {
   ledgerCRC: number;
   ledgerUSD: number;
@@ -51,19 +87,10 @@ export function calculateLedgerIntegrity(input: {
       driftCRC: null, driftUSD: null,
     };
   }
-  let expectedCRC = roundMoney2(opening.openingBalanceCRC);
-  let expectedUSD = roundMoney2(opening.openingBalanceUSD);
-  const openingMs = Date.parse(opening.createdAt);
-  for (const movement of input.movements) {
-    if (
-      movement.id === opening.id ||
-      movement.providerCode === APERTURA_FONDO_PROVIDER_CODE ||
-      Date.parse(movement.createdAt) <= openingMs
-    ) continue;
-    const delta = roundMoney2(movement.amountIngreso) - resolveEffectiveEgresoAmount(movement);
-    if (movement.currency === "USD") expectedUSD = roundMoney2(expectedUSD + delta);
-    else expectedCRC = roundMoney2(expectedCRC + delta);
-  }
+  const { expectedCRC, expectedUSD } = calculateBalancesFromOpening(
+    opening,
+    input.movements,
+  );
   const balances = {
     expectedCRC, expectedUSD, ledgerCRC, ledgerUSD,
     driftCRC: roundMoney2(ledgerCRC - expectedCRC),
@@ -137,6 +164,135 @@ export async function loadLedgerIntegrity(input: LoadLedgerIntegrityInput): Prom
         opening, movements: applicable,
       }),
       ledgerRevision, ledgerUpdatedAt,
+    };
+  }
+  throw new Error(LEDGER_CHANGED_DURING_INTEGRITY_CHECK);
+}
+
+export async function loadPendingNightDailyClosingIntegrity(input: {
+  company: string;
+  accountId: "FondoGeneral";
+  operationalStartISO: string;
+  pending: PendingNightDailyClosing;
+}): Promise<LedgerIntegrityResult> {
+  const startMs = Date.parse(input.operationalStartISO);
+  const pendingClosingMs = Date.parse(input.pending.createdAt);
+  if (
+    !Number.isFinite(startMs) ||
+    !Number.isFinite(pendingClosingMs) ||
+    startMs > pendingClosingMs ||
+    input.pending.turno !== "N"
+  ) {
+    throw new Error("INVALID_PENDING_DAILY_CLOSING_RANGE");
+  }
+
+  const docId = MovimientosFondosService.buildCompanyMovementsKey(input.company);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const before = await MovimientosFondosService.getDocumentFromServer(docId);
+    if (!before) throw new Error("LEDGER_DOCUMENT_MISSING");
+    if (
+      !matchesPendingNightDailyClosing(
+        before.state.pendingNightDailyClosing,
+        input.pending,
+      )
+    ) {
+      throw new Error("PENDING_NIGHT_DAILY_CLOSING_CHANGED");
+    }
+
+    const cierreFondoVentas =
+      await MovimientosFondosService.getMovementById<IntegrityMovement>(
+        docId,
+        input.pending.movementId,
+        input.accountId,
+      );
+    if (
+      !cierreFondoVentas ||
+      cierreFondoVentas.turno !== "N" ||
+      Date.parse(cierreFondoVentas.createdAt) !== pendingClosingMs ||
+      !matchesPendingNightDailyClosing(
+        cierreFondoVentas.pendingNightDailyClosing,
+        input.pending,
+      )
+    ) {
+      throw new Error("PENDING_FONDO_VENTAS_CLOSING_NOT_FOUND");
+    }
+
+    const movements =
+      await MovimientosFondosService.listAllMovementsByCreatedAtRange<IntegrityMovement>(
+        docId,
+        {
+          accountId: input.accountId,
+          startIso: new Date(startMs).toISOString(),
+          endIsoExclusive: new Date(pendingClosingMs + 1).toISOString(),
+        },
+      );
+    const after = await MovimientosFondosService.getDocumentFromServer(docId);
+    if (!after) throw new Error("LEDGER_DOCUMENT_MISSING");
+    if (
+      !matchesPendingNightDailyClosing(
+        after.state.pendingNightDailyClosing,
+        input.pending,
+      )
+    ) {
+      throw new Error("PENDING_NIGHT_DAILY_CLOSING_CHANGED");
+    }
+
+    const ledgerRevision = after.state.revision ?? 0;
+    const ledgerUpdatedAt = after.state.updatedAt;
+    if (
+      (before.state.revision ?? 0) !== ledgerRevision ||
+      before.state.updatedAt !== ledgerUpdatedAt
+    ) continue;
+
+    const applicable = movements.filter((movement) => {
+      const timestamp = Date.parse(movement.createdAt);
+      return timestamp >= startMs && timestamp <= pendingClosingMs;
+    });
+    if (
+      !applicable.some(
+        (movement) => movement.id === input.pending.movementId,
+      )
+    ) {
+      throw new Error("PENDING_FONDO_VENTAS_CLOSING_NOT_FOUND");
+    }
+    const opening = applicable
+      .filter((movement) => movement.providerCode === APERTURA_FONDO_PROVIDER_CODE)
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0] ?? null;
+    const balance = (currency: "CRC" | "USD") => after.state.balancesByAccount.find(
+      (item) => item.accountId === input.accountId && item.currency === currency,
+    )?.currentBalance ?? 0;
+    if (!opening) {
+      return {
+        ok: false,
+        reason: "opening-missing",
+        openingId: null,
+        expectedCRC: null,
+        expectedUSD: null,
+        ledgerCRC: roundMoney2(balance("CRC")),
+        ledgerUSD: roundMoney2(balance("USD")),
+        driftCRC: null,
+        driftUSD: null,
+        ledgerRevision,
+        ledgerUpdatedAt,
+      };
+    }
+
+    const { expectedCRC, expectedUSD } = calculateBalancesFromOpening(
+      opening,
+      applicable,
+    );
+    return {
+      ok: true,
+      reason: "balanced",
+      openingId: opening.id,
+      expectedCRC,
+      expectedUSD,
+      ledgerCRC: expectedCRC,
+      ledgerUSD: expectedUSD,
+      driftCRC: 0,
+      driftUSD: 0,
+      ledgerRevision,
+      ledgerUpdatedAt,
     };
   }
   throw new Error(LEDGER_CHANGED_DURING_INTEGRITY_CHECK);

@@ -72,7 +72,10 @@ import {
 } from "../../utils/fondo/dailyRounding";
 
 
-import DailyClosingModal, { DailyClosingFormValues } from "../modals/DailyClosingModal";
+import DailyClosingModal, {
+  clearDailyClosingModalDraft,
+  DailyClosingFormValues,
+} from "../modals/DailyClosingModal";
 import DailyClosingSummaryModal from "../modals/DailyClosingSummaryModal";
 import CashOpeningModal, { CashOpeningFormValues } from "../modals/CashOpeningModal";
 import FacturaPaymentModal from "../modals/FacturaPaymentModal";
@@ -4624,6 +4627,11 @@ export function FondoSection({
       return;
     }
 
+    if (pendingNightDailyClosing) {
+      const pendingHandled = await handleOpenRequiredNightDailyClosing(true);
+      if (pendingHandled) return;
+    }
+
     if (empresaSolicitaApertura) {
       const openingValidation = await validateFondoGeneralOpeningRequirement({
         company,
@@ -4822,91 +4830,137 @@ export function FondoSection({
     setDailyClosingModalOpen(true);
   };
 
-  const handleOpenRequiredNightDailyClosing = useCallback(async () => {
-    if (!requiredNightDailyClosingActive || !pendingNightDailyClosing) return;
+  const handleOpenRequiredNightDailyClosing = useCallback(
+    async (force = false) => {
+      if (!pendingNightDailyClosing) return false;
+      if (!force && !requiredNightDailyClosingActive) return false;
 
-    if (
-      dailyClosingModalOpen &&
-      dailyClosingTurno === "N" &&
-      dailyClosingOperationalDateKey ===
-        pendingNightDailyClosing.operationalDateKey
-    ) {
-      return;
-    }
+      if (
+        dailyClosingModalOpen &&
+        dailyClosingTurno === "N" &&
+        dailyClosingOperationalDateKey ===
+          pendingNightDailyClosing.operationalDateKey
+      ) {
+        return true;
+      }
 
-    const initialValues: DailyClosingFormValues = {
-      closingDate: pendingNightDailyClosing.createdAt,
-      manager: pendingNightDailyClosing.manager,
-      notes: "",
-      singleClosingReason: "",
-      noMovements: false,
-      noMovementsReason: "",
-      totalCRC: currentBalanceCRC,
-      totalUSD: currentBalanceUSD,
-      breakdownCRC: {},
-      breakdownUSD: {},
-      turno: "N",
-      r08: 0,
-      t11: 0,
-      tucanCumulative: 0,
-      tiemposCumulative: 0,
-    };
+      let pendingContextLoaded = false;
+      try {
+        const normalizedCompany = String(company || "").trim();
+        if (!normalizedCompany) {
+          throw new Error("PENDING_CLOSING_COMPANY_REQUIRED");
+        }
+        const docId =
+          MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
+        const cierreFondoVentas =
+          await MovimientosFondosService.getMovementById<FondoEntry>(
+            docId,
+            pendingNightDailyClosing.movementId,
+            "FondoGeneral",
+          );
+        const cierreOperationalDateKey = cierreFondoVentas
+          ? getCostaRicaOperationalDateKey(
+              String(cierreFondoVentas.createdAt || ""),
+              empresaForShiftResolution?.horarioApertura,
+            )
+          : null;
+        const cierreManager = String(cierreFondoVentas?.manager || "").trim();
+        const sourcePending = cierreFondoVentas?.pendingNightDailyClosing;
+        if (
+          !cierreFondoVentas ||
+          cierreFondoVentas.turno !== "N" ||
+          sourcePending?.movementId !== pendingNightDailyClosing.movementId ||
+          sourcePending?.operationalDateKey !==
+            pendingNightDailyClosing.operationalDateKey ||
+          cierreOperationalDateKey !==
+            pendingNightDailyClosing.operationalDateKey ||
+          Date.parse(String(cierreFondoVentas.createdAt || "")) !==
+            Date.parse(pendingNightDailyClosing.createdAt) ||
+          !cierreManager
+        ) {
+          throw new Error("PENDING_FONDO_VENTAS_CLOSING_NOT_FOUND");
+        }
 
-    setEditingDailyClosingId(null);
-    setDailyClosingOperationalDateKey(
-      pendingNightDailyClosing.operationalDateKey,
-    );
-    setDailyClosingTurno("N");
-    setDailyClosingSingleReasonRequired(false);
-    setDailyClosingInitialValues(initialValues);
-    setDailyClosingModalOpen(true);
+        const initialValues: DailyClosingFormValues = {
+          closingDate: cierreFondoVentas.createdAt,
+          manager: cierreManager,
+          notes: "",
+          singleClosingReason: "",
+          noMovements: false,
+          noMovementsReason: "",
+          totalCRC: currentBalanceCRC,
+          totalUSD: currentBalanceUSD,
+          breakdownCRC: {},
+          breakdownUSD: {},
+          turno: "N",
+          r08: 0,
+          t11: 0,
+          tucanCumulative: 0,
+          tiemposCumulative: 0,
+        };
 
-    try {
-      const { closingsForOperationalDay } =
-        await refreshRealDailyClosingsForOperationalDay(
+        clearDailyClosingModalDraft();
+        setEditingDailyClosingId(null);
+        setDailyClosingOperationalDateKey(
           pendingNightDailyClosing.operationalDateKey,
         );
-      const alreadyClosed = closingsForOperationalDay.some(
-        (closing) =>
-          inferDailyClosingTurno(
-            closing,
-            closingsForOperationalDay,
-            empresaForShiftResolution?.horarioApertura,
-          ) === "N",
-      );
-      if (alreadyClosed) {
-        setPendingNightClosingDeadlineReached(false);
-        setDailyClosingModalOpen(false);
-        setDailyClosingInitialValues(null);
-        void refreshMovements();
+        setDailyClosingTurno("N");
+        setDailyClosingSingleReasonRequired(false);
+        setDailyClosingInitialValues(initialValues);
+        setDailyClosingModalOpen(true);
+        pendingContextLoaded = true;
+
+        const { closingsForOperationalDay } =
+          await refreshRealDailyClosingsForOperationalDay(
+            pendingNightDailyClosing.operationalDateKey,
+          );
+        const alreadyClosed = closingsForOperationalDay.some(
+          (closing) =>
+            inferDailyClosingTurno(
+              closing,
+              closingsForOperationalDay,
+              empresaForShiftResolution?.horarioApertura,
+            ) === "N",
+        );
+        if (alreadyClosed) {
+          setPendingNightClosingDeadlineReached(false);
+          setDailyClosingModalOpen(false);
+          setDailyClosingInitialValues(null);
+          void refreshMovements();
+        }
+      } catch (error) {
+        console.error(
+          "[FG] Error loading the pending night daily closing context:",
+          error,
+        );
+        showToast(
+          pendingContextLoaded
+            ? "El cierre N sigue pendiente; no se pudo actualizar su información."
+            : "El cierre N sigue pendiente, pero no se pudo cargar su cierre Fondo Ventas con encargado.",
+          "error",
+          7000,
+        );
       }
-    } catch (error) {
-      console.error(
-        "[FG] Error refreshing the required night daily closing:",
-        error,
-      );
-      showToast(
-        "El cierre N sigue pendiente; no se pudo actualizar su información.",
-        "error",
-        6000,
-      );
-    }
-  }, [
-    currentBalanceCRC,
-    currentBalanceUSD,
-    dailyClosingModalOpen,
-    dailyClosingOperationalDateKey,
-    dailyClosingTurno,
-    empresaForShiftResolution?.horarioApertura,
-    pendingNightDailyClosing,
-    refreshMovements,
-    refreshRealDailyClosingsForOperationalDay,
-    requiredNightDailyClosingActive,
-    setDailyClosingInitialValues,
-    setDailyClosingModalOpen,
-    setEditingDailyClosingId,
-    showToast,
-  ]);
+      return true;
+    },
+    [
+      company,
+      currentBalanceCRC,
+      currentBalanceUSD,
+      dailyClosingModalOpen,
+      dailyClosingOperationalDateKey,
+      dailyClosingTurno,
+      empresaForShiftResolution?.horarioApertura,
+      pendingNightDailyClosing,
+      refreshMovements,
+      refreshRealDailyClosingsForOperationalDay,
+      requiredNightDailyClosingActive,
+      setDailyClosingInitialValues,
+      setDailyClosingModalOpen,
+      setEditingDailyClosingId,
+      showToast,
+    ],
+  );
 
   useEffect(() => {
     if (!requiredNightDailyClosingActive) return;
@@ -5245,7 +5299,30 @@ export function FondoSection({
       (dailyClosingTurno === "D" || dailyClosingTurno === "N")
         ? { ...closing, turno: dailyClosingTurno }
         : closing;
-    if (!editingDailyClosingId && empresaSolicitaApertura) {
+    const operationalDateKey = getCostaRicaOperationalDateKey(
+      closingForSubmit.closingDate,
+      empresaForShiftResolution?.horarioApertura,
+    );
+    if (!operationalDateKey) {
+      showToast(
+        "No se pudo resolver el dia operativo del cierre.",
+        "error",
+        6000,
+      );
+      return null;
+    }
+    const resolvesPendingNightDailyClosing = Boolean(
+      pendingNightDailyClosing &&
+      closingForSubmit.turno === "N" &&
+      operationalDateKey === pendingNightDailyClosing.operationalDateKey &&
+      Date.parse(closingForSubmit.closingDate) ===
+        Date.parse(pendingNightDailyClosing.createdAt),
+    );
+    if (
+      !editingDailyClosingId &&
+      empresaSolicitaApertura &&
+      !resolvesPendingNightDailyClosing
+    ) {
       const openingValidation = await validateFondoGeneralOpeningRequirement({
         company,
         accountKey,
@@ -5278,18 +5355,6 @@ export function FondoSection({
         return null;
       }
     }
-    const operationalDateKey = getCostaRicaOperationalDateKey(
-      closingForSubmit.closingDate,
-      empresaForShiftResolution?.horarioApertura,
-    );
-    if (!operationalDateKey) {
-      showToast(
-        "No se pudo resolver el dia operativo del cierre.",
-        "error",
-        6000,
-      );
-      return null;
-    }
     const closingHasTurno =
       closingForSubmit.turno === "D" || closingForSubmit.turno === "N";
     if (!closingHasTurno && !closingForSubmit.sinTurno) {
@@ -5298,12 +5363,71 @@ export function FondoSection({
     }
 
     let closingWithCierreManager: DailyClosingFormValues = closingForSubmit;
-    if (closingHasTurno && !isSuperAdminUser) {
-      const cierreFondoVentasForDailyClosing =
-        getCierreFondoVentasForDailyClosing(
-          operationalDateKey,
-          closingForSubmit.turno!,
-        );
+    if (
+      closingHasTurno &&
+      (!isSuperAdminUser || resolvesPendingNightDailyClosing)
+    ) {
+      let cierreFondoVentasForDailyClosing: FondoEntry | null = null;
+      if (resolvesPendingNightDailyClosing && pendingNightDailyClosing) {
+        try {
+          const normalizedCompany = String(company || "").trim();
+          if (!normalizedCompany) {
+            throw new Error("PENDING_CLOSING_COMPANY_REQUIRED");
+          }
+          const docId =
+            MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
+          cierreFondoVentasForDailyClosing =
+            await MovimientosFondosService.getMovementById<FondoEntry>(
+              docId,
+              pendingNightDailyClosing.movementId,
+              "FondoGeneral",
+            );
+        } catch (error) {
+          console.error(
+            "[FG] Error validating the pending Fondo Ventas closing:",
+            error,
+          );
+          showToast(
+            "No se pudo validar el cierre Fondo Ventas N que originó el pendiente.",
+            "error",
+            7000,
+          );
+          return null;
+        }
+        const sourceOperationalDateKey = cierreFondoVentasForDailyClosing
+          ? getCostaRicaOperationalDateKey(
+              String(cierreFondoVentasForDailyClosing.createdAt || ""),
+              empresaForShiftResolution?.horarioApertura,
+            )
+          : null;
+        const sourcePending =
+          cierreFondoVentasForDailyClosing?.pendingNightDailyClosing;
+        if (
+          !cierreFondoVentasForDailyClosing ||
+          cierreFondoVentasForDailyClosing.turno !== "N" ||
+          sourcePending?.movementId !== pendingNightDailyClosing.movementId ||
+          sourcePending?.operationalDateKey !==
+            pendingNightDailyClosing.operationalDateKey ||
+          sourceOperationalDateKey !== operationalDateKey ||
+          Date.parse(
+            String(cierreFondoVentasForDailyClosing.createdAt || ""),
+          ) !==
+            Date.parse(pendingNightDailyClosing.createdAt)
+        ) {
+          showToast(
+            "No se pudo validar el cierre Fondo Ventas N que originó el pendiente.",
+            "error",
+            7000,
+          );
+          return null;
+        }
+      } else {
+        cierreFondoVentasForDailyClosing =
+          getCierreFondoVentasForDailyClosing(
+            operationalDateKey,
+            closingForSubmit.turno!,
+          );
+      }
       const cierreFondoVentasManager = String(
         cierreFondoVentasForDailyClosing?.manager || "",
       ).trim();
@@ -5358,6 +5482,9 @@ export function FondoSection({
       lastDailyClosingSavedAtRef,
       minutesAfterClose: dailyClosingMinutesAfterClose,
       authorizedOperationalDateKey: operationalDateKey,
+      pendingNightDailyClosing: resolvesPendingNightDailyClosing
+        ? pendingNightDailyClosing
+        : null,
       unicoCierre: empresaUsesSingleClosing,
       requireSingleClosingReason:
         dailyClosingSingleReasonRequired &&
