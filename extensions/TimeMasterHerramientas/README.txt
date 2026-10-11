@@ -1,10 +1,11 @@
-TIMEMASTER HERRAMIENTAS 1.0.2
+TIMEMASTER HERRAMIENTAS 1.0.3
 ================================
 
 Esta extensión reúne CambioTab, división de efectivo, cierre automático del
-modal de impresión de Contica, SumaTiempos y MoverEnter en una sola instalación.
-Las tres extensiones originales permanecen como respaldo, pero deben estar
-desactivadas mientras se usa esta versión para evitar acciones duplicadas.
+modal de impresión de Contica, SumaTiempos, ingreso de venta con Ctrl+Enter y
+MoverEnter en una sola instalación. Las tres extensiones originales permanecen
+como respaldo, pero deben estar desactivadas mientras se usa esta versión para
+evitar acciones duplicadas.
 
 INSTALACIÓN EN EDGE O CHROME
 ----------------------------
@@ -21,6 +22,7 @@ CONTROLES Y VALORES INICIALES
 - Cierre del modal de impresión en Contica: desactivado.
 - División de efectivo en Contica: desactivada.
 - SumaTiempos en Gente Crystal: activado.
+- Ingresar venta con Ctrl+Enter en Gente Crystal: desactivado.
 - Impresión automática en Gente Crystal: desactivada.
 
 Pulse el icono de la extensión para cambiar cada función por separado. Los
@@ -62,6 +64,14 @@ El panel muestra:
                 + cantidad de números × (monto principal + monto compañero)
 
 El monto compañero solo se suma cuando su control está visible y habilitado.
+
+INGRESAR VENTA CON CTRL+ENTER EN GENTE CRYSTAL
+----------------------------------------------
+Sitio: https://gentecrystal.net/controllers/sales/SalesController.php*
+
+Al activarlo, Ctrl+Enter o Ctrl+Enter del teclado numérico pulsa una sola vez
+el botón #btn-submit-sale. El atajo no actúa cuando el botón no existe, está
+oculto o deshabilitado.
 
 IMPRESIÓN AUTOMÁTICA EN GENTE CRYSTAL
 -------------------------------------

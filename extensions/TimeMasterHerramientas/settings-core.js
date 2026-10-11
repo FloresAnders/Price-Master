@@ -13,6 +13,7 @@
     tmhDividirEfectivoEnabled: false,
     tmhSumaTiemposEnabled: true,
     tmhMoverEnterEnabled: false,
+    tmhIngresarVentaEnabled: false,
   });
 
   function normalizeSettings(raw = {}) {
