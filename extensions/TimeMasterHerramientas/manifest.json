@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "TimeMaster Herramientas",
-  "version": "1.0.1",
-  "description": "Atajos y cierre del modal de impresión en Contica, suma de tiempos e impresión automática para Gente Crystal.",
+  "version": "1.0.2",
+  "description": "Atajos, división de efectivo y cierre de impresión en Contica, más herramientas para Gente Crystal.",
   "permissions": ["storage"],
   "icons": {
     "128": "icon128.png"
@@ -17,6 +17,7 @@
         "settings-core.js",
         "cambiotab-core.js",
         "cerrarimpresioncontica-core.js",
+        "dividirefectivo-core.js",
         "contica-content.js"
       ],
       "run_at": "document_idle"

@@ -10,6 +10,7 @@
   const DEFAULT_SETTINGS = Object.freeze({
     tmhCambioTabEnabled: true,
     tmhCerrarImpresionConticaEnabled: false,
+    tmhDividirEfectivoEnabled: false,
     tmhSumaTiemposEnabled: true,
     tmhMoverEnterEnabled: false,
   });
