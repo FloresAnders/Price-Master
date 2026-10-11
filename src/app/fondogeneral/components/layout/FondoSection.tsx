@@ -111,6 +111,7 @@ import {
 import type { FcrPaymentRecovery } from "../../utils/invoicePayment/fcrPartialSaveRecovery";
 import {
   getSingleClosingReasonFromNotes,
+  resolveAutomaticDailyClosingTurno,
   SINGLE_CLOSING_REASON_INVALID_MESSAGE,
   validateSingleClosingReason,
 } from "../../utils/closing/singleClosingReason";
@@ -4757,12 +4758,11 @@ export function FondoSection({
       console.error("[FG] Error resolving single-closing reason requirement:", err);
     }
 
-    const dailyClosingTurnoForNow: "D" | "N" =
-      empresaUsesSingleClosing
-        ? "N"
-        : hasRealD
-          ? "N"
-          : "D";
+    const dailyClosingTurnoForNow = resolveAutomaticDailyClosingTurno({
+      empresaUsesSingleClosing,
+      requiresSingleClosingReason: requireSingleReason,
+      hasRealD,
+    });
     if (isSuperAdminUser) {
       const initialValues: DailyClosingFormValues = {
         closingDate: nowISO,

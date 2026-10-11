@@ -201,3 +201,14 @@ export const getSingleClosingReasonFromNotes = (notes: unknown): string => {
     ? trimmedNotes.slice(SINGLE_CLOSING_REASON_PREFIX.length).trim()
     : trimmedNotes;
 };
+
+export const resolveAutomaticDailyClosingTurno = (args: {
+  empresaUsesSingleClosing: boolean;
+  requiresSingleClosingReason: boolean;
+  hasRealD: boolean;
+}): "D" | "N" =>
+  args.empresaUsesSingleClosing ||
+  args.requiresSingleClosingReason ||
+  args.hasRealD
+    ? "N"
+    : "D";

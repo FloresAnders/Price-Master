@@ -1,133 +1,61 @@
-[debug] [2026-10-06T20:44:35.718Z] ----------------------------------------------------------------------
-[debug] [2026-10-06T20:44:35.722Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\chave\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js firestore:databases:list --project pricemaster-4a611 --json
-[debug] [2026-10-06T20:44:35.722Z] CLI Version:   15.26.0
-[debug] [2026-10-06T20:44:35.722Z] Platform:      win32
-[debug] [2026-10-06T20:44:35.723Z] Node Version:  v22.20.0
-[debug] [2026-10-06T20:44:35.723Z] Detected Agent: codex_cli
-[debug] [2026-10-06T20:44:35.723Z] Time:          Tue Oct 06 2026 14:44:35 GMT-0600 (hora estándar central)
-[debug] [2026-10-06T20:44:35.723Z] ----------------------------------------------------------------------
+[debug] [2026-10-11T14:38:04.984Z] ----------------------------------------------------------------------
+[debug] [2026-10-11T14:38:04.987Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\chave\Desktop\Diversion\Price-Master\node_modules\firebase-tools\lib\bin\firebase.js projects:list --json
+[debug] [2026-10-11T14:38:04.987Z] CLI Version:   15.31.0
+[debug] [2026-10-11T14:38:04.988Z] Platform:      win32
+[debug] [2026-10-11T14:38:04.988Z] Node Version:  v22.20.0
+[debug] [2026-10-11T14:38:04.988Z] Detected Agent: codex_cli
+[debug] [2026-10-11T14:38:04.988Z] Time:          Sun Oct 11 2026 08:38:04 GMT-0600 (hora estándar central)
+[debug] [2026-10-11T14:38:04.988Z] ----------------------------------------------------------------------
 [debug] 
-[debug] [2026-10-06T20:44:35.740Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
-[debug] [2026-10-06T20:44:57.885Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
-[debug] [2026-10-06T20:44:57.885Z] > authorizing via signed-in user (busticketsuna@gmail.com)
-[debug] [2026-10-06T20:44:57.885Z] [iam] checking project pricemaster-4a611 for permissions ["datastore.databases.list","firebase.projects.get"]
-[debug] [2026-10-06T20:44:57.887Z] Checked if tokens are valid: false, expires at: 1791040010533
-[debug] [2026-10-06T20:44:57.888Z] Checked if tokens are valid: false, expires at: 1791040010533
-[debug] [2026-10-06T20:44:57.888Z] > refreshing access token with scopes: []
-[debug] [2026-10-06T20:44:57.890Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
-[debug] [2026-10-06T20:44:57.890Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
-[debug] [2026-10-06T20:44:58.151Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
-[debug] [2026-10-06T20:44:58.151Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
-[debug] [2026-10-06T20:44:58.173Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions [none]
-[debug] [2026-10-06T20:44:58.173Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions  x-goog-user-project=pricemaster-4a611
-[debug] [2026-10-06T20:44:58.173Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions {"permissions":["datastore.databases.list","firebase.projects.get"]}
-[debug] [2026-10-06T20:44:58.199Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
-[debug] [2026-10-06T20:44:58.200Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
-[debug] [2026-10-06T20:44:58.453Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions 200
-[debug] [2026-10-06T20:44:58.453Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions {"permissions":["datastore.databases.list","firebase.projects.get"]}
-[debug] [2026-10-06T20:44:58.454Z] Checked if tokens are valid: true, expires at: 1791323097151
-[debug] [2026-10-06T20:44:58.454Z] Checked if tokens are valid: true, expires at: 1791323097151
-[debug] [2026-10-06T20:44:58.454Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/pricemaster-4a611/databases [none]
-[debug] [2026-10-06T20:44:59.052Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/pricemaster-4a611/databases 200
-[debug] [2026-10-10T13:54:38.617Z] ----------------------------------------------------------------------
-[debug] [2026-10-10T13:54:38.621Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\chave\Desktop\Diversion\Price-Master\node_modules\firebase-tools\lib\bin\firebase.js firestore:databases:list --project pricemaster-4a611 --json
-[debug] [2026-10-10T13:54:38.622Z] CLI Version:   15.31.0
-[debug] [2026-10-10T13:54:38.622Z] Platform:      win32
-[debug] [2026-10-10T13:54:38.622Z] Node Version:  v22.20.0
-[debug] [2026-10-10T13:54:38.622Z] Detected Agent: codex_cli
-[debug] [2026-10-10T13:54:38.623Z] Time:          Sat Oct 10 2026 07:54:38 GMT-0600 (hora estándar central)
-[debug] [2026-10-10T13:54:38.624Z] ----------------------------------------------------------------------
+[debug] [2026-10-11T14:38:05.251Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-10-11T14:38:05.251Z] > authorizing via signed-in user (busticketsuna@gmail.com)
+[debug] [2026-10-11T14:38:05.288Z] Checked if tokens are valid: true, expires at: 1791731301374
+[debug] [2026-10-11T14:38:05.288Z] Checked if tokens are valid: true, expires at: 1791731301374
+[debug] [2026-10-11T14:38:05.291Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects pageSize=1000
+[debug] [2026-10-11T14:38:05.876Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects 200
+[debug] [2026-10-11T14:44:32.192Z] ----------------------------------------------------------------------
+[debug] [2026-10-11T14:44:32.195Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\chave\Desktop\Diversion\Price-Master\node_modules\firebase-tools\lib\bin\firebase.js firestore:databases:list --project pricemaster-4a611
+[debug] [2026-10-11T14:44:32.195Z] CLI Version:   15.31.0
+[debug] [2026-10-11T14:44:32.196Z] Platform:      win32
+[debug] [2026-10-11T14:44:32.196Z] Node Version:  v22.20.0
+[debug] [2026-10-11T14:44:32.196Z] Detected Agent: codex_cli
+[debug] [2026-10-11T14:44:32.196Z] Time:          Sun Oct 11 2026 08:44:32 GMT-0600 (hora estándar central)
+[debug] [2026-10-11T14:44:32.197Z] ----------------------------------------------------------------------
 [debug] 
-[debug] [2026-10-10T13:54:57.909Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
-[debug] [2026-10-10T13:54:57.910Z] > authorizing via signed-in user (busticketsuna@gmail.com)
-[debug] [2026-10-10T13:54:57.910Z] [iam] checking project pricemaster-4a611 for permissions ["datastore.databases.list","firebase.projects.get"]
-[debug] [2026-10-10T13:54:57.945Z] Checked if tokens are valid: false, expires at: 1791624496791
-[debug] [2026-10-10T13:54:57.945Z] Checked if tokens are valid: false, expires at: 1791624496791
-[debug] [2026-10-10T13:54:57.945Z] > refreshing access token with scopes: []
-[debug] [2026-10-10T13:54:57.952Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
-[debug] [2026-10-10T13:54:57.953Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
-[debug] [2026-10-10T13:54:58.226Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
-[debug] [2026-10-10T13:54:58.226Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
-[debug] [2026-10-10T13:54:58.252Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions [none]
-[debug] [2026-10-10T13:54:58.252Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions  x-goog-user-project=pricemaster-4a611
-[debug] [2026-10-10T13:54:58.252Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions {"permissions":["datastore.databases.list","firebase.projects.get"]}
-[debug] [2026-10-10T13:54:58.597Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions 200
-[debug] [2026-10-10T13:54:58.598Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions {"permissions":["datastore.databases.list","firebase.projects.get"]}
-[debug] [2026-10-10T13:54:58.598Z] Checked if tokens are valid: true, expires at: 1791644097227
-[debug] [2026-10-10T13:54:58.598Z] Checked if tokens are valid: true, expires at: 1791644097227
-[debug] [2026-10-10T13:54:58.598Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/pricemaster-4a611/databases [none]
-[debug] [2026-10-10T13:54:59.313Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/pricemaster-4a611/databases 200
-[debug] [2026-10-10T23:20:55.045Z] ----------------------------------------------------------------------
-[debug] [2026-10-10T23:20:55.050Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\chave\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js firestore:databases:list --project pricemaster-4a611
-[debug] [2026-10-10T23:20:55.051Z] CLI Version:   15.26.0
-[debug] [2026-10-10T23:20:55.051Z] Platform:      win32
-[debug] [2026-10-10T23:20:55.051Z] Node Version:  v22.20.0
-[debug] [2026-10-10T23:20:55.052Z] Detected Agent: codex_cli
-[debug] [2026-10-10T23:20:55.052Z] Time:          Sat Oct 10 2026 17:20:55 GMT-0600 (hora estándar central)
-[debug] [2026-10-10T23:20:55.052Z] ----------------------------------------------------------------------
+[debug] [2026-10-11T14:44:34.968Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-10-11T14:44:34.969Z] > authorizing via signed-in user (busticketsuna@gmail.com)
+[debug] [2026-10-11T14:44:34.969Z] [iam] checking project pricemaster-4a611 for permissions ["datastore.databases.list","firebase.projects.get"]
+[debug] [2026-10-11T14:44:35.006Z] Checked if tokens are valid: true, expires at: 1791731301374
+[debug] [2026-10-11T14:44:35.007Z] Checked if tokens are valid: true, expires at: 1791731301374
+[debug] [2026-10-11T14:44:35.009Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions [none]
+[debug] [2026-10-11T14:44:35.009Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions  x-goog-user-project=pricemaster-4a611
+[debug] [2026-10-11T14:44:35.009Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions {"permissions":["datastore.databases.list","firebase.projects.get"]}
+[debug] [2026-10-11T14:44:35.442Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions 200
+[debug] [2026-10-11T14:44:35.442Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions {"permissions":["datastore.databases.list","firebase.projects.get"]}
+[debug] [2026-10-11T14:44:35.443Z] Checked if tokens are valid: true, expires at: 1791731301374
+[debug] [2026-10-11T14:44:35.443Z] Checked if tokens are valid: true, expires at: 1791731301374
+[debug] [2026-10-11T14:44:35.444Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/pricemaster-4a611/databases [none]
+[debug] [2026-10-11T14:44:36.073Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/pricemaster-4a611/databases 200
+[debug] [2026-10-11T14:44:37.588Z] ----------------------------------------------------------------------
+[debug] [2026-10-11T14:44:37.593Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\chave\Desktop\Diversion\Price-Master\node_modules\firebase-tools\lib\bin\firebase.js firestore:databases:get restauracion --project pricemaster-4a611
+[debug] [2026-10-11T14:44:37.593Z] CLI Version:   15.31.0
+[debug] [2026-10-11T14:44:37.594Z] Platform:      win32
+[debug] [2026-10-11T14:44:37.594Z] Node Version:  v22.20.0
+[debug] [2026-10-11T14:44:37.595Z] Detected Agent: codex_cli
+[debug] [2026-10-11T14:44:37.595Z] Time:          Sun Oct 11 2026 08:44:37 GMT-0600 (hora estándar central)
+[debug] [2026-10-11T14:44:37.596Z] ----------------------------------------------------------------------
 [debug] 
-[debug] [2026-10-10T23:21:17.998Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
-[debug] [2026-10-10T23:21:17.999Z] > authorizing via signed-in user (busticketsuna@gmail.com)
-[debug] [2026-10-10T23:21:18.000Z] [iam] checking project pricemaster-4a611 for permissions ["datastore.databases.list","firebase.projects.get"]
-[debug] [2026-10-10T23:21:18.050Z] Checked if tokens are valid: false, expires at: 1791669411413
-[debug] [2026-10-10T23:21:18.050Z] Checked if tokens are valid: false, expires at: 1791669411413
-[debug] [2026-10-10T23:21:18.051Z] > refreshing access token with scopes: []
-[debug] [2026-10-10T23:21:18.061Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
-[debug] [2026-10-10T23:21:18.062Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
-[debug] [2026-10-10T23:21:18.464Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
-[debug] [2026-10-10T23:21:18.465Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
-[debug] [2026-10-10T23:21:18.497Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions [none]
-[debug] [2026-10-10T23:21:18.497Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions  x-goog-user-project=pricemaster-4a611
-[debug] [2026-10-10T23:21:18.498Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions {"permissions":["datastore.databases.list","firebase.projects.get"]}
-[debug] [2026-10-10T23:21:18.813Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions 200
-[debug] [2026-10-10T23:21:18.814Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions {"permissions":["datastore.databases.list","firebase.projects.get"]}
-[debug] [2026-10-10T23:21:18.815Z] Checked if tokens are valid: true, expires at: 1791678077465
-[debug] [2026-10-10T23:21:18.816Z] Checked if tokens are valid: true, expires at: 1791678077465
-[debug] [2026-10-10T23:21:18.816Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/pricemaster-4a611/databases [none]
-[debug] [2026-10-10T23:21:19.454Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/pricemaster-4a611/databases 200
-[debug] [2026-10-10T23:21:33.519Z] ----------------------------------------------------------------------
-[debug] [2026-10-10T23:21:33.522Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\chave\Desktop\Diversion\Price-Master\node_modules\firebase-tools\lib\bin\firebase.js firestore:databases:list --project pricemaster-4a611 --json
-[debug] [2026-10-10T23:21:33.522Z] CLI Version:   15.31.0
-[debug] [2026-10-10T23:21:33.523Z] Platform:      win32
-[debug] [2026-10-10T23:21:33.523Z] Node Version:  v22.20.0
-[debug] [2026-10-10T23:21:33.523Z] Detected Agent: codex_cli
-[debug] [2026-10-10T23:21:33.523Z] Time:          Sat Oct 10 2026 17:21:33 GMT-0600 (hora estándar central)
-[debug] [2026-10-10T23:21:33.523Z] ----------------------------------------------------------------------
-[debug] 
-[debug] [2026-10-10T23:21:55.328Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
-[debug] [2026-10-10T23:21:55.329Z] > authorizing via signed-in user (busticketsuna@gmail.com)
-[debug] [2026-10-10T23:21:55.329Z] [iam] checking project pricemaster-4a611 for permissions ["datastore.databases.list","firebase.projects.get"]
-[debug] [2026-10-10T23:21:55.383Z] Checked if tokens are valid: true, expires at: 1791678077465
-[debug] [2026-10-10T23:21:55.383Z] Checked if tokens are valid: true, expires at: 1791678077465
-[debug] [2026-10-10T23:21:55.386Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions [none]
-[debug] [2026-10-10T23:21:55.386Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions  x-goog-user-project=pricemaster-4a611
-[debug] [2026-10-10T23:21:55.387Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions {"permissions":["datastore.databases.list","firebase.projects.get"]}
-[debug] [2026-10-10T23:21:55.836Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions 200
-[debug] [2026-10-10T23:21:55.836Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions {"permissions":["datastore.databases.list","firebase.projects.get"]}
-[debug] [2026-10-10T23:21:55.838Z] Checked if tokens are valid: true, expires at: 1791678077465
-[debug] [2026-10-10T23:21:55.838Z] Checked if tokens are valid: true, expires at: 1791678077465
-[debug] [2026-10-10T23:21:55.838Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/pricemaster-4a611/databases [none]
-[debug] [2026-10-10T23:21:56.478Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/pricemaster-4a611/databases 200
-[debug] [2026-10-10T23:31:00.786Z] ----------------------------------------------------------------------
-[debug] [2026-10-10T23:31:00.790Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\chave\Desktop\Diversion\Price-Master\node_modules\firebase-tools\lib\bin\firebase.js firestore:databases:get restauracion --project pricemaster-4a611 --json
-[debug] [2026-10-10T23:31:00.791Z] CLI Version:   15.31.0
-[debug] [2026-10-10T23:31:00.791Z] Platform:      win32
-[debug] [2026-10-10T23:31:00.791Z] Node Version:  v22.20.0
-[debug] [2026-10-10T23:31:00.792Z] Detected Agent: codex_cli
-[debug] [2026-10-10T23:31:00.793Z] Time:          Sat Oct 10 2026 17:31:00 GMT-0600 (hora estándar central)
-[debug] [2026-10-10T23:31:00.793Z] ----------------------------------------------------------------------
-[debug] 
-[debug] [2026-10-10T23:31:04.063Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
-[debug] [2026-10-10T23:31:04.063Z] > authorizing via signed-in user (busticketsuna@gmail.com)
-[debug] [2026-10-10T23:31:04.063Z] [iam] checking project pricemaster-4a611 for permissions ["datastore.databases.get","firebase.projects.get"]
-[debug] [2026-10-10T23:31:04.102Z] Checked if tokens are valid: true, expires at: 1791678077465
-[debug] [2026-10-10T23:31:04.102Z] Checked if tokens are valid: true, expires at: 1791678077465
-[debug] [2026-10-10T23:31:04.104Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions [none]
-[debug] [2026-10-10T23:31:04.104Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions  x-goog-user-project=pricemaster-4a611
-[debug] [2026-10-10T23:31:04.105Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions {"permissions":["datastore.databases.get","firebase.projects.get"]}
-[debug] [2026-10-10T23:31:04.590Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions 200
-[debug] [2026-10-10T23:31:04.590Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions {"permissions":["datastore.databases.get","firebase.projects.get"]}
-[debug] [2026-10-10T23:31:04.590Z] Checked if tokens are valid: true, expires at: 1791678077465
-[debug] [2026-10-10T23:31:04.591Z] Checked if tokens are valid: true, expires at: 1791678077465
-[debug] [2026-10-10T23:31:04.591Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/pricemaster-4a611/databases/restauracion [none]
-[debug] [2026-10-10T23:31:05.083Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/pricemaster-4a611/databases/restauracion 200
+[debug] [2026-10-11T14:44:39.723Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-10-11T14:44:39.724Z] > authorizing via signed-in user (busticketsuna@gmail.com)
+[debug] [2026-10-11T14:44:39.725Z] [iam] checking project pricemaster-4a611 for permissions ["datastore.databases.get","firebase.projects.get"]
+[debug] [2026-10-11T14:44:39.742Z] Checked if tokens are valid: true, expires at: 1791731301374
+[debug] [2026-10-11T14:44:39.743Z] Checked if tokens are valid: true, expires at: 1791731301374
+[debug] [2026-10-11T14:44:39.746Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions [none]
+[debug] [2026-10-11T14:44:39.746Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions  x-goog-user-project=pricemaster-4a611
+[debug] [2026-10-11T14:44:39.746Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions {"permissions":["datastore.databases.get","firebase.projects.get"]}
+[debug] [2026-10-11T14:44:40.074Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions 200
+[debug] [2026-10-11T14:44:40.074Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/pricemaster-4a611:testIamPermissions {"permissions":["datastore.databases.get","firebase.projects.get"]}
+[debug] [2026-10-11T14:44:40.075Z] Checked if tokens are valid: true, expires at: 1791731301374
+[debug] [2026-10-11T14:44:40.075Z] Checked if tokens are valid: true, expires at: 1791731301374
+[debug] [2026-10-11T14:44:40.075Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/pricemaster-4a611/databases/restauracion [none]
+[debug] [2026-10-11T14:44:40.517Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/pricemaster-4a611/databases/restauracion 200

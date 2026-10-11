@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { shouldBypassPendingNightDailyClosing } from "@/app/fondogeneral/utils/closing/pendingNightDailyClosing";
+import { resolveAutomaticDailyClosingTurno } from "@/app/fondogeneral/utils/closing/singleClosingReason";
 import { applyLedgerMovementMutation } from "@/app/fondogeneral/utils/fondo/ledgerState";
 import type { FondoEntry } from "@/app/fondogeneral/types";
 import { MovimientosFondosService } from "@/services/movimientos-fondos";
@@ -89,4 +90,38 @@ describe("bloqueo por cierre nocturno pendiente", () => {
     );
     expect(result.ledgerSnapshot.currentCRC).toBe(-5_000);
   });
+});
+
+describe("turno automatico del cierre diario", () => {
+  it("clasifica como N un cierre unico excepcional aunque no exista cierre D", () => {
+    expect(
+      resolveAutomaticDailyClosingTurno({
+        empresaUsesSingleClosing: false,
+        requiresSingleClosingReason: true,
+        hasRealD: false,
+      }),
+    ).toBe("N");
+  });
+
+  it.each([
+    [true, false, false, "N"],
+    [false, false, true, "N"],
+    [false, false, false, "D"],
+  ] as const)(
+    "resuelve unicoCierre=%s motivoUnico=%s cierreD=%s como %s",
+    (
+      empresaUsesSingleClosing,
+      requiresSingleClosingReason,
+      hasRealD,
+      expected,
+    ) => {
+      expect(
+        resolveAutomaticDailyClosingTurno({
+          empresaUsesSingleClosing,
+          requiresSingleClosingReason,
+          hasRealD,
+        }),
+      ).toBe(expected);
+    },
+  );
 });
