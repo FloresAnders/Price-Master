@@ -5367,8 +5367,10 @@ export function FondoSection({
       closingHasTurno &&
       (!isSuperAdminUser || resolvesPendingNightDailyClosing)
     ) {
-      let cierreFondoVentasForDailyClosing: FondoEntry | null = null;
+      let cierreFondoVentasForDailyClosing: Pick<FondoEntry, "manager"> | null =
+        null;
       if (resolvesPendingNightDailyClosing && pendingNightDailyClosing) {
+        let pendingCierreFondoVentas: FondoEntry | null = null;
         try {
           const normalizedCompany = String(company || "").trim();
           if (!normalizedCompany) {
@@ -5376,7 +5378,7 @@ export function FondoSection({
           }
           const docId =
             MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
-          cierreFondoVentasForDailyClosing =
+          pendingCierreFondoVentas =
             await MovimientosFondosService.getMovementById<FondoEntry>(
               docId,
               pendingNightDailyClosing.movementId,
@@ -5394,23 +5396,23 @@ export function FondoSection({
           );
           return null;
         }
-        const sourceOperationalDateKey = cierreFondoVentasForDailyClosing
+        const sourceOperationalDateKey = pendingCierreFondoVentas
           ? getCostaRicaOperationalDateKey(
-              String(cierreFondoVentasForDailyClosing.createdAt || ""),
+              String(pendingCierreFondoVentas.createdAt || ""),
               empresaForShiftResolution?.horarioApertura,
             )
           : null;
         const sourcePending =
-          cierreFondoVentasForDailyClosing?.pendingNightDailyClosing;
+          pendingCierreFondoVentas?.pendingNightDailyClosing;
         if (
-          !cierreFondoVentasForDailyClosing ||
-          cierreFondoVentasForDailyClosing.turno !== "N" ||
+          !pendingCierreFondoVentas ||
+          pendingCierreFondoVentas.turno !== "N" ||
           sourcePending?.movementId !== pendingNightDailyClosing.movementId ||
           sourcePending?.operationalDateKey !==
             pendingNightDailyClosing.operationalDateKey ||
           sourceOperationalDateKey !== operationalDateKey ||
           Date.parse(
-            String(cierreFondoVentasForDailyClosing.createdAt || ""),
+            String(pendingCierreFondoVentas.createdAt || ""),
           ) !==
             Date.parse(pendingNightDailyClosing.createdAt)
         ) {
@@ -5421,6 +5423,7 @@ export function FondoSection({
           );
           return null;
         }
+        cierreFondoVentasForDailyClosing = pendingCierreFondoVentas;
       } else {
         cierreFondoVentasForDailyClosing =
           getCierreFondoVentasForDailyClosing(
