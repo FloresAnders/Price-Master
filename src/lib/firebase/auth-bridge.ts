@@ -23,6 +23,11 @@ function mainAuth(): Auth {
   return getAuth(app);
 }
 
+export async function applyFirebaseCustomTokenAuth(token: string): Promise<void> {
+  if (typeof window === "undefined" || !token) return;
+  await signInWithCustomToken(mainAuth(), token);
+}
+
 export async function ensureFirebaseCustomTokenAuth(
   expectedUserId: string,
 ): Promise<boolean> {
@@ -30,11 +35,12 @@ export async function ensureFirebaseCustomTokenAuth(
 
   const auth = mainAuth();
 
-  if (auth.currentUser?.uid === expectedUserId) return true;
   if (pendingSignIn) return pendingSignIn;
 
   pendingSignIn = (async () => {
     try {
+      // Always mint a fresh token so role, company and temporary-maintenance
+      // claims cannot remain stale across application deployments or reloads.
       // Never keep a Firebase session for a different account than the server.
       if (auth.currentUser && auth.currentUser.uid !== expectedUserId) {
         await signOut(auth);

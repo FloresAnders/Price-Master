@@ -20,9 +20,34 @@ service cloud.firestore {
         request.time < timestamp.date(2026, 10, 1);
     }
 
-    function isSignedIn() {
+    function isAppSession() {
       return request.auth != null &&
         request.auth.token.get('authPurpose', '') != 'sinpe-realtime';
+    }
+
+    function hasActiveMaintenanceBypass() {
+      return request.auth.token.get('maintenanceBypassExpiresAt', 0) is int &&
+        request.auth.token.get('maintenanceBypassExpiresAt', 0) > request.time.toMillis();
+    }
+
+    function isUserBlockedByMaintenance() {
+      let maintenance = get(/databases/$(database)/documents/version/current)
+        .data.get('maintenance', {});
+      let global = maintenance.get('global', {});
+      let activeCompanies = maintenance.get('activeCompanyIdentifiers', []);
+      return request.auth.token.role == 'user' &&
+        !hasActiveMaintenanceBypass() &&
+        (
+          global.get('enabled', false) == true ||
+          (
+            request.auth.token.get('ownercompanieNormalized', '') != '' &&
+            request.auth.token.get('ownercompanieNormalized', '') in activeCompanies
+          )
+        );
+    }
+
+    function isSignedIn() {
+      return isAppSession() && !isUserBlockedByMaintenance();
     }
 
     function isAdmin() {
@@ -90,7 +115,9 @@ service cloud.firestore {
     match /version/{documentId} {
       // El canal de versiones debe seguir visible para clientes viejos durante
       // la ventana: es lo que dispara su logout+recarga hacia el cliente nuevo.
-      allow read: if isSignedIn() || isCompatWindow();
+      // Usuarios bloqueados necesitan leer este documento para mostrar la
+      // pantalla de mantenimiento y reaccionar cuando se desactive.
+      allow read: if isAppSession() || isCompatWindow();
       allow create: if isSignedIn() &&
         (isSuperAdmin() || !request.resource.data.keys().hasAny(['maintenance']));
       allow update: if isSignedIn() &&
@@ -792,6 +819,20 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // TOTP, auditoria y rate limits contienen secretos o controles de acceso.
+    // Solo Route Handlers con Firebase Admin pueden usarlos.
+    match /totpSecrets/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /maintenanceAccessLogs/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /maintenanceRateLimits/{document=**} {
+      allow read, write: if false;
+    }
+
     // Durante la ventana de compatibilidad este bloque tambien acepta clientes
     // sin firmar (mismo alcance que tenia el catch-all eliminado). Cubre
     // `users`, `mail`, `security_logs`, `email_change_codes`,
@@ -823,7 +864,10 @@ service cloud.firestore {
         collection != 'webauthnCeremonies' &&
         collection != 'passkeyEnrollmentGrants' &&
         collection != 'version' &&
-        collection != 'authSessions';
+        collection != 'authSessions' &&
+        collection != 'totpSecrets' &&
+        collection != 'maintenanceAccessLogs' &&
+        collection != 'maintenanceRateLimits';
     }
 
     // NOTA: el cliente accede a Firestore con Firebase Auth (custom token de

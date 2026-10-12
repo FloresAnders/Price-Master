@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { readAuthSession } from "@/lib/auth/session-store.server";
 import { getAdminAuth } from "@/lib/firebase-admin";
-import { normalizeUserPermissions } from "@/utils/permissions";
+import { buildFirebaseCustomTokenClaims } from "@/lib/firebase/custom-token-claims.server";
+import { verifyMaintenanceBypassCookie } from "@/lib/maintenance-totp/token.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,29 +28,14 @@ export async function GET(request: Request) {
       );
     }
 
-    const permissions = normalizeUserPermissions(
-      user.permissions,
-      user.role || "user",
+    const bypass = verifyMaintenanceBypassCookie(
+      request.headers.get("cookie"),
     );
-
-    const claims = {
-      role: user.role || "user",
-      ownerId: user.ownerId || "",
-      ownercompanie: user.ownercompanie || "",
-      eliminate: user.eliminate === true,
-      authPurpose: "timemaster-app",
-      // Only the flags the security rules read, both nested and flat.
-      permissions: {
-        anotaciones: permissions.anotaciones === true,
-        tiempos: permissions.tiempos === true,
-        registroTiempos: permissions.registroTiempos === true,
-        deudasInternas: permissions.deudasInternas === true,
-      },
-      anotaciones: permissions.anotaciones === true,
-      tiempos: permissions.tiempos === true,
-      registroTiempos: permissions.registroTiempos === true,
-      deudasInternas: permissions.deudasInternas === true,
-    };
+    const claims = buildFirebaseCustomTokenClaims(user, {
+      ...(bypass.active
+        ? { maintenanceBypassExpiresAt: bypass.expiresAt }
+        : {}),
+    });
 
     const token = await getAdminAuth().createCustomToken(user.id, claims);
 

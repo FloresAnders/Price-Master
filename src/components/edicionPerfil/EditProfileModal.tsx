@@ -21,6 +21,7 @@ import { UsersService } from "../../services/users";
 import type { User as UserRecord } from "../../types/firestore";
 import { verifyPassword } from "../../lib/auth/password";
 import { useProfileImageUpload } from "../../hooks/useProfileImageUpload";
+import { MaintenanceTotpSettings } from "../maintenance/MaintenanceTotpSettings";
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -759,6 +760,8 @@ export default function EditProfileModal({
                   </div>
                 </div>
               )}
+
+              <MaintenanceTotpSettings role={baseUser?.role} />
 
               {error && (
                 <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-400">
