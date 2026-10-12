@@ -284,10 +284,16 @@
       if (monto <= 0) continue;
 
       const raffleEl = card.querySelector('.sales-history-card__raffle');
+      const pairContainer = card.closest?.('.sales-history-pair');
+      const pairKey = pairContainer
+        ? String(pairContainer.getAttribute('data-group-id') || '').trim() ||
+          `pair-${extractPrintedTicketId(textOf(pairContainer)) || ticket}`
+        : null;
       ventas.push({
         ticket,
         monto,
         sorteo: textOf(raffleEl),
+        pairKey,
         fecha: null,
         hora: null,
         timestamp: null,
@@ -322,7 +328,17 @@
       else legacySales.push(sale);
     }
 
-    for (const parsed of Array.isArray(modalSales) ? modalSales : []) {
+    const parsedSales = Array.isArray(modalSales) ? modalSales : [];
+    const existingGroupTimestamps = parsedSales
+      .map((sale) => Number(byTicket.get(String(sale?.ticket || '').trim())?.timestamp))
+      .filter((value) => Number.isFinite(value) && value > 0);
+    const sharedGroupTimestamp = parsedSales.length > 1
+      ? existingGroupTimestamps.length
+        ? Math.min(...existingGroupTimestamps)
+        : observedTimestamp
+      : null;
+
+    for (const parsed of parsedSales) {
       const ticket = requireTicketId(parsed?.ticket);
       const existing = byTicket.get(ticket);
       byTicket.set(ticket, {
@@ -334,7 +350,7 @@
         fecha: existing?.fecha || String(observed?.fecha || '').trim(),
         hora: existing?.hora || String(observed?.hora || '').trim(),
         captureOrigin: 'local_button',
-        timestamp: resolveStableSaleTimestamp(
+        timestamp: sharedGroupTimestamp ?? resolveStableSaleTimestamp(
           null,
           existing?.timestamp,
           observedTimestamp,
@@ -472,6 +488,113 @@
     };
   }
 
+  function parsePrintPageDateTime(value) {
+    const text = String(value || '');
+    const parsed12Hour = parseObservedSaleDateTime(text);
+    if (parsed12Hour) return parsed12Hour;
+
+    const match = text.match(
+      /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\b/,
+    );
+    if (!match) return null;
+
+    const [, ddRaw, mmRaw, yyyyRaw, hhRaw, minRaw, secMatch] = match;
+    const dd = ddRaw.padStart(2, '0');
+    const mm = mmRaw.padStart(2, '0');
+    const hh = hhRaw.padStart(2, '0');
+    const min = minRaw.padStart(2, '0');
+    const sec = String(secMatch || '00').padStart(2, '0');
+    const timestamp = new Date(
+      Number(yyyyRaw),
+      Number(mm) - 1,
+      Number(dd),
+      Number(hh),
+      Number(min),
+      Number(sec),
+    ).getTime();
+    if (!Number.isFinite(timestamp)) return null;
+
+    return {
+      fecha: `${dd}/${mm}/${yyyyRaw}`,
+      hora: `${hh}:${min}:${sec}`,
+      timestamp,
+      timestampPrecisionMs: secMatch ? 1000 : 60_000,
+    };
+  }
+
+  function normalizePrintRaffle(value) {
+    const candidate = String(value || '').replace(/\s+/g, ' ').trim();
+    if (!candidate) return null;
+    if (/^(?:fecha|cliente|puesto|numero|subtotal|total)\s*:/i.test(candidate)) {
+      return null;
+    }
+    if (/^(?:numero\s*(?:-|=)?\s*>?\s*monto|[-=]{3,})$/i.test(candidate)) {
+      return null;
+    }
+    if (/^[0-9a-f]{6,}$/i.test(candidate)) return null;
+    if (/^\d{1,2}\s*(?:-|=)?\s*>\s*[\d.,]+$/i.test(candidate)) return null;
+    return /[a-záéíóúñ]/i.test(candidate) ? candidate : null;
+  }
+
+  function parsePrintPageSales(value) {
+    const text = String(value || '');
+    const observed = parsePrintPageDateTime(text);
+    if (!observed) return [];
+
+    const lines = text.split(/\r?\n/).map((line) => line.trim());
+    const blocks = [];
+    let current = null;
+
+    for (const line of lines) {
+      const ticket = extractPrintedTicketId(line);
+      if (ticket) {
+        if (current) blocks.push(current);
+        current = { ticket, lines: [line] };
+      } else if (current) {
+        current.lines.push(line);
+      }
+    }
+    if (current) blocks.push(current);
+
+    return blocks.flatMap((block) => {
+      const blockText = block.lines.join('\n');
+      const subtotalMatch = blockText.match(
+        /\bsubtotal\s*:\s*[^\d-]*([\d.,]+)/i,
+      );
+      const monto = subtotalMatch ? parseDisplayedMoney(subtotalMatch[1]) : 0;
+      if (monto <= 0) return [];
+
+      let sorteo = null;
+      const raffleDateLineIndex = block.lines.findIndex((line) =>
+        /^fecha\s+sorteo\s*:/i.test(line),
+      );
+      if (raffleDateLineIndex >= 0) {
+        sorteo = normalizePrintRaffle(
+          block.lines[raffleDateLineIndex].replace(
+            /^fecha\s+sorteo\s*:\s*/i,
+            '',
+          ),
+        );
+      }
+      const dateLineIndex = raffleDateLineIndex >= 0
+        ? raffleDateLineIndex
+        : block.lines.findIndex((line) => /^fecha\s*:/i.test(line));
+      for (let index = dateLineIndex + 1; !sorteo && index < block.lines.length; index += 1) {
+        const line = block.lines[index];
+        if (/^(?:cliente|numero|subtotal|total)\b/i.test(line)) break;
+        sorteo = normalizePrintRaffle(line);
+      }
+      if (!sorteo) return [];
+
+      return [{
+        ticket: block.ticket,
+        sorteo,
+        monto,
+        ...observed,
+      }];
+    });
+  }
+
   function classifyNewSales(
     sales,
     intents,
@@ -574,6 +697,16 @@
             : 'indirect',
       };
     });
+    const localPairKeys = new Set(
+      classifiedSales
+        .filter((sale) => sale.captureOrigin === 'local_button' && sale.pairKey)
+        .map((sale) => sale.pairKey),
+    );
+    for (const sale of classifiedSales) {
+      if (sale.pairKey && localPairKeys.has(sale.pairKey)) {
+        sale.captureOrigin = 'local_button';
+      }
+    }
 
     const result = {
       sales: classifiedSales,
@@ -828,6 +961,7 @@
     normalizeApiBaseUrl,
     parseDisplayedMoney,
     parseObservedSaleDateTime,
+    parsePrintPageSales,
     parseSalesSuccessModal,
     readSalesHistoryCards,
     readSalesSuccessModal,

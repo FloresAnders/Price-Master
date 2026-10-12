@@ -8,7 +8,7 @@
   const syncCore = globalThis.TimeMasterGenteCrystalSync;
   const MAX_WAIT_MS = 15000;
   const RETRY_MS = 500;
-  const EXTENSION_VERSION = '1.11.6';
+  const EXTENSION_VERSION = '1.11.7';
   const TICKET_REGEX = /\b\d{4,}-\d{2,6}-\d{5,}\b/g;
 
   function getPageText() {
@@ -169,42 +169,12 @@
     };
   }
 
-  function splitPrintIntoTicketBlocks(text) {
-    const lines = String(text || '').split(/\r?\n/);
-    const blocks = [];
-    let current = null;
-
-    for (const rawLine of lines) {
-      const line = String(rawLine || '').trim();
-      if (!line) {
-        if (current) current.lines.push('');
-        continue;
-      }
-
-      const lineTickets = extractTicketIds(line);
-      if (lineTickets.length) {
-        if (current) blocks.push(current);
-        current = { ticketId: lineTickets[0], lines: [line] };
-        continue;
-      }
-
-      if (current) current.lines.push(line);
-    }
-
-    if (current) blocks.push(current);
-    return blocks;
-  }
-
   function buildSalesFromPrintText(text) {
-    const blocks = splitPrintIntoTicketBlocks(text);
-    const sales = [];
-
-    for (const block of blocks) {
-      const sale = buildSaleFromPrint(block.ticketId, block.lines.join('\n'));
-      if (sale) sales.push(sale);
-    }
-
-    return sales;
+    return syncCore.parsePrintPageSales(text).map((sale) => ({
+      id: `GC-${sale.ticket}`,
+      ...sale,
+      captureOrigin: 'local_button',
+    }));
   }
 
   async function saveTickets(ticketIds) {
@@ -311,7 +281,7 @@
     const pageText = getPageText();
     let sales = buildSalesFromPrintText(pageText);
 
-    if (!sales.length) {
+    if (!sales.length && extractTicketIds(pageText).length === 1) {
       const fallbackSale = buildSaleFromPrint(ticketId, pageText);
       if (fallbackSale) sales = [fallbackSale];
     }

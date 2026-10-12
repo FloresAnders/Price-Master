@@ -90,6 +90,54 @@ function canonicalSaleAt(value: string): string {
   return Number.isNaN(parsed) ? String(value || "") : new Date(parsed).toISOString();
 }
 
+function costaRicaSaleDate(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Costa_Rica",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(parsed);
+}
+
+function isSpecialRaffle(value: string): boolean {
+  return /\b(reventado|especial)\b/i.test(
+    String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, ""),
+  );
+}
+
+function salePairPriority(
+  left: GenteCrystalDailySale,
+  right: GenteCrystalDailySale,
+): number | null {
+  const leftSequence = ticketSequence(left.ticketId);
+  const rightSequence = ticketSequence(right.ticketId);
+  if (leftSequence === null || rightSequence === null) return null;
+
+  const gap = Math.abs(leftSequence - rightSequence);
+  if (gap < 1 || gap > 2) return null;
+
+  const normalAndSpecial = isSpecialRaffle(left.sorteo) !== isSpecialRaffle(right.sorteo);
+  const sameOperationalDay =
+    costaRicaSaleDate(left.saleAt) === costaRicaSaleDate(right.saleAt);
+  if (!normalAndSpecial || !sameOperationalDay) return null;
+
+  const sameInstant = canonicalSaleAt(left.saleAt) === canonicalSaleAt(right.saleAt);
+  if (sameInstant) return gap - 1;
+  return 10 + gap;
+}
+
+function earliestSaleAt(left: string, right: string): string {
+  const leftTimestamp = Date.parse(left);
+  const rightTimestamp = Date.parse(right);
+  if (Number.isNaN(leftTimestamp)) return right;
+  if (Number.isNaN(rightTimestamp)) return left;
+  return leftTimestamp <= rightTimestamp ? left : right;
+}
+
 function mergedSorteoLabel(left: string, right: string): string {
   const first = String(left || "").trim();
   const second = String(right || "").trim();
@@ -126,68 +174,38 @@ export function buildGenteCrystalDisplayResult(
       const oppositeOrigin =
         sale.captureOrigin === "local_button" ? "indirect" : "local_button";
       const partnerIndexes = indexesByOrigin[oppositeOrigin];
-      const lowerPartnerIndex =
-        sequence === null
-          ? -1
-          : nextUnconsumedTicketIndex(
-              partnerIndexes.get(sequence - 1),
-              index,
-              consumedIndexes,
-            );
-      const upperPartnerIndex =
-        sequence === null
-          ? -1
-          : nextUnconsumedTicketIndex(
-              partnerIndexes.get(sequence + 1),
-              index,
-              consumedIndexes,
-            );
-      const partnerIndex =
-        lowerPartnerIndex < 0
-          ? upperPartnerIndex
-          : upperPartnerIndex < 0
-            ? lowerPartnerIndex
-            : Math.min(lowerPartnerIndex, upperPartnerIndex);
-
       const sameOriginIndexes = indexesByOrigin[sale.captureOrigin];
-      const lowerSameOriginIndex =
-        sequence === null
-          ? -1
-          : nextUnconsumedTicketIndex(
-              sameOriginIndexes.get(sequence - 1),
-              index,
-              consumedIndexes,
-            );
-      const upperSameOriginIndex =
-        sequence === null
-          ? -1
-          : nextUnconsumedTicketIndex(
-              sameOriginIndexes.get(sequence + 1),
-              index,
-              consumedIndexes,
-            );
-      const sameOriginCandidateIndex =
-        lowerSameOriginIndex < 0
-          ? upperSameOriginIndex
-          : upperSameOriginIndex < 0
-            ? lowerSameOriginIndex
-            : Math.min(lowerSameOriginIndex, upperSameOriginIndex);
-
-      const sameOriginPartnerIndex =
-        sale.captureOrigin === "local_button" && sameOriginCandidateIndex >= 0
-          ? (() => {
-              const candidate = result.sales[sameOriginCandidateIndex];
-              // En Gente Crystal hay jugadas partidas en dos tiquetes locales
-              // consecutivos (ej. NICA/NICA ESPECIAL) con el mismo instante
-              // de venta pero montos distintos, y deben mostrarse juntas.
-              const matchesComparableValues =
-                canonicalSaleAt(candidate.saleAt) === canonicalSaleAt(sale.saleAt);
-              return matchesComparableValues ? sameOriginCandidateIndex : -1;
-            })()
-          : -1;
-
-      const effectivePartnerIndex =
-        partnerIndex >= 0 ? partnerIndex : sameOriginPartnerIndex;
+      const candidateIndexes = sequence === null
+        ? []
+        : [-1, 1, -2, 2].flatMap((offset) => {
+            const candidates = [
+              nextUnconsumedTicketIndex(
+                partnerIndexes.get(sequence + offset),
+                index,
+                consumedIndexes,
+              ),
+              nextUnconsumedTicketIndex(
+                sameOriginIndexes.get(sequence + offset),
+                index,
+                consumedIndexes,
+              ),
+            ];
+            return candidates.filter((candidateIndex) => candidateIndex >= 0);
+          });
+      const effectivePartnerIndex = [...new Set(candidateIndexes)]
+        .map((candidateIndex) => ({
+          candidateIndex,
+          priority: salePairPriority(sale, result.sales[candidateIndex]),
+        }))
+        .filter(
+          (candidate): candidate is { candidateIndex: number; priority: number } =>
+            candidate.priority !== null,
+        )
+        .sort(
+          (left, right) =>
+            left.priority - right.priority ||
+            left.candidateIndex - right.candidateIndex,
+        )[0]?.candidateIndex ?? -1;
 
       consumedIndexes.add(index);
       if (effectivePartnerIndex >= 0) {
@@ -197,8 +215,12 @@ export function buildGenteCrystalDisplayResult(
           ticketIds: [sale.ticketId, partner.ticketId],
           sorteo: mergedSorteoLabel(sale.sorteo, partner.sorteo),
           monto: sale.monto + partner.monto,
-          saleAt: sale.saleAt,
-          captureOrigin: "local_button",
+          saleAt: earliestSaleAt(sale.saleAt, partner.saleAt),
+          captureOrigin:
+            sale.captureOrigin === "indirect" &&
+            partner.captureOrigin === "indirect"
+              ? "indirect"
+              : "local_button",
         });
         return displaySales;
       }

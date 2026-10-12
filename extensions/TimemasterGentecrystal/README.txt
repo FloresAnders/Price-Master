@@ -1,4 +1,4 @@
-TimeMaster - Gente Crystal v1.11.6
+TimeMaster - Gente Crystal v1.11.7
 
 INSTALACIÓN / ACTUALIZACIÓN
 
@@ -56,6 +56,15 @@ El popup muestra:
 - tiquetes visibles y borrados ignorados;
 - ventas locales guardadas;
 - pendientes, enviando, sincronizados y errores de la cola.
+
+CAMBIOS DE LA VERSIÓN 1.11.7
+
+- Lee el subtotal y sorteo de cada bloque en `print_pagos.php`, en vez de
+  asignar el total combinado a uno de los tiquetes.
+- Conserva una sola hora para los tiquetes contenidos en la misma pareja de
+  Gente Crystal y repara horas locales divergentes usando la más temprana.
+- Agrupa en TimeMaster parejas normal + Reventado/Especial cuyos números
+  finales difieren en uno o dos, sin unir dos ventas normales independientes.
 
 CAMBIOS DE LA VERSIÓN 1.11.6
 

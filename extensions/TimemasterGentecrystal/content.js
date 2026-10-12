@@ -491,12 +491,37 @@
       const guardadas = estadoLocal.ventas;
       const confirmaciones = estadoLocal.confirmaciones;
       const pendientes = estadoLocal.pendientes;
+      const ahoraEscaneo = Date.now();
       const porTicket = new Map();
       const heredadas = [];
 
       for (const venta of guardadas) {
         if (venta.ticket) porTicket.set(venta.ticket, venta);
         else heredadas.push(venta);
+      }
+
+      const timestampsPorPareja = new Map();
+      let parejaIndex = 0;
+      for (const item of visibles) {
+        if (!item.pairKey || timestampsPorPareja.has(item.pairKey)) continue;
+        const timestampsConocidos = visibles
+          .filter((candidate) => candidate.pairKey === item.pairKey)
+          .flatMap((candidate) => {
+            const observedTimestamp = Number(candidate.timestamp);
+            const existingTimestamp = Number(
+              porTicket.get(candidate.ticket)?.timestamp,
+            );
+            return [observedTimestamp, existingTimestamp].filter(
+              (value) => Number.isFinite(value) && value > 0,
+            );
+          });
+        timestampsPorPareja.set(
+          item.pairKey,
+          timestampsConocidos.length
+            ? Math.min(...timestampsConocidos)
+            : ahoraEscaneo - parejaIndex,
+        );
+        parejaIndex += 1;
       }
 
       let cambio = false;
@@ -507,7 +532,7 @@
         visibles.filter((item) => !porTicket.has(item.ticket)),
         confirmaciones,
         pendientes,
-        Date.now(),
+        ahoraEscaneo,
       );
       confirmacionesVentaPendientes = preparacion.pendingConfirmations;
       const ticketsDiferidos = new Set(
@@ -516,7 +541,7 @@
       const clasificacion = syncCore.classifyNewSales(
         preparacion.readySales,
         intencionesVentaLocal,
-        Date.now(),
+        ahoraEscaneo,
         confirmaciones,
       );
       intencionesVentaLocal = clasificacion.intents;
@@ -550,9 +575,11 @@
             origenPorTicket.get(item.ticket) ||
             'indirect',
           timestamp: syncCore.resolveStableSaleTimestamp(
-            item.timestamp,
+            item.pairKey
+              ? timestampsPorPareja.get(item.pairKey)
+              : item.timestamp,
             existente?.timestamp,
-            Date.now()
+            ahoraEscaneo
           )
         };
 
@@ -575,7 +602,9 @@
             existente.sorteo !== actualizado.sorteo ||
             existente.monto !== actualizado.monto ||
             existente.hora !== actualizado.hora ||
-            existente.fecha !== actualizado.fecha
+            existente.fecha !== actualizado.fecha ||
+            existente.timestamp !== actualizado.timestamp ||
+            existente.captureOrigin !== actualizado.captureOrigin
           ) {
             porTicket.set(item.ticket, actualizado);
             cambio = true;
@@ -695,7 +724,7 @@
       obtenerGuardadas().then((ventas) => {
         sendResponse({
           ok: true,
-          version: '1.11.6',
+          version: '1.11.7',
           sorteo: getSorteo(),
           guardadas: ventas.length,
           diagnostico: lectura.diagnostico
@@ -738,7 +767,7 @@
       if (contextoInvalidado) return;
       const resultado = await escanearPagina({ forzar: true });
       if (resultado.motivo === 'contexto_invalidado') return;
-      log('Extensión v1.11.6 activa:', resultado);
+      log('Extensión v1.11.7 activa:', resultado);
     }, 600);
 
     pollTimer = setInterval(() => {
