@@ -1,9 +1,9 @@
-TIMEMASTER HERRAMIENTAS 1.0.3
+TIMEMASTER HERRAMIENTAS 1.0.4
 ================================
 
-Esta extensión reúne CambioTab, división de efectivo, cierre automático del
-modal de impresión de Contica, SumaTiempos, ingreso de venta con Ctrl+Enter y
-MoverEnter en una sola instalación. Las tres extensiones originales permanecen
+Esta extensión reúne CambioTab, división de efectivo, movimiento entre medios
+de pago, cierre automático del modal de impresión de Contica, SumaTiempos,
+ingreso de venta con Ctrl+Enter y MoverEnter en una sola instalación. Las tres extensiones originales permanecen
 como respaldo, pero deben estar desactivadas mientras se usa esta versión para
 evitar acciones duplicadas.
 
@@ -21,6 +21,7 @@ CONTROLES Y VALORES INICIALES
 - CambioTab en Contica: activado.
 - Cierre del modal de impresión en Contica: desactivado.
 - División de efectivo en Contica: desactivada.
+- Movimiento entre medios de pago en Contica: desactivado.
 - SumaTiempos en Gente Crystal: activado.
 - Ingresar venta con Ctrl+Enter en Gente Crystal: desactivado.
 - Impresión automática en Gente Crystal: desactivada.
@@ -53,6 +54,15 @@ Al activarla, permite escribir una división directamente en los campos de
 efectivo en dólares o colones. Acepta divisores del 2 al 5; por ejemplo,
 7500/2 se reemplaza por 3750 en el mismo campo. Los resultados no exactos se
 redondean a dos decimales. Los demás campos de pago no se modifican.
+
+MOVER MONTO ENTRE MEDIOS DE PAGO EN CONTICA
+--------------------------------------------
+Sitio: https://contica.app/app/modules/punto_de_venta/*
+
+Al activarlo, pulse E, T o S dentro de un campo de pago para mover su monto a
+efectivo, tarjeta o SINPE, respectivamente, conservando la moneda. El destino
+reemplaza cualquier monto anterior. Si el origen está vacío, solamente mueve
+el cursor al campo de destino.
 
 SUMATIEMPOS EN GENTE CRYSTAL
 ----------------------------

@@ -73,6 +73,7 @@ next-env.d.ts
 /tests/extensions/*
 !/tests/extensions/timemaster-herramientas-dividir-efectivo.test.ts
 !/tests/extensions/timemaster-herramientas-ingresar-venta.test.ts
+!/tests/extensions/timemaster-herramientas-mover-pago.test.ts
 # mobile setup - Android
 /android/*
 

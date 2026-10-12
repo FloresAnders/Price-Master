@@ -11,6 +11,7 @@
     tmhCambioTabEnabled: true,
     tmhCerrarImpresionConticaEnabled: false,
     tmhDividirEfectivoEnabled: false,
+    tmhMoverPagoEnabled: false,
     tmhSumaTiemposEnabled: true,
     tmhMoverEnterEnabled: false,
     tmhIngresarVentaEnabled: false,

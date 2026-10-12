@@ -12,6 +12,9 @@
   const dividirEfectivo = isCommonJs
     ? null
     : root.TimeMasterHerramientasDividirEfectivo;
+  const moverPago = isCommonJs
+    ? null
+    : root.TimeMasterHerramientasMoverPago;
   const api = factory(settings);
 
   root.TimeMasterHerramientasContica = api;
@@ -26,6 +29,8 @@
           cerrarImpresionContica.createPrintInvoiceCloser(root.document),
         cashDivisionController:
           dividirEfectivo.createCashDivisionController(root.document),
+        paymentShortcutController:
+          moverPago.createPaymentShortcutController(root.document),
         settings,
       })
       .start();
@@ -38,17 +43,23 @@
   const CAMBIO_TAB_SETTING_KEY = "tmhCambioTabEnabled";
   const CERRAR_IMPRESION_SETTING_KEY = "tmhCerrarImpresionConticaEnabled";
   const DIVIDIR_EFECTIVO_SETTING_KEY = "tmhDividirEfectivoEnabled";
+  const MOVER_PAGO_SETTING_KEY = "tmhMoverPagoEnabled";
 
   function createConticaController({
     storage,
     tabController,
     printInvoiceCloser,
     cashDivisionController,
+    paymentShortcutController,
     settings,
   }) {
     const settingsCore = settings || settingsApi;
     const modalCloser = printInvoiceCloser || { start() {}, stop() {} };
     const cashDivider = cashDivisionController || { start() {}, stop() {} };
+    const paymentShortcut = paymentShortcutController || {
+      start() {},
+      stop() {},
+    };
     const changedDuringInitialLoad = new Set();
     let started = false;
     let settingsLoaded = false;
@@ -67,6 +78,11 @@
     function applyDividirEfectivoEnabled(enabled) {
       if (enabled) cashDivider.start();
       else cashDivider.stop();
+    }
+
+    function applyMoverPagoEnabled(enabled) {
+      if (enabled) paymentShortcut.start();
+      else paymentShortcut.stop();
     }
 
     function handleStorageChange(changes, areaName) {
@@ -101,6 +117,17 @@
         }
         applyDividirEfectivoEnabled(dividirEfectivoEnabled);
       }
+
+      const moverPagoEnabled = settingsCore.readChangedSetting(
+        changes,
+        MOVER_PAGO_SETTING_KEY,
+      );
+      if (moverPagoEnabled !== undefined) {
+        if (!settingsLoaded) {
+          changedDuringInitialLoad.add(MOVER_PAGO_SETTING_KEY);
+        }
+        applyMoverPagoEnabled(moverPagoEnabled);
+      }
     }
 
     function start() {
@@ -122,6 +149,9 @@
         if (!changedDuringInitialLoad.has(DIVIDIR_EFECTIVO_SETTING_KEY)) {
           applyDividirEfectivoEnabled(normalized[DIVIDIR_EFECTIVO_SETTING_KEY]);
         }
+        if (!changedDuringInitialLoad.has(MOVER_PAGO_SETTING_KEY)) {
+          applyMoverPagoEnabled(normalized[MOVER_PAGO_SETTING_KEY]);
+        }
         settingsLoaded = true;
         changedDuringInitialLoad.clear();
       });
@@ -137,6 +167,7 @@
       tabController.stop();
       modalCloser.stop();
       cashDivider.stop();
+      paymentShortcut.stop();
     }
 
     return { start, destroy };
