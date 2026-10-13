@@ -480,13 +480,13 @@
   animation: hue-spin 2s linear infinite;
 }
 
-@keyframes announcement-ticker-ltr {
+@keyframes announcement-ticker-rtl {
   from { transform: translateX(var(--announcement-start, -100%)); }
   to { transform: translateX(var(--announcement-end, 100%)); }
 }
 
 .announcement-ticker-track {
-  animation-name: announcement-ticker-ltr;
+  animation-name: announcement-ticker-rtl;
   animation-timing-function: linear;
   animation-iteration-count: infinite;
   will-change: transform;
