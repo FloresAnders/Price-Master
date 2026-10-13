@@ -68,8 +68,8 @@ export default function AnnouncementBanner({
     const track = trackRef.current;
     if (!viewport || !track || typeof ResizeObserver === "undefined") return;
     const update = () => {
-      track.style.setProperty("--announcement-start", `${-track.scrollWidth}px`);
-      track.style.setProperty("--announcement-end", `${viewport.clientWidth}px`);
+      track.style.setProperty("--announcement-start", `${viewport.clientWidth}px`);
+      track.style.setProperty("--announcement-end", `${-track.scrollWidth}px`);
     };
     update();
     const observer = new ResizeObserver(update);
