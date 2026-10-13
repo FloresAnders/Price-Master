@@ -24,7 +24,7 @@ interface MaintenanceContextValue {
 const MaintenanceContext = createContext<MaintenanceContextValue | null>(null);
 
 export function MaintenanceProvider({ children }: { children: ReactNode }) {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, firebaseAuthReady } = useAuth();
   const [config, setConfig] = useState<MaintenanceConfig>(
     createDefaultMaintenanceConfig,
   );
@@ -32,7 +32,7 @@ export function MaintenanceProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated || !user) {
+    if (!isAuthenticated || !user?.id || !firebaseAuthReady) {
       return;
     }
 
@@ -51,7 +51,7 @@ export function MaintenanceProvider({ children }: { children: ReactNode }) {
         setError("No se pudo verificar el estado de mantenimiento.");
       },
     );
-  }, [isAuthenticated, user]);
+  }, [firebaseAuthReady, isAuthenticated, user?.id]);
 
   const value = useMemo(
     () => ({ config, loading, error }),

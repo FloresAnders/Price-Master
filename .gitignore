@@ -61,6 +61,7 @@ next-env.d.ts
 !/tests/owner-chat-superadmin.test.tsx
 !/tests/maintenance-access.test.tsx
 !/tests/maintenance-totp.server.test.ts
+!/tests/maintenance-listener-lifecycle.test.tsx
 !/tests/firestore/
 /tests/firestore/*
 !/tests/firestore/owner-chat-superadmin.rules.test.ts

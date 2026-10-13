@@ -15,6 +15,7 @@ type VersionListener = (snapshot: VersionDocSnapshot | null) => void;
 type VersionErrorListener = (error: unknown) => void;
 
 let activeUnsubscribe: Unsubscribe | null = null;
+let activeListenerToken: object | null = null;
 const listeners = new Set<VersionListener>();
 const errorListeners = new Set<VersionErrorListener>();
 let latestSnapshot: VersionDocSnapshot | null = null;
@@ -89,16 +90,30 @@ export function subscribeToVersionDoc(
     listener(latestSnapshot);
   } else if (!activeUnsubscribe) {
     const versionRef = doc(db, "version", "current");
-    activeUnsubscribe = onSnapshot(
+    const listenerToken = {};
+    activeListenerToken = listenerToken;
+    const unsubscribe = onSnapshot(
       versionRef,
       (docSnap) => {
+        if (activeListenerToken !== listenerToken) return;
         const nextSnapshot = buildSnapshot(docSnap as any);
         notifyListeners(nextSnapshot);
       },
       (error) => {
+        if (activeListenerToken !== listenerToken) return;
+        const failedUnsubscribe = activeUnsubscribe;
+        activeUnsubscribe = null;
+        activeListenerToken = null;
+        failedUnsubscribe?.();
         notifyErrors(error);
       },
     );
+    if (activeListenerToken === listenerToken) {
+      activeUnsubscribe = unsubscribe;
+    } else {
+      // Protege contra una implementación que reporte el error al suscribirse.
+      unsubscribe();
+    }
   }
 
   return () => {
@@ -108,8 +123,10 @@ export function subscribeToVersionDoc(
     }
 
     if (listeners.size === 0 && errorListeners.size === 0) {
-      activeUnsubscribe?.();
+      const unsubscribe = activeUnsubscribe;
       activeUnsubscribe = null;
+      activeListenerToken = null;
+      unsubscribe?.();
       latestSnapshot = null;
     }
   };
