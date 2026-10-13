@@ -487,6 +487,7 @@ function useAuthState() {
     user,
     isAuthenticated,
     loading,
+    firebaseAuthReady,
     sessionWarning,
     useTokenAuth: false,
     login,

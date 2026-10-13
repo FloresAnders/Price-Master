@@ -83,6 +83,7 @@ import type { MovementAccountKey } from "@/services/movimientos-fondos";
 import { OPEN_CASH_COUNTER_EVENT } from "@/components/business/cash-counter-tabs/accountCounters";
 import { useSessionListenerPreferences } from "@/contexts/SessionListenerPreferencesContext";
 import { shouldSubscribePendingCompanyRequests } from "@/services/layoutPrefsDb";
+import SystemAnnouncementsBanner from "@/components/announcements/SystemAnnouncementsBanner";
 
 const ADMIN_SIDEBAR_EXPANDED_WIDTH_PREF_KEY = "adminSidebarWidth";
 const ADMIN_SIDEBAR_COLLAPSED_WIDTH_PREF_KEY = "adminSidebarCollapsedWidth";
@@ -1476,7 +1477,9 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             </nav>
           )}
 
-          <div className="flex items-center gap-2" suppressHydrationWarning>
+          <SystemAnnouncementsBanner />
+
+          <div className="flex shrink-0 items-center gap-2" suppressHydrationWarning>
             {showPatrioticTheme && <PatrioticSeptemberBadge />}
             {/* User dropdown menu - solo mostrar si hay usuario O si estamos en /home */}
             {(user || pathname === "/home") && (

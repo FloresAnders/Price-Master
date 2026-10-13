@@ -4,17 +4,10 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import useToast from "../hooks/useToast";
 import {
-  FileText,
-  Users,
-  DollarSign,
-  Building,
-  List,
   Check,
   X,
   Clipboard,
   Smartphone,
-  Clock,
-  ShieldAlert,
 } from "lucide-react";
 import { EmpresasService } from "../services/empresas";
 import { SorteosService } from "../services/sorteos";
@@ -49,16 +42,14 @@ import UsersEditorSection from "./components/UsersEditorSection";
 import CcssEditorSection from "./components/CcssEditorSection";
 import FuncionesEditorSection from "./components/FuncionesEditorSection";
 import MaintenanceEditorSection from "./components/MaintenanceEditorSection";
+import AnnouncementsEditorSection from "./components/AnnouncementsEditorSection";
+import {
+  getMaintenanceTabs,
+  isMaintenanceTabAllowed,
+  type MaintenanceDataFile,
+} from "./maintenanceTabs";
 
-type DataFile =
-  | "sorteos"
-  | "users"
-  | "schedules"
-  | "ccss"
-  | "empresas"
-  | "fondoTypes"
-  | "funciones"
-  | "systemMaintenance";
+type DataFile = MaintenanceDataFile;
 
 const MAINTENANCE_TAB_STORAGE_KEY = "timemaster:maintenance-active-tab";
 const MAINTENANCE_TAB_EVENT = "timemaster:maintenance-tab-change";
@@ -76,6 +67,7 @@ const getStoredMaintenanceTab = (): DataFile => {
     "fondoTypes",
     "funciones",
     "systemMaintenance",
+    "systemAnnouncements",
   ];
   return validTabs.includes(saved as DataFile) ? (saved as DataFile) : "users";
 };
@@ -340,8 +332,8 @@ export default function DataEditor() {
 
   useEffect(() => {
     if (
-      activeFile === "systemMaintenance" &&
-      currentUser?.role !== "superadmin"
+      currentUser?.role &&
+      !isMaintenanceTabAllowed(activeFile, currentUser.role)
     ) {
       setActiveFile("users");
     }
@@ -2249,57 +2241,12 @@ export default function DataEditor() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-8 gap-2">
-          {[
-            {
-              key: "users" as DataFile,
-              label: "Usuarios",
-              count: usersData.length,
-              icon: Users,
-            },
-            {
-              key: "sorteos" as DataFile,
-              label: "Sorteos",
-              count: sorteosData.length,
-              icon: FileText,
-            },
-            { key: "schedules" as DataFile, label: "Planilla", icon: Clock },
-            {
-              key: "ccss" as DataFile,
-              label: "Configuracion",
-              count: ccssConfigsData.length,
-              icon: DollarSign,
-            },
-            {
-              key: "empresas" as DataFile,
-              label: "Empresas",
-              count: empresasData.length,
-              icon: Building,
-            },
-            {
-              key: "fondoTypes" as DataFile,
-              label: "Tipos Fondo",
-              count: fondoTypesData.length,
-              icon: List,
-              requiresAdmin: true,
-            },
-            {
-              key: "funciones" as DataFile,
-              label: "Funciones",
-              icon: List,
-              requiresAdmin: true,
-            },
-            {
-              key: "systemMaintenance" as DataFile,
-              label: "Modo sistema",
-              icon: ShieldAlert,
-              requiresSuperAdmin: true,
-            },
-          ]
-            .filter((tab) => !tab.requiresAdmin || currentUser?.role !== "user")
-            .filter(
-              (tab) => !tab.requiresSuperAdmin || currentUser?.role === "superadmin",
-            )
-            .map((tab) => {
+          {getMaintenanceTabs(currentUser?.role, {
+            users: usersData.length,
+            sorteos: sorteosData.length,
+            ccss: ccssConfigsData.length,
+            empresas: empresasData.length,
+          }).map((tab) => {
               const Icon = tab.icon;
               const isActive = activeFile === tab.key;
               const label =
@@ -2370,6 +2317,8 @@ export default function DataEditor() {
       )}
       {activeFile === "systemMaintenance" &&
         currentUser?.role === "superadmin" && <MaintenanceEditorSection />}
+      {activeFile === "systemAnnouncements" &&
+        currentUser?.role === "superadmin" && <AnnouncementsEditorSection />}
       {activeFile === "users" && (
         <UsersEditorSection
           usersData={usersData}

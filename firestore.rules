@@ -2,6 +2,19 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // ========================================================================
+    // MODELO DE ANUNCIOS DEL SISTEMA
+    // ========================================================================
+    // systemAnnouncements/{id}: inventario administrativo privado. Campos
+    // requeridos: title, detail, type, active, startsAt, endsAt, allowDismiss,
+    // priority, scope, archived, version, createdAt, updatedAt, createdBy,
+    // updatedBy.
+    // publishedSystemAnnouncements/{id}: proyeccion segura para usuarios
+    // autenticados. Campos requeridos: title, detail, type, startsAt, endsAt,
+    // allowDismiss, priority, scope, version, publishedAt.
+    // Ambos documentos se mantienen en un mismo batch y usan Timestamp para
+    // todas las fechas. La proyeccion no contiene UIDs de auditoria.
+    // ========================================================================
+    // ========================================================================
     // VENTANA DE COMPATIBILIDAD — migracion al puente de Firebase Auth
     // ========================================================================
     // Las reglas exigen sesion de Firebase (custom token via
@@ -61,6 +74,214 @@ service cloud.firestore {
 
     function isRegularAdmin() {
       return isSignedIn() && request.auth.token.role == 'admin';
+    }
+
+    function hasValidAnnouncementWindow(data) {
+      return (data.startsAt == null || data.startsAt is timestamp) &&
+        (data.endsAt == null || data.endsAt is timestamp) &&
+        (
+          data.startsAt == null ||
+          data.endsAt == null ||
+          data.endsAt > data.startsAt
+        );
+    }
+
+    function isValidSystemAnnouncement(data) {
+      return data.keys().hasOnly([
+          'title',
+          'detail',
+          'type',
+          'active',
+          'startsAt',
+          'endsAt',
+          'allowDismiss',
+          'priority',
+          'scope',
+          'archived',
+          'version',
+          'createdAt',
+          'updatedAt',
+          'createdBy',
+          'updatedBy'
+        ]) &&
+        data.keys().hasAll([
+          'title',
+          'detail',
+          'type',
+          'active',
+          'startsAt',
+          'endsAt',
+          'allowDismiss',
+          'priority',
+          'scope',
+          'archived',
+          'version',
+          'createdAt',
+          'updatedAt',
+          'createdBy',
+          'updatedBy'
+        ]) &&
+        data.title is string &&
+        data.title.size() > 0 &&
+        data.title.size() <= 100 &&
+        data.detail is string &&
+        data.detail.size() > 0 &&
+        data.detail.size() <= 300 &&
+        data.type is string &&
+        data.type in ['info', 'maintenance', 'warning', 'new_feature'] &&
+        data.active is bool &&
+        data.allowDismiss is bool &&
+        data.priority is int &&
+        data.priority >= -1000 &&
+        data.priority <= 1000 &&
+        data.scope == 'global' &&
+        data.archived is bool &&
+        data.version is int &&
+        data.version >= 1 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        data.createdBy is string &&
+        data.createdBy.size() > 0 &&
+        data.createdBy.size() <= 128 &&
+        data.updatedBy is string &&
+        data.updatedBy.size() > 0 &&
+        data.updatedBy.size() <= 128 &&
+        hasValidAnnouncementWindow(data);
+    }
+
+    function isValidPublishedSystemAnnouncement(data) {
+      return data.keys().hasOnly([
+          'title',
+          'detail',
+          'type',
+          'startsAt',
+          'endsAt',
+          'allowDismiss',
+          'priority',
+          'scope',
+          'version',
+          'publishedAt'
+        ]) &&
+        data.keys().hasAll([
+          'title',
+          'detail',
+          'type',
+          'startsAt',
+          'endsAt',
+          'allowDismiss',
+          'priority',
+          'scope',
+          'version',
+          'publishedAt'
+        ]) &&
+        data.title is string &&
+        data.title.size() > 0 &&
+        data.title.size() <= 100 &&
+        data.detail is string &&
+        data.detail.size() > 0 &&
+        data.detail.size() <= 300 &&
+        data.type is string &&
+        data.type in ['info', 'maintenance', 'warning', 'new_feature'] &&
+        data.allowDismiss is bool &&
+        data.priority is int &&
+        data.priority >= -1000 &&
+        data.priority <= 1000 &&
+        data.scope == 'global' &&
+        data.version is int &&
+        data.version >= 1 &&
+        data.publishedAt is timestamp &&
+        hasValidAnnouncementWindow(data);
+    }
+
+    function publishedAnnouncementMatchesSource(announcementId, data) {
+      let source = getAfter(
+        /databases/$(database)/documents/systemAnnouncements/$(announcementId)
+      ).data;
+      return existsAfter(
+          /databases/$(database)/documents/systemAnnouncements/$(announcementId)
+        ) &&
+        source.active == true &&
+        source.archived == false &&
+        data.title == source.title &&
+        data.detail == source.detail &&
+        data.type == source.type &&
+        data.startsAt == source.startsAt &&
+        data.endsAt == source.endsAt &&
+        data.allowDismiss == source.allowDismiss &&
+        data.priority == source.priority &&
+        data.scope == source.scope &&
+        data.version == source.version &&
+        data.publishedAt == source.updatedAt;
+    }
+
+    function systemAnnouncementProjectionIsSynchronized(announcementId, data) {
+      let publicPath = /databases/$(database)/documents/publishedSystemAnnouncements/$(announcementId);
+      return (
+          data.active == true &&
+          data.archived == false &&
+          existsAfter(publicPath) &&
+          publishedAnnouncementMatchesSource(
+            announcementId,
+            getAfter(publicPath).data
+          )
+        ) ||
+        (
+          (data.active == false || data.archived == true) &&
+          !existsAfter(publicPath)
+        );
+    }
+
+    match /systemAnnouncements/{announcementId} {
+      allow read: if isSuperAdmin();
+      allow create: if isSuperAdmin() &&
+        isValidSystemAnnouncement(request.resource.data) &&
+        request.resource.data.version == 1 &&
+        request.resource.data.createdAt == request.time &&
+        request.resource.data.updatedAt == request.time &&
+        request.resource.data.createdBy == request.auth.uid &&
+        request.resource.data.updatedBy == request.auth.uid &&
+        systemAnnouncementProjectionIsSynchronized(
+          announcementId,
+          request.resource.data
+        );
+      allow update: if isSuperAdmin() &&
+        isValidSystemAnnouncement(request.resource.data) &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.createdBy == resource.data.createdBy &&
+        request.resource.data.updatedAt == request.time &&
+        request.resource.data.updatedBy == request.auth.uid &&
+        request.resource.data.version == resource.data.version + 1 &&
+        systemAnnouncementProjectionIsSynchronized(
+          announcementId,
+          request.resource.data
+        );
+      allow delete: if isSuperAdmin() &&
+        !existsAfter(
+          /databases/$(database)/documents/publishedSystemAnnouncements/$(announcementId)
+        );
+    }
+
+    match /publishedSystemAnnouncements/{announcementId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSuperAdmin() &&
+        isValidPublishedSystemAnnouncement(request.resource.data) &&
+        request.resource.data.publishedAt == request.time &&
+        publishedAnnouncementMatchesSource(
+          announcementId,
+          request.resource.data
+        );
+      allow delete: if isSuperAdmin() &&
+        (
+          !existsAfter(
+            /databases/$(database)/documents/systemAnnouncements/$(announcementId)
+          ) ||
+          getAfter(
+            /databases/$(database)/documents/systemAnnouncements/$(announcementId)
+          ).data.active == false ||
+          getAfter(
+            /databases/$(database)/documents/systemAnnouncements/$(announcementId)
+          ).data.archived == true
+        );
     }
 
     function hasAnotacionesPermission() {
@@ -833,9 +1054,74 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // El perfil es fuente de verdad para emitir el claim role. Sacarlo del
+    // catch-all evita que un usuario ordinario se promueva a Superadmin.
+    function isKnownUserRole(role) {
+      return role in ['user', 'admin', 'superadmin'];
+    }
+
+    function isOwnedByRegularAdmin(data) {
+      let ownerId = data.get('ownerId', '');
+      return isRegularAdmin() &&
+        ownerId is string &&
+        (
+          ownerId == request.auth.uid ||
+          (
+            request.auth.token.get('ownerId', '') != '' &&
+            ownerId == request.auth.token.get('ownerId', '')
+          )
+        );
+    }
+
+    function selfProfileKeepsAuthorizationFields() {
+      return request.resource.data.get('role', 'user') ==
+          resource.data.get('role', 'user') &&
+        request.resource.data.get('ownerId', '') ==
+          resource.data.get('ownerId', '') &&
+        request.resource.data.get('permissions', {}) ==
+          resource.data.get('permissions', {}) &&
+        request.resource.data.get('eliminate', false) ==
+          resource.data.get('eliminate', false) &&
+        request.resource.data.get('isActive', true) ==
+          resource.data.get('isActive', true);
+    }
+
+    match /users/{userId} {
+      // Se conserva el alcance de lectura actual porque varios flujos existentes
+      // consultan usuarios para resolver propietarios y empresas.
+      allow read: if isSignedIn() || isCompatWindow();
+      allow create: if isSuperAdmin() ||
+        (
+          isOwnedByRegularAdmin(request.resource.data) &&
+          isKnownUserRole(request.resource.data.get('role', 'user')) &&
+          request.resource.data.get('role', 'user') != 'superadmin'
+        ) ||
+        isCompatWindow();
+      allow update: if isSuperAdmin() ||
+        (
+          isOwnedByRegularAdmin(resource.data) &&
+          isOwnedByRegularAdmin(request.resource.data) &&
+          resource.data.get('role', 'user') != 'superadmin' &&
+          request.resource.data.get('role', 'user') != 'superadmin'
+        ) ||
+        (
+          isSignedIn() &&
+          request.auth.uid == userId &&
+          selfProfileKeepsAuthorizationFields()
+        ) ||
+        isCompatWindow();
+      allow delete: if isSuperAdmin() ||
+        (
+          isOwnedByRegularAdmin(resource.data) &&
+          resource.data.get('role', 'user') != 'superadmin' &&
+          resource.data.get('eliminate', false) == true
+        ) ||
+        isCompatWindow();
+    }
+
     // Durante la ventana de compatibilidad este bloque tambien acepta clientes
     // sin firmar (mismo alcance que tenia el catch-all eliminado). Cubre
-    // `users`, `mail`, `security_logs`, `email_change_codes`,
+    // `mail`, `security_logs`, `email_change_codes`,
     // `recovery_tokens`, `reportes_movimientos` y demas colecciones sin
     // reglas propias. Tras la fecha de corte queda inactivo.
     match /{collection}/{document=**} {
@@ -867,7 +1153,10 @@ service cloud.firestore {
         collection != 'authSessions' &&
         collection != 'totpSecrets' &&
         collection != 'maintenanceAccessLogs' &&
-        collection != 'maintenanceRateLimits';
+        collection != 'maintenanceRateLimits' &&
+        collection != 'users' &&
+        collection != 'systemAnnouncements' &&
+        collection != 'publishedSystemAnnouncements';
     }
 
     // NOTA: el cliente accede a Firestore con Firebase Auth (custom token de

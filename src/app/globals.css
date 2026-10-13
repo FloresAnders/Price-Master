@@ -480,6 +480,34 @@
   animation: hue-spin 2s linear infinite;
 }
 
+@keyframes announcement-ticker-ltr {
+  from { transform: translateX(var(--announcement-start, -100%)); }
+  to { transform: translateX(var(--announcement-end, 100%)); }
+}
+
+.announcement-ticker-track {
+  animation-name: announcement-ticker-ltr;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+.announcement-banner:hover .announcement-ticker-track,
+.announcement-banner:focus-within .announcement-ticker-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .announcement-ticker-track {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transform: none;
+    animation: none;
+    white-space: nowrap;
+  }
+}
+
 @keyframes shake {
   0%, 100% {transform: translateX(0);}
   10%, 30%, 50%, 70%, 90% {transform: translateX(-8px);}

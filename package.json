@@ -20,6 +20,7 @@
     "migrate:fondoMovementTypesByOwner": "node scripts/migrate-fondoMovementTypes-by-owner.js",
     "migrate:funcionesByOwner": "node scripts/migrate-funciones-by-owner.js",
     "seed:tiposEgresoXml": "node scripts/seed-tiposEgresoXml.js",
+    "seed:system-announcement": "node scripts/seed-system-announcement.mjs",
     "migrate:proveedores": "node scripts/migrate-proveedores-to-items.js",
     "migrate:proveedores:items": "node scripts/migrate-proveedores-to-items.js",
     "migrate:proveedores:accountid": "node scripts/set-provider-items-accountid.js",
