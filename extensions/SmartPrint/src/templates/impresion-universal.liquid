@@ -1,0 +1,10 @@
+<article class="smartprint-receipt">
+  <h1>{{ header.businessName | default: header.legalName | escape }}</h1>
+  {% if documentId %}<p>Documento: {{ documentId | escape }}</p>{% endif %}
+  {% if dateTime %}<p>Fecha: {{ dateTime | escape }}</p>{% endif %}
+  {% for item in items %}<section><strong>{{ item.description | escape }}</strong><span>{{ item.total | escape }}</span></section>{% endfor %}
+  {% for ticket in tickets %}<section class="smartprint-ticket"><h2>{{ ticket.draw | escape }}</h2><p>{{ ticket.id | escape }}</p>{% for entry in ticket.entries %}<p>{{ entry.number | escape }} → {{ entry.amount | escape }}</p>{% endfor %}<p>Subtotal: {{ ticket.subtotal | escape }}</p></section>{% endfor %}
+  {% for detail in details %}<p>{{ detail.label | escape }}: {{ detail.value | escape }}</p>{% endfor %}
+  {% if grandTotal %}<p data-smartprint-grand-total>TOTAL: {{ grandTotal | escape }}</p>{% endif %}
+  {% for notice in legalNotices %}<p>{{ notice | escape }}</p>{% endfor %}
+</article>

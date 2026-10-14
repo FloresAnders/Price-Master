@@ -42,6 +42,8 @@ yarn-error.log*
 
 !AGENTS.md
 !src/data/gmail_sinpe_setup.md
+!extensions/SmartPrint/README.md
+!extensions/SmartPrint/AUDIT_ENCABEZADO_IMPRESION.md
 !skills/
 !skills/**
 
@@ -76,6 +78,10 @@ next-env.d.ts
 !/tests/extensions/timemaster-herramientas-dividir-efectivo.test.ts
 !/tests/extensions/timemaster-herramientas-ingresar-venta.test.ts
 !/tests/extensions/timemaster-herramientas-mover-pago.test.ts
+!/tests/extensions/smartprint.test.ts
+!/tests/fixtures/
+!/tests/fixtures/smartprint/
+!/tests/fixtures/smartprint/*.html
 # mobile setup - Android
 /android/*
 

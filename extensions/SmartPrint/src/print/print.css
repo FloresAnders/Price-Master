@@ -1,0 +1,21 @@
+.smartprint-receipt { width: 48mm; padding: 2mm; color: #000; background: #fff; font: 8pt/1.3 "Courier New", monospace; overflow-wrap: anywhere; transform: scale(var(--smartprint-scale, 1)); transform-origin: top center; }
+.smartprint-receipt[data-paper-width="58"] { width: 54mm; }
+.smartprint-receipt[data-paper-width="80"] { width: 76mm; }
+.smartprint-receipt h1, .smartprint-receipt h2, .smartprint-centered { text-align: center; }
+.smartprint-receipt h1 { margin: 0 0 2mm; font-size: 11pt; }
+.smartprint-receipt h2 { margin: 2mm 0 1mm; font-size: 10pt; }
+.smartprint-custom-header { margin-bottom: 3mm; text-align: center; break-inside: avoid; }
+.smartprint-custom-header img { display: block; max-width: 100%; height: auto; margin: 0 auto 2mm; }
+.smartprint-pair { display: flex; justify-content: space-between; gap: 3mm; margin: .6mm 0; }
+.smartprint-line-item, .smartprint-ticket { padding: 1.5mm 0; border-top: .2mm dashed #333; break-inside: avoid; }
+.smartprint-receipt table { width: 100%; border-collapse: collapse; }
+.smartprint-receipt td, .smartprint-receipt th { padding: .5mm 0; vertical-align: top; text-align: left; }
+.smartprint-warning { padding: 1.5mm; border: .3mm solid #000; font-weight: 700; }
+[data-smartprint-grand-total] { margin-top: 2mm; padding-top: 1.5mm; border-top: .4mm solid #000; font-size: 13pt; }
+.smartprint-notice { text-align: center; }
+@page { margin: 0; }
+@media print {
+  .toolbar { display: none !important; }
+  #print-host { display: block; min-height: 0; padding: 0; }
+  .smartprint-receipt { margin: 0 auto; box-shadow: none; }
+}

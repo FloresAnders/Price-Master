@@ -1,0 +1,18 @@
+#smartprint-page-action {
+  position: fixed !important;
+  right: 16px !important;
+  bottom: 16px !important;
+  z-index: 2147483647 !important;
+  padding: 10px 14px !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  color: #fff !important;
+  background: #0b617f !important;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 24%) !important;
+  font: 600 13px/1.2 "Segoe UI", sans-serif !important;
+  cursor: pointer !important;
+}
+
+#smartprint-page-action:disabled { opacity: .58 !important; cursor: wait !important; }
+
+@media print { #smartprint-page-action { display: none !important; } }

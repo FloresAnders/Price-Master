@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "SmartPrint",
+  "version": "0.1.1",
+  "description": "Normaliza comprobantes de Contica, Gente Crystal y Tucán antes de imprimirlos desde Microsoft Edge.",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": [
+    "https://contica.app/*",
+    "https://gentecrystal.net/*",
+    "https://www.bcrcorresponsal.bancobcr.com/*",
+    "https://puntosventa.jpsenlinea.go.cr/*"
+  ],
+  "background": {
+    "service_worker": "src/background/service-worker.js"
+  },
+  "action": {
+    "default_title": "SmartPrint",
+    "default_popup": "src/pages/popup.html"
+  },
+  "options_page": "src/pages/options.html",
+  "content_scripts": [
+    {
+      "matches": [
+        "https://contica.app/*",
+        "https://gentecrystal.net/*",
+        "https://www.bcrcorresponsal.bancobcr.com/*",
+        "https://puntosventa.jpsenlinea.go.cr/*"
+      ],
+      "js": [
+        "src/core/model-core.js",
+        "src/content/providers/contica.js",
+        "src/content/providers/gentecrystal.js",
+        "src/content/providers/tucan.js",
+        "src/content/providers/generic.js",
+        "src/core/classifier.js",
+        "src/core/job-deduplication.js",
+        "src/content/content-core.js",
+        "src/content/observer.js"
+      ],
+      "css": ["src/content/action.css"],
+      "all_frames": true,
+      "match_about_blank": true,
+      "match_origin_as_fallback": true,
+      "run_at": "document_idle",
+      "world": "ISOLATED"
+    }
+  ]
+}
