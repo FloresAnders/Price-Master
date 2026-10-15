@@ -1,9 +1,32 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { handleConfirmDailyClosing } from "@/app/fondogeneral/utils/closing/dailyClosing";
 import { shouldBypassPendingNightDailyClosing } from "@/app/fondogeneral/utils/closing/pendingNightDailyClosing";
 import { resolveAutomaticDailyClosingTurno } from "@/app/fondogeneral/utils/closing/singleClosingReason";
 import { applyLedgerMovementMutation } from "@/app/fondogeneral/utils/fondo/ledgerState";
 import type { FondoEntry } from "@/app/fondogeneral/types";
 import { MovimientosFondosService } from "@/services/movimientos-fondos";
+
+vi.mock("@/utils/serverTime", () => ({
+  getAuthoritativeNowISO: vi
+    .fn()
+    .mockResolvedValue("2026-10-15T05:50:00.000Z"),
+  getAuthoritativeNowMs: vi
+    .fn()
+    .mockResolvedValue(Date.parse("2026-10-15T05:50:00.000Z")),
+}));
+
+vi.mock("@/app/fondogeneral/utils/closing/ledgerIntegrity", () => ({
+  buildOperationalStartISO: vi
+    .fn()
+    .mockReturnValue("2026-10-14T14:00:00.000Z"),
+  formatLedgerIntegrityMismatch: vi.fn().mockReturnValue("ledger inválido"),
+  loadLedgerIntegrity: vi
+    .fn()
+    .mockResolvedValue({ ok: false, reason: "opening-missing" }),
+  loadPendingNightDailyClosingIntegrity: vi
+    .fn()
+    .mockResolvedValue({ ok: false, reason: "opening-missing" }),
+}));
 
 const buildLedgerWithOverdueNightClosing = () => {
   const storage =
@@ -124,4 +147,98 @@ describe("turno automatico del cierre diario", () => {
       ).toBe(expected);
     },
   );
+});
+
+describe("cierre diario N sin cierre D", () => {
+  const closing = {
+    closingDate: "2026-10-15T05:46:47.877Z",
+    manager: "FABIAN",
+    notes: "",
+    singleClosingReason: "FONDOS INSUFICIENTES TURNO DIURNO",
+    noMovements: false,
+    noMovementsReason: "",
+    totalCRC: 141_000,
+    totalUSD: 42,
+    breakdownCRC: {},
+    breakdownUSD: {},
+    turno: "N" as const,
+    r08: 0,
+    t11: 0,
+    tucanCumulative: 0,
+    tiemposCumulative: 0,
+  };
+
+  const buildDeps = (showToast: ReturnType<typeof vi.fn>) =>
+    ({
+      accountKey: "FondoGeneral",
+      activeOwnerId: "owner",
+      beginDailyClosingsRequest: vi.fn(),
+      company: "DELIKOR SINAI",
+      currentBalanceCRC: 141_000,
+      currentBalanceUSD: 42,
+      dailyClosingSubmitInProgressRef: { current: false },
+      dailyClosings: [],
+      dailyClosingsRequestCountRef: { current: 0 },
+      editingDailyClosingId: null,
+      finishDailyClosingsRequest: vi.fn(),
+      fondoEntries: [],
+      formatToastWaitTime: vi.fn(),
+      horarioApertura: "08:00",
+      horarioCierre: "23:59",
+      isRegularUser: true,
+      lastDailyClosingSavedAtRef: { current: 0 },
+      minutesAfterClose: 45,
+      authorizedOperationalDateKey: "2026-10-14",
+      pendingNightDailyClosing: null,
+      unicoCierre: false,
+      requireSingleClosingReason: true,
+      systemVerificationEnabled: false,
+      solicitarApertura: true,
+      loadedDailyClosingKeysRef: { current: new Set<string>() },
+      loadingDailyClosingKeysRef: { current: new Set<string>() },
+      ownerAdminEmail: null,
+      persistMovementToFirestore: vi.fn(),
+      setDailyClosingInitialValues: vi.fn(),
+      setDailyClosingModalOpen: vi.fn(),
+      setDailyClosings: vi.fn(),
+      setDailyClosingsHydrated: vi.fn(),
+      setEditingDailyClosingId: vi.fn(),
+      setFondoEntries: vi.fn(),
+      setLedgerSnapshot: vi.fn(),
+      setPendingCierreDeCaja: vi.fn(),
+      showToast,
+      storageSnapshotRef: { current: null },
+      user: { role: "user" },
+    }) as any;
+
+  it("permite avanzar el cierre N excepcional cuando pasó el turno D", async () => {
+    const showToast = vi.fn();
+
+    await handleConfirmDailyClosing(closing, buildDeps(showToast));
+
+    expect(showToast).not.toHaveBeenCalledWith(
+      "Debe existir cierre diurno antes del nocturno.",
+      "warning",
+      5000,
+    );
+    expect(showToast).toHaveBeenCalledWith(
+      "No se puede cerrar el fondo. No se encontró una apertura para el día operativo. Solicite revisión administrativa.",
+      "error",
+      6000,
+    );
+  });
+
+  it("mantiene bloqueado un cierre N normal sin cierre D", async () => {
+    const showToast = vi.fn();
+    const deps = buildDeps(showToast);
+    deps.requireSingleClosingReason = false;
+
+    await handleConfirmDailyClosing(closing, deps);
+
+    expect(showToast).toHaveBeenCalledWith(
+      "Debe existir cierre diurno antes del nocturno.",
+      "warning",
+      5000,
+    );
+  });
 });

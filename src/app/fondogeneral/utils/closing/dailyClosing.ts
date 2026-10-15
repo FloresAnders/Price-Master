@@ -237,6 +237,7 @@ export async function handleConfirmDailyClosing(
   const previousDayClosing = sameDayClosings.find((item) => item.turno === "D");
   if (
     !unicoCierre &&
+    !requireSingleClosingReason &&
     user?.role !== "superadmin" &&
     closing.turno === "N" &&
     !previousDayClosing
