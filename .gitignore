@@ -65,10 +65,15 @@ next-env.d.ts
 !/tests/maintenance-totp.server.test.ts
 !/tests/maintenance-listener-lifecycle.test.tsx
 !/tests/system-announcement-banner.test.tsx
+!/tests/auth-firebase-bridge-readiness.test.tsx
+!/tests/firebase-custom-token-claims.test.ts
+!/tests/reportes-detail-server.test.ts
+!/tests/reportes-movimientos-client.test.ts
 !/tests/firestore/
 /tests/firestore/*
 !/tests/firestore/owner-chat-superadmin.rules.test.ts
 !/tests/firestore/maintenance-bypass.rules.test.ts
+!/tests/firestore/report-materialization.rules.test.ts
 !/tests/fondogeneral/
 /tests/fondogeneral/*
 !/tests/fondogeneral/cash-opening-enforcement.test.ts

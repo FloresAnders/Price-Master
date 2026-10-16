@@ -283,9 +283,14 @@ function useAuthState() {
       return;
     }
     let cancelled = false;
-    void ensureFirebaseCustomTokenAuth(user.id).finally(() => {
-      if (!cancelled) setFirebaseAuthReady(true);
-    });
+    void ensureFirebaseCustomTokenAuth(user.id).then(
+      (ready) => {
+        if (!cancelled) setFirebaseAuthReady(ready);
+      },
+      () => {
+        if (!cancelled) setFirebaseAuthReady(false);
+      },
+    );
     return () => {
       cancelled = true;
     };

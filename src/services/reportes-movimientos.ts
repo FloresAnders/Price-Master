@@ -1,6 +1,5 @@
 import {
   collection,
-  collectionGroup,
   getDocs,
   limit,
   orderBy,
@@ -207,68 +206,36 @@ export class ReportesMovimientosService {
     paymentType?: string;
     limit?: ReportDetailLimit;
   }): Promise<ReporteMovimientosDetailItem[]> {
-    const constraints: QueryConstraint[] = [
-      where("createdAt", ">=", opts.fromIso),
-      where("createdAt", "<", opts.toExclusiveIso),
-      where("currency", "==", normalizeCurrency(opts.currency)),
-    ];
+    const response = await fetch("/api/reportes-movimientos/detalle", {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(opts),
+    });
 
-    const empresas = (opts.empresas || [])
-      .map((v) => String(v).trim())
-      .filter(Boolean);
-    if (opts.empresa) {
-      constraints.push(where("empresa", "==", opts.empresa));
-    } else if (empresas.length === 1) {
-      constraints.push(where("empresa", "==", empresas[0]));
-    } else if (empresas.length > 1) {
-      constraints.push(where("empresa", "in", empresas.slice(0, 30)));
+    const payload = (await response.json().catch(() => null)) as
+      | { ok?: boolean; items?: unknown[]; error?: string }
+      | null;
+    if (!response.ok || !payload?.ok || !Array.isArray(payload.items)) {
+      throw new Error(payload?.error || "report_detail_request_failed");
     }
 
-    const accountIds = (opts.accountIds || []).filter(Boolean);
-    if (accountIds.length === 1) {
-      constraints.push(where("accountId", "==", accountIds[0]));
-    } else if (accountIds.length > 1) {
-      constraints.push(where("accountId", "in", accountIds.slice(0, 10)));
-    }
-
-    if (opts.classification) {
-      constraints.push(where("classification", "==", opts.classification));
-    }
-
-    if (opts.paymentType) {
-      constraints.push(where("paymentType", "==", opts.paymentType));
-    }
-
-    constraints.push(orderBy("createdAt", "asc"));
-
-    const selectedLimit = opts.limit ?? 50;
-    const pageSize = selectedLimit === "all" ? 100 : selectedLimit;
-    const results: ReporteMovimientosDetailItem[] = [];
-    let cursor: QueryDocumentSnapshot | null = null;
-    do {
-      const pageConstraints: QueryConstraint[] = [
-        ...constraints,
-        ...(cursor ? [startAfter(cursor)] : []),
-        limit(pageSize),
-      ];
-      const snap: QuerySnapshot<DocumentData> = await getDocs(
-        query(collectionGroup(db, "items"), ...pageConstraints),
-      );
-      results.push(
-        ...snap.docs.map((d) => {
-          const data = d.data() as Omit<ReporteMovimientosDetailItem, "id">;
-          return {
-            id: d.id,
-            ...data,
-            currency: normalizeCurrency(data.currency),
-            amountIngreso: Math.trunc(Number(data.amountIngreso ?? 0)) || 0,
-            amountEgreso: Math.trunc(Number(data.amountEgreso ?? 0)) || 0,
-          };
-        }),
-      );
-      cursor = snap.docs[snap.docs.length - 1] ?? null;
-      if (selectedLimit !== "all" || snap.docs.length < pageSize) break;
-    } while (cursor);
-    return results;
+    return payload.items.map((raw) => {
+      const data = (raw || {}) as Record<string, unknown>;
+      return {
+        ...(data as Omit<ReporteMovimientosDetailItem, "id">),
+        id: String(data.id || data.movementId || ""),
+        movementId: String(data.movementId || data.id || ""),
+        empresa: String(data.empresa || ""),
+        createdAt: String(data.createdAt || ""),
+        accountId: String(data.accountId || ""),
+        paymentType: String(data.paymentType || ""),
+        classification: data.classification as ReporteMovimientoClassification,
+        currency: normalizeCurrency(data.currency),
+        amountIngreso: Math.trunc(Number(data.amountIngreso ?? 0)) || 0,
+        amountEgreso: Math.trunc(Number(data.amountEgreso ?? 0)) || 0,
+      };
+    });
   }
 }

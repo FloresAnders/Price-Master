@@ -321,6 +321,15 @@ service cloud.firestore {
         );
     }
 
+    function hasFondoGeneralPermission() {
+      return isSuperAdmin() ||
+        (
+          isSignedIn() &&
+          request.auth.token.get('permissions', {}) is map &&
+          request.auth.token.get('permissions', {}).get('fondogeneral', false) == true
+        );
+    }
+
     function canReadSinpeRealtime(empresaId) {
       return request.auth != null &&
         request.auth.token.get('authPurpose', '') == 'sinpe-realtime' &&
@@ -1119,11 +1128,22 @@ service cloud.firestore {
         isCompatWindow();
     }
 
+    match /reportes_movimientos/{reportId} {
+      allow read: if hasFondoGeneralPermission();
+      allow write: if false;
+    }
+
+    // El detalle contiene movimientos financieros. Solo el servidor lo lee
+    // despues de validar empresa, cuenta y permiso de la sesion.
+    match /reportes_detalle/{document=**} {
+      allow read, write: if false;
+    }
+
     // Durante la ventana de compatibilidad este bloque tambien acepta clientes
     // sin firmar (mismo alcance que tenia el catch-all eliminado). Cubre
     // `mail`, `security_logs`, `email_change_codes`,
-    // `recovery_tokens`, `reportes_movimientos` y demas colecciones sin
-    // reglas propias. Tras la fecha de corte queda inactivo.
+    // `recovery_tokens` y demas colecciones sin reglas propias. Tras la fecha
+    // de corte queda inactivo.
     match /{collection}/{document=**} {
       allow read, write: if (isSignedIn() || isCompatWindow()) &&
         collection != 'ownerChats' &&
@@ -1156,7 +1176,9 @@ service cloud.firestore {
         collection != 'maintenanceRateLimits' &&
         collection != 'users' &&
         collection != 'systemAnnouncements' &&
-        collection != 'publishedSystemAnnouncements';
+        collection != 'publishedSystemAnnouncements' &&
+        collection != 'reportes_movimientos' &&
+        collection != 'reportes_detalle';
     }
 
     // NOTA: el cliente accede a Firestore con Firebase Auth (custom token de

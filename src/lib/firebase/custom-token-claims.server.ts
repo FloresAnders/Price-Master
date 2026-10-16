@@ -23,6 +23,12 @@ export function buildFirebaseCustomTokenClaims(
     authPurpose: "timemaster-app",
     permissions: {
       anotaciones: permissions.anotaciones === true,
+      fondogeneral: permissions.fondogeneral === true,
+      fondogeneralBCR: permissions.fondogeneralBCR === true,
+      fondogeneralBN: permissions.fondogeneralBN === true,
+      fondogeneralBAC: permissions.fondogeneralBAC === true,
+      cajaNegra: permissions.cajaNegra === true,
+      tucan: permissions.tucan === true,
       tiempos: permissions.tiempos === true,
       registroTiempos: permissions.registroTiempos === true,
       deudasInternas: permissions.deudasInternas === true,
