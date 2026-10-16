@@ -22,6 +22,7 @@ import { loadFondoGeneralDriver } from "@/components/tutorials/fondo-general/fon
 import { useFloatingActionsSuppression } from "@/components/ui/FloatingActionsDock";
 import { fondoGeneralSteps } from "@/config/tutorials/fondoGeneralSteps";
 import {
+  resolveDailyClosingSingleReasonForSubmit,
   SINGLE_CLOSING_REASON_INVALID_MESSAGE,
   SINGLE_CLOSING_REASON_MIN_LENGTH,
   validateSingleClosingReason,
@@ -307,7 +308,15 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     () => savedDraft?.notes ?? buildFormState(initialValues).notes,
   );
   const [singleClosingReason, setSingleClosingReason] = useState(
-    () => savedDraft?.singleClosingReason ?? initialValues?.singleClosingReason ?? "",
+    () =>
+      resolveDailyClosingSingleReasonForSubmit({
+        value: editId
+          ? initialValues?.singleClosingReason
+          : savedDraft?.singleClosingReason ?? initialValues?.singleClosingReason,
+        isEditing: Boolean(editId),
+        requireSingleClosingReason,
+        selectedSinTurno: false,
+      }),
   );
   const [crcCounts, setCrcCounts] = useState<CountState>(
     () => ({ ...buildFormState(initialValues).crcCounts, ...(savedDraft?.crcCounts ?? {}) }),
@@ -1080,7 +1089,12 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
       closingDate: closingDateISO,
       manager: trimmedManager,
       notes,
-      singleClosingReason: singleClosingReason.trim(),
+      singleClosingReason: resolveDailyClosingSingleReasonForSubmit({
+        value: singleClosingReason,
+        isEditing: Boolean(editId),
+        requireSingleClosingReason,
+        selectedSinTurno,
+      }),
       noMovements: false,
       noMovementsReason: "",
       totalCRC,

@@ -202,6 +202,22 @@ export const getSingleClosingReasonFromNotes = (notes: unknown): string => {
     : trimmedNotes;
 };
 
+export const resolveDailyClosingSingleReasonForSubmit = (args: {
+  value: unknown;
+  isEditing: boolean;
+  requireSingleClosingReason: boolean;
+  selectedSinTurno: boolean;
+}): string => {
+  if (
+    !args.isEditing &&
+    (!args.requireSingleClosingReason || args.selectedSinTurno)
+  ) {
+    return "";
+  }
+
+  return normalizeSingleClosingReason(args.value);
+};
+
 export const resolveAutomaticDailyClosingTurno = (args: {
   empresaUsesSingleClosing: boolean;
   requiresSingleClosingReason: boolean;

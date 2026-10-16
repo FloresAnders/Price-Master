@@ -6,6 +6,9 @@ import {
   resolveCashOpeningDayShiftHours,
 } from "@/app/fondogeneral/utils/fondo/cashOpeningEnforcement";
 import { sanitizeFondoEntries } from "@/app/fondogeneral/utils/helpers";
+import {
+  resolveDailyClosingSingleReasonForSubmit,
+} from "@/app/fondogeneral/utils/closing/singleClosingReason";
 import { getCashOpeningAvailabilityAfterDailyClosing } from "@/utils/controlHorarioManager";
 
 const baseConfig = {
@@ -322,5 +325,40 @@ describe("getCashOpeningAvailabilityAfterDailyClosing", () => {
         ...sinaiDayClosing,
       }),
     ).toEqual({ allowed: true });
+  });
+});
+
+describe("motivo de cierre unico al guardar el cierre diario", () => {
+  it("descarta un motivo restaurado del borrador cuando el cierre nuevo no lo requiere", () => {
+    expect(
+      resolveDailyClosingSingleReasonForSubmit({
+        value: "FONDOS INSUFICIENTES TURNO DIURNO",
+        isEditing: false,
+        requireSingleClosingReason: false,
+        selectedSinTurno: false,
+      }),
+    ).toBe("");
+  });
+
+  it("conserva el motivo cuando el cierre nuevo realmente es cierre unico", () => {
+    expect(
+      resolveDailyClosingSingleReasonForSubmit({
+        value: "  TURNO DIURNO SIN FONDOS  ",
+        isEditing: false,
+        requireSingleClosingReason: true,
+        selectedSinTurno: false,
+      }),
+    ).toBe("TURNO DIURNO SIN FONDOS");
+  });
+
+  it("conserva el motivo existente al editar un cierre historico", () => {
+    expect(
+      resolveDailyClosingSingleReasonForSubmit({
+        value: "  TURNO DIURNO SIN FONDOS  ",
+        isEditing: true,
+        requireSingleClosingReason: false,
+        selectedSinTurno: false,
+      }),
+    ).toBe("TURNO DIURNO SIN FONDOS");
   });
 });
