@@ -1,13 +1,28 @@
 import type { MovementAccountKey } from "@/services/movimientos-fondos";
 import { buildCostaRicaDayRange } from "./costaRicaDay";
 
+export function shouldUseServerMovementFiltering(
+  accountKey: MovementAccountKey,
+): boolean {
+  switch (accountKey) {
+    case "FondoGeneral":
+    case "BCR":
+    case "BN":
+    case "BAC":
+    case "CajaNegra":
+    case "Tucan":
+    case "Tiempos":
+      return true;
+  }
+}
+
 export function shouldApplyAutomaticMovementRange(params: {
   accountKey: MovementAccountKey;
   hasFirestoreFilterDraft: boolean;
 }): boolean {
   // A preset always loads its date range immediately. Pending provider/type/
-  // invoice filters remain staged until the user presses Buscar.
-  return params.accountKey === "FondoGeneral";
+  // invoice filters remain staged until the user presses Buscar in any account.
+  return shouldUseServerMovementFiltering(params.accountKey);
 }
 
 export function shouldShowMovementSearchButton(params: {
@@ -19,7 +34,7 @@ export function shouldShowMovementSearchButton(params: {
   hasFirestoreFilterDraft: boolean;
 }): boolean {
   return Boolean(
-    params.accountKey === "FondoGeneral" &&
+    shouldUseServerMovementFiltering(params.accountKey) &&
       params.entriesHydrated &&
       params.fromFilter &&
       params.toFilter &&

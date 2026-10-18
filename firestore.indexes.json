@@ -93,6 +93,189 @@
       ]
     },
     {
+      "collectionGroup": "cajanegra",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "providerCode", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cajanegra",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "paymentType", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cajanegra",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "invoiceNumber", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cajanegra",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "providerCode", "order": "ASCENDING" },
+        { "fieldPath": "paymentType", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cajanegra",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "providerCode", "order": "ASCENDING" },
+        { "fieldPath": "invoiceNumber", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cajanegra",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "paymentType", "order": "ASCENDING" },
+        { "fieldPath": "invoiceNumber", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cajanegra",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "providerCode", "order": "ASCENDING" },
+        { "fieldPath": "paymentType", "order": "ASCENDING" },
+        { "fieldPath": "invoiceNumber", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tucan",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "providerCode", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tucan",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "paymentType", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tucan",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "invoiceNumber", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tucan",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "providerCode", "order": "ASCENDING" },
+        { "fieldPath": "paymentType", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tucan",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "providerCode", "order": "ASCENDING" },
+        { "fieldPath": "invoiceNumber", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tucan",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "paymentType", "order": "ASCENDING" },
+        { "fieldPath": "invoiceNumber", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tucan",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "providerCode", "order": "ASCENDING" },
+        { "fieldPath": "paymentType", "order": "ASCENDING" },
+        { "fieldPath": "invoiceNumber", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tiempos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "providerCode", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tiempos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "paymentType", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tiempos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "invoiceNumber", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tiempos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "providerCode", "order": "ASCENDING" },
+        { "fieldPath": "paymentType", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tiempos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "providerCode", "order": "ASCENDING" },
+        { "fieldPath": "invoiceNumber", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tiempos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "paymentType", "order": "ASCENDING" },
+        { "fieldPath": "invoiceNumber", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tiempos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "providerCode", "order": "ASCENDING" },
+        { "fieldPath": "paymentType", "order": "ASCENDING" },
+        { "fieldPath": "invoiceNumber", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "reportes_movimientos",
       "queryScope": "COLLECTION",
       "fields": [

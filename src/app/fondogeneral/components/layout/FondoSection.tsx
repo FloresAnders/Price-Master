@@ -190,6 +190,7 @@ import {
   resolveV2DocKey,
   shouldApplyAutomaticMovementRange,
   shouldShowMovementSearchButton,
+  shouldUseServerMovementFiltering,
 } from "../../utils/v2movements";
 import { useFondoMovementTypes } from "../../hooks/fondo/useFondoMovementTypes";
 import { useSuperAdminUsers } from "../../hooks/movements/useSuperAdminUsers";
@@ -412,6 +413,8 @@ export function FondoSection({
     () => getAccountKeyFromNamespace(namespace),
     [namespace],
   );
+  const serverMovementFilteringEnabled =
+    shouldUseServerMovementFiltering(accountKey);
 
   const isCajaNegra =
     accountKey === "CajaNegra" ||
@@ -801,7 +804,7 @@ export function FondoSection({
     fondoEntries,
     movementProviders,
     mode,
-    serverFilteringEnabled: accountKey === "FondoGeneral",
+    serverFilteringEnabled: serverMovementFilteringEnabled,
   });
   const {
     pageSize,
@@ -1310,15 +1313,16 @@ export function FondoSection({
     fromFilter: effectiveFromFilter,
     toFilter: effectiveToFilter,
     providerCode:
-      accountKey === "FondoGeneral" && appliedProviderCode !== "all"
+      serverMovementFilteringEnabled && appliedProviderCode !== "all"
         ? appliedProviderCode
         : null,
     paymentType:
-      accountKey === "FondoGeneral" && appliedPaymentType !== "all"
+      serverMovementFilteringEnabled && appliedPaymentType !== "all"
         ? appliedPaymentType
         : null,
-    invoiceNumber:
-      accountKey === "FondoGeneral" ? appliedInvoiceNumber : null,
+    invoiceNumber: serverMovementFilteringEnabled
+      ? appliedInvoiceNumber
+      : null,
     fondoEntriesLength: fondoEntries.length,
     beginMovementsLoading,
     endMovementsLoading,
