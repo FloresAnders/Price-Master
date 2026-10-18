@@ -47,6 +47,8 @@ async function syncVersionStorage() {
     const pathModule = await import('node:path');
     path = pathModule.default ?? pathModule;
 
+    const { getOperationalFirestore } = await import('./operational-firestore-target.mjs');
+
     console.log(`${colors.blue}🔄 Iniciando sincronización de versionstorage...${colors.reset}\n`);
 
     // Leer version.json
@@ -79,8 +81,8 @@ async function syncVersionStorage() {
       });
     }
 
-    const db = admin.firestore();
-    db.settings({ databaseId: 'restauracion' });
+    const { db, databaseLabel } = getOperationalFirestore(admin, process.env);
+    console.log(`${colors.blue}Base Firestore: ${colors.yellow}${databaseLabel}${colors.reset}`);
 
     // Leer doc actual
     const versionRef = db.collection('version').doc('current');
