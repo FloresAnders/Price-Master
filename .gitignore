@@ -59,7 +59,10 @@ client_secret_*.apps.googleusercontent.com.json
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+firestore-debug.log
 /tests/*
+!/tests/firebase/
+!/tests/firebase/**
 !/tests/owner-chat-superadmin.test.tsx
 !/tests/maintenance-access.test.tsx
 !/tests/maintenance-totp.server.test.ts

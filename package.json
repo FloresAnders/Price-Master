@@ -16,6 +16,9 @@
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:firestore-cutover": "vitest run tests/firebase/firestore-cutover-config.test.ts tests/firebase/functions-database-targets.test.ts tests/firebase/firestore-cutover-verifier.test.ts",
+    "test:firestore-rules": "node scripts/run-firestore-rules-tests.mjs",
+    "verify:firestore-cutover:live": "node scripts/verify-firestore-cutover-live.mjs --project pricemaster-4a611",
     "lint": "eslint .",
     "migrate:fondoMovementTypesByOwner": "node scripts/migrate-fondoMovementTypes-by-owner.js",
     "migrate:funcionesByOwner": "node scripts/migrate-funciones-by-owner.js",
@@ -86,6 +89,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.2",
     "@types/html2canvas": "^0.5.35",

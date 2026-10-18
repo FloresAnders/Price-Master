@@ -1,5 +1,5 @@
 {
-  "version": "2.1.2",
+  "version": "2.1.3",
   "versionstorage": "2.1.1",
   "notasDeSistemas": "2.1.1",
   "releaseNotes": [
@@ -7,9 +7,15 @@
   "systemNotes": [
     {
       "date": "2026-10-18",
-      "title": "",
+      "title": "Habilitar la búsqueda de movimientos en todas las cuentas",
       "url": "",
-      "description": ""
+      "description": "Se amplió la búsqueda y los filtros de movimientos para todas las cuentas soportadas, incluyendo BCR, BN, BAC, CajaNegra, Tucán y Tiempos."
+    },
+    {
+      "date": "2026-10-18",
+      "title": "Permitir al superadministrador realizar el cierre diario sin necesidad de haber realizado una apertura.",
+      "url": "",
+      "description": "Los superadministradores ahora pueden realizar el cierre diario sin tener que abrir previamente la caja."
     }
   ],
   "_comment": "hacer una pagina de 'en mantenimiento' para secciones en desarrollo y a exepcion de un usuario admin"

@@ -3,13 +3,26 @@ import { onRequest } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import admin from 'firebase-admin';
 import nodemailer from 'nodemailer';
+import {
+  onMovementWrite as defaultMovementWrite,
+  onMovementWriteRestauracion,
+  onMovementWriteLegacyPath,
+  onMovementWriteLegacyPathRestauracion,
+  onTucanMovementWrite as defaultTucanMovementWrite,
+  onTucanMovementWriteRestauracion,
+  onTiemposMovementWrite as defaultTiemposMovementWrite,
+  onTiemposMovementWriteRestauracion,
+  checkMovementsConfig,
+} from './modules/movements.js';
 
 // Definir secretos
 const gmailUser = defineSecret("GMAIL_USER");
 const gmailAppPassword = defineSecret("GMAIL_APP_PASSWORD");
 
 // Inicializar Firebase Admin
-admin.initializeApp();
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
 
 // Obtener referencia a la base de datos 'restauracion'
 const getDb = () => admin.firestore().databaseId === 'restauracion' 
@@ -294,29 +307,17 @@ const handleMovementWrite = async (event) => {
     await Promise.all(promises);
 };
 
-export const onMovementWrite = onDocumentWritten(
-  {
-    document: 'MovimientosFondos/{docId}/movements/{movementId}',
-    database: 'restauracion',
-  },
-  handleMovementWrite
-);
-
-export const onTucanMovementWrite = onDocumentWritten(
-  {
-    document: 'MovimientosFondos/{docId}/tucan/{movementId}',
-    database: 'restauracion',
-  },
-  handleMovementWrite
-);
-
-export const onTiemposMovementWrite = onDocumentWritten(
-  {
-    document: 'MovimientosFondos/{docId}/tiempos/{movementId}',
-    database: 'restauracion',
-  },
-  handleMovementWrite
-);
+export {
+  defaultMovementWrite as onMovementWrite,
+  onMovementWriteRestauracion,
+  onMovementWriteLegacyPath,
+  onMovementWriteLegacyPathRestauracion,
+  defaultTucanMovementWrite as onTucanMovementWrite,
+  onTucanMovementWriteRestauracion,
+  defaultTiemposMovementWrite as onTiemposMovementWrite,
+  onTiemposMovementWriteRestauracion,
+  checkMovementsConfig,
+};
 
 /**
  * Cloud Function que se dispara cuando se crea un documento en la colección 'mail'
