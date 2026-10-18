@@ -10,11 +10,20 @@ import { resolveAdminFirestoreDatabaseId } from "@/lib/firebase-admin";
 import { validateFirestoreDatabaseTarget } from "../../scripts/validate-firestore-database-target.mjs";
 
 type FirebaseConfig = {
+  functions: Array<{
+    runtime?: string;
+  }>;
   firestore: Array<{
     database: string;
     rules: string;
     indexes: string;
   }>;
+};
+
+type FunctionsPackage = {
+  engines: {
+    node: string;
+  };
 };
 
 type FirestoreIndexes = {
@@ -37,6 +46,14 @@ const indexSignature = (index: FirestoreIndexes["indexes"][number]) =>
   JSON.stringify(index);
 
 describe("cambio de Firestore de produccion", () => {
+  it("despliega Cloud Functions con runtime Node.js 22", () => {
+    const firebaseConfig = readJson<FirebaseConfig>("firebase.json");
+    const functionsPackage = readJson<FunctionsPackage>("functions/package.json");
+
+    expect(functionsPackage.engines.node).toBe("22");
+    expect(firebaseConfig.functions.every((entry) => entry.runtime === undefined)).toBe(true);
+  });
+
   it("resuelve cliente y Admin de produccion hacia (default)", () => {
     expect(
       resolveFirestoreDatabaseId({
