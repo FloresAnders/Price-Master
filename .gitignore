@@ -67,6 +67,9 @@ next-env.d.ts
 !/tests/system-announcement-banner.test.tsx
 !/tests/auth-firebase-bridge-readiness.test.tsx
 !/tests/firebase-custom-token-claims.test.ts
+!/tests/firebase-client-database-selection.test.ts
+!/tests/firestore-database-selection.test.ts
+!/tests/firestore-database-target-validation.test.ts
 !/tests/reportes-detail-server.test.ts
 !/tests/reportes-movimientos-client.test.ts
 !/tests/firestore/

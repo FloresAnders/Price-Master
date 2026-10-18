@@ -160,15 +160,9 @@ try {
       admin.initializeApp({ credential: admin.credential.cert(serviceAccount.raw) });
     }
 
-    // La base donde vive el doc que leen los clientes es la misma que usa el
-    // cliente (NEXT_PUBLIC_FIRESTORE_DATABASE_ID en .env / Vercel).
-    const clientDbId =
-      process.env.NEXT_PUBLIC_FIRESTORE_DATABASE_ID?.trim() || "(default)";
+    // Produccion usa siempre la base default. No aplicar databaseId nombrado.
     const db = admin.firestore();
-    if (clientDbId && clientDbId !== "(default)") {
-      db.settings({ databaseId: clientDbId });
-    }
-    log("versionstorage", `escribiendo en base: ${clientDbId}`);
+    log("versionstorage", "escribiendo en base: (default)");
 
     const versionRef = db.collection("version").doc("current");
     const current = await versionRef.get();
@@ -218,11 +212,9 @@ try {
     }
   }
 } catch (error) {
-  // El deploy de reglas ya termino OK; la sincronizacion de versionstorage no
-  // debe tumbar el build. Se registra y sigue.
-  console.error(
-    "[deploy-firestore-rules] versionstorage: ERROR (no bloquea el build):",
-    error?.message || error,
+  fatal(
+    "versionstorage",
+    `fallo la sincronizacion en (default): ${error?.message || error}`,
   );
 }
 

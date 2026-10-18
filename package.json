@@ -11,7 +11,7 @@
     "audit:fondo-embedded-movements": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/audit-fondo-embedded-movements.mjs",
     "dev": "next dev",
     "build": "next build",
-    "vercel-build": "next build && node scripts/deploy-firestore-rules.mjs",
+    "vercel-build": "node scripts/validate-firestore-database-target.mjs && next build && node scripts/deploy-firestore-rules.mjs",
     "build:export": "next build && echo 'Build completed for Capacitor'",
     "start": "next start",
     "test": "vitest run",

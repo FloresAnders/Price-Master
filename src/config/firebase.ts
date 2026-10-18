@@ -7,6 +7,10 @@ import {
   persistentMultipleTabManager,
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import {
+  resolveFirestoreDatabaseId,
+  toFirestoreDatabaseLabel,
+} from "./firestore-database";
 
 // Configuración de Firebase con fallbacks para producción
 export const firebaseConfig = {
@@ -45,16 +49,16 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firestore
 // - In browser: enable persistent cache so offline writes survive reloads (common cause of "I saved it and tomorrow it's gone").
 // - In SSR / environments without IndexedDB: fallback to default (in-memory).
-// Production always uses the canonical "restauracion" database. Outside
-// production, NEXT_PUBLIC_FIRESTORE_DATABASE_ID may select a different database.
-const firestoreDatabaseIdRaw = (
-  process.env.NEXT_PUBLIC_FIRESTORE_DATABASE_ID || ""
-).trim();
-const selectedFirestoreDatabaseId =
-  process.env.NODE_ENV === "production"
-    ? "restauracion"
-    : firestoreDatabaseIdRaw;
-export const firestoreDatabaseId = selectedFirestoreDatabaseId || "(default)";
+// Production defaults to `(default)`. Non-production defaults to
+// `restauracion`. An explicit ID remains available for controlled Preview or
+// local overrides; the Vercel preflight rejects unsafe production values.
+const selectedFirestoreDatabaseId = resolveFirestoreDatabaseId({
+  nodeEnv: process.env.NODE_ENV,
+  explicitDatabaseId: process.env.NEXT_PUBLIC_FIRESTORE_DATABASE_ID,
+});
+export const firestoreDatabaseId = toFirestoreDatabaseLabel(
+  selectedFirestoreDatabaseId,
+);
 
 // `ignoreUndefinedProperties` lets the SDK skip `undefined` fields instead of
 // throwing. This only affects raw writes that pass `undefined` directly (e.g.
