@@ -17,6 +17,13 @@ export const OPENING_VALIDATION_FAILED_MESSAGE =
 
 export const RECENT_OPENING_GUARD_PAGE_SIZE = 100;
 
+export function shouldValidateOpeningBeforeDailyClosing(input: {
+  isSuperAdminUser: boolean;
+  solicitarApertura: boolean;
+}): boolean {
+  return input.solicitarApertura && !input.isSuperAdminUser;
+}
+
 export type FondoGeneralOpeningValidationResult =
   | {
       allowed: true;

@@ -83,6 +83,7 @@ next-env.d.ts
 /tests/fondogeneral/*
 !/tests/fondogeneral/cash-opening-enforcement.test.ts
 !/tests/fondogeneral/cash-opening-required-modal.test.tsx
+!/tests/fondogeneral/daily-closing-superadmin-opening-bypass.test.ts
 !/tests/extensions/
 /tests/extensions/*
 !/tests/extensions/timemaster-herramientas-dividir-efectivo.test.ts

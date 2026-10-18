@@ -319,7 +319,7 @@ export async function handleConfirmDailyClosing(
     showToast(message, "error", 6000);
     return null;
   }
-  if (!integrity.ok) {
+  if (!integrity.ok && user?.role !== "superadmin") {
     showToast(
       integrity.reason === "opening-missing"
         ? "No se puede cerrar el fondo. No se encontró una apertura para el día operativo. Solicite revisión administrativa."

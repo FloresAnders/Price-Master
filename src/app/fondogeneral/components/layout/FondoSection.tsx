@@ -99,7 +99,10 @@ import {
   type ManualCreditNoteDraft,
 } from "../../utils/fondo/manualCreditNoteDrafts";
 import { handleSubmitFondo as handleSubmitFondoFn } from "../../utils/submitFondo";
-import { validateFondoGeneralOpeningRequirement } from "../../utils/fondo/openingRequirement";
+import {
+  shouldValidateOpeningBeforeDailyClosing,
+  validateFondoGeneralOpeningRequirement,
+} from "../../utils/fondo/openingRequirement";
 import { useActorOwnership } from "../../../../hooks/useActorOwnership";
 import type { FondoEntry, FondoMovementType } from "../../types";
 import { persistMovementToFirestore as persistMovementToFirestoreFn } from "../../utils/fondo/persistence";
@@ -4633,7 +4636,12 @@ export function FondoSection({
       if (pendingHandled) return;
     }
 
-    if (empresaSolicitaApertura) {
+    if (
+      shouldValidateOpeningBeforeDailyClosing({
+        isSuperAdminUser,
+        solicitarApertura: empresaSolicitaApertura,
+      })
+    ) {
       const openingValidation = await validateFondoGeneralOpeningRequirement({
         company,
         accountKey,
@@ -5320,7 +5328,10 @@ export function FondoSection({
     );
     if (
       !editingDailyClosingId &&
-      empresaSolicitaApertura &&
+      shouldValidateOpeningBeforeDailyClosing({
+        isSuperAdminUser,
+        solicitarApertura: empresaSolicitaApertura,
+      }) &&
       !resolvesPendingNightDailyClosing
     ) {
       const openingValidation = await validateFondoGeneralOpeningRequirement({

@@ -4,6 +4,7 @@ import { shouldBypassPendingNightDailyClosing } from "@/app/fondogeneral/utils/c
 import { resolveAutomaticDailyClosingTurno } from "@/app/fondogeneral/utils/closing/singleClosingReason";
 import { applyLedgerMovementMutation } from "@/app/fondogeneral/utils/fondo/ledgerState";
 import type { FondoEntry } from "@/app/fondogeneral/types";
+import { DailyClosingsService } from "@/services/daily-closings";
 import { MovimientosFondosService } from "@/services/movimientos-fondos";
 
 vi.mock("@/utils/serverTime", () => ({
@@ -22,10 +23,27 @@ vi.mock("@/app/fondogeneral/utils/closing/ledgerIntegrity", () => ({
   formatLedgerIntegrityMismatch: vi.fn().mockReturnValue("ledger inválido"),
   loadLedgerIntegrity: vi
     .fn()
-    .mockResolvedValue({ ok: false, reason: "opening-missing" }),
+    .mockResolvedValue({
+      ok: false,
+      reason: "opening-missing",
+      ledgerCRC: 141_000,
+      ledgerUSD: 42,
+      ledgerRevision: 7,
+      ledgerUpdatedAt: "2026-10-15T05:49:00.000Z",
+    }),
   loadPendingNightDailyClosingIntegrity: vi
     .fn()
     .mockResolvedValue({ ok: false, reason: "opening-missing" }),
+}));
+
+vi.mock("@/app/fondogeneral/utils/closing/closingGuards", () => ({
+  acquireClosingGuard: vi.fn(),
+  releaseClosingGuard: vi.fn(),
+  touchClosingGuard: vi.fn(),
+}));
+
+vi.mock("@/data/gereaImagenSuperAdmin/dailyClosingImage", () => ({
+  exportDailyClosingSuperAdminImage: vi.fn().mockResolvedValue(undefined),
 }));
 
 const buildLedgerWithOverdueNightClosing = () => {
@@ -240,5 +258,37 @@ describe("cierre diario N sin cierre D", () => {
       "warning",
       5000,
     );
+  });
+
+  it("permite al superadmin cerrar aunque no exista apertura operativa", async () => {
+    const showToast = vi.fn();
+    const deps = buildDeps(showToast);
+    deps.isRegularUser = false;
+    deps.user = { role: "superadmin" };
+    deps.persistMovementToFirestore.mockResolvedValue({
+      ok: true,
+      confirmed: true,
+    });
+    const saveClosing = vi
+      .spyOn(DailyClosingsService, "saveClosing")
+      .mockResolvedValue(null);
+
+    try {
+      const result = await handleConfirmDailyClosing(closing, deps);
+
+      expect(showToast).not.toHaveBeenCalledWith(
+        "No se puede cerrar el fondo. No se encontró una apertura para el día operativo. Solicite revisión administrativa.",
+        "error",
+        6000,
+      );
+      expect(saveClosing).toHaveBeenCalledOnce();
+      expect(result).toMatchObject({
+        manager: "FABIAN",
+        recordedBalanceCRC: 141_000,
+        recordedBalanceUSD: 42,
+      });
+    } finally {
+      saveClosing.mockRestore();
+    }
   });
 });
