@@ -68,6 +68,7 @@ next-env.d.ts
 !/tests/auth-firebase-bridge-readiness.test.tsx
 !/tests/firebase-custom-token-claims.test.ts
 !/tests/firebase-client-database-selection.test.ts
+!/tests/email-function-database-target.test.ts
 !/tests/firestore-database-selection.test.ts
 !/tests/firestore-database-target-validation.test.ts
 !/tests/operational-firestore-target.test.ts

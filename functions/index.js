@@ -322,15 +322,10 @@ export const onTiemposMovementWrite = onDocumentWritten(
  * Cloud Function que se dispara cuando se crea un documento en la colección 'mail'
  * Procesa y envía el email usando nodemailer
  */
-export const sendEmailTrigger = onDocumentCreated(
-  {
-    document: "mail/{emailId}",
-    database: "restauracion",
-    secrets: [gmailUser, gmailAppPassword],
-  },
-  async (event) => {
+export const handleEmailCreated = async (event) => {
   const emailData = event.data.data();
   const emailId = event.params.emailId;
+  const emailRef = event.data.ref;
 
   console.log(`📧 Processing email ${emailId}:`, {
     to: emailData.to,
@@ -399,7 +394,7 @@ export const sendEmailTrigger = onDocumentCreated(
     console.log("✅ Email sent successfully:", info.messageId);
 
     // Actualizar documento en Firestore con el estado
-    await getDb().collection("mail").doc(emailId).update({
+    await emailRef.update({
       status: "sent",
       sentAt: admin.firestore.FieldValue.serverTimestamp(),
       messageId: info.messageId,
@@ -410,7 +405,7 @@ export const sendEmailTrigger = onDocumentCreated(
     console.error("❌ Error sending email:", error);
 
     // Actualizar documento con el error
-    await getDb().collection("mail").doc(emailId).update({
+    await emailRef.update({
       status: "failed",
       error: error.message,
       failedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -420,7 +415,25 @@ export const sendEmailTrigger = onDocumentCreated(
     // Firebase Functions reintenta automáticamente en caso de error
     return { success: false, error: error.message };
   }
-});
+};
+
+export const sendEmailTrigger = onDocumentCreated(
+  {
+    document: "mail/{emailId}",
+    database: "(default)",
+    secrets: [gmailUser, gmailAppPassword],
+  },
+  handleEmailCreated,
+);
+
+export const sendEmailTriggerRestauracion = onDocumentCreated(
+  {
+    document: "mail/{emailId}",
+    database: "restauracion",
+    secrets: [gmailUser, gmailAppPassword],
+  },
+  handleEmailCreated,
+);
 
 /**
  * Función auxiliar para verificar la configuración del sistema de emails
