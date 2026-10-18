@@ -433,7 +433,10 @@ const processMessageIds = async (input: {
       fallbackSubject: subject,
     });
     if (!parsed) {
-      throw new Error(`SINPE parser failed for Gmail message ${messageId}.`);
+      console.warn(
+        `[sinpe] unparsable matching email skipped for company ${input.integration.empresaId}; message ${messageId}`,
+      );
+      continue;
     }
     if (await saveSinpeEvent({ empresa: input.empresa, gmailMessageId: messageId, parsed })) {
       created += 1;

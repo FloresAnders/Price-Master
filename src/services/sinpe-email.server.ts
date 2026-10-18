@@ -130,7 +130,7 @@ const readReference = (body: string) => {
 
 const readAmount = (body: string) => {
   const match = stripAccents(body).match(
-    /monto\s*:\s*(?:CRC|¢|₡)?\s*([0-9][0-9., \t]*)/i,
+    /monto\s*:\s*(?:CRC|¢|₡)?\s*((?:[0-9][0-9., \t]*|[.,][0-9]{2}))/i,
   );
   return match ? normalizeAmount(match[1]) : null;
 };
