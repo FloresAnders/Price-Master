@@ -228,3 +228,38 @@ export const resolveAutomaticDailyClosingTurno = (args: {
   args.hasRealD
     ? "N"
     : "D";
+
+export const resolveAutomaticDailyClosingPolicy = (args: {
+  empresaUsesSingleClosing: boolean;
+  hasRealD: boolean;
+  hasDayClosingMovement: boolean;
+  hasNightClosingMovement: boolean;
+}): {
+  turno: "D" | "N";
+  requireSingleClosingReason: boolean;
+} => {
+  const requireSingleClosingReason =
+    !args.empresaUsesSingleClosing &&
+    !args.hasRealD &&
+    !args.hasDayClosingMovement &&
+    args.hasNightClosingMovement;
+
+  return {
+    turno:
+      args.empresaUsesSingleClosing ||
+      args.hasRealD ||
+      requireSingleClosingReason
+        ? "N"
+        : "D",
+    requireSingleClosingReason,
+  };
+};
+
+export const selectClosingMovementForDailyTurno = <T>(
+  entries: T[],
+  turno: "D" | "N",
+  resolveTurno: (entry: T) => "D" | "N" | undefined,
+): T | null =>
+  entries.find((entry) => resolveTurno(entry) === turno) ??
+  entries.find((entry) => Boolean((entry as { sinTurno?: boolean }).sinTurno)) ??
+  null;

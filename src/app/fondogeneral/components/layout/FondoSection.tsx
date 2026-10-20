@@ -114,7 +114,8 @@ import {
 import type { FcrPaymentRecovery } from "../../utils/invoicePayment/fcrPartialSaveRecovery";
 import {
   getSingleClosingReasonFromNotes,
-  resolveAutomaticDailyClosingTurno,
+  resolveAutomaticDailyClosingPolicy,
+  selectClosingMovementForDailyTurno,
   SINGLE_CLOSING_REASON_INVALID_MESSAGE,
   validateSingleClosingReason,
 } from "../../utils/closing/singleClosingReason";
@@ -3236,16 +3237,10 @@ export function FondoSection({
           : "D";
       };
 
-      const sameTurnoEntry = cierreEntries.find(
-        (entry) => resolveTurno(entry) === turno,
-      );
-      if (sameTurnoEntry) return sameTurnoEntry;
-
-      const sinTurnoEntry = cierreEntries.find((entry) => entry.sinTurno);
-      if (sinTurnoEntry) return sinTurnoEntry;
-
-      return (
-        cierreEntries.length === 1 ? cierreEntries[0] : cierreEntries[0]
+      return selectClosingMovementForDailyTurno(
+        cierreEntries,
+        turno,
+        resolveTurno,
       );
     },
     [
@@ -4718,63 +4713,52 @@ export function FondoSection({
       console.error("[FG] Error resolving shift manager for daily closing:", err);
     }
 
-    let requireSingleReason = false;
+    let dailyClosingPolicy = resolveAutomaticDailyClosingPolicy({
+      empresaUsesSingleClosing,
+      hasRealD,
+      hasDayClosingMovement: false,
+      hasNightClosingMovement: false,
+    });
     try {
-      const currentDateKey = getCostaRicaDateKeyAndMinute(nowISO)?.dateKey;
-      if (activeEmpresaForCompany && currentDateKey) {
-        const effectiveNightMinutesAfterEnd =
-          await resolveEffectiveClosingMinutesAfterEnd(
-            nowISO,
-            "N",
-            operationalDateKey,
-          );
-        const isInNightClosingWindow = isWithinFondoVentasNightClosingWindow({
-          nowISO,
-          horarioCierre: empresaForShiftResolution?.horarioCierre,
-          minutesBeforeEnd: cierreFondoVentasMinutesBeforeEnd,
-          minutesAfterEnd: effectiveNightMinutesAfterEnd,
-        });
-        const nowMs = new Date(nowISO).getTime();
-        const recentClosings = fondoEntries.filter((entry) => {
-          const createdAtMs = new Date(String(entry.createdAt || "")).getTime();
-          const ageMs = nowMs - createdAtMs;
-          return (
-            isCierreFondoVentasMovement(entry) &&
-            Number.isFinite(createdAtMs) &&
-            ageMs >= 0 &&
-            ageMs <= 24 * 60 * 60 * 1000
-          );
-        });
-        const hasDayClosing = recentClosings.some(
+      if (activeEmpresaForCompany) {
+        const closingMovements = fondoEntries.filter(
           (entry) =>
-            !isWithinFondoVentasNightClosingWindow({
-              nowISO: String(entry.createdAt || ""),
-              horarioCierre: empresaForShiftResolution?.horarioCierre,
-              minutesBeforeEnd: cierreFondoVentasMinutesBeforeEnd,
-              minutesAfterEnd: cierreFondoVentasMinutesAfterEnd,
-            }),
+            isCierreFondoVentasMovement(entry) &&
+            getCostaRicaOperationalDateKey(
+              String(entry.createdAt || ""),
+              empresaForShiftResolution?.horarioApertura,
+            ) === operationalDateKey,
         );
-        const hasNightClosing = recentClosings.some((entry) =>
-          isWithinFondoVentasNightClosingWindow({
+        const resolveMovementTurno = (entry: FondoEntry): "D" | "N" | undefined => {
+          if (entry.sinTurno) return undefined;
+          if (entry.turno === "D" || entry.turno === "N") return entry.turno;
+          return isWithinFondoVentasNightClosingWindow({
             nowISO: String(entry.createdAt || ""),
             horarioCierre: empresaForShiftResolution?.horarioCierre,
             minutesBeforeEnd: cierreFondoVentasMinutesBeforeEnd,
             minutesAfterEnd: cierreFondoVentasMinutesAfterEnd,
-          }),
-        );
-
-        requireSingleReason =
-          isInNightClosingWindow && hasNightClosing && !hasDayClosing && !hasRealD;
+          })
+            ? "N"
+            : "D";
+        };
+        dailyClosingPolicy = resolveAutomaticDailyClosingPolicy({
+          empresaUsesSingleClosing,
+          hasRealD,
+          hasDayClosingMovement: closingMovements.some(
+            (entry) => resolveMovementTurno(entry) === "D",
+          ),
+          hasNightClosingMovement: closingMovements.some(
+            (entry) => resolveMovementTurno(entry) === "N",
+          ),
+        });
       }
     } catch (err) {
       console.error("[FG] Error resolving single-closing reason requirement:", err);
     }
 
-    const dailyClosingTurnoForNow = resolveAutomaticDailyClosingTurno({
-      empresaUsesSingleClosing,
-      requiresSingleClosingReason: requireSingleReason,
-      hasRealD,
-    });
+    const requireSingleReason =
+      dailyClosingPolicy.requireSingleClosingReason;
+    const dailyClosingTurnoForNow = dailyClosingPolicy.turno;
     if (isSuperAdminUser) {
       const initialValues: DailyClosingFormValues = {
         closingDate: nowISO,
@@ -4893,6 +4877,33 @@ export function FondoSection({
           throw new Error("PENDING_FONDO_VENTAS_CLOSING_NOT_FOUND");
         }
 
+        pendingContextLoaded = true;
+        const { closingsForOperationalDay, hasRealD } =
+          await refreshRealDailyClosingsForOperationalDay(
+            pendingNightDailyClosing.operationalDateKey,
+          );
+        const alreadyClosed = closingsForOperationalDay.some(
+          (closing) =>
+            inferDailyClosingTurno(
+              closing,
+              closingsForOperationalDay,
+              empresaForShiftResolution?.horarioApertura,
+            ) === "N",
+        );
+        if (alreadyClosed) {
+          setPendingNightClosingDeadlineReached(false);
+          setDailyClosingModalOpen(false);
+          setDailyClosingInitialValues(null);
+          void refreshMovements();
+          return true;
+        }
+        const pendingClosingPolicy = resolveAutomaticDailyClosingPolicy({
+          empresaUsesSingleClosing,
+          hasRealD,
+          hasDayClosingMovement: hasRealD,
+          hasNightClosingMovement: true,
+        });
+
         const initialValues: DailyClosingFormValues = {
           closingDate: cierreFondoVentas.createdAt,
           manager: cierreManager,
@@ -4917,29 +4928,11 @@ export function FondoSection({
           pendingNightDailyClosing.operationalDateKey,
         );
         setDailyClosingTurno("N");
-        setDailyClosingSingleReasonRequired(false);
+        setDailyClosingSingleReasonRequired(
+          pendingClosingPolicy.requireSingleClosingReason,
+        );
         setDailyClosingInitialValues(initialValues);
         setDailyClosingModalOpen(true);
-        pendingContextLoaded = true;
-
-        const { closingsForOperationalDay } =
-          await refreshRealDailyClosingsForOperationalDay(
-            pendingNightDailyClosing.operationalDateKey,
-          );
-        const alreadyClosed = closingsForOperationalDay.some(
-          (closing) =>
-            inferDailyClosingTurno(
-              closing,
-              closingsForOperationalDay,
-              empresaForShiftResolution?.horarioApertura,
-            ) === "N",
-        );
-        if (alreadyClosed) {
-          setPendingNightClosingDeadlineReached(false);
-          setDailyClosingModalOpen(false);
-          setDailyClosingInitialValues(null);
-          void refreshMovements();
-        }
       } catch (error) {
         console.error(
           "[FG] Error loading the pending night daily closing context:",
@@ -4962,6 +4955,7 @@ export function FondoSection({
       dailyClosingModalOpen,
       dailyClosingOperationalDateKey,
       dailyClosingTurno,
+      empresaUsesSingleClosing,
       empresaForShiftResolution?.horarioApertura,
       pendingNightDailyClosing,
       refreshMovements,
