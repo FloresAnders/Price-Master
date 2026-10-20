@@ -24,7 +24,12 @@ import {
   type DailyClosingFormValues,
 } from "../../components/modals/DailyClosingModal";
 import type { FondoEntry } from "../../types";
-import { buildDailyClosingEmailTemplate } from "@/services/email-templates/daily-closing";
+import {
+  buildDailyClosingEmailTemplate,
+  buildDailyClosingFailureMailJobs,
+  deliverDailyClosingFailureMailJobs,
+  type DailyClosingFailureAlertInput,
+} from "@/services/email-templates/daily-closing";
 import { reconcileClosing } from "@/domain/reconciliation";
 import { exportDailyClosingSuperAdminImage } from "@/data/gereaImagenSuperAdmin/dailyClosingImage";
 import {
@@ -61,6 +66,37 @@ type LedgerSnapshot = {
 type GuardRef = { current: boolean };
 type NumberRef = { current: number };
 type StringSetRef = { current: Set<string> };
+
+export interface DailyClosingFailureReport {
+  phase: string;
+  outcome: "blocked" | "partial";
+  reason: string;
+  technicalDetails?: string;
+  currentBalanceCRC?: number | null;
+  currentBalanceUSD?: number | null;
+}
+
+export async function enqueueDailyClosingFailureAlert(
+  input: DailyClosingFailureAlertInput,
+): Promise<{ delivered: string[]; failed: string[] }> {
+  const jobs = buildDailyClosingFailureMailJobs(input);
+  const result = await deliverDailyClosingFailureMailJobs(jobs, async (job) => {
+    await addDoc(collection(db, "mail"), {
+      to: job.to,
+      subject: job.subject,
+      text: job.text,
+      html: job.html,
+      createdAt: serverTimestamp(),
+    });
+  });
+  if (result.failed.length > 0) {
+    console.error(
+      "[CIERRE] No se pudo encolar la alerta para:",
+      result.failed.join(", "),
+    );
+  }
+  return result;
+}
 
 export interface HandleConfirmDailyClosingDeps {
   accountKey: string;
@@ -100,7 +136,15 @@ export interface HandleConfirmDailyClosingDeps {
           before?: FondoEntry | null;
         }
       | undefined,
-  ) => Promise<{ ok: boolean; confirmed: boolean; ledgerSnapshot?: LedgerSnapshot }>;
+  ) => Promise<{
+    ok: boolean;
+    confirmed: boolean;
+    ledgerSnapshot?: LedgerSnapshot;
+    errorReason?: string;
+  }>;
+  reportDailyClosingFailure: (
+    failure: DailyClosingFailureReport,
+  ) => Promise<void>;
   setDailyClosingInitialValues: (
     value: DailyClosingFormValues | null,
   ) => void;
@@ -155,6 +199,7 @@ export async function handleConfirmDailyClosing(
     loadingDailyClosingKeysRef,
     ownerAdminEmail,
     persistMovementToFirestore,
+    reportDailyClosingFailure,
     setDailyClosingInitialValues,
     setDailyClosingModalOpen,
     setDailyClosings,
@@ -170,6 +215,17 @@ export async function handleConfirmDailyClosing(
     user,
   } = deps;
 
+  const reportFailure = async (failure: DailyClosingFailureReport) => {
+    try {
+      await reportDailyClosingFailure(failure);
+    } catch (reportError) {
+      console.error(
+        "[CIERRE] Error enviando alerta de intento fallido:",
+        reportError,
+      );
+    }
+  };
+
   if (accountKey !== "FondoGeneral") {
     setDailyClosingModalOpen(false);
     return null;
@@ -177,6 +233,12 @@ export async function handleConfirmDailyClosing(
 
   const managerName = closing.manager.trim();
   if (!managerName) {
+    await reportFailure({
+      phase: "validación del encargado",
+      outcome: "blocked",
+      reason: "Debe indicar un encargado para guardar el cierre.",
+      technicalDetails: "DAILY_CLOSING_MANAGER_REQUIRED",
+    });
     setDailyClosingModalOpen(false);
     return null;
   }
@@ -189,6 +251,12 @@ export async function handleConfirmDailyClosing(
   };
   if (!isValidDailyClosingSchedule(dailyClosingSchedule)) {
     showToast(DAILY_CLOSING_SCHEDULE_REQUIRED_ERROR, "warning", 6000);
+    await reportFailure({
+      phase: "validación de horario",
+      outcome: "blocked",
+      reason: DAILY_CLOSING_SCHEDULE_REQUIRED_ERROR,
+      technicalDetails: "DAILY_CLOSING_SCHEDULE_REQUIRED",
+    });
     return null;
   }
 
@@ -242,7 +310,14 @@ export async function handleConfirmDailyClosing(
     closing.turno === "N" &&
     !previousDayClosing
   ) {
-    showToast("Debe existir cierre diurno antes del nocturno.", "warning", 5000);
+    const reason = "Debe existir cierre diurno antes del nocturno.";
+    showToast(reason, "warning", 5000);
+    await reportFailure({
+      phase: "validación de secuencia de turnos",
+      outcome: "blocked",
+      reason,
+      technicalDetails: "DAY_CLOSING_REQUIRED_BEFORE_NIGHT",
+    });
     return null;
   }
   let reconciliation;
@@ -257,7 +332,16 @@ export async function handleConfirmDailyClosing(
         isFinalShift: closing.turno === "N",
       });
     } catch (error) {
-      showToast(error instanceof Error ? error.message : "Datos de conciliación inválidos.", "warning", 6000);
+      const reason =
+        error instanceof Error ? error.message : "Datos de conciliación inválidos.";
+      showToast(reason, "warning", 6000);
+      await reportFailure({
+        phase: "conciliación de R08, TT, Tucán y Tiempos",
+        outcome: "blocked",
+        reason,
+        technicalDetails:
+          error instanceof Error && error.stack ? error.stack : undefined,
+      });
       return null;
     }
   }
@@ -272,25 +356,46 @@ export async function handleConfirmDailyClosing(
       "warning",
       5000,
     );
+    await reportFailure({
+      phase: "validación del motivo de cierre único",
+      outcome: "blocked",
+      reason: SINGLE_CLOSING_REASON_INVALID_MESSAGE,
+      technicalDetails: "SINGLE_CLOSING_REASON_INVALID",
+    });
     return null;
   }
   if (noMovements && !noMovementsReason) {
+    const reason = "Debe indicar el motivo de por qué no hubo movimientos.";
     showToast(
-      "Debe indicar el motivo de por qué no hubo movimientos.",
+      reason,
       "warning",
       5000,
     );
+    await reportFailure({
+      phase: "validación de movimientos",
+      outcome: "blocked",
+      reason,
+      technicalDetails: "NO_MOVEMENTS_REASON_REQUIRED",
+    });
     return null;
   }
 
   const normalizedCompany = (company || "").trim();
   if (normalizedCompany.length === 0) {
     setDailyClosingModalOpen(false);
-    showToast("Error: No se pudo identificar la empresa", "error");
+    const reason = "Error: No se pudo identificar la empresa";
+    showToast(reason, "error");
+    await reportFailure({
+      phase: "identificación de la empresa",
+      outcome: "blocked",
+      reason,
+      technicalDetails: "DAILY_CLOSING_COMPANY_REQUIRED",
+    });
     return null;
   }
 
   let integrity: LedgerIntegrityResult;
+  const postSaveFailures: string[] = [];
   try {
     const operationalStartISO = buildOperationalStartISO(
       closingDateKey,
@@ -317,15 +422,34 @@ export async function handleConfirmDailyClosing(
         ? "El cierre N pendiente cambió en otro dispositivo. Actualice la pantalla."
         : "No se puede cerrar el fondo. No se pudo verificar la integridad del ledger en el servidor. Actualice e inténtelo de nuevo.";
     showToast(message, "error", 6000);
+    await reportFailure({
+      phase: "validación de integridad del ledger",
+      outcome: "blocked",
+      reason: message,
+      technicalDetails:
+        error instanceof Error && error.stack ? error.stack : code || undefined,
+      currentBalanceCRC: null,
+      currentBalanceUSD: null,
+    });
     return null;
   }
   if (!integrity.ok && user?.role !== "superadmin") {
-    showToast(
+    const reason =
       integrity.reason === "opening-missing"
         ? "No se puede cerrar el fondo. No se encontró una apertura para el día operativo. Solicite revisión administrativa."
-        : formatLedgerIntegrityMismatch(integrity),
+        : formatLedgerIntegrityMismatch(integrity);
+    showToast(
+      reason,
       "error", 6000,
     );
+    await reportFailure({
+      phase: "validación de integridad del ledger",
+      outcome: "blocked",
+      reason,
+      technicalDetails: integrity.reason,
+      currentBalanceCRC: integrity.ledgerCRC,
+      currentBalanceUSD: integrity.ledgerUSD,
+    });
     return null;
   }
 
@@ -372,13 +496,18 @@ export async function handleConfirmDailyClosing(
             : acquired.lockedKind === "FONDO_VENTAS"
               ? "Fondo Ventas"
               : "otro cierre";
-        showToast(
-          `Otro cierre (${kindLabel}) se está registrando. Intente en ${formatToastWaitTime(
-            acquired.remainingSec,
-          )}.`,
-          "warning",
-          6000,
-        );
+        const reason = `Otro cierre (${kindLabel}) se está registrando. Intente en ${formatToastWaitTime(
+          acquired.remainingSec,
+        )}.`;
+        showToast(reason, "warning", 6000);
+        await reportFailure({
+          phase: "bloqueo de concurrencia",
+          outcome: "blocked",
+          reason,
+          technicalDetails: `CLOSING_GUARD_LOCKED:${acquired.lockedKind}`,
+          currentBalanceCRC,
+          currentBalanceUSD,
+        });
         return null;
       }
       closingGuard = { token: acquired.token, docId: acquired.docId };
@@ -391,7 +520,16 @@ export async function handleConfirmDailyClosing(
   const dailyClosingCooldownKey = `fondogeneral-lastDailyClosingSavedAt:${normalizedCompany}`;
   if (!isEditingClosing) {
     if (dailyClosingSubmitInProgressRef.current || dailyClosingsRequestCountRef.current > 0) {
-      showToast("Ya hay un cierre guardándose. Espere un momento.", "warning", 4000);
+      const reason = "Ya hay un cierre guardándose. Espere un momento.";
+      showToast(reason, "warning", 4000);
+      await reportFailure({
+        phase: "bloqueo de concurrencia",
+        outcome: "blocked",
+        reason,
+        technicalDetails: "DAILY_CLOSING_ALREADY_IN_PROGRESS",
+        currentBalanceCRC,
+        currentBalanceUSD,
+      });
       return null;
     }
 
@@ -412,13 +550,18 @@ export async function handleConfirmDailyClosing(
       if (lastSavedAtMs > 0 && nowMs - lastSavedAtMs < 60000) {
         const remainingMs = 60000 - (nowMs - lastSavedAtMs);
         const remainingSec = Math.ceil(remainingMs / 1000);
-        showToast(
-          `Ya se registró un cierre hace poco. Espere ${formatToastWaitTime(
-            remainingSec,
-          )} para crear otro.`,
-          "warning",
-          5000,
-        );
+        const reason = `Ya se registró un cierre hace poco. Espere ${formatToastWaitTime(
+          remainingSec,
+        )} para crear otro.`;
+        showToast(reason, "warning", 5000);
+        await reportFailure({
+          phase: "validación de cierre duplicado",
+          outcome: "blocked",
+          reason,
+          technicalDetails: "DAILY_CLOSING_COOLDOWN_ACTIVE",
+          currentBalanceCRC,
+          currentBalanceUSD,
+        });
         return null;
       }
     }
@@ -439,7 +582,18 @@ export async function handleConfirmDailyClosing(
       },
     );
     const ledgerDocKey = MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
-    if (isCurrentLedgerContext && !isCurrentLedgerContext(ledgerDocKey)) return null;
+    if (isCurrentLedgerContext && !isCurrentLedgerContext(ledgerDocKey)) {
+      await reportFailure({
+        phase: "confirmación local posterior al guardado",
+        outcome: "partial",
+        reason:
+          "El cierre se guardó, pero cambió el contexto activo antes de completar su confirmación local.",
+        technicalDetails: "DAILY_CLOSING_CONTEXT_CHANGED_AFTER_SAVE",
+        currentBalanceCRC,
+        currentBalanceUSD,
+      });
+      return null;
+    }
     if (committedLedger && (applyConfirmedLedger
       ? applyConfirmedLedger(ledgerDocKey, committedLedger)
       : acceptLedgerSnapshot(storageSnapshotRef, committedLedger, normalizedCompany))) {
@@ -501,7 +655,17 @@ export async function handleConfirmDailyClosing(
         await releaseClosingGuard(normalizedCompany, closingGuard).catch(() => undefined);
         closingGuard = null;
       }
-      showToast("El saldo cambió mientras se preparaba el cierre. Actualice e inténtelo de nuevo.", "warning", 6000);
+      const reason =
+        "El saldo cambió mientras se preparaba el cierre. Actualice e inténtelo de nuevo.";
+      showToast(reason, "warning", 6000);
+      await reportFailure({
+        phase: "guardado transaccional del cierre",
+        outcome: "blocked",
+        reason,
+        technicalDetails: LEDGER_CHANGED_BEFORE_CLOSING,
+        currentBalanceCRC,
+        currentBalanceUSD,
+      });
       return null;
     }
     if (err instanceof Error && err.message.startsWith(DAILY_CLOSING_DUPLICATE_ERROR)) {
@@ -510,10 +674,26 @@ export async function handleConfirmDailyClosing(
         void releaseClosingGuard(normalizedCompany, closingGuard);
         closingGuard = null;
       }
+      await reportFailure({
+        phase: "guardado transaccional del cierre",
+        outcome: "blocked",
+        reason: err.message,
+        technicalDetails: DAILY_CLOSING_DUPLICATE_ERROR,
+        currentBalanceCRC,
+        currentBalanceUSD,
+      });
       return null;
     }
     if (err instanceof Error && err.message === DAILY_CLOSING_SCHEDULE_REQUIRED_ERROR) {
       showToast(err.message, "warning", 6000);
+      await reportFailure({
+        phase: "guardado transaccional del cierre",
+        outcome: "blocked",
+        reason: err.message,
+        technicalDetails: "DAILY_CLOSING_SCHEDULE_REQUIRED",
+        currentBalanceCRC,
+        currentBalanceUSD,
+      });
       return null;
     }
 
@@ -530,43 +710,15 @@ export async function handleConfirmDailyClosing(
               }
             })();
 
-    try {
-    const whenISO = await getAuthoritativeNowISO().catch(
-      () => "Hora del servidor no disponible",
-    );
-      const where = "FondoSection.handleConfirmDailyClosing -> DailyClosingsService.saveClosing";
-      const errorMessage = err instanceof Error && err.stack
-        ? `${errorReason}\n\nStack:\n${err.stack}`
-        : errorReason;
-
-      const subject = `[ALERTA][CIERRE] Error al guardar cierre (${normalizedCompany})`;
-      const text = [
-        `Dónde: ${where}`,
-        `Cuándo: ${whenISO}`,
-        `Empresa: ${normalizedCompany}`,
-        `Usuario: ${(user?.email || "N/A").toString()}`,
-        `Cierre ID: ${record.id}`,
-        `Fecha cierre: ${record.closingDate}`,
-        "",
-        `Motivo exacto: ${errorMessage}`,
-      ].join("\n");
-
-      const recipients = ["chavesa698@gmail.com", "price.master.srl@gmail.com"];
-      void Promise.all(
-        recipients.map((to) =>
-          addDoc(collection(db, "mail"), {
-            to,
-            subject,
-            text,
-            createdAt: serverTimestamp(),
-          }),
-        ),
-      ).catch((mailErr) => {
-        console.error("[CIERRE] ? Error encolando email de alerta:", mailErr);
-      });
-    } catch (mailErr) {
-      console.error("[CIERRE] ? Error preparando email de alerta:", mailErr);
-    }
+    await reportFailure({
+      phase: "guardado transaccional del cierre",
+      outcome: "blocked",
+      reason: errorReason,
+      technicalDetails:
+        err instanceof Error && err.stack ? err.stack : undefined,
+      currentBalanceCRC,
+      currentBalanceUSD,
+    });
 
     showToast(`Error al guardar el cierre: ${errorReason}`, "error", 10000);
 
@@ -784,12 +936,23 @@ export async function handleConfirmDailyClosing(
           });
           if (saved.ok && saved.ledgerSnapshot) {
             latestLedgerSnapshot = saved.ledgerSnapshot;
+          } else if (!saved.ok) {
+            postSaveFailures.push(
+              `No se pudo eliminar el ajuste ${removed.id}: ${saved.errorReason || "motivo no disponible"}`,
+            );
           }
         }
       } catch (persistRemoveErr) {
         console.error(
           "[FG-DEBUG] Error persisting deletion of adjustment movements:",
           persistRemoveErr,
+        );
+        postSaveFailures.push(
+          `Error eliminando ajustes anteriores: ${
+            persistRemoveErr instanceof Error
+              ? persistRemoveErr.message
+              : String(persistRemoveErr)
+          }`,
         );
       }
 
@@ -842,6 +1005,18 @@ export async function handleConfirmDailyClosing(
                         "[CIERRE] ? Error saving updated daily closing with resolution:",
                         saveErr,
                       );
+                      void reportFailure({
+                        phase: "actualización posterior de la resolución del cierre",
+                        outcome: "partial",
+                        reason:
+                          "El cierre se guardó, pero no se pudo guardar la resolución de sus ajustes.",
+                        technicalDetails:
+                          saveErr instanceof Error
+                            ? saveErr.message
+                            : String(saveErr),
+                        currentBalanceCRC,
+                        currentBalanceUSD,
+                      });
                     });
                 }
               } catch (saveErr) {
@@ -891,6 +1066,10 @@ export async function handleConfirmDailyClosing(
               });
               if (saved.ok && saved.ledgerSnapshot) {
                 latestLedgerSnapshot = saved.ledgerSnapshot;
+              } else if (!saved.ok) {
+                postSaveFailures.push(
+                  `No se pudo eliminar el ajuste ${prevAdj.id}: ${saved.errorReason || "motivo no disponible"}`,
+                );
               }
             }
           }
@@ -926,6 +1105,10 @@ export async function handleConfirmDailyClosing(
             });
             if (saved.ok && saved.ledgerSnapshot) {
               latestLedgerSnapshot = saved.ledgerSnapshot;
+            } else if (!saved.ok) {
+              postSaveFailures.push(
+                `No se pudo actualizar el movimiento de ajuste ${updatedForPersist.id}: ${saved.errorReason || "motivo no disponible"}`,
+              );
             }
           } else {
             const saved = await persistMovementToFirestore([movement, ...fondoEntries], "create", {
@@ -933,11 +1116,22 @@ export async function handleConfirmDailyClosing(
             });
             if (saved.ok && saved.ledgerSnapshot) {
               latestLedgerSnapshot = saved.ledgerSnapshot;
+            } else if (!saved.ok) {
+              postSaveFailures.push(
+                `No se pudo crear el movimiento de cierre ${movement.id}: ${saved.errorReason || "motivo no disponible"}`,
+              );
             }
           }
         }
       } catch (persistAdjErr) {
         console.error("[FG-DEBUG] Error persisting daily closing adjustments to main ledger:", persistAdjErr);
+        postSaveFailures.push(
+          `Error persistiendo los movimientos de cierre: ${
+            persistAdjErr instanceof Error
+              ? persistAdjErr.message
+              : String(persistAdjErr)
+          }`,
+        );
       }
 
       if (editingDailyClosingId) {
@@ -1109,6 +1303,16 @@ export async function handleConfirmDailyClosing(
                 })
                 .catch((saveErr) => {
                   console.error("[CIERRE] ? Error saving daily closing with adjustment note:", saveErr);
+                  void reportFailure({
+                    phase: "actualización posterior de la nota de ajustes",
+                    outcome: "partial",
+                    reason:
+                      "El cierre se guardó, pero no se pudo guardar la nota de sus ajustes.",
+                    technicalDetails:
+                      saveErr instanceof Error ? saveErr.message : String(saveErr),
+                    currentBalanceCRC,
+                    currentBalanceUSD,
+                  });
                 });
             }
           } catch (saveErr) {
@@ -1123,6 +1327,23 @@ export async function handleConfirmDailyClosing(
     }
   } catch (err) {
     console.error("Error creating movement(s) for daily closing difference:", err);
+    postSaveFailures.push(
+      `Error creando los movimientos del cierre: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
+
+  if (postSaveFailures.length > 0) {
+    await reportFailure({
+      phase: "creación del movimiento contable posterior al cierre",
+      outcome: "partial",
+      reason:
+        "El cierre se guardó, pero no se pudieron completar todos sus movimientos contables.",
+      technicalDetails: postSaveFailures.join("\n"),
+      currentBalanceCRC,
+      currentBalanceUSD,
+    });
   }
 
   try {

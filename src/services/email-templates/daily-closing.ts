@@ -1,6 +1,14 @@
 import { MovementAccountKey } from "../movimientos-fondos";
 import type { ClosingReconciliation } from "@/domain/reconciliation";
 
+export {
+  buildDailyClosingFailureMailJobs,
+  deliverDailyClosingFailureMailJobs,
+  type DailyClosingFailureAlertInput,
+  type DailyClosingFailureMailJob,
+  type DailyClosingFailureOutcome,
+} from "./daily-closing-failure";
+
 export type DailyClosingEmailContext = {
   company: string;
   accountKey: MovementAccountKey;

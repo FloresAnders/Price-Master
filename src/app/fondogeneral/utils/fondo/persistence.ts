@@ -57,12 +57,17 @@ export async function persistMovementToFirestore(
   ledgerSnapshot?: LedgerBalanceSnapshot;
   revision?: number;
   clientMutationId?: string;
+  errorReason?: string;
 }> {
   const { company, accountKey, storageSnapshotRef, v2MovementsCacheRef } = deps;
   const normalizedCompany = (company || "").trim();
   if (!normalizedCompany) {
     console.error("[PERSIST-IMMEDIATE] No company specified");
-    return { ok: false, confirmed: false };
+    return {
+      ok: false,
+      confirmed: false,
+      errorReason: "PERSIST_MOVEMENT_COMPANY_REQUIRED",
+    };
   }
 
   const companyKey = MovimientosFondosService.buildCompanyMovementsKey(normalizedCompany);
@@ -199,6 +204,18 @@ export async function persistMovementToFirestore(
     };
   } catch (err) {
     console.error(`[PERSIST-IMMEDIATE] Error guardando ${operationType} a Firestore:`, err);
-    return { ok: false, confirmed: false };
+    const errorReason =
+      err instanceof Error
+        ? err.message
+        : typeof err === "string"
+          ? err
+          : (() => {
+              try {
+                return JSON.stringify(err);
+              } catch {
+                return String(err);
+              }
+            })();
+    return { ok: false, confirmed: false, errorReason };
   }
 }

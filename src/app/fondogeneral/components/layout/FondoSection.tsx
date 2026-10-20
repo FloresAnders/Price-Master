@@ -106,7 +106,11 @@ import {
 import { useActorOwnership } from "../../../../hooks/useActorOwnership";
 import type { FondoEntry, FondoMovementType } from "../../types";
 import { persistMovementToFirestore as persistMovementToFirestoreFn } from "../../utils/fondo/persistence";
-import { handleConfirmDailyClosing as handleConfirmDailyClosingFn } from "../../utils/closing/dailyClosing";
+import {
+  enqueueDailyClosingFailureAlert,
+  handleConfirmDailyClosing as handleConfirmDailyClosingFn,
+  type DailyClosingFailureReport,
+} from "../../utils/closing/dailyClosing";
 import {
   getPendingNightDailyClosingStatus,
   shouldBypassPendingNightDailyClosing,
@@ -5305,16 +5309,66 @@ export function FondoSection({
       (dailyClosingTurno === "D" || dailyClosingTurno === "N")
         ? { ...closing, turno: dailyClosingTurno }
         : closing;
-    const operationalDateKey = getCostaRicaOperationalDateKey(
+    const reportAttemptFailure = async (
+      failure: DailyClosingFailureReport,
+      values: DailyClosingFormValues = closingForSubmit,
+    ) => {
+      const attemptedAtISO = await getAuthoritativeNowISO().catch(
+        () => new Date().toISOString(),
+      );
+      const result = await enqueueDailyClosingFailureAlert({
+        company: String(company || "").trim() || "Empresa no disponible",
+        accountKey,
+        attemptedAtISO,
+        closingDateISO: values.closingDate,
+        userEmail: String(user?.email || "").trim() || "No disponible",
+        manager: values.manager,
+        turno: values.turno,
+        sinTurno: values.sinTurno,
+        totalCRC: values.totalCRC,
+        totalUSD: values.totalUSD,
+        currentBalanceCRC:
+          failure.currentBalanceCRC !== undefined
+            ? failure.currentBalanceCRC
+            : currentBalanceCRC,
+        currentBalanceUSD:
+          failure.currentBalanceUSD !== undefined
+            ? failure.currentBalanceUSD
+            : currentBalanceUSD,
+        breakdownCRC: values.breakdownCRC,
+        breakdownUSD: values.breakdownUSD,
+        r08: values.r08,
+        t11: values.t11,
+        tucanCumulative: values.tucanCumulative,
+        tiemposCumulative: values.tiemposCumulative,
+        notes: values.notes,
+        phase: failure.phase,
+        outcome: failure.outcome,
+        reason: failure.reason,
+        technicalDetails: failure.technicalDetails,
+      });
+      if (result.failed.length > 0) {
+        console.error("[CIERRE] Alerta incompleta; destinatarios fallidos:", result.failed);
+      }
+    };
+    try {
+      const operationalDateKey = getCostaRicaOperationalDateKey(
       closingForSubmit.closingDate,
       empresaForShiftResolution?.horarioApertura,
     );
     if (!operationalDateKey) {
+      const reason = "No se pudo resolver el dia operativo del cierre.";
       showToast(
-        "No se pudo resolver el dia operativo del cierre.",
+        reason,
         "error",
         6000,
       );
+      await reportAttemptFailure({
+        phase: "resolución del día operativo",
+        outcome: "blocked",
+        reason,
+        technicalDetails: "OPERATIONAL_DATE_KEY_UNAVAILABLE",
+      });
       return null;
     }
     const resolvesPendingNightDailyClosing = Boolean(
@@ -5340,8 +5394,16 @@ export function FondoSection({
       if (!openingValidation.allowed) {
         if (openingValidation.reason === "validation_failed") {
           showToast(openingValidation.message, "error", 7000);
+          await reportAttemptFailure({
+            phase: "validación de apertura",
+            outcome: "blocked",
+            reason: openingValidation.message,
+            technicalDetails: "OPENING_VALIDATION_FAILED",
+          });
           return null;
         }
+        const openingRequiredReason =
+          "El cierre fue bloqueado porque falta registrar la apertura requerida.";
         try {
           const nowISO = await getAuthoritativeNowISO();
           const requiredWindow = isRegularUser
@@ -5355,19 +5417,38 @@ export function FondoSection({
           }
         } catch (error) {
           console.error("[FG] Error validating opening before closing save:", error);
-          showToast(
-            "No se pudo validar la configuracion horaria. Cierre bloqueado.",
-            "error",
-            6000,
-          );
+          const reason =
+            "No se pudo validar la configuracion horaria. Cierre bloqueado.";
+          showToast(reason, "error", 6000);
+          await reportAttemptFailure({
+            phase: "validación de apertura",
+            outcome: "blocked",
+            reason,
+            technicalDetails:
+              error instanceof Error ? error.message : String(error),
+          });
+          return null;
         }
+        await reportAttemptFailure({
+          phase: "validación de apertura",
+          outcome: "blocked",
+          reason: openingRequiredReason,
+          technicalDetails: "OPENING_REQUIRED_BEFORE_DAILY_CLOSING",
+        });
         return null;
       }
     }
     const closingHasTurno =
       closingForSubmit.turno === "D" || closingForSubmit.turno === "N";
     if (!closingHasTurno && !closingForSubmit.sinTurno) {
-      showToast("Debe seleccionar el turno del cierre.", "warning", 5000);
+      const reason = "Debe seleccionar el turno del cierre.";
+      showToast(reason, "warning", 5000);
+      await reportAttemptFailure({
+        phase: "validación del turno",
+        outcome: "blocked",
+        reason,
+        technicalDetails: "DAILY_CLOSING_SHIFT_REQUIRED",
+      });
       return null;
     }
 
@@ -5398,11 +5479,16 @@ export function FondoSection({
             "[FG] Error validating the pending Fondo Ventas closing:",
             error,
           );
-          showToast(
-            "No se pudo validar el cierre Fondo Ventas N que originó el pendiente.",
-            "error",
-            7000,
-          );
+          const reason =
+            "No se pudo validar el cierre Fondo Ventas N que originó el pendiente.";
+          showToast(reason, "error", 7000);
+          await reportAttemptFailure({
+            phase: "validación del cierre Fondo Ventas pendiente",
+            outcome: "blocked",
+            reason,
+            technicalDetails:
+              error instanceof Error ? error.message : String(error),
+          });
           return null;
         }
         const sourceOperationalDateKey = pendingCierreFondoVentas
@@ -5425,11 +5511,15 @@ export function FondoSection({
           ) !==
             Date.parse(pendingNightDailyClosing.createdAt)
         ) {
-          showToast(
-            "No se pudo validar el cierre Fondo Ventas N que originó el pendiente.",
-            "error",
-            7000,
-          );
+          const reason =
+            "No se pudo validar el cierre Fondo Ventas N que originó el pendiente.";
+          showToast(reason, "error", 7000);
+          await reportAttemptFailure({
+            phase: "validación del cierre Fondo Ventas pendiente",
+            outcome: "blocked",
+            reason,
+            technicalDetails: "PENDING_FONDO_VENTAS_CLOSING_MISMATCH",
+          });
           return null;
         }
         cierreFondoVentasForDailyClosing = pendingCierreFondoVentas;
@@ -5444,11 +5534,15 @@ export function FondoSection({
         cierreFondoVentasForDailyClosing?.manager || "",
       ).trim();
       if (!cierreFondoVentasManager) {
-        showToast(
-          "Debe existir un cierre fondo ventas con encargado para guardar el cierre diario.",
-          "warning",
-          6000,
-        );
+        const reason =
+          "Debe existir un cierre fondo ventas con encargado para guardar el cierre diario.";
+        showToast(reason, "warning", 6000);
+        await reportAttemptFailure({
+          phase: "resolución del encargado",
+          outcome: "blocked",
+          reason,
+          technicalDetails: "FONDO_VENTAS_CLOSING_MANAGER_REQUIRED",
+        });
         return null;
       }
       closingWithCierreManager = {
@@ -5458,11 +5552,15 @@ export function FondoSection({
     }
 
     if (closingForSubmit.sinTurno && !closingForSubmit.manager.trim()) {
-      showToast(
-        "Debe indicar un encargado para guardar el cierre sin turno.",
-        "warning",
-        5000,
-      );
+      const reason =
+        "Debe indicar un encargado para guardar el cierre sin turno.";
+      showToast(reason, "warning", 5000);
+      await reportAttemptFailure({
+        phase: "validación del encargado",
+        outcome: "blocked",
+        reason,
+        technicalDetails: "DAILY_CLOSING_MANAGER_REQUIRED",
+      });
       return null;
     }
     const dailyClosingMinutesAfterClose =
@@ -5509,6 +5607,8 @@ export function FondoSection({
       loadingDailyClosingKeysRef,
       ownerAdminEmail,
       persistMovementToFirestore,
+      reportDailyClosingFailure: (failure) =>
+        reportAttemptFailure(failure, closingWithCierreManager),
       setDailyClosingInitialValues,
       setDailyClosingModalOpen,
       setDailyClosings,
@@ -5529,7 +5629,25 @@ export function FondoSection({
         accountId: "FondoGeneral",
       } as FondoEntry);
     }
-    return savedRecord;
+      return savedRecord;
+    } catch (error) {
+      const reason =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : "Error desconocido al preparar el cierre.";
+      console.error("[CIERRE] Error inesperado antes de completar el cierre:", error);
+      showToast(`Error al realizar el cierre: ${reason}`, "error", 10000);
+      await reportAttemptFailure({
+        phase: "preparación o ejecución del cierre",
+        outcome: "blocked",
+        reason,
+        technicalDetails:
+          error instanceof Error && error.stack ? error.stack : undefined,
+      });
+      return null;
+    }
   };
 
   const validateBeforeMovementSubmitConfirm = useCallback(async () => {
