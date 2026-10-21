@@ -71,6 +71,7 @@ export interface DailyClosingFailureReport {
   phase: string;
   outcome: "blocked" | "partial";
   reason: string;
+  userNotification: string | null;
   technicalDetails?: string;
   currentBalanceCRC?: number | null;
   currentBalanceUSD?: number | null;
@@ -237,6 +238,7 @@ export async function handleConfirmDailyClosing(
       phase: "validación del encargado",
       outcome: "blocked",
       reason: "Debe indicar un encargado para guardar el cierre.",
+      userNotification: null,
       technicalDetails: "DAILY_CLOSING_MANAGER_REQUIRED",
     });
     setDailyClosingModalOpen(false);
@@ -255,6 +257,7 @@ export async function handleConfirmDailyClosing(
       phase: "validación de horario",
       outcome: "blocked",
       reason: DAILY_CLOSING_SCHEDULE_REQUIRED_ERROR,
+      userNotification: DAILY_CLOSING_SCHEDULE_REQUIRED_ERROR,
       technicalDetails: "DAILY_CLOSING_SCHEDULE_REQUIRED",
     });
     return null;
@@ -316,6 +319,7 @@ export async function handleConfirmDailyClosing(
       phase: "validación de secuencia de turnos",
       outcome: "blocked",
       reason,
+      userNotification: reason,
       technicalDetails: "DAY_CLOSING_REQUIRED_BEFORE_NIGHT",
     });
     return null;
@@ -339,6 +343,7 @@ export async function handleConfirmDailyClosing(
         phase: "conciliación de R08, TT, Tucán y Tiempos",
         outcome: "blocked",
         reason,
+        userNotification: reason,
         technicalDetails:
           error instanceof Error && error.stack ? error.stack : undefined,
       });
@@ -360,6 +365,7 @@ export async function handleConfirmDailyClosing(
       phase: "validación del motivo de cierre único",
       outcome: "blocked",
       reason: SINGLE_CLOSING_REASON_INVALID_MESSAGE,
+      userNotification: SINGLE_CLOSING_REASON_INVALID_MESSAGE,
       technicalDetails: "SINGLE_CLOSING_REASON_INVALID",
     });
     return null;
@@ -375,6 +381,7 @@ export async function handleConfirmDailyClosing(
       phase: "validación de movimientos",
       outcome: "blocked",
       reason,
+      userNotification: reason,
       technicalDetails: "NO_MOVEMENTS_REASON_REQUIRED",
     });
     return null;
@@ -389,6 +396,7 @@ export async function handleConfirmDailyClosing(
       phase: "identificación de la empresa",
       outcome: "blocked",
       reason,
+      userNotification: reason,
       technicalDetails: "DAILY_CLOSING_COMPANY_REQUIRED",
     });
     return null;
@@ -426,6 +434,7 @@ export async function handleConfirmDailyClosing(
       phase: "validación de integridad del ledger",
       outcome: "blocked",
       reason: message,
+      userNotification: message,
       technicalDetails:
         error instanceof Error && error.stack ? error.stack : code || undefined,
       currentBalanceCRC: null,
@@ -446,6 +455,7 @@ export async function handleConfirmDailyClosing(
       phase: "validación de integridad del ledger",
       outcome: "blocked",
       reason,
+      userNotification: reason,
       technicalDetails: integrity.reason,
       currentBalanceCRC: integrity.ledgerCRC,
       currentBalanceUSD: integrity.ledgerUSD,
@@ -504,6 +514,7 @@ export async function handleConfirmDailyClosing(
           phase: "bloqueo de concurrencia",
           outcome: "blocked",
           reason,
+          userNotification: reason,
           technicalDetails: `CLOSING_GUARD_LOCKED:${acquired.lockedKind}`,
           currentBalanceCRC,
           currentBalanceUSD,
@@ -526,6 +537,7 @@ export async function handleConfirmDailyClosing(
         phase: "bloqueo de concurrencia",
         outcome: "blocked",
         reason,
+        userNotification: reason,
         technicalDetails: "DAILY_CLOSING_ALREADY_IN_PROGRESS",
         currentBalanceCRC,
         currentBalanceUSD,
@@ -558,6 +570,7 @@ export async function handleConfirmDailyClosing(
           phase: "validación de cierre duplicado",
           outcome: "blocked",
           reason,
+          userNotification: reason,
           technicalDetails: "DAILY_CLOSING_COOLDOWN_ACTIVE",
           currentBalanceCRC,
           currentBalanceUSD,
@@ -588,6 +601,7 @@ export async function handleConfirmDailyClosing(
         outcome: "partial",
         reason:
           "El cierre se guardó, pero cambió el contexto activo antes de completar su confirmación local.",
+        userNotification: null,
         technicalDetails: "DAILY_CLOSING_CONTEXT_CHANGED_AFTER_SAVE",
         currentBalanceCRC,
         currentBalanceUSD,
@@ -662,6 +676,7 @@ export async function handleConfirmDailyClosing(
         phase: "guardado transaccional del cierre",
         outcome: "blocked",
         reason,
+        userNotification: reason,
         technicalDetails: LEDGER_CHANGED_BEFORE_CLOSING,
         currentBalanceCRC,
         currentBalanceUSD,
@@ -678,6 +693,7 @@ export async function handleConfirmDailyClosing(
         phase: "guardado transaccional del cierre",
         outcome: "blocked",
         reason: err.message,
+        userNotification: err.message,
         technicalDetails: DAILY_CLOSING_DUPLICATE_ERROR,
         currentBalanceCRC,
         currentBalanceUSD,
@@ -690,6 +706,7 @@ export async function handleConfirmDailyClosing(
         phase: "guardado transaccional del cierre",
         outcome: "blocked",
         reason: err.message,
+        userNotification: err.message,
         technicalDetails: "DAILY_CLOSING_SCHEDULE_REQUIRED",
         currentBalanceCRC,
         currentBalanceUSD,
@@ -714,6 +731,7 @@ export async function handleConfirmDailyClosing(
       phase: "guardado transaccional del cierre",
       outcome: "blocked",
       reason: errorReason,
+      userNotification: `Error al guardar el cierre: ${errorReason}`,
       technicalDetails:
         err instanceof Error && err.stack ? err.stack : undefined,
       currentBalanceCRC,
@@ -1010,6 +1028,7 @@ export async function handleConfirmDailyClosing(
                         outcome: "partial",
                         reason:
                           "El cierre se guardó, pero no se pudo guardar la resolución de sus ajustes.",
+                        userNotification: null,
                         technicalDetails:
                           saveErr instanceof Error
                             ? saveErr.message
@@ -1308,6 +1327,7 @@ export async function handleConfirmDailyClosing(
                     outcome: "partial",
                     reason:
                       "El cierre se guardó, pero no se pudo guardar la nota de sus ajustes.",
+                    userNotification: null,
                     technicalDetails:
                       saveErr instanceof Error ? saveErr.message : String(saveErr),
                     currentBalanceCRC,
@@ -1340,6 +1360,7 @@ export async function handleConfirmDailyClosing(
       outcome: "partial",
       reason:
         "El cierre se guardó, pero no se pudieron completar todos sus movimientos contables.",
+      userNotification: null,
       technicalDetails: postSaveFailures.join("\n"),
       currentBalanceCRC,
       currentBalanceUSD,

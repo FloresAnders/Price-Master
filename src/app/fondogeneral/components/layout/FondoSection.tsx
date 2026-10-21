@@ -5345,6 +5345,7 @@ export function FondoSection({
         phase: failure.phase,
         outcome: failure.outcome,
         reason: failure.reason,
+        userNotification: failure.userNotification,
         technicalDetails: failure.technicalDetails,
       });
       if (result.failed.length > 0) {
@@ -5367,6 +5368,7 @@ export function FondoSection({
         phase: "resolución del día operativo",
         outcome: "blocked",
         reason,
+        userNotification: reason,
         technicalDetails: "OPERATIONAL_DATE_KEY_UNAVAILABLE",
       });
       return null;
@@ -5398,6 +5400,7 @@ export function FondoSection({
             phase: "validación de apertura",
             outcome: "blocked",
             reason: openingValidation.message,
+            userNotification: openingValidation.message,
             technicalDetails: "OPENING_VALIDATION_FAILED",
           });
           return null;
@@ -5424,6 +5427,7 @@ export function FondoSection({
             phase: "validación de apertura",
             outcome: "blocked",
             reason,
+            userNotification: reason,
             technicalDetails:
               error instanceof Error ? error.message : String(error),
           });
@@ -5433,6 +5437,7 @@ export function FondoSection({
           phase: "validación de apertura",
           outcome: "blocked",
           reason: openingRequiredReason,
+          userNotification: null,
           technicalDetails: "OPENING_REQUIRED_BEFORE_DAILY_CLOSING",
         });
         return null;
@@ -5447,6 +5452,7 @@ export function FondoSection({
         phase: "validación del turno",
         outcome: "blocked",
         reason,
+        userNotification: reason,
         technicalDetails: "DAILY_CLOSING_SHIFT_REQUIRED",
       });
       return null;
@@ -5486,6 +5492,7 @@ export function FondoSection({
             phase: "validación del cierre Fondo Ventas pendiente",
             outcome: "blocked",
             reason,
+            userNotification: reason,
             technicalDetails:
               error instanceof Error ? error.message : String(error),
           });
@@ -5518,6 +5525,7 @@ export function FondoSection({
             phase: "validación del cierre Fondo Ventas pendiente",
             outcome: "blocked",
             reason,
+            userNotification: reason,
             technicalDetails: "PENDING_FONDO_VENTAS_CLOSING_MISMATCH",
           });
           return null;
@@ -5541,6 +5549,7 @@ export function FondoSection({
           phase: "resolución del encargado",
           outcome: "blocked",
           reason,
+          userNotification: reason,
           technicalDetails: "FONDO_VENTAS_CLOSING_MANAGER_REQUIRED",
         });
         return null;
@@ -5559,6 +5568,7 @@ export function FondoSection({
         phase: "validación del encargado",
         outcome: "blocked",
         reason,
+        userNotification: reason,
         technicalDetails: "DAILY_CLOSING_MANAGER_REQUIRED",
       });
       return null;
@@ -5643,6 +5653,7 @@ export function FondoSection({
         phase: "preparación o ejecución del cierre",
         outcome: "blocked",
         reason,
+        userNotification: `Error al realizar el cierre: ${reason}`,
         technicalDetails:
           error instanceof Error && error.stack ? error.stack : undefined,
       });

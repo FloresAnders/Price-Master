@@ -24,6 +24,7 @@ type FailureAlertInput = {
   phase: string;
   outcome: "blocked" | "partial";
   reason: string;
+  userNotification: string | null;
   technicalDetails?: string;
 };
 
@@ -76,6 +77,8 @@ const completeAttempt: FailureAlertInput = {
   phase: "validación de integridad del ledger",
   outcome: "blocked",
   reason: "No se encontró una apertura para el día operativo.",
+  userNotification:
+    "No se puede cerrar el fondo. No se encontró una apertura para el día operativo.",
   technicalDetails: "opening-missing",
 };
 
@@ -113,6 +116,9 @@ describe("alerta por intento fallido de cierre de Fondo General", () => {
     expect(jobs[0].text).toContain(
       "Motivo exacto: No se encontró una apertura para el día operativo.",
     );
+    expect(jobs[0].text).toContain(
+      "Notificación mostrada al usuario: No se puede cerrar el fondo. No se encontró una apertura para el día operativo.",
+    );
     expect(jobs[0].text).toContain("Detalle técnico: opening-missing");
     expect(jobs[0].text).toContain(
       "Observaciones: Revisar <script>alert('x')</script>",
@@ -135,6 +141,7 @@ describe("alerta por intento fallido de cierre de Fondo General", () => {
         currentBalanceUSD: null,
         technicalDetails: undefined,
         reason: "El cierre se guardó, pero falló su movimiento contable.",
+        userNotification: null,
       }) ?? [];
 
     expect(jobs[0].subject).toBe(
@@ -144,6 +151,9 @@ describe("alerta por intento fallido de cierre de Fondo General", () => {
     expect(jobs[0].text).toContain("Diferencia CRC: No disponible");
     expect(jobs[0].text).not.toContain("NaN");
     expect(jobs[0].text).not.toContain("Detalle técnico:");
+    expect(jobs[0].text).toContain(
+      "Notificación mostrada al usuario: No se mostró ninguna notificación al usuario.",
+    );
   });
 
   it("intenta ambos destinatarios aunque uno falle", async () => {

@@ -80,6 +80,8 @@ describe("reporte de fallos del cierre de Fondo General", () => {
         outcome: "blocked",
         reason:
           "No se puede crear el cierre: configure horarios de apertura y cierre válidos.",
+        userNotification:
+          "No se puede crear el cierre: configure horarios de apertura y cierre válidos.",
         technicalDetails: "DAILY_CLOSING_SCHEDULE_REQUIRED",
       },
     ]);
@@ -186,6 +188,7 @@ describe("reporte de fallos del cierre de Fondo General", () => {
         outcome: "partial",
         reason:
           "El cierre se guardó, pero no se pudieron completar todos sus movimientos contables.",
+        userNotification: null,
         technicalDetails:
           "No se pudo crear el movimiento de cierre 2026_10_20-14_15_30_000_CIERRE: PERMISSION_DENIED",
         currentBalanceCRC: 107_000,

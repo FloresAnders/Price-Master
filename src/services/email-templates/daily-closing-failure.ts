@@ -23,6 +23,7 @@ export interface DailyClosingFailureAlertInput {
   phase: string;
   outcome: DailyClosingFailureOutcome;
   reason: string;
+  userNotification: string | null;
   technicalDetails?: string;
 }
 
@@ -124,6 +125,9 @@ const buildFailureText = (input: DailyClosingFailureAlertInput): string => {
     ? `\nDetalle técnico: ${input.technicalDetails.trim()}`
     : "";
   const turno = input.sinTurno ? "Sin turno" : input.turno ?? "No indicado";
+  const userNotification = input.userNotification?.trim()
+    ? input.userNotification.trim()
+    : "No se mostró ninguna notificación al usuario.";
 
   return [
     input.outcome === "partial"
@@ -161,6 +165,8 @@ const buildFailureText = (input: DailyClosingFailureAlertInput): string => {
     ` - Tiempos acumulado: ${formatCurrency("CRC", input.tiemposCumulative)}`,
     "",
     `Observaciones: ${input.notes?.trim() || "Sin observaciones"}`,
+    "",
+    `Notificación mostrada al usuario: ${userNotification}`,
     "",
     `Motivo exacto: ${input.reason}${technicalDetails}`,
   ].join("\n");
