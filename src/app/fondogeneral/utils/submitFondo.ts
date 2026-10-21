@@ -1198,6 +1198,13 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                 Math.max(0, egresoValue - nextAppliedTotal),
                 effectiveCurrency,
                 accountKey,
+                roundUpEnabledForSubmit &&
+                  mainRoundUpSelectedForSubmit &&
+                  isCreditNotePaymentRoundUpEligible(
+                    Math.max(0, egresoValue - nextAppliedTotal),
+                    effectiveCurrency,
+                    accountKey,
+                  ),
               )
             : undefined;
         const nextAmountBeforeRounding = effectiveIsEgreso

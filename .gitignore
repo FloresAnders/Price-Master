@@ -89,6 +89,7 @@ firestore-debug.log
 !/tests/fondogeneral/daily-closing-superadmin-opening-bypass.test.ts
 !/tests/fondogeneral/daily-closing-delikorsinai-user-role.test.tsx
 !/tests/fondogeneral/daily-closing-turn-policy.test.ts
+!/tests/fondogeneral/edit-fco-rounding.test.ts
 !/tests/fondogeneral/movement-search-all-accounts.test.ts
 !/tests/extensions/
 /tests/extensions/*
