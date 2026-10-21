@@ -300,7 +300,10 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   );
 
   const [manager, setManager] = useState(
-    () => savedDraft?.manager ?? buildFormState(initialValues).manager,
+    () =>
+      managerReadonly
+        ? buildFormState(initialValues).manager
+        : savedDraft?.manager ?? buildFormState(initialValues).manager,
   );
   const displayedManager = useMemo(() => manager, [manager]);
 
@@ -428,7 +431,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     (r08Num === 0 || t11Num === 0 || tucanNum === 0 || tiemposNum === 0);
   const submitDisabled =
     submitting ||
-    (requireTurnoSelection && turnoSelection === "") ||
+    turnoSelection === "" ||
     displayedManager.trim().length === 0 ||
     !hasAnyCash ||
     hasZeroClosingReport ||
@@ -663,7 +666,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     if (submitting) {
       return "Guardando cierre. Espere un momento.";
     }
-    if (requireTurnoSelection && turnoSelection === "") {
+    if (turnoSelection === "") {
       return "Selecciona el turno para poder guardar.";
     }
     if (displayedManager.trim().length === 0) {
@@ -701,7 +704,6 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     storedTiemposTurnoD,
     formatCurrency,
     requireSingleClosingReason,
-    requireTurnoSelection,
     selectedSinTurno,
     singleClosingReason,
     submitting,
@@ -1163,8 +1165,10 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     setT11("");
     setTucanCumulative("");
     setTiemposCumulative("");
-    setTurnoSelection("");
-    onTurnoChange?.(undefined);
+    if (requireTurnoSelection) {
+      setTurnoSelection("");
+      onTurnoChange?.(undefined);
+    }
   };
 
   const handleOpenTutorial = () => {

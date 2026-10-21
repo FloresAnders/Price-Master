@@ -149,4 +149,160 @@ describe("cierre diario del rol user de DELIKOR SINAI", () => {
       tiemposCumulative: 200_000,
     });
   });
+
+  it("conserva el turno automatico N despues de limpiar y volver a llenar", async () => {
+    const onConfirm = vi.fn(async () => null);
+
+    render(
+      <DailyClosingModal
+        open
+        onClose={vi.fn()}
+        onConfirm={onConfirm}
+        employees={[DELIKOR_SINAI_USER.manager]}
+        loadingEmployees={false}
+        managerReadonly
+        currentBalanceCRC={30_000}
+        currentBalanceUSD={88}
+        turno="N"
+        requireTurnoSelection={false}
+        requireSingleClosingReason
+        cierreFondoVentasMinutesBeforeEnd={0}
+        cierreFondoVentasMinutesAfterEnd={0}
+        systemVerificationEnabled
+        initialValues={{
+          closingDate: "2026-10-21T05:46:24.590Z",
+          manager: DELIKOR_SINAI_USER.manager,
+          notes: "",
+          totalCRC: 0,
+          totalUSD: 0,
+          breakdownCRC: {},
+          breakdownUSD: {},
+          turno: "N",
+          r08: 0,
+          t11: 0,
+          tucanCumulative: 0,
+          tiemposCumulative: 0,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Limpiar conteo" }));
+    fireEvent.paste(screen.getByLabelText("Cantidad 10000 colones"), {
+      clipboardData: {
+        getData: () =>
+          'TIME_MASTER:{"currency":"CRC","bills":{"25":0,"50":0,"100":0,"500":0,"1000":0,"2000":0,"5000":0,"10000":3,"20000":0}}',
+      },
+    });
+    fireEvent.paste(screen.getByLabelText("Cantidad 1 d\u00f3lares"), {
+      clipboardData: {
+        getData: () =>
+          'TIME_MASTER:{"currency":"USD","bills":{"1":8,"5":0,"10":0,"20":4,"50":0,"100":0}}',
+      },
+    });
+
+    const verification = screen
+      .getByText("Verificacion Contica / Tucan / Tiempos")
+      .closest("section")!;
+    const verificationInputs = within(verification).getAllByRole("textbox");
+    fireEvent.paste(verificationInputs[0], {
+      clipboardData: {
+        getData: () => "85023\n21600\n85023\n21600",
+      },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/Describe el motivo/), {
+      target: { value: "FONDOS INSUFICIENTES TURNO DIURNO" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar cierre" }));
+
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledOnce());
+    expect(onConfirm.mock.calls[0]?.[0]).toMatchObject({
+      turno: "N",
+      manager: DELIKOR_SINAI_USER.manager,
+      totalCRC: 30_000,
+      totalUSD: 88,
+    });
+  });
+
+  it("bloquea el guardado cuando no existe turno aunque el selector este oculto", () => {
+    render(
+      <DailyClosingModal
+        open
+        onClose={vi.fn()}
+        onConfirm={vi.fn(async () => null)}
+        employees={[DELIKOR_SINAI_USER.manager]}
+        loadingEmployees={false}
+        managerReadonly
+        currentBalanceCRC={30_000}
+        currentBalanceUSD={88}
+        requireTurnoSelection={false}
+        cierreFondoVentasMinutesBeforeEnd={0}
+        cierreFondoVentasMinutesAfterEnd={0}
+        systemVerificationEnabled={false}
+        initialValues={{
+          closingDate: "2026-10-21T05:46:24.590Z",
+          manager: DELIKOR_SINAI_USER.manager,
+          notes: "",
+          totalCRC: 0,
+          totalUSD: 0,
+          breakdownCRC: {},
+          breakdownUSD: {},
+          r08: 0,
+          t11: 0,
+          tucanCumulative: 0,
+          tiemposCumulative: 0,
+        }}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Cantidad 10000 colones"), {
+      target: { value: "3" },
+    });
+
+    expect(screen.getByRole("button", { name: "Guardar cierre" })).toHaveProperty(
+      "disabled",
+      true,
+    );
+  });
+
+  it("usa el encargado autoritativo cuando el campo es de solo lectura", () => {
+    window.localStorage.setItem(
+      "fondogeneral-daily-closing-modal-draft",
+      JSON.stringify({ manager: "ARIANNA" }),
+    );
+
+    render(
+      <DailyClosingModal
+        open
+        onClose={vi.fn()}
+        onConfirm={vi.fn(async () => null)}
+        employees={["ARIANNA", "FABIAN"]}
+        loadingEmployees={false}
+        managerReadonly
+        currentBalanceCRC={30_000}
+        currentBalanceUSD={88}
+        turno="N"
+        requireTurnoSelection={false}
+        cierreFondoVentasMinutesBeforeEnd={0}
+        cierreFondoVentasMinutesAfterEnd={0}
+        systemVerificationEnabled={false}
+        initialValues={{
+          closingDate: "2026-10-21T05:46:24.590Z",
+          manager: "FABIAN",
+          notes: "",
+          totalCRC: 0,
+          totalUSD: 0,
+          breakdownCRC: {},
+          breakdownUSD: {},
+          turno: "N",
+          r08: 0,
+          t11: 0,
+          tucanCumulative: 0,
+          tiemposCumulative: 0,
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("combobox")).toHaveProperty("value", "FABIAN");
+  });
 });
