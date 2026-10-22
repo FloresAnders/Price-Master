@@ -1,10 +1,13 @@
 import type { User } from "@/types/firestore";
 import { NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
+import { getSessionTokenFromCookie } from "@/lib/auth/session-cookie.server";
 import { readAuthSession } from "@/lib/auth/session-store.server";
 import { verifyMaintenanceBypassCookie } from "@/lib/maintenance-totp/token.server";
+import { createMaintenanceConfigCache } from "./config-cache.server";
 import {
   getMaintenanceBlock,
+  hasActiveMaintenance,
   normalizeMaintenanceConfig,
   type MaintenanceBlock,
   type MaintenanceConfig,
@@ -29,6 +32,7 @@ export function evaluateMaintenanceAccess({
 }
 
 interface MaintenanceApiGuardDependencies {
+  hasSessionToken(cookieHeader: string | null): boolean;
   readSession(cookieHeader: string | null): Promise<{ user: User } | null>;
   readConfig(): Promise<MaintenanceConfig>;
   verifyBypass(cookieHeader: string | null): boolean;
@@ -39,11 +43,16 @@ export function createMaintenanceApiGuard(
 ) {
   return async (request: Request): Promise<NextResponse | null> => {
     const cookieHeader = request.headers.get("cookie");
+    if (!dependencies.hasSessionToken(cookieHeader)) return null;
+
+    const config = await dependencies.readConfig();
+    if (!hasActiveMaintenance(config)) return null;
+
     const authenticated = await dependencies.readSession(cookieHeader);
     if (!authenticated?.user) return null;
 
     const decision = evaluateMaintenanceAccess({
-      config: await dependencies.readConfig(),
+      config,
       user: authenticated.user,
       bypassActive: dependencies.verifyBypass(cookieHeader),
     });
@@ -67,13 +76,19 @@ export function isMaintenanceGuardExemptPath(pathname: string): boolean {
   );
 }
 
+const productionMaintenanceConfigCache = createMaintenanceConfigCache({
+  async load() {
+    const snapshot = await getAdminDb().collection("version").doc("current").get();
+    return normalizeMaintenanceConfig(snapshot.data()?.maintenance);
+  },
+});
+
 export function createProductionMaintenanceApiGuard() {
   return createMaintenanceApiGuard({
+    hasSessionToken: (cookieHeader) =>
+      Boolean(getSessionTokenFromCookie(cookieHeader)),
     readSession: readAuthSession,
-    async readConfig() {
-      const snapshot = await getAdminDb().collection("version").doc("current").get();
-      return normalizeMaintenanceConfig(snapshot.data()?.maintenance);
-    },
+    readConfig: () => productionMaintenanceConfigCache.read(),
     verifyBypass(cookieHeader) {
       try {
         return verifyMaintenanceBypassCookie(cookieHeader).active;

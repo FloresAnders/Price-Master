@@ -168,6 +168,12 @@ export const normalizeMaintenanceConfig = (
   };
 };
 
+export const hasActiveMaintenance = (
+  config: MaintenanceConfig,
+): boolean =>
+  config.global.enabled ||
+  Object.values(config.companies).some((target) => target.enabled);
+
 export const getMaintenanceBlock = (
   config: MaintenanceConfig,
   user: User | null | undefined,

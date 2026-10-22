@@ -67,6 +67,8 @@ firestore-debug.log
 !/tests/maintenance-access.test.tsx
 !/tests/maintenance-totp.server.test.ts
 !/tests/maintenance-listener-lifecycle.test.tsx
+!/tests/maintenance/
+!/tests/maintenance/**
 !/tests/system-announcement-banner.test.tsx
 !/tests/auth-firebase-bridge-readiness.test.tsx
 !/tests/firebase-custom-token-claims.test.ts
