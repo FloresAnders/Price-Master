@@ -71,6 +71,35 @@ function withPendingSinpeNotificationPreference(user: User): User {
   };
 }
 
+function buildFirebaseAuthClaimsKey(user: User | null): string {
+  if (!user?.id) return "";
+
+  const permissions = normalizeUserPermissions(
+    user.permissions,
+    user.role || "user",
+  );
+
+  return JSON.stringify({
+    id: user.id,
+    role: user.role || "user",
+    ownerId: user.ownerId || "",
+    ownercompanie: user.ownercompanie || "",
+    eliminate: user.eliminate === true,
+    permissions: {
+      anotaciones: permissions.anotaciones === true,
+      fondogeneral: permissions.fondogeneral === true,
+      fondogeneralBCR: permissions.fondogeneralBCR === true,
+      fondogeneralBN: permissions.fondogeneralBN === true,
+      fondogeneralBAC: permissions.fondogeneralBAC === true,
+      cajaNegra: permissions.cajaNegra === true,
+      tucan: permissions.tucan === true,
+      tiempos: permissions.tiempos === true,
+      registroTiempos: permissions.registroTiempos === true,
+      deudasInternas: permissions.deudasInternas === true,
+    },
+  });
+}
+
 function clearLegacyAuthState(): void {
   localStorage.removeItem("timemaster_session");
   localStorage.removeItem("timemaster_session_id");
@@ -118,6 +147,7 @@ function useAuthState() {
   const [sessionExpiresAt, setSessionExpiresAt] = useState<number | null>(null);
   const [sessionWarning, setSessionWarning] = useState(false);
   const [firebaseAuthReady, setFirebaseAuthReady] = useState(false);
+  const firebaseAuthClaimsKey = buildFirebaseAuthClaimsKey(user);
 
   const applyAuthState = useCallback((detail: AuthStateDetail) => {
     setUser(detail.user);
@@ -283,6 +313,7 @@ function useAuthState() {
       return;
     }
     let cancelled = false;
+    setFirebaseAuthReady(false);
     void ensureFirebaseCustomTokenAuth(user.id).then(
       (ready) => {
         if (!cancelled) setFirebaseAuthReady(ready);
@@ -294,7 +325,7 @@ function useAuthState() {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, user?.id]);
+  }, [firebaseAuthClaimsKey, isAuthenticated, user?.id]);
 
   useEffect(() => {
     const handleAuthState = (event: Event) => {

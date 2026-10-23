@@ -300,7 +300,7 @@ const resolveMoveCollision = (
 };
 
 export default function AnotacionesPage() {
-  const { user } = useAuth();
+  const { user, firebaseAuthReady } = useAuth();
   const { ownerIds, primaryOwnerId } = useActorOwnership(user || {});
   const { showToast } = useToast();
   const permissions = user
@@ -459,7 +459,7 @@ export default function AnotacionesPage() {
   );
 
   const loadNotes = useCallback(async () => {
-    if (!selectedCompany || !canUse) return;
+    if (!selectedCompany || !canUse || !firebaseAuthReady) return;
     setLoading(true);
     setError("");
     try {
@@ -491,6 +491,7 @@ export default function AnotacionesPage() {
   }, [
     canUse,
     empresaId,
+    firebaseAuthReady,
     primaryOwnerId,
     selectedCompany,
     selectedEmpresaMeta?.ownerId,
@@ -500,7 +501,7 @@ export default function AnotacionesPage() {
   ]);
 
   useEffect(() => {
-    if (!canUse || !user) return;
+    if (!canUse || !user || !firebaseAuthReady) return;
     setCompanyLoading(true);
     EmpresasService.getAllEmpresas()
       .then((list) => {
@@ -544,7 +545,7 @@ export default function AnotacionesPage() {
         setError("No se pudieron cargar las empresas.");
       })
       .finally(() => setCompanyLoading(false));
-  }, [canSelectCompany, canUse, ownerSet, user]);
+  }, [canSelectCompany, canUse, firebaseAuthReady, ownerSet, user]);
 
   useEffect(() => {
     void loadNotes();
@@ -757,7 +758,7 @@ export default function AnotacionesPage() {
   };
 
   const handleCreateQuick = async () => {
-    if (!selectedCompany || !user) return;
+    if (!selectedCompany || !user || !firebaseAuthReady) return;
     setSaving(true);
     try {
       const note = await AnotacionesService.create(buildCreateInput());
@@ -781,7 +782,14 @@ export default function AnotacionesPage() {
   };
 
   const handleCreateClassic = async () => {
-    if (!selectedCompany || !user || !classicDraft.title.trim()) return;
+    if (
+      !selectedCompany ||
+      !user ||
+      !firebaseAuthReady ||
+      !classicDraft.title.trim()
+    ) {
+      return;
+    }
     setSaving(true);
     try {
       const note = await AnotacionesService.create(
@@ -847,7 +855,7 @@ export default function AnotacionesPage() {
   };
 
   const handleUpdate = async (noteId: string, updates: Partial<Anotacion>) => {
-    if (!selectedCompany) return;
+    if (!selectedCompany || !firebaseAuthReady) return;
     const before = notes;
     setNotes((prev) =>
       prev.map((note) =>
@@ -1028,7 +1036,9 @@ export default function AnotacionesPage() {
           value={selectedCompany}
           onChange={(event) => setSelectedCompany(event.target.value)}
           className="h-10 rounded-md border border-white/15 bg-black/35 px-3 text-sm text-white outline-none"
-          disabled={companyLoading || !canSelectCompany}
+          disabled={
+            companyLoading || !canSelectCompany || !firebaseAuthReady
+          }
         >
           {empresas.length === 0 ? (
             <option value="">Sin empresas</option>
@@ -1097,7 +1107,7 @@ export default function AnotacionesPage() {
           type="button"
           onClick={() => setNewNoteOpen(true)}
           className="ml-auto flex h-10 items-center gap-2 rounded-md bg-indigo-500 px-4 text-sm font-semibold text-white shadow-lg shadow-indigo-950/40 transition hover:bg-indigo-400 disabled:opacity-60"
-          disabled={saving || !selectedCompany}
+          disabled={saving || !selectedCompany || !firebaseAuthReady}
         >
           <Plus className="h-4 w-4" />
           Nueva nota

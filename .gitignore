@@ -61,6 +61,10 @@ client_secret_*.apps.googleusercontent.com.json
 next-env.d.ts
 firestore-debug.log
 /tests/*
+!/tests/auth/
+!/tests/auth/firebase-custom-token-refresh.test.tsx
+!/tests/anotaciones/
+!/tests/anotaciones/anotaciones-auth-readiness.test.tsx
 !/tests/firebase/
 !/tests/firebase/**
 !/tests/owner-chat-superadmin.test.tsx
