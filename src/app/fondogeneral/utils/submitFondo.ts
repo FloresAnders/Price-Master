@@ -519,11 +519,29 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     movementSelectedProviderData?.type,
   );
 
-  if (isEgreso && (Number.isNaN(egresoValue) || egresoValue <= 0)) {
-    setAmountError("Ingresa un monto válido para egreso");
+  const effectiveInvoiceDocType = normalizeInvoiceDocType(invoiceDocType) as "FCO" | "FCR";
+  const minimumValidAmount =
+    accountKey === "FondoGeneral" &&
+    movementCurrency === "CRC" &&
+    effectiveInvoiceDocType === "FCO"
+      ? 999.99
+      : 0;
+  const minimumAmountMessage =
+    minimumValidAmount === 999.99
+      ? "mayor a ₡999.99"
+      : "válido";
+
+  if (
+    isEgreso &&
+    (Number.isNaN(egresoValue) || egresoValue <= minimumValidAmount)
+  ) {
+    setAmountError(`Ingresa un monto ${minimumAmountMessage} para egreso`);
     hasErrors = true;
-  } else if (isIngreso && (Number.isNaN(ingresoValue) || ingresoValue <= 0)) {
-    setAmountError("Ingresa un monto válido para ingreso");
+  } else if (
+    isIngreso &&
+    (Number.isNaN(ingresoValue) || ingresoValue <= minimumValidAmount)
+  ) {
+    setAmountError(`Ingresa un monto ${minimumAmountMessage} para ingreso`);
     hasErrors = true;
   } else {
     setAmountError("");
@@ -541,10 +559,17 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     return;
   }
 
-  if (isEgreso && (Number.isNaN(egresoValue) || egresoValue <= 0)) return;
-  if (isIngreso && (Number.isNaN(ingresoValue) || ingresoValue <= 0)) return;
+  if (
+    isEgreso &&
+    (Number.isNaN(egresoValue) || egresoValue <= minimumValidAmount)
+  )
+    return;
+  if (
+    isIngreso &&
+    (Number.isNaN(ingresoValue) || ingresoValue <= minimumValidAmount)
+  )
+    return;
 
-  const effectiveInvoiceDocType = normalizeInvoiceDocType(invoiceDocType) as "FCO" | "FCR";
   const roundedIngresoValue =
     isIngreso && effectiveInvoiceDocType === "FCO"
       ? roundCreditNotePaymentAmount(

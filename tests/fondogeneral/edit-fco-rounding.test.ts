@@ -96,4 +96,89 @@ describe("edición de factura FCO con redondeo", () => {
       roundingAdjustment: 200,
     });
   });
+
+  it("rechaza ingresos CRC de Fondo General menores a ₡1 000 antes del redondeo", async () => {
+    const original: FondoEntry = {
+      id: "2026_10_22-13_06_52_884_FondoGeneral",
+      providerCode: "0016",
+      invoiceNumber: "1441",
+      invoiceDocType: "FCO",
+      paymentType: "COMPRA INVENTARIO",
+      amountEgreso: 22_000,
+      amountIngreso: 0,
+      amountPayment: 22_000,
+      manager: "FABIAN",
+      notes: "",
+      createdAt: "2026-10-22T19:06:52.884Z",
+      currency: "CRC",
+    };
+    const persistMovementToFirestore = vi
+      .fn()
+      .mockResolvedValue({ ok: false });
+    const setAmountError = vi.fn();
+    const noop = vi.fn();
+
+    await handleSubmitFondo({
+      company: "DELIKOR SINAI",
+      isSaving: false,
+      movementSubmitInProgressRef: { current: false },
+      manager: "FABIAN",
+      isCajaNegra: false,
+      editingEntryId: original.id,
+      editingEntry: original,
+      getTodayInvoiceMMDD: () => "1022",
+      invoiceNumber: "1441",
+      invoiceDocType: "FCO",
+      selectedProvider: "0009",
+      selectedProviderExists: true,
+      setProviderError: noop,
+      setInvoiceError: noop,
+      isRegularUser: false,
+      accountKey: "FondoGeneral",
+      namespace: "fg",
+      configurarHorasTurno: false,
+      manager2: "",
+      isEditingPaidFcrMovement: false,
+      setManagerError: noop,
+      setManager2Error: noop,
+      isEgreso: false,
+      isIngreso: true,
+      egreso: "",
+      ingreso: "999.99",
+      roundUpInvoicePayment: true,
+      roundUpMainInvoicePayment: true,
+      confirmedRoundUpSelections: [true],
+      notes: "",
+      movementProviders: [
+        {
+          code: "0009",
+          name: "INGRESO DESDE FONDO VENTAS",
+          type: "VENTAS",
+        },
+      ],
+      paymentType: "VENTAS",
+      setAmountError,
+      showToast: noop,
+      selectedAppliedCreditNoteIds: [],
+      selectedProviderPendingCreditNotes: [],
+      setPendingZeroAmountCreditNoteModalOpen: noop,
+      isAdminUser: true,
+      isSuperAdminUser: false,
+      movementCurrency: "CRC",
+      ledgerSnapshot: { currentCRC: 55_000, currentUSD: 88 },
+      fondoEntries: [original],
+      setIsSaving: noop,
+      editingInProgressRef: { current: true },
+      persistMovementToFirestore,
+      manualCreditNoteDrafts: [],
+      pendingClosingCreditInvoices: [],
+      selectedPendingCreditInvoiceIds: [],
+      selectedProviderPendingCreditInvoices: [],
+    });
+
+    expect(setAmountError).toHaveBeenCalledWith(
+      "Ingresa un monto mayor a ₡999.99 para ingreso",
+    );
+    expect(persistMovementToFirestore).not.toHaveBeenCalled();
+  });
 });
