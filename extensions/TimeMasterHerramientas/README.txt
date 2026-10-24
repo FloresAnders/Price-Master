@@ -1,4 +1,4 @@
-TIMEMASTER HERRAMIENTAS 1.0.4
+TIMEMASTER HERRAMIENTAS 1.0.5
 ================================
 
 Esta extensión reúne CambioTab, división de efectivo, movimiento entre medios
@@ -42,9 +42,11 @@ CIERRE DEL MODAL DE IMPRESIÓN EN CONTICA
 ----------------------------------------
 Sitio: https://contica.app/app/modules/punto_de_venta/*
 
-Al activarlo, la extensión detecta cada apertura de #printInvoice, espera cinco
-segundos y pulsa una sola vez el botón X / ESC del mismo modal. La espera se
-cancela si el modal se cierra antes o si la herramienta se desactiva.
+Al activarlo, puede definir desde el popup un tiempo entero de 1 segundo en
+adelante; el valor inicial es 5 segundos. La extensión detecta cada apertura de
+#printInvoice, espera el tiempo configurado y pulsa una sola vez el botón X / ESC
+del mismo modal. La espera se cancela si el modal se cierra antes o si la
+herramienta se desactiva.
 
 DIVISIÓN DE EFECTIVO EN CONTICA
 -------------------------------

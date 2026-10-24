@@ -30,19 +30,29 @@
           </span>
         </label>
 
-        <label class="feature" for="tmhCerrarImpresionConticaEnabled-toggle">
-          <span class="feature__copy">
-            <strong>Cerrar impresión en Contica</strong>
-            <small>Pulsa X / ESC cinco segundos después de abrirse.</small>
-          </span>
-          <span class="feature__control">
-            <span id="tmhCerrarImpresionConticaEnabled-status" class="status" aria-live="polite">Desactivado</span>
-            <span class="switch">
-              <input id="tmhCerrarImpresionConticaEnabled-toggle" type="checkbox" role="switch">
-              <span class="slider" aria-hidden="true"></span>
+        <div class="feature feature--stacked">
+          <div class="feature__row">
+            <span class="feature__copy">
+              <strong>Cerrar impresión en Contica</strong>
+              <small>Pulsa X / ESC después del tiempo configurado.</small>
             </span>
-          </span>
-        </label>
+            <span class="feature__control">
+              <span id="tmhCerrarImpresionConticaEnabled-status" class="status" aria-live="polite">Desactivado</span>
+              <label class="switch" for="tmhCerrarImpresionConticaEnabled-toggle">
+                <input id="tmhCerrarImpresionConticaEnabled-toggle" type="checkbox" role="switch">
+                <span class="slider" aria-hidden="true"></span>
+              </label>
+            </span>
+          </div>
+          <label class="delay-field" for="tmhCerrarImpresionConticaDelaySeconds-input">
+            <span>Tiempo para cerrar</span>
+            <span class="delay-field__input">
+              <input id="tmhCerrarImpresionConticaDelaySeconds-input" type="number" min="1" step="1" inputmode="numeric">
+              <span>segundos</span>
+            </span>
+            <span id="tmhCerrarImpresionConticaDelaySeconds-status" class="delay-field__status" aria-live="polite"></span>
+          </label>
+        </div>
 
         <label class="feature" for="tmhDividirEfectivoEnabled-toggle">
           <span class="feature__copy">

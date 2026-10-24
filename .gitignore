@@ -102,6 +102,7 @@ firestore-debug.log
 !/tests/extensions/timemaster-herramientas-dividir-efectivo.test.ts
 !/tests/extensions/timemaster-herramientas-ingresar-venta.test.ts
 !/tests/extensions/timemaster-herramientas-mover-pago.test.ts
+!/tests/extensions/timemaster-herramientas-cierre-configurable.test.ts
 !/tests/extensions/smartprint.test.ts
 !/tests/fixtures/
 !/tests/fixtures/smartprint/

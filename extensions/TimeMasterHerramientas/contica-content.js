@@ -42,6 +42,8 @@
 
   const CAMBIO_TAB_SETTING_KEY = "tmhCambioTabEnabled";
   const CERRAR_IMPRESION_SETTING_KEY = "tmhCerrarImpresionConticaEnabled";
+  const CERRAR_IMPRESION_DELAY_SETTING_KEY =
+    "tmhCerrarImpresionConticaDelaySeconds";
   const DIVIDIR_EFECTIVO_SETTING_KEY = "tmhDividirEfectivoEnabled";
   const MOVER_PAGO_SETTING_KEY = "tmhMoverPagoEnabled";
 
@@ -54,7 +56,11 @@
     settings,
   }) {
     const settingsCore = settings || settingsApi;
-    const modalCloser = printInvoiceCloser || { start() {}, stop() {} };
+    const modalCloser = printInvoiceCloser || {
+      start() {},
+      stop() {},
+      setDelaySeconds() {},
+    };
     const cashDivider = cashDivisionController || { start() {}, stop() {} };
     const paymentShortcut = paymentShortcutController || {
       start() {},
@@ -73,6 +79,10 @@
     function applyCerrarImpresionEnabled(enabled) {
       if (enabled) modalCloser.start();
       else modalCloser.stop();
+    }
+
+    function applyCerrarImpresionDelay(seconds) {
+      modalCloser.setDelaySeconds?.(seconds);
     }
 
     function applyDividirEfectivoEnabled(enabled) {
@@ -94,6 +104,17 @@
       if (cambioTabEnabled !== undefined) {
         if (!settingsLoaded) changedDuringInitialLoad.add(CAMBIO_TAB_SETTING_KEY);
         applyCambioTabEnabled(cambioTabEnabled);
+      }
+
+      const cerrarImpresionDelay = settingsCore.readChangedPositiveInteger(
+        changes,
+        CERRAR_IMPRESION_DELAY_SETTING_KEY,
+      );
+      if (cerrarImpresionDelay !== undefined) {
+        if (!settingsLoaded) {
+          changedDuringInitialLoad.add(CERRAR_IMPRESION_DELAY_SETTING_KEY);
+        }
+        applyCerrarImpresionDelay(cerrarImpresionDelay);
       }
 
       const cerrarImpresionEnabled = settingsCore.readChangedSetting(
@@ -142,6 +163,13 @@
         const normalized = settingsCore.normalizeSettings(stored);
         if (!changedDuringInitialLoad.has(CAMBIO_TAB_SETTING_KEY)) {
           applyCambioTabEnabled(normalized[CAMBIO_TAB_SETTING_KEY]);
+        }
+        if (
+          !changedDuringInitialLoad.has(CERRAR_IMPRESION_DELAY_SETTING_KEY)
+        ) {
+          applyCerrarImpresionDelay(
+            normalized[CERRAR_IMPRESION_DELAY_SETTING_KEY],
+          );
         }
         if (!changedDuringInitialLoad.has(CERRAR_IMPRESION_SETTING_KEY)) {
           applyCerrarImpresionEnabled(normalized[CERRAR_IMPRESION_SETTING_KEY]);

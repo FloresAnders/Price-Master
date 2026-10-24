@@ -10,6 +10,7 @@
   const DEFAULT_SETTINGS = Object.freeze({
     tmhCambioTabEnabled: true,
     tmhCerrarImpresionConticaEnabled: false,
+    tmhCerrarImpresionConticaDelaySeconds: 5,
     tmhDividirEfectivoEnabled: false,
     tmhMoverPagoEnabled: false,
     tmhSumaTiemposEnabled: true,
@@ -21,7 +22,13 @@
     return Object.fromEntries(
       Object.entries(DEFAULT_SETTINGS).map(([key, fallback]) => [
         key,
-        typeof raw?.[key] === "boolean" ? raw[key] : fallback,
+        typeof fallback === "boolean"
+          ? typeof raw?.[key] === "boolean"
+            ? raw[key]
+            : fallback
+          : Number.isInteger(raw?.[key]) && raw[key] >= 1
+            ? raw[key]
+            : fallback,
       ]),
     );
   }
@@ -31,5 +38,15 @@
     return typeof next === "boolean" ? next : undefined;
   }
 
-  return { DEFAULT_SETTINGS, normalizeSettings, readChangedSetting };
+  function readChangedPositiveInteger(changes, key) {
+    const next = changes?.[key]?.newValue;
+    return Number.isInteger(next) && next >= 1 ? next : undefined;
+  }
+
+  return {
+    DEFAULT_SETTINGS,
+    normalizeSettings,
+    readChangedSetting,
+    readChangedPositiveInteger,
+  };
 });

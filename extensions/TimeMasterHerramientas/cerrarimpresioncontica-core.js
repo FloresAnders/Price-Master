@@ -7,7 +7,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function buildCore() {
   "use strict";
 
-  const CLOSE_DELAY_MS = 5_000;
+  const DEFAULT_CLOSE_DELAY_SECONDS = 5;
   const MODAL_SELECTOR = "#printInvoice";
   const CLOSE_BUTTON_SELECTOR =
     '.esc-button[data-dismiss="modal"]';
@@ -25,6 +25,7 @@
   }
 
   function createPrintInvoiceCloser(documentRef) {
+    let closeDelayMs = DEFAULT_CLOSE_DELAY_SECONDS * 1_000;
     let timerId = null;
     let activeModal = null;
     let observer = null;
@@ -48,7 +49,19 @@
         timerId = null;
         if (activeModal !== modal || !isOpen(modal)) return;
         modal.querySelector(CLOSE_BUTTON_SELECTOR)?.click();
-      }, CLOSE_DELAY_MS);
+      }, closeDelayMs);
+    }
+
+    function setDelaySeconds(seconds) {
+      if (!Number.isInteger(seconds) || seconds < 1) return;
+      const nextDelayMs = seconds * 1_000;
+      if (nextDelayMs === closeDelayMs) return;
+      closeDelayMs = nextDelayMs;
+
+      if (!observer || timerId === null || !isOpen(activeModal)) return;
+      cancelTimer();
+      activeModal = null;
+      evaluate();
     }
 
     function start() {
@@ -71,7 +84,7 @@
       activeModal = null;
     }
 
-    return { start, stop };
+    return { start, stop, setDelaySeconds };
   }
 
   return { createPrintInvoiceCloser };
