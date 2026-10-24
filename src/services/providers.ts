@@ -277,6 +277,29 @@ const providerNameKey = (value: string): string => {
   return encodeURIComponent(value.trim().toUpperCase()).slice(0, 1200);
 };
 
+const providerScopedNameKey = (
+  providerName: string,
+  accountId?: ProviderEntry["accountId"],
+): string => {
+  const normalizedAccountId = normalizeProviderAccountId(accountId);
+  return providerNameKey(
+    normalizedAccountId
+      ? `${normalizedAccountId} ${providerName}`
+      : providerName,
+  );
+};
+
+export const getProvidersInDuplicateScope = <
+  T extends Pick<ProviderEntry, "accountId">,
+>(providers: readonly T[], accountId?: ProviderEntry["accountId"]): T[] => {
+  const normalizedAccountId = normalizeProviderAccountId(accountId);
+  return providers.filter((provider) => {
+    const providerAccountId = normalizeProviderAccountId(provider.accountId);
+    if (!normalizedAccountId) return true;
+    return !providerAccountId || providerAccountId === normalizedAccountId;
+  });
+};
+
 export class ProvidersService {
   private static readonly COLLECTION_NAME = "proveedores";
   private static readonly PROVIDERS_SUBCOLLECTION = "items";
@@ -310,13 +333,17 @@ export class ProvidersService {
     );
   }
 
-  private static nameRef(company: string, providerName: string) {
+  private static nameRef(
+    company: string,
+    providerName: string,
+    accountId?: ProviderEntry["accountId"],
+  ) {
     return doc(
       db,
       this.COLLECTION_NAME,
       company,
       this.PROVIDER_NAMES_SUBCOLLECTION,
-      providerNameKey(providerName),
+      providerScopedNameKey(providerName, accountId),
     );
   }
 
@@ -388,6 +415,7 @@ export class ProvidersService {
     if (!trimmedName) throw new Error("El nombre del proveedor es obligatorio.");
 
     const normalizedName = trimmedName.toUpperCase();
+    const normalizedAccountId = normalizeProviderAccountId(accountId);
     const normalizedType =
       typeof providerType === "string" && providerType.trim().length > 0
         ? providerType.trim().toUpperCase()
@@ -411,10 +439,54 @@ export class ProvidersService {
 
     const parentRef = this.parentRef(trimmedCompany);
     const createdProvider = await runTransaction(db, async (transaction) => {
-      const nameRef = this.nameRef(trimmedCompany, normalizedName);
+      const nameRef = this.nameRef(
+        trimmedCompany,
+        normalizedName,
+        normalizedAccountId,
+      );
       const nameSnapshot = await transaction.get(nameRef);
       if (nameSnapshot.exists()) {
         throw new Error("Ya existe un proveedor con ese nombre.");
+      }
+
+      if (normalizedAccountId) {
+        const legacyNameSnapshot = await transaction.get(
+          this.nameRef(trimmedCompany, normalizedName),
+        );
+        if (legacyNameSnapshot.exists()) {
+          const legacyCode = padCode(legacyNameSnapshot.data()?.code);
+          if (legacyCode) {
+            const legacyProviderSnapshot = await transaction.get(
+              this.itemRef(trimmedCompany, legacyCode),
+            );
+            const legacyProvider = legacyProviderSnapshot.exists()
+              ? normalizeProviderEntry(
+                  legacyProviderSnapshot.data(),
+                  trimmedCompany,
+                )
+              : null;
+            if (
+              legacyProvider?.name === normalizedName &&
+              (!legacyProvider.accountId ||
+                legacyProvider.accountId === normalizedAccountId)
+            ) {
+              throw new Error("Ya existe un proveedor con ese nombre.");
+            }
+          }
+        }
+      } else {
+        for (const providerAccountId of PROVIDER_ACCOUNT_IDS) {
+          const accountNameSnapshot = await transaction.get(
+            this.nameRef(
+              trimmedCompany,
+              normalizedName,
+              providerAccountId,
+            ),
+          );
+          if (accountNameSnapshot.exists()) {
+            throw new Error("Ya existe un proveedor con ese nombre.");
+          }
+        }
       }
 
       const snapshot = await transaction.get(parentRef);
@@ -434,7 +506,7 @@ export class ProvidersService {
         code: candidateCode,
         name: normalizedName,
         company: trimmedCompany,
-        accountId: normalizeProviderAccountId(accountId),
+        accountId: normalizedAccountId,
         type: normalizedType,
         category: explicitCategory || getCategoryFromType(normalizedType),
         createdAt: now,
@@ -461,6 +533,7 @@ export class ProvidersService {
       transaction.set(nameRef, {
         code: candidateCode,
         name: normalizedName,
+        ...(normalizedAccountId ? { accountId: normalizedAccountId } : {}),
         updatedAt: serverTimestamp(),
       });
       return provider;
@@ -491,8 +564,23 @@ export class ProvidersService {
       if (!snapshot.exists()) throw new Error("El proveedor no existe.");
       const provider = normalizeProviderEntry(snapshot.data(), trimmedCompany);
       if (!provider) throw new Error("El proveedor no existe.");
+      const legacyNameRef = provider.accountId
+        ? this.nameRef(trimmedCompany, provider.name)
+        : null;
+      const legacyNameSnapshot = legacyNameRef
+        ? await transaction.get(legacyNameRef)
+        : null;
       transaction.delete(ref);
-      transaction.delete(this.nameRef(trimmedCompany, provider.name));
+      transaction.delete(
+        this.nameRef(trimmedCompany, provider.name, provider.accountId),
+      );
+      if (
+        legacyNameRef &&
+        legacyNameSnapshot?.exists() &&
+        padCode(legacyNameSnapshot.data()?.code) === provider.code
+      ) {
+        transaction.delete(legacyNameRef);
+      }
       transaction.set(
         this.parentRef(trimmedCompany),
         { company: trimmedCompany, updatedAt: serverTimestamp() },
@@ -564,6 +652,7 @@ export class ProvidersService {
     if (!trimmedName) throw new Error("El nombre del proveedor es obligatorio.");
 
     const normalizedName = trimmedName.toUpperCase();
+    const normalizedAccountId = normalizeProviderAccountId(accountId);
     const normalizedType =
       typeof providerType === "string" && providerType.trim().length > 0
         ? providerType.trim().toUpperCase()
@@ -594,24 +683,66 @@ export class ProvidersService {
       );
       if (!latest) throw new Error("El proveedor no existe.");
 
-      const previousNameKey = providerNameKey(latest.name);
-      const nextNameKey = providerNameKey(normalizedName);
+      const previousNameKey = providerScopedNameKey(
+        latest.name,
+        latest.accountId,
+      );
+      const nextNameKey = providerScopedNameKey(
+        normalizedName,
+        normalizedAccountId,
+      );
+      const nextNameRef = this.nameRef(
+        trimmedCompany,
+        normalizedName,
+        normalizedAccountId,
+      );
+      const nextNameSnapshot =
+        previousNameKey !== nextNameKey
+          ? await transaction.get(nextNameRef)
+          : null;
+      const legacyNameRef = latest.accountId
+        ? this.nameRef(trimmedCompany, latest.name)
+        : null;
+      const legacyNameSnapshot = legacyNameRef
+        ? await transaction.get(legacyNameRef)
+        : null;
+
+      if (
+        nextNameSnapshot?.exists() &&
+        padCode(nextNameSnapshot.data()?.code) !== code
+      ) {
+        throw new Error("Ya existe un proveedor con ese nombre.");
+      }
+
+      if (
+        legacyNameRef &&
+        legacyNameSnapshot?.exists() &&
+        padCode(legacyNameSnapshot.data()?.code) === code
+      ) {
+        transaction.delete(legacyNameRef);
+      }
+
       if (previousNameKey !== nextNameKey) {
-        const nextNameRef = this.nameRef(trimmedCompany, normalizedName);
-        const nextNameSnapshot = await transaction.get(nextNameRef);
-        if (nextNameSnapshot.exists()) {
-          throw new Error("Ya existe un proveedor con ese nombre.");
-        }
-        transaction.delete(this.nameRef(trimmedCompany, latest.name));
+        transaction.delete(
+          this.nameRef(trimmedCompany, latest.name, latest.accountId),
+        );
         transaction.set(nextNameRef, {
           code,
           name: normalizedName,
+          ...(normalizedAccountId ? { accountId: normalizedAccountId } : {}),
           updatedAt: serverTimestamp(),
         });
       } else {
         transaction.set(
-          this.nameRef(trimmedCompany, normalizedName),
-          { code, name: normalizedName, updatedAt: serverTimestamp() },
+          this.nameRef(trimmedCompany, normalizedName, normalizedAccountId),
+          {
+            code,
+            name: normalizedName,
+            ...(normalizedAccountId
+              ? { accountId: normalizedAccountId }
+              : {}),
+            updatedAt: serverTimestamp(),
+          },
           { merge: true },
         );
       }
@@ -619,7 +750,7 @@ export class ProvidersService {
       const provider: ProviderEntry = {
         ...latest,
         name: normalizedName,
-        accountId: normalizeProviderAccountId(accountId),
+        accountId: normalizedAccountId,
         type: normalizedType,
         category: explicitCategory || getCategoryFromType(normalizedType),
         updatedAt: new Date().toISOString(),

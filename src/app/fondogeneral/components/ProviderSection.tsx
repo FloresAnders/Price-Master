@@ -41,6 +41,7 @@ import { EmpresasService } from "@/services/empresas";
 import { UsersService } from "@/services/users";
 import { FondoMovementTypesService } from "@/services/fondo-movement-types";
 import { SchedulesService } from "@/services/schedules";
+import { getProvidersInDuplicateScope } from "@/services/providers";
 import { generateEgresoProviderCreatedEmail } from "@/services/email-templates/proveedor-egreso-creado";
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
 import type { MovementAccountKey } from "@/services/movimientos-fondos";
@@ -2249,9 +2250,14 @@ export function ProviderSection({ id }: { id?: string }) {
                       | undefined = providerHasAccountScope
                       ? (providerAccountId as MovementAccountKey)
                       : undefined;
+                    const duplicateScopeProviders =
+                      getProvidersInDuplicateScope(
+                        providers,
+                        scopedProviderAccountId,
+                      );
 
                     if (editingProviderCode) {
-                      const otherProviders = providers.filter(
+                      const otherProviders = duplicateScopeProviders.filter(
                         (p) => p.code !== editingProviderCode,
                       );
                       if (
@@ -2356,7 +2362,9 @@ export function ProviderSection({ id }: { id?: string }) {
                       );
                     } else {
                       if (
-                        providers.some((p) => p.name.toUpperCase() === name)
+                        duplicateScopeProviders.some(
+                          (p) => p.name.toUpperCase() === name,
+                        )
                       ) {
                         setFormError(`El proveedor "${name}" ya existe.`);
                         return;
@@ -2364,10 +2372,10 @@ export function ProviderSection({ id }: { id?: string }) {
 
                       const { best, score } = findBestStringMatch(
                         name,
-                        providers.map((p) => p.name),
+                        duplicateScopeProviders.map((p) => p.name),
                       );
                       if (best && score >= 0.9) {
-                        const similarProvider = providers.find(
+                        const similarProvider = duplicateScopeProviders.find(
                           (p) => p.name === best,
                         );
                         const similarTypeLabel = similarProvider?.type

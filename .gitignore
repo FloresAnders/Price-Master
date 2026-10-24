@@ -83,6 +83,8 @@ firestore-debug.log
 !/tests/operational-firestore-target.test.ts
 !/tests/reportes-detail-server.test.ts
 !/tests/reportes-movimientos-client.test.ts
+!/tests/services/
+!/tests/services/providers-account-uniqueness.test.ts
 !/tests/firestore/
 /tests/firestore/*
 !/tests/firestore/owner-chat-superadmin.rules.test.ts
