@@ -1,6 +1,7 @@
 import { FirestoreService } from "./firestore";
 import { Empresas, EmpresaEmpleado } from "../types/firestore";
 import { UsersService } from "./users";
+import { normalizeFondoMovementIntervalSeconds } from "@/utils/companyMovementCooldown";
 
 export class EmpresasService {
   private static readonly COLLECTION_NAME = "empresas";
@@ -217,6 +218,9 @@ export class EmpresasService {
           EmpresasService.normalizeClosingWindowMinutes(
             e.cierreFondoVentasMinutesAfterEnd,
           ),
+        fondoMovementIntervalSeconds: normalizeFondoMovementIntervalSeconds(
+          e.fondoMovementIntervalSeconds,
+        ),
         configurarHorasTurno: EmpresasService.normalizeBoolean(
           (e as any).configurarHorasTurno,
           false,
@@ -277,6 +281,9 @@ export class EmpresasService {
         EmpresasService.normalizeClosingWindowMinutes(
           (doc as any).cierreFondoVentasMinutesAfterEnd,
         ),
+      fondoMovementIntervalSeconds: normalizeFondoMovementIntervalSeconds(
+        (doc as any).fondoMovementIntervalSeconds,
+      ),
       configurarHorasTurno: EmpresasService.normalizeBoolean(
         (doc as any).configurarHorasTurno,
         false,
@@ -326,6 +333,9 @@ export class EmpresasService {
         EmpresasService.normalizeClosingWindowMinutes(
           (doc as any).cierreFondoVentasMinutesAfterEnd,
         ),
+      fondoMovementIntervalSeconds: normalizeFondoMovementIntervalSeconds(
+        (doc as any).fondoMovementIntervalSeconds,
+      ),
       configurarHorasTurno: EmpresasService.normalizeBoolean(
         (doc as any).configurarHorasTurno,
         false,
@@ -410,6 +420,9 @@ export class EmpresasService {
           EmpresasService.normalizeClosingWindowMinutes(
             empresa.cierreFondoVentasMinutesAfterEnd,
           ),
+        fondoMovementIntervalSeconds: normalizeFondoMovementIntervalSeconds(
+          empresa.fondoMovementIntervalSeconds,
+        ),
         configurarHorasTurno: EmpresasService.normalizeBoolean(
           empresa.configurarHorasTurno,
           false,
@@ -453,6 +466,9 @@ export class EmpresasService {
         EmpresasService.normalizeClosingWindowMinutes(
           empresa.cierreFondoVentasMinutesAfterEnd,
         ),
+      fondoMovementIntervalSeconds: normalizeFondoMovementIntervalSeconds(
+        empresa.fondoMovementIntervalSeconds,
+      ),
       configurarHorasTurno: EmpresasService.normalizeBoolean(
         empresa.configurarHorasTurno,
         false,
@@ -498,6 +514,12 @@ export class EmpresasService {
       patch.cierreFondoVentasMinutesAfterEnd =
         EmpresasService.normalizeClosingWindowMinutes(
           patch.cierreFondoVentasMinutesAfterEnd,
+        );
+    }
+    if ("fondoMovementIntervalSeconds" in patch) {
+      patch.fondoMovementIntervalSeconds =
+        normalizeFondoMovementIntervalSeconds(
+          patch.fondoMovementIntervalSeconds,
         );
     }
     if ("configurarHorasTurno" in patch) {

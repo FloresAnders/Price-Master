@@ -99,6 +99,7 @@ firestore-debug.log
 !/tests/fondogeneral/daily-closing-turn-policy.test.ts
 !/tests/fondogeneral/edit-fco-rounding.test.ts
 !/tests/fondogeneral/movement-search-all-accounts.test.ts
+!/tests/fondogeneral/company-movement-interval.test.ts
 !/tests/extensions/
 /tests/extensions/*
 !/tests/extensions/timemaster-herramientas-dividir-efectivo.test.ts

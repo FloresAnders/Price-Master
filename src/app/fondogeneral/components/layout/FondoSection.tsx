@@ -47,6 +47,11 @@ import {
   type ShiftCode,
 } from "@/utils/controlHorarioManager";
 import { getConfiguredShiftHours } from "@/utils/companyShiftHours";
+import {
+  getFondoMovementCooldownMs,
+  getFondoMovementCooldownRemainingMs,
+  normalizeFondoMovementIntervalSeconds,
+} from "@/utils/companyMovementCooldown";
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
 import { EmpresasService } from "@/services/empresas";
 import {
@@ -146,7 +151,6 @@ import {
   SINGLE_CLOSING_REASON_PREFIX,
   AUTO_ADJUSTMENT_OPENING_TYPE,
   APERTURA_FONDO_PROVIDER_CODE,
-  MOVEMENT_COOLDOWN_MS,
   FONDO_KEY_SUFFIX,
   SHARED_COMPANY_STORAGE_KEY,
   NAMESPACE_PERMISSIONS,
@@ -535,6 +539,13 @@ export function FondoSection({
     CIERRE_FONDO_VENTAS_MINUTES_AFTER_END;
   const empresaSolicitaApertura =
     empresaForShiftResolution?.solicitarApertura !== false;
+  const fondoMovementIntervalSeconds =
+    normalizeFondoMovementIntervalSeconds(
+      empresaForShiftResolution?.fondoMovementIntervalSeconds,
+    );
+  const fondoMovementCooldownMs = getFondoMovementCooldownMs(
+    fondoMovementIntervalSeconds,
+  );
   const bypassPendingNightDailyClosing = shouldBypassPendingNightDailyClosing({
     isAdminOrSuperAdmin: canBypassClosingWindows,
     bloquearCierre: empresaForShiftResolution?.bloquearCierre,
@@ -2684,6 +2695,7 @@ export function FondoSection({
       movementCurrency,
       solicitarApertura: empresaSolicitaApertura,
       cierreFondoVentasTurnoSelection,
+      fondoMovementIntervalSeconds,
     });
   };
 
@@ -3666,9 +3678,10 @@ export function FondoSection({
         }
       }
       if (lastCreatedAtMs <= 0) return 0;
-      return Math.max(
-        0,
-        MOVEMENT_COOLDOWN_MS - (Date.now() - lastCreatedAtMs),
+      return getFondoMovementCooldownRemainingMs(
+        lastCreatedAtMs,
+        Date.now(),
+        fondoMovementIntervalSeconds,
       );
     };
     setMovementCooldownRemainingMs(computeRemaining());
@@ -3682,6 +3695,7 @@ export function FondoSection({
     company,
     accountKey,
     lastMovementCreatedAtRef,
+    fondoMovementIntervalSeconds,
   ]);
 
   const isSubmitDisabled =
@@ -6382,6 +6396,7 @@ export function FondoSection({
         isSubmitDisabled={isSubmitDisabled}
         isSaving={isSaving}
         movementCooldownRemainingMs={movementCooldownRemainingMs}
+        movementCooldownDurationMs={fondoMovementCooldownMs}
         onFieldKeyDown={handleFondoKeyDown}
         currency={movementCurrency}
         onCurrencyChange={(c) => setMovementCurrency(c)}

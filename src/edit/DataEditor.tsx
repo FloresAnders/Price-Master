@@ -859,6 +859,8 @@ export default function DataEditor() {
               empresa.cierreFondoVentasMinutesBeforeEnd,
             cierreFondoVentasMinutesAfterEnd:
               empresa.cierreFondoVentasMinutesAfterEnd,
+            fondoMovementIntervalSeconds:
+              empresa.fondoMovementIntervalSeconds,
             configurarHorasTurno: empresa.configurarHorasTurno === true,
             horasTurnoD: empresa.horasTurnoD,
             horasTurnoN: empresa.horasTurnoN,

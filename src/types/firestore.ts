@@ -28,6 +28,7 @@ export interface Empresas {
   horarioCierre?: string;
   cierreFondoVentasMinutesBeforeEnd?: number;
   cierreFondoVentasMinutesAfterEnd?: number;
+  fondoMovementIntervalSeconds?: number;
   configurarHorasTurno?: boolean;
   horasTurnoD?: number;
   horasTurnoN?: number;

@@ -22,7 +22,6 @@ import {
   CIERRE_FONDO_VENTAS_PROVIDER_NAME,
   SINGLE_CLOSING_REASON_MIN_LENGTH,
   SINGLE_CLOSING_REASON_PREFIX,
-  MOVEMENT_COOLDOWN_MS,
 } from "../constants";
 import {
   formatMovementType,
@@ -107,6 +106,7 @@ type AgregarMovimientoProps = {
   isSubmitDisabled: boolean;
   isSaving?: boolean;
   movementCooldownRemainingMs?: number;
+  movementCooldownDurationMs?: number;
   onFieldKeyDown: (
     event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>,
   ) => void;
@@ -192,6 +192,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   isSubmitDisabled,
   isSaving = false,
   movementCooldownRemainingMs = 0,
+  movementCooldownDurationMs = 60_000,
   onFieldKeyDown,
   currency = "CRC",
   onCurrencyChange,
@@ -633,12 +634,16 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   };
 
   const movementCooldownMs = Math.max(0, Number(movementCooldownRemainingMs) || 0);
+  const cooldownDurationMs = Math.max(
+    0,
+    Number(movementCooldownDurationMs) || 0,
+  );
   const cooldownActive = !editingEntryId && movementCooldownMs > 0;
   const cooldownSec = Math.ceil(movementCooldownMs / 1000);
-  const cooldownFraction = Math.min(
-    1,
-    Math.max(0, movementCooldownMs / MOVEMENT_COOLDOWN_MS),
-  );
+  const cooldownFraction =
+    cooldownDurationMs > 0
+      ? Math.min(1, Math.max(0, movementCooldownMs / cooldownDurationMs))
+      : 0;
   const cooldownRingRadius = 9;
   const cooldownRingCircumference = 2 * Math.PI * cooldownRingRadius;
 

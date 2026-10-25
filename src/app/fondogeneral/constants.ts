@@ -83,5 +83,4 @@ export const MOVEMENT_ACCOUNT_KEYS: MovementAccountKey[] = [
 
 export const SAVE_COOLDOWN_MS = 60_000;
 export const CACHE_TTL_MS = 60_000;
-export const MOVEMENT_COOLDOWN_MS = 60_000;
 export const CLOSING_GUARD_LOCK_DURATION_MS = 1_800_000;

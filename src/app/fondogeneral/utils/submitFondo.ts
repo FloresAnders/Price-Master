@@ -27,9 +27,9 @@ import {
   CIERRE_FONDO_VENTAS_MINUTES_AFTER_END,
   CIERRE_FONDO_VENTAS_MINUTES_BEFORE_END,
   MAX_AUDIT_EDITS,
-  MOVEMENT_COOLDOWN_MS,
   SINGLE_CLOSING_REASON_PREFIX,
 } from "../constants";
+import { getFondoMovementCooldownRemainingMs } from "@/utils/companyMovementCooldown";
 import {
   acquireClosingGuard,
   releaseClosingGuard,
@@ -167,6 +167,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
     movementCurrency,
     solicitarApertura = true,
     cierreFondoVentasTurnoSelection = "",
+    fondoMovementIntervalSeconds,
   } = deps;
 
   const hasConfirmedRoundUpSelections =
@@ -953,7 +954,7 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
           }
         }
 
-        // Admins/Superadmins are exempt from the 1-minute cooldown.
+        // Admins/Superadmins are exempt from the company cooldown.
         // Fondo ventas automatic movements should NOT be blocked by a prior movement's cooldown.
         const providerForSelected = movementProviders.find(
           (p: any) => p.code === selectedProvider,
@@ -981,9 +982,17 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
             !isSuperAdminUser &&
             !isCajaNegra &&
             lastCreatedAtMs > 0 &&
-            nowMs - lastCreatedAtMs < MOVEMENT_COOLDOWN_MS
+            getFondoMovementCooldownRemainingMs(
+              lastCreatedAtMs,
+              nowMs,
+              fondoMovementIntervalSeconds,
+            ) > 0
           ) {
-            const remainingMs = MOVEMENT_COOLDOWN_MS - (nowMs - lastCreatedAtMs);
+            const remainingMs = getFondoMovementCooldownRemainingMs(
+              lastCreatedAtMs,
+              nowMs,
+              fondoMovementIntervalSeconds,
+            );
             const remainingSec = Math.ceil(remainingMs / 1000);
             showToast(
               `Espere ${formatToastWaitTime(remainingSec)} para agregar otro movimiento.`,

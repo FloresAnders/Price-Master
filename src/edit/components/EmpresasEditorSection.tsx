@@ -202,6 +202,7 @@ export default function EmpresasEditorSection({
                 horarioCierre: "",
                 cierreFondoVentasMinutesBeforeEnd: 15,
                 cierreFondoVentasMinutesAfterEnd: 90,
+                fondoMovementIntervalSeconds: 60,
                 configurarHorasTurno: false,
                 horasTurnoD: undefined,
                 horasTurnoN: undefined,
@@ -292,6 +293,14 @@ export default function EmpresasEditorSection({
                         </p>
                         <p className="text-sm sm:text-base font-semibold text-[var(--foreground)] break-words">
                           {empresa.cierreFondoVentasMinutesAfterEnd ?? 90} min
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2.5 sm:px-4 sm:py-3">
+                        <p className="text-[10px] sm:text-xs font-medium text-[var(--muted-foreground)]">
+                          Espera movimientos FG
+                        </p>
+                        <p className="text-sm sm:text-base font-semibold text-[var(--foreground)] break-words">
+                          {empresa.fondoMovementIntervalSeconds ?? 60} s
                         </p>
                       </div>
                       <div className="rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 py-2.5 sm:px-4 sm:py-3">
@@ -531,6 +540,37 @@ export default function EmpresasEditorSection({
                             color: "var(--foreground)",
                           }}
                         />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium mb-1">
+                          Segundos entre movimientos de Fondo General:
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={empresa.fondoMovementIntervalSeconds ?? 60}
+                          onChange={(e) => {
+                            const copy = [...empresasData];
+                            copy[idx] = {
+                              ...copy[idx],
+                              fondoMovementIntervalSeconds: Math.max(
+                                0,
+                                Math.round(Number(e.target.value) || 0),
+                              ),
+                            };
+                            setEmpresasData(copy);
+                          }}
+                          className="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
+                          style={{
+                            background: "var(--input-bg)",
+                            color: "var(--foreground)",
+                          }}
+                        />
+                        <p className="mt-1 text-[10px] sm:text-xs text-[var(--muted-foreground)]">
+                          Usa 0 para permitir movimientos sin espera.
+                        </p>
                       </div>
 
                       <label className="flex items-center gap-2 text-xs sm:text-sm">
@@ -1119,6 +1159,8 @@ export default function EmpresasEditorSection({
                                       e.cierreFondoVentasMinutesBeforeEnd,
                                     cierreFondoVentasMinutesAfterEnd:
                                       e.cierreFondoVentasMinutesAfterEnd,
+                                    fondoMovementIntervalSeconds:
+                                      e.fondoMovementIntervalSeconds,
                                     configurarHorasTurno:
                                       e.configurarHorasTurno === true,
                                     horasTurnoD: e.horasTurnoD,
