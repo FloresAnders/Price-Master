@@ -77,8 +77,10 @@ import {
 } from "../modals";
 import type { UserPermissions } from "../../types/firestore";
 import PasskeyManagerModal from "../auth/PasskeyManagerModal";
-import PatrioticSeptemberBadge from "./PatrioticSeptemberBadge";
-import { isCostaRicaIndependenceSeason } from "@/lib/seasonalTheme";
+import {
+  PatrioticSeptemberBadge,
+  isCostaRicaIndependenceSeason,
+} from "@/components/celebraciones";
 import type { MovementAccountKey } from "@/services/movimientos-fondos";
 import { OPEN_CASH_COUNTER_EVENT } from "@/components/business/cash-counter-tabs/accountCounters";
 import { useSessionListenerPreferences } from "@/contexts/SessionListenerPreferencesContext";

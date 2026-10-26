@@ -23,6 +23,10 @@ import {
 import { MaintenanceProvider } from "../contexts/MaintenanceContext";
 import { MaintenanceGate } from "../components/maintenance";
 import { SessionListenerPreferencesProvider } from "../contexts/SessionListenerPreferencesContext";
+import {
+  SeasonalEffectsHost,
+  SeasonalEffectsProvider,
+} from "../components/celebraciones";
 
 export const metadata = {
   title: "Time Master",
@@ -137,8 +141,9 @@ export default function RootLayout({
           <AuthWrapper>
             <SessionListenerPreferencesProvider>
               <MaintenanceProvider>
-                <MaintenanceGate>
-                  <PermissionsManager>
+                <SeasonalEffectsProvider>
+                  <MaintenanceGate>
+                    <PermissionsManager>
                   <XmlEgresosProvider>
                     <FloatingActionsProvider>
                       <VersionCheckInitializer />
@@ -146,6 +151,7 @@ export default function RootLayout({
                       <SinpeNotificationsInitializer />
                       <SystemNotesInitializer />
                       <SubscriptionNotice />
+                      <SeasonalEffectsHost />
                       <HeaderWrapper />
                       <main role="main" className="flex-1 flex flex-col w-full lg:pl-[var(--admin-sidebar-width)] transition-[padding] duration-300">
                         <div className="w-full" suppressHydrationWarning>
@@ -164,8 +170,9 @@ export default function RootLayout({
                     closeButton
                     duration={3000}
                   />
-                  </PermissionsManager>
-                </MaintenanceGate>
+                    </PermissionsManager>
+                  </MaintenanceGate>
+                </SeasonalEffectsProvider>
               </MaintenanceProvider>
             </SessionListenerPreferencesProvider>
           </AuthWrapper>

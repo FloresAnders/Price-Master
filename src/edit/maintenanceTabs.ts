@@ -5,6 +5,7 @@ import {
   FileText,
   List,
   Megaphone,
+  PartyPopper,
   ShieldAlert,
   Users,
   type LucideIcon,
@@ -20,7 +21,8 @@ export type MaintenanceDataFile =
   | "fondoTypes"
   | "funciones"
   | "systemMaintenance"
-  | "systemAnnouncements";
+  | "systemAnnouncements"
+  | "seasonalEffects";
 
 export interface MaintenanceTab {
   key: MaintenanceDataFile;
@@ -33,7 +35,11 @@ export function isMaintenanceTabAllowed(
   tab: MaintenanceDataFile,
   role: User["role"],
 ): boolean {
-  if (tab === "systemMaintenance" || tab === "systemAnnouncements") {
+  if (
+    tab === "systemMaintenance" ||
+    tab === "systemAnnouncements" ||
+    tab === "seasonalEffects"
+  ) {
     return role === "superadmin";
   }
   if (tab === "fondoTypes" || tab === "funciones") {
@@ -71,6 +77,12 @@ export function getMaintenanceTabs(
       key: "systemAnnouncements",
       label: "Anuncios",
       icon: Megaphone,
+      superadminOnly: true,
+    },
+    {
+      key: "seasonalEffects",
+      label: "Celebraciones",
+      icon: PartyPopper,
       superadminOnly: true,
     },
   ];

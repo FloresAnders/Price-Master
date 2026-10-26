@@ -43,6 +43,7 @@ import CcssEditorSection from "./components/CcssEditorSection";
 import FuncionesEditorSection from "./components/FuncionesEditorSection";
 import MaintenanceEditorSection from "./components/MaintenanceEditorSection";
 import AnnouncementsEditorSection from "./components/AnnouncementsEditorSection";
+import SeasonalEffectsEditorSection from "./components/SeasonalEffectsEditorSection";
 import {
   getMaintenanceTabs,
   isMaintenanceTabAllowed,
@@ -68,6 +69,7 @@ const getStoredMaintenanceTab = (): DataFile => {
     "funciones",
     "systemMaintenance",
     "systemAnnouncements",
+    "seasonalEffects",
   ];
   return validTabs.includes(saved as DataFile) ? (saved as DataFile) : "users";
 };
@@ -2321,6 +2323,8 @@ export default function DataEditor() {
         currentUser?.role === "superadmin" && <MaintenanceEditorSection />}
       {activeFile === "systemAnnouncements" &&
         currentUser?.role === "superadmin" && <AnnouncementsEditorSection />}
+      {activeFile === "seasonalEffects" &&
+        currentUser?.role === "superadmin" && <SeasonalEffectsEditorSection />}
       {activeFile === "users" && (
         <UsersEditorSection
           usersData={usersData}

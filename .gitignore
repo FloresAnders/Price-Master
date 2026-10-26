@@ -42,6 +42,7 @@ yarn-error.log*
 
 !AGENTS.md
 !src/data/gmail_sinpe_setup.md
+!src/components/celebraciones/PLAN_EFECTOS_FESTIVIDADES_TIMEMASTER.md
 !extensions/SmartPrint/README.md
 !extensions/SmartPrint/AUDIT_ENCABEZADO_IMPRESION.md
 !skills/
@@ -73,6 +74,8 @@ firestore-debug.log
 !/tests/maintenance-listener-lifecycle.test.tsx
 !/tests/maintenance/
 !/tests/maintenance/**
+!/tests/celebraciones/
+!/tests/celebraciones/**
 !/tests/system-announcement-banner.test.tsx
 !/tests/auth-firebase-bridge-readiness.test.tsx
 !/tests/firebase-custom-token-claims.test.ts

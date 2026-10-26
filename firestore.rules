@@ -72,6 +72,62 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.role == 'superadmin';
     }
 
+    function isValidFestivityConfig(data) {
+      let title = data.title;
+      let message = data.message;
+      return data.enabled is bool &&
+        title is string &&
+        title.size() > 0 &&
+        title.size() <= 80 &&
+        message is string &&
+        message.size() <= 200;
+    }
+
+    function isValidSeasonalEffects(data) {
+      let festivities = data.festivities;
+      return data.keys().hasOnly([
+          'schemaVersion',
+          'enabled',
+          'festivities',
+          'updatedAt',
+          'updatedBy'
+        ]) &&
+        data.schemaVersion == 1 &&
+        data.enabled is bool &&
+        festivities is map &&
+        festivities.keys().hasOnly([
+          'new-year',
+          'holy-thursday',
+          'good-friday',
+          'juan-santamaria',
+          'workers-day',
+          'nicoya',
+          'virgen-angeles',
+          'mothers-day',
+          'afro-culture',
+          'army-abolition',
+          'christmas',
+          'year-end'
+        ]) &&
+        isValidFestivityConfig(festivities['new-year']) &&
+        isValidFestivityConfig(festivities['holy-thursday']) &&
+        isValidFestivityConfig(festivities['good-friday']) &&
+        isValidFestivityConfig(festivities['juan-santamaria']) &&
+        isValidFestivityConfig(festivities['workers-day']) &&
+        isValidFestivityConfig(festivities.nicoya) &&
+        isValidFestivityConfig(festivities['virgen-angeles']) &&
+        isValidFestivityConfig(festivities['mothers-day']) &&
+        isValidFestivityConfig(festivities['afro-culture']) &&
+        isValidFestivityConfig(festivities['army-abolition']) &&
+        isValidFestivityConfig(festivities.christmas) &&
+        isValidFestivityConfig(festivities['year-end']) &&
+        data.updatedAt is timestamp &&
+        data.updatedBy is string &&
+        data.updatedBy.size() > 0 &&
+        data.updatedBy.size() <= 128 &&
+        data.updatedBy == request.auth.uid;
+    }
+
     function isRegularAdmin() {
       return isSignedIn() && request.auth.token.role == 'admin';
     }
@@ -1133,6 +1189,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /system_config/{documentId} {
+      allow read: if documentId == 'seasonal_effects' && isAppSession();
+      allow write: if documentId == 'seasonal_effects' &&
+        isAppSession() &&
+        request.auth.token.role == 'superadmin' &&
+        isValidSeasonalEffects(request.resource.data);
+    }
+
     // El detalle contiene movimientos financieros. Solo el servidor lo lee
     // despues de validar empresa, cuenta y permiso de la sesion.
     match /reportes_detalle/{document=**} {
@@ -1145,7 +1209,8 @@ service cloud.firestore {
     // `recovery_tokens` y demas colecciones sin reglas propias. Tras la fecha
     // de corte queda inactivo.
     match /{collection}/{document=**} {
-      allow read, write: if (isSignedIn() || isCompatWindow()) &&
+      allow read, write: if collection != 'system_config' &&
+        (isSignedIn() || isCompatWindow()) &&
         collection != 'ownerChats' &&
         collection != 'MovimientosFondos' &&
         collection != 'registrotucan' &&

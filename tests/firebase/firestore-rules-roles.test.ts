@@ -6,7 +6,7 @@ import {
   type RulesTestContext,
   type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { deleteDoc, doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 const emulatorHost = process.env.FIRESTORE_EMULATOR_HOST;
@@ -42,6 +42,43 @@ const claims = {
   },
 } as const;
 
+const festivityIds = [
+  "new-year",
+  "holy-thursday",
+  "good-friday",
+  "juan-santamaria",
+  "workers-day",
+  "nicoya",
+  "virgen-angeles",
+  "mothers-day",
+  "afro-culture",
+  "army-abolition",
+  "christmas",
+  "year-end",
+] as const;
+
+const validSeasonalEffects = () => ({
+  schemaVersion: 1,
+  enabled: false,
+  festivities: Object.fromEntries(
+    festivityIds.map((id) => [
+      id,
+      {
+        enabled: true,
+        title: `Tema ${id}`,
+        message: "Mensaje",
+        intensity: "normal",
+        showBanner: true,
+        priority: 10,
+        startOffsetDays: 0,
+        endOffsetDays: 0,
+      },
+    ]),
+  ),
+  updatedAt: Timestamp.now(),
+  updatedBy: "root",
+});
+
 describeWithEmulator("reglas Firestore por acceso y rol", () => {
   let testEnv: RulesTestEnvironment;
 
@@ -55,7 +92,7 @@ describeWithEmulator("reglas Firestore por acceso y rol", () => {
         rules: readFileSync("firestore.rules", "utf8"),
       },
     });
-  });
+  }, 30_000);
 
   beforeEach(async () => {
     await testEnv.clearFirestore();
@@ -77,7 +114,7 @@ describeWithEmulator("reglas Firestore por acceso y rol", () => {
   });
 
   afterAll(async () => {
-    await testEnv.cleanup();
+    if (testEnv) await testEnv.cleanup();
   });
 
   const authenticated = (uid: string, token: Record<string, unknown>): RulesTestContext =>
@@ -163,6 +200,49 @@ describeWithEmulator("reglas Firestore por acceso y rol", () => {
 
     await assertFails(getDoc(doc(userDb, "MovimientosFondos", "ledger-test")));
     await assertSucceeds(getDoc(doc(adminDb, "MovimientosFondos", "ledger-test")));
+  });
+
+  it("permite leer celebraciones solo con sesion autenticada", async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        doc(context.firestore(), "system_config", "seasonal_effects"),
+        validSeasonalEffects(),
+      );
+    });
+    const userDb = authenticated("user-a", claims.user).firestore();
+    const publicDb = testEnv.unauthenticatedContext().firestore();
+
+    await assertSucceeds(getDoc(doc(userDb, "system_config", "seasonal_effects")));
+    await assertFails(getDoc(doc(publicDb, "system_config", "seasonal_effects")));
+  });
+
+  it("reserva escrituras de celebraciones para SuperAdmin", async () => {
+    const userDb = authenticated("user-a", claims.user).firestore();
+    const adminDb = authenticated("admin-a", claims.admin).firestore();
+    const superDb = authenticated("root", claims.superadmin).firestore();
+    const path = ["system_config", "seasonal_effects"] as const;
+
+    await assertFails(setDoc(doc(userDb, ...path), validSeasonalEffects()));
+    await assertFails(setDoc(doc(adminDb, ...path), validSeasonalEffects()));
+    await assertSucceeds(setDoc(doc(superDb, ...path), validSeasonalEffects()));
+    await assertFails(deleteDoc(doc(superDb, ...path)));
+  });
+
+  it("rechaza esquemas de celebraciones incompletos, extras o fuera de limite", async () => {
+    const superDb = authenticated("root", claims.superadmin).firestore();
+    const seasonalRef = doc(superDb, "system_config", "seasonal_effects");
+    const missing = validSeasonalEffects();
+    delete missing.festivities.christmas;
+    const extra = { ...validSeasonalEffects(), unexpected: true };
+    const oversized = validSeasonalEffects();
+    oversized.festivities["new-year"].title = "x".repeat(81);
+    const wrongType = validSeasonalEffects();
+    wrongType.festivities["year-end"].enabled = "yes" as unknown as boolean;
+
+    await assertFails(setDoc(seasonalRef, missing));
+    await assertFails(setDoc(seasonalRef, extra));
+    await assertFails(setDoc(seasonalRef, oversized));
+    await assertFails(setDoc(seasonalRef, wrongType));
   });
 });
 
