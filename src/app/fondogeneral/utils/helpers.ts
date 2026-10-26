@@ -1,6 +1,10 @@
 import { DailyClosingsService } from "@/services/daily-closings";
 import type { DailyClosingRecord, DailyClosingsDocument } from "@/services/daily-closings";
-import type { MovementAccountKey, MovementCurrencyKey } from "@/services/movimientos-fondos";
+import type {
+  MovementAccountKey,
+  MovementCurrencyKey,
+  PendingNightDailyClosing,
+} from "@/services/movimientos-fondos";
 import type { AppliedCreditNote } from "@/services/facturas";
 import type { FondoEntry, FondoMovementType } from "../types";
 import {
@@ -887,6 +891,37 @@ export const sanitizeFondoEntries = (
           })
           .filter((note): note is AppliedCreditNote => Boolean(note))
       : undefined;
+    const rawPendingNightDailyClosing = entry.pendingNightDailyClosing;
+    const pendingNightDailyClosing: PendingNightDailyClosing | undefined =
+      rawPendingNightDailyClosing?.version === 1 &&
+      rawPendingNightDailyClosing.turno === "N" &&
+      typeof rawPendingNightDailyClosing.movementId === "string" &&
+      rawPendingNightDailyClosing.movementId.trim().length > 0 &&
+      typeof rawPendingNightDailyClosing.createdAt === "string" &&
+      Number.isFinite(Date.parse(rawPendingNightDailyClosing.createdAt)) &&
+      typeof rawPendingNightDailyClosing.dueAt === "string" &&
+      Number.isFinite(Date.parse(rawPendingNightDailyClosing.dueAt)) &&
+      typeof rawPendingNightDailyClosing.operationalDateKey === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(
+        rawPendingNightDailyClosing.operationalDateKey,
+      ) &&
+      typeof rawPendingNightDailyClosing.manager === "string" &&
+      typeof rawPendingNightDailyClosing.minutesAfterEnd === "number" &&
+      Number.isFinite(rawPendingNightDailyClosing.minutesAfterEnd) &&
+      rawPendingNightDailyClosing.minutesAfterEnd >= 0
+        ? {
+            ...rawPendingNightDailyClosing,
+            movementId: rawPendingNightDailyClosing.movementId.trim(),
+            createdAt: new Date(
+              rawPendingNightDailyClosing.createdAt,
+            ).toISOString(),
+            dueAt: new Date(rawPendingNightDailyClosing.dueAt).toISOString(),
+            manager: rawPendingNightDailyClosing.manager.trim(),
+            minutesAfterEnd: Math.trunc(
+              rawPendingNightDailyClosing.minutesAfterEnd,
+            ),
+          }
+        : undefined;
 
     const typesLoaded =
       FONDO_INGRESO_TYPES.length > 0 ||
@@ -970,6 +1005,7 @@ export const sanitizeFondoEntries = (
           : undefined,
       turno: entry.turno === "D" || entry.turno === "N" ? entry.turno : undefined,
       sinTurno: entry.sinTurno ? true : undefined,
+      pendingNightDailyClosing,
       isAudit: !!entry.isAudit,
       originalEntryId:
         typeof entry.originalEntryId === "string"

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import * as singleClosingReason from "@/app/fondogeneral/utils/closing/singleClosingReason";
+import { sanitizeFondoEntries } from "@/app/fondogeneral/utils/fondo/sanitizeFondoEntries";
 
 type ClosingEntry = {
   id: string;
@@ -93,5 +94,57 @@ describe("politica de turno del cierre diario", () => {
     expect(selectMovement?.(entries, "N", (entry) => entry.turno)).toEqual(
       entries[0],
     );
+  });
+});
+
+describe("sanitizacion del cierre N pendiente", () => {
+  const validPending = {
+    version: 1,
+    movementId: "2026_10_26-00_19_51_797_FondoGeneral",
+    turno: "N",
+    createdAt: "2026-10-26T06:19:51.797Z",
+    dueAt: "2026-10-26T06:44:00.000Z",
+    operationalDateKey: "2026-10-25",
+    manager: "GUILLERMO",
+    minutesAfterEnd: 45,
+  } as const;
+
+  const sanitizePending = (pendingNightDailyClosing: unknown) => {
+    const [entry] = sanitizeFondoEntries([
+      {
+        id: "2026_10_26-00_19_51_797_FondoGeneral",
+        providerCode: "0008",
+        invoiceNumber: "2610",
+        invoiceDocType: "FCO",
+        paymentType: "VENTAS",
+        amountEgreso: 0,
+        amountIngreso: 191_000,
+        manager: "GUILLERMO",
+        notes: "",
+        createdAt: "2026-10-26T06:19:51.797Z",
+        currency: "CRC",
+        accountId: "FondoGeneral",
+        turno: "N",
+        pendingNightDailyClosing,
+      },
+    ]);
+    return entry.pendingNightDailyClosing;
+  };
+
+  it("conserva pendingNightDailyClosing valido en el movimiento", () => {
+    expect(sanitizePending(validPending)).toEqual(validPending);
+  });
+
+  it.each([
+    ["version", { ...validPending, version: 2 }],
+    ["turno", { ...validPending, turno: "D" }],
+    ["movementId", { ...validPending, movementId: " " }],
+    ["createdAt", { ...validPending, createdAt: "fecha-invalida" }],
+    ["dueAt", { ...validPending, dueAt: "fecha-invalida" }],
+    ["operationalDateKey", { ...validPending, operationalDateKey: "26-10-2026" }],
+    ["manager", { ...validPending, manager: null }],
+    ["minutesAfterEnd", { ...validPending, minutesAfterEnd: -1 }],
+  ])("descarta pendingNightDailyClosing con %s invalido", (_field, pending) => {
+    expect(sanitizePending(pending)).toBeUndefined();
   });
 });
