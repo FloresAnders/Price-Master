@@ -6,7 +6,15 @@ import {
   type RulesTestContext,
   type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
-import { deleteDoc, doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  Timestamp,
+} from "firebase/firestore";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 const emulatorHost = process.env.FIRESTORE_EMULATOR_HOST;
@@ -110,6 +118,40 @@ describeWithEmulator("reglas Firestore por acceso y rol", () => {
         doc(context.firestore(), "reportes_detalle", "reporte-1", "items", "mov-1"),
         { empresa: "EMPRESA A" },
       );
+      await setDoc(doc(context.firestore(), "users", "user-a"), {
+        name: "Usuario A",
+        email: "user-a@example.com",
+        password: "legacy-plaintext-password",
+        role: "user",
+        ownerId: "owner-a",
+      });
+      await setDoc(doc(context.firestore(), "users", "user-b"), {
+        name: "Usuario B",
+        email: "user-b@example.com",
+        password: "$argon2id$secret-hash",
+        role: "user",
+        ownerId: "owner-a",
+      });
+      await setDoc(doc(context.firestore(), "recovery_tokens", "token-1"), {
+        token: "known-token-hash",
+        email: "victim@example.com",
+        userId: "victim",
+        expiresAt: Date.now() + 60_000,
+        used: false,
+      });
+      await setDoc(doc(context.firestore(), "email_change_codes", "code-1"), {
+        code: "123456",
+        userId: "victim",
+      });
+      await setDoc(doc(context.firestore(), "security_logs", "log-1"), {
+        type: "password_recovery_request",
+        userId: "victim",
+      });
+      await setDoc(doc(context.firestore(), "mail", "mail-1"), {
+        to: "victim@example.com",
+        subject: "Ataque",
+        text: "Contenido",
+      });
     });
   });
 
@@ -183,6 +225,43 @@ describeWithEmulator("reglas Firestore por acceso y rol", () => {
 
     await assertFails(setDoc(doc(adminDb, "users", "new-root"), promotedProfile));
     await assertSucceeds(setDoc(doc(superDb, "users", "new-root"), promotedProfile));
+  });
+
+  it("mantiene documentos users con credenciales exclusivos del servidor", async () => {
+    const userDb = authenticated("user-a", claims.user).firestore();
+    const adminDb = authenticated("admin-a", claims.admin).firestore();
+    const superDb = authenticated("root", claims.superadmin).firestore();
+
+    await assertFails(getDoc(doc(userDb, "users", "user-a")));
+    await assertFails(getDoc(doc(userDb, "users", "user-b")));
+    await assertFails(getDoc(doc(adminDb, "users", "user-a")));
+    await assertFails(getDoc(doc(superDb, "users", "user-a")));
+    await assertFails(getDocs(collection(superDb, "users")));
+  });
+
+  it("bloquea lectura y escritura cliente de tokens logs y cola de correo", async () => {
+    const userDb = authenticated("user-a", claims.user).firestore();
+    const superDb = authenticated("root", claims.superadmin).firestore();
+    const serverOnlyDocuments = [
+      ["recovery_tokens", "token-1"],
+      ["email_change_codes", "code-1"],
+      ["security_logs", "log-1"],
+      ["mail", "mail-1"],
+    ] as const;
+
+    for (const [collectionName, documentId] of serverOnlyDocuments) {
+      await assertFails(getDoc(doc(userDb, collectionName, documentId)));
+      await assertFails(
+        setDoc(doc(userDb, collectionName, `forged-${documentId}`), {
+          token: "known-token-hash",
+          userId: "victim",
+          to: "attacker@example.com",
+          subject: "Ataque",
+          text: "Contenido",
+        }),
+      );
+      await assertFails(getDoc(doc(superDb, collectionName, documentId)));
+    }
   });
 
   it("bloquea usuario durante mantenimiento pero conserva acceso admin", async () => {

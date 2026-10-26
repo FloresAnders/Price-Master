@@ -1,10 +1,9 @@
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import {
   getAuthoritativeNowISO,
   getAuthoritativeNowMs,
 } from "@/utils/serverTime";
 import { toCostaRicaISO } from "@/utils/costaRicaTime";
-import { db } from "@/config/firebase";
+import { queueEmailFromClient } from "@/services/email-client";
 import {
   DAILY_CLOSING_DUPLICATE_ERROR,
   DAILY_CLOSING_SCHEDULE_REQUIRED_ERROR,
@@ -82,12 +81,11 @@ export async function enqueueDailyClosingFailureAlert(
 ): Promise<{ delivered: string[]; failed: string[] }> {
   const jobs = buildDailyClosingFailureMailJobs(input);
   const result = await deliverDailyClosingFailureMailJobs(jobs, async (job) => {
-    await addDoc(collection(db, "mail"), {
+    await queueEmailFromClient({
       to: job.to,
       subject: job.subject,
       text: job.text,
       html: job.html,
-      createdAt: serverTimestamp(),
     });
   });
   if (result.failed.length > 0) {
@@ -800,17 +798,16 @@ export async function handleConfirmDailyClosing(
   for (const recipient of notificationRecipients) {
     if (!recipient) continue;
     try {
-      const docRef = await addDoc(collection(db, "mail"), {
+      await queueEmailFromClient({
         to: recipient,
         subject: emailTemplate.subject,
         text: emailTemplate.text,
         html: emailTemplate.html,
-        createdAt: serverTimestamp(),
       });
-      console.log(`[MAIL-DOC] Documento creado en 'mail' para ${recipient}, ID: ${docRef.id}`);
+      console.log(`[MAIL-API] Correo de cierre encolado para ${recipient}`);
       showToast("Correo de cierre diario enviado correctamente", "success");
     } catch (err) {
-      console.error(`[MAIL-DOC] Error creando documento en 'mail' para ${recipient}:`, err);
+      console.error(`[MAIL-API] Error encolando correo para ${recipient}:`, err);
       showToast("Error al enviar correo de cierre diario", "error");
     }
   }

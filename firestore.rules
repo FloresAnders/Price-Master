@@ -1152,9 +1152,9 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      // Se conserva el alcance de lectura actual porque varios flujos existentes
-      // consultan usuarios para resolver propietarios y empresas.
-      allow read: if isSignedIn() || isCompatWindow();
+      // Los documentos contienen credenciales heredadas. Toda lectura pasa por
+      // Route Handlers con Firebase Admin, que eliminan `password` antes de responder.
+      allow read: if false;
       allow create: if isSuperAdmin() ||
         (
           isOwnedByRegularAdmin(request.resource.data) &&
@@ -1203,11 +1203,29 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Tokens, codigos, auditoria y cola de correo son recursos exclusivos del
+    // servidor. Un deny especifico no basta si el catch-all tambien coincide;
+    // por eso estas colecciones se excluyen otra vez en el bloque final.
+    match /recovery_tokens/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /email_change_codes/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /security_logs/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /mail/{document=**} {
+      allow read, write: if false;
+    }
+
     // Durante la ventana de compatibilidad este bloque tambien acepta clientes
-    // sin firmar (mismo alcance que tenia el catch-all eliminado). Cubre
-    // `mail`, `security_logs`, `email_change_codes`,
-    // `recovery_tokens` y demas colecciones sin reglas propias. Tras la fecha
-    // de corte queda inactivo.
+    // sin firmar (mismo alcance que tenia el catch-all eliminado). Tras la
+    // fecha de corte queda inactivo. Colecciones sensibles y server-only se
+    // excluyen explicitamente porque las coincidencias de reglas usan OR.
     match /{collection}/{document=**} {
       allow read, write: if collection != 'system_config' &&
         (isSignedIn() || isCompatWindow()) &&
@@ -1240,6 +1258,10 @@ service cloud.firestore {
         collection != 'maintenanceAccessLogs' &&
         collection != 'maintenanceRateLimits' &&
         collection != 'users' &&
+        collection != 'recovery_tokens' &&
+        collection != 'email_change_codes' &&
+        collection != 'security_logs' &&
+        collection != 'mail' &&
         collection != 'systemAnnouncements' &&
         collection != 'publishedSystemAnnouncements' &&
         collection != 'reportes_movimientos' &&

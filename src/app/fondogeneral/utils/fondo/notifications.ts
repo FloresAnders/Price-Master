@@ -1,6 +1,5 @@
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { db } from "@/config/firebase";
 import { generateMovementNotificationEmail } from "../../../../services/email-templates/notificacion-movimiento";
+import { queueEmailFromClient } from "@/services/email-client";
 import type { FondoEntry } from "../../types";
 import type { ToastType } from "@/hooks/useToast";
 import {
@@ -55,20 +54,17 @@ export async function sendMovementNotification(
     });
 
     try {
-      const docRef = await addDoc(collection(db, "mail"), {
+      await queueEmailFromClient({
         to: provider.correonotifi,
         subject: emailContent.subject,
         text: emailContent.text,
         html: emailContent.html,
-        createdAt: serverTimestamp(),
       });
-      console.log(
-        `[MAIL-DOC] Documento creado en 'mail' para movimiento: ${docRef.id}`,
-      );
+      console.log("[MAIL-API] Correo de movimiento encolado por servidor");
       showToast("Correo de notificación enviado correctamente", "success");
     } catch (err) {
       console.error(
-        '[MAIL-DOC] Error creando documento en "mail" para movimiento:',
+        "[MAIL-API] Error encolando correo de movimiento:",
         err,
       );
       showToast("Error al enviar correo de notificación", "error");

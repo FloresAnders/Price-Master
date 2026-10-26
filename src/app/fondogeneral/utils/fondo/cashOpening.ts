@@ -1,7 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { db } from "@/config/firebase";
 import { getAuthoritativeNowISO } from "@/utils/serverTime";
+import { queueEmailFromClient } from "@/services/email-client";
 import {
   compressAuditHistory,
   formatByCurrency,
@@ -291,12 +290,11 @@ export async function handleConfirmCashOpening(
       for (const recipient of notificationRecipients) {
         if (!recipient) continue;
         try {
-          await addDoc(collection(db, "mail"), {
+          await queueEmailFromClient({
             to: recipient,
             subject: emailTemplate.subject,
             text: emailTemplate.text,
             html: emailTemplate.html,
-            createdAt: serverTimestamp(),
           });
         } catch (mailErr) {
           console.error("[APERTURA] Error enviando correo:", mailErr);

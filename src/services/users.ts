@@ -2,19 +2,10 @@ import { FirestoreService } from "./firestore";
 import { User } from "../types/firestore";
 import { getDefaultPermissions } from "../utils/permissions";
 import { hashPassword } from "../lib/auth/password";
-import {
-  collection,
-  doc,
-  getDocs,
-  limit,
-  onSnapshot,
-  orderBy,
-  query,
-  startAfter,
-  type DocumentData,
-  type QueryDocumentSnapshot,
+import type {
+  DocumentData,
+  QueryDocumentSnapshot,
 } from "firebase/firestore";
-import { db } from "@/config/firebase";
 
 const ARGON2_HASH_PREFIX = "$argon2";
 
@@ -52,6 +43,21 @@ export class UsersService {
     this.primaryAdminByOwnerCache.clear();
   }
 
+  private static async loadDirectory(userId?: string): Promise<User[]> {
+    const suffix = userId ? `?id=${encodeURIComponent(userId)}` : "";
+    const response = await fetch(`/api/users${suffix}`, {
+      method: "GET",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) {
+      throw new Error(`User directory request failed (${response.status})`);
+    }
+    const payload = (await response.json()) as { users?: User[] };
+    return Array.isArray(payload.users) ? payload.users : [];
+  }
+
   /**
    * Subscribe to real-time updates for a specific user
    * Returns an unsubscribe function to clean up the listener
@@ -61,37 +67,32 @@ export class UsersService {
     callback: (userData: User | null) => void,
     onError?: (error: Error) => void,
   ): () => void {
-    try {
-      const userDocRef = doc(db, this.COLLECTION_NAME, userId);
-
-      const unsubscribe = onSnapshot(
-        userDocRef,
-        (snapshot) => {
-          if (snapshot.exists()) {
-            callback({ id: snapshot.id, ...snapshot.data() } as User);
-          } else {
-            callback(null);
-          }
-        },
-        (error) => {
-          console.error("Error in user subscription:", error);
-          if (onError) onError(error);
-        },
-      );
-
-      return unsubscribe;
-    } catch (err) {
-      console.error("Error setting up user subscription:", err);
-      if (onError) onError(err as Error);
-      return () => {}; // Return empty cleanup function
-    }
+    let active = true;
+    const refresh = async () => {
+      try {
+        const user = await this.getUserById(userId);
+        if (active) callback(user);
+      } catch (error) {
+        console.error("Error refreshing user subscription:", error);
+        if (active && onError) onError(error as Error);
+      }
+    };
+    void refresh();
+    const intervalId = window.setInterval(refresh, 30_000);
+    const handleFocus = () => void refresh();
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", handleFocus);
+    };
   }
 
   /**
    * Get all users
    */
   static async getAllUsers(): Promise<User[]> {
-    return await FirestoreService.getAll(this.COLLECTION_NAME);
+    return await this.loadDirectory();
   }
   // Find users by role with optional actor validation
   static async findUsersByRole(
@@ -115,9 +116,9 @@ export class UsersService {
       role = maybeRole as "admin" | "user" | "superadmin";
     }
 
-    const users = await FirestoreService.query(this.COLLECTION_NAME, [
-      { field: "role", operator: "==", value: role },
-    ]);
+    const users = (await this.loadDirectory()).filter(
+      (user) => user.role === role,
+    );
 
     // Apply actor-based filters similar to other actor-aware methods
     if (actor?.role === "admin" || actor?.role === "user") {
@@ -155,9 +156,9 @@ export class UsersService {
   ): Promise<User[]> {
     if (!actor) return [];
     if (actor.role === "superadmin") {
-      return (await FirestoreService.query(this.COLLECTION_NAME, [
-        { field: "role", operator: "in", value: ["admin", "superadmin"] },
-      ])) as User[];
+      return (await this.loadDirectory()).filter(
+        (user) => user.role === "admin" || user.role === "superadmin",
+      );
     }
     const effectiveOwnerId = String(
       actor.role === "admin" && actor.eliminate === false
@@ -165,9 +166,7 @@ export class UsersService {
         : actor.ownerId || "",
     ).trim();
     if (!effectiveOwnerId) return [];
-    const users = (await FirestoreService.query(this.COLLECTION_NAME, [
-      { field: "ownerId", operator: "==", value: effectiveOwnerId },
-    ])) as User[];
+    const users = await this.loadDirectory();
     return users.filter((user) => user.role !== "superadmin");
   }
 
@@ -175,7 +174,7 @@ export class UsersService {
    * Get user by ID
    */
   static async getUserById(id: string): Promise<User | null> {
-    return await FirestoreService.getById(this.COLLECTION_NAME, id);
+    return (await this.loadDirectory(id))[0] ?? null;
   }
 
   /**
@@ -214,26 +213,20 @@ export class UsersService {
   ): Promise<User | null> {
     let directCandidate: User | null = null;
     try {
-      directCandidate = await this.getUserById(normalized);
-      if (directCandidate?.role === "admin") {
-        const directEmail =
-          typeof directCandidate.email === "string"
-            ? directCandidate.email.trim()
-            : "";
-        if (directEmail.length > 0) {
-          return directCandidate;
-        }
-      }
-    } catch (error) {
-      console.error("Error retrieving owner admin by id:", error);
-    }
+      const users = await this.loadDirectory();
+      directCandidate =
+        users.find((user) => user.id === normalized && user.role === "admin") ??
+        null;
+      const directEmail =
+        typeof directCandidate?.email === "string"
+          ? directCandidate.email.trim()
+          : "";
+      if (directCandidate && directEmail.length > 0) return directCandidate;
 
-    try {
-      const usersRaw = await FirestoreService.query(this.COLLECTION_NAME, [
-        { field: "ownerId", operator: "==", value: normalized },
-      ]);
-      const adminCandidates = (usersRaw as User[]).filter(
-        (user) => user.role === "admin",
+      const adminCandidates = users.filter(
+        (user) =>
+          user.role === "admin" &&
+          String(user.ownerId || "").trim() === normalized,
       );
       if (adminCandidates.length === 0) {
         return directCandidate;
@@ -493,9 +486,9 @@ export class UsersService {
    */
   static async findUsersByLocation(location: string): Promise<User[]> {
     // Legacy function kept for compatibility, query by ownercompanie instead
-    return await FirestoreService.query(this.COLLECTION_NAME, [
-      { field: "ownercompanie", operator: "==", value: location },
-    ]);
+    return (await this.loadDirectory()).filter(
+      (user) => user.ownercompanie === location,
+    );
   }
   /**
    * Find users by role (actor-aware implementation exists earlier in file)
@@ -505,9 +498,9 @@ export class UsersService {
    * Get active users only
    */
   static async getActiveUsers(): Promise<User[]> {
-    return await FirestoreService.query(this.COLLECTION_NAME, [
-      { field: "isActive", operator: "==", value: true },
-    ]);
+    return (await this.loadDirectory()).filter(
+      (user) => user.isActive === true,
+    );
   }
 
   static async findActiveUserByUsername(username: string): Promise<User | null> {
@@ -515,13 +508,10 @@ export class UsersService {
     const normalized = this.normalizeUsername(trimmed);
     if (!normalized) return null;
 
-    const normalizedMatches = (await FirestoreService.query(
-      this.COLLECTION_NAME,
-      [{ field: "nameNormalized", operator: "==", value: normalized }],
-      undefined,
-      "asc",
-      5,
-    )) as User[];
+    const directory = await this.loadDirectory();
+    const normalizedMatches = directory.filter(
+      (candidate) => candidate.nameNormalized === normalized,
+    );
     const normalizedMatch = normalizedMatches.find(
       (candidate) => candidate.isActive !== false,
     );
@@ -536,13 +526,9 @@ export class UsersService {
       trimmed.toLocaleUpperCase(),
       titleCase,
     ].filter((value, index, values) => value && values.indexOf(value) === index);
-    const legacyMatches = (await FirestoreService.query(
-      this.COLLECTION_NAME,
-      [{ field: "name", operator: "in", value: legacyNames }],
-      undefined,
-      "asc",
-      10,
-    )) as User[];
+    const legacyMatches = directory.filter((candidate) =>
+      legacyNames.includes(candidate.name),
+    );
     const legacyMatch = legacyMatches.find(
       (candidate) =>
         candidate.isActive !== false &&
@@ -598,13 +584,12 @@ export class UsersService {
       options.limitCount > 0
         ? Math.trunc(options.limitCount)
         : undefined;
-    return await FirestoreService.query(
-      this.COLLECTION_NAME,
-      [],
-      "name",
-      "asc",
-      limitCount,
+    const users = (await this.loadDirectory()).sort((a, b) =>
+      String(a.name || "").localeCompare(String(b.name || ""), "es", {
+        sensitivity: "base",
+      }),
     );
+    return limitCount ? users.slice(0, limitCount) : users;
   }
 
   /**
@@ -620,22 +605,8 @@ export class UsersService {
     exhausted: boolean;
   }> {
     const pageSize = Math.max(1, Math.min(options?.pageSize ?? 100, 500));
-    const cursor = options?.cursor ?? null;
-    const constraints = [orderBy("name", "asc"), limit(pageSize)];
-    const q = cursor
-      ? query(
-          collection(db, this.COLLECTION_NAME),
-          ...constraints,
-          startAfter(cursor),
-        )
-      : query(collection(db, this.COLLECTION_NAME), ...constraints);
-
-    const snap = await getDocs(q);
-    const items = snap.docs.map(
-      (item) => ({ id: item.id, ...item.data() }) as User,
-    );
-    const nextCursor = snap.docs[snap.docs.length - 1] ?? cursor;
-    return { items, cursor: nextCursor, exhausted: snap.size < pageSize };
+    const items = await this.getUsersOrderedByName({ limitCount: pageSize });
+    return { items, cursor: null, exhausted: items.length < pageSize };
   }
   /**
    * Search users by name or location

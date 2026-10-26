@@ -3,6 +3,7 @@ import { onRequest } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import admin from 'firebase-admin';
 import nodemailer from 'nodemailer';
+import { normalizeEmailJob } from './modules/email.js';
 import {
   onMovementWrite as defaultMovementWrite,
   onMovementWriteRestauracion,
@@ -324,20 +325,17 @@ export {
  * Procesa y envía el email usando nodemailer
  */
 export const handleEmailCreated = async (event) => {
-  const emailData = event.data.data();
+  const rawEmailData = event.data.data();
   const emailId = event.params.emailId;
   const emailRef = event.data.ref;
 
   console.log(`📧 Processing email ${emailId}:`, {
-    to: emailData.to,
-    subject: emailData.subject,
+    to: rawEmailData.to,
+    subject: rawEmailData.subject,
   });
 
   try {
-    // Validar datos requeridos
-    if (!emailData.to || !emailData.subject) {
-      throw new Error("Missing required email fields: to, subject");
-    }
+    const emailData = normalizeEmailJob(rawEmailData);
 
     // Configurar transporter de nodemailer
     const transporter = nodemailer.createTransport({
@@ -350,6 +348,8 @@ export const handleEmailCreated = async (event) => {
       maxConnections: 1,
       rateDelta: 20000,
       rateLimit: 5,
+      disableFileAccess: true,
+      disableUrlAccess: true,
     });
 
     // Preparar opciones del email
@@ -377,7 +377,6 @@ export const handleEmailCreated = async (event) => {
           </div>
         </div>
       `,
-      attachments: emailData.attachments || [],
       headers: {
         "X-Priority": "3",
         "X-MSMail-Priority": "Normal",

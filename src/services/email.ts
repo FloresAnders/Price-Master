@@ -1,19 +1,11 @@
 import { Timestamp } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/firebase-admin";
 
-interface EmailAttachment {
-  filename: string;
-  content: Buffer | string;
-  encoding?: string;
-  contentType?: string;
-}
-
 interface EmailOptions {
   to: string;
   subject: string;
   text: string;
   html?: string;
-  attachments?: EmailAttachment[];
 }
 
 export class EmailService {
@@ -40,10 +32,6 @@ export class EmailService {
       // Solo agregar campos opcionales si están definidos
       if (options.html !== undefined) {
         emailData.html = options.html;
-      }
-
-      if (options.attachments !== undefined && options.attachments.length > 0) {
-        emailData.attachments = options.attachments;
       }
 
       // Guardar en Firestore - esto disparará la Cloud Function

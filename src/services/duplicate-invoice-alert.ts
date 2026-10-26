@@ -1,15 +1,14 @@
 import {
-  addDoc,
   collection,
   getDocs,
   query,
-  serverTimestamp,
   where,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { buildDuplicateInvoiceAlertEmailTemplate } from "./email-templates/duplicate-invoice-alert";
 import { MovimientosFondosService } from "./movimientos-fondos";
 import { UsersService } from "./users";
+import { queueEmailFromClient } from "./email-client";
 
 type Currency = "CRC" | "USD";
 
@@ -228,16 +227,15 @@ export const sendDuplicateInvoiceAlertEmail = async (
 
     for (const recipient of recipients) {
       try {
-        const mailDoc = await addDoc(collection(db, "mail"), {
+        await queueEmailFromClient({
           to: recipient,
           subject: emailTemplate.subject,
           text: emailTemplate.text,
           html: emailTemplate.html,
-          createdAt: serverTimestamp(),
         });
 
         console.log(
-          `[INVOICE-DUPLICATE] Correo de alerta encolado para ${recipient}. mailId=${mailDoc.id}`,
+          `[INVOICE-DUPLICATE] Correo de alerta encolado para ${recipient}.`,
         );
       } catch (mailError) {
         console.error(

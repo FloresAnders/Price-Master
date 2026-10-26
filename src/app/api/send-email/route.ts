@@ -5,6 +5,7 @@ import {
   consumeRateLimit,
   requestClientKey,
 } from "@/lib/security/rate-limit.server";
+import { canQueueEmail } from "@/lib/email/authorization";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,17 +48,9 @@ const isRecipientAllowed = (email: string): boolean => {
   );
 };
 
-const canSendEmail = (user: {
-  role?: string;
-  permissions?: { mantenimiento?: boolean } | null;
-}): boolean =>
-  user.role === "admin" ||
-  user.role === "superadmin" ||
-  user.permissions?.mantenimiento === true;
-
 export async function GET(request: NextRequest) {
   const authenticated = await readAuthSession(request.headers.get("cookie"));
-  if (!authenticated?.user?.id || !canSendEmail(authenticated.user)) {
+  if (!authenticated?.user?.id || !canQueueEmail(authenticated.user)) {
     return NextResponse.json(
       { configured: false, error: "No autorizado." },
       { status: 401, headers: { "Cache-Control": "no-store" } },
@@ -73,7 +66,7 @@ export async function POST(request: NextRequest) {
   try {
     const authenticated = await readAuthSession(request.headers.get("cookie"));
     const user = authenticated?.user;
-    if (!user?.id || !canSendEmail(user)) {
+    if (!user?.id || !canQueueEmail(user)) {
       return NextResponse.json(
         { success: false, error: "No autorizado." },
         { status: 401, headers: { "Cache-Control": "no-store" } },

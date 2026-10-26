@@ -27,8 +27,7 @@ import {
   Mail,
   MessageSquare,
 } from "lucide-react";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { db } from "@/config/firebase";
+import { queueEmailFromClient } from "@/services/email-client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProviders } from "@/hooks/useProviders";
 import { useActorOwnership } from "@/hooks/useActorOwnership";
@@ -865,12 +864,11 @@ export function ProviderSection({ id }: { id?: string }) {
           createdAt,
         });
 
-        await addDoc(collection(db, "mail"), {
+        await queueEmailFromClient({
           to: toEmail,
           subject: emailContent.subject,
           text: emailContent.text,
           html: emailContent.html,
-          createdAt: serverTimestamp(),
         });
       } catch (err) {
         console.error(
