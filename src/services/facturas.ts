@@ -292,9 +292,11 @@ export class FacturasService {
     empresa: string,
     opts?: { limit?: number },
   ): Promise<FacturaMovement[]> {
+    const company = String(empresa || "").trim();
     const empresaId = this.buildEmpresaDocId(empresa);
     const q = query(
       collection(db, this.COLLECTION_NAME, empresaId, this.MOVEMENTS_SUBCOLLECTION),
+      where("empresa", "==", company),
       orderBy("createdAt", "desc"),
       limit(Math.max(1, Math.min(2000, opts?.limit ?? 500))),
     );
@@ -314,9 +316,11 @@ export class FacturasService {
       cursor?: QueryDocumentSnapshot<DocumentData> | null;
     },
   ): Promise<PendingFacturaPage> {
+    const company = String(empresa || "").trim();
     const empresaId = this.buildEmpresaDocId(empresa);
     const pageSize = Math.max(1, Math.min(50, opts?.pageSize ?? 50));
     const constraints: QueryConstraint[] = [
+      where("empresa", "==", company),
       where("isPendingForClosing", "==", true),
       orderBy("createdAt", "desc"),
     ];
@@ -354,8 +358,9 @@ export class FacturasService {
     empresa: string,
     opts?: { startIso?: string; endIso?: string; limit?: number },
   ): Promise<FacturaMovement[]> {
+    const company = String(empresa || "").trim();
     const empresaId = this.buildEmpresaDocId(empresa);
-    const constraints: QueryConstraint[] = [];
+    const constraints: QueryConstraint[] = [where("empresa", "==", company)];
 
     if (opts?.startIso) {
       constraints.push(where("createdAt", ">=", opts.startIso));

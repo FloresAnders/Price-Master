@@ -12,8 +12,11 @@ import {
   doc,
   getDoc,
   getDocs,
+  query,
   setDoc,
   Timestamp,
+  updateDoc,
+  where,
 } from "firebase/firestore";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -25,6 +28,12 @@ const claims = {
     role: "user",
     ownercompanie: "EMPRESA A",
     ownercompanieNormalized: "EMPRESA A",
+    permissions: {},
+  },
+  userB: {
+    role: "user",
+    ownercompanie: "EMPRESA B",
+    ownercompanieNormalized: "EMPRESA B",
     permissions: {},
   },
   fondoUser: {
@@ -42,6 +51,13 @@ const claims = {
   admin: {
     role: "admin",
     ownerId: "owner-a",
+    eliminate: false,
+    permissions: {},
+  },
+  adminB: {
+    role: "admin",
+    ownerId: "owner-b",
+    eliminate: false,
     permissions: {},
   },
   superadmin: {
@@ -114,6 +130,86 @@ describeWithEmulator("reglas Firestore por acceso y rol", () => {
       await setDoc(doc(context.firestore(), "reportes_movimientos", "reporte-1"), {
         empresa: "EMPRESA A",
       });
+      await setDoc(doc(context.firestore(), "empresas", "EMPRESA A"), {
+        ownerId: "owner-a",
+        name: "EMPRESA A",
+        ubicacion: "EMPRESA A",
+        empleados: [],
+      });
+      await setDoc(doc(context.firestore(), "empresas", "EMPRESA B"), {
+        ownerId: "owner-b",
+        name: "EMPRESA B",
+        ubicacion: "EMPRESA B",
+        empleados: [],
+      });
+      await setDoc(doc(context.firestore(), "empresas", "EMPRESA A2"), {
+        ownerId: "owner-a",
+        name: "EMPRESA A2",
+        ubicacion: "EMPRESA A2",
+        empleados: [],
+      });
+      await setDoc(doc(context.firestore(), "Facturas", "EMPRESA_A", "movements", "fac-a"), {
+        empresa: "EMPRESA A",
+        createdAt: "2026-10-26T08:00:00.000Z",
+        amount: 100,
+      });
+      await setDoc(doc(context.firestore(), "Facturas", "EMPRESA_B", "movements", "fac-b"), {
+        empresa: "EMPRESA B",
+        createdAt: "2026-10-26T08:00:00.000Z",
+        amount: 200,
+      });
+      await setDoc(doc(context.firestore(), "proveedores", "EMPRESA A"), {
+        company: "EMPRESA A",
+        nextCode: 2,
+      });
+      await setDoc(doc(context.firestore(), "proveedores", "EMPRESA A", "items", "0001"), {
+        code: "0001",
+        name: "PROVEEDOR A",
+        company: "EMPRESA A",
+        movementCount: 0,
+      });
+      await setDoc(doc(context.firestore(), "proveedores", "EMPRESA A", "names", "PROVEEDOR%20A"), {
+        code: "0001",
+        name: "PROVEEDOR A",
+      });
+      await setDoc(doc(context.firestore(), "proveedores", "EMPRESA B"), {
+        company: "EMPRESA B",
+        nextCode: 2,
+      });
+      await setDoc(doc(context.firestore(), "proveedores", "EMPRESA B", "items", "0001"), {
+        code: "0001",
+        name: "PROVEEDOR B",
+        company: "EMPRESA B",
+        movementCount: 0,
+      });
+      await setDoc(doc(context.firestore(), "proveedores", "EMPRESA B", "names", "PROVEEDOR%20B"), {
+        code: "0001",
+        name: "PROVEEDOR B",
+      });
+      await setDoc(doc(context.firestore(), "proveedores", "EMPRESA A2"), {
+        company: "EMPRESA A2",
+        nextCode: 2,
+      });
+      await setDoc(doc(context.firestore(), "proveedores", "EMPRESA A2", "items", "0001"), {
+        code: "0001",
+        name: "PROVEEDOR A2",
+        company: "EMPRESA A2",
+        movementCount: 0,
+      });
+      await setDoc(doc(context.firestore(), "MovimientosFondos", "ledger-test"), {
+        company: "EMPRESA A",
+      });
+      await setDoc(doc(context.firestore(), "MovimientosFondos", "ledger-test", "movements", "seed-a"), {
+        empresa: "EMPRESA A",
+        amountIngreso: 1,
+      });
+      await setDoc(doc(context.firestore(), "MovimientosFondos", "ledger-b"), {
+        company: "EMPRESA B",
+      });
+      await setDoc(doc(context.firestore(), "MovimientosFondos", "ledger-b", "movements", "seed-b"), {
+        empresa: "EMPRESA B",
+        amountIngreso: 2,
+      });
       await setDoc(
         doc(context.firestore(), "reportes_detalle", "reporte-1", "items", "mov-1"),
         { empresa: "EMPRESA A" },
@@ -176,6 +272,164 @@ describeWithEmulator("reglas Firestore por acceso y rol", () => {
         empresa: "EMPRESA A",
         amountIngreso: 1,
       }),
+    );
+  });
+
+  it("aísla facturas proveedores y fondos por empresa para usuarios", async () => {
+    const db = authenticated("user-a", claims.user).firestore();
+    const dbB = authenticated("user-b", claims.userB).firestore();
+
+    await assertSucceeds(
+      getDoc(doc(db, "Facturas", "EMPRESA_A", "movements", "fac-a")),
+    );
+    await assertFails(
+      getDoc(doc(db, "Facturas", "EMPRESA_B", "movements", "fac-b")),
+    );
+    await assertSucceeds(
+      getDoc(doc(db, "proveedores", "EMPRESA A", "items", "0001")),
+    );
+    await assertFails(
+      getDoc(doc(db, "proveedores", "EMPRESA B", "items", "0001")),
+    );
+    await assertFails(
+      getDoc(doc(db, "proveedores", "EMPRESA B", "names", "PROVEEDOR%20B")),
+    );
+    await assertSucceeds(
+      getDoc(doc(db, "MovimientosFondos", "ledger-test", "movements", "seed-a")),
+    );
+    await assertFails(
+      getDoc(doc(db, "MovimientosFondos", "ledger-b", "movements", "seed-b")),
+    );
+    await assertSucceeds(
+      getDoc(doc(dbB, "Facturas", "EMPRESA_B", "movements", "fac-b")),
+    );
+    await assertSucceeds(
+      getDoc(doc(dbB, "proveedores", "EMPRESA B", "items", "0001")),
+    );
+
+    await assertFails(
+      setDoc(doc(db, "proveedores", "EMPRESA B", "items", "0099"), {
+        code: "0099",
+        name: "ATAQUE",
+        company: "EMPRESA B",
+        movementCount: 0,
+      }),
+    );
+    await assertFails(
+      setDoc(doc(db, "Facturas", "EMPRESA_B", "movements", "attack"), {
+        empresa: "EMPRESA B",
+        createdAt: "2026-10-26T09:00:00.000Z",
+      }),
+    );
+    await assertFails(
+      setDoc(doc(db, "proveedores", "EMPRESA B", "names", "ATAQUE"), {
+        code: "0099",
+        name: "ATAQUE",
+      }),
+    );
+    await assertFails(
+      setDoc(doc(db, "MovimientosFondos", "ledger-b", "movements", "attack"), {
+        empresa: "EMPRESA B",
+        amountIngreso: 999,
+      }),
+    );
+    await assertFails(
+      setDoc(doc(db, "MovimientosFondos", "orphan", "movements", "attack"), {
+        empresa: "EMPRESA A",
+        amountIngreso: 999,
+      }),
+    );
+  });
+
+  it("permite al admin cambiar solo entre empresas de su owner", async () => {
+    const adminA = authenticated("admin-a", claims.admin).firestore();
+    const adminB = authenticated("admin-b", claims.adminB).firestore();
+
+    await assertSucceeds(
+      getDoc(doc(adminA, "proveedores", "EMPRESA A", "items", "0001")),
+    );
+    await assertSucceeds(
+      getDoc(doc(adminA, "proveedores", "EMPRESA A2", "items", "0001")),
+    );
+    await assertFails(
+      getDoc(doc(adminA, "proveedores", "EMPRESA B", "items", "0001")),
+    );
+    await assertFails(
+      getDoc(
+        doc(
+          authenticated("user-a", claims.user).firestore(),
+          "proveedores",
+          "EMPRESA A2",
+          "items",
+          "0001",
+        ),
+      ),
+    );
+    await assertSucceeds(
+      getDoc(doc(adminB, "MovimientosFondos", "ledger-b", "movements", "seed-b")),
+    );
+    await assertFails(
+      getDoc(doc(adminB, "MovimientosFondos", "ledger-test", "movements", "seed-a")),
+    );
+    await assertFails(
+      deleteDoc(doc(adminA, "Facturas", "EMPRESA_B", "movements", "fac-b")),
+    );
+  });
+
+  it("mantiene acceso global de superadmin", async () => {
+    const db = authenticated("root", claims.superadmin).firestore();
+
+    await assertSucceeds(
+      getDoc(doc(db, "Facturas", "EMPRESA_B", "movements", "fac-b")),
+    );
+    await assertSucceeds(
+      getDoc(doc(db, "proveedores", "EMPRESA B", "items", "0001")),
+    );
+    await assertSucceeds(
+      getDoc(doc(db, "MovimientosFondos", "ledger-b", "movements", "seed-b")),
+    );
+    await assertSucceeds(
+      updateDoc(doc(db, "empresas", "EMPRESA B"), { ownerId: "owner-a" }),
+    );
+  });
+
+  it("impide secuestrar ownerId o mover datos entre empresas", async () => {
+    const userDb = authenticated("user-a", claims.user).firestore();
+    const adminDb = authenticated("admin-a", claims.admin).firestore();
+
+    await assertFails(
+      updateDoc(doc(userDb, "empresas", "EMPRESA B"), { ownerId: "owner-a" }),
+    );
+    await assertFails(
+      updateDoc(doc(adminDb, "empresas", "EMPRESA A"), { ownerId: "owner-b" }),
+    );
+    await assertSucceeds(
+      updateDoc(doc(adminDb, "empresas", "EMPRESA A"), { name: "EMPRESA A EDITADA" }),
+    );
+    await assertFails(
+      updateDoc(doc(userDb, "Facturas", "EMPRESA_A", "movements", "fac-a"), {
+        empresa: "EMPRESA B",
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(userDb, "proveedores", "EMPRESA A", "items", "0001"), {
+        company: "EMPRESA B",
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(userDb, "MovimientosFondos", "ledger-test"), {
+        company: "EMPRESA B",
+      }),
+    );
+  });
+
+  it("exige filtro de empresa para listar facturas", async () => {
+    const db = authenticated("user-a", claims.user).firestore();
+    const movements = collection(db, "Facturas", "EMPRESA_A", "movements");
+
+    await assertFails(getDocs(movements));
+    await assertSucceeds(
+      getDocs(query(movements, where("empresa", "==", "EMPRESA A"))),
     );
   });
 

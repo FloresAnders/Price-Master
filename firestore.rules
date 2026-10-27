@@ -132,6 +132,116 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.role == 'admin';
     }
 
+    // ========================================================================
+    // ALCANCE MULTIEMPRESA
+    // ========================================================================
+    // `empresas/{empresaId}.ownerId` es la fuente autoritativa para admins.
+    // Usuarios regulares quedan limitados a `ownercompanie`; SuperAdmin puede
+    // operar globalmente. Cambiar un selector cliente nunca concede acceso.
+    function adminOwnsOwnerId(ownerId) {
+      return isRegularAdmin() &&
+        ownerId is string &&
+        ownerId.size() > 0 &&
+        ownerId.size() <= 128 &&
+        (
+          ownerId == request.auth.token.get('ownerId', '') ||
+          (
+            request.auth.token.get('eliminate', true) == false &&
+            ownerId == request.auth.uid
+          )
+        );
+    }
+
+    function canAccessCompany(companyId) {
+      return isSuperAdmin() ||
+        (
+          isSignedIn() &&
+          companyId is string &&
+          companyId.size() > 0 &&
+          companyId.size() <= 200 &&
+          (
+            (
+              request.auth.token.role == 'user' &&
+              companyId == request.auth.token.get('ownercompanie', '')
+            ) ||
+            (
+              isRegularAdmin() &&
+              exists(/databases/$(database)/documents/empresas/$(companyId)) &&
+              adminOwnsOwnerId(
+                get(/databases/$(database)/documents/empresas/$(companyId))
+                  .data.get('ownerId', '')
+              )
+            )
+          )
+        );
+    }
+
+    function isValidEmpresaAuthority(data) {
+      return data.get('ownerId', '') is string &&
+        data.get('ownerId', '').size() > 0 &&
+        data.get('ownerId', '').size() <= 128 &&
+        (!data.keys().hasAny(['name']) ||
+          (data.name is string && data.name.size() <= 200)) &&
+        (!data.keys().hasAny(['ubicacion']) ||
+          (data.ubicacion is string && data.ubicacion.size() <= 200));
+    }
+
+    function isValidFacturaScope(data) {
+      return data.get('empresa', '') is string &&
+        data.get('empresa', '').size() > 0 &&
+        data.get('empresa', '').size() <= 200;
+    }
+
+    function isValidProviderParent(empresaId, data) {
+      return data.get('company', '') is string &&
+        data.get('company', '') == empresaId &&
+        (!data.keys().hasAny(['nextCode']) ||
+          (data.nextCode is number && data.nextCode >= 0));
+    }
+
+    function isValidProviderItem(empresaId, data) {
+      return data.get('company', '') == empresaId &&
+        data.get('code', '') is string &&
+        data.get('code', '').size() > 0 &&
+        data.get('code', '').size() <= 40 &&
+        data.get('name', '') is string &&
+        data.get('name', '').size() > 0 &&
+        data.get('name', '').size() <= 300 &&
+        (!data.keys().hasAny(['movementCount']) ||
+          (data.movementCount is number && data.movementCount >= 0));
+    }
+
+    function isValidProviderName(data) {
+      return data.get('code', '') is string &&
+        data.get('code', '').size() > 0 &&
+        data.get('code', '').size() <= 40 &&
+        data.get('name', '') is string &&
+        data.get('name', '').size() > 0 &&
+        data.get('name', '').size() <= 300;
+    }
+
+    function isValidLedgerScope(data) {
+      return data.get('company', '') is string &&
+        data.get('company', '').size() > 0 &&
+        data.get('company', '').size() <= 200;
+    }
+
+    function canAccessLedger(docId) {
+      return exists(/databases/$(database)/documents/MovimientosFondos/$(docId)) &&
+        canAccessCompany(
+          get(/databases/$(database)/documents/MovimientosFondos/$(docId))
+            .data.get('company', '')
+        );
+    }
+
+    function canAccessLedgerAfter(docId) {
+      return existsAfter(/databases/$(database)/documents/MovimientosFondos/$(docId)) &&
+        canAccessCompany(
+          getAfter(/databases/$(database)/documents/MovimientosFondos/$(docId))
+            .data.get('company', '')
+        );
+    }
+
     function hasValidAnnouncementWindow(data) {
       return (data.startsAt == null || data.startsAt is timestamp) &&
         (data.endsAt == null || data.endsAt is timestamp) &&
@@ -529,9 +639,37 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /empresas/{empresaId} {
+      // Compatibilidad: la interfaz actual lista empresas antes de filtrar el
+      // selector. Las escrituras si quedan protegidas por ownerId.
+      allow read: if isSignedIn() || isCompatWindow();
+      allow create: if isValidEmpresaAuthority(request.resource.data) &&
+        (isSuperAdmin() ||
+          adminOwnsOwnerId(request.resource.data.ownerId));
+      allow update: if isValidEmpresaAuthority(request.resource.data) &&
+        (
+          isSuperAdmin() ||
+          (
+            adminOwnsOwnerId(resource.data.get('ownerId', '')) &&
+            request.resource.data.ownerId == resource.data.ownerId
+          )
+        );
+      allow delete: if isSuperAdmin() ||
+        adminOwnsOwnerId(resource.data.get('ownerId', ''));
+    }
+
     match /Facturas/{empresaId}/movements/{movementId} {
-      allow read, create, update: if isSignedIn() || isCompatWindow();
-      allow delete: if isAdmin();
+      allow read: if isValidFacturaScope(resource.data) &&
+        canAccessCompany(resource.data.empresa);
+      allow create: if isValidFacturaScope(request.resource.data) &&
+        canAccessCompany(request.resource.data.empresa);
+      allow update: if isValidFacturaScope(resource.data) &&
+        isValidFacturaScope(request.resource.data) &&
+        resource.data.empresa == request.resource.data.empresa &&
+        canAccessCompany(resource.data.empresa);
+      allow delete: if isAdmin() &&
+        isValidFacturaScope(resource.data) &&
+        canAccessCompany(resource.data.empresa);
     }
 
     match /anotaciones/{empresaId}/movements/{noteId} {
@@ -682,30 +820,70 @@ service cloud.firestore {
     }
 
     match /proveedores/{empresaId} {
-      allow read, write: if isSignedIn() || isCompatWindow();
+      allow read: if canAccessCompany(empresaId);
+      allow create: if canAccessCompany(empresaId) &&
+        isValidProviderParent(empresaId, request.resource.data);
+      allow update: if canAccessCompany(empresaId) &&
+        isValidProviderParent(empresaId, resource.data) &&
+        isValidProviderParent(empresaId, request.resource.data) &&
+        request.resource.data.company == resource.data.company;
+      allow delete: if canAccessCompany(empresaId) &&
+        isValidProviderParent(empresaId, resource.data);
 
       match /items/{providerCode} {
-        allow read, write: if isSignedIn() || isCompatWindow();
+        allow read: if canAccessCompany(empresaId);
+        allow create: if canAccessCompany(empresaId) &&
+          isValidProviderItem(empresaId, request.resource.data);
+        allow update: if canAccessCompany(empresaId) &&
+          isValidProviderItem(empresaId, resource.data) &&
+          isValidProviderItem(empresaId, request.resource.data) &&
+          request.resource.data.company == resource.data.company;
+        allow delete: if canAccessCompany(empresaId) &&
+          isValidProviderItem(empresaId, resource.data);
+      }
+
+      match /names/{nameKey} {
+        allow read: if canAccessCompany(empresaId);
+        allow create, update: if canAccessCompany(empresaId) &&
+          isValidProviderName(request.resource.data);
+        allow delete: if canAccessCompany(empresaId) &&
+          isValidProviderName(resource.data);
       }
     }
 
     match /MovimientosFondos/{docId} {
-      allow read, write: if isSignedIn() || isCompatWindow();
+      allow read: if isValidLedgerScope(resource.data) &&
+        canAccessCompany(resource.data.company);
+      allow create: if isValidLedgerScope(request.resource.data) &&
+        canAccessCompany(request.resource.data.company);
+      allow update: if isValidLedgerScope(resource.data) &&
+        isValidLedgerScope(request.resource.data) &&
+        canAccessCompany(resource.data.company) &&
+        canAccessCompany(request.resource.data.get('company', '')) &&
+        request.resource.data.company == resource.data.company;
+      allow delete: if isValidLedgerScope(resource.data) &&
+        canAccessCompany(resource.data.company);
 
       match /movements/{movementId} {
-        allow read, write: if isSignedIn() || isCompatWindow();
+        allow read, delete: if canAccessLedger(docId);
+        allow create, update: if canAccessLedgerAfter(docId);
       }
 
       match /cajanegra/{movementId} {
-        allow read, write: if isSignedIn() || isCompatWindow();
+        allow read, delete: if canAccessLedger(docId);
+        allow create, update: if canAccessLedgerAfter(docId);
       }
 
       match /tucan/{movementId} {
-        allow read, write: if isSignedIn() || isCompatWindow();
+        allow read, delete: if canAccessLedger(docId);
+        allow create, update: if canAccessLedgerAfter(docId);
       }
 
       match /tiempos/{movementId} {
-        allow read, write: if hasTiemposPermission();
+        allow read, delete: if hasTiemposPermission() &&
+          canAccessLedger(docId);
+        allow create, update: if hasTiemposPermission() &&
+          canAccessLedgerAfter(docId);
       }
     }
 
@@ -1235,6 +1413,8 @@ service cloud.firestore {
         collection != 'registrotiempos' &&
         collection != 'pendingInvoiceDeletionRequests' &&
         collection != 'Facturas' &&
+        collection != 'empresas' &&
+        collection != 'proveedores' &&
         collection != 'anotaciones' &&
         collection != 'internalDebts' &&
         collection != 'genteCrystalIntegrationDevices' &&
