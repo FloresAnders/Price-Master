@@ -43,7 +43,19 @@ export function reconcileClosing(input: ReconciliationInput): ClosingReconciliat
   );
   const r08 = money(input.r08), t11 = money(input.t11);
   const tucan = money(input.tucanCumulative), tiempos = money(input.tiemposCumulative);
-  if (tucan < prevTucan || tiempos < prevTiempos) throw new Error("Reporte acumulado actual no puede ser menor al anterior.");
+  if (tucan < prevTucan || tiempos < prevTiempos) {
+    const reportErrors = [
+      "REPORTE ACUMULADO ACTUAL NO PUEDE SER MENOR AL ANTERIOR.",
+      ...(tiempos < prevTiempos
+        ? [`El acumulado de tiempos no puede ser ${tiempos}`]
+        : []),
+      ...(tucan < prevTucan
+        ? [`El acumulado de tucan no puede ser ${tucan}`]
+        : []),
+      "REVISAR LOS ACUMULADOS EN LAS PAGINAS CORRESPONDIENTES.",
+    ];
+    throw new Error(reportErrors.join("\n"));
+  }
   const tucanForShift = tucan - prevTucan;
   const tiemposForShift = tiempos - prevTiempos;
   const tucanDifference = reportableDifference(r08 - tucanForShift);
