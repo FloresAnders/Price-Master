@@ -22,6 +22,7 @@
     .map(([key]) => key);
   const CLOSE_ENABLED_KEY = "tmhCerrarImpresionConticaEnabled";
   const CLOSE_DELAY_KEY = "tmhCerrarImpresionConticaDelaySeconds";
+  const CLOSE_MESSAGE_KEY = "tmhCerrarImpresionConticaMessage";
 
   function createPopupController(documentRef, chromeApi) {
     const values = { ...settings.DEFAULT_SETTINGS };
@@ -43,7 +44,10 @@
       status.dataset.enabled = String(enabled);
       if (errorMessage) status.dataset.error = "true";
       else delete status.dataset.error;
-      if (key === CLOSE_ENABLED_KEY) renderDelay(values[CLOSE_DELAY_KEY]);
+      if (key === CLOSE_ENABLED_KEY) {
+        renderDelay(values[CLOSE_DELAY_KEY]);
+        renderMessage(values[CLOSE_MESSAGE_KEY]);
+      }
     }
 
     function delayElements() {
@@ -57,6 +61,21 @@
       const { input, status } = delayElements();
       if (!input || !status) return;
       input.value = String(seconds);
+      input.disabled = values[CLOSE_ENABLED_KEY] !== true;
+      status.textContent = errorMessage;
+    }
+
+    function messageElements() {
+      return {
+        input: documentRef.getElementById(`${CLOSE_MESSAGE_KEY}-input`),
+        status: documentRef.getElementById(`${CLOSE_MESSAGE_KEY}-status`),
+      };
+    }
+
+    function renderMessage(message, errorMessage = "") {
+      const { input, status } = messageElements();
+      if (!input || !status) return;
+      input.value = message;
       input.disabled = values[CLOSE_ENABLED_KEY] !== true;
       status.textContent = errorMessage;
     }
@@ -111,11 +130,39 @@
       listeners.set(CLOSE_DELAY_KEY, handleChange);
     }
 
+    function bindMessage() {
+      const { input } = messageElements();
+      if (!input) return;
+
+      const handleChange = () => {
+        const previous = values[CLOSE_MESSAGE_KEY];
+        const next = input.value.trim();
+        if (!next) {
+          renderMessage(previous, "Escriba un mensaje");
+          return;
+        }
+
+        input.disabled = true;
+        chromeApi.storage.local.set({ [CLOSE_MESSAGE_KEY]: next }, () => {
+          if (chromeApi.runtime.lastError) {
+            renderMessage(previous, "Error al guardar");
+            return;
+          }
+          values[CLOSE_MESSAGE_KEY] = next;
+          renderMessage(next);
+        });
+      };
+
+      input.addEventListener("change", handleChange);
+      listeners.set(CLOSE_MESSAGE_KEY, handleChange);
+    }
+
     function start() {
       if (started) return;
       started = true;
       for (const key of keys) bind(key);
       bindDelay();
+      bindMessage();
       chromeApi.storage.local.get(settings.DEFAULT_SETTINGS, (stored) => {
         const normalized = settings.normalizeSettings(stored);
         Object.assign(values, normalized);
@@ -123,6 +170,7 @@
           render(key, normalized[key]);
         }
         renderDelay(normalized[CLOSE_DELAY_KEY]);
+        renderMessage(normalized[CLOSE_MESSAGE_KEY]);
       });
     }
 
@@ -131,6 +179,8 @@
       for (const [key, listener] of listeners) {
         if (key === CLOSE_DELAY_KEY) {
           delayElements().input?.removeEventListener("change", listener);
+        } else if (key === CLOSE_MESSAGE_KEY) {
+          messageElements().input?.removeEventListener("change", listener);
         } else {
           elements(key).toggle?.removeEventListener("change", listener);
         }

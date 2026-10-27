@@ -11,6 +11,8 @@
     tmhCambioTabEnabled: true,
     tmhCerrarImpresionConticaEnabled: false,
     tmhCerrarImpresionConticaDelaySeconds: 5,
+    tmhCerrarImpresionConticaMessage:
+      "Recuerde consultar si desea la factura impresa",
     tmhDividirEfectivoEnabled: false,
     tmhMoverPagoEnabled: false,
     tmhSumaTiemposEnabled: true,
@@ -26,9 +28,13 @@
           ? typeof raw?.[key] === "boolean"
             ? raw[key]
             : fallback
-          : Number.isInteger(raw?.[key]) && raw[key] >= 1
-            ? raw[key]
-            : fallback,
+          : typeof fallback === "number"
+            ? Number.isInteger(raw?.[key]) && raw[key] >= 1
+              ? raw[key]
+              : fallback
+            : typeof raw?.[key] === "string" && raw[key].trim()
+              ? raw[key].trim()
+              : fallback,
       ]),
     );
   }
@@ -43,10 +49,16 @@
     return Number.isInteger(next) && next >= 1 ? next : undefined;
   }
 
+  function readChangedNonEmptyString(changes, key) {
+    const next = changes?.[key]?.newValue;
+    return typeof next === "string" && next.trim() ? next.trim() : undefined;
+  }
+
   return {
     DEFAULT_SETTINGS,
     normalizeSettings,
     readChangedSetting,
     readChangedPositiveInteger,
+    readChangedNonEmptyString,
   };
 });

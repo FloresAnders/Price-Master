@@ -207,6 +207,47 @@ h1 {
   text-align: right;
 }
 
+.message-field {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #e8ecf3;
+  color: #596277;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.message-field textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid #c7cfdd;
+  border-radius: 7px;
+  padding: 7px;
+  color: #172033;
+  font: inherit;
+  line-height: 1.35;
+}
+
+.message-field textarea:focus-visible {
+  border-color: #168a52;
+  outline: 3px solid rgb(22 138 82 / 18%);
+}
+
+.message-field textarea:disabled {
+  resize: none;
+  background: #eef1f6;
+  color: #8992a3;
+}
+
+.message-field__status {
+  min-height: 13px;
+  color: #a32323;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: right;
+}
+
 .hint {
   margin: 14px 2px 0;
   color: #68738a;

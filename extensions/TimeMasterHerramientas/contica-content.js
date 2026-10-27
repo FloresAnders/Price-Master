@@ -44,6 +44,8 @@
   const CERRAR_IMPRESION_SETTING_KEY = "tmhCerrarImpresionConticaEnabled";
   const CERRAR_IMPRESION_DELAY_SETTING_KEY =
     "tmhCerrarImpresionConticaDelaySeconds";
+  const CERRAR_IMPRESION_MESSAGE_SETTING_KEY =
+    "tmhCerrarImpresionConticaMessage";
   const DIVIDIR_EFECTIVO_SETTING_KEY = "tmhDividirEfectivoEnabled";
   const MOVER_PAGO_SETTING_KEY = "tmhMoverPagoEnabled";
 
@@ -60,6 +62,7 @@
       start() {},
       stop() {},
       setDelaySeconds() {},
+      setMessage() {},
     };
     const cashDivider = cashDivisionController || { start() {}, stop() {} };
     const paymentShortcut = paymentShortcutController || {
@@ -83,6 +86,10 @@
 
     function applyCerrarImpresionDelay(seconds) {
       modalCloser.setDelaySeconds?.(seconds);
+    }
+
+    function applyCerrarImpresionMessage(message) {
+      modalCloser.setMessage?.(message);
     }
 
     function applyDividirEfectivoEnabled(enabled) {
@@ -115,6 +122,17 @@
           changedDuringInitialLoad.add(CERRAR_IMPRESION_DELAY_SETTING_KEY);
         }
         applyCerrarImpresionDelay(cerrarImpresionDelay);
+      }
+
+      const cerrarImpresionMessage = settingsCore.readChangedNonEmptyString(
+        changes,
+        CERRAR_IMPRESION_MESSAGE_SETTING_KEY,
+      );
+      if (cerrarImpresionMessage !== undefined) {
+        if (!settingsLoaded) {
+          changedDuringInitialLoad.add(CERRAR_IMPRESION_MESSAGE_SETTING_KEY);
+        }
+        applyCerrarImpresionMessage(cerrarImpresionMessage);
       }
 
       const cerrarImpresionEnabled = settingsCore.readChangedSetting(
@@ -169,6 +187,13 @@
         ) {
           applyCerrarImpresionDelay(
             normalized[CERRAR_IMPRESION_DELAY_SETTING_KEY],
+          );
+        }
+        if (
+          !changedDuringInitialLoad.has(CERRAR_IMPRESION_MESSAGE_SETTING_KEY)
+        ) {
+          applyCerrarImpresionMessage(
+            normalized[CERRAR_IMPRESION_MESSAGE_SETTING_KEY],
           );
         }
         if (!changedDuringInitialLoad.has(CERRAR_IMPRESION_SETTING_KEY)) {

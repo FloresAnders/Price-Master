@@ -55,6 +55,11 @@ describe("tiempo configurable del cierre de impresión en Contica", () => {
     expect(click).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(click).toHaveBeenCalledTimes(1);
+    expect(
+      Boolean(
+        dom.window.document.querySelector("[data-tmh-print-reminder]"),
+      ),
+    ).toBe(false);
 
     controller.stop();
     dom.window.close();
@@ -200,5 +205,204 @@ describe("tiempo configurable del cierre de impresión en Contica", () => {
     expect(calls).toEqual(["delay:2", "start", "delay:1"]);
 
     controller.destroy();
+  });
+
+  it("muestra el recordatorio configurable solo mientras el modal espera cierre", async () => {
+    vi.useFakeTimers();
+    const dom = new JSDOM(`
+      <div id="printInvoice" class="modal in" aria-modal="true" style="display: block">
+        <button class="esc-button" data-dismiss="modal">X [ESC]</button>
+      </div>
+    `);
+    const controller = load("cerrarimpresioncontica-core.js")
+      .createPrintInvoiceCloser(dom.window.document);
+
+    controller.setMessage("¿Desea la factura impresa?");
+    controller.start();
+
+    const reminder = dom.window.document.querySelector(
+      "[data-tmh-print-reminder]",
+    );
+    expect(reminder?.textContent).toContain("¿Desea la factura impresa?");
+    expect(reminder?.getAttribute("role")).toBe("status");
+
+    controller.setMessage("Mensaje actualizado");
+    expect(reminder?.textContent).toContain("Mensaje actualizado");
+
+    const modal = dom.window.document.getElementById("printInvoice")!;
+    modal.style.display = "none";
+    modal.classList.remove("in");
+    modal.setAttribute("aria-hidden", "true");
+    await Promise.resolve();
+
+    expect(
+      dom.window.document.querySelector("[data-tmh-print-reminder]"),
+    ).toBeNull();
+
+    modal.style.display = "block";
+    modal.classList.add("in");
+    modal.setAttribute("aria-hidden", "false");
+    await Promise.resolve();
+    expect(
+      Boolean(
+        dom.window.document.querySelector("[data-tmh-print-reminder]"),
+      ),
+    ).toBe(true);
+
+    controller.stop();
+    expect(
+      Boolean(
+        dom.window.document.querySelector("[data-tmh-print-reminder]"),
+      ),
+    ).toBe(false);
+    dom.window.close();
+  });
+
+  it("normaliza el mensaje y usa el texto predeterminado ante valores vacíos", () => {
+    const settings = load("settings-core.js");
+
+    expect(settings.normalizeSettings({})).toMatchObject({
+      tmhCerrarImpresionConticaMessage:
+        "Recuerde consultar si desea la factura impresa",
+    });
+    expect(
+      settings.normalizeSettings({
+        tmhCerrarImpresionConticaMessage: "  Factura física o digital  ",
+      }).tmhCerrarImpresionConticaMessage,
+    ).toBe("Factura física o digital");
+    for (const invalid of ["", "   ", null, 123]) {
+      expect(
+        settings.normalizeSettings({
+          tmhCerrarImpresionConticaMessage: invalid,
+        }).tmhCerrarImpresionConticaMessage,
+      ).toBe("Recuerde consultar si desea la factura impresa");
+    }
+  });
+
+  it("muestra y guarda el mensaje desde el popup", () => {
+    const dom = new JSDOM(
+      readFileSync(resolve(extensionDir, "popup.html"), "utf8"),
+    );
+    const writes: Record<string, unknown>[] = [];
+    const chromeApi = {
+      storage: {
+        local: {
+          get(
+            defaults: Record<string, unknown>,
+            callback: (values: Record<string, unknown>) => void,
+          ) {
+            callback({
+              ...defaults,
+              tmhCerrarImpresionConticaEnabled: true,
+              tmhCerrarImpresionConticaMessage: "Factura física o digital",
+            });
+          },
+          set(values: Record<string, unknown>, callback: () => void) {
+            writes.push(values);
+            callback();
+          },
+        },
+      },
+      runtime: { lastError: null },
+    };
+    const controller = load("popup.js").createPopupController(
+      dom.window.document,
+      chromeApi,
+    );
+
+    controller.start();
+    const input = dom.window.document.getElementById(
+      "tmhCerrarImpresionConticaMessage-input",
+    ) as HTMLTextAreaElement;
+    expect(input.value).toBe("Factura física o digital");
+    expect(input.disabled).toBe(false);
+
+    input.value = "Impresión o correo";
+    input.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+    expect(writes).toContainEqual({
+      tmhCerrarImpresionConticaMessage: "Impresión o correo",
+    });
+
+    const toggle = dom.window.document.getElementById(
+      "tmhCerrarImpresionConticaEnabled-toggle",
+    ) as HTMLInputElement;
+    toggle.checked = false;
+    toggle.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+    expect(input.disabled).toBe(true);
+
+    controller.destroy();
+    dom.window.close();
+  });
+
+  it("aplica el mensaje guardado y sus cambios al recordatorio de Contica", () => {
+    type StorageListener = (
+      changes: Record<string, { newValue?: unknown }>,
+      areaName: string,
+    ) => void;
+    const listeners = new Set<StorageListener>();
+    const storage = {
+      local: {
+        get(
+          defaults: Record<string, unknown>,
+          callback: (values: Record<string, unknown>) => void,
+        ) {
+          callback({
+            ...defaults,
+            tmhCambioTabEnabled: false,
+            tmhCerrarImpresionConticaEnabled: true,
+            tmhCerrarImpresionConticaMessage: "Mensaje inicial",
+          });
+        },
+      },
+      onChanged: {
+        addListener(listener: StorageListener) {
+          listeners.add(listener);
+        },
+        removeListener(listener: StorageListener) {
+          listeners.delete(listener);
+        },
+      },
+    };
+    const messages: string[] = [];
+    const controller = load("contica-content.js").createConticaController({
+      storage,
+      settings: load("settings-core.js"),
+      tabController: { start() {}, stop() {} },
+      printInvoiceCloser: {
+        setDelaySeconds() {},
+        setMessage(message: string) {
+          messages.push(message);
+        },
+        start() {},
+        stop() {},
+      },
+    });
+
+    controller.start();
+    expect(messages).toEqual(["Mensaje inicial"]);
+
+    for (const listener of listeners) {
+      listener(
+        { tmhCerrarImpresionConticaMessage: { newValue: "Mensaje nuevo" } },
+        "local",
+      );
+    }
+    expect(messages).toEqual(["Mensaje inicial", "Mensaje nuevo"]);
+
+    controller.destroy();
+  });
+
+  it("incluye los estilos del recordatorio en el contenido de Contica", () => {
+    const manifest = JSON.parse(
+      readFileSync(resolve(extensionDir, "manifest.json"), "utf8"),
+    );
+    const conticaScript = manifest.content_scripts.find(
+      (script: { matches?: string[] }) =>
+        script.matches?.includes(
+          "https://contica.app/app/modules/punto_de_venta/*",
+        ),
+    );
+
+    expect(conticaScript?.css).toContain("contica-content.css");
   });
 });

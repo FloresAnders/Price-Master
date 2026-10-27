@@ -8,6 +8,7 @@
   "use strict";
 
   const DEFAULT_CLOSE_DELAY_SECONDS = 5;
+  const DEFAULT_MESSAGE = "Recuerde consultar si desea la factura impresa";
   const MODAL_SELECTOR = "#printInvoice";
   const CLOSE_BUTTON_SELECTOR =
     '.esc-button[data-dismiss="modal"]';
@@ -29,6 +30,30 @@
     let timerId = null;
     let activeModal = null;
     let observer = null;
+    let message = DEFAULT_MESSAGE;
+    let reminder = null;
+
+    function removeReminder() {
+      reminder?.remove();
+      reminder = null;
+    }
+
+    function showReminder() {
+      removeReminder();
+      reminder = documentRef.createElement("aside");
+      reminder.className = "tmh-print-reminder";
+      reminder.dataset.tmhPrintReminder = "";
+      reminder.setAttribute("role", "status");
+      reminder.setAttribute("aria-live", "polite");
+
+      const title = documentRef.createElement("strong");
+      title.textContent = "Recordatorio";
+      const text = documentRef.createElement("span");
+      text.dataset.tmhPrintReminderText = "";
+      text.textContent = message;
+      reminder.append(title, text);
+      documentRef.body?.append(reminder);
+    }
 
     function cancelTimer() {
       if (timerId === null) return;
@@ -42,12 +67,15 @@
 
       cancelTimer();
       activeModal = null;
+      removeReminder();
       if (!isOpen(modal)) return;
 
       activeModal = modal;
+      showReminder();
       timerId = setTimeout(() => {
         timerId = null;
         if (activeModal !== modal || !isOpen(modal)) return;
+        removeReminder();
         modal.querySelector(CLOSE_BUTTON_SELECTOR)?.click();
       }, closeDelayMs);
     }
@@ -62,6 +90,13 @@
       cancelTimer();
       activeModal = null;
       evaluate();
+    }
+
+    function setMessage(nextMessage) {
+      if (typeof nextMessage !== "string" || !nextMessage.trim()) return;
+      message = nextMessage.trim();
+      const text = reminder?.querySelector("[data-tmh-print-reminder-text]");
+      if (text) text.textContent = message;
     }
 
     function start() {
@@ -82,9 +117,10 @@
       observer = null;
       cancelTimer();
       activeModal = null;
+      removeReminder();
     }
 
-    return { start, stop, setDelaySeconds };
+    return { start, stop, setDelaySeconds, setMessage };
   }
 
   return { createPrintInvoiceCloser };

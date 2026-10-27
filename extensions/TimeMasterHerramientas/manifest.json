@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TimeMaster Herramientas",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Atajos para Contica y Gente Crystal, incluyendo movimiento rápido entre medios de pago.",
   "permissions": ["storage"],
   "icons": {
@@ -21,6 +21,7 @@
         "moverpago-core.js",
         "contica-content.js"
       ],
+      "css": ["contica-content.css"],
       "run_at": "document_idle"
     },
     {

@@ -1,0 +1,40 @@
+.tmh-print-reminder {
+  position: fixed;
+  z-index: 100000;
+  top: 50%;
+  right: 24px;
+  display: grid;
+  width: min(320px, calc(100vw - 48px));
+  gap: 8px;
+  border: 1px solid #e4b43c;
+  border-left: 6px solid #e4a11b;
+  border-radius: 10px;
+  padding: 16px 18px;
+  transform: translateY(-50%);
+  background: #fff8dc;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 22%);
+  color: #43330d;
+  font-family: "Segoe UI", Arial, sans-serif;
+  pointer-events: none;
+}
+
+.tmh-print-reminder strong {
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.tmh-print-reminder span {
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+@media (max-width: 900px) {
+  .tmh-print-reminder {
+    top: auto;
+    right: 16px;
+    bottom: 16px;
+    left: 16px;
+    width: auto;
+    transform: none;
+  }
+}

@@ -1,4 +1,4 @@
-TIMEMASTER HERRAMIENTAS 1.0.5
+TIMEMASTER HERRAMIENTAS 1.0.6
 ================================
 
 Esta extensión reúne CambioTab, división de efectivo, movimiento entre medios
@@ -47,6 +47,10 @@ adelante; el valor inicial es 5 segundos. La extensión detecta cada apertura de
 #printInvoice, espera el tiempo configurado y pulsa una sola vez el botón X / ESC
 del mismo modal. La espera se cancela si el modal se cierra antes o si la
 herramienta se desactiva.
+
+Mientras transcurre la espera, muestra un recordatorio lateral con el mensaje
+inicial "Recuerde consultar si desea la factura impresa". El texto puede
+cambiarse desde el popup de la extensión y se guarda para las siguientes ventas.
 
 DIVISIÓN DE EFECTIVO EN CONTICA
 -------------------------------
