@@ -34,6 +34,37 @@ const reportableDifference = (value: number) =>
   Math.abs(value) < MINIMUM_REPORTABLE_RECONCILIATION_DIFFERENCE ? 0 : value;
 const matched = (value: number) => Math.abs(value) <= RECONCILIATION_TOLERANCE;
 
+type CumulativeReportErrorInput = {
+  tucan: number;
+  tiempos: number;
+  previousTucan: number | null;
+  previousTiempos: number | null;
+  formatValue?: (value: number) => string;
+};
+
+export function buildCumulativeReportErrorMessage({
+  tucan,
+  tiempos,
+  previousTucan,
+  previousTiempos,
+  formatValue = (value) => String(value),
+}: CumulativeReportErrorInput): string | null {
+  const tiemposIsLower = previousTiempos !== null && tiempos < previousTiempos;
+  const tucanIsLower = previousTucan !== null && tucan < previousTucan;
+  if (!tiemposIsLower && !tucanIsLower) return null;
+
+  return [
+    "REPORTE ACUMULADO ACTUAL NO PUEDE SER MENOR AL ANTERIOR.",
+    ...(tiemposIsLower
+      ? [`El acumulado de tiempos no puede ser ${formatValue(tiempos)}`]
+      : []),
+    ...(tucanIsLower
+      ? [`El acumulado de tucan no puede ser ${formatValue(tucan)}`]
+      : []),
+    "REVISAR LOS ACUMULADOS EN LAS PAGINAS CORRESPONDIENTES.",
+  ].join("\n");
+}
+
 export function reconcileClosing(input: ReconciliationInput): ClosingReconciliation {
   const previous = input.previous;
   const prevTucan = money(previous?.externalSnapshots.tucanCumulative ?? 0);
@@ -43,19 +74,13 @@ export function reconcileClosing(input: ReconciliationInput): ClosingReconciliat
   );
   const r08 = money(input.r08), t11 = money(input.t11);
   const tucan = money(input.tucanCumulative), tiempos = money(input.tiemposCumulative);
-  if (tucan < prevTucan || tiempos < prevTiempos) {
-    const reportErrors = [
-      "REPORTE ACUMULADO ACTUAL NO PUEDE SER MENOR AL ANTERIOR.",
-      ...(tiempos < prevTiempos
-        ? [`El acumulado de tiempos no puede ser ${tiempos}`]
-        : []),
-      ...(tucan < prevTucan
-        ? [`El acumulado de tucan no puede ser ${tucan}`]
-        : []),
-      "REVISAR LOS ACUMULADOS EN LAS PAGINAS CORRESPONDIENTES.",
-    ];
-    throw new Error(reportErrors.join("\n"));
-  }
+  const cumulativeReportError = buildCumulativeReportErrorMessage({
+    tucan,
+    tiempos,
+    previousTucan: prevTucan,
+    previousTiempos: prevTiempos,
+  });
+  if (cumulativeReportError) throw new Error(cumulativeReportError);
   const tucanForShift = tucan - prevTucan;
   const tiemposForShift = tiempos - prevTiempos;
   const tucanDifference = reportableDifference(r08 - tucanForShift);

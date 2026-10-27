@@ -27,7 +27,11 @@ import {
   SINGLE_CLOSING_REASON_MIN_LENGTH,
   validateSingleClosingReason,
 } from "../../utils/closing/singleClosingReason";
-import { reconcileClosing, type ClosingReconciliation } from "@/domain/reconciliation";
+import {
+  buildCumulativeReportErrorMessage,
+  reconcileClosing,
+  type ClosingReconciliation,
+} from "@/domain/reconciliation";
 import {
   getBillCountKeyAction,
   parseCashCountClipboard,
@@ -678,11 +682,15 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     if (hasZeroClosingReport) {
       return "No se puede guardar debido a la falta de R08, T11, Tucan y Tiempos";
     }
-    if (verificationActive && tucanBelowTurnoD) {
-      return `No se puede guardar: Tucan nocturno no puede ser menor al turno D (${formatCurrency("CRC", storedTucanTurnoD ?? 0)}).`;
-    }
-    if (verificationActive && tiemposBelowTurnoD) {
-      return `No se puede guardar: Tiempos nocturno no puede ser menor al turno D (${formatCurrency("CRC", storedTiemposTurnoD ?? 0)}).`;
+    if (verificationActive) {
+      const cumulativeReportError = buildCumulativeReportErrorMessage({
+        tucan: tucanNum,
+        tiempos: tiemposNum,
+        previousTucan: storedTucanTurnoD,
+        previousTiempos: storedTiemposTurnoD,
+        formatValue: (value) => formatCurrency("CRC", value),
+      });
+      if (cumulativeReportError) return cumulativeReportError;
     }
     if (
       requireSingleClosingReason &&
@@ -698,9 +706,9 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     hasZeroClosingReport,
     turnoSelection,
     verificationActive,
-    tucanBelowTurnoD,
+    tucanNum,
     storedTucanTurnoD,
-    tiemposBelowTurnoD,
+    tiemposNum,
     storedTiemposTurnoD,
     formatCurrency,
     requireSingleClosingReason,
@@ -1907,7 +1915,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
               </button>
               {submitDisabled && submitDisabledReason ? (
                 <div
-                  className="pointer-events-none absolute bottom-full right-0 mb-2 w-72 rounded border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-200 opacity-0 shadow-lg transition-opacity group-hover:opacity-100"
+                  className="pointer-events-none absolute bottom-full right-0 mb-2 w-72 whitespace-pre-line rounded border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-200 opacity-0 shadow-lg transition-opacity group-hover:opacity-100"
                   role="tooltip"
                 >
                   {submitDisabledReason}

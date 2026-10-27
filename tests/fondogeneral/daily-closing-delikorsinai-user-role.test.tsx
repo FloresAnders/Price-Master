@@ -265,6 +265,62 @@ describe("cierre diario del rol user de DELIKOR SINAI", () => {
     );
   });
 
+  it("muestra en el bloqueo los acumulados digitados y no los del turno D", () => {
+    const closingDate = "2026-10-21T05:46:24.590Z";
+    window.localStorage.setItem(
+      "fondogeneral-daily-closing-tucan-turno-d-2026-10-21",
+      "10001",
+    );
+    window.localStorage.setItem(
+      "fondogeneral-daily-closing-tiempos-turno-d-2026-10-21",
+      "10001",
+    );
+
+    render(
+      <DailyClosingModal
+        open
+        onClose={vi.fn()}
+        onConfirm={vi.fn(async () => null)}
+        employees={[DELIKOR_SINAI_USER.manager]}
+        loadingEmployees={false}
+        managerReadonly
+        currentBalanceCRC={5_000}
+        currentBalanceUSD={0}
+        turno="N"
+        requireTurnoSelection={false}
+        cierreFondoVentasMinutesBeforeEnd={0}
+        cierreFondoVentasMinutesAfterEnd={0}
+        systemVerificationEnabled
+        initialValues={{
+          closingDate,
+          manager: DELIKOR_SINAI_USER.manager,
+          notes: "",
+          totalCRC: 5_000,
+          totalUSD: 0,
+          breakdownCRC: { 5_000: 1 },
+          breakdownUSD: {},
+          turno: "N",
+          r08: 5_000,
+          t11: 5_000,
+          tucanCumulative: 5_000,
+          tiemposCumulative: 5_000,
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Guardar cierre" })).toHaveProperty(
+      "disabled",
+      true,
+    );
+    expect(screen.getByRole("tooltip").textContent).toBe(
+      "REPORTE ACUMULADO ACTUAL NO PUEDE SER MENOR AL ANTERIOR.\n" +
+        "El acumulado de tiempos no puede ser ₡ 5\u00a0000\n" +
+        "El acumulado de tucan no puede ser ₡ 5\u00a0000\n" +
+        "REVISAR LOS ACUMULADOS EN LAS PAGINAS CORRESPONDIENTES.",
+    );
+    expect(screen.getByRole("tooltip").textContent).not.toContain("10\u00a0001");
+  });
+
   it("usa el encargado autoritativo cuando el campo es de solo lectura", () => {
     window.localStorage.setItem(
       "fondogeneral-daily-closing-modal-draft",
