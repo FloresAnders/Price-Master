@@ -1251,6 +1251,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Safe server projection used to invalidate one authenticated session.
+    // The source users document remains server-only below.
+    match /userStatus/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow write: if false;
+    }
+
     // Retired integration collections remain blocked in case historical data
     // still exists. No client or Route Handler consumes these collections.
     match /bcrIntegrationDevices/{document=**} {
@@ -1426,6 +1433,7 @@ service cloud.firestore {
         collection != 'sinpeRealtimeSessions' &&
         collection != 'sinpeEvents' &&
         collection != 'sinpeNotificationPreferences' &&
+        collection != 'userStatus' &&
         collection != 'bcrIntegrationDevices' &&
         collection != 'bcrReceipts' &&
         collection != 'passkeyUsers' &&

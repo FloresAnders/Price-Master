@@ -59,36 +59,6 @@ export class UsersService {
   }
 
   /**
-   * Subscribe to real-time updates for a specific user
-   * Returns an unsubscribe function to clean up the listener
-   */
-  static subscribeToUser(
-    userId: string,
-    callback: (userData: User | null) => void,
-    onError?: (error: Error) => void,
-  ): () => void {
-    let active = true;
-    const refresh = async () => {
-      try {
-        const user = await this.getUserById(userId);
-        if (active) callback(user);
-      } catch (error) {
-        console.error("Error refreshing user subscription:", error);
-        if (active && onError) onError(error as Error);
-      }
-    };
-    void refresh();
-    const intervalId = window.setInterval(refresh, 30_000);
-    const handleFocus = () => void refresh();
-    window.addEventListener("focus", handleFocus);
-    return () => {
-      active = false;
-      window.clearInterval(intervalId);
-      window.removeEventListener("focus", handleFocus);
-    };
-  }
-
-  /**
    * Get all users
    */
   static async getAllUsers(): Promise<User[]> {

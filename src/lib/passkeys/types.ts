@@ -68,6 +68,7 @@ export interface AuthSessionRecord {
 export interface AuthenticatedSession {
   session: AuthSessionRecord;
   user: Omit<User, "password">;
+  userSourceUpdateTime: string | null;
 }
 
 export interface PublicPasskey {

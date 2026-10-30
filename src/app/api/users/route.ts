@@ -19,6 +19,13 @@ export async function GET(request: NextRequest) {
   }
 
   const id = request.nextUrl.searchParams.get("id")?.trim() || undefined;
+  if (id === String(user.id).trim()) {
+    const safeUser = Object.fromEntries(
+      Object.entries(user).filter(([field]) => field !== "password"),
+    );
+    return NextResponse.json({ users: [safeUser] }, { headers: noStoreHeaders });
+  }
+
   const users = await listDirectoryUsersForActor(
     {
       id: user.id,

@@ -1,262 +1,166 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { assertConfirmedUnlimitedRead } from "./firestore-read-budget.mjs";
 
-import {
-  applicationDefault,
-  getApps,
-  initializeApp,
-} from "firebase-admin/app";
+const DEFAULT_PROJECT_ID = "pricemaster-4a611";
+const DEFAULT_REFERENCE_BUDGET = 500;
 
-import {
-  getFirestore,
-} from "firebase-admin/firestore";
-
-/*
- * Configuración general
+/**
+ * @param {string[]} argv
+ * @param {Record<string, string | undefined>} env
  */
+export function parseRouteScannerArgs(argv, env = process.env) {
+  const projectId = env.GOOGLE_CLOUD_PROJECT?.trim() || DEFAULT_PROJECT_ID;
+  const databaseId = env.FIRESTORE_DATABASE_ID?.trim() || "(default)";
+  let readAll = false;
+  let confirmation;
 
-const projectId =
-  process.env.GOOGLE_CLOUD_PROJECT?.trim() ||
-  "pricemaster-4a611";
-
-const databaseId =
-  process.env.FIRESTORE_DATABASE_ID?.trim() ||
-  "(default)";
-
-/*
- * Controla cuántas colecciones y documentos se inspeccionan
- * simultáneamente.
- *
- * Estos valores no limitan la cantidad total de rutas.
- */
-const collectionConcurrency = 3;
-const documentConcurrency = 10;
-
-/*
- * Inicialización de Firebase
- */
-
-const app =
-  getApps().length > 0
-    ? getApps()[0]
-    : initializeApp({
-        credential: applicationDefault(),
-        projectId,
-      });
-
-const db =
-  databaseId === "(default)" ||
-  databaseId.toLowerCase() === "default"
-    ? getFirestore(app)
-    : getFirestore(app, databaseId);
-
-/*
- * Rutas encontradas.
- *
- * Solo se guardan rutas de colecciones.
- * Nunca se leen ni se guardan los campos de los documentos.
- */
-const discoveredCollectionPaths = new Set();
-const pendingCollections = [];
-
-let inspectedDocumentReferences = 0;
-
-/*
- * Agregar una colección a la cola evitando duplicados.
- */
-
-function enqueueCollection(collectionReference) {
-  const collectionPath = collectionReference.path;
-
-  if (discoveredCollectionPaths.has(collectionPath)) {
-    return;
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index];
+    if (argument === "--all") {
+      if (readAll) throw new Error("--all may be provided only once.");
+      readAll = true;
+      continue;
+    }
+    if (argument === "--confirm-project") {
+      if (confirmation !== undefined) {
+        throw new Error("--confirm-project may be provided only once.");
+      }
+      const value = argv[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error("--confirm-project requires a value.");
+      }
+      confirmation = value.trim();
+      index += 1;
+      continue;
+    }
+    throw new Error(`Unknown argument: ${argument}`);
   }
 
-  discoveredCollectionPaths.add(collectionPath);
-  pendingCollections.push(collectionReference);
+  assertConfirmedUnlimitedRead({ readAll, projectId, confirmation });
+  return {
+    projectId,
+    databaseId,
+    readAll,
+    maxReferences: readAll ? Number.POSITIVE_INFINITY : DEFAULT_REFERENCE_BUDGET,
+    confirmation,
+  };
 }
 
-/*
- * Procesa elementos por grupos para evitar demasiadas
- * solicitudes simultáneas.
- */
+const readCollectionDocuments = async (
+  collectionReference,
+  remaining,
+  readAll,
+  documentIdField,
+) => {
+  if (readAll) return collectionReference.listDocuments();
+  const snapshot = await collectionReference
+    .orderBy(documentIdField)
+    .limit(remaining)
+    .get();
+  return snapshot.docs.map((document) => document.ref);
+};
 
-async function processInBatches(
-  items,
-  batchSize,
-  callback,
-) {
-  const results = [];
+export async function scanFirestoreRoutes(options, dependencies) {
+  const discovered = new Set();
+  const pending = [];
+  let inspectedDocumentReferences = 0;
+  let truncated = false;
 
-  for (let index = 0; index < items.length; index += batchSize) {
-    const batch = items.slice(index, index + batchSize);
+  const enqueue = (collectionReference) => {
+    if (discovered.has(collectionReference.path)) return;
+    discovered.add(collectionReference.path);
+    pending.push(collectionReference);
+  };
 
-    const batchResults = await Promise.all(
-      batch.map(callback),
-    );
-
-    results.push(...batchResults);
+  for (const collectionReference of await dependencies.db.listCollections()) {
+    enqueue(collectionReference);
   }
 
-  return results;
-}
+  while (pending.length > 0) {
+    const remaining = options.readAll
+      ? Number.POSITIVE_INFINITY
+      : options.maxReferences - inspectedDocumentReferences;
+    if (remaining <= 0) {
+      truncated = true;
+      break;
+    }
 
-/*
- * Inspecciona una colección.
- *
- * listDocuments() obtiene referencias, no llama data()
- * y no exporta los campos del documento.
- */
-
-async function inspectCollection(collectionReference) {
-  const documentReferences =
-    await collectionReference.listDocuments();
-
-  inspectedDocumentReferences += documentReferences.length;
-
-  const nestedCollectionGroups = await processInBatches(
-    documentReferences,
-    documentConcurrency,
-    async (documentReference) => {
-      return documentReference.listCollections();
-    },
-  );
-
-  return nestedCollectionGroups.flat();
-}
-
-/*
- * Recorre toda la base de datos.
- */
-
-async function discoverAllCollectionPaths() {
-  const rootCollections = await db.listCollections();
-
-  for (const collectionReference of rootCollections) {
-    enqueueCollection(collectionReference);
-  }
-
-  while (pendingCollections.length > 0) {
-    const collectionBatch = pendingCollections.splice(
-      0,
-      collectionConcurrency,
+    const collectionReference = pending.shift();
+    const documentReferences = await readCollectionDocuments(
+      collectionReference,
+      remaining,
+      options.readAll,
+      dependencies.documentIdField,
     );
+    inspectedDocumentReferences += documentReferences.length;
+    if (!options.readAll && documentReferences.length >= remaining) truncated = true;
 
-    const nestedCollectionGroups = await Promise.all(
-      collectionBatch.map(inspectCollection),
-    );
-
-    for (const nestedCollections of nestedCollectionGroups) {
-      for (const collectionReference of nestedCollections) {
-        enqueueCollection(collectionReference);
+    for (const documentReference of documentReferences) {
+      for (const nestedCollection of await documentReference.listCollections()) {
+        enqueue(nestedCollection);
       }
     }
   }
-}
 
-/*
- * Guardar únicamente las rutas encontradas.
- */
-
-async function saveRoutes() {
-  const routes = [...discoveredCollectionPaths].sort(
-    (firstPath, secondPath) =>
-      firstPath.localeCompare(secondPath),
-  );
-
-  const outputDirectory = path.resolve(
-    process.cwd(),
-    "exports",
-    "firestore",
-  );
-
-  await mkdir(outputDirectory, {
-    recursive: true,
-  });
-
-  const jsonOutputPath = path.join(
-    outputDirectory,
-    "firestore-routes.json",
-  );
-
-  const textOutputPath = path.join(
-    outputDirectory,
-    "firestore-routes.txt",
-  );
-
-  const result = {
-    generatedAt: new Date().toISOString(),
-    projectId,
-    databaseId: "(default)",
-    totalRoutes: routes.length,
-    routes,
-  };
-
-  await writeFile(
-    jsonOutputPath,
-    JSON.stringify(result, null, 2),
-    "utf8",
-  );
-
-  await writeFile(
-    textOutputPath,
-    `${routes.join("\n")}\n`,
-    "utf8",
-  );
-
+  if (pending.length > 0) truncated = true;
   return {
-    routes,
-    jsonOutputPath,
-    textOutputPath,
+    projectId: options.projectId,
+    databaseId: options.databaseId,
+    inspectedDocumentReferences,
+    truncated,
+    routes: [...discovered].sort((left, right) => left.localeCompare(right)),
   };
 }
 
-/*
- * Ejecución principal
- */
+async function saveRoutes(result) {
+  const outputDirectory = path.resolve(process.cwd(), "exports", "firestore");
+  await mkdir(outputDirectory, { recursive: true });
+  const jsonOutputPath = path.join(outputDirectory, "firestore-routes.json");
+  const textOutputPath = path.join(outputDirectory, "firestore-routes.txt");
+  const output = { generatedAt: new Date().toISOString(), ...result };
+  await writeFile(jsonOutputPath, JSON.stringify(output, null, 2), "utf8");
+  await writeFile(textOutputPath, `${result.routes.join("\n")}\n`, "utf8");
+  return { jsonOutputPath, textOutputPath };
+}
+
+async function createFirestore(options) {
+  const [{ applicationDefault, getApps, initializeApp }, firestoreAdmin] =
+    await Promise.all([
+      import("firebase-admin/app"),
+      import("firebase-admin/firestore"),
+    ]);
+  const app =
+    getApps()[0] ??
+    initializeApp({ credential: applicationDefault(), projectId: options.projectId });
+  const db =
+    options.databaseId === "(default)" || options.databaseId.toLowerCase() === "default"
+      ? firestoreAdmin.getFirestore(app)
+      : firestoreAdmin.getFirestore(app, options.databaseId);
+  return { db, documentIdField: firestoreAdmin.FieldPath.documentId() };
+}
 
 async function main() {
-  await discoverAllCollectionPaths();
-
-  const {
-    routes,
-    jsonOutputPath,
-    textOutputPath,
-  } = await saveRoutes();
-
-  /*
-   * No se muestran rutas ni información de documentos
-   * en la terminal.
-   */
-  console.log("Escaneo completado.");
-  console.log(`Rutas encontradas: ${routes.length}`);
-  console.log(
-    `Referencias inspeccionadas: ${inspectedDocumentReferences}`,
-  );
-  console.log(`Archivo JSON: ${jsonOutputPath}`);
-  console.log(`Archivo TXT: ${textOutputPath}`);
+  const options = parseRouteScannerArgs(process.argv.slice(2));
+  console.log("Escaneando Firestore.");
+  console.log(`Proyecto: ${options.projectId}`);
+  console.log(`Base: ${options.databaseId}`);
+  console.log(`Presupuesto: ${options.readAll ? "sin limite confirmado" : options.maxReferences}`);
+  const dependencies = await createFirestore(options);
+  const result = await scanFirestoreRoutes(options, dependencies);
+  const paths = await saveRoutes(result);
+  console.log(`Rutas encontradas: ${result.routes.length}`);
+  console.log(`Referencias inspeccionadas: ${result.inspectedDocumentReferences}`);
+  console.log(`Truncado: ${result.truncated}`);
+  console.log(`Archivo JSON: ${paths.jsonOutputPath}`);
+  console.log(`Archivo TXT: ${paths.textOutputPath}`);
 }
 
-main().catch((error) => {
-  console.error("No fue posible recorrer Firestore.");
-
-  if (
-    error &&
-    typeof error === "object" &&
-    "code" in error
-  ) {
-    console.error(`Código: ${error.code}`);
-  }
-
-  if (
-    error &&
-    typeof error === "object" &&
-    "message" in error
-  ) {
-    console.error(`Mensaje: ${error.message}`);
-  } else {
-    console.error(String(error));
-  }
-
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error("No fue posible recorrer Firestore.");
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  });
+}

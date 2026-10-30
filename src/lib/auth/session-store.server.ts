@@ -11,6 +11,7 @@ import type {
 import type { User } from "@/types/firestore";
 import { SESSION_DURATION_HOURS } from "./session-policy";
 import { getSessionTokenFromCookie } from "./session-cookie.server";
+import { serializeFirestoreUpdateTime } from "./firestore-update-time.server";
 
 const SESSION_DURATION_MS = {
   superadmin: SESSION_DURATION_HOURS.superadmin * 60 * 60 * 1000,
@@ -36,7 +37,10 @@ export interface SessionRepository {
 
 interface SessionServiceDependencies {
   repository: SessionRepository;
-  getUser(userId: string): Promise<User | null>;
+  getUser(userId: string): Promise<{
+    user: User;
+    sourceUpdateTime: string | null;
+  } | null>;
   isPasskeyActive(credentialIdHash: string): Promise<boolean>;
   now?: () => number;
   randomToken?: () => string;
@@ -111,7 +115,8 @@ export function createSessionService(dependencies: SessionServiceDependencies) {
         return null;
       }
 
-      const user = await dependencies.getUser(record.userId);
+      const userRead = await dependencies.getUser(record.userId);
+      const user = userRead?.user;
       if (!user || user.isActive === false) {
         return rejectAndRevoke(record, currentTime, "user_inactive");
       }
@@ -156,7 +161,11 @@ export function createSessionService(dependencies: SessionServiceDependencies) {
         record.userValidatedAt = currentTime;
       }
 
-      return { session: record, user: serializeSafeUser(user) };
+      return {
+        session: record,
+        user: serializeSafeUser(user),
+        userSourceUpdateTime: userRead.sourceUpdateTime,
+      };
     },
 
     async heartbeat(cookieHeader: string | null): Promise<AuthSessionRecord | null> {
@@ -178,7 +187,7 @@ export function createSessionService(dependencies: SessionServiceDependencies) {
         currentTime - (record.userValidatedAt ?? record.createdAt) >=
           USER_REVALIDATION_INTERVAL_MS;
       if (userValidationDue) {
-        const user = await dependencies.getUser(record.userId);
+        const user = (await dependencies.getUser(record.userId))?.user;
         if (!user || user.isActive === false) {
           return rejectAndRevoke(record, currentTime, "user_inactive");
         }
@@ -314,7 +323,10 @@ function productionSessionService() {
     async getUser(userId) {
       const snapshot = await getAdminDb().collection("users").doc(userId).get();
       return snapshot.exists
-        ? ({ id: snapshot.id, ...snapshot.data() } as User)
+        ? {
+            user: { id: snapshot.id, ...snapshot.data() } as User,
+            sourceUpdateTime: serializeFirestoreUpdateTime(snapshot.updateTime),
+          }
         : null;
     },
     async isPasskeyActive(credentialIdHash) {

@@ -1,368 +1,194 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import {
-  applicationDefault,
-  getApps,
-  initializeApp,
-} from "firebase-admin/app";
-import {
-  FieldPath,
-  getFirestore,
-} from "firebase-admin/firestore";
+import { pathToFileURL } from "node:url";
+import { assertConfirmedUnlimitedRead } from "./firestore-read-budget.mjs";
 
-/*
- * Configuración
+const DEFAULT_PROJECT_ID = "pricemaster-4a611";
+const BATCH_SIZE = 500;
+
+/**
+ * @param {string[]} argv
+ * @param {Record<string, string | undefined>} env
  */
-
-const projectId =
-  process.env.GOOGLE_CLOUD_PROJECT?.trim() || "pricemaster-4a611";
-
-const databaseId =
-  process.env.FIRESTORE_DATABASE_ID?.trim() || "(default)";
-
-const collectionPath = process.argv[2]?.trim();
-
-const limitArgument = process.argv[3]?.trim().toLowerCase() || "10";
-
-const batchSize = 500;
-
-/*
- * Validar la ruta recibida
- */
-
-if (!collectionPath) {
-  console.error("Debes indicar la ruta de una colección.");
-  console.error("");
-  console.error("Ejemplos:");
-  console.error(
-    'npm run firebase:read -- "MovimientosFondos/movements_ALCHACAS/movements" 10'
-  );
-  console.error(
-    'npm run firebase:read -- "MovimientosFondos/movements_ALCHACAS/movements" all'
-  );
-
-  process.exit(1);
-}
-
-const pathSegments = collectionPath
-  .split("/")
-  .map((segment) => segment.trim())
-  .filter(Boolean);
-
-/*
- * Una ruta de colección tiene una cantidad impar de segmentos:
- *
- * coleccion
- * coleccion/documento/subcoleccion
- */
-if (pathSegments.length % 2 === 0) {
-  console.error("La ruta no corresponde a una colección:");
-  console.error(collectionPath);
-  console.error("");
-  console.error(
-    "La ruta debe terminar con el nombre de una colección."
-  );
-
-  process.exit(1);
-}
-
-const normalizedCollectionPath = pathSegments.join("/");
-
-/*
- * Determinar si se leerán todos los documentos
- * o solamente una cantidad específica.
- */
-
-const readAll = limitArgument === "all";
-
-let requestedLimit = null;
-
-if (!readAll) {
-  requestedLimit = Number.parseInt(limitArgument, 10);
-
-  if (!Number.isFinite(requestedLimit) || requestedLimit < 1) {
-    console.error(
-      'El límite debe ser un número mayor que 0 o la palabra "all".'
-    );
-
-    process.exit(1);
+export function parseFirebaseReadArgs(argv, env = process.env) {
+  const projectId = env.GOOGLE_CLOUD_PROJECT?.trim() || DEFAULT_PROJECT_ID;
+  const databaseId = env.FIRESTORE_DATABASE_ID?.trim() || "(default)";
+  const rawCollectionPath = argv[0]?.trim();
+  if (!rawCollectionPath) throw new Error("Debes indicar la ruta de una coleccion.");
+  const pathSegments = rawCollectionPath
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+  if (pathSegments.length % 2 === 0) {
+    throw new Error("La ruta debe terminar con el nombre de una coleccion.");
   }
-}
 
-/*
- * Convierte valores especiales de Firestore en valores
- * que puedan guardarse correctamente como JSON.
- */
+  const limitArgument = argv[1]?.trim().toLowerCase() || "10";
+  const readAll = limitArgument === "all";
+  let requestedLimit = null;
+  if (!readAll) {
+    requestedLimit = Number.parseInt(limitArgument, 10);
+    if (!Number.isFinite(requestedLimit) || requestedLimit < 1) {
+      throw new Error('El limite debe ser mayor que 0 o la palabra "all".');
+    }
+  }
+
+  let confirmation;
+  for (let index = 2; index < argv.length; index += 1) {
+    const argument = argv[index];
+    if (argument !== "--confirm-project") throw new Error(`Unknown argument: ${argument}`);
+    if (confirmation !== undefined) {
+      throw new Error("--confirm-project may be provided only once.");
+    }
+    const value = argv[index + 1];
+    if (!value || value.startsWith("--")) {
+      throw new Error("--confirm-project requires a value.");
+    }
+    confirmation = value.trim();
+    index += 1;
+  }
+
+  assertConfirmedUnlimitedRead({ readAll, projectId, confirmation });
+  return {
+    projectId,
+    databaseId,
+    collectionPath: pathSegments.join("/"),
+    readAll,
+    requestedLimit,
+    confirmation,
+  };
+}
 
 function normalizeFirestoreValue(value) {
-  if (value === null || value === undefined) {
-    return value ?? null;
-  }
-
-  if (typeof value?.toDate === "function") {
-    return value.toDate().toISOString();
-  }
-
+  if (value === null || value === undefined) return value ?? null;
+  if (typeof value?.toDate === "function") return value.toDate().toISOString();
   if (
     typeof value === "object" &&
     typeof value.latitude === "number" &&
     typeof value.longitude === "number"
   ) {
-    return {
-      latitude: value.latitude,
-      longitude: value.longitude,
-    };
+    return { latitude: value.latitude, longitude: value.longitude };
   }
-
-  if (
-    typeof value === "object" &&
-    typeof value.path === "string" &&
-    value.firestore
-  ) {
-    return {
-      referencePath: value.path,
-    };
+  if (typeof value === "object" && typeof value.path === "string" && value.firestore) {
+    return { referencePath: value.path };
   }
-
-  if (Buffer.isBuffer(value)) {
-    return {
-      type: "Buffer",
-      base64: value.toString("base64"),
-    };
-  }
-
-  if (Array.isArray(value)) {
-    return value.map(normalizeFirestoreValue);
-  }
-
+  if (Buffer.isBuffer(value)) return { type: "Buffer", base64: value.toString("base64") };
+  if (Array.isArray(value)) return value.map(normalizeFirestoreValue);
   if (typeof value === "object") {
     return Object.fromEntries(
-      Object.entries(value).map(([key, nestedValue]) => [
-        key,
-        normalizeFirestoreValue(nestedValue),
-      ])
+      Object.entries(value).map(([key, nested]) => [key, normalizeFirestoreValue(nested)]),
     );
   }
-
   return value;
 }
 
-function normalizeDocument(document) {
-  return {
-    id: document.id,
-    path: document.ref.path,
-    data: normalizeFirestoreValue(document.data()),
-  };
-}
+const normalizeDocument = (document) => ({
+  id: document.id,
+  path: document.ref.path,
+  data: normalizeFirestoreValue(document.data()),
+});
 
-function createSafeFileName(value) {
-  return value
-    .replaceAll("\\", "_")
-    .replaceAll("/", "__")
-    .replaceAll(":", "_")
-    .replaceAll("*", "_")
-    .replaceAll("?", "_")
-    .replaceAll('"', "_")
-    .replaceAll("<", "_")
-    .replaceAll(">", "_")
-    .replaceAll("|", "_");
-}
-
-function createTimestampForFileName() {
-  return new Date()
-    .toISOString()
-    .replaceAll(":", "-")
-    .replaceAll(".", "-");
-}
-
-/*
- * Leer una cantidad limitada de documentos.
- */
-
-async function readLimitedDocuments(collectionReference, limit) {
+async function readLimitedDocuments(collectionReference, limit, documentIdField) {
   const snapshot = await collectionReference
-    .orderBy(FieldPath.documentId())
+    .orderBy(documentIdField)
     .limit(limit)
     .get();
-
   return snapshot.docs.map(normalizeDocument);
 }
 
-/*
- * Leer toda la colección por bloques.
- */
-
-async function readAllDocuments(collectionReference) {
+async function readAllDocuments(collectionReference, documentIdField) {
   const documents = [];
-
   let lastDocument = null;
   let batchNumber = 0;
-
   while (true) {
-    let query = collectionReference
-      .orderBy(FieldPath.documentId())
-      .limit(batchSize);
-
-    if (lastDocument) {
-      query = query.startAfter(lastDocument);
-    }
-
+    let query = collectionReference.orderBy(documentIdField).limit(BATCH_SIZE);
+    if (lastDocument) query = query.startAfter(lastDocument);
     const snapshot = await query.get();
-
-    if (snapshot.empty) {
-      break;
-    }
-
+    if (snapshot.empty) break;
     batchNumber += 1;
-
-    const normalizedDocuments =
-      snapshot.docs.map(normalizeDocument);
-
-    documents.push(...normalizedDocuments);
-
-    lastDocument =
-      snapshot.docs[snapshot.docs.length - 1];
-
+    documents.push(...snapshot.docs.map(normalizeDocument));
+    lastDocument = snapshot.docs[snapshot.docs.length - 1];
     console.error(
-      `Lote ${batchNumber}: ${snapshot.size} documentos leídos. ` +
-      `Total acumulado: ${documents.length}.`
+      `Lote ${batchNumber}: ${snapshot.size} documentos leidos. Total: ${documents.length}.`,
     );
-
-    if (snapshot.size < batchSize) {
-      break;
-    }
+    if (snapshot.size < BATCH_SIZE) break;
   }
-
   return documents;
 }
 
-/*
- * Ejecución principal
- */
+const safeFileName = (value) => value.replace(/[\\/:*?"<>|]/g, "_");
+const fileTimestamp = () => new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-");
 
 async function main() {
+  const options = parseFirebaseReadArgs(process.argv.slice(2));
+  const [{ applicationDefault, getApps, initializeApp }, firestoreAdmin] =
+    await Promise.all([
+      import("firebase-admin/app"),
+      import("firebase-admin/firestore"),
+    ]);
   const app =
-    getApps().length > 0
-      ? getApps()[0]
-      : initializeApp({
-          credential: applicationDefault(),
-          projectId,
-        });
-
-  /*
-   * Para la base predeterminada se utiliza getFirestore(app)
-   * sin pasar "(default)" como segundo argumento.
-   */
+    getApps()[0] ??
+    initializeApp({ credential: applicationDefault(), projectId: options.projectId });
   const db =
-    databaseId === "(default)" ||
-    databaseId.toLowerCase() === "default"
-      ? getFirestore(app)
-      : getFirestore(app, databaseId);
+    options.databaseId === "(default)" || options.databaseId.toLowerCase() === "default"
+      ? firestoreAdmin.getFirestore(app)
+      : firestoreAdmin.getFirestore(app, options.databaseId);
+  const collectionReference = db.collection(options.collectionPath);
 
-  const collectionReference = db.collection(
-    normalizedCollectionPath
-  );
-
-  console.error("Consultando Firestore...");
-  console.error(`Proyecto: ${projectId}`);
-  console.error(`Base: ${databaseId}`);
-  console.error(`Colección: ${normalizedCollectionPath}`);
-  console.error(
-    `Cantidad: ${readAll ? "todos los documentos" : requestedLimit}`
-  );
-  console.error("");
-
-  const documents = readAll
-    ? await readAllDocuments(collectionReference)
+  console.error(`Proyecto: ${options.projectId}`);
+  console.error(`Base: ${options.databaseId}`);
+  console.error(`Coleccion: ${options.collectionPath}`);
+  console.error(`Cantidad: ${options.readAll ? "all confirmado" : options.requestedLimit}`);
+  const documents = options.readAll
+    ? await readAllDocuments(collectionReference, firestoreAdmin.FieldPath.documentId())
     : await readLimitedDocuments(
         collectionReference,
-        requestedLimit
+        options.requestedLimit,
+        firestoreAdmin.FieldPath.documentId(),
       );
-
   const result = {
     success: true,
     generatedAt: new Date().toISOString(),
-    projectId,
-    databaseId: "(default)",
-    collectionPath: normalizedCollectionPath,
-    mode: readAll ? "all" : "limited",
-    requestedLimit: readAll ? null : requestedLimit,
+    projectId: options.projectId,
+    databaseId: options.databaseId,
+    collectionPath: options.collectionPath,
+    mode: options.readAll ? "all" : "limited",
+    requestedLimit: options.requestedLimit,
     total: documents.length,
     documents,
   };
 
-  /*
-   * Para consultas pequeñas se imprime el JSON completo.
-   */
-  if (!readAll) {
+  if (!options.readAll) {
     console.log(JSON.stringify(result, null, 2));
     return;
   }
-
-  /*
-   * Para leer toda la colección se guarda el resultado
-   * en un archivo dentro del proyecto.
-   */
-  const exportDirectory = path.resolve(
-    process.cwd(),
-    "exports",
-    "firestore"
-  );
-
-  await mkdir(exportDirectory, {
-    recursive: true,
-  });
-
-  const safeCollectionName = createSafeFileName(
-    normalizedCollectionPath
-  );
-
+  const exportDirectory = path.resolve(process.cwd(), "exports", "firestore");
+  await mkdir(exportDirectory, { recursive: true });
   const outputFile = path.join(
     exportDirectory,
-    `${safeCollectionName}_${createTimestampForFileName()}.json`
+    `${safeFileName(options.collectionPath)}_${fileTimestamp()}.json`,
   );
-
-  await writeFile(
-    outputFile,
-    JSON.stringify(result, null, 2),
-    "utf8"
-  );
-
+  await writeFile(outputFile, JSON.stringify(result, null, 2), "utf8");
   console.log(
     JSON.stringify(
       {
         success: true,
-        projectId,
-        databaseId: "(default)",
-        collectionPath: normalizedCollectionPath,
+        projectId: options.projectId,
+        databaseId: options.databaseId,
+        collectionPath: options.collectionPath,
         total: documents.length,
         outputFile,
       },
       null,
-      2
-    )
+      2,
+    ),
   );
 }
 
-main().catch((error) => {
-  console.error("");
-  console.error("No fue posible leer Firestore.");
-
-  if (error && typeof error === "object") {
-    if ("code" in error && error.code !== undefined) {
-      console.error(`Código: ${error.code}`);
-    }
-
-    if ("message" in error && error.message) {
-      console.error(`Mensaje: ${error.message}`);
-    }
-
-    if ("details" in error && error.details) {
-      console.error(`Detalles: ${error.details}`);
-    }
-  } else {
-    console.error(String(error));
-  }
-
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error("No fue posible leer Firestore.");
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  });
+}

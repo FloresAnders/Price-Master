@@ -31,6 +31,7 @@ export async function GET(request: Request) {
         createdAt: authenticated.session.createdAt,
         lastSeenAt: authenticated.session.lastSeenAt,
         expiresAt: authenticated.session.expiresAt,
+        userSourceUpdateTime: authenticated.userSourceUpdateTime,
       },
     },
     { headers: noStore },

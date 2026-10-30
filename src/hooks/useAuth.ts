@@ -17,11 +17,12 @@ import {
   releaseSessionHeartbeatLease,
 } from "@/lib/auth/session-heartbeat";
 import { normalizeUserPermissions } from "@/utils/permissions";
-import { UsersService } from "@/services/users";
 import { subscribeToVersionDoc } from "@/services/version-doc";
 import { clearFondoCacheForUser } from "@/services/fondo-cache";
 import { FondoMovementTypesService } from "@/services/fondo-movement-types";
 import { subscribeToSinpeNotificationPreference } from "@/services/sinpe-notification-preferences.client";
+import { subscribeToUserStatus } from "@/services/user-status.client";
+import { createUserStatusRefreshController } from "@/lib/auth/user-status-refresh";
 import {
   clearFirebaseCustomTokenAuth,
   ensureFirebaseCustomTokenAuth,
@@ -37,6 +38,7 @@ interface ServerSessionPayload {
   session?: {
     authMethod?: "password" | "passkey";
     expiresAt?: number;
+    userSourceUpdateTime?: string | null;
   };
 }
 
@@ -47,6 +49,7 @@ interface AuthStateDetail {
 
 interface ServerSessionResult {
   ok: boolean;
+  status: number;
   payload: ServerSessionPayload | null;
 }
 
@@ -141,6 +144,7 @@ function useAuthState() {
     globalThis.crypto?.randomUUID?.() ||
       `heartbeat-${Date.now()}-${Math.random().toString(36).slice(2)}`,
   );
+  const sessionUserSourceUpdateTime = useRef<string | null | undefined>(undefined);
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -169,6 +173,7 @@ function useAuthState() {
 
   const clearClientSession = useCallback((broadcast = true) => {
     invalidateSessionChecks();
+    sessionUserSourceUpdateTime.current = undefined;
     FondoMovementTypesService.stopListener();
     releaseSessionHeartbeatLease(localStorage, heartbeatOwnerId.current);
     clearLegacyAuthState();
@@ -190,6 +195,7 @@ function useAuthState() {
         cache: "no-store",
       }).then(async (response) => ({
         ok: response.ok,
+        status: response.status,
         payload: (await response.json().catch(() => null)) as
           | ServerSessionPayload
           | null,
@@ -231,6 +237,7 @@ function useAuthState() {
         ),
         expiresAt: Number(payload.session?.expiresAt || 0) || null,
       });
+      sessionUserSourceUpdateTime.current = payload.session?.userSourceUpdateTime;
     } catch (error) {
       if (requestGeneration !== sessionCheckGeneration.current) return;
       console.warn("No se pudo verificar la sesión del servidor", error);
@@ -363,31 +370,63 @@ function useAuthState() {
 
   useEffect(() => {
     if (!isAuthenticated || !user?.id || !firebaseAuthReady) return;
-    return UsersService.subscribeToUser(
-      user.id,
-      (updatedUser) => {
-        if (!updatedUser || updatedUser.isActive === false) {
-          clearClientSession();
-          void fetch("/api/auth/logout", {
-            method: "POST",
-            credentials: "same-origin",
-            keepalive: true,
-          }).catch(() => undefined);
-          return;
-        }
+    const controller = createUserStatusRefreshController({
+      refresh: async () => {
+        const result = await requestServerSession();
+        return {
+          status: result.status,
+          user: result.ok && result.payload?.ok ? result.payload.user : undefined,
+          expiresAt: Number(result.payload?.session?.expiresAt || 0) || undefined,
+          sourceUpdateTime: result.payload?.session?.userSourceUpdateTime,
+        };
+      },
+      apply: (result) => {
+        const refreshedUser = result.user;
+        if (!refreshedUser) return;
+        sessionUserSourceUpdateTime.current = result.sourceUpdateTime;
         setUser((current) =>
           normalizedUser({
-            ...updatedUser,
+            ...refreshedUser,
             sinpeNotificationsEnabled:
               current?.sinpeNotificationsEnabled,
             sinpeNotificationsPreferenceLoaded:
               current?.sinpeNotificationsPreferenceLoaded,
           }),
         );
+        if (result.expiresAt) setSessionExpiresAt(result.expiresAt);
       },
-      (error) => console.warn("No se pudo actualizar el usuario autenticado", error),
+      logout: () => {
+        clearClientSession();
+        void fetch("/api/auth/logout", {
+          method: "POST",
+          credentials: "same-origin",
+          keepalive: true,
+        }).catch(() => undefined);
+      },
+      warn: (error) =>
+        console.warn("No se pudo actualizar el usuario autenticado", error),
+      baselineSourceUpdateTime: sessionUserSourceUpdateTime.current,
+    });
+    const unsubscribe = subscribeToUserStatus(
+      user.id,
+      controller.observe,
+      (error) =>
+        console.warn("No se pudo escuchar el estado del usuario autenticado", error),
     );
-  }, [clearClientSession, firebaseAuthReady, isAuthenticated, user?.id]);
+    const handleOnline = () => controller.retryPending();
+    window.addEventListener("online", handleOnline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      controller.dispose();
+      unsubscribe();
+    };
+  }, [
+    clearClientSession,
+    firebaseAuthReady,
+    isAuthenticated,
+    requestServerSession,
+    user?.id,
+  ]);
 
   useEffect(() => {
     if (
@@ -475,6 +514,7 @@ function useAuthState() {
       void _keepActive;
       void _useTokens;
       invalidateSessionChecks();
+      sessionUserSourceUpdateTime.current = undefined;
       clearLegacyAuthState();
       const safeUser = withPendingSinpeNotificationPreference(
         normalizedUser(userData),

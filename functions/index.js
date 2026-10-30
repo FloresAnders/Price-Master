@@ -15,6 +15,10 @@ import {
   onTiemposMovementWriteRestauracion,
   checkMovementsConfig,
 } from './modules/movements.js';
+import {
+  onUserStatusWrite,
+  onUserStatusWriteRestauracion,
+} from './modules/user-status.js';
 
 // Definir secretos
 const gmailUser = defineSecret("GMAIL_USER");
@@ -318,6 +322,8 @@ export {
   defaultTiemposMovementWrite as onTiemposMovementWrite,
   onTiemposMovementWriteRestauracion,
   checkMovementsConfig,
+  onUserStatusWrite,
+  onUserStatusWriteRestauracion,
 };
 
 /**
