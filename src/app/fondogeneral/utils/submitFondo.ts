@@ -1589,6 +1589,13 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
               D: cierreFondoVentasEffectiveDayMinutesAfterEnd,
               N: cierreFondoVentasEffectiveNightMinutesAfterEnd,
             },
+            dayExtraRequestCutoffMinutes:
+              cierreFondoVentasBaseMinutesAfterEnd * 2 +
+              Math.max(
+                0,
+                cierreFondoVentasEffectiveDayMinutesAfterEnd -
+                  cierreFondoVentasBaseMinutesAfterEnd,
+              ),
             occupiedShifts: occupiedClosingShifts,
           });
         } else {

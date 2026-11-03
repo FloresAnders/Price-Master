@@ -43,6 +43,7 @@ import {
   getOccupiedClosingShifts,
   isFondoVentasPostCloseGraceOnNextDay,
   isWithinFondoVentasNightClosingWindow,
+  resolveFondoVentasClosingTimeRequestKind,
   resolveFondoVentasClosingShift,
   type ShiftCode,
 } from "@/utils/controlHorarioManager";
@@ -303,6 +304,7 @@ const inferDailyClosingTurno = (
 
 type ClosingTimeRequestState = {
   turno: "D" | "N";
+  kind: "anticipado" | "extra";
   operationalDateKey: string;
   extraMinutes: number;
   reason: string;
@@ -4123,6 +4125,9 @@ export function FondoSection({
               D: effectiveDayMinutesAfterEnd,
               N: effectiveNightMinutesAfterEnd,
             },
+            dayExtraRequestCutoffMinutes:
+              cierreFondoVentasMinutesAfterEnd * 2 +
+              extraMinutesAfterEndByShift.D,
             occupiedShifts: occupiedClosingShifts,
           });
           const referenceShiftEndMin =
@@ -4130,10 +4135,7 @@ export function FondoSection({
           const referenceShiftLabel = closingShift === "D" ? "D" : "N";
           const referenceMinutesAfterEnd =
             closingShift === "N"
-              ? usesConfiguredShiftHours
-                ? effectiveNightMinutesAfterEnd
-                : cierreFondoVentasMinutesAfterEnd * 2 +
-                  extraMinutesAfterEndByShift.N
+              ? effectiveNightMinutesAfterEnd
               : effectiveDayMinutesAfterEnd;
           const referenceShiftEndLabel =
             referenceShiftLabel === "D"
@@ -4160,8 +4162,13 @@ export function FondoSection({
               -cierreFondoVentasMinutesBeforeEnd &&
             minutesRelativeToReferenceEnd <=
               referenceMinutesAfterEnd;
+          const requestKind = resolveFondoVentasClosingTimeRequestKind({
+            minutesRelativeToEnd: minutesRelativeToReferenceEnd,
+            minutesBeforeEnd: cierreFondoVentasMinutesBeforeEnd,
+            minutesAfterEnd: referenceMinutesAfterEnd,
+          });
 
-          if (!canBypassClosingWindows && !isInReferenceWindow) {
+          if (!canBypassClosingWindows && !isInReferenceWindow && requestKind) {
             const suggestedExtraMinutes =
               minutesRelativeToReferenceEnd > referenceMinutesAfterEnd
                 ? Math.max(
@@ -4179,6 +4186,7 @@ export function FondoSection({
             if (operationalDateKey) {
               setClosingTimeRequest({
                 turno: closingShift,
+                kind: requestKind,
                 operationalDateKey,
                 extraMinutes: suggestedExtraMinutes,
                 reason: humanDelta,
@@ -6475,7 +6483,9 @@ export function FondoSection({
         closingTimeRequest={{
           visible: Boolean(closingTimeRequest),
           label: closingTimeRequest
-            ? `Solicitar tiempo ${closingTimeRequest.turno}`
+            ? closingTimeRequest.kind === "anticipado"
+              ? `Solicitar tiempo anticipado para cierre ${closingTimeRequest.turno}`
+              : `Solicitar tiempo extra ${closingTimeRequest.turno}`
             : "Solicitar tiempo",
           disabled: closingTimeRequestSaving,
           onClick: () => {

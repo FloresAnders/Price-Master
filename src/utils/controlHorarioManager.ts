@@ -111,8 +111,17 @@ const getMinutesRelativeTo = (minute: number, reference: number) => {
   return forward > 720 ? forward - 1440 : forward;
 };
 
-const getForwardMinutesBetween = (start: number, end: number) =>
-  normalizeMinuteOfDay(end - start);
+export const resolveFondoVentasClosingTimeRequestKind = (args: {
+  minutesRelativeToEnd: number;
+  minutesBeforeEnd: number;
+  minutesAfterEnd: number;
+}): "anticipado" | "extra" | null => {
+  const minutesBeforeEnd = Math.max(0, Number(args.minutesBeforeEnd) || 0);
+  const minutesAfterEnd = Math.max(0, Number(args.minutesAfterEnd) || 0);
+  if (args.minutesRelativeToEnd < -minutesBeforeEnd) return "anticipado";
+  if (args.minutesRelativeToEnd > minutesAfterEnd) return "extra";
+  return null;
+};
 
 export const resolveFondoVentasClosingShift = (args: {
   currentMin: number;
@@ -122,6 +131,7 @@ export const resolveFondoVentasClosingShift = (args: {
   minutesBeforeEnd: number;
   minutesAfterEnd: number;
   minutesAfterEndByShift?: Partial<Record<ShiftCode, number>>;
+  dayExtraRequestCutoffMinutes?: number;
   occupiedShifts: ReadonlySet<ShiftCode>;
 }): ShiftCode => {
   const minutesBeforeEnd = Math.max(0, args.minutesBeforeEnd);
@@ -137,13 +147,10 @@ export const resolveFondoVentasClosingShift = (args: {
     args.currentMin,
     args.shiftDEndMin,
   );
-  const nextShiftHalfMinutes = Math.floor(
-    getForwardMinutesBetween(args.shiftDEndMin, args.shiftNEndMin) / 2,
+  const dayExtraRequestCutoffMinutes = Math.max(
+    minutesAfterEndD,
+    Number(args.dayExtraRequestCutoffMinutes ?? minutesAfterEndD * 2) || 0,
   );
-  const isBeforeNextShiftMidpoint =
-    nextShiftHalfMinutes > 0 &&
-    normalizeMinuteOfDay(args.currentMin - args.shiftDEndMin) <=
-      nextShiftHalfMinutes;
   const isInDWindow =
     relativeToDEnd >= -minutesBeforeEnd &&
     relativeToDEnd <= minutesAfterEndD;
@@ -152,7 +159,7 @@ export const resolveFondoVentasClosingShift = (args: {
   if (
     !args.occupiedShifts.has("D") &&
     relativeToDEnd > minutesAfterEndD &&
-    isBeforeNextShiftMidpoint
+    relativeToDEnd <= dayExtraRequestCutoffMinutes
   ) {
     return "D";
   }
