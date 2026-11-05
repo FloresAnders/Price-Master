@@ -11,6 +11,11 @@ const highlight = require(path.join(extensionDir, "resaltartiquete-core.js"));
 const popup = require(path.join(extensionDir, "popup.js"));
 const content = require(path.join(extensionDir, "resaltartiquete-content.js"));
 const printGate = require(path.join(extensionDir, "resaltartiquete-print-gate.js"));
+const fullPrint = require(path.join(extensionDir, "impresioncompleta-core.js"));
+const fullPrintContent = require(path.join(
+  extensionDir,
+  "impresioncompleta-content.js",
+));
 
 function loadPopupDocument() {
   const html = fs.readFileSync(path.join(extensionDir, "popup.html"), "utf8");
@@ -407,6 +412,167 @@ describe("resaltado configurable del codigo de tiquete", () => {
       js: ["resaltartiquete-print-gate.js"],
       run_at: "document_start",
       world: "MAIN",
+    });
+  });
+});
+
+describe("formato completo de impresion BCR en about:blank", () => {
+  test("define valores iniciales seguros solicitados", () => {
+    expect(settings.DEFAULT_SETTINGS).toMatchObject({
+      tmhFormatoImpresionCompletaEnabled: false,
+      tmhFormatoImpresionCompletaFontSizePx: 21,
+      tmhFormatoImpresionCompletaFontWeight: 900,
+      tmhFormatoImpresionCompletaFontFamily: "Verdana",
+    });
+
+    expect(
+      settings.normalizeSettings({
+        tmhFormatoImpresionCompletaEnabled: true,
+        tmhFormatoImpresionCompletaFontSizePx: 500,
+        tmhFormatoImpresionCompletaFontWeight: 123,
+        tmhFormatoImpresionCompletaFontFamily: "Comic Sans MS",
+      }),
+    ).toMatchObject({
+      tmhFormatoImpresionCompletaEnabled: true,
+      tmhFormatoImpresionCompletaFontSizePx: 21,
+      tmhFormatoImpresionCompletaFontWeight: 900,
+      tmhFormatoImpresionCompletaFontFamily: "Verdana",
+    });
+  });
+
+  test("aplica una misma fuente a todo el documento y la retira al detenerse", () => {
+    document.documentElement.innerHTML =
+      "<head></head><body><table><tbody><tr><td><span>MONTO TOTAL</span></td></tr></tbody></table></body>";
+    const controller = fullPrint.createFullPrintFontController(document);
+
+    controller.setFont({ sizePx: 21, weight: 900, family: "Verdana" });
+    controller.start();
+
+    expect(document.documentElement.dataset.tmhFullPrintFont).toBe("true");
+    expect(
+      document.documentElement.style.getPropertyValue("--tmh-full-print-font-size"),
+    ).toBe("21px");
+    expect(
+      document.documentElement.style.getPropertyValue("--tmh-full-print-font-weight"),
+    ).toBe("900");
+    expect(
+      document.documentElement.style.getPropertyValue("--tmh-full-print-font-family"),
+    ).toBe("Verdana");
+    const rule = Array.from(document.styleSheets)
+      .flatMap((sheet) => Array.from(sheet.cssRules))
+      .find((candidate) => candidate.cssText.includes("data-tmh-full-print-font"));
+    expect(rule?.cssText).toContain("body *");
+
+    controller.stop();
+    expect(document.documentElement.dataset.tmhFullPrintFont).toBeUndefined();
+    expect(
+      document.documentElement.style.getPropertyValue("--tmh-full-print-font-size"),
+    ).toBe("");
+  });
+
+  test("contenido actua solo cuando la URL real es about:blank", () => {
+    const storage = createStorage({
+      tmhFormatoImpresionCompletaEnabled: true,
+      tmhFormatoImpresionCompletaFontSizePx: 21,
+      tmhFormatoImpresionCompletaFontWeight: 900,
+      tmhFormatoImpresionCompletaFontFamily: "Verdana",
+    });
+    const fontController = {
+      start: vi.fn(),
+      stop: vi.fn(),
+      setFont: vi.fn(),
+    };
+    const aboutBlankController =
+      fullPrintContent.createFullPrintContentController({
+        storage,
+        settings,
+        fontController,
+        locationHref: "about:blank",
+      });
+
+    aboutBlankController.start();
+    expect(fontController.setFont).toHaveBeenCalledWith({
+      sizePx: 21,
+      weight: 900,
+      family: "Verdana",
+    });
+    expect(fontController.start).toHaveBeenCalledOnce();
+
+    const normalStorage = createStorage();
+    const normalController = fullPrintContent.createFullPrintContentController({
+      storage: normalStorage,
+      settings,
+      fontController,
+      locationHref: "https://www.bcrcorresponsal.bancobcr.com/Inicio.aspx",
+    });
+    normalController.start();
+    expect(normalStorage.local.get).not.toHaveBeenCalled();
+    expect(normalStorage.onChanged.addListener).not.toHaveBeenCalled();
+  });
+
+  test("popup persiste interruptor y fuente juntos solo al pulsar Guardar", () => {
+    const popupDocument = loadPopupDocument();
+    const storage = createStorage();
+    const chromeApi = { storage, runtime: { lastError: null } };
+    popup.createPopupController(popupDocument, chromeApi).start();
+
+    const toggle = popupDocument.getElementById(
+      "tmhFormatoImpresionCompletaEnabled-toggle",
+    ) as HTMLInputElement;
+    const panel = popupDocument.getElementById(
+      "tmhFormatoImpresionCompleta-settings",
+    ) as HTMLElement;
+    const size = popupDocument.getElementById(
+      "tmhFormatoImpresionCompletaFontSizePx-input",
+    ) as HTMLInputElement;
+    const weight = popupDocument.getElementById(
+      "tmhFormatoImpresionCompletaFontWeight-input",
+    ) as HTMLSelectElement;
+    const family = popupDocument.getElementById(
+      "tmhFormatoImpresionCompletaFontFamily-input",
+    ) as HTMLSelectElement;
+    const save = popupDocument.getElementById(
+      "tmhFormatoImpresionCompleta-save",
+    ) as HTMLButtonElement;
+
+    expect(toggle.checked).toBe(false);
+    expect(panel.hidden).toBe(true);
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event("change"));
+    expect(panel.hidden).toBe(false);
+    expect(size.value).toBe("21");
+    expect(weight.value).toBe("900");
+    expect(family.value).toBe("Verdana");
+    expect(storage.setCalls).toEqual([]);
+
+    save.click();
+    expect(storage.setCalls).toEqual([{
+      tmhFormatoImpresionCompletaEnabled: true,
+      tmhFormatoImpresionCompletaFontSizePx: 21,
+      tmhFormatoImpresionCompletaFontWeight: 900,
+      tmhFormatoImpresionCompletaFontFamily: "Verdana",
+    }]);
+  });
+
+  test("manifest habilita scripts en about:blank iniciado por BCR", () => {
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(extensionDir, "manifest.json"), "utf8"),
+    );
+    const entry = manifest.content_scripts.find((candidate: { js?: string[] }) =>
+      candidate.js?.includes("impresioncompleta-content.js"),
+    );
+
+    expect(entry).toMatchObject({
+      matches: ["https://www.bcrcorresponsal.bancobcr.com/*"],
+      js: [
+        "settings-core.js",
+        "impresioncompleta-core.js",
+        "impresioncompleta-content.js",
+      ],
+      all_frames: true,
+      match_about_blank: true,
+      match_origin_as_fallback: true,
+      run_at: "document_idle",
     });
   });
 });

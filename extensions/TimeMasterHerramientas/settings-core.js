@@ -20,16 +20,19 @@
     "tmhResaltarCodigoTiqueteFontSizePx",
     "tmhResaltarFechaTiqueteFontSizePx",
     "tmhResaltarSorteoTiqueteFontSizePx",
+    "tmhFormatoImpresionCompletaFontSizePx",
   ]);
   const TICKET_FONT_WEIGHT_KEYS = new Set([
     "tmhResaltarCodigoTiqueteFontWeight",
     "tmhResaltarFechaTiqueteFontWeight",
     "tmhResaltarSorteoTiqueteFontWeight",
+    "tmhFormatoImpresionCompletaFontWeight",
   ]);
   const TICKET_FONT_FAMILY_KEYS = new Set([
     "tmhResaltarCodigoTiqueteFontFamily",
     "tmhResaltarFechaTiqueteFontFamily",
     "tmhResaltarSorteoTiqueteFontFamily",
+    "tmhFormatoImpresionCompletaFontFamily",
   ]);
 
   const DEFAULT_SETTINGS = Object.freeze({
@@ -53,6 +56,10 @@
     tmhResaltarSorteoTiqueteFontSizePx: 22,
     tmhResaltarSorteoTiqueteFontWeight: 700,
     tmhResaltarSorteoTiqueteFontFamily: "inherit",
+    tmhFormatoImpresionCompletaEnabled: false,
+    tmhFormatoImpresionCompletaFontSizePx: 21,
+    tmhFormatoImpresionCompletaFontWeight: 900,
+    tmhFormatoImpresionCompletaFontFamily: "Verdana",
   });
 
   function normalizeTicketFontSizePx(value, fallback = 22) {

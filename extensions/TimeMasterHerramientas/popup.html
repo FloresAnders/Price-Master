@@ -192,6 +192,53 @@
           </div>
         </div>
 
+        <div class="feature feature--stacked">
+          <div class="feature__row">
+            <span class="feature__copy">
+              <strong>Formato completo de impresi&oacute;n BCR</strong>
+              <small>Aplica una misma fuente a todo el comprobante abierto en about:blank.</small>
+            </span>
+            <span class="feature__control">
+              <span id="tmhFormatoImpresionCompletaEnabled-status" class="status" aria-live="polite">Desactivado</span>
+              <label class="switch" for="tmhFormatoImpresionCompletaEnabled-toggle">
+                <input id="tmhFormatoImpresionCompletaEnabled-toggle" type="checkbox" role="switch">
+                <span class="slider" aria-hidden="true"></span>
+              </label>
+            </span>
+          </div>
+          <div id="tmhFormatoImpresionCompleta-settings" class="font-settings" aria-label="Fuente de toda la impresi&oacute;n" hidden>
+            <fieldset class="font-settings__group">
+              <legend>Toda la impresi&oacute;n</legend>
+              <label for="tmhFormatoImpresionCompletaFontSizePx-input">
+                <span>Tama&ntilde;o</span>
+                <span class="font-settings__value">
+                  <input id="tmhFormatoImpresionCompletaFontSizePx-input" type="number" min="10" max="72" step="1" inputmode="numeric">
+                  <span>px</span>
+                </span>
+              </label>
+              <label for="tmhFormatoImpresionCompletaFontWeight-input">
+                <span>Grosor</span>
+                <select id="tmhFormatoImpresionCompletaFontWeight-input">
+                  <option value="600">600</option><option value="700">700</option><option value="800">800</option><option value="900">900</option>
+                </select>
+              </label>
+              <label for="tmhFormatoImpresionCompletaFontFamily-input">
+                <span>Tipo de letra</span>
+                <select id="tmhFormatoImpresionCompletaFontFamily-input">
+                  <option value="inherit">Original</option><option value="Arial">Arial</option><option value="Courier New">Courier New</option><option value="Verdana">Verdana</option>
+                </select>
+              </label>
+            </fieldset>
+          </div>
+          <div class="font-settings__actions">
+            <span id="tmhFormatoImpresionCompletaFont-status" class="font-settings__status" aria-live="polite"></span>
+            <span class="font-settings__buttons">
+              <button id="tmhFormatoImpresionCompleta-reset" class="font-settings__reset" type="button">Restablecer valores</button>
+              <button id="tmhFormatoImpresionCompleta-save" class="font-settings__save" type="button">Guardar configuraci&oacute;n</button>
+            </span>
+          </div>
+        </div>
+
         <label class="feature" for="tmhIngresarVentaEnabled-toggle">
           <span class="feature__copy">
             <strong>Ingresar venta con Ctrl+Enter</strong>

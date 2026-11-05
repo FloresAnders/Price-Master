@@ -1,4 +1,4 @@
-TIMEMASTER HERRAMIENTAS 1.0.11
+TIMEMASTER HERRAMIENTAS 1.0.12
 ================================
 
 Esta extensión reúne CambioTab, división de efectivo, movimiento entre medios
@@ -26,6 +26,7 @@ CONTROLES Y VALORES INICIALES
 - Ingresar venta con Ctrl+Enter en Gente Crystal: desactivado.
 - Impresión automática en Gente Crystal: desactivada.
 - Resaltado de líneas del tiquete en Gente Crystal: desactivado.
+- Formato completo de impresión BCR en about:blank: desactivado.
 
 Pulse el icono de la extensión para cambiar cada función por separado. Los
 cambios se aplican inmediatamente a las páginas compatibles ya abiertas.
@@ -117,6 +118,16 @@ el popup confirma con el mensaje "Guardado". Al desactivar el interruptor se
 ocultan los controles y la impresión queda sin cambios. Restablecer valores
 devuelve las tres líneas a 22 px, grosor 700 y letra original; luego pulse
 Guardar configuración para confirmar el cambio.
+
+FORMATO COMPLETO DE IMPRESIÓN BCR
+---------------------------------
+Sitio iniciador: https://www.bcrcorresponsal.bancobcr.com/*
+
+Al activarlo, aplica una misma fuente a todo el comprobante generado dentro de
+about:blank. Los valores iniciales son 21 px, grosor 900 y Verdana. El rango de
+Tamaño permitido: 10 a 72 px. Pulse Guardar configuración para persistir
+juntos el interruptor y los tres valores. Restablecer valores vuelve a
+21 px, grosor 900 y Verdana sin escribir en storage hasta pulsar Guardar.
 
 ACTUALIZACIONES
 ---------------

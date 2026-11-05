@@ -22,7 +22,10 @@
     .filter(
       ([key, fallback]) =>
         typeof fallback === "boolean" &&
-        key !== "tmhResaltarCodigoTiqueteEnabled",
+        ![
+          "tmhResaltarCodigoTiqueteEnabled",
+          "tmhFormatoImpresionCompletaEnabled",
+        ].includes(key),
     )
     .map(([key]) => key);
   const CLOSE_ENABLED_KEY = "tmhCerrarImpresionConticaEnabled";
@@ -50,6 +53,13 @@
     },
   ];
   const TICKET_FONT_KEYS = TICKET_LINES.flatMap((line) => Object.values(line));
+  const FULL_PRINT_ENABLED_KEY = "tmhFormatoImpresionCompletaEnabled";
+  const FULL_PRINT_FONT = {
+    size: "tmhFormatoImpresionCompletaFontSizePx",
+    weight: "tmhFormatoImpresionCompletaFontWeight",
+    family: "tmhFormatoImpresionCompletaFontFamily",
+  };
+  const FULL_PRINT_FONT_KEYS = Object.values(FULL_PRINT_FONT);
 
   function createPopupController(documentRef, chromeApi) {
     const values = { ...settings.DEFAULT_SETTINGS };
@@ -120,6 +130,19 @@
       return documentRef.getElementById(`${key}-input`);
     }
 
+    function fullPrintElements() {
+      return {
+        panel: documentRef.getElementById("tmhFormatoImpresionCompleta-settings"),
+        status: documentRef.getElementById("tmhFormatoImpresionCompletaFont-status"),
+        reset: documentRef.getElementById("tmhFormatoImpresionCompleta-reset"),
+        save: documentRef.getElementById("tmhFormatoImpresionCompleta-save"),
+      };
+    }
+
+    function fullPrintControl(key) {
+      return documentRef.getElementById(`${key}-input`);
+    }
+
     function updateTicketDraftState(message = "Cambios sin guardar", isError = false) {
       const { toggle, status: enabledStatus } = elements(TICKET_ENABLED_KEY);
       const { panel, status, reset } = ticketFontElements();
@@ -154,6 +177,43 @@
       toggle.disabled = false;
       save.disabled = false;
       updateTicketDraftState(message);
+    }
+
+    function updateFullPrintDraftState(
+      message = "Cambios sin guardar",
+      isError = false,
+    ) {
+      const { toggle, status: enabledStatus } = elements(FULL_PRINT_ENABLED_KEY);
+      const { panel, status, reset } = fullPrintElements();
+      if (!toggle || !panel || !status || !enabledStatus) return;
+      const enabled = toggle.checked === true;
+      enabledStatus.textContent = enabled ? "Activado" : "Desactivado";
+      enabledStatus.dataset.enabled = String(enabled);
+      panel.hidden = !enabled;
+      for (const key of FULL_PRINT_FONT_KEYS) {
+        const control = fullPrintControl(key);
+        if (control) control.disabled = !enabled;
+      }
+      if (reset) reset.disabled = !enabled;
+      status.textContent = message;
+      if (isError) status.dataset.error = "true";
+      else delete status.dataset.error;
+      if (!isError && message === "Guardado") status.dataset.saved = "true";
+      else delete status.dataset.saved;
+    }
+
+    function renderFullPrintSettings(message = "") {
+      const { toggle } = elements(FULL_PRINT_ENABLED_KEY);
+      const { save } = fullPrintElements();
+      if (!toggle || !save) return;
+      toggle.checked = values[FULL_PRINT_ENABLED_KEY] === true;
+      for (const key of FULL_PRINT_FONT_KEYS) {
+        const control = fullPrintControl(key);
+        if (control) control.value = String(values[key]);
+      }
+      toggle.disabled = false;
+      save.disabled = false;
+      updateFullPrintDraftState(message);
     }
 
     function bind(key) {
@@ -308,6 +368,89 @@
       listeners.set("tmhResaltarCodigoTiqueteSave", handleSave);
     }
 
+    function bindFullPrintSettings() {
+      const { toggle } = elements(FULL_PRINT_ENABLED_KEY);
+      const { reset, save } = fullPrintElements();
+      if (!toggle || !reset || !save) return;
+
+      const handleDraftChange = () => updateFullPrintDraftState();
+      const handleReset = () => {
+        for (const key of FULL_PRINT_FONT_KEYS) {
+          const control = fullPrintControl(key);
+          if (control) control.value = String(settings.DEFAULT_SETTINGS[key]);
+        }
+        updateFullPrintDraftState();
+      };
+      const handleSave = () => {
+        const sizeValue = Number(fullPrintControl(FULL_PRINT_FONT.size)?.value);
+        const weightValue = Number(
+          fullPrintControl(FULL_PRINT_FONT.weight)?.value,
+        );
+        const familyValue = fullPrintControl(FULL_PRINT_FONT.family)?.value;
+        const normalizedSize = settings.normalizeTicketFontSizePx(
+          sizeValue,
+          settings.DEFAULT_SETTINGS[FULL_PRINT_FONT.size],
+        );
+        const normalizedWeight = settings.normalizeTicketFontWeight(
+          weightValue,
+          settings.DEFAULT_SETTINGS[FULL_PRINT_FONT.weight],
+        );
+        const normalizedFamily = settings.normalizeTicketFontFamily(
+          familyValue,
+          settings.DEFAULT_SETTINGS[FULL_PRINT_FONT.family],
+        );
+        if (normalizedSize !== sizeValue) {
+          updateFullPrintDraftState(
+            `Usa un nÃºmero entero de ${settings.TICKET_FONT_SIZE_MIN} a ${settings.TICKET_FONT_SIZE_MAX}`,
+            true,
+          );
+          return;
+        }
+        if (
+          normalizedWeight !== weightValue ||
+          normalizedFamily !== familyValue
+        ) {
+          updateFullPrintDraftState("Seleccione valores vÃ¡lidos", true);
+          return;
+        }
+        const next = {
+          [FULL_PRINT_ENABLED_KEY]: toggle.checked === true,
+          [FULL_PRINT_FONT.size]: normalizedSize,
+          [FULL_PRINT_FONT.weight]: normalizedWeight,
+          [FULL_PRINT_FONT.family]: normalizedFamily,
+        };
+        toggle.disabled = true;
+        for (const key of FULL_PRINT_FONT_KEYS) {
+          const control = fullPrintControl(key);
+          if (control) control.disabled = true;
+        }
+        reset.disabled = true;
+        save.disabled = true;
+        chromeApi.storage.local.set(next, () => {
+          if (chromeApi.runtime.lastError) {
+            toggle.disabled = false;
+            reset.disabled = false;
+            save.disabled = false;
+            updateFullPrintDraftState("Error al guardar", true);
+            return;
+          }
+          Object.assign(values, next);
+          renderFullPrintSettings("Guardado");
+        });
+      };
+
+      toggle.addEventListener("change", handleDraftChange);
+      for (const key of FULL_PRINT_FONT_KEYS) {
+        fullPrintControl(key)?.addEventListener("change", handleDraftChange);
+        listeners.set(key, handleDraftChange);
+      }
+      reset.addEventListener("click", handleReset);
+      save.addEventListener("click", handleSave);
+      listeners.set(FULL_PRINT_ENABLED_KEY, handleDraftChange);
+      listeners.set("tmhFormatoImpresionCompletaReset", handleReset);
+      listeners.set("tmhFormatoImpresionCompletaSave", handleSave);
+    }
+
     function start() {
       if (started) return;
       started = true;
@@ -315,6 +458,7 @@
       bindDelay();
       bindMessage();
       bindTicketSettings();
+      bindFullPrintSettings();
       chromeApi.storage.local.get(settings.DEFAULT_SETTINGS, (stored) => {
         const normalized = settings.normalizeSettings(stored);
         Object.assign(values, normalized);
@@ -324,6 +468,7 @@
         renderDelay(normalized[CLOSE_DELAY_KEY]);
         renderMessage(normalized[CLOSE_MESSAGE_KEY]);
         renderTicketSettings();
+        renderFullPrintSettings();
       });
     }
 
@@ -339,12 +484,23 @@
             "change",
             listener,
           );
+        } else if (key === FULL_PRINT_ENABLED_KEY) {
+          elements(FULL_PRINT_ENABLED_KEY).toggle?.removeEventListener(
+            "change",
+            listener,
+          );
         } else if (TICKET_FONT_KEYS.includes(key)) {
           ticketFontControl(key)?.removeEventListener("change", listener);
+        } else if (FULL_PRINT_FONT_KEYS.includes(key)) {
+          fullPrintControl(key)?.removeEventListener("change", listener);
         } else if (key === "tmhResaltarCodigoTiqueteReset") {
           ticketFontElements().reset?.removeEventListener("click", listener);
         } else if (key === "tmhResaltarCodigoTiqueteSave") {
           ticketFontElements().save?.removeEventListener("click", listener);
+        } else if (key === "tmhFormatoImpresionCompletaReset") {
+          fullPrintElements().reset?.removeEventListener("click", listener);
+        } else if (key === "tmhFormatoImpresionCompletaSave") {
+          fullPrintElements().save?.removeEventListener("click", listener);
         } else {
           elements(key).toggle?.removeEventListener("change", listener);
         }
