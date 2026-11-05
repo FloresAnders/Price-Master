@@ -101,6 +101,97 @@
           </span>
         </label>
 
+        <div class="feature feature--stacked">
+          <div class="feature__row">
+            <span class="feature__copy">
+              <strong>Resaltar líneas del tiquete</strong>
+              <small>Configura código, fecha y nombre del sorteo.</small>
+            </span>
+            <span class="feature__control">
+              <span id="tmhResaltarCodigoTiqueteEnabled-status" class="status" aria-live="polite">Desactivado</span>
+              <label class="switch" for="tmhResaltarCodigoTiqueteEnabled-toggle">
+                <input id="tmhResaltarCodigoTiqueteEnabled-toggle" type="checkbox" role="switch">
+                <span class="slider" aria-hidden="true"></span>
+              </label>
+            </span>
+          </div>
+          <div id="tmhResaltarLineasTiquete-settings" class="font-settings" aria-label="Valores de fuente de las líneas del tiquete" hidden>
+            <fieldset class="font-settings__group">
+              <legend>Código</legend>
+              <label for="tmhResaltarCodigoTiqueteFontSizePx-input">
+                <span>Tamaño</span>
+                <span class="font-settings__value">
+                  <input id="tmhResaltarCodigoTiqueteFontSizePx-input" type="number" min="10" max="72" step="1" inputmode="numeric">
+                  <span>px</span>
+                </span>
+              </label>
+              <label for="tmhResaltarCodigoTiqueteFontWeight-input">
+                <span>Grosor</span>
+                <select id="tmhResaltarCodigoTiqueteFontWeight-input">
+                  <option value="600">600</option><option value="700">700</option><option value="800">800</option><option value="900">900</option>
+                </select>
+              </label>
+              <label for="tmhResaltarCodigoTiqueteFontFamily-input">
+                <span>Tipo de letra</span>
+                <select id="tmhResaltarCodigoTiqueteFontFamily-input">
+                  <option value="inherit">Original</option><option value="Arial">Arial</option><option value="Courier New">Courier New</option><option value="Verdana">Verdana</option>
+                </select>
+              </label>
+            </fieldset>
+            <fieldset class="font-settings__group">
+              <legend>Fecha</legend>
+              <label for="tmhResaltarFechaTiqueteFontSizePx-input">
+                <span>Tamaño</span>
+                <span class="font-settings__value">
+                  <input id="tmhResaltarFechaTiqueteFontSizePx-input" type="number" min="10" max="72" step="1" inputmode="numeric">
+                  <span>px</span>
+                </span>
+              </label>
+              <label for="tmhResaltarFechaTiqueteFontWeight-input">
+                <span>Grosor</span>
+                <select id="tmhResaltarFechaTiqueteFontWeight-input">
+                  <option value="600">600</option><option value="700">700</option><option value="800">800</option><option value="900">900</option>
+                </select>
+              </label>
+              <label for="tmhResaltarFechaTiqueteFontFamily-input">
+                <span>Tipo de letra</span>
+                <select id="tmhResaltarFechaTiqueteFontFamily-input">
+                  <option value="inherit">Original</option><option value="Arial">Arial</option><option value="Courier New">Courier New</option><option value="Verdana">Verdana</option>
+                </select>
+              </label>
+            </fieldset>
+            <fieldset class="font-settings__group">
+              <legend>Nombre del sorteo</legend>
+              <label for="tmhResaltarSorteoTiqueteFontSizePx-input">
+                <span>Tamaño</span>
+                <span class="font-settings__value">
+                  <input id="tmhResaltarSorteoTiqueteFontSizePx-input" type="number" min="10" max="72" step="1" inputmode="numeric">
+                  <span>px</span>
+                </span>
+              </label>
+              <label for="tmhResaltarSorteoTiqueteFontWeight-input">
+                <span>Grosor</span>
+                <select id="tmhResaltarSorteoTiqueteFontWeight-input">
+                  <option value="600">600</option><option value="700">700</option><option value="800">800</option><option value="900">900</option>
+                </select>
+              </label>
+              <label for="tmhResaltarSorteoTiqueteFontFamily-input">
+                <span>Tipo de letra</span>
+                <select id="tmhResaltarSorteoTiqueteFontFamily-input">
+                  <option value="inherit">Original</option><option value="Arial">Arial</option><option value="Courier New">Courier New</option><option value="Verdana">Verdana</option>
+                </select>
+              </label>
+            </fieldset>
+          </div>
+          <div class="font-settings__actions">
+            <span id="tmhResaltarCodigoTiqueteFont-status" class="font-settings__status" aria-live="polite"></span>
+            <span class="font-settings__buttons">
+              <button id="tmhResaltarCodigoTiquete-reset" class="font-settings__reset" type="button">Restablecer valores</button>
+              <button id="tmhResaltarCodigoTiquete-save" class="font-settings__save" type="button">Guardar configuración</button>
+            </span>
+          </div>
+        </div>
+
         <label class="feature" for="tmhIngresarVentaEnabled-toggle">
           <span class="feature__copy">
             <strong>Ingresar venta con Ctrl+Enter</strong>

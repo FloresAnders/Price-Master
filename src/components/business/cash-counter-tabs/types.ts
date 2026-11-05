@@ -16,7 +16,7 @@ export interface CashCounterProps {
   id: number;
   data: CashCounterData;
   showBD: boolean;
-  onUpdate: (i: number, d: CashCounterData) => void;
+  onUpdate: (i: number, d: CashCounterData, group?: string) => void;
 }
 
 export interface CounterSidebarProps {
@@ -41,6 +41,7 @@ export interface RightPanelProps {
   showBD: boolean;
   setShowBD: (v: boolean) => void;
   onUpdate: (d: CashCounterData) => void;
+  onReplace: (d: CashCounterData) => void;
   onCurrencyOpen: () => void;
   onDelete: () => void;
   canDelete?: boolean;

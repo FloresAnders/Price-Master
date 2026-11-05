@@ -6,6 +6,11 @@ import type { FondoAccountTab } from "@/lib/fondoAccountTabs";
 import type { MovementAccountKey } from "@/services/movimientos-fondos";
 import { reconcileAccountCashCounters } from "../accountCounters";
 import {
+  areCashCounterSnapshotsEqual,
+  createCashCounterUndoHistory,
+  resolveCashCounterUndoShortcut,
+} from "../undoHistory";
+import {
   clearCashCounterSnapshot,
   createDefaultCashCounterSnapshot,
   getOrCreateCashCounterSnapshot,
@@ -14,6 +19,7 @@ import {
 } from "@/services/cashCounterDb";
 
 const LEGACY_STORAGE_KEY = "cashCounters";
+const UNDO_HISTORY_LIMIT = 30;
 
 function snapshotFromState(counters: CashCounterData[], activeTab: number) {
   return normalizeCashCounterSnapshot({
@@ -28,6 +34,8 @@ export function useCashCounter(
   requestedAccountId?: MovementAccountKey,
 ) {
   const [data, setData] = useState<CashCounterData[]>([]);
+  const dataRef = useRef(data);
+  dataRef.current = data;
   const [active, setActive] = useState(0);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -37,6 +45,11 @@ export function useCashCounter(
   const appliedRequestedAccountIdRef = useRef<MovementAccountKey | undefined>(
     undefined,
   );
+  const undoHistoryRef = useRef<ReturnType<
+    typeof createCashCounterUndoHistory
+  > | null>(null);
+  const undoHistory = undoHistoryRef.current
+    ?? (undoHistoryRef.current = createCashCounterUndoHistory(UNDO_HISTORY_LIMIT));
 
   useEffect(() => {
     let cancelled = false;
@@ -55,6 +68,7 @@ export function useCashCounter(
         }
 
         if (cancelled) return;
+        dataRef.current = snapshot.counters;
         setData(snapshot.counters);
         setActive(snapshot.activeTab);
         setLastSaved(snapshot.lastSaved ? new Date(snapshot.lastSaved).toLocaleTimeString() : null);
@@ -62,6 +76,7 @@ export function useCashCounter(
       } catch {
         if (cancelled) return;
         const snapshot = createDefaultCashCounterSnapshot();
+        dataRef.current = snapshot.counters;
         setData(snapshot.counters);
         setActive(snapshot.activeTab);
         setCanAutoSave(false);
@@ -77,13 +92,15 @@ export function useCashCounter(
 
   useEffect(() => {
     if (!hydrated) return;
-    setData((current) => {
-      const reconciled = reconcileAccountCashCounters(current, activeAccounts);
-      if (reconciled === current) return current;
-      setCanAutoSave(true);
-      return reconciled;
-    });
-  }, [activeAccounts, hydrated]);
+    const current = dataRef.current;
+    const reconciled = reconcileAccountCashCounters(current, activeAccounts);
+    if (reconciled === current) return;
+
+    undoHistory.clear();
+    dataRef.current = reconciled;
+    setCanAutoSave(true);
+    setData(reconciled);
+  }, [activeAccounts, hydrated, undoHistory]);
 
   useEffect(() => {
     if (!requestedAccountId) {
@@ -127,39 +144,118 @@ export function useCashCounter(
   }, [data, active, hydrated, canAutoSave, save]);
 
   const add = useCallback(() => {
-    const n = { name: `Contador ${data.length + 1}`, bills: {}, extraAmount: 0, currency: "CRC" as const, aperturaCaja: 0, ventaActual: 0 };
+    const current = dataRef.current;
+    const n = { name: `Contador ${current.length + 1}`, bills: {}, extraAmount: 0, currency: "CRC" as const, aperturaCaja: 0, ventaActual: 0 };
+    const next = [...current, n];
+    undoHistory.clear();
+    dataRef.current = next;
     setCanAutoSave(true);
-    setData((current) => [...current, n]);
-    setActive(data.length);
-  }, [data.length]);
+    setData(next);
+    setActive(current.length);
+  }, [undoHistory]);
 
   const del = useCallback((i: number) => {
-    if (data[i]?.accountId) return;
-    if (data.length <= 1) { alert("No puedes eliminar el último."); return; }
-    const d = data.filter((_, j) => j !== i);
+    const current = dataRef.current;
+    if (current[i]?.accountId) return;
+    if (current.length <= 1) { alert("No puedes eliminar el último."); return; }
+    const d = current.filter((_, j) => j !== i);
     let a = active;
     if (active === i) a = 0;
     else if (active > i) a = active - 1;
+    undoHistory.clear();
+    dataRef.current = d;
     setCanAutoSave(true);
     setData(d);
     setActive(a);
-  }, [data, active]);
+  }, [active, undoHistory]);
 
-  const upd = useCallback((i: number, d: CashCounterData) => {
+  const upd = useCallback((i: number, d: CashCounterData, group?: string) => {
+    const current = dataRef.current;
+    const currentCounter = current[i];
+    if (!currentCounter) return;
+
+    const nextCounter = currentCounter.accountId
+      ? {
+          ...d,
+          accountId: currentCounter.accountId,
+          name: currentCounter.name,
+        }
+      : d;
+    if (areCashCounterSnapshotsEqual(currentCounter, nextCounter)) return;
+
+    undoHistory.record(i, currentCounter, group);
+    const next = [...current];
+    next[i] = nextCounter;
+    dataRef.current = next;
     setCanAutoSave(true);
-    setData((current) => {
-      const n = [...current];
-      const currentCounter = current[i];
-      n[i] = currentCounter?.accountId
-        ? {
-            ...d,
-            accountId: currentCounter.accountId,
-            name: currentCounter.name,
-          }
-        : d;
-      return n;
-    });
-  }, []);
+    setData(next);
+  }, [undoHistory]);
+
+  const replace = useCallback((i: number, d: CashCounterData) => {
+    const current = dataRef.current;
+    const currentCounter = current[i];
+    if (!currentCounter) return;
+
+    const nextCounter = currentCounter.accountId
+      ? {
+          ...d,
+          accountId: currentCounter.accountId,
+          name: currentCounter.name,
+        }
+      : d;
+    undoHistory.clear(i);
+    if (areCashCounterSnapshotsEqual(currentCounter, nextCounter)) return;
+
+    const next = [...current];
+    next[i] = nextCounter;
+    dataRef.current = next;
+    setCanAutoSave(true);
+    setData(next);
+  }, [undoHistory]);
+
+  const undo = useCallback((i: number) => {
+    const current = dataRef.current;
+    const currentCounter = current[i];
+    if (!currentCounter) return;
+
+    const previous = undoHistory.undo(i, currentCounter);
+    if (!previous) return;
+
+    const next = [...current];
+    next[i] = previous;
+    dataRef.current = next;
+    setCanAutoSave(true);
+    setData(next);
+  }, [undoHistory]);
+
+  const redo = useCallback((i: number) => {
+    const current = dataRef.current;
+    const currentCounter = current[i];
+    if (!currentCounter) return;
+
+    const following = undoHistory.redo(i, currentCounter);
+    if (!following) return;
+
+    const next = [...current];
+    next[i] = following;
+    dataRef.current = next;
+    setCanAutoSave(true);
+    setData(next);
+  }, [undoHistory]);
+
+  useEffect(() => {
+    const handleHistoryShortcut = (event: KeyboardEvent) => {
+      const action = resolveCashCounterUndoShortcut(event);
+      if (!action) return;
+
+      event.preventDefault();
+      if (action === "undo") undo(active);
+      else redo(active);
+    };
+
+    window.addEventListener("keydown", handleHistoryShortcut);
+    return () => window.removeEventListener("keydown", handleHistoryShortcut);
+  }, [active, redo, undo]);
 
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [overIdx, setOverIdx] = useState<number | null>(null);
@@ -197,12 +293,14 @@ export function useCashCounter(
     if (active === dragIdx) a = drop;
     else if (active > dragIdx && active <= drop) a = active - 1;
     else if (active < dragIdx && active >= drop) a = active + 1;
+    undoHistory.clear();
+    dataRef.current = n;
     setCanAutoSave(true);
     setData(n);
     setActive(a);
     setDragIdx(null);
     setOverIdx(null);
-  }, [dragIdx, data, active]);
+  }, [dragIdx, data, active, undoHistory]);
 
   const hDE = useCallback(() => { setDragIdx(null); setOverIdx(null); }, []);
 
@@ -233,6 +331,8 @@ export function useCashCounter(
             ...imported,
             counters: reconcileAccountCashCounters(imported.counters, activeAccounts),
           };
+          undoHistory.clear();
+          dataRef.current = snapshot.counters;
           setCanAutoSave(true);
           setData(snapshot.counters);
           setActive(snapshot.activeTab);
@@ -242,7 +342,7 @@ export function useCashCounter(
       reader.readAsText(f);
     };
     inp.click();
-  }, [activeAccounts]);
+  }, [activeAccounts, undoHistory]);
 
   const storageInfo = useCallback(() => {
     try {
@@ -262,6 +362,8 @@ export function useCashCounter(
             ...initial,
             counters: reconcileAccountCashCounters(initial.counters, activeAccounts),
           };
+          undoHistory.clear();
+          dataRef.current = snapshot.counters;
           setCanAutoSave(true);
           setData(snapshot.counters);
           setActive(snapshot.activeTab);
@@ -269,11 +371,11 @@ export function useCashCounter(
         } catch { alert("❌ Error."); }
       })();
     }
-  }, [activeAccounts, storageInfo]);
+  }, [activeAccounts, storageInfo, undoHistory]);
 
   return {
     data, active, setActive, lastSaved, saving, save,
-    add, del, upd,
+    add, del, upd, replace,
     dragIdx, overIdx, hDS, hDO, hDL, hDrop, hDE,
     exp, imp, clear, storageInfo,
   };

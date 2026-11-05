@@ -31,6 +31,7 @@ export function RightPanel({
   showBD,
   setShowBD,
   onUpdate,
+  onReplace,
   onCurrencyOpen,
   onDelete,
   canDelete = true,
@@ -49,6 +50,21 @@ export function RightPanel({
     v?: number,
   ) =>
     onUpdate({
+      ...data,
+      bills: b,
+      extraAmount: e,
+      currency: c,
+      aperturaCaja: a ?? data.aperturaCaja,
+      ventaActual: v ?? data.ventaActual,
+    });
+  const replace = (
+    b: BillsMap,
+    e: number,
+    c: "CRC" | "USD",
+    a?: number,
+    v?: number,
+  ) =>
+    onReplace({
       ...data,
       bills: b,
       extraAmount: e,
@@ -389,7 +405,8 @@ export function RightPanel({
                   inp.onchange = (ev) => {
                     const f = (ev.target as HTMLInputElement).files?.[0];
                     if (!f) return;
-                    new FileReader().onload = (e) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
                       try {
                         const p = JSON.parse(e.target?.result as string);
                         if (
@@ -399,7 +416,7 @@ export function RightPanel({
                           (p.currency === "CRC" || p.currency === "USD") &&
                           typeof p.bills === "object"
                         ) {
-                          ntf(
+                          replace(
                             p.bills,
                             p.extraAmount,
                             p.currency,
@@ -411,7 +428,7 @@ export function RightPanel({
                         alert("Error.");
                       }
                     };
-                    new FileReader().readAsText(f);
+                    reader.readAsText(f);
                   };
                   inp.click();
                 },
@@ -545,7 +562,7 @@ export function RightPanel({
                     denoms.forEach((d) => {
                       r[d.value] = 0;
                     });
-                    ntf(r, 0, cur, 0, 0);
+                    replace(r, 0, cur, 0, 0);
                     setClearConfirmOpen(false);
                   }}
                   className="flex items-center gap-1 px-4 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400"

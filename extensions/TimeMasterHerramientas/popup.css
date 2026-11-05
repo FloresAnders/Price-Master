@@ -248,6 +248,143 @@ h1 {
   text-align: right;
 }
 
+.font-settings {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #e8ecf3;
+  color: #596277;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.font-settings[hidden] {
+  display: none;
+}
+
+.font-settings__group {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 0 0;
+  border: 0;
+  border-top: 1px solid #e8ecf3;
+}
+
+.font-settings__group:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.font-settings__group legend {
+  margin-bottom: 2px;
+  padding: 0;
+  color: #172033;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.font-settings label {
+  display: grid;
+  grid-template-columns: 1fr 145px;
+  align-items: center;
+  gap: 10px;
+}
+
+.font-settings__value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 400;
+}
+
+.font-settings input,
+.font-settings select {
+  width: 100%;
+  border: 1px solid #c7cfdd;
+  border-radius: 7px;
+  padding: 5px 7px;
+  background: #fff;
+  color: #172033;
+  font: inherit;
+}
+
+.font-settings input:focus-visible,
+.font-settings select:focus-visible {
+  border-color: #168a52;
+  outline: 3px solid rgb(22 138 82 / 18%);
+}
+
+.font-settings input:disabled,
+.font-settings select:disabled {
+  background: #eef1f6;
+  color: #8992a3;
+}
+
+.font-settings__status {
+  min-height: 13px;
+  color: #596277;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.font-settings__status[data-error="true"] {
+  color: #a32323;
+}
+
+.font-settings__status[data-saved="true"] {
+  color: #12713f;
+}
+
+.font-settings__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #e8ecf3;
+}
+
+.font-settings__buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.font-settings__reset,
+.font-settings__save {
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 7px 14px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.font-settings__reset {
+  border-color: #c7cfdd;
+  background: #fff;
+  color: #344057;
+}
+
+.font-settings__save {
+  background: #168a52;
+  color: #fff;
+}
+
+.font-settings__reset:focus-visible,
+.font-settings__save:focus-visible {
+  outline: 3px solid rgb(22 138 82 / 25%);
+  outline-offset: 2px;
+}
+
+.font-settings__reset:disabled,
+.font-settings__save:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .hint {
   margin: 14px 2px 0;
   color: #68738a;

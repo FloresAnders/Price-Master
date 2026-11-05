@@ -1,4 +1,4 @@
-TIMEMASTER HERRAMIENTAS 1.0.6
+TIMEMASTER HERRAMIENTAS 1.0.11
 ================================
 
 Esta extensión reúne CambioTab, división de efectivo, movimiento entre medios
@@ -25,6 +25,7 @@ CONTROLES Y VALORES INICIALES
 - SumaTiempos en Gente Crystal: activado.
 - Ingresar venta con Ctrl+Enter en Gente Crystal: desactivado.
 - Impresión automática en Gente Crystal: desactivada.
+- Resaltado de líneas del tiquete en Gente Crystal: desactivado.
 
 Pulse el icono de la extensión para cambiar cada función por separado. Los
 cambios se aplican inmediatamente a las páginas compatibles ya abiertas.
@@ -99,6 +100,23 @@ diálogo nativo de impresión.
 Para impresión totalmente desatendida, Edge o Chrome debe iniciarse con la
 opción --kiosk-printing y la impresora correcta debe estar configurada. Use esa
 opción únicamente en un equipo controlado destinado a caja.
+
+RESALTAR LÍNEAS DEL TIQUETE EN GENTE CRYSTAL
+--------------------------------------------
+Sitios:
+- https://gentecrystal.net/controllers/sales/SalesController.php*
+- https://gentecrystal.net/print_pagos.php*
+
+Al activarlo, detecta por separado el código con formato 44559-2204-61486297,
+la línea de fecha con formato Fecha: 04/11/2026 y la línea siguiente con el
+nombre del sorteo, por ejemplo LA ANGUILA MAÑANA. Cada línea tiene sus propios
+controles de tamaño (10 a 72 px), grosor (600 a 900) y tipo de letra. Los
+valores iniciales son 22 px, grosor 700 y el tipo de letra original. Pulse
+Guardar configuración para persistir juntos el interruptor y los nueve valores;
+el popup confirma con el mensaje "Guardado". Al desactivar el interruptor se
+ocultan los controles y la impresión queda sin cambios. Restablecer valores
+devuelve las tres líneas a 22 px, grosor 700 y letra original; luego pulse
+Guardar configuración para confirmar el cambio.
 
 ACTUALIZACIONES
 ---------------

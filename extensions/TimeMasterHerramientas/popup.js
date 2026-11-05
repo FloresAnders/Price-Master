@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- UMD CommonJS compatibility for tests. */
 (function initializePopup(root, factory) {
   const settings =
     typeof module === "object" && module.exports
@@ -18,11 +19,37 @@
   "use strict";
 
   const keys = Object.entries(settings.DEFAULT_SETTINGS)
-    .filter(([, fallback]) => typeof fallback === "boolean")
+    .filter(
+      ([key, fallback]) =>
+        typeof fallback === "boolean" &&
+        key !== "tmhResaltarCodigoTiqueteEnabled",
+    )
     .map(([key]) => key);
   const CLOSE_ENABLED_KEY = "tmhCerrarImpresionConticaEnabled";
   const CLOSE_DELAY_KEY = "tmhCerrarImpresionConticaDelaySeconds";
   const CLOSE_MESSAGE_KEY = "tmhCerrarImpresionConticaMessage";
+  const TICKET_ENABLED_KEY = "tmhResaltarCodigoTiqueteEnabled";
+  const TICKET_SIZE_KEY = "tmhResaltarCodigoTiqueteFontSizePx";
+  const TICKET_WEIGHT_KEY = "tmhResaltarCodigoTiqueteFontWeight";
+  const TICKET_FAMILY_KEY = "tmhResaltarCodigoTiqueteFontFamily";
+  const TICKET_LINES = [
+    {
+      size: TICKET_SIZE_KEY,
+      weight: TICKET_WEIGHT_KEY,
+      family: TICKET_FAMILY_KEY,
+    },
+    {
+      size: "tmhResaltarFechaTiqueteFontSizePx",
+      weight: "tmhResaltarFechaTiqueteFontWeight",
+      family: "tmhResaltarFechaTiqueteFontFamily",
+    },
+    {
+      size: "tmhResaltarSorteoTiqueteFontSizePx",
+      weight: "tmhResaltarSorteoTiqueteFontWeight",
+      family: "tmhResaltarSorteoTiqueteFontFamily",
+    },
+  ];
+  const TICKET_FONT_KEYS = TICKET_LINES.flatMap((line) => Object.values(line));
 
   function createPopupController(documentRef, chromeApi) {
     const values = { ...settings.DEFAULT_SETTINGS };
@@ -78,6 +105,55 @@
       input.value = message;
       input.disabled = values[CLOSE_ENABLED_KEY] !== true;
       status.textContent = errorMessage;
+    }
+
+    function ticketFontElements() {
+      return {
+        panel: documentRef.getElementById("tmhResaltarLineasTiquete-settings"),
+        status: documentRef.getElementById("tmhResaltarCodigoTiqueteFont-status"),
+        reset: documentRef.getElementById("tmhResaltarCodigoTiquete-reset"),
+        save: documentRef.getElementById("tmhResaltarCodigoTiquete-save"),
+      };
+    }
+
+    function ticketFontControl(key) {
+      return documentRef.getElementById(`${key}-input`);
+    }
+
+    function updateTicketDraftState(message = "Cambios sin guardar", isError = false) {
+      const { toggle, status: enabledStatus } = elements(TICKET_ENABLED_KEY);
+      const { panel, status, reset } = ticketFontElements();
+      if (!toggle || !panel || !status || !enabledStatus) {
+        return;
+      }
+      const enabled = toggle.checked === true;
+      enabledStatus.textContent = enabled ? "Activado" : "Desactivado";
+      enabledStatus.dataset.enabled = String(enabled);
+      panel.hidden = !enabled;
+      for (const key of TICKET_FONT_KEYS) {
+        const control = ticketFontControl(key);
+        if (control) control.disabled = !enabled;
+      }
+      if (reset) reset.disabled = !enabled;
+      status.textContent = message;
+      if (isError) status.dataset.error = "true";
+      else delete status.dataset.error;
+      if (!isError && message === "Guardado") status.dataset.saved = "true";
+      else delete status.dataset.saved;
+    }
+
+    function renderTicketSettings(message = "") {
+      const { toggle } = elements(TICKET_ENABLED_KEY);
+      const { save } = ticketFontElements();
+      if (!toggle || !save) return;
+      toggle.checked = values[TICKET_ENABLED_KEY] === true;
+      for (const key of TICKET_FONT_KEYS) {
+        const control = ticketFontControl(key);
+        if (control) control.value = String(values[key]);
+      }
+      toggle.disabled = false;
+      save.disabled = false;
+      updateTicketDraftState(message);
     }
 
     function bind(key) {
@@ -157,12 +233,88 @@
       listeners.set(CLOSE_MESSAGE_KEY, handleChange);
     }
 
+    function bindTicketSettings() {
+      const { toggle } = elements(TICKET_ENABLED_KEY);
+      const { reset, save } = ticketFontElements();
+      if (!toggle || !reset || !save) return;
+
+      const handleDraftChange = () => updateTicketDraftState();
+      const handleReset = () => {
+        for (const key of TICKET_FONT_KEYS) {
+          const control = ticketFontControl(key);
+          if (control) control.value = String(settings.DEFAULT_SETTINGS[key]);
+        }
+        updateTicketDraftState();
+      };
+      const handleSave = () => {
+        const next = {
+          [TICKET_ENABLED_KEY]: toggle.checked === true,
+        };
+        for (const line of TICKET_LINES) {
+          const sizeValue = Number(ticketFontControl(line.size)?.value);
+          const weightValue = Number(ticketFontControl(line.weight)?.value);
+          const familyValue = ticketFontControl(line.family)?.value;
+          const normalizedSize = settings.normalizeTicketFontSizePx(sizeValue);
+          const normalizedWeight = settings.normalizeTicketFontWeight(weightValue);
+          const normalizedFamily = settings.normalizeTicketFontFamily(familyValue);
+          if (normalizedSize !== sizeValue) {
+            updateTicketDraftState(
+              `Usa un número entero de ${settings.TICKET_FONT_SIZE_MIN} a ${settings.TICKET_FONT_SIZE_MAX}`,
+              true,
+            );
+            return;
+          }
+          if (
+            normalizedWeight !== weightValue ||
+            normalizedFamily !== familyValue
+          ) {
+            updateTicketDraftState("Seleccione valores válidos", true);
+            return;
+          }
+          next[line.size] = normalizedSize;
+          next[line.weight] = normalizedWeight;
+          next[line.family] = normalizedFamily;
+        }
+        toggle.disabled = true;
+        for (const key of TICKET_FONT_KEYS) {
+          const control = ticketFontControl(key);
+          if (control) control.disabled = true;
+        }
+        reset.disabled = true;
+        save.disabled = true;
+        chromeApi.storage.local.set(next, () => {
+          if (chromeApi.runtime.lastError) {
+            toggle.disabled = false;
+            reset.disabled = false;
+            save.disabled = false;
+            updateTicketDraftState("Error al guardar", true);
+            return;
+          }
+          Object.assign(values, next);
+          renderTicketSettings("Guardado");
+        });
+      };
+
+      toggle.addEventListener("change", handleDraftChange);
+      for (const key of TICKET_FONT_KEYS) {
+        const control = ticketFontControl(key);
+        control?.addEventListener("change", handleDraftChange);
+        listeners.set(key, handleDraftChange);
+      }
+      reset.addEventListener("click", handleReset);
+      save.addEventListener("click", handleSave);
+      listeners.set(TICKET_ENABLED_KEY, handleDraftChange);
+      listeners.set("tmhResaltarCodigoTiqueteReset", handleReset);
+      listeners.set("tmhResaltarCodigoTiqueteSave", handleSave);
+    }
+
     function start() {
       if (started) return;
       started = true;
       for (const key of keys) bind(key);
       bindDelay();
       bindMessage();
+      bindTicketSettings();
       chromeApi.storage.local.get(settings.DEFAULT_SETTINGS, (stored) => {
         const normalized = settings.normalizeSettings(stored);
         Object.assign(values, normalized);
@@ -171,6 +323,7 @@
         }
         renderDelay(normalized[CLOSE_DELAY_KEY]);
         renderMessage(normalized[CLOSE_MESSAGE_KEY]);
+        renderTicketSettings();
       });
     }
 
@@ -181,6 +334,17 @@
           delayElements().input?.removeEventListener("change", listener);
         } else if (key === CLOSE_MESSAGE_KEY) {
           messageElements().input?.removeEventListener("change", listener);
+        } else if (key === TICKET_ENABLED_KEY) {
+          elements(TICKET_ENABLED_KEY).toggle?.removeEventListener(
+            "change",
+            listener,
+          );
+        } else if (TICKET_FONT_KEYS.includes(key)) {
+          ticketFontControl(key)?.removeEventListener("change", listener);
+        } else if (key === "tmhResaltarCodigoTiqueteReset") {
+          ticketFontElements().reset?.removeEventListener("click", listener);
+        } else if (key === "tmhResaltarCodigoTiqueteSave") {
+          ticketFontElements().save?.removeEventListener("click", listener);
         } else {
           elements(key).toggle?.removeEventListener("change", listener);
         }

@@ -104,12 +104,16 @@ firestore-debug.log
 !/tests/fondogeneral/movement-search-all-accounts.test.ts
 !/tests/fondogeneral/company-movement-interval.test.ts
 !/tests/fondogeneral/closing-time-request-state.test.ts
+!/tests/fondogeneral/cash-counter-undo-history.test.ts
+!/tests/fondogeneral/cash-counter-undo-shortcut.test.tsx
+!/tests/fondogeneral/closing-balance-expand-copy.test.tsx
 !/tests/extensions/
 /tests/extensions/*
 !/tests/extensions/timemaster-herramientas-dividir-efectivo.test.ts
 !/tests/extensions/timemaster-herramientas-ingresar-venta.test.ts
 !/tests/extensions/timemaster-herramientas-mover-pago.test.ts
 !/tests/extensions/timemaster-herramientas-cierre-configurable.test.ts
+!/tests/extensions/timemaster-herramientas-resaltar-tiquete.test.ts
 !/tests/extensions/smartprint.test.ts
 !/tests/fixtures/
 !/tests/fixtures/smartprint/

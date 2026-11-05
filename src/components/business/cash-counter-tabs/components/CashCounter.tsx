@@ -9,6 +9,7 @@ import { badgeColor, badgeLabel, denomsByCurrency, calcBDBreakdown, fmtCurrency,
 
 const HOLD_DELAY_MS = 400;
 const HOLD_REPEAT_MS = 100;
+let nextHoldGroupId = 0;
 
 export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
   const denoms = denomsByCurrency(data.currency);
@@ -42,7 +43,7 @@ export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
     });
   };
 
-  const changeQuantity = useCallback((v: number, delta: 1 | -1) => {
+  const changeQuantity = useCallback((v: number, delta: 1 | -1, group?: string) => {
     setQuantityDrafts((current) => {
       if (!(v in current)) return current;
       const next = { ...current };
@@ -51,16 +52,18 @@ export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
     });
 
     const current = latestDataRef.current;
-    const nextCount = Math.max((current.bills[v] || 0) + delta, 0);
+    const currentCount = current.bills[v] || 0;
+    const nextCount = Math.max(currentCount + delta, 0);
+    if (nextCount === currentCount) return;
     const nextData = {
       ...current,
       bills: { ...current.bills, [v]: nextCount },
     };
     latestDataRef.current = nextData;
-    latestOnUpdateRef.current(latestIdRef.current, nextData);
+    latestOnUpdateRef.current(latestIdRef.current, nextData, group);
   }, []);
-  const inc = (v: number) => changeQuantity(v, 1);
-  const dec = (v: number) => changeQuantity(v, -1);
+  const inc = (v: number, group?: string) => changeQuantity(v, 1, group);
+  const dec = (v: number, group?: string) => changeQuantity(v, -1, group);
 
   const stopHolding = useCallback(() => {
     if (holdDelayTimerRef.current) clearTimeout(holdDelayTimerRef.current);
@@ -72,14 +75,15 @@ export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
 
   const startHolding = useCallback((
     event: React.PointerEvent<HTMLButtonElement>,
-    action: () => void,
+    action: (group: string) => void,
   ) => {
     if (!event.isPrimary || event.button !== 0) return;
 
     stopHolding();
     event.currentTarget.setPointerCapture?.(event.pointerId);
-    heldActionRef.current = action;
-    action();
+    const group = `cash-counter-hold-${++nextHoldGroupId}`;
+    heldActionRef.current = () => action(group);
+    action(group);
     holdDelayTimerRef.current = setTimeout(() => {
       holdRepeatTimerRef.current = setInterval(() => {
         heldActionRef.current?.();
@@ -322,7 +326,7 @@ export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
                   </div>
                   <div className="flex items-center justify-center gap-2">
                     <motion.button whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92 }}
-                      onPointerDown={(event) => startHolding(event, () => dec(den.value))}
+                      onPointerDown={(event) => startHolding(event, (group) => dec(den.value, group))}
                       onClick={(event) => handleHoldClick(event, () => dec(den.value))}
                       className="w-9 h-9 touch-manipulation rounded-full bg-[#0d1117] border border-white/30 hover:border-rose-300/55 hover:bg-rose-500/15 flex items-center justify-center transition-all shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]"
                       aria-label={`-${den.label}`}>
@@ -336,7 +340,7 @@ export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
                       className="w-14 text-center bg-[#050816] border border-white/10 rounded-xl py-2 text-white text-sm font-semibold focus:ring-1 focus:ring-cyan-400/35 focus:border-cyan-400/35 outline-none transition-all placeholder-white/10"
                       placeholder="0" />
                     <motion.button whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.92 }}
-                      onPointerDown={(event) => startHolding(event, () => inc(den.value))}
+                      onPointerDown={(event) => startHolding(event, (group) => inc(den.value, group))}
                       onClick={(event) => handleHoldClick(event, () => inc(den.value))}
                       className="w-9 h-9 touch-manipulation rounded-full bg-[#0d1117] border border-white/30 hover:border-emerald-300/55 hover:bg-emerald-500/15 flex items-center justify-center transition-all shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]"
                       aria-label={`+${den.label}`}>

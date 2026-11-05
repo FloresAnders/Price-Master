@@ -51,7 +51,7 @@ export default function CashCounterTabs({ requestedAccountId }: CashCounterTabsP
   );
   const {
     data, active, setActive, lastSaved, saving,
-    add, del, upd,
+    add, del, upd, replace,
     dragIdx, overIdx, hDS, hDO, hDL, hDrop, hDE,
     exp, imp, clear, storageInfo,
   } = useCashCounter(activeAccounts, requestedAccountId);
@@ -185,6 +185,7 @@ export default function CashCounterTabs({ requestedAccountId }: CashCounterTabsP
             showBD={showBD}
             setShowBD={setShowBD}
             onUpdate={(d) => upd(activeEntry.index, d)}
+            onReplace={(d) => replace(activeEntry.index, d)}
             onCurrencyOpen={() => setCurrencyOpen(true)}
             onDelete={() => del(activeEntry.index)}
             canDelete={!activeEntry.counter.accountId}

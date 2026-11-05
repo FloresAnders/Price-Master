@@ -29,6 +29,7 @@ import { useProviders } from "../../../../hooks/useProviders";
 import { firestoreDatabaseId } from "../../../../config/firebase";
 import type { FondoCacheIdentity } from "../../../../services/fondo-cache";
 import useToast from "../../../../hooks/useToast";
+import { usePermissions } from "../../../../hooks/usePermissions";
 import type { Empresas } from "../../../../types/firestore";
 import { getDefaultPermissions } from "../../../../utils/permissions";
 import ConfirmModal from "../../../../components/ui/ConfirmModal";
@@ -87,6 +88,7 @@ import CashOpeningModal, { CashOpeningFormValues } from "../modals/CashOpeningMo
 import FacturaPaymentModal from "../modals/FacturaPaymentModal";
 import { FondoTotalsSummary } from "../FondoTotalsSummary";
 import { FondoCurrentBalanceCard } from "../FondoCurrentBalanceCard";
+import { ClosingBalanceDisplay } from "../ClosingBalanceDisplay";
 import { LedgerSyncStatus } from "../LedgerSyncStatus";
 import { PendingCreditInvoicesSection } from "../invoices/PendingCreditInvoicesSection";
 import { FondoMovementsSkeleton } from "../FondoMovementsSkeleton";
@@ -376,6 +378,7 @@ export function FondoSection({
     ? adminCompany
     : resolvedCompany || assignedCompany;
   const { showToast } = useToast();
+  const { copyToClipboard } = usePermissions();
   const {
     ownerAdminEmail,
     ownerCompaniesLoading,
@@ -7476,24 +7479,25 @@ export function FondoSection({
                                             <div className="text-xs text-[var(--muted-foreground)]">
                                               Saldo al cierre
                                             </div>
-                                            <div className="text-sm font-semibold text-[var(--foreground)] flex flex-col gap-0.5">
-                                              {currencyEnabled.CRC && (
-                                                <div>
-                                                  {formatByCurrency(
-                                                    "CRC",
-                                                    closingCRC,
-                                                  )}
-                                                </div>
-                                              )}
-                                              {currencyEnabled.USD && (
-                                                <div>
-                                                  {formatByCurrency(
-                                                    "USD",
-                                                    closingUSD,
-                                                  )}
-                                                </div>
-                                              )}
-                                            </div>
+                                            <ClosingBalanceDisplay
+                                              currencyEnabled={currencyEnabled}
+                                              closingCRC={closingCRC}
+                                              closingUSD={closingUSD}
+                                              breakdownCRC={
+                                                closingRecord?.breakdownCRC ?? null
+                                              }
+                                              breakdownUSD={
+                                                closingRecord?.breakdownUSD ?? null
+                                              }
+                                              formatByCurrency={formatByCurrency}
+                                              copyToClipboard={copyToClipboard}
+                                              onCopyError={() =>
+                                                showToast(
+                                                  "No se pudieron copiar las denominaciones.",
+                                                  "error",
+                                                )
+                                              }
+                                            />
                                           </div>
                                         );
                                       })()

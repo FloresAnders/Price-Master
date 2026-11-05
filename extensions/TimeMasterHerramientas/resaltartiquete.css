@@ -1,0 +1,10 @@
+@media print {
+  [data-tmh-ticket-code],
+  [data-tmh-ticket-date],
+  [data-tmh-ticket-draw] {
+    font-family: var(--tmh-ticket-font-family, inherit) !important;
+    font-size: var(--tmh-ticket-font-size, 22px) !important;
+    font-weight: var(--tmh-ticket-font-weight, 700) !important;
+    line-height: 1.25;
+  }
+}
