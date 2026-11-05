@@ -132,60 +132,92 @@ describe("atajos del historial del contador de efectivo", () => {
     expect(onUpdate).not.toHaveBeenCalled();
   });
 
-  it("limpia un contador sin registrar la operacion en el historial", () => {
-    const onUpdate = vi.fn();
-    const onReplace = vi.fn();
-    render(
+  it("restaura con Ctrl+Z el contador despues de confirmar la limpieza", async () => {
+    const { result, unmount: unmountHook } = renderHook(
+      () => useCashCounter(),
+      { wrapper: StrictMode },
+    );
+    await waitFor(() => expect(result.current.data).toHaveLength(1));
+
+    const original = {
+      ...result.current.data[0],
+      bills: { 1000: 4 },
+      extraAmount: 500,
+      currency: "CRC" as const,
+      aperturaCaja: 1000,
+      ventaActual: 2000,
+    };
+    act(() => result.current.upd(0, original));
+
+    const { container, unmount: unmountPanel } = render(
       <RightPanel
-        data={{
-          name: "Caja",
-          bills: { 1000: 4 },
-          extraAmount: 500,
-          currency: "CRC",
-          aperturaCaja: 1000,
-          ventaActual: 2000,
-        }}
+        data={result.current.data[0]}
         showExtra={false}
         setShowExtra={vi.fn()}
         showBD={false}
         setShowBD={vi.fn()}
-        onUpdate={onUpdate}
-        onReplace={onReplace}
+        onUpdate={(next) => result.current.upd(0, next)}
+        onReplace={(next) => result.current.replace(0, next)}
         onCurrencyOpen={vi.fn()}
         onDelete={vi.fn()}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Limpiar" }));
-    const confirmations = screen.getAllByRole("button", { name: "Limpiar" });
+    fireEvent.click(within(container).getByRole("button", { name: "Limpiar" }));
+    const confirmations = within(container).getAllByRole("button", {
+      name: "Limpiar",
+    });
     fireEvent.click(confirmations[confirmations.length - 1]);
 
-    expect(onReplace).toHaveBeenCalledOnce();
-    expect(onUpdate).not.toHaveBeenCalled();
+    expect(result.current.data[0].bills[1000]).toBe(0);
+    expect(result.current.data[0].extraAmount).toBe(0);
+    expect(result.current.data[0].aperturaCaja).toBe(0);
+    expect(result.current.data[0].ventaActual).toBe(0);
+
+    act(() =>
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "z", ctrlKey: true }),
+      ),
+    );
+
+    expect(result.current.data[0].bills).toEqual({ 1000: 4 });
+    expect(result.current.data[0].extraAmount).toBe(500);
+    expect(result.current.data[0].aperturaCaja).toBe(1000);
+    expect(result.current.data[0].ventaActual).toBe(2000);
+
+    unmountPanel();
+    unmountHook();
   });
 
-  it("importa un contador mediante reemplazo estructural", async () => {
-    const onUpdate = vi.fn();
-    const onReplace = vi.fn();
+  it("restaura con Ctrl+Z el contador anterior a una importacion", async () => {
+    const { result, unmount: unmountHook } = renderHook(
+      () => useCashCounter(),
+      { wrapper: StrictMode },
+    );
+    await waitFor(() => expect(result.current.data).toHaveLength(1));
+
+    const original = {
+      ...result.current.data[0],
+      bills: { 1000: 4 },
+      extraAmount: 500,
+      currency: "CRC" as const,
+      aperturaCaja: 1000,
+      ventaActual: 2000,
+    };
+    act(() => result.current.upd(0, original));
+
     const clickSpy = vi
       .spyOn(HTMLInputElement.prototype, "click")
       .mockImplementation(() => {});
-    const { container } = render(
+    const { container, unmount: unmountPanel } = render(
       <RightPanel
-        data={{
-          name: "Caja",
-          bills: {},
-          extraAmount: 0,
-          currency: "CRC",
-          aperturaCaja: 0,
-          ventaActual: 0,
-        }}
+        data={result.current.data[0]}
         showExtra={false}
         setShowExtra={vi.fn()}
         showBD={false}
         setShowBD={vi.fn()}
-        onUpdate={onUpdate}
-        onReplace={onReplace}
+        onUpdate={(next) => result.current.upd(0, next)}
+        onReplace={(next) => result.current.replace(0, next)}
         onCurrencyOpen={vi.fn()}
         onDelete={vi.fn()}
       />,
@@ -197,18 +229,32 @@ describe("atajos del historial del contador de efectivo", () => {
     const file = new File([
       JSON.stringify({
         name: "Importada",
-        bills: { 1000: 3 },
+        bills: { 20: 3 },
         extraAmount: 250,
-        currency: "CRC",
-        aperturaCaja: 1000,
-        ventaActual: 2000,
+        currency: "USD",
+        aperturaCaja: 100,
+        ventaActual: 200,
       }),
     ], "contador.json", { type: "application/json" });
     Object.defineProperty(fileInput, "files", { value: [file] });
     fireEvent.change(fileInput as HTMLInputElement);
 
-    await waitFor(() => expect(onReplace).toHaveBeenCalledOnce());
-    expect(onUpdate).not.toHaveBeenCalled();
+    await waitFor(() => expect(result.current.data[0].currency).toBe("USD"));
+    expect(result.current.data[0].bills).toEqual({ 20: 3 });
+    expect(result.current.data[0].extraAmount).toBe(250);
+    expect(result.current.data[0].aperturaCaja).toBe(100);
+    expect(result.current.data[0].ventaActual).toBe(200);
+
+    act(() =>
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "z", ctrlKey: true }),
+      ),
+    );
+
+    expect(result.current.data[0]).toEqual(original);
+
+    unmountPanel();
+    unmountHook();
     clickSpy.mockRestore();
   });
 });

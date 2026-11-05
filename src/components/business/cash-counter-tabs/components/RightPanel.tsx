@@ -31,7 +31,6 @@ export function RightPanel({
   showBD,
   setShowBD,
   onUpdate,
-  onReplace,
   onCurrencyOpen,
   onDelete,
   canDelete = true,
@@ -57,22 +56,6 @@ export function RightPanel({
       aperturaCaja: a ?? data.aperturaCaja,
       ventaActual: v ?? data.ventaActual,
     });
-  const replace = (
-    b: BillsMap,
-    e: number,
-    c: "CRC" | "USD",
-    a?: number,
-    v?: number,
-  ) =>
-    onReplace({
-      ...data,
-      bills: b,
-      extraAmount: e,
-      currency: c,
-      aperturaCaja: a ?? data.aperturaCaja,
-      ventaActual: v ?? data.ventaActual,
-    });
-
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
@@ -416,7 +399,7 @@ export function RightPanel({
                           (p.currency === "CRC" || p.currency === "USD") &&
                           typeof p.bills === "object"
                         ) {
-                          replace(
+                          ntf(
                             p.bills,
                             p.extraAmount,
                             p.currency,
@@ -562,7 +545,7 @@ export function RightPanel({
                     denoms.forEach((d) => {
                       r[d.value] = 0;
                     });
-                    replace(r, 0, cur, 0, 0);
+                    ntf(r, 0, cur, 0, 0);
                     setClearConfirmOpen(false);
                   }}
                   className="flex items-center gap-1 px-4 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400"
