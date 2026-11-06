@@ -60,6 +60,10 @@
     family: "tmhFormatoImpresionCompletaFontFamily",
   };
   const FULL_PRINT_FONT_KEYS = Object.values(FULL_PRINT_FONT);
+  const LINE_CONFIG_LAUNCHERS = Object.freeze([
+    { source: "ticket", enabledKey: TICKET_ENABLED_KEY },
+    { source: "bcr", enabledKey: FULL_PRINT_ENABLED_KEY },
+  ]);
 
   function createPopupController(documentRef, chromeApi) {
     const values = { ...settings.DEFAULT_SETTINGS };
@@ -451,6 +455,41 @@
       listeners.set("tmhFormatoImpresionCompletaSave", handleSave);
     }
 
+    function renderLineConfigLauncher(enabledKey) {
+      render(enabledKey, values[enabledKey] === true);
+    }
+
+    function bindLineConfigLaunchers() {
+      for (const { source, enabledKey } of LINE_CONFIG_LAUNCHERS) {
+        const { toggle } = elements(enabledKey);
+        if (!toggle) continue;
+        const handleChange = () => {
+          renderLineConfigLauncher(enabledKey);
+          const url = chromeApi.runtime.getURL(
+            `lineas-config.html?source=${source}`,
+          );
+          chromeApi.windows?.create({
+            url,
+            type: "popup",
+            width: 540,
+            height: 720,
+          });
+        };
+        toggle.addEventListener("change", handleChange);
+        listeners.set(`lineConfig:${source}`, handleChange);
+      }
+    }
+
+    function handleStorageChange(changes, areaName) {
+      if (areaName !== "local") return;
+      for (const { enabledKey } of LINE_CONFIG_LAUNCHERS) {
+        const next = changes?.[enabledKey]?.newValue;
+        if (typeof next !== "boolean") continue;
+        values[enabledKey] = next;
+        renderLineConfigLauncher(enabledKey);
+      }
+    }
+
     function start() {
       if (started) return;
       started = true;
@@ -459,6 +498,8 @@
       bindMessage();
       bindTicketSettings();
       bindFullPrintSettings();
+      bindLineConfigLaunchers();
+      chromeApi.storage.onChanged.addListener(handleStorageChange);
       chromeApi.storage.local.get(settings.DEFAULT_SETTINGS, (stored) => {
         const normalized = settings.normalizeSettings(stored);
         Object.assign(values, normalized);
@@ -469,6 +510,9 @@
         renderMessage(normalized[CLOSE_MESSAGE_KEY]);
         renderTicketSettings();
         renderFullPrintSettings();
+        for (const { enabledKey } of LINE_CONFIG_LAUNCHERS) {
+          renderLineConfigLauncher(enabledKey);
+        }
       });
     }
 
@@ -501,11 +545,23 @@
           fullPrintElements().reset?.removeEventListener("click", listener);
         } else if (key === "tmhFormatoImpresionCompletaSave") {
           fullPrintElements().save?.removeEventListener("click", listener);
+        } else if (key.startsWith("lineConfig:")) {
+          const source = key.split(":")[1];
+          const launcher = LINE_CONFIG_LAUNCHERS.find(
+            (candidate) => candidate.source === source,
+          );
+          if (launcher) {
+            elements(launcher.enabledKey).toggle?.removeEventListener(
+              "change",
+              listener,
+            );
+          }
         } else {
           elements(key).toggle?.removeEventListener("change", listener);
         }
       }
       listeners.clear();
+      chromeApi.storage.onChanged.removeListener(handleStorageChange);
       started = false;
     }
 

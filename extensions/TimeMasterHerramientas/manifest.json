@@ -1,14 +1,17 @@
 {
   "manifest_version": 3,
   "name": "TimeMaster Herramientas",
-  "version": "1.0.12",
-  "description": "Atajos para Contica y Gente Crystal, incluyendo resaltado configurable de las líneas del tiquete.",
+  "version": "1.2.0",
+  "description": "Atajos para Contica, Gente Crystal y formato configurable por líneas de impresión.",
   "permissions": ["storage"],
   "icons": {
     "128": "icon128.png"
   },
   "action": {
     "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
   },
   "content_scripts": [
     {
@@ -31,13 +34,11 @@
       "world": "MAIN"
     },
     {
-      "matches": [
-        "https://gentecrystal.net/controllers/sales/SalesController.php*",
-        "https://gentecrystal.net/print_pagos.php*"
-      ],
+      "matches": ["https://gentecrystal.net/print_pagos.php*"],
       "js": [
         "settings-core.js",
-        "resaltartiquete-core.js",
+        "lineasimpresion-core.js",
+        "lineasimpresion-content-core.js",
         "resaltartiquete-content.js"
       ],
       "css": ["resaltartiquete.css"],
@@ -57,15 +58,25 @@
     },
     {
       "matches": ["https://www.bcrcorresponsal.bancobcr.com/*"],
+      "js": ["impresioncompleta-print-gate.js"],
+      "all_frames": true,
+      "match_about_blank": true,
+      "match_origin_as_fallback": true,
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://www.bcrcorresponsal.bancobcr.com/*"],
       "js": [
         "settings-core.js",
-        "impresioncompleta-core.js",
+        "lineasimpresion-core.js",
+        "lineasimpresion-content-core.js",
         "impresioncompleta-content.js"
       ],
       "all_frames": true,
       "match_about_blank": true,
       "match_origin_as_fallback": true,
-      "run_at": "document_idle"
+      "run_at": "document_start"
     }
   ]
 }

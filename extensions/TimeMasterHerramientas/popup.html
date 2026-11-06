@@ -11,267 +11,70 @@
       <header class="heading">
         <div>
           <h1>TimeMaster Herramientas</h1>
-          <p>Contica y Gente Crystal</p>
+          <p>Contica, Gente Crystal y BCR</p>
         </div>
       </header>
 
       <section class="features" aria-label="Herramientas disponibles">
         <label class="feature" for="tmhCambioTabEnabled-toggle">
-          <span class="feature__copy">
-            <strong>CambioTab</strong>
-            <small>Atajos para cambiar pestañas en Contica.</small>
-          </span>
-          <span class="feature__control">
-            <span id="tmhCambioTabEnabled-status" class="status" aria-live="polite">Activado</span>
-            <span class="switch">
-              <input id="tmhCambioTabEnabled-toggle" type="checkbox" role="switch">
-              <span class="slider" aria-hidden="true"></span>
-            </span>
-          </span>
+          <span class="feature__copy"><strong>CambioTab</strong><small>Atajos para cambiar pestañas en Contica.</small></span>
+          <span class="feature__control"><span id="tmhCambioTabEnabled-status" class="status" aria-live="polite">Activado</span><span class="switch"><input id="tmhCambioTabEnabled-toggle" type="checkbox" role="switch"><span class="slider" aria-hidden="true"></span></span></span>
         </label>
 
         <div class="feature feature--stacked">
           <div class="feature__row">
-            <span class="feature__copy">
-              <strong>Cerrar impresión en Contica</strong>
-              <small>Pulsa X / ESC después del tiempo configurado.</small>
-            </span>
-            <span class="feature__control">
-              <span id="tmhCerrarImpresionConticaEnabled-status" class="status" aria-live="polite">Desactivado</span>
-              <label class="switch" for="tmhCerrarImpresionConticaEnabled-toggle">
-                <input id="tmhCerrarImpresionConticaEnabled-toggle" type="checkbox" role="switch">
-                <span class="slider" aria-hidden="true"></span>
-              </label>
-            </span>
+            <span class="feature__copy"><strong>Cerrar impresión en Contica</strong><small>Pulsa X / ESC después del tiempo configurado.</small></span>
+            <span class="feature__control"><span id="tmhCerrarImpresionConticaEnabled-status" class="status" aria-live="polite">Desactivado</span><label class="switch" for="tmhCerrarImpresionConticaEnabled-toggle"><input id="tmhCerrarImpresionConticaEnabled-toggle" type="checkbox" role="switch"><span class="slider" aria-hidden="true"></span></label></span>
           </div>
           <label class="delay-field" for="tmhCerrarImpresionConticaDelaySeconds-input">
-            <span>Tiempo para cerrar</span>
-            <span class="delay-field__input">
-              <input id="tmhCerrarImpresionConticaDelaySeconds-input" type="number" min="1" step="1" inputmode="numeric">
-              <span>segundos</span>
-            </span>
-            <span id="tmhCerrarImpresionConticaDelaySeconds-status" class="delay-field__status" aria-live="polite"></span>
+            <span>Tiempo para cerrar</span><span class="delay-field__input"><input id="tmhCerrarImpresionConticaDelaySeconds-input" type="number" min="1" step="1" inputmode="numeric"><span>segundos</span></span><span id="tmhCerrarImpresionConticaDelaySeconds-status" class="delay-field__status" aria-live="polite"></span>
           </label>
           <label class="message-field" for="tmhCerrarImpresionConticaMessage-input">
-            <span>Mensaje del recordatorio</span>
-            <textarea id="tmhCerrarImpresionConticaMessage-input" rows="3"></textarea>
-            <span id="tmhCerrarImpresionConticaMessage-status" class="message-field__status" aria-live="polite"></span>
+            <span>Mensaje del recordatorio</span><textarea id="tmhCerrarImpresionConticaMessage-input" rows="3"></textarea><span id="tmhCerrarImpresionConticaMessage-status" class="message-field__status" aria-live="polite"></span>
           </label>
         </div>
 
         <label class="feature" for="tmhDividirEfectivoEnabled-toggle">
-          <span class="feature__copy">
-            <strong>Dividir efectivo</strong>
-            <small>Calcula montos escritos como 7500/2 en USD o CRC.</small>
-          </span>
-          <span class="feature__control">
-            <span id="tmhDividirEfectivoEnabled-status" class="status" aria-live="polite">Desactivado</span>
-            <span class="switch">
-              <input id="tmhDividirEfectivoEnabled-toggle" type="checkbox" role="switch">
-              <span class="slider" aria-hidden="true"></span>
-            </span>
-          </span>
+          <span class="feature__copy"><strong>Dividir efectivo</strong><small>Calcula montos escritos como 7500/2 en USD o CRC.</small></span>
+          <span class="feature__control"><span id="tmhDividirEfectivoEnabled-status" class="status" aria-live="polite">Desactivado</span><span class="switch"><input id="tmhDividirEfectivoEnabled-toggle" type="checkbox" role="switch"><span class="slider" aria-hidden="true"></span></span></span>
         </label>
 
         <label class="feature" for="tmhMoverPagoEnabled-toggle">
-          <span class="feature__copy">
-            <strong>Mover monto de pago</strong>
-            <small>Usa E, T o S para efectivo, tarjeta o SINPE.</small>
-          </span>
-          <span class="feature__control">
-            <span id="tmhMoverPagoEnabled-status" class="status" aria-live="polite">Desactivado</span>
-            <span class="switch">
-              <input id="tmhMoverPagoEnabled-toggle" type="checkbox" role="switch">
-              <span class="slider" aria-hidden="true"></span>
-            </span>
-          </span>
+          <span class="feature__copy"><strong>Mover monto de pago</strong><small>Usa E, T o S para efectivo, tarjeta o SINPE.</small></span>
+          <span class="feature__control"><span id="tmhMoverPagoEnabled-status" class="status" aria-live="polite">Desactivado</span><span class="switch"><input id="tmhMoverPagoEnabled-toggle" type="checkbox" role="switch"><span class="slider" aria-hidden="true"></span></span></span>
         </label>
 
         <label class="feature" for="tmhSumaTiemposEnabled-toggle">
-          <span class="feature__copy">
-            <strong>SumaTiempos</strong>
-            <small>Total en vivo en Gente Crystal.</small>
-          </span>
-          <span class="feature__control">
-            <span id="tmhSumaTiemposEnabled-status" class="status" aria-live="polite">Activado</span>
-            <span class="switch">
-              <input id="tmhSumaTiemposEnabled-toggle" type="checkbox" role="switch">
-              <span class="slider" aria-hidden="true"></span>
-            </span>
-          </span>
+          <span class="feature__copy"><strong>SumaTiempos</strong><small>Total en vivo en Gente Crystal.</small></span>
+          <span class="feature__control"><span id="tmhSumaTiemposEnabled-status" class="status" aria-live="polite">Activado</span><span class="switch"><input id="tmhSumaTiemposEnabled-toggle" type="checkbox" role="switch"><span class="slider" aria-hidden="true"></span></span></span>
         </label>
 
         <div class="feature feature--stacked">
           <div class="feature__row">
-            <span class="feature__copy">
-              <strong>Resaltar líneas del tiquete</strong>
-              <small>Configura código, fecha y nombre del sorteo.</small>
-            </span>
-            <span class="feature__control">
-              <span id="tmhResaltarCodigoTiqueteEnabled-status" class="status" aria-live="polite">Desactivado</span>
-              <label class="switch" for="tmhResaltarCodigoTiqueteEnabled-toggle">
-                <input id="tmhResaltarCodigoTiqueteEnabled-toggle" type="checkbox" role="switch">
-                <span class="slider" aria-hidden="true"></span>
-              </label>
-            </span>
-          </div>
-          <div id="tmhResaltarLineasTiquete-settings" class="font-settings" aria-label="Valores de fuente de las líneas del tiquete" hidden>
-            <fieldset class="font-settings__group">
-              <legend>Código</legend>
-              <label for="tmhResaltarCodigoTiqueteFontSizePx-input">
-                <span>Tamaño</span>
-                <span class="font-settings__value">
-                  <input id="tmhResaltarCodigoTiqueteFontSizePx-input" type="number" min="10" max="72" step="1" inputmode="numeric">
-                  <span>px</span>
-                </span>
-              </label>
-              <label for="tmhResaltarCodigoTiqueteFontWeight-input">
-                <span>Grosor</span>
-                <select id="tmhResaltarCodigoTiqueteFontWeight-input">
-                  <option value="600">600</option><option value="700">700</option><option value="800">800</option><option value="900">900</option>
-                </select>
-              </label>
-              <label for="tmhResaltarCodigoTiqueteFontFamily-input">
-                <span>Tipo de letra</span>
-                <select id="tmhResaltarCodigoTiqueteFontFamily-input">
-                  <option value="inherit">Original</option><option value="Arial">Arial</option><option value="Courier New">Courier New</option><option value="Verdana">Verdana</option>
-                </select>
-              </label>
-            </fieldset>
-            <fieldset class="font-settings__group">
-              <legend>Fecha</legend>
-              <label for="tmhResaltarFechaTiqueteFontSizePx-input">
-                <span>Tamaño</span>
-                <span class="font-settings__value">
-                  <input id="tmhResaltarFechaTiqueteFontSizePx-input" type="number" min="10" max="72" step="1" inputmode="numeric">
-                  <span>px</span>
-                </span>
-              </label>
-              <label for="tmhResaltarFechaTiqueteFontWeight-input">
-                <span>Grosor</span>
-                <select id="tmhResaltarFechaTiqueteFontWeight-input">
-                  <option value="600">600</option><option value="700">700</option><option value="800">800</option><option value="900">900</option>
-                </select>
-              </label>
-              <label for="tmhResaltarFechaTiqueteFontFamily-input">
-                <span>Tipo de letra</span>
-                <select id="tmhResaltarFechaTiqueteFontFamily-input">
-                  <option value="inherit">Original</option><option value="Arial">Arial</option><option value="Courier New">Courier New</option><option value="Verdana">Verdana</option>
-                </select>
-              </label>
-            </fieldset>
-            <fieldset class="font-settings__group">
-              <legend>Nombre del sorteo</legend>
-              <label for="tmhResaltarSorteoTiqueteFontSizePx-input">
-                <span>Tamaño</span>
-                <span class="font-settings__value">
-                  <input id="tmhResaltarSorteoTiqueteFontSizePx-input" type="number" min="10" max="72" step="1" inputmode="numeric">
-                  <span>px</span>
-                </span>
-              </label>
-              <label for="tmhResaltarSorteoTiqueteFontWeight-input">
-                <span>Grosor</span>
-                <select id="tmhResaltarSorteoTiqueteFontWeight-input">
-                  <option value="600">600</option><option value="700">700</option><option value="800">800</option><option value="900">900</option>
-                </select>
-              </label>
-              <label for="tmhResaltarSorteoTiqueteFontFamily-input">
-                <span>Tipo de letra</span>
-                <select id="tmhResaltarSorteoTiqueteFontFamily-input">
-                  <option value="inherit">Original</option><option value="Arial">Arial</option><option value="Courier New">Courier New</option><option value="Verdana">Verdana</option>
-                </select>
-              </label>
-            </fieldset>
-          </div>
-          <div class="font-settings__actions">
-            <span id="tmhResaltarCodigoTiqueteFont-status" class="font-settings__status" aria-live="polite"></span>
-            <span class="font-settings__buttons">
-              <button id="tmhResaltarCodigoTiquete-reset" class="font-settings__reset" type="button">Restablecer valores</button>
-              <button id="tmhResaltarCodigoTiquete-save" class="font-settings__save" type="button">Guardar configuración</button>
-            </span>
+            <span class="feature__copy"><strong>Resaltar líneas del tiquete</strong><small>Detecta líneas y abre su configuración individual.</small></span>
+            <span class="feature__control"><span id="tmhResaltarCodigoTiqueteEnabled-status" class="status" aria-live="polite">Desactivado</span><label class="switch" for="tmhResaltarCodigoTiqueteEnabled-toggle"><input id="tmhResaltarCodigoTiqueteEnabled-toggle" type="checkbox" role="switch"><span class="slider" aria-hidden="true"></span></label></span>
           </div>
         </div>
 
         <div class="feature feature--stacked">
           <div class="feature__row">
-            <span class="feature__copy">
-              <strong>Formato completo de impresi&oacute;n BCR</strong>
-              <small>Aplica una misma fuente a todo el comprobante abierto en about:blank.</small>
-            </span>
-            <span class="feature__control">
-              <span id="tmhFormatoImpresionCompletaEnabled-status" class="status" aria-live="polite">Desactivado</span>
-              <label class="switch" for="tmhFormatoImpresionCompletaEnabled-toggle">
-                <input id="tmhFormatoImpresionCompletaEnabled-toggle" type="checkbox" role="switch">
-                <span class="slider" aria-hidden="true"></span>
-              </label>
-            </span>
-          </div>
-          <div id="tmhFormatoImpresionCompleta-settings" class="font-settings" aria-label="Fuente de toda la impresi&oacute;n" hidden>
-            <fieldset class="font-settings__group">
-              <legend>Toda la impresi&oacute;n</legend>
-              <label for="tmhFormatoImpresionCompletaFontSizePx-input">
-                <span>Tama&ntilde;o</span>
-                <span class="font-settings__value">
-                  <input id="tmhFormatoImpresionCompletaFontSizePx-input" type="number" min="10" max="72" step="1" inputmode="numeric">
-                  <span>px</span>
-                </span>
-              </label>
-              <label for="tmhFormatoImpresionCompletaFontWeight-input">
-                <span>Grosor</span>
-                <select id="tmhFormatoImpresionCompletaFontWeight-input">
-                  <option value="600">600</option><option value="700">700</option><option value="800">800</option><option value="900">900</option>
-                </select>
-              </label>
-              <label for="tmhFormatoImpresionCompletaFontFamily-input">
-                <span>Tipo de letra</span>
-                <select id="tmhFormatoImpresionCompletaFontFamily-input">
-                  <option value="inherit">Original</option><option value="Arial">Arial</option><option value="Courier New">Courier New</option><option value="Verdana">Verdana</option>
-                </select>
-              </label>
-            </fieldset>
-          </div>
-          <div class="font-settings__actions">
-            <span id="tmhFormatoImpresionCompletaFont-status" class="font-settings__status" aria-live="polite"></span>
-            <span class="font-settings__buttons">
-              <button id="tmhFormatoImpresionCompleta-reset" class="font-settings__reset" type="button">Restablecer valores</button>
-              <button id="tmhFormatoImpresionCompleta-save" class="font-settings__save" type="button">Guardar configuraci&oacute;n</button>
-            </span>
+            <span class="feature__copy"><strong>Líneas de impresión BCR</strong><small>Detecta líneas del comprobante about:blank y abre su configuración.</small></span>
+            <span class="feature__control"><span id="tmhFormatoImpresionCompletaEnabled-status" class="status" aria-live="polite">Desactivado</span><label class="switch" for="tmhFormatoImpresionCompletaEnabled-toggle"><input id="tmhFormatoImpresionCompletaEnabled-toggle" type="checkbox" role="switch"><span class="slider" aria-hidden="true"></span></label></span>
           </div>
         </div>
 
         <label class="feature" for="tmhIngresarVentaEnabled-toggle">
-          <span class="feature__copy">
-            <strong>Ingresar venta con Ctrl+Enter</strong>
-            <small>Pulsa Ingresar venta desde el teclado.</small>
-          </span>
-          <span class="feature__control">
-            <span id="tmhIngresarVentaEnabled-status" class="status" aria-live="polite">Desactivado</span>
-            <span class="switch">
-              <input id="tmhIngresarVentaEnabled-toggle" type="checkbox" role="switch">
-              <span class="slider" aria-hidden="true"></span>
-            </span>
-          </span>
+          <span class="feature__copy"><strong>Ingresar venta con Ctrl+Enter</strong><small>Pulsa Ingresar venta desde el teclado.</small></span>
+          <span class="feature__control"><span id="tmhIngresarVentaEnabled-status" class="status" aria-live="polite">Desactivado</span><span class="switch"><input id="tmhIngresarVentaEnabled-toggle" type="checkbox" role="switch"><span class="slider" aria-hidden="true"></span></span></span>
         </label>
 
         <label class="feature" for="tmhMoverEnterEnabled-toggle">
-          <span class="feature__copy">
-            <strong>Impresión automática</strong>
-            <small>Pulsa Imprimir cuando aparece el modal.</small>
-          </span>
-          <span class="feature__control">
-            <span id="tmhMoverEnterEnabled-status" class="status" aria-live="polite">Desactivado</span>
-            <span class="switch">
-              <input id="tmhMoverEnterEnabled-toggle" type="checkbox" role="switch">
-              <span class="slider" aria-hidden="true"></span>
-            </span>
-          </span>
+          <span class="feature__copy"><strong>Impresión automática</strong><small>Pulsa Imprimir cuando aparece el modal.</small></span>
+          <span class="feature__control"><span id="tmhMoverEnterEnabled-status" class="status" aria-live="polite">Desactivado</span><span class="switch"><input id="tmhMoverEnterEnabled-toggle" type="checkbox" role="switch"><span class="slider" aria-hidden="true"></span></span></span>
         </label>
       </section>
 
-      <p class="hint">
-        Para omitir la confirmación final de impresión, inicia Edge con
-        <code>--kiosk-printing</code>.
-      </p>
+      <p class="hint">Para omitir la confirmación final de impresión, inicia Edge con <code>--kiosk-printing</code>.</p>
     </main>
     <script src="settings-core.js"></script>
     <script src="popup.js"></script>

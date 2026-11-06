@@ -1,0 +1,109 @@
+:root {
+  color-scheme: light;
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  min-width: 480px;
+  margin: 0;
+  background: #f4f7fb;
+  color: #172033;
+}
+
+button, input, select { font: inherit; }
+
+.config-panel { padding: 20px; }
+
+.config-heading,
+.section-heading,
+.config-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: #168a52;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+h1 { margin: 0; font-size: 22px; }
+h2 { margin: 0; font-size: 14px; }
+p { margin: 5px 0 0; color: #68738a; font-size: 12px; }
+
+.config-switch {
+  display: grid;
+  justify-items: end;
+  gap: 5px;
+  color: #596277;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.config-switch input { width: 20px; height: 20px; accent-color: #168a52; }
+
+.config-card {
+  margin-top: 14px;
+  border: 1px solid #dce2ec;
+  border-radius: 12px;
+  background: #fff;
+  padding: 14px;
+}
+
+.compact-actions { display: flex; gap: 6px; }
+
+.compact-actions button,
+.config-footer button {
+  border: 1px solid #c7cfdd;
+  border-radius: 7px;
+  background: #fff;
+  padding: 7px 10px;
+  color: #344057;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.line-list {
+  display: grid;
+  gap: 6px;
+  max-height: 310px;
+  margin-top: 12px;
+  overflow: auto;
+}
+
+.line-option {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  align-items: start;
+  gap: 9px;
+  border: 1px solid #e4e8ef;
+  border-radius: 8px;
+  padding: 9px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.line-option input { margin: 2px 0 0; accent-color: #168a52; }
+.line-option span { overflow-wrap: anywhere; }
+.empty-state { padding: 16px 0 4px; text-align: center; }
+.empty-state[hidden] { display: none; }
+
+.font-grid { display: grid; gap: 10px; margin-top: 12px; }
+.font-grid label { display: grid; grid-template-columns: 1fr 180px; align-items: center; gap: 12px; color: #596277; font-size: 12px; font-weight: 700; }
+.font-grid input,
+.font-grid select { width: 100%; border: 1px solid #c7cfdd; border-radius: 7px; background: #fff; padding: 7px; color: #172033; }
+.input-with-unit { display: flex; align-items: center; gap: 7px; font-weight: 400; }
+
+.config-footer { margin-top: 14px; }
+.config-footer > div { display: flex; gap: 7px; }
+.config-footer .primary { border-color: #168a52; background: #168a52; color: #fff; }
+#lineas-config-status { min-height: 16px; color: #596277; font-size: 11px; font-weight: 700; }
+#lineas-config-status[data-error="true"] { color: #a32323; }
+#lineas-config-status[data-saved="true"] { color: #12713f; }

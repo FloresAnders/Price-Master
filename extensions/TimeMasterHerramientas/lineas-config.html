@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Configurar líneas de impresión</title>
+    <link rel="stylesheet" href="lineas-config.css">
+  </head>
+  <body>
+    <main class="config-panel">
+      <header class="config-heading">
+        <div>
+          <p class="eyebrow">TimeMaster Herramientas</p>
+          <h1 id="lineas-config-title">Líneas de impresión</h1>
+          <p id="lineas-config-description">Seleccione las líneas que recibirán el formato común.</p>
+        </div>
+        <label class="config-switch">
+          <span>Activado</span>
+          <input id="lineas-config-enabled" type="checkbox" role="switch">
+        </label>
+      </header>
+
+      <section class="config-card" aria-labelledby="lineas-config-lines-title">
+        <div class="section-heading">
+          <div>
+            <h2 id="lineas-config-lines-title">Líneas lógicas guardadas</h2>
+            <p>Se conservan aunque cambien fechas, códigos, nombres o montos.</p>
+          </div>
+          <div class="compact-actions">
+            <button id="lineas-config-select-all" type="button">Todas</button>
+            <button id="lineas-config-select-none" type="button">Ninguna</button>
+          </div>
+        </div>
+        <p id="lineas-config-empty" class="empty-state" hidden>
+          No hay líneas guardadas todavía. Abra e imprima un comprobante una vez.
+        </p>
+        <div id="lineas-config-list" class="line-list"></div>
+      </section>
+
+      <section class="config-card" aria-labelledby="lineas-config-font-title">
+        <h2 id="lineas-config-font-title">Formato general</h2>
+        <div class="font-grid">
+          <label for="lineas-config-size">
+            <span>Tamaño</span>
+            <span class="input-with-unit">
+              <input id="lineas-config-size" type="number" min="10" max="72" step="1" inputmode="numeric">
+              <span>px</span>
+            </span>
+          </label>
+          <label for="lineas-config-weight">
+            <span>Grosor</span>
+            <select id="lineas-config-weight">
+              <option value="600">600</option>
+              <option value="700">700</option>
+              <option value="800">800</option>
+              <option value="900">900</option>
+            </select>
+          </label>
+          <label for="lineas-config-family">
+            <span>Tipo de letra</span>
+            <select id="lineas-config-family">
+              <option value="inherit">Original</option>
+              <option value="Arial">Arial</option>
+              <option value="Courier New">Courier New</option>
+              <option value="Verdana">Verdana</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <footer class="config-footer">
+        <span id="lineas-config-status" role="status" aria-live="polite"></span>
+        <div>
+          <button id="lineas-config-reset" class="secondary" type="button">Restablecer</button>
+          <button id="lineas-config-save" class="primary" type="button">Guardar</button>
+        </div>
+      </footer>
+    </main>
+    <script src="settings-core.js"></script>
+    <script src="lineasimpresion-core.js"></script>
+    <script src="lineas-config.js"></script>
+  </body>
+</html>

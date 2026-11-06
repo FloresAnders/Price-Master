@@ -1,4 +1,4 @@
-TIMEMASTER HERRAMIENTAS 1.0.12
+TIMEMASTER HERRAMIENTAS 1.2.0
 ================================
 
 Esta extensión reúne CambioTab, división de efectivo, movimiento entre medios
@@ -104,32 +104,43 @@ opción únicamente en un equipo controlado destinado a caja.
 
 RESALTAR LÍNEAS DEL TIQUETE EN GENTE CRYSTAL
 --------------------------------------------
-Sitios:
-- https://gentecrystal.net/controllers/sales/SalesController.php*
-- https://gentecrystal.net/print_pagos.php*
+Sitio: https://gentecrystal.net/print_pagos.php*
 
-Al activarlo, detecta por separado el código con formato 44559-2204-61486297,
-la línea de fecha con formato Fecha: 04/11/2026 y la línea siguiente con el
-nombre del sorteo, por ejemplo LA ANGUILA MAÑANA. Cada línea tiene sus propios
-controles de tamaño (10 a 72 px), grosor (600 a 900) y tipo de letra. Los
-valores iniciales son 22 px, grosor 700 y el tipo de letra original. Pulse
-Guardar configuración para persistir juntos el interruptor y los nueve valores;
-el popup confirma con el mensaje "Guardado". Al desactivar el interruptor se
-ocultan los controles y la impresión queda sin cambios. Restablecer valores
-devuelve las tres líneas a 22 px, grosor 700 y letra original; luego pulse
-Guardar configuración para confirmar el cambio.
+Al pulsar el interruptor del popup principal se abre un configurador separado.
+Este muestra las últimas líneas detectadas en el tiquete y permite elegirlas
+individualmente, seleccionar todas o no seleccionar ninguna. El formato común
+de tamaño (10 a 72 px), grosor (600 a 900) y tipo de letra se aplica solamente
+a las líneas marcadas. Los valores iniciales son 22 px, grosor 700 y el tipo de
+letra original.
+
+La activación, la selección lógica de líneas y la fuente cambian únicamente al
+pulsar Guardar configuración. Restablecer valores modifica el borrador, pero no
+escribe en storage hasta guardar. La identidad lógica se conserva cuando cambia
+el código, la fecha u otro valor del tiquete. Las líneas nuevas aparecen sin
+marcar una vez inicializada la selección.
 
 FORMATO COMPLETO DE IMPRESIÓN BCR
 ---------------------------------
 Sitio iniciador: https://www.bcrcorresponsal.bancobcr.com/*
 
-Al activarlo, aplica una misma fuente a todo el comprobante generado dentro de
-about:blank. Los valores iniciales son 21 px, grosor 900 y Verdana. El rango de
-Tamaño permitido: 10 a 72 px. Pulse Guardar configuración para persistir
-juntos el interruptor y los tres valores. Restablecer valores vuelve a
-21 px, grosor 900 y Verdana sin escribir en storage hasta pulsar Guardar.
+Al pulsar el interruptor se abre el mismo tipo de configurador para el
+comprobante generado dentro de about:blank. Muestra sus últimas líneas
+detectadas y permite aplicar una fuente común solo a las líneas marcadas. Los
+valores iniciales son 21 px, grosor 900 y Verdana. Tamaño permitido: 10 a 72 px.
+La activación, selección y fuente se persisten juntas al pulsar Guardar
+configuración. Restablecer valores cambia únicamente el borrador hasta guardar.
+
+El catálogo lógico de líneas se conserva permanentemente y acumula campos de
+los distintos tipos de comprobante. Los valores variables no crean duplicados:
+por ejemplo, CONVENIO: LIBERTY MOVIL y CONVENIO: RECARGA LIBERTY usan la misma
+identidad CONVENIO. Solo se guardan permanentemente el identificador y la
+etiqueta lógica; nombres, teléfonos, referencias, montos y el texto actual se
+mantienen únicamente durante la sesión del navegador. La impresión espera a que
+storage cargue y el formato quede aplicado antes de abrir el diálogo nativo; si
+la página reemplaza su DOM, las líneas se detectan y formatean de nuevo. También
+reconoce las variantes de reimpresión BCR tablaConcentrador y reciboImpresion.
 
 ACTUALIZACIONES
 ---------------
 Después de reemplazar archivos o recargar la extensión desde la página de
-extensiones, recargue también las pestañas de Contica y Gente Crystal.
+extensiones, recargue también las pestañas de Contica, Gente Crystal y BCR.

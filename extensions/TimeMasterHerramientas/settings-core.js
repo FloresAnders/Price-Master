@@ -17,18 +17,21 @@
     "Verdana",
   ]);
   const TICKET_FONT_SIZE_KEYS = new Set([
+    "tmhResaltarLineasTiqueteFontSizePx",
     "tmhResaltarCodigoTiqueteFontSizePx",
     "tmhResaltarFechaTiqueteFontSizePx",
     "tmhResaltarSorteoTiqueteFontSizePx",
     "tmhFormatoImpresionCompletaFontSizePx",
   ]);
   const TICKET_FONT_WEIGHT_KEYS = new Set([
+    "tmhResaltarLineasTiqueteFontWeight",
     "tmhResaltarCodigoTiqueteFontWeight",
     "tmhResaltarFechaTiqueteFontWeight",
     "tmhResaltarSorteoTiqueteFontWeight",
     "tmhFormatoImpresionCompletaFontWeight",
   ]);
   const TICKET_FONT_FAMILY_KEYS = new Set([
+    "tmhResaltarLineasTiqueteFontFamily",
     "tmhResaltarCodigoTiqueteFontFamily",
     "tmhResaltarFechaTiqueteFontFamily",
     "tmhResaltarSorteoTiqueteFontFamily",
@@ -47,6 +50,11 @@
     tmhMoverEnterEnabled: false,
     tmhIngresarVentaEnabled: false,
     tmhResaltarCodigoTiqueteEnabled: false,
+    tmhResaltarLineasTiqueteSelectedLineIds: Object.freeze([]),
+    tmhResaltarLineasTiqueteSelectionInitialized: false,
+    tmhResaltarLineasTiqueteFontSizePx: 22,
+    tmhResaltarLineasTiqueteFontWeight: 700,
+    tmhResaltarLineasTiqueteFontFamily: "inherit",
     tmhResaltarCodigoTiqueteFontSizePx: 22,
     tmhResaltarCodigoTiqueteFontWeight: 700,
     tmhResaltarCodigoTiqueteFontFamily: "inherit",
@@ -57,6 +65,8 @@
     tmhResaltarSorteoTiqueteFontWeight: 700,
     tmhResaltarSorteoTiqueteFontFamily: "inherit",
     tmhFormatoImpresionCompletaEnabled: false,
+    tmhFormatoImpresionCompletaSelectedLineIds: Object.freeze([]),
+    tmhFormatoImpresionCompletaSelectionInitialized: false,
     tmhFormatoImpresionCompletaFontSizePx: 21,
     tmhFormatoImpresionCompletaFontWeight: 900,
     tmhFormatoImpresionCompletaFontFamily: "Verdana",
@@ -82,6 +92,11 @@
       : fallback;
   }
 
+  function normalizeStringArray(value, fallback = []) {
+    const source = Array.isArray(value) ? value : fallback;
+    return [...new Set(source.filter((item) => typeof item === "string"))];
+  }
+
   function normalizeSettings(raw = {}) {
     return Object.fromEntries(
       Object.entries(DEFAULT_SETTINGS).map(([key, fallback]) => [
@@ -92,6 +107,8 @@
             ? normalizeTicketFontWeight(raw?.[key], fallback)
             : TICKET_FONT_FAMILY_KEYS.has(key)
               ? normalizeTicketFontFamily(raw?.[key], fallback)
+              : Array.isArray(fallback)
+                ? normalizeStringArray(raw?.[key], fallback)
               : typeof fallback === "boolean"
           ? typeof raw?.[key] === "boolean"
             ? raw[key]
@@ -132,6 +149,7 @@
     normalizeTicketFontSizePx,
     normalizeTicketFontWeight,
     normalizeTicketFontFamily,
+    normalizeStringArray,
     readChangedSetting,
     readChangedPositiveInteger,
     readChangedNonEmptyString,

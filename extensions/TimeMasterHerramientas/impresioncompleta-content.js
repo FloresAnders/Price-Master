@@ -4,10 +4,13 @@
   const settings = isCommonJs
     ? require("./settings-core.js")
     : root.TimeMasterHerramientasSettings;
-  const fullPrint = isCommonJs
-    ? null
-    : root.TimeMasterHerramientasImpresionCompleta;
-  const api = factory(settings);
+  const printLines = isCommonJs
+    ? require("./lineasimpresion-core.js")
+    : root.TimeMasterHerramientasLineasImpresion;
+  const contentCore = isCommonJs
+    ? require("./lineasimpresion-content-core.js")
+    : root.TimeMasterHerramientasLineasImpresionContent;
+  const api = factory(settings, printLines, contentCore);
 
   root.TimeMasterHerramientasImpresionCompletaContent = api;
   if (isCommonJs) {
@@ -16,108 +19,37 @@
     api.createFullPrintContentController({
       storage: root.chrome.storage,
       settings,
-      fontController: fullPrint.createFullPrintFontController(root.document),
+      printLines,
+      documentRef: root.document,
       locationHref: root.location?.href,
+      cacheDetectedLines: (cacheKey, lines) => {
+        root.chrome.runtime.sendMessage({
+          type: "tmh-cache-print-lines",
+          cacheKey,
+          lines,
+        }, () => void root.chrome.runtime.lastError);
+      },
     }).start();
   }
-})(typeof globalThis !== "undefined" ? globalThis : this, function buildContent(
-  settingsApi,
-) {
-  "use strict";
+})(
+  typeof globalThis !== "undefined" ? globalThis : this,
+  function buildFullPrintContent(settingsApi, printLinesApi, contentCoreApi) {
+    "use strict";
 
-  const ENABLED_KEY = "tmhFormatoImpresionCompletaEnabled";
-  const FONT_KEYS = {
-    sizePx: "tmhFormatoImpresionCompletaFontSizePx",
-    weight: "tmhFormatoImpresionCompletaFontWeight",
-    family: "tmhFormatoImpresionCompletaFontFamily",
-  };
+    const READY_EVENT = "tmh-full-print-font-ready";
 
-  function createFullPrintContentController({
-    storage,
-    settings,
-    fontController,
-    locationHref = globalThis.location?.href,
-  }) {
-    const settingsCore = settings || settingsApi;
-    const changedDuringInitialLoad = new Set();
-    let started = false;
-    let settingsLoaded = false;
-    let lifecycleEpoch = 0;
-    let enabled = false;
-    let font = defaultFont();
-
-    function defaultFont() {
-      return {
-        sizePx: settingsCore.DEFAULT_SETTINGS[FONT_KEYS.sizePx],
-        weight: settingsCore.DEFAULT_SETTINGS[FONT_KEYS.weight],
-        family: settingsCore.DEFAULT_SETTINGS[FONT_KEYS.family],
-      };
-    }
-
-    function apply() {
-      fontController.setFont({ ...font });
-      if (enabled) fontController.start();
-      else fontController.stop();
-    }
-
-    function handleStorageChange(changes, areaName) {
-      if (areaName !== "local") return;
-      let changed = false;
-      for (const [property, key] of Object.entries(FONT_KEYS)) {
-        if (!changes?.[key]) continue;
-        if (!settingsLoaded) changedDuringInitialLoad.add(key);
-        const normalized = settingsCore.normalizeSettings({
-          ...settingsCore.DEFAULT_SETTINGS,
-          [key]: changes[key].newValue,
-        });
-        font[property] = normalized[key];
-        changed = true;
-      }
-      const nextEnabled = settingsCore.readChangedSetting(changes, ENABLED_KEY);
-      if (nextEnabled !== undefined) {
-        if (!settingsLoaded) changedDuringInitialLoad.add(ENABLED_KEY);
-        enabled = nextEnabled;
-        changed = true;
-      }
-      if (changed) apply();
-    }
-
-    function start() {
-      if (started || locationHref !== "about:blank") return;
-      started = true;
-      settingsLoaded = false;
-      changedDuringInitialLoad.clear();
-      enabled = false;
-      font = defaultFont();
-      const currentEpoch = ++lifecycleEpoch;
-      storage.onChanged.addListener(handleStorageChange);
-      storage.local.get(settingsCore.DEFAULT_SETTINGS, (stored) => {
-        if (!started || currentEpoch !== lifecycleEpoch) return;
-        const normalized = settingsCore.normalizeSettings(stored);
-        for (const [property, key] of Object.entries(FONT_KEYS)) {
-          if (!changedDuringInitialLoad.has(key)) font[property] = normalized[key];
-        }
-        if (!changedDuringInitialLoad.has(ENABLED_KEY)) {
-          enabled = normalized[ENABLED_KEY];
-        }
-        settingsLoaded = true;
-        changedDuringInitialLoad.clear();
-        apply();
+    function createFullPrintContentController(options) {
+      const locationHref = options.locationHref || globalThis.location?.href || "";
+      return (options.contentCore || contentCoreApi).createPrintLinesContentController({
+        ...options,
+        settings: options.settings || settingsApi,
+        printLines: options.printLines || printLinesApi,
+        source: "bcr",
+        readyEvent: READY_EVENT,
+        shouldStart: () => locationHref === "about:blank",
       });
     }
 
-    function destroy() {
-      if (!started) return;
-      started = false;
-      lifecycleEpoch += 1;
-      settingsLoaded = false;
-      changedDuringInitialLoad.clear();
-      storage.onChanged.removeListener(handleStorageChange);
-      fontController.stop();
-    }
-
-    return { start, destroy };
-  }
-
-  return { createFullPrintContentController };
-});
+    return { READY_EVENT, createFullPrintContentController };
+  },
+);

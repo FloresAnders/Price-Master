@@ -19,6 +19,7 @@
   function createFullPrintFontController(documentRef) {
     let font = { ...DEFAULT_FONT };
     let started = false;
+    let observer = null;
 
     function normalizeFont(next = {}) {
       return {
@@ -66,16 +67,38 @@ html[data-tmh-full-print-font="true"] body * {
       if (started) applyFont();
     }
 
-    function start() {
-      if (started) return;
-      started = true;
+    function ensureApplied() {
+      if (!started || !documentRef.documentElement) return;
       ensureStyle();
       documentRef.documentElement.dataset.tmhFullPrintFont = "true";
       applyFont();
     }
 
+    function start() {
+      if (started) return;
+      started = true;
+      const MutationObserverClass =
+        documentRef.defaultView?.MutationObserver || globalThis.MutationObserver;
+      if (MutationObserverClass) {
+        observer = new MutationObserverClass(() => {
+          if (
+            !documentRef.getElementById(STYLE_ID) ||
+            documentRef.documentElement?.dataset.tmhFullPrintFont !== "true"
+          ) {
+            ensureApplied();
+          }
+        });
+        observer.observe(documentRef, { childList: true, subtree: true });
+      }
+      documentRef.defaultView?.addEventListener("beforeprint", ensureApplied);
+      ensureApplied();
+    }
+
     function stop() {
       started = false;
+      observer?.disconnect();
+      observer = null;
+      documentRef.defaultView?.removeEventListener("beforeprint", ensureApplied);
       documentRef.getElementById(STYLE_ID)?.remove();
       const rootElement = documentRef.documentElement;
       if (!rootElement) return;
