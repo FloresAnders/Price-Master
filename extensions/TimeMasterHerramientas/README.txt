@@ -1,4 +1,4 @@
-TIMEMASTER HERRAMIENTAS 1.2.0
+TIMEMASTER HERRAMIENTAS 1.2.1
 ================================
 
 Esta extensión reúne CambioTab, división de efectivo, movimiento entre medios

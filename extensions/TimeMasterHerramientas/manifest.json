@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TimeMaster Herramientas",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Atajos para Contica, Gente Crystal y formato configurable por líneas de impresión.",
   "permissions": ["storage"],
   "icons": {

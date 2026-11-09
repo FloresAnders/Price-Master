@@ -13,6 +13,11 @@
     S: "SINPE",
   });
 
+  const CURRENT_METHOD_INPUT_IDS = Object.freeze({
+    T: "pay-card",
+    S: "pay-sinpe",
+  });
+
   function createPaymentShortcutController(documentRef) {
     let started = false;
 
@@ -59,6 +64,9 @@
 
     function paymentMethod(input) {
       if (input?.id === "payUSD" || input?.id === "payCRC") return "E";
+      for (const [method, inputId] of Object.entries(CURRENT_METHOD_INPUT_IDS)) {
+        if (input?.id === inputId) return method;
+      }
       if (!input?.matches?.("input.pay-input:not(.voucher-input)")) return null;
       const label = normalizedLabel(
         input.closest(".sides-padding")?.querySelector(".pay-label")?.textContent,
@@ -71,6 +79,7 @@
     function paymentCurrency(input) {
       if (input?.id === "payUSD") return "USD";
       if (input?.id === "payCRC") return "CRC";
+      if (Object.values(CURRENT_METHOD_INPUT_IDS).includes(input?.id)) return "CRC";
       const symbol = input?.parentElement
         ?.querySelector(".pay-input-label")
         ?.textContent?.trim();
@@ -82,6 +91,13 @@
     function findMethodInput(method, currency, source) {
       if (method === "E") {
         return documentRef.getElementById(currency === "USD" ? "payUSD" : "payCRC");
+      }
+
+      if (currency === "CRC") {
+        const currentInput = documentRef.getElementById(
+          CURRENT_METHOD_INPUT_IDS[method],
+        );
+        if (currentInput) return currentInput;
       }
 
       const scope = source.closest?.("#pv-payment-modal") || documentRef;
