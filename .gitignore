@@ -107,6 +107,11 @@ firestore-debug.log
 !/tests/fondogeneral/cash-counter-undo-history.test.ts
 !/tests/fondogeneral/cash-counter-undo-shortcut.test.tsx
 !/tests/fondogeneral/closing-balance-expand-copy.test.tsx
+!/tests/fondogeneral/cash-counter-payment-suggestion.test.ts
+!/tests/fondogeneral/factura-payment-cash-suggestion.test.tsx
+!/tests/fondogeneral/closing-invoice-payment-result.test.ts
+!/tests/fondogeneral/cash-counter-atomic-update.test.ts
+!/tests/fondogeneral/movement-drawer-cash-suggestion.test.tsx
 !/tests/extensions/
 /tests/extensions/*
 !/tests/extensions/timemaster-herramientas-dividir-efectivo.test.ts

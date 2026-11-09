@@ -2611,7 +2611,15 @@ export function FondoSection({
 
   const handleSubmitFondo = async (confirmedRoundUpSelections?: boolean[]) => {
     createMovementValidationIdRef.current += 1;
-    await handleSubmitFondoFn({
+    let movementSaved = false;
+    const trackedPersistCreatedMovement: typeof persistCreatedMovement =
+      async (...args) => {
+        const saved = await persistCreatedMovement(...args);
+        if (saved) movementSaved = true;
+        return saved;
+      };
+    try {
+      await handleSubmitFondoFn({
       company,
       isSaving,
       movementSubmitInProgressRef,
@@ -2672,7 +2680,7 @@ export function FondoSection({
       setIsSaving,
       editingInProgressRef,
       persistMovementToFirestore,
-      persistCreatedMovement,
+      persistCreatedMovement: trackedPersistCreatedMovement,
       setFondoEntries,
       setLedgerSnapshot,
       movementAutoCloseLocked,
@@ -2701,7 +2709,15 @@ export function FondoSection({
       solicitarApertura: empresaSolicitaApertura,
       cierreFondoVentasTurnoSelection,
       fondoMovementIntervalSeconds,
-    });
+      });
+    } catch (error) {
+      if (!movementSaved) throw error;
+      console.error(
+        "[FONDO] Movimiento guardado; fallo posterior al persistir:",
+        error,
+      );
+    }
+    return movementSaved;
   };
 
   const startEditingEntry = (entry: FondoEntry) => {
@@ -6349,6 +6365,13 @@ export function FondoSection({
           setMovementAutoCloseLocked((prev) => !prev)
         }
         beforeConfirmSubmit={validateBeforeMovementSubmitConfirm}
+        onCashCounterUpdateError={() =>
+          showToast(
+            "El movimiento se guardó, pero el contador de Fondo General no pudo actualizarse. Revísalo antes del siguiente pago.",
+            "warning",
+            7000,
+          )
+        }
         selectedProvider={selectedProvider}
         onProviderChange={handleProviderChange}
         providers={filteredProvidersForMovement}
@@ -7918,8 +7941,15 @@ export function FondoSection({
         onPaymentAmountChange={setClosingPaymentAmount}
         onPaymentNotesChange={setClosingPaymentNotes}
         onPaymentManager2Change={setClosingPaymentManager2}
-        onSubmitPartial={() => void submitClosingInvoicePayment("partial")}
-        onSubmitFull={() => void submitClosingInvoicePayment("full")}
+        onSubmitPartial={() => submitClosingInvoicePayment("partial")}
+        onSubmitFull={() => submitClosingInvoicePayment("full")}
+        onCashCounterUpdateError={() =>
+          showToast(
+            "El pago se guardó, pero el contador de Fondo General no pudo actualizarse. Revísalo antes del siguiente pago.",
+            "warning",
+            7000,
+          )
+        }
         pendingCreditNotes={closingPaymentAvailableCreditNotes}
         selectedCreditNoteIds={closingPaymentCreditNoteIds}
         onToggleCreditNote={(id) => {

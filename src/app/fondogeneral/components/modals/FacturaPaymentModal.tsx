@@ -12,6 +12,11 @@ import ConfirmModal from "@/components/ui/ConfirmModal";
 import type { FacturaMovement } from "../../../../services/facturas";
 import { resolveFcrPaymentAmounts } from "../../utils/fondo/fcrPaymentAmounts";
 import type { ManualCreditNoteDraft } from "../../utils/fondo/manualCreditNoteDrafts";
+import {
+  applyFondoGeneralPaymentSuggestion,
+  loadFondoGeneralPaymentSuggestion,
+  type FondoGeneralPaymentSuggestion,
+} from "@/components/business/cash-counter-tabs/paymentSuggestion";
 
 type PendingCreditNoteOption = {
   id: string;
@@ -19,6 +24,13 @@ type PendingCreditNoteOption = {
   amount: number;
   balanceDue: number;
   currency: "CRC" | "USD";
+};
+
+type PreparedPaymentSuggestion = {
+  action: "partial" | "full";
+  invoiceId: string;
+  paymentAmount: number;
+  suggestion: FondoGeneralPaymentSuggestion;
 };
 
 type FacturaPaymentModalProps = {
@@ -39,8 +51,9 @@ type FacturaPaymentModalProps = {
   onPaymentAmountChange: (value: string) => void;
   onPaymentNotesChange: (value: string) => void;
   onPaymentManager2Change: (value: string) => void;
-  onSubmitPartial: () => void;
-  onSubmitFull: () => void;
+  onSubmitPartial: () => Promise<boolean>;
+  onSubmitFull: () => Promise<boolean>;
+  onCashCounterUpdateError?: () => void;
   balanceCRC?: number;
   balanceUSD?: number;
   pendingCreditNotes?: PendingCreditNoteOption[];
@@ -72,6 +85,7 @@ export default function FacturaPaymentModal({
   onPaymentManager2Change,
   onSubmitPartial,
   onSubmitFull,
+  onCashCounterUpdateError,
   balanceCRC = 0,
   balanceUSD = 0,
   pendingCreditNotes = [],
@@ -153,6 +167,18 @@ export default function FacturaPaymentModal({
   );
 
   const [pendingAction, setPendingAction] = React.useState<"partial" | "full" | null>(null);
+  const [preparedPaymentSuggestion, setPreparedPaymentSuggestion] =
+    React.useState<PreparedPaymentSuggestion | null>(null);
+  const [preparingConfirmation, setPreparingConfirmation] = React.useState(false);
+  const preparationRequestRef = React.useRef(0);
+  const currentPaymentContextRef = React.useRef({
+    open,
+    invoiceId: target?.id ?? null,
+  });
+  currentPaymentContextRef.current = {
+    open,
+    invoiceId: target?.id ?? null,
+  };
 
   const normalizeTargetAmount = React.useCallback(
     (value: unknown) => {
@@ -216,6 +242,100 @@ export default function FacturaPaymentModal({
           target.currency,
         )
       : formatPaymentInput(paymentAmount, target.currency);
+
+  const openPaymentConfirmation = React.useCallback(
+    async (action: "partial" | "full") => {
+      const requestId = preparationRequestRef.current + 1;
+      preparationRequestRef.current = requestId;
+      const invoiceId = target?.id ?? "";
+      setPreparingConfirmation(true);
+      try {
+        const suggestion =
+          target?.accountId === "FondoGeneral" && target.currency === "CRC"
+            ? await loadFondoGeneralPaymentSuggestion({
+                currentBalance: balanceCRC,
+                paymentAmount: cashPaymentAmount,
+              })
+            : null;
+        if (
+          requestId !== preparationRequestRef.current ||
+          !currentPaymentContextRef.current.open ||
+          currentPaymentContextRef.current.invoiceId !== invoiceId
+        ) {
+          return;
+        }
+        setPreparedPaymentSuggestion(
+          suggestion
+            ? { action, invoiceId, paymentAmount: cashPaymentAmount, suggestion }
+            : null,
+        );
+      } catch (error) {
+        if (requestId !== preparationRequestRef.current) return;
+        console.warn(
+          "[FONDO] No se pudo preparar la sugerencia del contador:",
+          error,
+        );
+        setPreparedPaymentSuggestion(null);
+      } finally {
+        if (requestId !== preparationRequestRef.current) return;
+        setPreparingConfirmation(false);
+        setPendingAction(action);
+      }
+    }, [balanceCRC, cashPaymentAmount, target],
+  );
+
+  const closePaymentConfirmation = React.useCallback(() => {
+    preparationRequestRef.current += 1;
+    setPendingAction(null);
+    setPreparedPaymentSuggestion(null);
+    setPreparingConfirmation(false);
+  }, []);
+
+  React.useEffect(() => {
+    preparationRequestRef.current += 1;
+    setPendingAction(null);
+    setPreparedPaymentSuggestion(null);
+    setPreparingConfirmation(false);
+  }, [open, target?.id]);
+
+  const confirmPayment = React.useCallback(async () => {
+    const action = pendingAction;
+    const prepared = preparedPaymentSuggestion;
+    const suggestion =
+      prepared &&
+      prepared.action === action &&
+      prepared.invoiceId === target?.id &&
+      prepared.paymentAmount === cashPaymentAmount
+        ? prepared.suggestion
+        : null;
+    closePaymentConfirmation();
+    if (!action) return;
+
+    const saved = action === "partial"
+      ? await onSubmitPartial()
+      : await onSubmitFull();
+    if (!saved || !suggestion) return;
+
+    try {
+      const applied = await applyFondoGeneralPaymentSuggestion(suggestion);
+      if (!applied) onCashCounterUpdateError?.();
+    } catch (error) {
+      console.error(
+        "[FONDO] El pago se guardo, pero no se pudo actualizar el contador:",
+        error,
+      );
+      onCashCounterUpdateError?.();
+    }
+  }, [
+    closePaymentConfirmation,
+    onCashCounterUpdateError,
+    onSubmitFull,
+    onSubmitPartial,
+    pendingAction,
+    preparedPaymentSuggestion,
+    cashPaymentAmount,
+    target?.id,
+  ]);
 
   return (
     <><Drawer
@@ -292,9 +412,9 @@ export default function FacturaPaymentModal({
               onSubmit={(event) => {
                 event.preventDefault();
                 if (allowPartialPayment) {
-                  void onSubmitPartial();
+                  void openPaymentConfirmation("partial");
                 } else {
-                  void onSubmitFull();
+                  void openPaymentConfirmation("full");
                 }
               }}
             >
@@ -628,9 +748,10 @@ export default function FacturaPaymentModal({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setPendingAction("partial")}
+                  onClick={() => void openPaymentConfirmation("partial")}
                   disabled={
                     paymentSubmitting ||
+                    preparingConfirmation ||
                     selectedPaymentBalance <= 0 ||
                     creditNotesOverLimit
                   }
@@ -645,9 +766,10 @@ export default function FacturaPaymentModal({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setPendingAction("full")}
+                  onClick={() => void openPaymentConfirmation("full")}
                   disabled={
                     paymentSubmitting ||
+                    preparingConfirmation ||
                     selectedPaymentBalance <= 0 ||
                     !canSubmitFullPayment ||
                     creditNotesOverLimit
@@ -669,23 +791,57 @@ export default function FacturaPaymentModal({
           open={pendingAction !== null}
           title="Confirmar pago"
           message={
-            pendingAction === "partial"
-              ? "¿Estás seguro de que deseas registrar este abono?"
-              : "¿Estás seguro de que deseas pagar esta factura?"
+            <div className="space-y-3">
+              <p>
+                {pendingAction === "partial"
+                  ? "¿Estás seguro de que deseas registrar este abono?"
+                  : "¿Estás seguro de que deseas pagar esta factura?"}
+              </p>
+              {preparedPaymentSuggestion && (
+                <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-emerald-100">
+                  <div className="font-semibold">Sugerencia de billetes</div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {Object.entries(preparedPaymentSuggestion.suggestion.bills)
+                      .sort(([left], [right]) => Number(right) - Number(left))
+                      .map(([denomination, count]) => (
+                        <span
+                          key={denomination}
+                          className="rounded-md border border-emerald-400/25 bg-black/15 px-2 py-1 font-semibold"
+                        >
+                          {count} × ₡
+                          {denomination.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
+                        </span>
+                      ))}
+                  </div>
+                  {preparedPaymentSuggestion.suggestion.changeRequired > 0 && (
+                    <div className="mt-2 rounded-md border border-amber-400/40 bg-amber-500/15 p-2 text-amber-100">
+                      <div className="font-semibold">
+                        Debe cambiar ₡
+                        {String(
+                          preparedPaymentSuggestion.suggestion.changeRequired,
+                        ).replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
+                      </div>
+                      <div className="mt-1 text-xs">
+                        Monto sugerido: ₡
+                        {String(
+                          preparedPaymentSuggestion.suggestion.suggestedAmount,
+                        ).replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
+                      </div>
+                    </div>
+                  )}
+                  <p className="mt-2 text-xs text-emerald-100/75">
+                    Al confirmar, estos billetes se descontarán del contador de Fondo General.
+                  </p>
+                </div>
+              )}
+            </div>
           }
           confirmText={pendingAction === "partial" ? "Registrar Abono" : "Pagar"}
           cancelText="Cancelar"
           actionType="assign"
           loading={paymentSubmitting}
-          onConfirm={() => {
-            setPendingAction(null);
-            if (pendingAction === "partial") {
-              onSubmitPartial();
-            } else {
-              onSubmitFull();
-            }
-          }}
-          onCancel={() => setPendingAction(null)}
+          onConfirm={() => void confirmPayment()}
+          onCancel={closePaymentConfirmation}
         />,
         document.body,
       )}

@@ -102,7 +102,9 @@ type AgregarMovimientoProps = {
   employeesLoading: boolean;
   editingEntryId: string | null;
   onCancelEditing: () => void;
-  onSubmit: (confirmedRoundUpSelections?: boolean[]) => void | Promise<void>;
+  onSubmit: (
+    confirmedRoundUpSelections?: boolean[],
+  ) => void | boolean | Promise<void | boolean>;
   isSubmitDisabled: boolean;
   isSaving?: boolean;
   movementCooldownRemainingMs?: number;

@@ -31,12 +31,32 @@ export function useFondoAccountCashCounters(
 
     const applySnapshot = async (snapshot: CashCounterSnapshot) => {
       const counters = reconcileAccountCashCounters(snapshot.counters, activeAccounts);
-      const reconciled = counters === snapshot.counters
+      let reconciled = counters === snapshot.counters
         ? snapshot
         : { ...snapshot, counters };
 
       if (counters !== snapshot.counters) {
-        await saveCashCounterSnapshot(reconciled);
+        try {
+          reconciled = await saveCashCounterSnapshot(reconciled);
+        } catch (error) {
+          if (
+            !(error instanceof Error) ||
+            error.message !== "CASH_COUNTER_SNAPSHOT_CHANGED"
+          ) {
+            throw error;
+          }
+          const latest = await getOrCreateCashCounterSnapshot();
+          const latestCounters = reconcileAccountCashCounters(
+            latest.counters,
+            activeAccounts,
+          );
+          reconciled = latestCounters === latest.counters
+            ? latest
+            : await saveCashCounterSnapshot({
+                ...latest,
+                counters: latestCounters,
+              });
+        }
       }
       if (!cancelled) setTotals(getAccountCashCounterTotals(reconciled.counters));
     };
@@ -51,7 +71,7 @@ export function useFondoAccountCashCounters(
 
     const handleSnapshot = (event: Event) => {
       const snapshot = (event as CustomEvent<CashCounterSnapshot>).detail;
-      if (snapshot) void applySnapshot(snapshot);
+      if (snapshot) void applySnapshot(snapshot).catch(() => {});
     };
 
     window.addEventListener(CASH_COUNTER_SNAPSHOT_EVENT, handleSnapshot);

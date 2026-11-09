@@ -69,7 +69,7 @@ export interface ClosingInvoicePaymentDeps {
 export async function submitClosingInvoicePayment(
   mode: "partial" | "full",
   deps: ClosingInvoicePaymentDeps,
-): Promise<void> {
+): Promise<boolean> {
   const {
     company,
     accountKey,
@@ -100,7 +100,7 @@ export async function submitClosingInvoicePayment(
     clearMovementDraft,
   } = deps;
 
-  if (!company || !closingPaymentTarget) return;
+  if (!company || !closingPaymentTarget) return false;
 
   if (isCajaNegra) {
     showToast(
@@ -108,12 +108,12 @@ export async function submitClosingInvoicePayment(
       "error",
       4500,
     );
-    return;
+    return false;
   }
 
   if (pendingCierreDeCaja) {
     setPendingCierreModalOpen(true);
-    return;
+    return false;
   }
 
   const totalAmount = Math.max(
@@ -135,7 +135,7 @@ export async function submitClosingInvoicePayment(
       "error",
       4000,
     );
-    return;
+    return false;
   }
   const creditNoteResolution = resolveInvoicePaymentCreditNotes({
     balance,
@@ -150,7 +150,7 @@ export async function submitClosingInvoicePayment(
       "error",
       5000,
     );
-    return;
+    return false;
   }
   const persistedAppliedCreditNotes = creditNoteResolution.persistedNotes;
   const creditNotesAmountToApply = creditNoteResolution.total;
@@ -167,12 +167,12 @@ export async function submitClosingInvoicePayment(
 
   if (!isInvoicePaymentApplicationValid(resolvedAmounts)) {
     showToast("No hay monto por aplicar a la factura.", "error", 4000);
-    return;
+    return false;
   }
 
   if (totalAppliedToInvoice > balance) {
     showToast("El total aplicado supera el saldo pendiente de la factura.", "error", 4000);
-    return;
+    return false;
   }
 
   const openingValidation = await validateFondoGeneralOpeningRequirement({
@@ -186,7 +186,7 @@ export async function submitClosingInvoicePayment(
       openingValidation.reason === "validation_failed" ? "error" : "warning",
       7000,
     );
-    return;
+    return false;
   }
 
   const nowISO = await getAuthoritativeNowISO();
@@ -206,6 +206,7 @@ export async function submitClosingInvoicePayment(
   const targetAccountKey: MovementAccountKey = accountKey;
 
   setClosingPaymentSubmitting(true);
+  let paymentCommitted = false;
   try {
     const docId = MovimientosFondosService.buildCompanyMovementsKey(company);
 
@@ -230,6 +231,7 @@ export async function submitClosingInvoicePayment(
         manager2: paymentManager2Value || undefined,
       }],
     });
+    paymentCommitted = true;
     const ledger = committed.ledger;
     const confirmedInvoice = committed.invoices[0];
     const confirmedPayment = committed.paymentMovements[0];
@@ -319,6 +321,7 @@ export async function submitClosingInvoicePayment(
     }
     clearMovementDraft?.();
     closeClosingInvoicePaymentModal();
+    return true;
   } catch (error) {
     console.error("[FONDO] Error saving credit invoice payment:", error);
     if (error instanceof Error && error.message === "FCR_INVOICE_CHANGED") {
@@ -328,6 +331,7 @@ export async function submitClosingInvoicePayment(
         6000,
       );
     }
+    return paymentCommitted;
   } finally {
     setClosingPaymentSubmitting(false);
   }

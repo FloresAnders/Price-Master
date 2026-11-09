@@ -5,6 +5,7 @@ export type CashCounterSnapshot = {
   counters: CashCounterData[];
   activeTab: number;
   lastSaved: string;
+  revision: number;
 };
 
 type CashCounterRecord = {
@@ -142,6 +143,7 @@ export function createDefaultCashCounterSnapshot(): CashCounterSnapshot {
     }],
     activeTab: 0,
     lastSaved: new Date().toISOString(),
+    revision: 0,
   };
 }
 
@@ -168,6 +170,9 @@ export function normalizeCashCounterSnapshot(input: unknown): CashCounterSnapsho
     lastSaved: typeof source.lastSaved === "string"
       ? source.lastSaved
       : new Date().toISOString(),
+    revision: typeof source.revision === "number" && Number.isFinite(source.revision)
+      ? Math.max(0, Math.trunc(source.revision))
+      : 0,
   };
 }
 
@@ -194,20 +199,52 @@ export async function getOrCreateCashCounterSnapshot(): Promise<CashCounterSnaps
     ? normalizeCashCounterSnapshot(JSON.parse(legacyRaw))
     : createDefaultCashCounterSnapshot();
 
-  await saveCashCounterSnapshot(snapshot);
+  let saved: CashCounterSnapshot;
+  try {
+    saved = await saveCashCounterSnapshot(snapshot);
+  } catch (error) {
+    if (
+      !(error instanceof Error) ||
+      error.message !== "CASH_COUNTER_SNAPSHOT_CHANGED"
+    ) {
+      throw error;
+    }
+    const concurrent = await getCashCounterSnapshot();
+    if (!concurrent) throw error;
+    saved = concurrent;
+  }
   if (legacyRaw && typeof window !== "undefined") {
     window.localStorage.removeItem(LEGACY_STORAGE_KEY);
   }
-  return snapshot;
+  return saved;
 }
 
-export async function saveCashCounterSnapshot(snapshot: CashCounterSnapshot): Promise<void> {
+export async function saveCashCounterSnapshot(
+  snapshot: CashCounterSnapshot,
+): Promise<CashCounterSnapshot> {
   const db = await openCashCounterDb();
   const tx = db.transaction(STORE_NAME, "readwrite");
   const store = tx.objectStore(STORE_NAME);
+  const record = await requestToPromise(
+    store.get(SNAPSHOT_KEY) as IDBRequest<CashCounterRecord | undefined>,
+  );
+  const normalizedInput = normalizeCashCounterSnapshot(snapshot);
+  const currentRevision = record
+    ? normalizeCashCounterSnapshot(record.value).revision
+    : 0;
+
+  if (normalizedInput.revision !== currentRevision) {
+    await txDone(tx);
+    throw new Error("CASH_COUNTER_SNAPSHOT_CHANGED");
+  }
+
+  const saved = {
+    ...normalizedInput,
+    revision: currentRevision + 1,
+  };
   store.put({
     key: SNAPSHOT_KEY,
-    value: normalizeCashCounterSnapshot(snapshot),
+    value: saved,
     updatedAt: Date.now(),
   } satisfies CashCounterRecord);
   await txDone(tx);
@@ -215,10 +252,51 @@ export async function saveCashCounterSnapshot(snapshot: CashCounterSnapshot): Pr
   if (typeof window !== "undefined") {
     window.dispatchEvent(
       new CustomEvent(CASH_COUNTER_SNAPSHOT_EVENT, {
-        detail: normalizeCashCounterSnapshot(snapshot),
+        detail: saved,
       }),
     );
   }
+  return saved;
+}
+
+export async function updateCashCounterSnapshotAtomically(
+  update: (current: CashCounterSnapshot) => CashCounterSnapshot | null,
+): Promise<boolean> {
+  const db = await openCashCounterDb();
+  const tx = db.transaction(STORE_NAME, "readwrite");
+  const store = tx.objectStore(STORE_NAME);
+  const record = await requestToPromise(
+    store.get(SNAPSHOT_KEY) as IDBRequest<CashCounterRecord | undefined>,
+  );
+
+  if (!record) {
+    await txDone(tx);
+    return false;
+  }
+
+  const next = update(normalizeCashCounterSnapshot(record.value));
+  if (!next) {
+    await txDone(tx);
+    return false;
+  }
+
+  const normalized = {
+    ...normalizeCashCounterSnapshot(next),
+    revision: normalizeCashCounterSnapshot(record.value).revision + 1,
+  };
+  store.put({
+    key: SNAPSHOT_KEY,
+    value: normalized,
+    updatedAt: Date.now(),
+  } satisfies CashCounterRecord);
+  await txDone(tx);
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent(CASH_COUNTER_SNAPSHOT_EVENT, { detail: normalized }),
+    );
+  }
+  return true;
 }
 
 export async function clearCashCounterSnapshot(): Promise<void> {

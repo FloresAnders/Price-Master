@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ComponentProps } from "react";
 import Box from "@mui/material/Box";
@@ -18,6 +18,11 @@ import {
   isCreditNotePaymentRoundUpEligible,
   roundCreditNotePaymentAmount,
 } from "../../utils/helpers";
+import {
+  applyFondoGeneralPaymentSuggestion,
+  loadFondoGeneralPaymentSuggestion,
+  type FondoGeneralPaymentSuggestion,
+} from "@/components/business/cash-counter-tabs/paymentSuggestion";
 
 type MovementDrawerProps = ComponentProps<typeof AgregarMovimiento> & {
   open: boolean;
@@ -26,6 +31,7 @@ type MovementDrawerProps = ComponentProps<typeof AgregarMovimiento> & {
   movementAutoCloseLocked: boolean;
   onToggleMovementAutoCloseLocked: () => void;
   beforeConfirmSubmit?: () => boolean | Promise<boolean>;
+  onCashCounterUpdateError?: () => void;
 };
 
 export function MovementDrawer({
@@ -35,11 +41,15 @@ export function MovementDrawer({
   movementAutoCloseLocked,
   onToggleMovementAutoCloseLocked,
   beforeConfirmSubmit,
+  onCashCounterUpdateError,
   ...agregarMovimientoProps
 }: MovementDrawerProps) {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmSaveLocked, setConfirmSaveLocked] = useState(false);
+  const [preparedPaymentSuggestion, setPreparedPaymentSuggestion] =
+    useState<FondoGeneralPaymentSuggestion | null>(null);
   const confirmSaveLockedRef = useRef(false);
+  const preparationRequestRef = useRef(0);
   useFloatingActionsSuppression("movement-drawer", open);
   const {
     onSubmit,
@@ -168,12 +178,62 @@ export function MovementDrawer({
   ]);
   const activeInvoice =
     invoicesToConfirm[confirmInvoiceIndex] ?? invoicesToConfirm[0];
+  const paymentSuggestionContext = JSON.stringify({
+    open,
+    editingEntryId: editingEntry?.id ?? null,
+    accountKey: agregarMovimientoProps.accountKey ?? null,
+    currency,
+    invoiceDocType: agregarMovimientoProps.invoiceDocType,
+    isEgreso,
+    paymentAmount: confirmPaymentAmount,
+    balanceCRC: agregarMovimientoProps.balanceCRC ?? 0,
+    invoiceCount: invoicesToConfirm.length,
+  });
+  const paymentSuggestionContextRef = useRef(paymentSuggestionContext);
+  useEffect(() => {
+    paymentSuggestionContextRef.current = paymentSuggestionContext;
+  }, [paymentSuggestionContext]);
   const openConfirmIfAllowed = async () => {
     if (confirmSaveLockedRef.current || isSaving) return;
     if ((agregarMovimientoProps.movementCooldownRemainingMs ?? 0) > 0) return;
     const allowed = await beforeConfirmSubmit?.();
     if (allowed === false) return;
+    const requestId = preparationRequestRef.current + 1;
+    preparationRequestRef.current = requestId;
+    const context = paymentSuggestionContext;
     setConfirmInvoiceIndex(0);
+    setPreparedPaymentSuggestion(null);
+    try {
+      const eligible =
+        !editingEntry &&
+        agregarMovimientoProps.accountKey === "FondoGeneral" &&
+        currency === "CRC" &&
+        agregarMovimientoProps.invoiceDocType === "FCO" &&
+        isEgreso &&
+        invoicesToConfirm.length === 1;
+      const suggestion = eligible
+        ? await loadFondoGeneralPaymentSuggestion({
+            currentBalance: Math.max(
+              0,
+              Number(agregarMovimientoProps.balanceCRC) || 0,
+            ),
+            paymentAmount: confirmPaymentAmount,
+          })
+        : null;
+      if (
+        requestId !== preparationRequestRef.current ||
+        context !== paymentSuggestionContextRef.current
+      ) {
+        return;
+      }
+      setPreparedPaymentSuggestion(suggestion);
+    } catch (error) {
+      if (requestId !== preparationRequestRef.current) return;
+      console.warn(
+        "[FONDO] No se pudo preparar la sugerencia del contador:",
+        error,
+      );
+    }
     setShowConfirmModal(true);
   };
   const handleSaveClick = () => {
@@ -183,14 +243,30 @@ export function MovementDrawer({
     if (confirmSaveLockedRef.current || isSaving) return;
     confirmSaveLockedRef.current = true;
     setConfirmSaveLocked(true);
+    const suggestion = preparedPaymentSuggestion;
     const confirmedRoundUpSelections = invoicesToConfirm.map(
       (invoice) => invoice.roundUpToThousand,
     );
-    Promise.resolve(onSubmit?.(confirmedRoundUpSelections)).finally(() => {
-      confirmSaveLockedRef.current = false;
-      setConfirmSaveLocked(false);
-      setShowConfirmModal(false);
-    });
+    Promise.resolve(onSubmit?.(confirmedRoundUpSelections))
+      .then(async (saved) => {
+        if (saved !== true || !suggestion) return;
+        try {
+          const applied = await applyFondoGeneralPaymentSuggestion(suggestion);
+          if (!applied) onCashCounterUpdateError?.();
+        } catch (error) {
+          console.error(
+            "[FONDO] Movimiento guardado; contador no actualizado:",
+            error,
+          );
+          onCashCounterUpdateError?.();
+        }
+      })
+      .finally(() => {
+        confirmSaveLockedRef.current = false;
+        setConfirmSaveLocked(false);
+        setShowConfirmModal(false);
+        setPreparedPaymentSuggestion(null);
+      });
   };
   const handleFieldKeyDown = (
     event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>,
@@ -366,6 +442,45 @@ export function MovementDrawer({
                     </div>
                   )}
                 </div>
+                {preparedPaymentSuggestion && (
+                  <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-emerald-100">
+                    <div className="font-semibold">Sugerencia de billetes</div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {Object.entries(preparedPaymentSuggestion.bills)
+                        .sort(([left], [right]) => Number(right) - Number(left))
+                        .map(([denomination, count]) => (
+                          <span
+                            key={denomination}
+                            className="rounded-md border border-emerald-400/25 bg-black/15 px-2 py-1 font-semibold"
+                          >
+                            {count} × ₡
+                            {denomination.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
+                          </span>
+                        ))}
+                    </div>
+                    {preparedPaymentSuggestion.changeRequired > 0 && (
+                      <div className="mt-2 rounded-md border border-amber-400/40 bg-amber-500/15 p-2 text-amber-100">
+                        <div className="font-semibold">
+                          Debe cambiar ₡
+                          {String(preparedPaymentSuggestion.changeRequired).replace(
+                            /\B(?=(\d{3})+(?!\d))/g,
+                            ".",
+                          )}
+                        </div>
+                        <div className="mt-1 text-xs">
+                          Monto sugerido: ₡
+                          {String(preparedPaymentSuggestion.suggestedAmount).replace(
+                            /\B(?=(\d{3})+(?!\d))/g,
+                            ".",
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    <p className="mt-2 text-xs text-emerald-100/75">
+                      Al guardar, estos billetes se descontarán del contador de Fondo General.
+                    </p>
+                  </div>
+                )}
                 {invoicesToConfirm.length > 1 && (
                   <div className="flex items-center justify-between pt-1">
                     <button
@@ -411,7 +526,9 @@ export function MovementDrawer({
           onConfirm={handleConfirmSave}
           onCancel={() => {
             if (confirmSaveLocked || isSaving) return;
+            preparationRequestRef.current += 1;
             setShowConfirmModal(false);
+            setPreparedPaymentSuggestion(null);
           }}
         />,
         document.body,

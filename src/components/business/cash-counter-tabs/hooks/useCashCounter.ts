@@ -11,6 +11,10 @@ import {
   resolveCashCounterUndoShortcut,
 } from "../undoHistory";
 import {
+  createLatestCashCounterSaveQueue,
+  type LatestCashCounterSaveQueue,
+} from "../saveQueue";
+import {
   clearCashCounterSnapshot,
   createDefaultCashCounterSnapshot,
   getOrCreateCashCounterSnapshot,
@@ -21,11 +25,21 @@ import {
 const LEGACY_STORAGE_KEY = "cashCounters";
 const UNDO_HISTORY_LIMIT = 30;
 
-function snapshotFromState(counters: CashCounterData[], activeTab: number) {
+type PendingCashCounterSave = {
+  counters: CashCounterData[];
+  activeTab: number;
+};
+
+function snapshotFromState(
+  counters: CashCounterData[],
+  activeTab: number,
+  revision: number,
+) {
   return normalizeCashCounterSnapshot({
     counters,
     activeTab,
     lastSaved: new Date().toISOString(),
+    revision,
   });
 }
 
@@ -41,6 +55,8 @@ export function useCashCounter(
   const [saving, setSaving] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [canAutoSave, setCanAutoSave] = useState(false);
+  const revisionRef = useRef(0);
+  const saveRequestIdRef = useRef(0);
   const initialActiveAccountsRef = useRef(activeAccounts);
   const appliedRequestedAccountIdRef = useRef<MovementAccountKey | undefined>(
     undefined,
@@ -64,10 +80,11 @@ export function useCashCounter(
         );
         if (counters !== snapshot.counters) {
           snapshot = { ...snapshot, counters };
-          await saveCashCounterSnapshot(snapshot);
+          snapshot = await saveCashCounterSnapshot(snapshot);
         }
 
         if (cancelled) return;
+        revisionRef.current = snapshot.revision;
         dataRef.current = snapshot.counters;
         setData(snapshot.counters);
         setActive(snapshot.activeTab);
@@ -76,6 +93,7 @@ export function useCashCounter(
       } catch {
         if (cancelled) return;
         const snapshot = createDefaultCashCounterSnapshot();
+        revisionRef.current = snapshot.revision;
         dataRef.current = snapshot.counters;
         setData(snapshot.counters);
         setActive(snapshot.activeTab);
@@ -120,24 +138,74 @@ export function useCashCounter(
     }
   }, [data, hydrated, requestedAccountId]);
 
-  const save = useCallback(async (counters: CashCounterData[], activeTab: number) => {
-    setSaving(true);
-    try {
-      const snapshot = snapshotFromState(counters, activeTab);
-      await saveCashCounterSnapshot(snapshot);
-      setLastSaved(new Date(snapshot.lastSaved).toLocaleTimeString());
-    } catch {
+  const persistQueuedSave = useCallback(async ({
+    counters,
+    activeTab,
+  }: PendingCashCounterSave) => {
+    const snapshot = snapshotFromState(
+      counters,
+      activeTab,
+      revisionRef.current,
+    );
+    const saved = await saveCashCounterSnapshot(snapshot);
+    revisionRef.current = saved.revision;
+    setLastSaved(new Date(saved.lastSaved).toLocaleTimeString());
+  }, []);
+
+  const handleQueuedSaveError = useCallback(async (error: unknown) => {
+    if (
+      error instanceof Error &&
+      error.message === "CASH_COUNTER_SNAPSHOT_CHANGED"
+    ) {
+      try {
+        const latest = await getOrCreateCashCounterSnapshot();
+        revisionRef.current = latest.revision;
+        undoHistory.clear();
+        dataRef.current = latest.counters;
+        setCanAutoSave(false);
+        setData(latest.counters);
+        setActive(latest.activeTab);
+        setLastSaved(
+          latest.lastSaved
+            ? new Date(latest.lastSaved).toLocaleTimeString()
+            : null,
+        );
+        alert("El contador cambió en otra ventana. Se cargó la versión más reciente.");
+      } catch {
+        alert("Error al recargar el contador actualizado.");
+      }
+    } else {
       alert("Error al guardar.");
-    } finally {
-      setSaving(false);
     }
+  }, [undoHistory]);
+
+  const saveQueueRef = useRef<
+    LatestCashCounterSaveQueue<PendingCashCounterSave> | null
+  >(null);
+  if (!saveQueueRef.current) {
+    saveQueueRef.current = createLatestCashCounterSaveQueue(
+      persistQueuedSave,
+      handleQueuedSaveError,
+    );
+  }
+
+  const save = useCallback((counters: CashCounterData[], activeTab: number) => {
+    const requestId = ++saveRequestIdRef.current;
+    setSaving(true);
+    const queue = saveQueueRef.current;
+    if (!queue) return;
+
+    queue.enqueue({ counters, activeTab });
+    void queue.whenIdle().finally(() => {
+      if (saveRequestIdRef.current === requestId) setSaving(false);
+    });
   }, []);
 
   useEffect(() => {
     if (!hydrated || !canAutoSave || data.length === 0) return;
 
     const timeoutId = window.setTimeout(() => {
-      void save(data, active);
+      save(data, active);
     }, 350);
 
     return () => window.clearTimeout(timeoutId);
@@ -355,9 +423,11 @@ export function useCashCounter(
     if (confirm(`⚠️ ¿Borrar todos?\n\n${storageInfo()}`)) {
       void (async () => {
         try {
+          await saveQueueRef.current?.whenIdle();
           await clearCashCounterSnapshot();
           window.localStorage.removeItem(LEGACY_STORAGE_KEY);
           const initial = createDefaultCashCounterSnapshot();
+          revisionRef.current = initial.revision;
           const snapshot = {
             ...initial,
             counters: reconcileAccountCashCounters(initial.counters, activeAccounts),
