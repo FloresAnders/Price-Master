@@ -49,6 +49,8 @@
     tmhSumaTiemposEnabled: true,
     tmhMoverEnterEnabled: false,
     tmhIngresarVentaEnabled: false,
+    tmhImpresionTiemposEnabled: false,
+    tmhImpresionTiemposPrinterName: "TIEMPOS",
     tmhResaltarCodigoTiqueteEnabled: false,
     tmhResaltarLineasTiqueteSelectedLineIds: Object.freeze([]),
     tmhResaltarLineasTiqueteSelectionInitialized: false,

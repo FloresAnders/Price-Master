@@ -1,0 +1,38 @@
+GENTE CRYSTAL - IMPRESIÓN DE TIEMPOS (Microsoft Edge)
+
+QUÉ HACE
+- Solo se activa en https://gentecrystal.net/print_pagos.php
+- Intercepta window.print() y Ctrl+P en esa página.
+- Envía el HTML del comprobante a la impresora Windows llamada exactamente "TIEMPOS" mediante QZ Tray.
+- Si QZ Tray falla, intenta abrir el cuadro de impresión normal para no perder el trabajo.
+- No cambia la impresora predeterminada de Windows.
+- No modifica SalesController.php ni ningún archivo del servidor.
+
+REQUISITOS
+1. QZ Tray instalado y ejecutándose.
+2. La impresora debe aparecer en Windows con el nombre exacto: TIEMPOS.
+3. Microsoft Edge.
+
+INSTALACIÓN EN EDGE
+1. Descomprime este ZIP en una carpeta permanente, por ejemplo:
+   C:\GenteCrystal_Tiempos_Extension
+2. Abre Edge y entra a:
+   edge://extensions
+3. Activa "Modo de desarrollador".
+4. Pulsa "Cargar descomprimida".
+5. Selecciona la carpeta que contiene manifest.json.
+6. Mantén esa carpeta en el mismo lugar; no la elimines ni muevas.
+
+PRUEBA
+1. Verifica que QZ Tray esté abierto junto al reloj de Windows.
+2. Entra a Gente Crystal y abre un comprobante en print_pagos.php.
+3. Usa el botón Imprimir de la página o Ctrl+P.
+4. La primera conexión puede mostrar un aviso de seguridad de QZ Tray. Revisa que el origen sea gentecrystal.net y permite la conexión si corresponde.
+5. Comprueba que salga por TIEMPOS.
+
+IMPORTANTE
+- Esta versión carga qz-tray.js desde jsDelivr (Internet requerido).
+- La impresión HTML de QZ Tray puede renderizar algunos estilos de forma distinta al motor de impresión de Edge. Hay que probar el comprobante real antes de usarlo en producción.
+- La impresión silenciosa y sin avisos de confianza requiere configurar certificados/firma de QZ Tray. Esta versión no contiene certificados ni claves privadas.
+- El script actúa solo en print_pagos.php. No interviene en Contica ni en las demás páginas.
+- Si el botón del sitio imprime desde un iframe o abre otra página para imprimir, habrá que ajustar la extensión según el comportamiento observado.

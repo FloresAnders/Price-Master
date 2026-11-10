@@ -8,6 +8,7 @@
   "use strict";
 
   const TAB_SELECTOR = "#tabs a[data-tab]";
+  const EXTRA_TABS_SELECTOR = "#tabs select#extra-tabs";
 
   function isAvailable(anchor) {
     const item = anchor.closest("li");
@@ -18,36 +19,95 @@
     );
   }
 
-  function readAvailableTabs(documentRef) {
-    return Array.from(documentRef.querySelectorAll(TAB_SELECTOR)).filter(
-      isAvailable,
+  function isAvailableOption(option, generatedAnchor) {
+    return !(
+      option.disabled ||
+      option.closest("optgroup")?.disabled ||
+      generatedAnchor?.getAttribute("aria-disabled") === "true" ||
+      generatedAnchor?.closest("li")?.classList.contains("disabled")
     );
   }
 
+  function generatedAnchorForOption(select, optionIndex) {
+    return select
+      .closest(".bootstrap-select")
+      ?.querySelector(
+        `li[data-original-index="${optionIndex}"] a[role="option"]`,
+      );
+  }
+
+  function readAvailableTabs(documentRef) {
+    const tabs = Array.from(documentRef.querySelectorAll(TAB_SELECTOR))
+      .filter(isAvailable)
+      .map((anchor) => ({
+        number: anchor.dataset.tab,
+        anchor,
+      }));
+    const extraTabs = documentRef.querySelector(EXTRA_TABS_SELECTOR);
+    if (!extraTabs) return tabs;
+
+    Array.from(extraTabs.options).forEach((option, optionIndex) => {
+      const generatedAnchor = generatedAnchorForOption(extraTabs, optionIndex);
+      if (!isAvailableOption(option, generatedAnchor)) return;
+      tabs.push({
+        number: option.value,
+        select: extraTabs,
+        option,
+        generatedAnchor,
+      });
+    });
+    return tabs;
+  }
+
   function readNumericShortcut(event) {
-    const match = String(event.code || "").match(/^(?:Digit|Numpad)([1-7])$/);
+    const match = String(event.code || "").match(/^(?:Digit|Numpad)([1-9])$/);
     return match ? match[1] : null;
   }
 
   function createTabController(documentRef) {
     let started = false;
 
-    function activate(anchor, event) {
-      if (!anchor) return false;
+    function activate(target, event) {
+      if (!target) return false;
       event.preventDefault();
       event.stopPropagation();
-      anchor.click();
+      if (target.anchor) {
+        target.anchor.click();
+        return true;
+      }
+
+      if (target.generatedAnchor) {
+        target.generatedAnchor.click();
+        return true;
+      }
+
+      target.select.value = target.option.value;
+      target.option.selected = true;
+      const EventConstructor =
+        documentRef.defaultView?.Event || globalThis.Event;
+      target.select.dispatchEvent(
+        new EventConstructor("change", { bubbles: true }),
+      );
       return true;
     }
 
     function activateRelative(direction, event) {
-      const tabs = readAvailableTabs(documentRef);
+      const tabs = Array.from(documentRef.querySelectorAll(TAB_SELECTOR))
+        .filter(isAvailable)
+        .filter((anchor) => {
+          const tabNumber = Number(anchor.dataset.tab);
+          return Number.isInteger(tabNumber) && tabNumber >= 1 && tabNumber <= 7;
+        })
+        .map((anchor) => ({
+          number: anchor.dataset.tab,
+          anchor,
+        }));
       if (!tabs.length) return false;
 
-      const activeItem = documentRef.querySelector("#tabs li.active");
-      const activeIndex = tabs.findIndex(
-        (anchor) => anchor.closest("li") === activeItem,
-      );
+      const activeNumber = documentRef.querySelector(
+        "#tabs li.active > a[data-tab]",
+      )?.dataset.tab;
+      const activeIndex = tabs.findIndex((tab) => tab.number === activeNumber);
       const baseIndex = activeIndex >= 0 ? activeIndex : direction > 0 ? -1 : 0;
       const targetIndex = (baseIndex + direction + tabs.length) % tabs.length;
       return activate(tabs[targetIndex], event);
@@ -77,7 +137,7 @@
       const tabNumber = readNumericShortcut(event);
       if (!tabNumber) return;
       const target = readAvailableTabs(documentRef).find(
-        (anchor) => anchor.dataset.tab === tabNumber,
+        (tab) => tab.number === tabNumber,
       );
       activate(target, event);
     }

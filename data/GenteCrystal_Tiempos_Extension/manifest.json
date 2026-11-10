@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "Gente Crystal - Impresión de Tiempos",
+  "version": "1.0.0",
+  "description": "Envía la impresión de print_pagos.php directamente a la impresora TIEMPOS mediante QZ Tray.",
+  "permissions": [],
+  "host_permissions": [
+    "https://gentecrystal.net/*",
+    "https://cdn.jsdelivr.net/*",
+    "http://localhost:8181/*",
+    "https://localhost:8182/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://gentecrystal.net/print_pagos.php*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "page-hook.js"
+      ],
+      "matches": [
+        "https://gentecrystal.net/*"
+      ]
+    }
+  ]
+}

@@ -72,6 +72,16 @@
           <span class="feature__copy"><strong>Impresión automática</strong><small>Pulsa Imprimir cuando aparece el modal.</small></span>
           <span class="feature__control"><span id="tmhMoverEnterEnabled-status" class="status" aria-live="polite">Desactivado</span><span class="switch"><input id="tmhMoverEnterEnabled-toggle" type="checkbox" role="switch"><span class="slider" aria-hidden="true"></span></span></span>
         </label>
+
+        <div class="feature feature--stacked">
+          <div class="feature__row">
+            <span class="feature__copy"><strong>Imprimir Automatico en:</strong><small>Envía print_pagos.php mediante QZ Tray.</small></span>
+            <span class="feature__control"><span id="tmhImpresionTiemposEnabled-status" class="status" aria-live="polite">Desactivado</span><label class="switch" for="tmhImpresionTiemposEnabled-toggle"><input id="tmhImpresionTiemposEnabled-toggle" type="checkbox" role="switch"><span class="slider" aria-hidden="true"></span></label></span>
+          </div>
+          <label id="tmhImpresionTiemposPrinterName-field" class="message-field" for="tmhImpresionTiemposPrinterName-input" hidden>
+            <span>Nombre de impresora</span><input id="tmhImpresionTiemposPrinterName-input" type="text" autocomplete="off"><span id="tmhImpresionTiemposPrinterName-status" class="message-field__status" aria-live="polite"></span>
+          </label>
+        </div>
       </section>
 
       <p class="hint">Para omitir la confirmación final de impresión, inicia Edge con <code>--kiosk-printing</code>.</p>

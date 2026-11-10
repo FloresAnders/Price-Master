@@ -1189,8 +1189,48 @@ export default function VerificarInventarioPage() {
     );
   };
 
-  const handleToggleListProductsMode = () => {
+  const handleToggleListProductsMode = async () => {
     const next = !listProductsMode;
+
+    if (next && !selectedEmpresaId) {
+      if (!hasRestrictedView || !assignedEmpresaName) {
+        setError("Selecciona una empresa antes de listar productos.");
+        return;
+      }
+
+      const empresaId = createEmpresaId();
+      const nextState: VerificarInventarioState = {
+        ...state,
+        empresas: [
+          ...state.empresas,
+          {
+            id: empresaId,
+            nombre: assignedEmpresaName,
+            createdAt: Date.now(),
+          },
+        ],
+        selectedEmpresaId: empresaId,
+        relacionesPorEmpresa: {
+          ...state.relacionesPorEmpresa,
+          [empresaId]: [],
+        },
+        pendientesPorEmpresa: {
+          ...state.pendientesPorEmpresa,
+          [empresaId]: [],
+        },
+        inventariosPorEmpresa: {
+          ...state.inventariosPorEmpresa,
+          [empresaId]: [],
+        },
+        listadosPorEmpresa: {
+          ...state.listadosPorEmpresa,
+          [empresaId]: [],
+        },
+      };
+
+      await persistState(nextState);
+    }
+
     setListProductsMode(next);
     if (next) {
       setInventoryMode(false);
@@ -1280,6 +1320,9 @@ export default function VerificarInventarioPage() {
         onUploadXlsx={handleUploadXlsx}
         disableUpload={saving || (!hasRestrictedView && !selectedEmpresaId)}
         disableScanner={!selectedEmpresaId}
+        allowListWithoutSelectedEmpresa={
+          hasRestrictedView && Boolean(assignedEmpresaName)
+        }
         hideManagementControls={listProductsMode && Boolean(selectedEmpresaId)}
         userRole={user?.role ?? "user"}
       />

@@ -31,6 +31,8 @@
   const CLOSE_ENABLED_KEY = "tmhCerrarImpresionConticaEnabled";
   const CLOSE_DELAY_KEY = "tmhCerrarImpresionConticaDelaySeconds";
   const CLOSE_MESSAGE_KEY = "tmhCerrarImpresionConticaMessage";
+  const PRINT_TIMES_ENABLED_KEY = "tmhImpresionTiemposEnabled";
+  const PRINTER_NAME_KEY = "tmhImpresionTiemposPrinterName";
   const TICKET_ENABLED_KEY = "tmhResaltarCodigoTiqueteEnabled";
   const TICKET_SIZE_KEY = "tmhResaltarCodigoTiqueteFontSizePx";
   const TICKET_WEIGHT_KEY = "tmhResaltarCodigoTiqueteFontWeight";
@@ -89,6 +91,9 @@
         renderDelay(values[CLOSE_DELAY_KEY]);
         renderMessage(values[CLOSE_MESSAGE_KEY]);
       }
+      if (key === PRINT_TIMES_ENABLED_KEY) {
+        renderPrinterName(values[PRINTER_NAME_KEY]);
+      }
     }
 
     function delayElements() {
@@ -118,6 +123,24 @@
       if (!input || !status) return;
       input.value = message;
       input.disabled = values[CLOSE_ENABLED_KEY] !== true;
+      status.textContent = errorMessage;
+    }
+
+    function printerNameElements() {
+      return {
+        field: documentRef.getElementById(`${PRINTER_NAME_KEY}-field`),
+        input: documentRef.getElementById(`${PRINTER_NAME_KEY}-input`),
+        status: documentRef.getElementById(`${PRINTER_NAME_KEY}-status`),
+      };
+    }
+
+    function renderPrinterName(printerName, errorMessage = "") {
+      const { field, input, status } = printerNameElements();
+      if (!field || !input || !status) return;
+      const enabled = values[PRINT_TIMES_ENABLED_KEY] === true;
+      field.hidden = !enabled;
+      input.value = printerName;
+      input.disabled = !enabled;
       status.textContent = errorMessage;
     }
 
@@ -295,6 +318,33 @@
 
       input.addEventListener("change", handleChange);
       listeners.set(CLOSE_MESSAGE_KEY, handleChange);
+    }
+
+    function bindPrinterName() {
+      const { input } = printerNameElements();
+      if (!input) return;
+
+      const handleChange = () => {
+        const previous = values[PRINTER_NAME_KEY];
+        const next = input.value.trim();
+        if (!next) {
+          renderPrinterName(previous, "Escriba un nombre de impresora");
+          return;
+        }
+
+        input.disabled = true;
+        chromeApi.storage.local.set({ [PRINTER_NAME_KEY]: next }, () => {
+          if (chromeApi.runtime.lastError) {
+            renderPrinterName(previous, "Error al guardar");
+            return;
+          }
+          values[PRINTER_NAME_KEY] = next;
+          renderPrinterName(next);
+        });
+      };
+
+      input.addEventListener("change", handleChange);
+      listeners.set(PRINTER_NAME_KEY, handleChange);
     }
 
     function bindTicketSettings() {
@@ -496,6 +546,7 @@
       for (const key of keys) bind(key);
       bindDelay();
       bindMessage();
+      bindPrinterName();
       bindTicketSettings();
       bindFullPrintSettings();
       bindLineConfigLaunchers();
@@ -508,6 +559,7 @@
         }
         renderDelay(normalized[CLOSE_DELAY_KEY]);
         renderMessage(normalized[CLOSE_MESSAGE_KEY]);
+        renderPrinterName(normalized[PRINTER_NAME_KEY]);
         renderTicketSettings();
         renderFullPrintSettings();
         for (const { enabledKey } of LINE_CONFIG_LAUNCHERS) {
@@ -523,6 +575,8 @@
           delayElements().input?.removeEventListener("change", listener);
         } else if (key === CLOSE_MESSAGE_KEY) {
           messageElements().input?.removeEventListener("change", listener);
+        } else if (key === PRINTER_NAME_KEY) {
+          printerNameElements().input?.removeEventListener("change", listener);
         } else if (key === TICKET_ENABLED_KEY) {
           elements(TICKET_ENABLED_KEY).toggle?.removeEventListener(
             "change",

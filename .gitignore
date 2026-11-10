@@ -86,6 +86,8 @@ firestore-debug.log
 !/tests/operational-firestore-target.test.ts
 !/tests/reportes-detail-server.test.ts
 !/tests/reportes-movimientos-client.test.ts
+!/tests/verificar-inventario/
+!/tests/verificar-inventario/listar-productos-sin-xlsx.test.tsx
 !/tests/services/
 !/tests/services/providers-account-uniqueness.test.ts
 !/tests/firestore/

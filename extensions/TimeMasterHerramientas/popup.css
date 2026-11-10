@@ -218,7 +218,12 @@ h1 {
   font-weight: 600;
 }
 
-.message-field textarea {
+.message-field[hidden] {
+  display: none;
+}
+
+.message-field textarea,
+.message-field input {
   width: 100%;
   resize: vertical;
   border: 1px solid #c7cfdd;
@@ -229,12 +234,14 @@ h1 {
   line-height: 1.35;
 }
 
-.message-field textarea:focus-visible {
+.message-field textarea:focus-visible,
+.message-field input:focus-visible {
   border-color: #168a52;
   outline: 3px solid rgb(22 138 82 / 18%);
 }
 
-.message-field textarea:disabled {
+.message-field textarea:disabled,
+.message-field input:disabled {
   resize: none;
   background: #eef1f6;
   color: #8992a3;

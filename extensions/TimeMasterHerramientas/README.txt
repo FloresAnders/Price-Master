@@ -1,4 +1,4 @@
-TIMEMASTER HERRAMIENTAS 1.2.1
+TIMEMASTER HERRAMIENTAS 1.2.2
 ================================
 
 Esta extensión reúne CambioTab, división de efectivo, movimiento entre medios
@@ -25,6 +25,7 @@ CONTROLES Y VALORES INICIALES
 - SumaTiempos en Gente Crystal: activado.
 - Ingresar venta con Ctrl+Enter en Gente Crystal: desactivado.
 - Impresión automática en Gente Crystal: desactivada.
+- Imprimir Automatico en: desactivado; nombre inicial de impresora TIEMPOS.
 - Resaltado de líneas del tiquete en Gente Crystal: desactivado.
 - Formato completo de impresión BCR en about:blank: desactivado.
 
@@ -35,9 +36,9 @@ CAMBIOTAB EN CONTICA
 --------------------
 Sitio: https://contica.app/app/modules/punto_de_venta/*
 
-- Ctrl+Alt+Flecha derecha: pestaña disponible siguiente.
-- Ctrl+Alt+Flecha izquierda: pestaña disponible anterior.
-- Ctrl+Alt+1 a Ctrl+Alt+7: abrir directamente esa pestaña.
+- Ctrl+Alt+Flecha derecha: pestaña disponible siguiente entre 1 y 7; de 7 vuelve a 1.
+- Ctrl+Alt+Flecha izquierda: pestaña disponible anterior entre 1 y 7; de 1 vuelve a 7.
+- Ctrl+Alt+1 a Ctrl+Alt+9: abrir directamente esa pestaña.
 - También acepta los números del teclado numérico.
 
 CIERRE DEL MODAL DE IMPRESIÓN EN CONTICA
@@ -101,6 +102,16 @@ diálogo nativo de impresión.
 Para impresión totalmente desatendida, Edge o Chrome debe iniciarse con la
 opción --kiosk-printing y la impresora correcta debe estar configurada. Use esa
 opción únicamente en un equipo controlado destinado a caja.
+
+IMPRESIÓN DIRECTA EN TIEMPOS MEDIANTE QZ TRAY
+---------------------------------------------
+Sitio: https://gentecrystal.net/print_pagos.php*
+
+Al activarla, aparece un campo para guardar el nombre de la impresora.
+window.print() y Ctrl+P envían el HTML del comprobante a esa impresora mediante
+QZ Tray. El nombre inicial es TIEMPOS. Requiere QZ Tray abierto y conexión a
+Internet para cargar qz-tray.js desde jsDelivr. Si QZ
+Tray falla o no encuentra la impresora, abre la impresión normal como respaldo.
 
 RESALTAR LÍNEAS DEL TIQUETE EN GENTE CRYSTAL
 --------------------------------------------

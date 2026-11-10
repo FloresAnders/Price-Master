@@ -1,9 +1,14 @@
 {
   "manifest_version": 3,
   "name": "TimeMaster Herramientas",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Atajos para Contica, Gente Crystal y formato configurable por líneas de impresión.",
   "permissions": ["storage"],
+  "host_permissions": [
+    "https://cdn.jsdelivr.net/*",
+    "http://localhost:8181/*",
+    "https://localhost:8182/*"
+  ],
   "icons": {
     "128": "icon128.png"
   },
@@ -29,7 +34,10 @@
     },
     {
       "matches": ["https://gentecrystal.net/print_pagos.php*"],
-      "js": ["resaltartiquete-print-gate.js"],
+      "js": [
+        "impresiontiempos-page.js",
+        "resaltartiquete-print-gate.js"
+      ],
       "run_at": "document_start",
       "world": "MAIN"
     },
@@ -37,6 +45,7 @@
       "matches": ["https://gentecrystal.net/print_pagos.php*"],
       "js": [
         "settings-core.js",
+        "impresiontiempos-content.js",
         "lineasimpresion-core.js",
         "lineasimpresion-content-core.js",
         "resaltartiquete-content.js"

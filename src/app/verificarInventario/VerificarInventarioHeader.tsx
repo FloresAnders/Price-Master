@@ -26,6 +26,7 @@ type VerificarInventarioHeaderProps = {
   onUploadXlsx: (file: File) => void;
   disableUpload: boolean;
   disableScanner: boolean;
+  allowListWithoutSelectedEmpresa: boolean;
   hideManagementControls: boolean;
   userRole?: User["role"];
 };
@@ -44,6 +45,7 @@ export default function VerificarInventarioHeader({
   onUploadXlsx,
   disableUpload,
   disableScanner,
+  allowListWithoutSelectedEmpresa,
   hideManagementControls,
   userRole,
 }: VerificarInventarioHeaderProps) {
@@ -52,6 +54,7 @@ export default function VerificarInventarioHeader({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeMode = listProductsMode ? "list" : inventoryMode ? "inventory" : "verify";
   const canUseModes = hasSelectedEmpresa;
+  const canListProducts = canUseModes || allowListWithoutSelectedEmpresa;
   const modeButtonClass = (active: boolean) =>
     `inline-flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-semibold transition-colors ${
       active
@@ -212,7 +215,7 @@ export default function VerificarInventarioHeader({
           <button
             type="button"
             onClick={onToggleListProductsMode}
-            disabled={!canUseModes}
+            disabled={!canListProducts}
             className={modeButtonClass(activeMode === "list")}
           >
             <ListChecks className="h-4 w-4" />
