@@ -1,10 +1,22 @@
 {
   "version": "2.1.27",
   "versionstorage": "2.1.7",
-  "notasDeSistemas": "2.1.6",
+  "notasDeSistemas": "2.1.7",
   "releaseNotes": [
   ],
   "systemNotes": [
+    {
+      "date": "2026-11-11",
+      "title": "Transferencias entre fondos",
+      "url": "",
+      "description": "Se agregaron transferencias entre Fondo General, Caja Negra, Tucán y Tiempos con selección de billetes, actualización de contadores y saldos, movimientos de salida e ingreso, búsqueda de proveedores por fondo, orden por uso, encargado automático según horario y selección manual fuera de rango."
+    },
+    {
+      "date": "2026-11-11",
+      "title": "Control de proveedores activos e inactivos",
+      "url": "",
+      "description": "Se agregó el estado activo/inactivo para proveedores. Proveedores antiguos sin este campo se consideran activos. Los proveedores inactivos se excluyen de movimientos, transferencias, facturas, órdenes y agenda semanal, pero permanecen disponibles en administración para reactivarlos."
+    },
     {
       "date": "2026-10-18",
       "title": "Habilitar la búsqueda de movimientos en todas las cuentas",
