@@ -23,6 +23,8 @@ import {
   loadFondoGeneralPaymentSuggestion,
   type FondoGeneralPaymentSuggestion,
 } from "@/components/business/cash-counter-tabs/paymentSuggestion";
+import { openCashCounterForAccount } from "@/components/business/cash-counter-tabs/accountCounters";
+import type { MovementAccountKey } from "@/services/movimientos-fondos";
 
 type MovementDrawerProps = ComponentProps<typeof AgregarMovimiento> & {
   open: boolean;
@@ -32,6 +34,7 @@ type MovementDrawerProps = ComponentProps<typeof AgregarMovimiento> & {
   onToggleMovementAutoCloseLocked: () => void;
   beforeConfirmSubmit?: () => boolean | Promise<boolean>;
   onCashCounterUpdateError?: () => void;
+  onCashCounterManualUpdate?: (changeRequired?: number, suggestedAmount?: number) => void;
 };
 
 export function MovementDrawer({
@@ -42,12 +45,15 @@ export function MovementDrawer({
   onToggleMovementAutoCloseLocked,
   beforeConfirmSubmit,
   onCashCounterUpdateError,
+  onCashCounterManualUpdate,
   ...agregarMovimientoProps
 }: MovementDrawerProps) {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmSaveLocked, setConfirmSaveLocked] = useState(false);
   const [preparedPaymentSuggestion, setPreparedPaymentSuggestion] =
     useState<FondoGeneralPaymentSuggestion | null>(null);
+  const [skipCashCounterDeduction, setSkipCashCounterDeduction] =
+    useState(false);
   const confirmSaveLockedRef = useRef(false);
   const preparationRequestRef = useRef(0);
   useFloatingActionsSuppression("movement-drawer", open);
@@ -203,17 +209,19 @@ export function MovementDrawer({
     const context = paymentSuggestionContext;
     setConfirmInvoiceIndex(0);
     setPreparedPaymentSuggestion(null);
+    setSkipCashCounterDeduction(false);
     try {
       const eligible =
         !editingEntry &&
-        agregarMovimientoProps.accountKey === "FondoGeneral" &&
+        Boolean(agregarMovimientoProps.accountKey) &&
         currency === "CRC" &&
         agregarMovimientoProps.invoiceDocType === "FCO" &&
         isEgreso &&
         invoicesToConfirm.length === 1;
       const suggestion = eligible
         ? await loadFondoGeneralPaymentSuggestion({
-            currentBalance: Math.max(
+          accountId: agregarMovimientoProps.accountKey as MovementAccountKey,
+          currentBalance: Math.max(
               0,
               Number(agregarMovimientoProps.balanceCRC) || 0,
             ),
@@ -251,8 +259,27 @@ export function MovementDrawer({
       .then(async (saved) => {
         if (saved !== true || !suggestion) return;
         try {
-          const applied = await applyFondoGeneralPaymentSuggestion(suggestion);
-          if (!applied) onCashCounterUpdateError?.();
+          if (skipCashCounterDeduction) {
+            const accountKey = agregarMovimientoProps.accountKey as MovementAccountKey;
+            if (accountKey) {
+              openCashCounterForAccount(accountKey);
+            }
+            onCashCounterManualUpdate?.(
+              suggestion.changeRequired,
+              suggestion.suggestedAmount,
+            );
+          } else {
+            const applied = await applyFondoGeneralPaymentSuggestion(suggestion);
+            if (!applied) {
+              onCashCounterUpdateError?.();
+            } else if (suggestion.changeRequired > 0) {
+              openCashCounterForAccount(suggestion.accountId);
+              onCashCounterManualUpdate?.(
+                suggestion.changeRequired,
+                suggestion.suggestedAmount,
+              );
+            }
+          }
         } catch (error) {
           console.error(
             "[FONDO] Movimiento guardado; contador no actualizado:",
@@ -479,6 +506,23 @@ export function MovementDrawer({
                     <p className="mt-2 text-xs text-emerald-100/75">
                       Al guardar, estos billetes se descontarán del contador de Fondo General.
                     </p>
+                    <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm font-semibold text-amber-100">
+                      <input
+                        type="checkbox"
+                        checked={skipCashCounterDeduction}
+                        onChange={(event) =>
+                          setSkipCashCounterDeduction(event.target.checked)
+                        }
+                        disabled={confirmSaveLocked || isSaving}
+                        className="h-4 w-4 accent-amber-500"
+                      />
+                      No rebajar
+                    </label>
+                    {skipCashCounterDeduction && (
+                      <p className="mt-1 text-xs text-amber-100/80">
+                        El contador se actualizará manualmente después de guardar.
+                      </p>
+                    )}
                   </div>
                 )}
                 {invoicesToConfirm.length > 1 && (

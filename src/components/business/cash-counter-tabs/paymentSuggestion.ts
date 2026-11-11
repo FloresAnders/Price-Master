@@ -5,11 +5,12 @@ import {
 } from "@/services/cashCounterDb";
 import type { BillsMap, CashCounterData } from "./types";
 import { calcTotal } from "./utils";
+import type { MovementAccountKey } from "@/services/movimientos-fondos";
 
 const CRC_PAYMENT_DENOMINATIONS = [20000, 10000, 5000, 2000, 1000] as const;
 
 export type FondoGeneralPaymentSuggestion = {
-  accountId: "FondoGeneral";
+  accountId: MovementAccountKey;
   expectedCounterTotal: number;
   expectedCounterFingerprint: string;
   amount: number;
@@ -22,6 +23,7 @@ type BuildSuggestionInput = {
   snapshot: CashCounterSnapshot;
   currentBalance: number;
   paymentAmount: number;
+  accountId?: MovementAccountKey;
 };
 
 type LoadSuggestionInput = Omit<BuildSuggestionInput, "snapshot">;
@@ -46,8 +48,9 @@ function counterFingerprint(counter: CashCounterData): string {
 export function buildFondoGeneralPaymentSuggestion(
   input: BuildSuggestionInput,
 ): FondoGeneralPaymentSuggestion | null {
+  const accountId = input.accountId ?? "FondoGeneral";
   const counter = input.snapshot.counters.find(
-    (item) => item.accountId === "FondoGeneral",
+    (item) => item.accountId === accountId,
   );
   if (!counter || counter.currency !== "CRC") return null;
 
@@ -112,7 +115,7 @@ export function buildFondoGeneralPaymentSuggestion(
   const selection = findClosestBills(0, amount);
 
   return {
-    accountId: "FondoGeneral",
+    accountId,
     expectedCounterTotal,
     expectedCounterFingerprint: counterFingerprint(counter),
     amount,

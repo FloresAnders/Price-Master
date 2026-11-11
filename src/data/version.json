@@ -1,10 +1,22 @@
 {
-  "version": "2.1.28",
+  "version": "2.1.29",
   "versionstorage": "2.1.7",
-  "notasDeSistemas": "2.1.7",
+  "notasDeSistemas": "2.1.8",
   "releaseNotes": [
   ],
   "systemNotes": [
+    {
+      "date": "2026-11-11",
+      "title": "Actualizar contadores según fondo y gestionar cambio requerido",
+      "url": "",
+      "description": "Los movimientos ahora descuentan billetes del contador correspondiente al fondo seleccionado, no únicamente de Fondo General. Cuando las denominaciones disponibles no cubren el monto completo, se aplica la entrega recomendada, se abre el contador del fondo correspondiente y se muestra un aviso con el monto que debe cambiarse."
+    },
+    {
+      "date": "2026-11-11",
+      "title": "Permitir actualización manual del contador al guardar movimientos",
+      "url": "",
+      "description": "Al confirmar un movimiento con billetes recomendados, la opción \"No rebajar\" evita descontar automáticamente el monto del contador. Después de guardar, se abre el contador correspondiente y se muestra un aviso indicando que requiere actualización manual."
+    },
     {
       "date": "2026-11-11",
       "title": "Transferencias entre fondos",

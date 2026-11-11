@@ -6404,6 +6404,15 @@ export function FondoSection({
             7000,
           )
         }
+        onCashCounterManualUpdate={(changeRequired, suggestedAmount) =>
+          showToast(
+            changeRequired
+              ? `Movimiento guardado. Faltan cambiar ₡${changeRequired.toLocaleString("es-CR")}. Recomendación: entregar ₡${suggestedAmount?.toLocaleString("es-CR") ?? "0"} en billetes y completar el cambio en el contador.`
+              : "Movimiento guardado. Actualización manual del contador requerida.",
+            "warning",
+            7000,
+          )
+        }
         selectedProvider={selectedProvider}
         onProviderChange={handleProviderChange}
         providers={filteredProvidersForMovement}
