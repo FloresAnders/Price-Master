@@ -2,6 +2,11 @@ import type { FondoAccountTab } from "@/lib/fondoAccountTabs";
 import type { MovementAccountKey } from "@/services/movimientos-fondos";
 import type { CashCounterData } from "./types";
 import { calcTotal } from "./utils";
+import {
+  getOrCreateCashCounterSnapshot,
+  updateCashCounterSnapshotAtomically,
+  type CashCounterSnapshot,
+} from "@/services/cashCounterDb";
 
 export type AccountCashCounterTotal = {
   total: number;
@@ -89,4 +94,90 @@ export function formatAccountCashCounterAmount(
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(value?.total ?? 0);
+}
+
+export type CashTransferBreakdown = {
+  bills: Record<number, number>;
+  total: number;
+};
+
+export function resolveCashTransferBreakdown(
+  counter: CashCounterData | undefined,
+  amount: number,
+): CashTransferBreakdown | null {
+  if (!counter || !Number.isFinite(amount) || amount <= 0) return null;
+  let remaining = Math.round(amount * 100) / 100;
+  const bills: Record<number, number> = {};
+  const denominations = Object.keys(counter.bills)
+    .map(Number)
+    .filter((denomination) => denomination > 0 && Number.isFinite(denomination))
+    .sort((a, b) => b - a);
+
+  for (const denomination of denominations) {
+    const available = Math.max(0, Math.trunc(counter.bills[denomination] ?? 0));
+    const needed = Math.min(
+      available,
+      Math.floor((remaining + 0.0001) / denomination),
+    );
+    if (needed > 0) {
+      bills[denomination] = needed;
+      remaining = Math.round((remaining - needed * denomination) * 100) / 100;
+    }
+  }
+
+  return remaining > 0.001
+    ? null
+    : { bills, total: Math.round(amount * 100) / 100 };
+}
+
+export async function transferCashCounterAmount(input: {
+  sourceAccountId: MovementAccountKey;
+  destinationAccountId: MovementAccountKey;
+  amount: number;
+  breakdown: Record<number, number>;
+}): Promise<CashCounterSnapshot> {
+  const saved = await updateCashCounterSnapshotAtomically((current) => {
+    const sourceIndex = current.counters.findIndex(
+      (counter) => counter.accountId === input.sourceAccountId,
+    );
+    const destinationIndex = current.counters.findIndex(
+      (counter) => counter.accountId === input.destinationAccountId,
+    );
+    if (sourceIndex < 0 || destinationIndex < 0 || sourceIndex === destinationIndex) {
+      return null;
+    }
+
+    const source = current.counters[sourceIndex];
+    const destination = current.counters[destinationIndex];
+    const nextSourceBills = { ...source.bills };
+    const nextDestinationBills = { ...destination.bills };
+    for (const [rawDenomination, rawCount] of Object.entries(input.breakdown)) {
+      const denomination = Number(rawDenomination);
+      const count = Math.max(0, Math.trunc(rawCount));
+      if (
+        !Number.isFinite(denomination) ||
+        count > Math.max(0, Math.trunc(nextSourceBills[denomination] ?? 0))
+      ) {
+        return null;
+      }
+      nextSourceBills[denomination] =
+        (nextSourceBills[denomination] ?? 0) - count;
+      nextDestinationBills[denomination] =
+        (nextDestinationBills[denomination] ?? 0) + count;
+    }
+
+    const counters = [...current.counters];
+    counters[sourceIndex] = { ...source, bills: nextSourceBills };
+    counters[destinationIndex] = {
+      ...destination,
+      bills: nextDestinationBills,
+      currency: source.currency,
+    };
+    return { ...current, counters };
+  });
+
+  if (!saved) {
+    throw new Error("CASH_COUNTER_TRANSFER_FAILED");
+  }
+  return getOrCreateCashCounterSnapshot();
 }

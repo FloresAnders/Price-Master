@@ -26,6 +26,7 @@ import {
   formatAccountCashCounterAmount,
   openCashCounterForAccount,
 } from "@/components/business/cash-counter-tabs/accountCounters";
+import { FondoTransferModal } from "./components/FondoTransferModal";
 
 type TabId = FondoAccountTabId;
 type FondoTab = FondoAccountTab;
@@ -179,6 +180,7 @@ export default function FondoPage() {
   const [companySelectorSlot, setCompanySelectorSlot] =
     useState<React.ReactNode | null>(null);
   const [accountDockVisible, setAccountDockVisible] = useState(false);
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setAccountsSectionVisible(true), 80);
@@ -443,6 +445,19 @@ export default function FondoPage() {
                   })}
                 </div>
 
+                {activeTab &&
+                  ["CajaNegra", "Tucan", "Tiempos"].includes(
+                    activeTab.accountId,
+                  ) && (
+                    <button
+                      type="button"
+                      onClick={() => setTransferModalOpen(true)}
+                      className="flex min-h-[68px] w-[230px] flex-none items-center justify-center rounded-lg border border-cyan-400/50 bg-cyan-500/10 px-4 text-sm font-semibold text-cyan-100 transition hover:border-cyan-300 hover:bg-cyan-500/20 lg:w-[210px]"
+                    >
+                      Transferir
+                    </button>
+                  )}
+
                 {activeTab && companySelectorSlot && (
                   <div className="w-full min-w-0 xl:w-[380px] xl:flex-shrink-0">
                     <div className="min-w-0 rounded-lg border border-[var(--input-border)] bg-[#0c1216] p-2 sm:p-3">
@@ -563,6 +578,20 @@ export default function FondoPage() {
         hasAlternativeAccounts={alternativeTabs.length > 0}
         onBack={handleDuplicateBack}
         onChooseRandomAccount={handleDuplicateRandomAccount}
+      />
+      <FondoTransferModal
+        open={transferModalOpen}
+        accounts={availableTabs}
+        initialAccountId={activeTab?.accountId ?? "CajaNegra"}
+        userName={String(
+          (user as { name?: string; displayName?: string; email?: string } | null)
+            ?.name ||
+            (user as { displayName?: string } | null)?.displayName ||
+            (user as { email?: string } | null)?.email ||
+            "",
+        )}
+        companyKey={String(user?.ownercompanie || "")}
+        onClose={() => setTransferModalOpen(false)}
       />
     </div>
   );

@@ -70,6 +70,7 @@ export default function SupplierOrders() {
     () =>
       companyProviders
         .filter((provider) => {
+          if (provider.active === false) return false;
           const normalizedType = String(provider.type || "")
             .trim()
             .toUpperCase();

@@ -109,6 +109,7 @@ export function useProviders(
       visit?: ProviderEntry["visit"],
       accountId?: ProviderEntry["accountId"],
       explicitCategory?: "Ingreso" | "Gasto" | "Egreso",
+      active?: boolean,
     ) => {
       const trimmedCompany = (company || "").trim();
       if (!trimmedCompany) {
@@ -129,6 +130,7 @@ export function useProviders(
           visit,
           accountId,
           explicitCategory,
+          active,
         );
         await fetchProviders({ skipCache: true });
       } catch (err) {
@@ -181,6 +183,7 @@ export function useProviders(
       visit?: ProviderEntry["visit"],
       accountId?: ProviderEntry["accountId"],
       explicitCategory?: "Ingreso" | "Gasto" | "Egreso",
+      active?: boolean,
     ) => {
       const trimmedCompany = (company || "").trim();
       if (!trimmedCompany) {
@@ -202,6 +205,7 @@ export function useProviders(
           visit,
           accountId,
           explicitCategory,
+          active,
         );
         await fetchProviders({ skipCache: true });
       } catch (err) {

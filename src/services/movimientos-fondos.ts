@@ -1170,6 +1170,79 @@ export class MovimientosFondosService {
     });
   }
 
+  static async commitFundTransfer<TMovement extends Partial<MovementRecordBase>>(
+    input: {
+      docId: string;
+      company: string;
+      sourceAccountId: MovementAccountKey;
+      destinationAccountId: MovementAccountKey;
+      sourceMovement: TMovement & { id: string; amountEgreso: number };
+      destinationMovement: TMovement & { id: string; amountIngreso: number };
+      nowISO: string;
+    },
+  ): Promise<MovementStorage<TMovement>> {
+    const ledgerRef = doc(db, this.COLLECTION_NAME, input.docId);
+    const sourceRef = this.buildMovementRef(
+      input.docId,
+      input.sourceMovement.id,
+      input.sourceAccountId,
+    );
+    const destinationRef = this.buildMovementRef(
+      input.docId,
+      input.destinationMovement.id,
+      input.destinationAccountId,
+    );
+    return runTransaction(db, async (transaction) => {
+      const ledgerSnapshot = await transaction.get(ledgerRef);
+      const sourceSnapshot = await transaction.get(sourceRef);
+      const destinationSnapshot = await transaction.get(destinationRef);
+      if (sourceSnapshot.exists() || destinationSnapshot.exists()) {
+        throw new Error("FUND_TRANSFER_ALREADY_EXISTS");
+      }
+
+      const ledger = ledgerSnapshot.exists()
+        ? this.ensureMovementStorageShape<TMovement>(
+            ledgerSnapshot.data(),
+            input.company,
+          )
+        : this.createEmptyMovementStorage<TMovement>(input.company);
+      const sourceBalance = ledger.state.balancesByAccount.find(
+        (balance) =>
+          balance.accountId === input.sourceAccountId &&
+          balance.currency === "CRC",
+      );
+      const destinationBalance = ledger.state.balancesByAccount.find(
+        (balance) =>
+          balance.accountId === input.destinationAccountId &&
+          balance.currency === "CRC",
+      );
+      if (!sourceBalance || !destinationBalance) {
+        throw new Error("FUND_TRANSFER_BALANCE_UNAVAILABLE");
+      }
+      if (sourceBalance.currentBalance < input.sourceMovement.amountEgreso) {
+        throw new Error("FUND_TRANSFER_INSUFFICIENT_BALANCE");
+      }
+      sourceBalance.currentBalance -= input.sourceMovement.amountEgreso;
+      destinationBalance.currentBalance += input.destinationMovement.amountIngreso;
+      ledger.state.updatedAt = input.nowISO;
+      ledger.state.revision = (ledger.state.revision ?? 0) + 1;
+      transaction.set(ledgerRef, stripUndefinedDeep(ledger) as DocumentData);
+
+      for (const [ref, movement] of [
+        [sourceRef, input.sourceMovement],
+        [destinationRef, input.destinationMovement],
+      ] as const) {
+        const record = this.normalizeMovementRecord({
+          ...(movement as Record<string, unknown>),
+        });
+        delete (record as { id?: string }).id;
+        record.serverCreatedAt = serverTimestamp();
+        transaction.set(ref, stripUndefinedDeep(record));
+      }
+      return ledger;
+    });
+  }
+
   static async hasAnyV2Movements(docId: string): Promise<boolean> {
     if (!docId) return false;
     const snap = await getDocs(

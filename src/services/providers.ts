@@ -211,6 +211,7 @@ const normalizeProviderEntry = (
     data.movementCount >= 0
       ? data.movementCount
       : 0;
+  const active = data.active === undefined ? true : data.active === true;
 
   return {
     code,
@@ -219,6 +220,7 @@ const normalizeProviderEntry = (
     accountId: normalizeProviderAccountId(data.accountId),
     type,
     category,
+    active,
     createdAt: typeof data.createdAt === "string" ? data.createdAt : undefined,
     updatedAt: typeof data.updatedAt === "string" ? data.updatedAt : undefined,
     correonotifi:
@@ -243,6 +245,7 @@ const serializeProviderEntry = (
       Number.isFinite(provider.movementCount)
         ? provider.movementCount
         : 0,
+    active: provider.active !== false,
   };
   if (provider.accountId) out.accountId = provider.accountId;
   if (provider.type) out.type = provider.type;
@@ -405,6 +408,7 @@ export class ProvidersService {
     visit?: ProviderEntry["visit"],
     accountId?: ProviderEntry["accountId"],
     explicitCategory?: "Ingreso" | "Gasto" | "Egreso",
+    active?: boolean,
   ): Promise<ProviderEntry> {
     const trimmedCompany = (company || "").trim();
     if (!trimmedCompany) {
@@ -518,6 +522,7 @@ export class ProvidersService {
         agent: shouldPersistAgent ? sanitizedAgent : undefined,
         visit: shouldPersistVisit ? sanitizedVisit : undefined,
         movementCount: 0,
+        active: active !== false,
       };
 
       transaction.set(
@@ -639,6 +644,7 @@ export class ProvidersService {
     visit?: ProviderEntry["visit"],
     accountId?: ProviderEntry["accountId"],
     explicitCategory?: "Ingreso" | "Gasto" | "Egreso",
+    active?: boolean,
   ): Promise<ProviderEntry> {
     const trimmedCompany = (company || "").trim();
     if (!trimmedCompany) {
@@ -761,6 +767,7 @@ export class ProvidersService {
         agent: shouldPersistAgent ? sanitizedAgent : undefined,
         visit: shouldPersistVisit ? sanitizedVisit : undefined,
         movementCount: latest.movementCount ?? 0,
+        active: active === undefined ? latest.active !== false : active,
       };
 
       transaction.set(ref, serializeProviderEntry(provider));

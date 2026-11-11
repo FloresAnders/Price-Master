@@ -331,6 +331,7 @@ export function ProviderSection({ id }: { id?: string }) {
   const [providerName, setProviderName] = useState("");
   const [providerType, setProviderType] = useState<FondoMovementType | "">("");
   const [providerHasAccountScope, setProviderHasAccountScope] = useState(false);
+  const [providerActive, setProviderActive] = useState(true);
   const [providerAccountId, setProviderAccountId] = useState<
     MovementAccountKey | ""
   >("");
@@ -417,6 +418,7 @@ export function ProviderSection({ id }: { id?: string }) {
     setProviderName("");
     setProviderType("");
     setProviderHasAccountScope(false);
+    setProviderActive(true);
     setProviderAccountId("");
     setEditingProviderCode(null);
     setAddNotification(false);
@@ -547,6 +549,7 @@ export function ProviderSection({ id }: { id?: string }) {
     name: string;
     providerType?: FondoMovementType;
     accountId?: MovementAccountKey;
+    active: boolean;
     correonotifi?: string;
     agent?: ProviderAgentConfig;
     visit?: ProviderVisitConfig;
@@ -1081,6 +1084,7 @@ export function ProviderSection({ id }: { id?: string }) {
     setProviderName(prov.name ?? "");
     setProviderType((prov.type as FondoMovementType) ?? "");
     setProviderHasAccountScope(Boolean(prov.accountId));
+    setProviderActive(prov.active !== false);
     setProviderAccountId(
       prov.accountId &&
         availableProviderAccounts.some((account) => account.id === prov.accountId)
@@ -1641,6 +1645,7 @@ export function ProviderSection({ id }: { id?: string }) {
                 pending.visit,
                 pending.accountId,
                 getCategoryForType(pending.providerType),
+                pending.active,
               );
             } else {
               await addProvider(
@@ -1651,6 +1656,7 @@ export function ProviderSection({ id }: { id?: string }) {
                 pending.visit,
                 pending.accountId,
                 getCategoryForType(pending.providerType),
+                pending.active,
               );
 
               await sendEgresoProviderCreatedEmailToOwner(
@@ -1816,6 +1822,18 @@ export function ProviderSection({ id }: { id?: string }) {
                 />
                 <span className="text-sm text-[var(--foreground)]">
                   Limitar proveedor a una cuenta
+                </span>
+              </label>
+              <label className="flex items-center gap-2 mt-2">
+                <input
+                  type="checkbox"
+                  checked={providerActive}
+                  onChange={(event) => setProviderActive(event.target.checked)}
+                  disabled={!company || saving}
+                  className="w-4 h-4 cursor-pointer"
+                />
+                <span className="text-sm text-[var(--foreground)]">
+                  Activo
                 </span>
               </label>
               {providerHasAccountScope && (
@@ -2287,6 +2305,7 @@ export function ProviderSection({ id }: { id?: string }) {
                           correonotifi,
                           agent,
                           visit,
+                          active: providerActive,
                         };
                         setSimilarConfirmMessage(
                           <div className="w-full flex flex-col items-center text-center">
@@ -2357,6 +2376,7 @@ export function ProviderSection({ id }: { id?: string }) {
                         visit,
                         scopedProviderAccountId,
                         getCategoryForType(normalizedProviderType),
+                        providerActive,
                       );
                     } else {
                       if (
@@ -2387,6 +2407,7 @@ export function ProviderSection({ id }: { id?: string }) {
                           correonotifi,
                           agent,
                           visit,
+                          active: providerActive,
                         };
                         setSimilarConfirmMessage(
                           <div className="w-full flex flex-col items-center text-center">
@@ -2456,6 +2477,7 @@ export function ProviderSection({ id }: { id?: string }) {
                         visit,
                         scopedProviderAccountId,
                         getCategoryForType(normalizedProviderType),
+                        providerActive,
                       );
 
                       await sendEgresoProviderCreatedEmailToOwner(

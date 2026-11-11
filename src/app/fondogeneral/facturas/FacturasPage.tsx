@@ -812,6 +812,7 @@ export default function FacturasCreditoPage() {
     () =>
       providers
         .filter((provider) => {
+          if (provider.active === false) return false;
           if (createOnlyInventoryProviders) {
             const providerType = String(provider.type || "")
               .trim()

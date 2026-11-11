@@ -90,6 +90,8 @@ export interface ProviderEntry {
   accountId?: MovementAccountKey;
   type?: string;
   category?: "Ingreso" | "Gasto" | "Egreso";
+  /** Proveedores antiguos sin este campo se consideran activos. */
+  active?: boolean;
   createdAt?: string;
   updatedAt?: string;
   correonotifi?: string;

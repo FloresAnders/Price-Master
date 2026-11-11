@@ -442,11 +442,13 @@ export function FondoSection({
           code: string;
           name: string;
           accountId?: MovementAccountKey;
+          active?: boolean;
           type?: FondoMovementType;
           category?: "Ingreso" | "Gasto" | "Egreso";
           correonotifi?: string;
         }>
-      ).filter((provider) => {
+      )      .filter((provider) => {
+        if (provider.active === false) return false;
         if (
           accountKey === "CajaNegra" ||
           accountKey === "Tucan" ||

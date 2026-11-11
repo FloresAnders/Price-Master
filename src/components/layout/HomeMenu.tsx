@@ -1135,6 +1135,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
 
     type ProviderRef = { code: string; name: string };
     const visitProviders = (weeklyProviders || []).filter((p) => {
+      if (p.active === false) return false;
       const type = (p.type || "").toUpperCase();
       return (
         type === "COMPRA INVENTARIO" &&
@@ -1186,6 +1187,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
     // Deliveries can come from orders created this week OR from the previous week
     // (e.g. create Friday -> receive Tuesday of next week).
     (weeklyProviders || []).forEach((p) => {
+      if (p.active === false) return;
       const type = (p.type || "").toUpperCase();
       if (type !== "COMPRA INVENTARIO") return;
       const visit = (p as any).visit;
