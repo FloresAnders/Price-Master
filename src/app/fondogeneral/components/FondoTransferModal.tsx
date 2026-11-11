@@ -333,6 +333,14 @@ export function FondoTransferModal({
         amount: amountNumber,
         breakdown: resolvedBreakdown.bills,
       });
+      window.dispatchEvent(
+        new CustomEvent("fondo-transfer-committed", {
+          detail: {
+            sourceAccountId: sourceId,
+            destinationAccountId: destinationId,
+          },
+        }),
+      );
       onClose();
       setAmount("");
     } catch (caught) {

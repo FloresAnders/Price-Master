@@ -1453,6 +1453,36 @@ export function FondoSection({
     }
   }, [movementsRefreshing, refreshMovements, showToast]);
 
+  useEffect(() => {
+    const handleTransferCommitted = (event: Event) => {
+      const { sourceAccountId, destinationAccountId } = (
+        event as CustomEvent<{
+          sourceAccountId?: MovementAccountKey;
+          destinationAccountId?: MovementAccountKey;
+        }>
+      ).detail ?? {};
+      if (
+        sourceAccountId !== accountKey &&
+        destinationAccountId !== accountKey
+      ) {
+        return;
+      }
+      void refreshMovements().catch((error) => {
+        console.error("[FG] Error refreshing movements after fund transfer:", error);
+      });
+    };
+
+    window.addEventListener(
+      "fondo-transfer-committed",
+      handleTransferCommitted,
+    );
+    return () =>
+      window.removeEventListener(
+        "fondo-transfer-committed",
+        handleTransferCommitted,
+      );
+  }, [accountKey, refreshMovements]);
+
   const handleApplyMovementSearch = useCallback(() => {
     if (!fromFilter || !toFilter) return;
     applyServerSearchFilters();
