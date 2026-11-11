@@ -78,6 +78,7 @@ describe("sugerencia del contador al confirmar un movimiento", () => {
     expect(screen.getByText("1 × ₡20.000")).toBeTruthy();
     expect(screen.getByText("1 × ₡5.000")).toBeTruthy();
     expect(loadSuggestion).toHaveBeenCalledWith({
+      accountId: "FondoGeneral",
       currentBalance: 643_000,
       paymentAmount: 25_000,
     });
@@ -112,7 +113,7 @@ describe("sugerencia del contador al confirmar un movimiento", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Abrir confirmación" }));
 
-    expect(await screen.findByText("Debe cambiar ₡5.000")).toBeTruthy();
+    expect(await screen.findByText("Diferencia de caja: - ₡5.000")).toBeTruthy();
     expect(screen.getByText("Monto sugerido: ₡20.000")).toBeTruthy();
   });
 });

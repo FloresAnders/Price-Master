@@ -65,8 +65,7 @@ export function buildFondoGeneralPaymentSuggestion(
   const amount = Math.round(input.paymentAmount);
   if (
     amount <= 0 ||
-    amount !== input.paymentAmount ||
-    amount % 1000 !== 0
+    amount !== input.paymentAmount
   ) {
     return null;
   }

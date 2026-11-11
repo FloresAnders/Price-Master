@@ -97,6 +97,23 @@ describe("sugerencia de billetes para pagos del Fondo General", () => {
     });
   });
 
+  it("permite sugerir billetes para total con diferencia menor a mil", () => {
+    const current = snapshot({ 20000: 1, 10000: 1, 2000: 2 });
+
+    const suggestion = buildFondoGeneralPaymentSuggestion({
+      snapshot: current,
+      currentBalance: 34_000,
+      paymentAmount: 4_100,
+    });
+
+    expect(suggestion).toMatchObject({
+      amount: 4_100,
+      suggestedAmount: 4_000,
+      changeRequired: 100,
+      bills: { 2000: 2 },
+    });
+  });
+
   it("descuenta exactamente la sugerencia y conserva cientos y monedas", () => {
     const current = snapshot({
       50: 160,

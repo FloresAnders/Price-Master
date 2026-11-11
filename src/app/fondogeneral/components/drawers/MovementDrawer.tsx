@@ -184,6 +184,10 @@ export function MovementDrawer({
   ]);
   const activeInvoice =
     invoicesToConfirm[confirmInvoiceIndex] ?? invoicesToConfirm[0];
+  const totalPaymentAmount = invoicesToConfirm.reduce(
+    (total, invoice) => total + invoice.amount,
+    0,
+  );
   const paymentSuggestionContext = JSON.stringify({
     open,
     editingEntryId: editingEntry?.id ?? null,
@@ -191,7 +195,7 @@ export function MovementDrawer({
     currency,
     invoiceDocType: agregarMovimientoProps.invoiceDocType,
     isEgreso,
-    paymentAmount: confirmPaymentAmount,
+    paymentAmount: totalPaymentAmount,
     balanceCRC: agregarMovimientoProps.balanceCRC ?? 0,
     invoiceCount: invoicesToConfirm.length,
   });
@@ -217,7 +221,7 @@ export function MovementDrawer({
         currency === "CRC" &&
         agregarMovimientoProps.invoiceDocType === "FCO" &&
         isEgreso &&
-        invoicesToConfirm.length === 1;
+        totalPaymentAmount > 0;
       const suggestion = eligible
         ? await loadFondoGeneralPaymentSuggestion({
           accountId: agregarMovimientoProps.accountKey as MovementAccountKey,
@@ -225,7 +229,7 @@ export function MovementDrawer({
               0,
               Number(agregarMovimientoProps.balanceCRC) || 0,
             ),
-            paymentAmount: confirmPaymentAmount,
+            paymentAmount: totalPaymentAmount,
           })
         : null;
       if (
@@ -472,6 +476,12 @@ export function MovementDrawer({
                 {preparedPaymentSuggestion && (
                   <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-emerald-100">
                     <div className="font-semibold">Sugerencia de billetes</div>
+                    <div className="mt-2 flex justify-between text-sm">
+                      <span>Total a guardar</span>
+                      <span className="font-semibold">
+                        {formatCurrencyValue(preparedPaymentSuggestion.amount)}
+                      </span>
+                    </div>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {Object.entries(preparedPaymentSuggestion.bills)
                         .sort(([left], [right]) => Number(right) - Number(left))
@@ -488,7 +498,7 @@ export function MovementDrawer({
                     {preparedPaymentSuggestion.changeRequired > 0 && (
                       <div className="mt-2 rounded-md border border-amber-400/40 bg-amber-500/15 p-2 text-amber-100">
                         <div className="font-semibold">
-                          Debe cambiar ₡
+                          Diferencia de caja: - ₡
                           {String(preparedPaymentSuggestion.changeRequired).replace(
                             /\B(?=(\d{3})+(?!\d))/g,
                             ".",
