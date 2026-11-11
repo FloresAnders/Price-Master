@@ -61,6 +61,8 @@ type PendingCreditInvoiceOption = {
   currency: "CRC" | "USD";
 };
 
+const MAX_INVOICES_PER_MOVEMENT = 10;
+
 type AgregarMovimientoProps = {
   selectedProvider: string;
   onProviderChange: (value: string) => void;
@@ -311,7 +313,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
     !editingEntryId &&
     invoiceDocType !== "FCR" &&
     !invoiceDisabled &&
-    extraInvoices.length < 4;
+    extraInvoices.length < MAX_INVOICES_PER_MOVEMENT - 1;
 
   const addExtraInvoice = () => {
     if (!canAddExtraInvoice || !onExtraInvoicesChange) return;
