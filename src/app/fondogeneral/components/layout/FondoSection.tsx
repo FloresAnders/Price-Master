@@ -100,6 +100,7 @@ import { FondoFiltersToolbar } from "../FondoFiltersToolbar";
 import { MovementDrawer } from "../drawers/MovementDrawer";
 import { MovementNotesBlock } from "../MovementNotesBlock";
 import { ResizableMovementsViewport } from "../ResizableMovementsViewport";
+import type { ExtraInvoice } from "../../hooks/movements/useMovementForm";
 import { handleSaveManualCreditNote as handleSaveManualCreditNoteFn } from "../../utils/fondo/manualCreditNote";
 import { shouldKeepPendingCreditNotesLoaded } from "../../utils/invoicePayment/creditNotes";
 import {
@@ -315,6 +316,7 @@ type ClosingTimeRequestState = {
 type MovementDraftState = {
   selectedProvider: string;
   invoiceNumber: string;
+  extraInvoices: ExtraInvoice[];
   invoiceDocType: "FCO" | "FCR";
   paymentType: FondoEntry["paymentType"];
   roundUpInvoicePayment: boolean;
@@ -1102,6 +1104,7 @@ export function FondoSection({
     (): MovementDraftState => ({
       selectedProvider,
       invoiceNumber,
+      extraInvoices,
       invoiceDocType,
       paymentType,
       roundUpInvoicePayment,
@@ -1120,6 +1123,7 @@ export function FondoSection({
     [
       selectedProvider,
       invoiceNumber,
+      extraInvoices,
       invoiceDocType,
       paymentType,
       roundUpInvoicePayment,
@@ -1141,6 +1145,7 @@ export function FondoSection({
     return (
       draft.selectedProvider.trim().length > 0 ||
       draft.invoiceNumber.trim().length > 0 ||
+      draft.extraInvoices.length > 0 ||
       draft.egreso.trim().length > 0 ||
       draft.ingreso.trim().length > 0 ||
       draft.manager.trim().length > 0 ||
@@ -1162,6 +1167,24 @@ export function FondoSection({
     }
   }, [movementDraftStorageKey]);
 
+  const persistMovementDraft = useCallback(() => {
+    if (
+      editingEntryId ||
+      !movementDraftStorageKey ||
+      typeof window === "undefined"
+    ) {
+      return;
+    }
+    try {
+      localStorage.setItem(
+        movementDraftStorageKey,
+        JSON.stringify({ ...buildMovementDraft(), savedAt: Date.now() }),
+      );
+    } catch {
+      // ignore draft persistence failures
+    }
+  }, [buildMovementDraft, editingEntryId, movementDraftStorageKey]);
+
   const restoreMovementDraft = useCallback(() => {
     if (!movementDraftStorageKey || typeof window === "undefined") return false;
     try {
@@ -1171,6 +1194,9 @@ export function FondoSection({
       restoringMovementDraftRef.current = true;
       setSelectedProvider(String(draft.selectedProvider || ""));
       setInvoiceNumber(String(draft.invoiceNumber || ""));
+      setExtraInvoices(
+        Array.isArray(draft.extraInvoices) ? draft.extraInvoices : [],
+      );
       setInvoiceDocType(draft.invoiceDocType === "FCR" ? "FCR" : "FCO");
       setPaymentType(
         (draft.paymentType || "COMPRA INVENTARIO") as FondoEntry["paymentType"],
@@ -1214,6 +1240,7 @@ export function FondoSection({
     movementDraftStorageKey,
     setSelectedProvider,
     setInvoiceNumber,
+    setExtraInvoices,
     setInvoiceDocType,
     setPaymentType,
     setRoundUpInvoicePayment,
@@ -1238,14 +1265,7 @@ export function FondoSection({
       movementDraftWriteSuppressedRef.current = false;
     }
     const timeoutId = window.setTimeout(() => {
-      try {
-        localStorage.setItem(movementDraftStorageKey, JSON.stringify({
-          ...draft,
-          savedAt: Date.now(),
-        }));
-      } catch {
-        // ignore draft persistence failures
-      }
+      persistMovementDraft();
     }, 250);
     return () => window.clearTimeout(timeoutId);
   }, [
@@ -1254,6 +1274,7 @@ export function FondoSection({
     movementDraftStorageKey,
     buildMovementDraft,
     hasMovementDraftValue,
+    persistMovementDraft,
   ]);
 
   const { superAdminUsers, superAdminUsersLoading } = useSuperAdminUsers(
@@ -4492,6 +4513,7 @@ export function FondoSection({
 
   const closeMovementModal = () => {
     createMovementValidationIdRef.current += 1;
+    persistMovementDraft();
     setMovementModalOpen(false);
     resetFondoForm();
     setMovementAutoCloseLocked(false);
