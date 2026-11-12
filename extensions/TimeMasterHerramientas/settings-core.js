@@ -44,6 +44,7 @@
     tmhCerrarImpresionConticaDelaySeconds: 5,
     tmhCerrarImpresionConticaMessage:
       "Recuerde consultar si desea la factura impresa",
+    tmhImpresionAutomaticaConticaEnabled: false,
     tmhDividirEfectivoEnabled: false,
     tmhMoverPagoEnabled: false,
     tmhSumaTiemposEnabled: true,

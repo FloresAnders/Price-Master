@@ -64,6 +64,21 @@
     return match ? match[1] : null;
   }
 
+  function clickWithoutJavascriptUrl(anchor) {
+    const href = anchor.getAttribute("href");
+    if (!/^\s*javascript:/i.test(href || "")) {
+      anchor.click();
+      return;
+    }
+
+    anchor.removeAttribute("href");
+    try {
+      anchor.click();
+    } finally {
+      anchor.setAttribute("href", href);
+    }
+  }
+
   function createTabController(documentRef) {
     let started = false;
 
@@ -72,12 +87,12 @@
       event.preventDefault();
       event.stopPropagation();
       if (target.anchor) {
-        target.anchor.click();
+        clickWithoutJavascriptUrl(target.anchor);
         return true;
       }
 
       if (target.generatedAnchor) {
-        target.generatedAnchor.click();
+        clickWithoutJavascriptUrl(target.generatedAnchor);
         return true;
       }
 

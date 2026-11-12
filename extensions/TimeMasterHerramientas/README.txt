@@ -1,4 +1,4 @@
-TIMEMASTER HERRAMIENTAS 1.2.2
+TIMEMASTER HERRAMIENTAS 1.2.6
 ================================
 
 Esta extensión reúne CambioTab, división de efectivo, movimiento entre medios
@@ -54,6 +54,18 @@ herramienta se desactiva.
 Mientras transcurre la espera, muestra un recordatorio lateral con el mensaje
 inicial "Recuerde consultar si desea la factura impresa". El texto puede
 cambiarse desde el popup de la extensión y se guarda para las siguientes ventas.
+
+IMPRESIÓN DE FACTURA CON CTRL+ENTER EN CONTICA
+----------------------------------------------
+Sitio: https://contica.app/app/modules/punto_de_venta/*
+
+Desactivada por defecto. Requiere mantener activa en Contica la opción
+"Imprimir automáticamente al generar la factura" y Navedi conectado.
+
+Dentro del modal de pago #pv-payment-modal, Enter genera la factura y bloquea
+solamente el siguiente qz.print enviado a Navedi. Ctrl+Enter genera la factura
+y permite ese trabajo de impresión. La intención vence después de 45 segundos;
+las impresiones manuales fuera de ese flujo no se bloquean.
 
 DIVISIÓN DE EFECTIVO EN CONTICA
 -------------------------------

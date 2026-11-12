@@ -15,6 +15,8 @@
   const moverPago = isCommonJs
     ? null
     : root.TimeMasterHerramientasMoverPago;
+  const PRINT_SHORTCUT_EVENT =
+    "tmh-contica-navedi-print-shortcut-setting";
   const api = factory(settings);
 
   root.TimeMasterHerramientasContica = api;
@@ -31,6 +33,15 @@
           dividirEfectivo.createCashDivisionController(root.document),
         paymentShortcutController:
           moverPago.createPaymentShortcutController(root.document),
+        printShortcutBridge: {
+          setEnabled(enabled) {
+            root.document.dispatchEvent(
+              new root.CustomEvent(PRINT_SHORTCUT_EVENT, {
+                detail: { enabled: enabled === true },
+              }),
+            );
+          },
+        },
         settings,
       })
       .start();
@@ -48,6 +59,8 @@
     "tmhCerrarImpresionConticaMessage";
   const DIVIDIR_EFECTIVO_SETTING_KEY = "tmhDividirEfectivoEnabled";
   const MOVER_PAGO_SETTING_KEY = "tmhMoverPagoEnabled";
+  const PRINT_SHORTCUT_SETTING_KEY =
+    "tmhImpresionAutomaticaConticaEnabled";
 
   function createConticaController({
     storage,
@@ -55,6 +68,7 @@
     printInvoiceCloser,
     cashDivisionController,
     paymentShortcutController,
+    printShortcutBridge,
     settings,
   }) {
     const settingsCore = settings || settingsApi;
@@ -69,6 +83,7 @@
       start() {},
       stop() {},
     };
+    const printShortcut = printShortcutBridge || { setEnabled() {} };
     const changedDuringInitialLoad = new Set();
     let started = false;
     let settingsLoaded = false;
@@ -100,6 +115,10 @@
     function applyMoverPagoEnabled(enabled) {
       if (enabled) paymentShortcut.start();
       else paymentShortcut.stop();
+    }
+
+    function applyPrintShortcutEnabled(enabled) {
+      printShortcut.setEnabled(enabled === true);
     }
 
     function handleStorageChange(changes, areaName) {
@@ -167,6 +186,17 @@
         }
         applyMoverPagoEnabled(moverPagoEnabled);
       }
+
+      const printShortcutEnabled = settingsCore.readChangedSetting(
+        changes,
+        PRINT_SHORTCUT_SETTING_KEY,
+      );
+      if (printShortcutEnabled !== undefined) {
+        if (!settingsLoaded) {
+          changedDuringInitialLoad.add(PRINT_SHORTCUT_SETTING_KEY);
+        }
+        applyPrintShortcutEnabled(printShortcutEnabled);
+      }
     }
 
     function start() {
@@ -205,6 +235,9 @@
         if (!changedDuringInitialLoad.has(MOVER_PAGO_SETTING_KEY)) {
           applyMoverPagoEnabled(normalized[MOVER_PAGO_SETTING_KEY]);
         }
+        if (!changedDuringInitialLoad.has(PRINT_SHORTCUT_SETTING_KEY)) {
+          applyPrintShortcutEnabled(normalized[PRINT_SHORTCUT_SETTING_KEY]);
+        }
         settingsLoaded = true;
         changedDuringInitialLoad.clear();
       });
@@ -221,6 +254,7 @@
       modalCloser.stop();
       cashDivider.stop();
       paymentShortcut.stop();
+      printShortcut.setEnabled(false);
     }
 
     return { start, destroy };

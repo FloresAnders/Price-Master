@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TimeMaster Herramientas",
-  "version": "1.2.2",
+  "version": "1.2.6",
   "description": "Atajos para Contica, Gente Crystal y formato configurable por líneas de impresión.",
   "permissions": ["storage"],
   "host_permissions": [
@@ -19,6 +19,12 @@
     "service_worker": "background.js"
   },
   "content_scripts": [
+    {
+      "matches": ["https://contica.app/app/modules/punto_de_venta/*"],
+      "js": ["contica-navedi-print-gate.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
     {
       "matches": ["https://contica.app/app/modules/punto_de_venta/*"],
       "js": [
