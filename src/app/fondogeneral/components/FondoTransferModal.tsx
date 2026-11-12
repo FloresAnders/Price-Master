@@ -99,15 +99,20 @@ export function FondoTransferModal({
   const destinationProvider = providers.find(
     (provider) => provider.code === destinationProviderCode,
   );
-  const providersForAccount = (accountId: MovementAccountKey) => {
+  const providersForAccount = (
+    accountId: MovementAccountKey,
+    direction: "source" | "destination",
+  ) => {
     const isGeneralAccount = accountId === "FondoGeneral";
     return providers
       .filter((provider) =>
         provider.active !== false &&
         (isGeneralAccount
           ? (!provider.accountId || provider.accountId === "FondoGeneral") &&
-            provider.category === "Egreso" &&
-            provider.type?.trim().toUpperCase() !== "COMPRA INVENTARIO"
+            provider.category ===
+              (direction === "source" ? "Egreso" : "Ingreso") &&
+            (direction !== "source" ||
+              provider.type?.trim().toUpperCase() !== "COMPRA INVENTARIO")
           : provider.accountId === accountId),
       )
       .sort((a, b) => {
@@ -119,7 +124,7 @@ export function FondoTransferModal({
         });
       });
   };
-  const filteredSourceProviders = providersForAccount(sourceId).filter((provider) => {
+  const filteredSourceProviders = providersForAccount(sourceId, "source").filter((provider) => {
     const search = sourceProviderSearch.trim().toLocaleLowerCase();
     return (
       !search ||
@@ -127,7 +132,7 @@ export function FondoTransferModal({
       provider.code.toLocaleLowerCase().includes(search)
     );
   });
-  const filteredDestinationProviders = providersForAccount(destinationId).filter(
+  const filteredDestinationProviders = providersForAccount(destinationId, "destination").filter(
     (provider) => {
       const search = destinationProviderSearch.trim().toLocaleLowerCase();
       return (
