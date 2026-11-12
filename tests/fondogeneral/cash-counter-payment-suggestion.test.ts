@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { CashCounterSnapshot } from "@/services/cashCounterDb";
 import {
+  applyFondoGeneralIncomeSuggestionToSnapshot,
   applyFondoGeneralPaymentSuggestionToSnapshot,
+  buildFondoGeneralIncomeSuggestion,
   buildFondoGeneralPaymentSuggestion,
 } from "@/components/business/cash-counter-tabs/paymentSuggestion";
 
@@ -162,5 +164,79 @@ describe("sugerencia de billetes para pagos del Fondo General", () => {
         suggestion!,
       ).applied,
     ).toBe(false);
+  });
+});
+
+describe("sugerencia de billetes para ingresos", () => {
+  it("distribuye el ingreso entre billetes de mayor a menor", () => {
+    const suggestion = buildFondoGeneralIncomeSuggestion({
+      snapshot: snapshot({ 20000: 3, 5000: 2 }),
+      accountId: "FondoGeneral",
+      currentBalance: 70_000,
+      incomeAmount: 27_000,
+    });
+
+    expect(suggestion).toEqual({
+      accountId: "FondoGeneral",
+      amount: 27_000,
+      bills: { 20000: 1, 5000: 1, 2000: 1 },
+    });
+  });
+
+  it("no sugiere cuando el contador vinculado no coincide con el saldo", () => {
+    expect(
+      buildFondoGeneralIncomeSuggestion({
+        snapshot: snapshot({ 20000: 3, 5000: 2 }),
+        accountId: "FondoGeneral",
+        currentBalance: 69_000,
+        incomeAmount: 27_000,
+      }),
+    ).toBeNull();
+  });
+
+  it("suma la seleccion editada solamente al contador vinculado", () => {
+    const current: CashCounterSnapshot = {
+      ...snapshot({ 20000: 3, 5000: 2, 1000: 4 }),
+      counters: [
+        snapshot({ 20000: 3, 5000: 2, 1000: 4 }).counters[0],
+        {
+          accountId: "CajaNegra",
+          name: "Caja Negra",
+          currency: "CRC",
+          bills: { 20000: 1, 5000: 1 },
+          extraAmount: 0,
+          aperturaCaja: 0,
+          ventaActual: 0,
+        },
+      ],
+    };
+
+    const result = applyFondoGeneralIncomeSuggestionToSnapshot(current, {
+      accountId: "FondoGeneral",
+      amount: 25_000,
+      bills: { 10000: 2, 5000: 1 },
+    });
+
+    expect(result.applied).toBe(true);
+    expect(result.snapshot.counters[0].bills).toEqual({
+      20000: 3,
+      10000: 2,
+      5000: 3,
+      1000: 4,
+    });
+    expect(result.snapshot.counters[1].bills).toEqual({ 20000: 1, 5000: 1 });
+  });
+
+  it("rechaza una seleccion cuyo total no coincide con el ingreso", () => {
+    const current = snapshot({ 20000: 1 });
+
+    const result = applyFondoGeneralIncomeSuggestionToSnapshot(current, {
+      accountId: "FondoGeneral",
+      amount: 25_000,
+      bills: { 20000: 1 },
+    });
+
+    expect(result.applied).toBe(false);
+    expect(result.snapshot).toBe(current);
   });
 });

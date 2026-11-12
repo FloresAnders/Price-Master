@@ -19,12 +19,16 @@ import {
   roundCreditNotePaymentAmount,
 } from "../../utils/helpers";
 import {
+  applyFondoGeneralIncomeSuggestion,
   applyFondoGeneralPaymentSuggestion,
+  loadFondoGeneralIncomeSuggestion,
   loadFondoGeneralPaymentSuggestion,
+  type FondoGeneralIncomeSuggestion,
   type FondoGeneralPaymentSuggestion,
 } from "@/components/business/cash-counter-tabs/paymentSuggestion";
 import { openCashCounterForAccount } from "@/components/business/cash-counter-tabs/accountCounters";
 import type { MovementAccountKey } from "@/services/movimientos-fondos";
+import { IncomeCashBreakdownModal } from "./IncomeCashBreakdownModal";
 
 type MovementDrawerProps = ComponentProps<typeof AgregarMovimiento> & {
   open: boolean;
@@ -52,6 +56,9 @@ export function MovementDrawer({
   const [confirmSaveLocked, setConfirmSaveLocked] = useState(false);
   const [preparedPaymentSuggestion, setPreparedPaymentSuggestion] =
     useState<FondoGeneralPaymentSuggestion | null>(null);
+  const [preparedIncomeSuggestion, setPreparedIncomeSuggestion] =
+    useState<FondoGeneralIncomeSuggestion | null>(null);
+  const [showIncomeCashEditor, setShowIncomeCashEditor] = useState(false);
   const [skipCashCounterDeduction, setSkipCashCounterDeduction] =
     useState(false);
   const confirmSaveLockedRef = useRef(false);
@@ -195,6 +202,7 @@ export function MovementDrawer({
     currency,
     invoiceDocType: agregarMovimientoProps.invoiceDocType,
     isEgreso,
+    isIngreso,
     paymentAmount: totalPaymentAmount,
     balanceCRC: agregarMovimientoProps.balanceCRC ?? 0,
     invoiceCount: invoicesToConfirm.length,
@@ -213,16 +221,24 @@ export function MovementDrawer({
     const context = paymentSuggestionContext;
     setConfirmInvoiceIndex(0);
     setPreparedPaymentSuggestion(null);
+    setPreparedIncomeSuggestion(null);
+    setShowIncomeCashEditor(false);
     setSkipCashCounterDeduction(false);
     try {
-      const eligible =
+      const paymentEligible =
         !editingEntry &&
         Boolean(agregarMovimientoProps.accountKey) &&
         currency === "CRC" &&
         agregarMovimientoProps.invoiceDocType === "FCO" &&
         isEgreso &&
         totalPaymentAmount > 0;
-      const suggestion = eligible
+      const incomeEligible =
+        !editingEntry &&
+        Boolean(agregarMovimientoProps.accountKey) &&
+        currency === "CRC" &&
+        isIngreso &&
+        totalPaymentAmount > 0;
+      const paymentSuggestion = paymentEligible
         ? await loadFondoGeneralPaymentSuggestion({
           accountId: agregarMovimientoProps.accountKey as MovementAccountKey,
           currentBalance: Math.max(
@@ -232,13 +248,24 @@ export function MovementDrawer({
             paymentAmount: totalPaymentAmount,
           })
         : null;
+      const incomeSuggestion = incomeEligible
+        ? await loadFondoGeneralIncomeSuggestion({
+            accountId: agregarMovimientoProps.accountKey as MovementAccountKey,
+            currentBalance: Math.max(
+              0,
+              Number(agregarMovimientoProps.balanceCRC) || 0,
+            ),
+            incomeAmount: totalPaymentAmount,
+          })
+        : null;
       if (
         requestId !== preparationRequestRef.current ||
         context !== paymentSuggestionContextRef.current
       ) {
         return;
       }
-      setPreparedPaymentSuggestion(suggestion);
+      setPreparedPaymentSuggestion(paymentSuggestion);
+      setPreparedIncomeSuggestion(incomeSuggestion);
     } catch (error) {
       if (requestId !== preparationRequestRef.current) return;
       console.warn(
@@ -255,32 +282,43 @@ export function MovementDrawer({
     if (confirmSaveLockedRef.current || isSaving) return;
     confirmSaveLockedRef.current = true;
     setConfirmSaveLocked(true);
-    const suggestion = preparedPaymentSuggestion;
+    const paymentSuggestion = preparedPaymentSuggestion;
+    const incomeSuggestion = preparedIncomeSuggestion;
     const confirmedRoundUpSelections = invoicesToConfirm.map(
       (invoice) => invoice.roundUpToThousand,
     );
     Promise.resolve(onSubmit?.(confirmedRoundUpSelections))
       .then(async (saved) => {
-        if (saved !== true || !suggestion) return;
+        if (saved !== true) return;
         try {
+          if (incomeSuggestion) {
+            const applied = await applyFondoGeneralIncomeSuggestion(
+              incomeSuggestion,
+            );
+            if (!applied) onCashCounterUpdateError?.();
+            return;
+          }
+          if (!paymentSuggestion) return;
           if (skipCashCounterDeduction) {
             const accountKey = agregarMovimientoProps.accountKey as MovementAccountKey;
             if (accountKey) {
               openCashCounterForAccount(accountKey);
             }
             onCashCounterManualUpdate?.(
-              suggestion.changeRequired,
-              suggestion.suggestedAmount,
+              paymentSuggestion.changeRequired,
+              paymentSuggestion.suggestedAmount,
             );
           } else {
-            const applied = await applyFondoGeneralPaymentSuggestion(suggestion);
+            const applied = await applyFondoGeneralPaymentSuggestion(
+              paymentSuggestion,
+            );
             if (!applied) {
               onCashCounterUpdateError?.();
-            } else if (suggestion.changeRequired > 0) {
-              openCashCounterForAccount(suggestion.accountId);
+            } else if (paymentSuggestion.changeRequired > 0) {
+              openCashCounterForAccount(paymentSuggestion.accountId);
               onCashCounterManualUpdate?.(
-                suggestion.changeRequired,
-                suggestion.suggestedAmount,
+                paymentSuggestion.changeRequired,
+                paymentSuggestion.suggestedAmount,
               );
             }
           }
@@ -297,6 +335,8 @@ export function MovementDrawer({
         setConfirmSaveLocked(false);
         setShowConfirmModal(false);
         setPreparedPaymentSuggestion(null);
+        setPreparedIncomeSuggestion(null);
+        setShowIncomeCashEditor(false);
       });
   };
   const handleFieldKeyDown = (
@@ -535,6 +575,39 @@ export function MovementDrawer({
                     )}
                   </div>
                 )}
+                {preparedIncomeSuggestion && (
+                  <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-emerald-100">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="font-semibold">Billetes a agregar</div>
+                        <p className="mt-1 text-xs text-emerald-100/75">
+                          Se sumarán al contador de la cuenta después de guardar.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowIncomeCashEditor(true)}
+                        disabled={confirmSaveLocked || isSaving}
+                        className="shrink-0 rounded-md border border-emerald-400/35 px-2.5 py-1.5 text-xs font-bold text-emerald-100 hover:bg-emerald-500/15 disabled:opacity-50"
+                      >
+                        Editar billetes
+                      </button>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {Object.entries(preparedIncomeSuggestion.bills)
+                        .sort(([left], [right]) => Number(right) - Number(left))
+                        .map(([denomination, count]) => (
+                          <span
+                            key={denomination}
+                            className="rounded-md border border-emerald-400/25 bg-black/15 px-2 py-1 font-semibold"
+                          >
+                            {count} × ₡
+                            {denomination.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
+                          </span>
+                        ))}
+                    </div>
+                  </div>
+                )}
                 {invoicesToConfirm.length > 1 && (
                   <div className="flex items-center justify-between pt-1">
                     <button
@@ -583,9 +656,19 @@ export function MovementDrawer({
             preparationRequestRef.current += 1;
             setShowConfirmModal(false);
             setPreparedPaymentSuggestion(null);
+            setPreparedIncomeSuggestion(null);
+            setShowIncomeCashEditor(false);
           }}
         />,
         document.body,
+      )}
+      {showIncomeCashEditor && preparedIncomeSuggestion && (
+        <IncomeCashBreakdownModal
+          suggestion={preparedIncomeSuggestion}
+          disabled={confirmSaveLocked || isSaving}
+          onClose={() => setShowIncomeCashEditor(false)}
+          onApply={setPreparedIncomeSuggestion}
+        />
       )}
     </Drawer>
   );

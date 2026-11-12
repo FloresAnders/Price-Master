@@ -7,11 +7,15 @@ import { MovementDrawer } from "@/app/fondogeneral/components/drawers/MovementDr
 
 const loadSuggestion = vi.hoisted(() => vi.fn());
 const applySuggestion = vi.hoisted(() => vi.fn());
+const loadIncomeSuggestion = vi.hoisted(() => vi.fn());
+const applyIncomeSuggestion = vi.hoisted(() => vi.fn());
 
 vi.mock("@/components/business/cash-counter-tabs/paymentSuggestion", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/components/business/cash-counter-tabs/paymentSuggestion")>()),
   loadFondoGeneralPaymentSuggestion: loadSuggestion,
   applyFondoGeneralPaymentSuggestion: applySuggestion,
+  loadFondoGeneralIncomeSuggestion: loadIncomeSuggestion,
+  applyFondoGeneralIncomeSuggestion: applyIncomeSuggestion,
 }));
 
 vi.mock("@/app/fondogeneral/components/AgregarMovimiento", () => ({
@@ -66,6 +70,8 @@ describe("sugerencia del contador al confirmar un movimiento", () => {
   beforeEach(() => {
     loadSuggestion.mockReset().mockResolvedValue(suggestion);
     applySuggestion.mockReset().mockResolvedValue(true);
+    loadIncomeSuggestion.mockReset().mockResolvedValue(null);
+    applyIncomeSuggestion.mockReset().mockResolvedValue(true);
   });
 
   it("muestra denominaciones y las descuenta tras guardar el movimiento", async () => {
@@ -115,5 +121,78 @@ describe("sugerencia del contador al confirmar un movimiento", () => {
 
     expect(await screen.findByText("Diferencia de caja: - ₡5.000")).toBeTruthy();
     expect(screen.getByText("Monto sugerido: ₡20.000")).toBeTruthy();
+  });
+
+  it("permite editar la sugerencia de ingreso y suma la seleccion tras guardar", async () => {
+    loadIncomeSuggestion.mockResolvedValueOnce({
+      accountId: "FondoGeneral",
+      amount: 25_000,
+      bills: { 20000: 1, 5000: 1 },
+    });
+    const onSubmit = vi.fn().mockResolvedValue(true);
+    render(
+      <MovementDrawer
+        {...({
+          open: true,
+          onClose: vi.fn(),
+          editingEntry: null,
+          movementAutoCloseLocked: false,
+          onToggleMovementAutoCloseLocked: vi.fn(),
+          beforeConfirmSubmit: vi.fn().mockResolvedValue(true),
+          onSubmit,
+          isSaving: false,
+          selectedProvider: "0010",
+          providers: [{ code: "0010", name: "INGRESO CAJA" }],
+          invoiceNumber: "1001",
+          extraInvoices: [],
+          notes: "",
+          isEgreso: false,
+          isIngreso: true,
+          egreso: "",
+          ingreso: "25000",
+          currency: "CRC",
+          accountKey: "FondoGeneral",
+          invoiceDocType: "OTRO",
+          amountPayment: 25_000,
+          balanceCRC: 643_000,
+        } as unknown as React.ComponentProps<typeof MovementDrawer>)}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Abrir confirmación" }));
+
+    expect(await screen.findByText("Billetes a agregar")).toBeTruthy();
+    expect(loadIncomeSuggestion).toHaveBeenCalledWith({
+      accountId: "FondoGeneral",
+      currentBalance: 643_000,
+      incomeAmount: 25_000,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Editar billetes" }));
+    expect(screen.getByRole("dialog", { name: "Billetes a agregar" })).toBeTruthy();
+
+    const twentyThousandInput = screen.getByRole("textbox", {
+      name: "Cantidad de billetes de ₡20.000",
+    }) as HTMLInputElement;
+    const tenThousandInput = screen.getByRole("textbox", {
+      name: "Cantidad de billetes de ₡10.000",
+    }) as HTMLInputElement;
+    expect(twentyThousandInput.type).toBe("text");
+    expect(twentyThousandInput.inputMode).toBe("numeric");
+    fireEvent.change(twentyThousandInput, { target: { value: "0" } });
+    fireEvent.blur(twentyThousandInput);
+    fireEvent.change(tenThousandInput, { target: { value: "1+1" } });
+    fireEvent.blur(tenThousandInput);
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar billetes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
+    await waitFor(() =>
+      expect(applyIncomeSuggestion).toHaveBeenCalledWith({
+        accountId: "FondoGeneral",
+        amount: 25_000,
+        bills: { 10000: 2, 5000: 1 },
+      }),
+    );
+    expect(applySuggestion).not.toHaveBeenCalled();
   });
 });

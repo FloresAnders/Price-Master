@@ -7,7 +7,13 @@ import type { BillsMap, CashCounterData } from "./types";
 import { calcTotal } from "./utils";
 import type { MovementAccountKey } from "@/services/movimientos-fondos";
 
-const CRC_PAYMENT_DENOMINATIONS = [20000, 10000, 5000, 2000, 1000] as const;
+export const CRC_CASH_BILL_DENOMINATIONS = [
+  20000,
+  10000,
+  5000,
+  2000,
+  1000,
+] as const;
 
 export type FondoGeneralPaymentSuggestion = {
   accountId: MovementAccountKey;
@@ -19,6 +25,12 @@ export type FondoGeneralPaymentSuggestion = {
   bills: BillsMap;
 };
 
+export type FondoGeneralIncomeSuggestion = {
+  accountId: MovementAccountKey;
+  amount: number;
+  bills: BillsMap;
+};
+
 type BuildSuggestionInput = {
   snapshot: CashCounterSnapshot;
   currentBalance: number;
@@ -27,6 +39,15 @@ type BuildSuggestionInput = {
 };
 
 type LoadSuggestionInput = Omit<BuildSuggestionInput, "snapshot">;
+
+type BuildIncomeSuggestionInput = {
+  snapshot: CashCounterSnapshot;
+  currentBalance: number;
+  incomeAmount: number;
+  accountId: MovementAccountKey;
+};
+
+type LoadIncomeSuggestionInput = Omit<BuildIncomeSuggestionInput, "snapshot">;
 
 function counterFingerprint(counter: CashCounterData): string {
   const bills = Object.entries(counter.bills)
@@ -70,7 +91,7 @@ export function buildFondoGeneralPaymentSuggestion(
     return null;
   }
 
-  const available = CRC_PAYMENT_DENOMINATIONS.map((denomination) => ({
+  const available = CRC_CASH_BILL_DENOMINATIONS.map((denomination) => ({
     denomination,
     count: Math.max(0, Math.trunc(counter.bills[denomination] ?? 0)),
   }));
@@ -161,8 +182,8 @@ export function applyFondoGeneralPaymentSuggestionToSnapshot(
     const denomination = Number(rawDenomination);
     const count = Math.max(0, Math.trunc(rawCount));
     if (
-      !CRC_PAYMENT_DENOMINATIONS.includes(
-        denomination as (typeof CRC_PAYMENT_DENOMINATIONS)[number],
+      !CRC_CASH_BILL_DENOMINATIONS.includes(
+        denomination as (typeof CRC_CASH_BILL_DENOMINATIONS)[number],
       ) ||
       count <= 0 ||
       Math.max(0, Math.trunc(nextBills[denomination] ?? 0)) < count
@@ -192,6 +213,103 @@ export async function applyFondoGeneralPaymentSuggestion(
 ): Promise<boolean> {
   return updateCashCounterSnapshotAtomically((current) => {
     const result = applyFondoGeneralPaymentSuggestionToSnapshot(
+      current,
+      suggestion,
+    );
+    return result.applied
+      ? { ...result.snapshot, lastSaved: new Date().toISOString() }
+      : null;
+  });
+}
+
+export function buildFondoGeneralIncomeSuggestion(
+  input: BuildIncomeSuggestionInput,
+): FondoGeneralIncomeSuggestion | null {
+  const counter = input.snapshot.counters.find(
+    (item) => item.accountId === input.accountId,
+  );
+  if (!counter || counter.currency !== "CRC") return null;
+
+  const counterTotal = calcTotal(counter.bills, counter.extraAmount);
+  const expectedCounterTotal = Math.round(input.currentBalance * 100) / 100;
+  if (
+    Math.round(counterTotal * 100) !== Math.round(expectedCounterTotal * 100)
+  ) {
+    return null;
+  }
+
+  const amount = Math.round(input.incomeAmount);
+  if (amount <= 0 || amount !== input.incomeAmount) return null;
+
+  let remaining = amount;
+  const bills: BillsMap = {};
+  for (const denomination of CRC_CASH_BILL_DENOMINATIONS) {
+    const count = Math.floor(remaining / denomination);
+    if (count <= 0) continue;
+    bills[denomination] = count;
+    remaining -= count * denomination;
+  }
+  if (remaining !== 0) return null;
+
+  return { accountId: input.accountId, amount, bills };
+}
+
+export function applyFondoGeneralIncomeSuggestionToSnapshot(
+  snapshot: CashCounterSnapshot,
+  suggestion: FondoGeneralIncomeSuggestion,
+): { snapshot: CashCounterSnapshot; applied: boolean } {
+  const counterIndex = snapshot.counters.findIndex(
+    (item) => item.accountId === suggestion.accountId,
+  );
+  const counter = snapshot.counters[counterIndex];
+  if (!counter || counter.currency !== "CRC" || suggestion.amount <= 0) {
+    return { snapshot, applied: false };
+  }
+
+  const normalizedBills: BillsMap = {};
+  let total = 0;
+  for (const [rawDenomination, rawCount] of Object.entries(suggestion.bills)) {
+    const denomination = Number(rawDenomination);
+    const count = Number(rawCount);
+    if (
+      !CRC_CASH_BILL_DENOMINATIONS.includes(
+        denomination as (typeof CRC_CASH_BILL_DENOMINATIONS)[number],
+      ) ||
+      !Number.isInteger(count) ||
+      count < 0
+    ) {
+      return { snapshot, applied: false };
+    }
+    if (count === 0) continue;
+    normalizedBills[denomination] = count;
+    total += denomination * count;
+  }
+  if (total !== suggestion.amount) return { snapshot, applied: false };
+
+  const nextBills = { ...counter.bills };
+  for (const [rawDenomination, count] of Object.entries(normalizedBills)) {
+    const denomination = Number(rawDenomination);
+    nextBills[denomination] =
+      Math.max(0, Math.trunc(nextBills[denomination] ?? 0)) + count;
+  }
+
+  const counters = [...snapshot.counters];
+  counters[counterIndex] = { ...counter, bills: nextBills };
+  return { snapshot: { ...snapshot, counters }, applied: true };
+}
+
+export async function loadFondoGeneralIncomeSuggestion(
+  input: LoadIncomeSuggestionInput,
+): Promise<FondoGeneralIncomeSuggestion | null> {
+  const snapshot = await getOrCreateCashCounterSnapshot();
+  return buildFondoGeneralIncomeSuggestion({ ...input, snapshot });
+}
+
+export async function applyFondoGeneralIncomeSuggestion(
+  suggestion: FondoGeneralIncomeSuggestion,
+): Promise<boolean> {
+  return updateCashCounterSnapshotAtomically((current) => {
+    const result = applyFondoGeneralIncomeSuggestionToSnapshot(
       current,
       suggestion,
     );
