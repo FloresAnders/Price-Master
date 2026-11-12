@@ -1342,6 +1342,7 @@ export function FondoSection({
     pendingNightDailyClosing,
     retryMovements,
     refreshMovements,
+    applyExternalMovements,
     registerLocalMutation,
   } = useV2MovementsHydration({
     company,
@@ -1476,21 +1477,37 @@ export function FondoSection({
 
   useEffect(() => {
     const handleTransferCommitted = (event: Event) => {
-      const { sourceAccountId, destinationAccountId } = (
+      const {
+        docId,
+        sourceAccountId,
+        destinationAccountId,
+        sourceMovement,
+        destinationMovement,
+        ledger,
+      } = (
         event as CustomEvent<{
+          docId?: string;
           sourceAccountId?: MovementAccountKey;
           destinationAccountId?: MovementAccountKey;
+          sourceMovement?: FondoEntry;
+          destinationMovement?: FondoEntry;
+          ledger?: MovementStorage<FondoEntry>;
         }>
       ).detail ?? {};
-      if (
-        sourceAccountId !== accountKey &&
-        destinationAccountId !== accountKey
-      ) {
-        return;
+      const activeAccountAffected =
+        sourceAccountId === accountKey || destinationAccountId === accountKey;
+      if (docId && ledger) applyConfirmedLedger(docId, ledger);
+      const locallyUpdated = Boolean(
+        docId &&
+        sourceMovement &&
+        destinationMovement &&
+        applyExternalMovements(docId, [sourceMovement, destinationMovement]),
+      );
+      if (activeAccountAffected && !locallyUpdated) {
+        void refreshMovements().catch((error) => {
+          console.error("[FG] Error refreshing movements after fund transfer:", error);
+        });
       }
-      void refreshMovements().catch((error) => {
-        console.error("[FG] Error refreshing movements after fund transfer:", error);
-      });
     };
 
     window.addEventListener(
@@ -1502,7 +1519,12 @@ export function FondoSection({
         "fondo-transfer-committed",
         handleTransferCommitted,
       );
-  }, [accountKey, refreshMovements]);
+  }, [
+    accountKey,
+    applyConfirmedLedger,
+    applyExternalMovements,
+    refreshMovements,
+  ]);
 
   const handleApplyMovementSearch = useCallback(() => {
     if (!fromFilter || !toFilter) return;

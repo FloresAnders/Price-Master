@@ -19,6 +19,7 @@ import { SchedulesService } from "@/services/schedules";
 import { getControlHorarioShiftTiming } from "@/utils/controlHorarioManager";
 import { ProvidersService } from "@/services/providers";
 import type { ProviderEntry } from "@/types/firestore";
+import useToast from "@/hooks/useToast";
 
 type Props = {
   open: boolean;
@@ -65,6 +66,7 @@ export function FondoTransferModal({
   companyKey = "",
   onClose,
 }: Props) {
+  const { showToast } = useToast();
   const [sourceId, setSourceId] = useState(initialAccountId);
   const [destinationId, setDestinationId] = useState<MovementAccountKey>(
     accounts.find((account) => account.accountId !== initialAccountId)
@@ -318,8 +320,9 @@ export function FondoTransferModal({
         breakdown: resolvedBreakdown.bills,
         empresa: company,
       };
-      await MovimientosFondosService.commitFundTransfer({
-        docId: MovimientosFondosService.buildCompanyMovementsKey(company),
+      const docId = MovimientosFondosService.buildCompanyMovementsKey(company);
+      const ledger = await MovimientosFondosService.commitFundTransfer({
+        docId,
         company,
         sourceAccountId: sourceId,
         destinationAccountId: destinationId,
@@ -327,20 +330,36 @@ export function FondoTransferModal({
         destinationMovement,
         nowISO: createdAt,
       });
-      await transferCashCounterAmount({
-        sourceAccountId: sourceId,
-        destinationAccountId: destinationId,
-        amount: amountNumber,
-        breakdown: resolvedBreakdown.bills,
-      });
       window.dispatchEvent(
         new CustomEvent("fondo-transfer-committed", {
           detail: {
+            docId,
             sourceAccountId: sourceId,
             destinationAccountId: destinationId,
+            sourceMovement,
+            destinationMovement,
+            ledger,
           },
         }),
       );
+      try {
+        await transferCashCounterAmount({
+          sourceAccountId: sourceId,
+          destinationAccountId: destinationId,
+          amount: amountNumber,
+          breakdown: resolvedBreakdown.bills,
+        });
+      } catch (counterError) {
+        console.error(
+          "Transferencia guardada; error actualizando contadores:",
+          counterError,
+        );
+        showToast(
+          "Transferencia guardada. No se pudieron actualizar los contadores; revisalos manualmente.",
+          "warning",
+          7000,
+        );
+      }
       onClose();
       setAmount("");
     } catch (caught) {

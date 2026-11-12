@@ -178,7 +178,22 @@ export type LedgerInvoicePaymentChange = {
   clientMutationId?: string;
 };
 
-export type LedgerLastChange = LedgerMovementChange | LedgerInvoicePaymentChange;
+export type LedgerFundTransferChange = {
+  kind: "fund-transfer";
+  revision: number;
+  sourceMovementId: string;
+  sourceAccountId: MovementAccountKey;
+  destinationMovementId: string;
+  destinationAccountId: MovementAccountKey;
+  currency: MovementCurrencyKey;
+  updatedAt: string;
+  clientMutationId?: string;
+};
+
+export type LedgerLastChange =
+  | LedgerMovementChange
+  | LedgerInvoicePaymentChange
+  | LedgerFundTransferChange;
 
 export type MovementStorageState = {
   balancesByAccount: MovementAccountBalance[];
@@ -737,6 +752,19 @@ export class MovimientosFondosService {
       typeof change.updatedAt === "string" && change.updatedAt.length > 0
     ) {
       result.lastChange = { ...change, revision: Math.trunc(change.revision) };
+    } else if (
+      change?.kind === "fund-transfer" &&
+      typeof change.revision === "number" && Number.isFinite(change.revision) && change.revision >= 0 &&
+      typeof change.sourceMovementId === "string" && change.sourceMovementId.length > 0 &&
+      this.isMovementAccountKey(change.sourceAccountId) &&
+      typeof change.destinationMovementId === "string" && change.destinationMovementId.length > 0 &&
+      this.isMovementAccountKey(change.destinationAccountId) &&
+      change.sourceAccountId !== change.destinationAccountId &&
+      this.isMovementCurrencyKey(change.currency) &&
+      typeof change.updatedAt === "string" && change.updatedAt.length > 0 &&
+      (change.clientMutationId === undefined || typeof change.clientMutationId === "string")
+    ) {
+      result.lastChange = { ...change, revision: Math.trunc(change.revision) };
     }
 
     return result;
@@ -1225,7 +1253,18 @@ export class MovimientosFondosService {
       sourceBalance.currentBalance -= input.sourceMovement.amountEgreso;
       destinationBalance.currentBalance += input.destinationMovement.amountIngreso;
       ledger.state.updatedAt = input.nowISO;
-      ledger.state.revision = (ledger.state.revision ?? 0) + 1;
+      const revision = (ledger.state.revision ?? 0) + 1;
+      ledger.state.revision = revision;
+      ledger.state.lastChange = {
+        kind: "fund-transfer",
+        revision,
+        sourceMovementId: input.sourceMovement.id,
+        sourceAccountId: input.sourceAccountId,
+        destinationMovementId: input.destinationMovement.id,
+        destinationAccountId: input.destinationAccountId,
+        currency: "CRC",
+        updatedAt: input.nowISO,
+      };
       transaction.set(ledgerRef, stripUndefinedDeep(ledger) as DocumentData);
 
       for (const [ref, movement] of [

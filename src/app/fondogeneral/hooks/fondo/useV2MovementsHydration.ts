@@ -341,6 +341,72 @@ export function useV2MovementsHydration({
     return ensureV2MovementsLoaded(docKey, { forceRefresh: true });
   }, [company, ensureV2MovementsLoaded, resolvedOwnerId]);
 
+  const applyExternalMovements = useCallback((
+    docKey: string,
+    movements: readonly FondoEntry[],
+  ): boolean => {
+    const activeQuery = resolveActiveMovementsQuery({
+      fromFilter,
+      toFilter,
+      pageSize,
+      currentDailyKey,
+      todayKey,
+      providerCode,
+      paymentType,
+      invoiceNumber,
+    });
+    const activeAccountId = accountKeyRef.current;
+    let activeCacheUpdated = false;
+
+    for (const movement of movements) {
+      if (!isMovementAccountKey(movement.accountId)) continue;
+      const targetAccountId = movement.accountId;
+      const cacheKey = buildV2MovementsCacheKey(docKey, targetAccountId);
+      const cached = v2MovementsCacheRef.current[cacheKey];
+      if (
+        !cached?.loaded ||
+        cached.queryKey !== activeQuery.queryKey ||
+        cached.startIso !== activeQuery.startIso ||
+        cached.endIsoExclusive !== activeQuery.endIsoExclusive
+      ) {
+        continue;
+      }
+
+      const nextMovements = cached.movements.filter(
+        (entry) => entry.id !== movement.id,
+      );
+      if (movementMatchesActiveQuery(movement, activeQuery)) {
+        nextMovements.push(movement);
+      }
+      const revision = (cached.revision ?? 0) + 1;
+      v2MovementsCacheRef.current[cacheKey] = {
+        ...cached,
+        movements: nextMovements,
+        revision,
+        movementVersions: {
+          ...cached.movementVersions,
+          [movement.id]: revision,
+        },
+      };
+      if (targetAccountId === activeAccountId) activeCacheUpdated = true;
+    }
+
+    if (activeCacheUpdated) {
+      rebuildEntriesFromV2Cache(docKey, activeAccountId);
+    }
+    return activeCacheUpdated;
+  }, [
+    currentDailyKey,
+    fromFilter,
+    invoiceNumber,
+    pageSize,
+    paymentType,
+    providerCode,
+    rebuildEntriesFromV2Cache,
+    toFilter,
+    todayKey,
+  ]);
+
   useEffect(() => {
     if (!persistentCacheScope) return;
     return subscribeFondoCacheInvalidation((match) => {
@@ -466,8 +532,15 @@ export function useV2MovementsHydration({
           for (const balance of snapshot.storage.state.balancesByAccount) {
             markDirty(buildV2MovementsCacheKey(docKey, balance.accountId));
           }
-        } else if (nextRevision > previousRevision && lastChange?.accountId !== accountKey && lastChange) {
-          markDirty(buildV2MovementsCacheKey(docKey, lastChange.accountId));
+        } else if (nextRevision > previousRevision && lastChange) {
+          const changedAccounts = lastChange.kind === "fund-transfer"
+            ? [lastChange.sourceAccountId, lastChange.destinationAccountId]
+            : [lastChange.accountId];
+          for (const changedAccount of changedAccounts) {
+            if (changedAccount !== accountKey) {
+              markDirty(buildV2MovementsCacheKey(docKey, changedAccount));
+            }
+          }
         }
         const action = firstSnapshot &&
           (dirtyAccountsRef.current.has(cacheKey) ||
@@ -571,6 +644,7 @@ export function useV2MovementsHydration({
     movementLoadError,
     retryMovements,
     refreshMovements,
+    applyExternalMovements,
     ledgerSyncStatus,
     pendingNightDailyClosing,
     registerLocalMutation,

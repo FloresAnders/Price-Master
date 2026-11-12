@@ -19,10 +19,17 @@ export function decideLedgerRevisionSync(input: {
   const { previousRevision, nextRevision, lastChange, activeAccountId, locallyAppliedMutationIds } = input;
   if (nextRevision <= previousRevision) return { type: "ignore" };
   if (nextRevision > previousRevision + 1) return { type: "refresh-range" };
-  if (!lastChange || lastChange.revision !== nextRevision || lastChange.accountId !== activeAccountId ||
+  if (!lastChange || lastChange.revision !== nextRevision ||
     (lastChange.clientMutationId && locallyAppliedMutationIds.has(lastChange.clientMutationId))) {
     return { type: "ledger-only" };
   }
+  if (lastChange.kind === "fund-transfer") {
+    return lastChange.sourceAccountId === activeAccountId ||
+      lastChange.destinationAccountId === activeAccountId
+      ? { type: "refresh-range" }
+      : { type: "ledger-only" };
+  }
+  if (lastChange.accountId !== activeAccountId) return { type: "ledger-only" };
   if (lastChange.kind === "invoice-payment") return { type: "ledger-only" };
   return { type: lastChange.operation === "delete" ? "remove-one" : "fetch-one", movementId: lastChange.movementId };
 }
