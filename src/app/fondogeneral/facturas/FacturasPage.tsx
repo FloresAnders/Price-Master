@@ -49,6 +49,18 @@ import { getAuthoritativeNowISO } from "@/utils/serverTime";
 import { getConfiguredShiftHours } from "@/utils/companyShiftHours";
 import { CIERRE_FONDO_VENTAS_MINUTES_AFTER_END } from "../constants";
 import { resolveFacturaPaymentType } from "./facturaPaymentType";
+import {
+  EMPTY_FACTURA_APPLIED_SEARCH_FILTERS,
+  matchesFacturaAppliedFilters,
+  normalizeFacturaAppliedSearchFilters,
+  resolveFacturaBalance,
+  resolveFacturaPaidAmount,
+  resolveFacturaSearchPaymentTypes,
+  resolveFacturaStatus,
+  resolveFacturaStatusLabel,
+  type FacturaAppliedSearchFilters,
+  type FacturaViewFilter,
+} from "./facturaSearchFilters";
 import { resolveCreateInvoiceOpeningDecision } from "./createInvoiceShiftManager";
 import { validateFondoGeneralOpeningRequirement } from "../utils/fondo/openingRequirement";
 import { shouldBypassPendingNightDailyClosing } from "../utils/closing/pendingNightDailyClosing";
@@ -143,78 +155,6 @@ const formatKeyToDisplay = (key: string): string => {
   if (parts.length !== 3) return key;
   const [yyyy, mm, dd] = parts;
   return `${dd}/${mm}/${yyyy}`;
-};
-
-const resolveFacturaPaidAmount = (movement: FacturaMovement): number => {
-  const amount = Math.max(0, roundMoney2(movement.amount));
-  if (
-    String(movement.invoiceDocType || "")
-      .trim()
-      .toUpperCase() === "FCO"
-  ) {
-    return amount;
-  }
-  const paidAmount = Math.max(0, roundMoney2(movement.paidAmount));
-  return Math.min(amount, paidAmount);
-};
-
-const resolveFacturaBalance = (movement: FacturaMovement): number => {
-  const amount = Math.max(0, roundMoney2(movement.amount));
-  if (
-    String(movement.invoiceDocType || "")
-      .trim()
-      .toUpperCase() === "FCO"
-  ) {
-    return 0;
-  }
-  const paidAmount = resolveFacturaPaidAmount(movement);
-  const balanceDue = Math.max(0, roundMoney2(movement.balanceDue));
-  if (balanceDue > 0) return Math.min(amount, balanceDue);
-  return Math.max(0, amount - paidAmount);
-};
-
-const resolveFacturaStatus = (
-  movement: FacturaMovement,
-): "PENDIENTE" | "PARCIAL" | "PAGADA" => {
-  if (
-    String(movement.invoiceDocType || "")
-      .trim()
-      .toUpperCase() === "NC" &&
-    Math.max(0, roundMoney2(movement.amount)) === 0 &&
-    !["PAGADA", "REBAJADA"].includes(
-      String(movement.paymentStatus || "PENDIENTE").toUpperCase(),
-    )
-  ) {
-    return "PENDIENTE";
-  }
-  if (
-    String(movement.invoiceDocType || "")
-      .trim()
-      .toUpperCase() === "FCO"
-  ) {
-    return "PAGADA";
-  }
-  if (movement.paymentStatus === "PAGADA") return "PAGADA";
-  if (movement.paymentStatus === "PARCIAL") return "PARCIAL";
-  return resolveFacturaBalance(movement) > 0 &&
-    resolveFacturaPaidAmount(movement) > 0
-    ? "PARCIAL"
-    : resolveFacturaBalance(movement) === 0
-      ? "PAGADA"
-      : "PENDIENTE";
-};
-
-const resolveFacturaStatusLabel = (movement: FacturaMovement): string => {
-  const status = resolveFacturaStatus(movement);
-  if (
-    status === "PAGADA" &&
-    String(movement.invoiceDocType || "")
-      .trim()
-      .toUpperCase() === "NC"
-  ) {
-    return "REBAJADA";
-  }
-  return status;
 };
 
 const SHARED_COMPANY_STORAGE_KEY = "fg_selected_company_shared";
@@ -343,6 +283,11 @@ export default function FacturasCreditoPage() {
   const [docTypeDropdownQuery, setDocTypeDropdownQuery] = useState("");
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [notesSearchQuery, setNotesSearchQuery] = useState("");
+  const [appliedSearchFilters, setAppliedSearchFilters] =
+    useState<FacturaAppliedSearchFilters>(() => ({
+      ...EMPTY_FACTURA_APPLIED_SEARCH_FILTERS,
+    }));
   const [filterEditedOnly, setFilterEditedOnly] = useState(false);
   const [filterPendingCredit, setFilterPendingCredit] = useState(false);
   const [filterNCPending, setFilterNCPending] = useState(false);
@@ -380,12 +325,18 @@ export default function FacturasCreditoPage() {
     },
     [resetViewFilters],
   );
-  const hasActiveStatusFilter =
-    filterPendingCredit ||
-    filterNCPending ||
-    filterPagada ||
-    filterPartial ||
-    filterRebajadas;
+  const draftViewFilter: FacturaViewFilter = filterPendingCredit
+    ? "pending-credit"
+    : filterNCPending
+      ? "pending-credit-note"
+      : filterPagada
+        ? "paid"
+        : filterPartial
+          ? "partial"
+          : filterRebajadas
+            ? "discounted"
+            : null;
+  const hasActiveStatusFilter = Boolean(appliedSearchFilters.view);
   const hasActiveViewFilter = hasActiveStatusFilter || filterEditedOnly;
   const [rememberFilters] = useState(() => {
     if (typeof window !== "undefined") {
@@ -394,8 +345,34 @@ export default function FacturasCreditoPage() {
     return false;
   });
 
+  const previousSearchCompanyRef = useRef(selectedCompany);
+  useEffect(() => {
+    if (previousSearchCompanyRef.current === selectedCompany) return;
+    previousSearchCompanyRef.current = selectedCompany;
+    setFilterProviderCode("all");
+    setProviderFilter("");
+    setProviderDropdownQuery("");
+    setFilterPaymentType("all");
+    setTypeFilter("");
+    setTypeDropdownQuery("");
+    setSearchQuery("");
+    setNotesSearchQuery("");
+    resetViewFilters();
+    setAppliedSearchFilters({ ...EMPTY_FACTURA_APPLIED_SEARCH_FILTERS });
+    setFromFilter(null);
+    setToFilter(null);
+    setAppliedFromFilter(null);
+    setAppliedToFilter(null);
+    setQuickRange(null);
+    setPageIndex(0);
+  }, [resetViewFilters, selectedCompany]);
+
   const [fromFilter, setFromFilter] = useState<string | null>(null);
   const [toFilter, setToFilter] = useState<string | null>(null);
+  const [appliedFromFilter, setAppliedFromFilter] = useState<string | null>(
+    null,
+  );
+  const [appliedToFilter, setAppliedToFilter] = useState<string | null>(null);
   const [quickRange, setQuickRange] = useState<string | null>(null);
 
   const [calendarFromOpen, setCalendarFromOpen] = useState(false);
@@ -644,9 +621,9 @@ export default function FacturasCreditoPage() {
   const getFetchDateRange = useCallback(() => {
     const nowKey = dateKeyFromDate(new Date());
 
-    if (fromFilter && toFilter) {
-      const from = fromFilter;
-      let to = toFilter;
+    if (appliedFromFilter && appliedToFilter) {
+      const from = appliedFromFilter;
+      let to = appliedToFilter;
       if (from > to) to = from;
       const startDate = new Date(from + "T06:00:00.000Z");
       const endDate = new Date(to + "T06:00:00.000Z");
@@ -657,8 +634,8 @@ export default function FacturasCreditoPage() {
       };
     }
 
-    if (fromFilter && !toFilter) {
-      const startDate = new Date(fromFilter + "T06:00:00.000Z");
+    if (appliedFromFilter && !appliedToFilter) {
+      const startDate = new Date(appliedFromFilter + "T06:00:00.000Z");
       const endDate = new Date(nowKey + "T06:00:00.000Z");
       endDate.setDate(endDate.getDate() + 1);
       return {
@@ -667,8 +644,8 @@ export default function FacturasCreditoPage() {
       };
     }
 
-    if (!fromFilter && toFilter) {
-      const endDate = new Date(toFilter + "T06:00:00.000Z");
+    if (!appliedFromFilter && appliedToFilter) {
+      const endDate = new Date(appliedToFilter + "T06:00:00.000Z");
       endDate.setDate(endDate.getDate() + 1);
       return {
         startIso: "1970-01-01T06:00:00.000Z",
@@ -684,7 +661,7 @@ export default function FacturasCreditoPage() {
       startIso: startOfDay.toISOString(),
       endIso: endOfDay.toISOString(),
     };
-  }, [fromFilter, toFilter, currentDailyKey]);
+  }, [appliedFromFilter, appliedToFilter, currentDailyKey]);
 
   const loadMovements = useCallback(
     async (companyName: string) => {
@@ -696,7 +673,7 @@ export default function FacturasCreditoPage() {
 
       setMovementsLoading(true);
       try {
-        const data = hasActiveViewFilter
+        const data = filterEditedOnly
           ? await FacturasService.listMovementsByEmpresa(companyName, {
               limit: 800,
             })
@@ -705,6 +682,16 @@ export default function FacturasCreditoPage() {
               return FacturasService.listMovementsByDateRange(companyName, {
                 startIso: range.startIso,
                 endIso: range.endIso,
+                providerCode:
+                  appliedSearchFilters.providerCode === "all"
+                    ? undefined
+                    : appliedSearchFilters.providerCode,
+                paymentType:
+                  appliedSearchFilters.paymentType === "all"
+                    ? undefined
+                    : appliedSearchFilters.paymentType,
+                invoiceNumber:
+                  appliedSearchFilters.invoiceNumber || undefined,
                 limit: 800,
               });
             })();
@@ -726,7 +713,7 @@ export default function FacturasCreditoPage() {
         setMovementsLoading(false);
       }
     },
-    [getFetchDateRange, hasActiveViewFilter],
+    [appliedSearchFilters, filterEditedOnly, getFetchDateRange],
   );
 
   useEffect(() => {
@@ -2012,13 +1999,22 @@ export default function FacturasCreditoPage() {
     }
 
     setMovementsLoading(true);
-    const loadPromise = hasActiveViewFilter
+    const loadPromise = filterEditedOnly
       ? FacturasService.listMovementsByEmpresa(selectedCompany, { limit: 800 })
       : (() => {
           const range = getFetchDateRange();
           return FacturasService.listMovementsByDateRange(selectedCompany, {
             startIso: range.startIso,
             endIso: range.endIso,
+            providerCode:
+              appliedSearchFilters.providerCode === "all"
+                ? undefined
+                : appliedSearchFilters.providerCode,
+            paymentType:
+              appliedSearchFilters.paymentType === "all"
+                ? undefined
+                : appliedSearchFilters.paymentType,
+            invoiceNumber: appliedSearchFilters.invoiceNumber || undefined,
             limit: 800,
           });
         })();
@@ -2046,7 +2042,13 @@ export default function FacturasCreditoPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedCompany, getFetchDateRange, showToast, hasActiveViewFilter]);
+  }, [
+    selectedCompany,
+    getFetchDateRange,
+    showToast,
+    filterEditedOnly,
+    appliedSearchFilters,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2268,12 +2270,7 @@ export default function FacturasCreditoPage() {
   }, [providers]);
 
   const movementTypes = useMemo(() => {
-    const set = new Set<string>();
-    for (const m of movements) {
-      const t = String(m.paymentType || "").trim();
-      if (t) set.add(t);
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
+    return resolveFacturaSearchPaymentTypes(movements);
   }, [movements]);
 
   const pendingSupplierAlerts = useMemo(() => {
@@ -2323,35 +2320,10 @@ export default function FacturasCreditoPage() {
   }, [movements, providerNameByCode]);
 
   const filteredMovements = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    const providerQuery = providerDropdownQuery.trim().toLowerCase();
-    const typeQuery = typeDropdownQuery.trim().toLowerCase();
     const docTypeQuery = docTypeDropdownQuery.trim().toLowerCase();
 
     return movements.filter((m) => {
-      if (
-        filterProviderCode !== "all" &&
-        m.providerCode !== filterProviderCode
-      ) {
-        return false;
-      }
-      if (filterProviderCode === "all" && providerQuery) {
-        const providerHaystack = [
-          m.providerCode,
-          providerNameByCode.get(m.providerCode) || "",
-        ]
-          .join(" ")
-          .toLowerCase();
-        if (!providerHaystack.includes(providerQuery)) return false;
-      }
-
-      if (filterPaymentType !== "all" && m.paymentType !== filterPaymentType) {
-        return false;
-      }
-      if (filterPaymentType === "all" && typeQuery) {
-        const typeHaystack = formatMovementType(m.paymentType).toLowerCase();
-        if (!typeHaystack.includes(typeQuery)) return false;
-      }
+      if (!matchesFacturaAppliedFilters(m, appliedSearchFilters)) return false;
 
       if (docTypeFilter !== "all" && m.invoiceDocType !== docTypeFilter) {
         return false;
@@ -2364,10 +2336,10 @@ export default function FacturasCreditoPage() {
       }
 
       if (!hasActiveViewFilter) {
-        if (fromFilter || toFilter) {
+        if (appliedFromFilter || appliedToFilter) {
           const key = dateKeyInCostaRica(m.createdAt);
-          if (fromFilter && key && key < fromFilter) return false;
-          if (toFilter && key && key > toFilter) return false;
+          if (appliedFromFilter && key && key < appliedFromFilter) return false;
+          if (appliedToFilter && key && key > appliedToFilter) return false;
         } else {
           const key = dateKeyInCostaRica(m.createdAt);
           if (key && key !== currentDailyKey) return false;
@@ -2379,82 +2351,18 @@ export default function FacturasCreditoPage() {
         if (!anyAudit) return false;
       }
 
-      if (filterPendingCredit) {
-        const status = resolveFacturaStatus(m);
-        if (status !== "PENDIENTE") return false;
-        if (
-          String(m.invoiceDocType || "")
-            .trim()
-            .toUpperCase() !== "FCR"
-        )
-          return false;
-      }
-
-      if (filterNCPending) {
-        const status = resolveFacturaStatus(m);
-        if (status !== "PENDIENTE") return false;
-        if (
-          String(m.invoiceDocType || "")
-            .trim()
-            .toUpperCase() !== "NC"
-        )
-          return false;
-      }
-
-      if (filterPagada) {
-        const status = resolveFacturaStatus(m);
-        if (status !== "PAGADA") return false;
-        const dt = String(m.invoiceDocType || "")
-          .trim()
-          .toUpperCase();
-        if (dt !== "FCR" && dt !== "FCO") return false;
-      }
-
-      if (filterPartial) {
-        const status = resolveFacturaStatus(m);
-        if (status !== "PARCIAL") return false;
-      }
-
-      if (filterRebajadas) {
-        if (resolveFacturaStatusLabel(m) !== "REBAJADA") return false;
-      }
-
-      if (q) {
-        const haystack = [
-          m.invoiceNumber,
-          m.providerCode,
-          providerNameByCode.get(m.providerCode) || "",
-          m.notes,
-          m.manager,
-          m.paymentType,
-        ]
-          .join(" ")
-          .toLowerCase();
-        if (!haystack.includes(q)) return false;
-      }
-
       return true;
     });
   }, [
     movements,
-    filterProviderCode,
-    filterPaymentType,
+    appliedSearchFilters,
     docTypeFilter,
-    fromFilter,
-    toFilter,
+    appliedFromFilter,
+    appliedToFilter,
     currentDailyKey,
     filterEditedOnly,
-    filterPendingCredit,
-    filterNCPending,
-    filterPagada,
-    filterPartial,
-    filterRebajadas,
     hasActiveViewFilter,
-    searchQuery,
-    providerDropdownQuery,
-    typeDropdownQuery,
     docTypeDropdownQuery,
-    providerNameByCode,
   ]);
 
   const handleOpenCreateMovement = async () => {
@@ -2544,8 +2452,31 @@ export default function FacturasCreditoPage() {
     setCreateDrawerOpen(true);
   };
 
+  const handleApplySearch = useCallback(() => {
+    setAppliedSearchFilters(
+      normalizeFacturaAppliedSearchFilters({
+        providerCode: filterProviderCode,
+        paymentType: filterPaymentType,
+        invoiceNumber: searchQuery,
+        notesQuery: notesSearchQuery,
+        view: draftViewFilter,
+      }),
+    );
+    setAppliedFromFilter(fromFilter);
+    setAppliedToFilter(toFilter);
+    setPageIndex(0);
+  }, [
+    draftViewFilter,
+    filterPaymentType,
+    filterProviderCode,
+    fromFilter,
+    notesSearchQuery,
+    searchQuery,
+    toFilter,
+  ]);
+
   const hasDateRangeFilter =
-    Boolean(fromFilter || toFilter) || hasActiveViewFilter;
+    Boolean(appliedFromFilter || appliedToFilter) || hasActiveViewFilter;
   const effectiveRowsPerPage = hasDateRangeFilter
     ? typeof rowsPerPage === "number"
       ? rowsPerPage
@@ -2569,12 +2500,10 @@ export default function FacturasCreditoPage() {
     setPageIndex(0);
     setCurrentDailyKey(dateKeyFromDate(new Date()));
   }, [
-    filterProviderCode,
-    filterPaymentType,
+    appliedSearchFilters,
     docTypeFilter,
-    searchQuery,
-    fromFilter,
-    toFilter,
+    appliedFromFilter,
+    appliedToFilter,
     filterEditedOnly,
     selectedCompany,
     rowsPerPage,
@@ -2621,10 +2550,21 @@ export default function FacturasCreditoPage() {
       return Array.from(metrics);
     }
 
-    if (filterPendingCredit) metrics.add("subtotal");
-    if (filterNCPending || filterRebajadas) metrics.add("rebajos");
-    if (filterPagada || filterPartial || filterEditedOnly) metrics.add("total");
-    if (filterPartial) metrics.add("saldos");
+    if (appliedSearchFilters.view === "pending-credit") metrics.add("subtotal");
+    if (
+      appliedSearchFilters.view === "pending-credit-note" ||
+      appliedSearchFilters.view === "discounted"
+    ) {
+      metrics.add("rebajos");
+    }
+    if (
+      appliedSearchFilters.view === "paid" ||
+      appliedSearchFilters.view === "partial" ||
+      filterEditedOnly
+    ) {
+      metrics.add("total");
+    }
+    if (appliedSearchFilters.view === "partial") metrics.add("saldos");
 
     if (metrics.size === 0) {
       metrics.add("subtotal");
@@ -2635,11 +2575,7 @@ export default function FacturasCreditoPage() {
     return Array.from(metrics);
   }, [
     hasActiveViewFilter,
-    filterPendingCredit,
-    filterNCPending,
-    filterRebajadas,
-    filterPagada,
-    filterPartial,
+    appliedSearchFilters.view,
     filterEditedOnly,
   ]);
 
@@ -2853,7 +2789,7 @@ export default function FacturasCreditoPage() {
       <div className="mx-auto flex w-full max-w-none flex-col gap-4">
         <section className="relative z-30 overflow-visible rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)]/82 shadow-[0_18px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
           <div className="space-y-4 border-b border-[var(--input-border)] p-4 sm:p-5">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-[1.1fr_0.95fr_0.95fr_1.15fr_auto_auto]">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-[1.1fr_0.95fr_0.95fr_0.9fr_1.15fr_auto_auto_auto]">
               <div className="relative min-w-0" ref={providerDropdownRef}>
                 <input
                   type="text"
@@ -3066,9 +3002,23 @@ export default function FacturasCreditoPage() {
                   type="search"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Buscar factura, notas..."
+                  placeholder="NÃºmero de factura"
                   className="h-11 w-full rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] px-4 pr-11 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] focus:border-cyan-500/45 focus:ring-2 focus:ring-cyan-500/20"
-                  aria-label="Buscar movimientos"
+                  aria-label="NÃºmero de factura"
+                />
+                <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg border border-cyan-500/25 bg-cyan-500/8 text-cyan-300/90">
+                  <Search className="h-4 w-4" />
+                </span>
+              </div>
+
+              <div className="relative min-w-0">
+                <input
+                  type="search"
+                  value={notesSearchQuery}
+                  onChange={(event) => setNotesSearchQuery(event.target.value)}
+                  placeholder="Buscar en notas cargadas"
+                  className="h-11 w-full rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] px-4 pr-11 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] focus:border-cyan-500/45 focus:ring-2 focus:ring-cyan-500/20"
+                  aria-label="Buscar en notas cargadas"
                 />
                 <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg border border-cyan-500/25 bg-cyan-500/8 text-cyan-300/90">
                   <Search className="h-4 w-4" />
@@ -3176,6 +3126,19 @@ export default function FacturasCreditoPage() {
 
               <button
                 type="button"
+                onClick={handleApplySearch}
+                disabled={movementsLoading}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-cyan-500/60 bg-cyan-500/10 px-4 text-sm font-semibold text-cyan-100 transition-colors hover:border-cyan-400 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                title="Buscar facturas con los filtros seleccionados"
+              >
+                <Search
+                  className={`h-4 w-4 ${movementsLoading ? "animate-pulse" : ""}`}
+                />
+                <span>{movementsLoading ? "Buscando..." : "Buscar"}</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => {
                   setFilterProviderCode("all");
                   setProviderFilter("");
@@ -3188,8 +3151,14 @@ export default function FacturasCreditoPage() {
                   setDocTypeDropdownQuery("");
                   resetViewFilters();
                   setSearchQuery("");
+                  setNotesSearchQuery("");
+                  setAppliedSearchFilters({
+                    ...EMPTY_FACTURA_APPLIED_SEARCH_FILTERS,
+                  });
                   setFromFilter(null);
                   setToFilter(null);
+                  setAppliedFromFilter(null);
+                  setAppliedToFilter(null);
                   setQuickRange(null);
                   setCalendarFromOpen(false);
                   setCalendarToOpen(false);
@@ -3492,6 +3461,17 @@ export default function FacturasCreditoPage() {
                     onChange={(e) => {
                       const v = e.target.value;
                       setQuickRange(v || null);
+                      if (!v) {
+                        setFromFilter(null);
+                        setToFilter(null);
+                        setAppliedFromFilter(null);
+                        setAppliedToFilter(null);
+                        setAppliedSearchFilters({
+                          ...EMPTY_FACTURA_APPLIED_SEARCH_FILTERS,
+                        });
+                        setPageIndex(0);
+                        return;
+                      }
                       const now = new Date();
                       let from: Date | null = null;
                       let to: Date | null = null;
@@ -3542,8 +3522,15 @@ export default function FacturasCreditoPage() {
                         to = last;
                       }
                       if (from && to) {
-                        setFromFilter(dateKeyFromDate(from));
-                        setToFilter(dateKeyFromDate(to));
+                        const fromKey = dateKeyFromDate(from);
+                        const toKey = dateKeyFromDate(to);
+                        setFromFilter(fromKey);
+                        setToFilter(toKey);
+                        setAppliedFromFilter(fromKey);
+                        setAppliedToFilter(toKey);
+                        setAppliedSearchFilters({
+                          ...EMPTY_FACTURA_APPLIED_SEARCH_FILTERS,
+                        });
                         setPageIndex(0);
                       }
                     }}

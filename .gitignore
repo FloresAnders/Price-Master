@@ -114,6 +114,9 @@ firestore-debug.log
 !/tests/fondogeneral/closing-invoice-payment-result.test.ts
 !/tests/fondogeneral/cash-counter-atomic-update.test.ts
 !/tests/fondogeneral/movement-drawer-cash-suggestion.test.tsx
+!/tests/fondogeneral/factura-search-filters.test.ts
+!/tests/fondogeneral/factura-search-indexes.test.ts
+!/tests/fondogeneral/factura-search-query.test.ts
 !/tests/extensions/
 /tests/extensions/*
 !/tests/extensions/timemaster-herramientas-dividir-efectivo.test.ts

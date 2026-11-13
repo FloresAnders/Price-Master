@@ -356,11 +356,31 @@ export class FacturasService {
 
   static async listMovementsByDateRange(
     empresa: string,
-    opts?: { startIso?: string; endIso?: string; limit?: number },
+    opts?: {
+      startIso?: string;
+      endIso?: string;
+      providerCode?: string;
+      paymentType?: string;
+      invoiceNumber?: string;
+      limit?: number;
+    },
   ): Promise<FacturaMovement[]> {
     const company = String(empresa || "").trim();
     const empresaId = this.buildEmpresaDocId(empresa);
     const constraints: QueryConstraint[] = [where("empresa", "==", company)];
+    const providerCode = String(opts?.providerCode || "").trim();
+    const paymentType = String(opts?.paymentType || "").trim();
+    const invoiceNumber = String(opts?.invoiceNumber || "").trim();
+
+    if (providerCode) {
+      constraints.push(where("providerCode", "==", providerCode));
+    }
+    if (paymentType) {
+      constraints.push(where("paymentType", "==", paymentType));
+    }
+    if (invoiceNumber) {
+      constraints.push(where("invoiceNumber", "==", invoiceNumber));
+    }
 
     if (opts?.startIso) {
       constraints.push(where("createdAt", ">=", opts.startIso));
