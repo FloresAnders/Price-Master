@@ -9,6 +9,13 @@
 
   const TICKET_FONT_SIZE_MIN = 10;
   const TICKET_FONT_SIZE_MAX = 72;
+  const MODAL_PAYMENT_FONT_SIZE_MIN = 12;
+  const MODAL_PAYMENT_FONT_SIZE_MAX = 36;
+  const MODAL_PAYMENT_INPUT_HEIGHT_LEVELS = Object.freeze([
+    "normal",
+    "alto",
+    "muy-alto",
+  ]);
   const TICKET_FONT_WEIGHTS = Object.freeze([600, 700, 800, 900]);
   const TICKET_FONT_FAMILIES = Object.freeze([
     "inherit",
@@ -47,6 +54,15 @@
     tmhImpresionAutomaticaConticaEnabled: false,
     tmhDividirEfectivoEnabled: false,
     tmhMoverPagoEnabled: false,
+    tmhModalPagoEnabled: false,
+    tmhModalPagoTextoGrandeEnabled: false,
+    tmhModalPagoInputsGrandesEnabled: false,
+    tmhModalPagoRedimensionarEnabled: false,
+    tmhModalPagoFormatoColonesEnabled: false,
+    tmhModalPagoFontSizePx: 18,
+    tmhModalPagoInputHeightLevel: "alto",
+    tmhModalPagoWidthPx: 0,
+    tmhModalPagoHeightPx: 0,
     tmhSumaTiemposEnabled: true,
     tmhMoverEnterEnabled: false,
     tmhIngresarVentaEnabled: false,
@@ -95,6 +111,18 @@
       : fallback;
   }
 
+  function normalizeModalPaymentFontSizePx(value, fallback = 18) {
+    return Number.isInteger(value) &&
+      value >= MODAL_PAYMENT_FONT_SIZE_MIN &&
+      value <= MODAL_PAYMENT_FONT_SIZE_MAX
+      ? value
+      : fallback;
+  }
+
+  function normalizeModalPaymentInputHeightLevel(value, fallback = "alto") {
+    return MODAL_PAYMENT_INPUT_HEIGHT_LEVELS.includes(value) ? value : fallback;
+  }
+
   function normalizeStringArray(value, fallback = []) {
     const source = Array.isArray(value) ? value : fallback;
     return [...new Set(source.filter((item) => typeof item === "string"))];
@@ -106,6 +134,10 @@
         key,
         TICKET_FONT_SIZE_KEYS.has(key)
           ? normalizeTicketFontSizePx(raw?.[key], fallback)
+          : key === "tmhModalPagoFontSizePx"
+            ? normalizeModalPaymentFontSizePx(raw?.[key], fallback)
+            : key === "tmhModalPagoInputHeightLevel"
+              ? normalizeModalPaymentInputHeightLevel(raw?.[key], fallback)
           : TICKET_FONT_WEIGHT_KEYS.has(key)
             ? normalizeTicketFontWeight(raw?.[key], fallback)
             : TICKET_FONT_FAMILY_KEYS.has(key)
@@ -137,24 +169,47 @@
     return Number.isInteger(next) && next >= 1 ? next : undefined;
   }
 
+  function readChangedNonNegativeInteger(changes, key) {
+    const next = changes?.[key]?.newValue;
+    return Number.isInteger(next) && next >= 0 ? next : undefined;
+  }
+
   function readChangedNonEmptyString(changes, key) {
     const next = changes?.[key]?.newValue;
     return typeof next === "string" && next.trim() ? next.trim() : undefined;
+  }
+
+  function readChangedModalPaymentFontSizePx(changes, key) {
+    const next = changes?.[key]?.newValue;
+    return normalizeModalPaymentFontSizePx(next, undefined);
+  }
+
+  function readChangedModalPaymentInputHeightLevel(changes, key) {
+    const next = changes?.[key]?.newValue;
+    return normalizeModalPaymentInputHeightLevel(next, undefined);
   }
 
   return {
     DEFAULT_SETTINGS,
     TICKET_FONT_SIZE_MIN,
     TICKET_FONT_SIZE_MAX,
+    MODAL_PAYMENT_FONT_SIZE_MIN,
+    MODAL_PAYMENT_FONT_SIZE_MAX,
+    MODAL_PAYMENT_INPUT_HEIGHT_LEVELS,
     TICKET_FONT_WEIGHTS,
     TICKET_FONT_FAMILIES,
     normalizeSettings,
     normalizeTicketFontSizePx,
     normalizeTicketFontWeight,
     normalizeTicketFontFamily,
+    normalizeModalPaymentFontSizePx,
+    normalizeModalPaymentInputHeightLevel,
     normalizeStringArray,
     readChangedSetting,
     readChangedPositiveInteger,
+    readChangedNonNegativeInteger,
     readChangedNonEmptyString,
+    readChangedModalPaymentFontSizePx,
+    readChangedModalPaymentInputHeightLevel,
   };
 });

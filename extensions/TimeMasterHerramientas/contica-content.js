@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- UMD CommonJS compatibility for tests. */
 (function initializeConticaContent(root, factory) {
   const isCommonJs = typeof module === "object" && module.exports;
   const settings = isCommonJs
@@ -15,8 +16,13 @@
   const moverPago = isCommonJs
     ? null
     : root.TimeMasterHerramientasMoverPago;
+  const modalPago = isCommonJs
+    ? null
+    : root.TimeMasterHerramientasModalPago;
   const PRINT_SHORTCUT_EVENT =
     "tmh-contica-navedi-print-shortcut-setting";
+  const MODAL_PAGO_FORMAT_EVENT =
+    "tmh-contica-modal-pago-format-setting";
   const api = factory(settings);
 
   root.TimeMasterHerramientasContica = api;
@@ -33,6 +39,26 @@
           dividirEfectivo.createCashDivisionController(root.document),
         paymentShortcutController:
           moverPago.createPaymentShortcutController(root.document),
+        paymentModalController: modalPago.createPaymentModalController(
+          root.document,
+          {
+            onSizeChange({ widthPx, heightPx }) {
+              root.chrome.storage.local.set({
+                tmhModalPagoWidthPx: widthPx,
+                tmhModalPagoHeightPx: heightPx,
+              });
+            },
+          },
+        ),
+        paymentModalFormatBridge: {
+          setEnabled(enabled) {
+            root.document.dispatchEvent(
+              new root.CustomEvent(MODAL_PAGO_FORMAT_EVENT, {
+                detail: { enabled: enabled === true },
+              }),
+            );
+          },
+        },
         printShortcutBridge: {
           setEnabled(enabled) {
             root.document.dispatchEvent(
@@ -59,6 +85,15 @@
     "tmhCerrarImpresionConticaMessage";
   const DIVIDIR_EFECTIVO_SETTING_KEY = "tmhDividirEfectivoEnabled";
   const MOVER_PAGO_SETTING_KEY = "tmhMoverPagoEnabled";
+  const MODAL_PAGO_SETTING_KEY = "tmhModalPagoEnabled";
+  const MODAL_PAGO_TEXTO_SETTING_KEY = "tmhModalPagoTextoGrandeEnabled";
+  const MODAL_PAGO_INPUTS_SETTING_KEY = "tmhModalPagoInputsGrandesEnabled";
+  const MODAL_PAGO_RESIZE_SETTING_KEY = "tmhModalPagoRedimensionarEnabled";
+  const MODAL_PAGO_FORMAT_SETTING_KEY = "tmhModalPagoFormatoColonesEnabled";
+  const MODAL_PAGO_FONT_SIZE_SETTING_KEY = "tmhModalPagoFontSizePx";
+  const MODAL_PAGO_INPUT_HEIGHT_SETTING_KEY = "tmhModalPagoInputHeightLevel";
+  const MODAL_PAGO_WIDTH_SETTING_KEY = "tmhModalPagoWidthPx";
+  const MODAL_PAGO_HEIGHT_SETTING_KEY = "tmhModalPagoHeightPx";
   const PRINT_SHORTCUT_SETTING_KEY =
     "tmhImpresionAutomaticaConticaEnabled";
 
@@ -68,6 +103,8 @@
     printInvoiceCloser,
     cashDivisionController,
     paymentShortcutController,
+    paymentModalController,
+    paymentModalFormatBridge,
     printShortcutBridge,
     settings,
   }) {
@@ -83,11 +120,32 @@
       start() {},
       stop() {},
     };
+    const paymentModal = paymentModalController || {
+      start() {},
+      stop() {},
+      setTextScaleEnabled() {},
+      setInputScaleEnabled() {},
+      setTextFontSizePx() {},
+      setInputHeightLevel() {},
+      setResizeEnabled() {},
+      setCurrencyFormatEnabled() {},
+      setSavedSize() {},
+    };
     const printShortcut = printShortcutBridge || { setEnabled() {} };
+    const paymentModalFormat = paymentModalFormatBridge || { setEnabled() {} };
     const changedDuringInitialLoad = new Set();
     let started = false;
     let settingsLoaded = false;
     let lifecycleEpoch = 0;
+    let paymentModalSize = { widthPx: 0, heightPx: 0 };
+    let paymentModalEnabled = false;
+    let paymentModalFormatEnabled = false;
+
+    function syncPaymentModalFormat() {
+      paymentModalFormat.setEnabled(
+        paymentModalEnabled && paymentModalFormatEnabled,
+      );
+    }
 
     function applyCambioTabEnabled(enabled) {
       if (enabled) tabController.start();
@@ -115,6 +173,43 @@
     function applyMoverPagoEnabled(enabled) {
       if (enabled) paymentShortcut.start();
       else paymentShortcut.stop();
+    }
+
+    function applyModalPagoEnabled(enabled) {
+      paymentModalEnabled = enabled === true;
+      if (enabled) paymentModal.start();
+      else paymentModal.stop();
+      syncPaymentModalFormat();
+    }
+
+    function applyModalPagoTextEnabled(enabled) {
+      paymentModal.setTextScaleEnabled(enabled === true);
+    }
+
+    function applyModalPagoInputsEnabled(enabled) {
+      paymentModal.setInputScaleEnabled(enabled === true);
+    }
+
+    function applyModalPagoResizeEnabled(enabled) {
+      paymentModal.setResizeEnabled(enabled === true);
+    }
+
+    function applyModalPagoFormatEnabled(enabled) {
+      paymentModalFormatEnabled = enabled === true;
+      syncPaymentModalFormat();
+    }
+
+    function applyModalPagoFontSize(sizePx) {
+      paymentModal.setTextFontSizePx(sizePx);
+    }
+
+    function applyModalPagoInputHeight(level) {
+      paymentModal.setInputHeightLevel(level);
+    }
+
+    function applyModalPagoSize(next) {
+      paymentModalSize = { ...paymentModalSize, ...next };
+      paymentModal.setSavedSize(paymentModalSize);
     }
 
     function applyPrintShortcutEnabled(enabled) {
@@ -187,6 +282,56 @@
         applyMoverPagoEnabled(moverPagoEnabled);
       }
 
+      const modalPagoSettings = [
+        [MODAL_PAGO_SETTING_KEY, applyModalPagoEnabled],
+        [MODAL_PAGO_TEXTO_SETTING_KEY, applyModalPagoTextEnabled],
+        [MODAL_PAGO_INPUTS_SETTING_KEY, applyModalPagoInputsEnabled],
+        [MODAL_PAGO_RESIZE_SETTING_KEY, applyModalPagoResizeEnabled],
+        [MODAL_PAGO_FORMAT_SETTING_KEY, applyModalPagoFormatEnabled],
+      ];
+      for (const [key, apply] of modalPagoSettings) {
+        const enabled = settingsCore.readChangedSetting(changes, key);
+        if (enabled === undefined) continue;
+        if (!settingsLoaded) changedDuringInitialLoad.add(key);
+        apply(enabled);
+      }
+
+      const modalWidth = settingsCore.readChangedNonNegativeInteger(
+        changes,
+        MODAL_PAGO_WIDTH_SETTING_KEY,
+      );
+      if (modalWidth !== undefined) {
+        if (!settingsLoaded) changedDuringInitialLoad.add(MODAL_PAGO_WIDTH_SETTING_KEY);
+        applyModalPagoSize({ widthPx: modalWidth });
+      }
+      const modalHeight = settingsCore.readChangedNonNegativeInteger(
+        changes,
+        MODAL_PAGO_HEIGHT_SETTING_KEY,
+      );
+      if (modalHeight !== undefined) {
+        if (!settingsLoaded) changedDuringInitialLoad.add(MODAL_PAGO_HEIGHT_SETTING_KEY);
+        applyModalPagoSize({ heightPx: modalHeight });
+      }
+      const modalFontSize = settingsCore.readChangedModalPaymentFontSizePx(
+        changes,
+        MODAL_PAGO_FONT_SIZE_SETTING_KEY,
+      );
+      if (modalFontSize !== undefined) {
+        if (!settingsLoaded) changedDuringInitialLoad.add(MODAL_PAGO_FONT_SIZE_SETTING_KEY);
+        applyModalPagoFontSize(modalFontSize);
+      }
+      const modalInputHeight =
+        settingsCore.readChangedModalPaymentInputHeightLevel(
+          changes,
+          MODAL_PAGO_INPUT_HEIGHT_SETTING_KEY,
+        );
+      if (modalInputHeight !== undefined) {
+        if (!settingsLoaded) {
+          changedDuringInitialLoad.add(MODAL_PAGO_INPUT_HEIGHT_SETTING_KEY);
+        }
+        applyModalPagoInputHeight(modalInputHeight);
+      }
+
       const printShortcutEnabled = settingsCore.readChangedSetting(
         changes,
         PRINT_SHORTCUT_SETTING_KEY,
@@ -235,6 +380,32 @@
         if (!changedDuringInitialLoad.has(MOVER_PAGO_SETTING_KEY)) {
           applyMoverPagoEnabled(normalized[MOVER_PAGO_SETTING_KEY]);
         }
+        const modalPagoSettings = [
+          [MODAL_PAGO_TEXTO_SETTING_KEY, applyModalPagoTextEnabled],
+          [MODAL_PAGO_INPUTS_SETTING_KEY, applyModalPagoInputsEnabled],
+          [MODAL_PAGO_RESIZE_SETTING_KEY, applyModalPagoResizeEnabled],
+          [MODAL_PAGO_FORMAT_SETTING_KEY, applyModalPagoFormatEnabled],
+        ];
+        for (const [key, apply] of modalPagoSettings) {
+          if (!changedDuringInitialLoad.has(key)) apply(normalized[key]);
+        }
+        if (!changedDuringInitialLoad.has(MODAL_PAGO_FONT_SIZE_SETTING_KEY)) {
+          applyModalPagoFontSize(normalized[MODAL_PAGO_FONT_SIZE_SETTING_KEY]);
+        }
+        if (!changedDuringInitialLoad.has(MODAL_PAGO_INPUT_HEIGHT_SETTING_KEY)) {
+          applyModalPagoInputHeight(normalized[MODAL_PAGO_INPUT_HEIGHT_SETTING_KEY]);
+        }
+        const nextSize = { ...paymentModalSize };
+        if (!changedDuringInitialLoad.has(MODAL_PAGO_WIDTH_SETTING_KEY)) {
+          nextSize.widthPx = normalized[MODAL_PAGO_WIDTH_SETTING_KEY];
+        }
+        if (!changedDuringInitialLoad.has(MODAL_PAGO_HEIGHT_SETTING_KEY)) {
+          nextSize.heightPx = normalized[MODAL_PAGO_HEIGHT_SETTING_KEY];
+        }
+        applyModalPagoSize(nextSize);
+        if (!changedDuringInitialLoad.has(MODAL_PAGO_SETTING_KEY)) {
+          applyModalPagoEnabled(normalized[MODAL_PAGO_SETTING_KEY]);
+        }
         if (!changedDuringInitialLoad.has(PRINT_SHORTCUT_SETTING_KEY)) {
           applyPrintShortcutEnabled(normalized[PRINT_SHORTCUT_SETTING_KEY]);
         }
@@ -254,6 +425,8 @@
       modalCloser.stop();
       cashDivider.stop();
       paymentShortcut.stop();
+      paymentModal.stop();
+      paymentModalFormat.setEnabled(false);
       printShortcut.setEnabled(false);
     }
 

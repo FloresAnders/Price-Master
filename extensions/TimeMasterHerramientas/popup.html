@@ -49,6 +49,31 @@
           <span class="feature__control"><span id="tmhMoverPagoEnabled-status" class="status" aria-live="polite">Desactivado</span><span class="switch"><input id="tmhMoverPagoEnabled-toggle" type="checkbox" role="switch"><span class="slider" aria-hidden="true"></span></span></span>
         </label>
 
+        <div class="feature feature--stacked">
+          <div class="feature__row">
+            <span class="feature__copy"><strong>Modal de monto de pago</strong><small>Amplía y formatea el modal de pago de Contica.</small></span>
+            <span class="feature__control"><span id="tmhModalPagoEnabled-status" class="status" aria-live="polite">Desactivado</span><label class="switch" for="tmhModalPagoEnabled-toggle"><input id="tmhModalPagoEnabled-toggle" type="checkbox" role="switch"><span class="slider" aria-hidden="true"></span></label></span>
+          </div>
+          <div id="tmhModalPago-options" class="subfeature-list" hidden>
+            <label class="subfeature" for="tmhModalPagoTextoGrandeEnabled-toggle">
+              <span><strong>Texto más grande</strong><small>Aumenta etiquetas, totales y vuelto.</small><span class="subfeature__editor"><span>Tamaño</span><input id="tmhModalPagoFontSizePx-input" type="number" min="12" max="36" step="1" inputmode="numeric" aria-label="Tamaño del texto del modal"><span>px</span></span></span>
+              <span><span id="tmhModalPagoTextoGrandeEnabled-status" class="status" aria-live="polite">Desactivado</span><span class="switch"><input id="tmhModalPagoTextoGrandeEnabled-toggle" type="checkbox" role="switch"><span class="slider" aria-hidden="true"></span></span></span>
+            </label>
+            <label class="subfeature" for="tmhModalPagoInputsGrandesEnabled-toggle">
+              <span><strong>Inputs más altos</strong><small>Aumenta texto y altura de los campos.</small><span class="subfeature__editor"><span>Altura</span><select id="tmhModalPagoInputHeightLevel-input" aria-label="Altura de los inputs del modal"><option value="normal">Actual</option><option value="alto">Alto</option><option value="muy-alto">Muy alto</option></select></span></span>
+              <span><span id="tmhModalPagoInputsGrandesEnabled-status" class="status" aria-live="polite">Desactivado</span><span class="switch"><input id="tmhModalPagoInputsGrandesEnabled-toggle" type="checkbox" role="switch"><span class="slider" aria-hidden="true"></span></span></span>
+            </label>
+            <label class="subfeature" for="tmhModalPagoRedimensionarEnabled-toggle">
+              <span><strong>Agrandar desde esquinas</strong><small>Guarda el último ancho y alto usados.</small></span>
+              <span><span id="tmhModalPagoRedimensionarEnabled-status" class="status" aria-live="polite">Desactivado</span><span class="switch"><input id="tmhModalPagoRedimensionarEnabled-toggle" type="checkbox" role="switch"><span class="slider" aria-hidden="true"></span></span></span>
+            </label>
+            <label class="subfeature" for="tmhModalPagoFormatoColonesEnabled-toggle">
+              <span><strong>Formato de colones</strong><small>Separa miles y limita a ₡1 000 000.</small></span>
+              <span><span id="tmhModalPagoFormatoColonesEnabled-status" class="status" aria-live="polite">Desactivado</span><span class="switch"><input id="tmhModalPagoFormatoColonesEnabled-toggle" type="checkbox" role="switch"><span class="slider" aria-hidden="true"></span></span></span>
+            </label>
+          </div>
+        </div>
+
         <label class="feature" for="tmhSumaTiemposEnabled-toggle">
           <span class="feature__copy"><strong>SumaTiempos</strong><small>Total en vivo en Gente Crystal.</small></span>
           <span class="feature__control"><span id="tmhSumaTiemposEnabled-status" class="status" aria-live="polite">Activado</span><span class="switch"><input id="tmhSumaTiemposEnabled-toggle" type="checkbox" role="switch"><span class="slider" aria-hidden="true"></span></span></span>

@@ -33,6 +33,15 @@
   const CLOSE_MESSAGE_KEY = "tmhCerrarImpresionConticaMessage";
   const PRINT_TIMES_ENABLED_KEY = "tmhImpresionTiemposEnabled";
   const PRINTER_NAME_KEY = "tmhImpresionTiemposPrinterName";
+  const PAYMENT_MODAL_ENABLED_KEY = "tmhModalPagoEnabled";
+  const PAYMENT_MODAL_OPTION_KEYS = Object.freeze([
+    "tmhModalPagoTextoGrandeEnabled",
+    "tmhModalPagoInputsGrandesEnabled",
+    "tmhModalPagoRedimensionarEnabled",
+    "tmhModalPagoFormatoColonesEnabled",
+  ]);
+  const PAYMENT_MODAL_FONT_SIZE_KEY = "tmhModalPagoFontSizePx";
+  const PAYMENT_MODAL_INPUT_HEIGHT_KEY = "tmhModalPagoInputHeightLevel";
   const TICKET_ENABLED_KEY = "tmhResaltarCodigoTiqueteEnabled";
   const TICKET_SIZE_KEY = "tmhResaltarCodigoTiqueteFontSizePx";
   const TICKET_WEIGHT_KEY = "tmhResaltarCodigoTiqueteFontWeight";
@@ -70,7 +79,10 @@
   function createPopupController(documentRef, chromeApi) {
     const values = { ...settings.DEFAULT_SETTINGS };
     const listeners = new Map();
+    const changedDuringInitialLoad = new Set();
     let started = false;
+    let settingsLoaded = false;
+    let lifecycleEpoch = 0;
 
     function elements(key) {
       return {
@@ -93,6 +105,101 @@
       }
       if (key === PRINT_TIMES_ENABLED_KEY) {
         renderPrinterName(values[PRINTER_NAME_KEY]);
+      }
+      if (
+        key === PAYMENT_MODAL_ENABLED_KEY ||
+        PAYMENT_MODAL_OPTION_KEYS.includes(key)
+      ) {
+        renderPaymentModalOptions();
+      }
+    }
+
+    function renderPaymentModalOptions() {
+      const panel = documentRef.getElementById("tmhModalPago-options");
+      if (!panel) return;
+      const enabled = values[PAYMENT_MODAL_ENABLED_KEY] === true;
+      panel.hidden = !enabled;
+      for (const key of PAYMENT_MODAL_OPTION_KEYS) {
+        const { toggle } = elements(key);
+        if (toggle) toggle.disabled = !enabled;
+      }
+      const fontSize = documentRef.getElementById(
+        `${PAYMENT_MODAL_FONT_SIZE_KEY}-input`,
+      );
+      const inputHeight = documentRef.getElementById(
+        `${PAYMENT_MODAL_INPUT_HEIGHT_KEY}-input`,
+      );
+      if (fontSize) {
+        fontSize.value = String(values[PAYMENT_MODAL_FONT_SIZE_KEY]);
+        fontSize.disabled =
+          !enabled || values.tmhModalPagoTextoGrandeEnabled !== true;
+      }
+      if (inputHeight) {
+        inputHeight.value = values[PAYMENT_MODAL_INPUT_HEIGHT_KEY];
+        inputHeight.disabled =
+          !enabled || values.tmhModalPagoInputsGrandesEnabled !== true;
+      }
+    }
+
+    function bindPaymentModalEditors() {
+      const fontSize = documentRef.getElementById(
+        `${PAYMENT_MODAL_FONT_SIZE_KEY}-input`,
+      );
+      const inputHeight = documentRef.getElementById(
+        `${PAYMENT_MODAL_INPUT_HEIGHT_KEY}-input`,
+      );
+      if (fontSize) {
+        const handleFontSizeChange = () => {
+          const previous = values[PAYMENT_MODAL_FONT_SIZE_KEY];
+          const requested = Number(fontSize.value);
+          const next = settings.normalizeModalPaymentFontSizePx(
+            requested,
+            previous,
+          );
+          if (next !== requested) {
+            renderPaymentModalOptions();
+            return;
+          }
+          if (!settingsLoaded) {
+            changedDuringInitialLoad.add(PAYMENT_MODAL_FONT_SIZE_KEY);
+          }
+          fontSize.disabled = true;
+          chromeApi.storage.local.set({ [PAYMENT_MODAL_FONT_SIZE_KEY]: next }, () => {
+            if (!chromeApi.runtime.lastError) values[PAYMENT_MODAL_FONT_SIZE_KEY] = next;
+            renderPaymentModalOptions();
+          });
+        };
+        fontSize.addEventListener("change", handleFontSizeChange);
+        listeners.set(PAYMENT_MODAL_FONT_SIZE_KEY, handleFontSizeChange);
+      }
+      if (inputHeight) {
+        const handleInputHeightChange = () => {
+          const previous = values[PAYMENT_MODAL_INPUT_HEIGHT_KEY];
+          const requested = inputHeight.value;
+          const next = settings.normalizeModalPaymentInputHeightLevel(
+            requested,
+            previous,
+          );
+          if (next !== requested) {
+            renderPaymentModalOptions();
+            return;
+          }
+          if (!settingsLoaded) {
+            changedDuringInitialLoad.add(PAYMENT_MODAL_INPUT_HEIGHT_KEY);
+          }
+          inputHeight.disabled = true;
+          chromeApi.storage.local.set(
+            { [PAYMENT_MODAL_INPUT_HEIGHT_KEY]: next },
+            () => {
+              if (!chromeApi.runtime.lastError) {
+                values[PAYMENT_MODAL_INPUT_HEIGHT_KEY] = next;
+              }
+              renderPaymentModalOptions();
+            },
+          );
+        };
+        inputHeight.addEventListener("change", handleInputHeightChange);
+        listeners.set(PAYMENT_MODAL_INPUT_HEIGHT_KEY, handleInputHeightChange);
       }
     }
 
@@ -250,6 +357,7 @@
       const handleChange = () => {
         const previous = values[key];
         const next = toggle.checked === true;
+        if (!settingsLoaded) changedDuringInitialLoad.add(key);
         toggle.disabled = true;
         chromeApi.storage.local.set({ [key]: next }, () => {
           toggle.disabled = false;
@@ -532,6 +640,31 @@
 
     function handleStorageChange(changes, areaName) {
       if (areaName !== "local") return;
+      for (const key of [PAYMENT_MODAL_ENABLED_KEY, ...PAYMENT_MODAL_OPTION_KEYS]) {
+        const next = changes?.[key]?.newValue;
+        if (typeof next !== "boolean") continue;
+        if (!settingsLoaded) changedDuringInitialLoad.add(key);
+        values[key] = next;
+        render(key, next);
+      }
+      const nextFontSize = settings.readChangedModalPaymentFontSizePx(
+        changes,
+        PAYMENT_MODAL_FONT_SIZE_KEY,
+      );
+      if (nextFontSize !== undefined) {
+        if (!settingsLoaded) changedDuringInitialLoad.add(PAYMENT_MODAL_FONT_SIZE_KEY);
+        values[PAYMENT_MODAL_FONT_SIZE_KEY] = nextFontSize;
+        renderPaymentModalOptions();
+      }
+      const nextInputHeight = settings.readChangedModalPaymentInputHeightLevel(
+        changes,
+        PAYMENT_MODAL_INPUT_HEIGHT_KEY,
+      );
+      if (nextInputHeight !== undefined) {
+        if (!settingsLoaded) changedDuringInitialLoad.add(PAYMENT_MODAL_INPUT_HEIGHT_KEY);
+        values[PAYMENT_MODAL_INPUT_HEIGHT_KEY] = nextInputHeight;
+        renderPaymentModalOptions();
+      }
       for (const { enabledKey } of LINE_CONFIG_LAUNCHERS) {
         const next = changes?.[enabledKey]?.newValue;
         if (typeof next !== "boolean") continue;
@@ -543,28 +676,37 @@
     function start() {
       if (started) return;
       started = true;
+      settingsLoaded = false;
+      changedDuringInitialLoad.clear();
+      const currentEpoch = ++lifecycleEpoch;
       for (const key of keys) bind(key);
       bindDelay();
       bindMessage();
       bindPrinterName();
+      bindPaymentModalEditors();
       bindTicketSettings();
       bindFullPrintSettings();
       bindLineConfigLaunchers();
       chromeApi.storage.onChanged.addListener(handleStorageChange);
       chromeApi.storage.local.get(settings.DEFAULT_SETTINGS, (stored) => {
+        if (!started || currentEpoch !== lifecycleEpoch) return;
         const normalized = settings.normalizeSettings(stored);
-        Object.assign(values, normalized);
-        for (const key of keys) {
-          render(key, normalized[key]);
+        for (const [key, value] of Object.entries(normalized)) {
+          if (!changedDuringInitialLoad.has(key)) values[key] = value;
         }
-        renderDelay(normalized[CLOSE_DELAY_KEY]);
-        renderMessage(normalized[CLOSE_MESSAGE_KEY]);
-        renderPrinterName(normalized[PRINTER_NAME_KEY]);
+        for (const key of keys) {
+          render(key, values[key]);
+        }
+        renderDelay(values[CLOSE_DELAY_KEY]);
+        renderMessage(values[CLOSE_MESSAGE_KEY]);
+        renderPrinterName(values[PRINTER_NAME_KEY]);
         renderTicketSettings();
         renderFullPrintSettings();
         for (const { enabledKey } of LINE_CONFIG_LAUNCHERS) {
           renderLineConfigLauncher(enabledKey);
         }
+        settingsLoaded = true;
+        changedDuringInitialLoad.clear();
       });
     }
 
@@ -577,6 +719,14 @@
           messageElements().input?.removeEventListener("change", listener);
         } else if (key === PRINTER_NAME_KEY) {
           printerNameElements().input?.removeEventListener("change", listener);
+        } else if (key === PAYMENT_MODAL_FONT_SIZE_KEY) {
+          documentRef
+            .getElementById(`${PAYMENT_MODAL_FONT_SIZE_KEY}-input`)
+            ?.removeEventListener("change", listener);
+        } else if (key === PAYMENT_MODAL_INPUT_HEIGHT_KEY) {
+          documentRef
+            .getElementById(`${PAYMENT_MODAL_INPUT_HEIGHT_KEY}-input`)
+            ?.removeEventListener("change", listener);
         } else if (key === TICKET_ENABLED_KEY) {
           elements(TICKET_ENABLED_KEY).toggle?.removeEventListener(
             "change",
@@ -616,6 +766,9 @@
       }
       listeners.clear();
       chromeApi.storage.onChanged.removeListener(handleStorageChange);
+      lifecycleEpoch += 1;
+      settingsLoaded = false;
+      changedDuringInitialLoad.clear();
       started = false;
     }
 

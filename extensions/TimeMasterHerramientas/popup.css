@@ -90,6 +90,85 @@ h1 {
   text-align: right;
 }
 
+.subfeature-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #e8ecf3;
+}
+
+.subfeature-list[hidden] {
+  display: none;
+}
+
+.subfeature {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  border-radius: 8px;
+  padding: 7px 8px;
+  background: #f7f9fc;
+  cursor: pointer;
+}
+
+.subfeature > span:last-child {
+  text-align: right;
+}
+
+.subfeature strong,
+.subfeature small {
+  display: block;
+}
+
+.subfeature strong {
+  color: #344057;
+  font-size: 12px;
+}
+
+.subfeature small {
+  margin-top: 2px;
+  color: #68738a;
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.subfeature__editor {
+  display: flex !important;
+  align-items: center;
+  gap: 5px;
+  margin-top: 7px;
+  color: #596277;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.subfeature__editor input,
+.subfeature__editor select {
+  min-width: 0;
+  border: 1px solid #c7cfdd;
+  border-radius: 6px;
+  padding: 4px 6px;
+  background: #fff;
+  color: #172033;
+  font: inherit;
+}
+
+.subfeature__editor input {
+  width: 54px;
+}
+
+.subfeature__editor select {
+  width: 88px;
+}
+
+.subfeature__editor input:disabled,
+.subfeature__editor select:disabled {
+  background: #eef1f6;
+  color: #8992a3;
+}
+
 .status {
   min-height: 16px;
   color: #596277;

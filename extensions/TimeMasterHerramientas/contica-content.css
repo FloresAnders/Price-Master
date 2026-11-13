@@ -38,3 +38,101 @@
     transform: none;
   }
 }
+
+.modal-dialog.modal-pago-w.tmh-payment-modal--large-text .pv-pay__label,
+.modal-dialog.modal-pago-w.tmh-payment-modal--large-text .pv-pay__figure,
+.modal-dialog.modal-pago-w.tmh-payment-modal--large-text .pv-pay__symbol,
+.modal-dialog.modal-pago-w.tmh-payment-modal--large-text .pv-credit-field__label,
+.modal-dialog.modal-pago-w.tmh-payment-modal--large-text .pv-credit-line__sub-label,
+.modal-dialog.modal-pago-w.tmh-payment-modal--large-text .pv-credit-summary__value {
+  font-size: var(--tmh-payment-modal-effective-font-size, 18px) !important;
+  line-height: 1.35 !important;
+}
+
+.modal-dialog.modal-pago-w.tmh-payment-modal--large-inputs .pv-pay__field {
+  min-height: var(--tmh-payment-modal-effective-input-height, 52px) !important;
+  padding-block: 10px !important;
+  font-size: var(--tmh-payment-modal-input-font-size, 16px) !important;
+  line-height: 1.35 !important;
+}
+
+.modal-dialog.modal-pago-w.tmh-payment-modal--large-inputs[data-tmh-input-height-level="normal"] .pv-pay__field {
+  min-height: revert !important;
+  padding-block: revert !important;
+  font-size: revert !important;
+}
+
+.modal-dialog.modal-pago-w.tmh-payment-modal--shortfall .pv-pay__change .pv-pay__label,
+.modal-dialog.modal-pago-w.tmh-payment-modal--shortfall .pv-pay__change .pv-pay__symbol,
+.modal-dialog.modal-pago-w.tmh-payment-modal--shortfall .pv-pay__change .pv-pay__figure--change {
+  color: #ff3347 !important;
+  font-weight: 800 !important;
+  text-shadow: 0 0 6px rgb(255 51 71 / 45%);
+}
+
+.modal-dialog.modal-pago-w.tmh-payment-modal--resizable .pv-pay__label,
+.modal-dialog.modal-pago-w.tmh-payment-modal--resizable .pv-pay__figure,
+.modal-dialog.modal-pago-w.tmh-payment-modal--resizable .pv-pay__symbol,
+.modal-dialog.modal-pago-w.tmh-payment-modal--resizable .pv-credit-field__label,
+.modal-dialog.modal-pago-w.tmh-payment-modal--resizable .pv-credit-line__sub-label,
+.modal-dialog.modal-pago-w.tmh-payment-modal--resizable .pv-credit-summary__value {
+  font-size: var(--tmh-payment-modal-resize-font-size, 100%) !important;
+}
+
+.modal-dialog.modal-pago-w.tmh-payment-modal--resizable .pv-pay__field {
+  min-height: var(--tmh-payment-modal-effective-input-height, 40px) !important;
+  font-size: var(--tmh-payment-modal-input-font-size, 14px) !important;
+}
+
+.modal-dialog.modal-pago-w.tmh-payment-modal--resizable.tmh-payment-modal--large-text .pv-pay__label,
+.modal-dialog.modal-pago-w.tmh-payment-modal--resizable.tmh-payment-modal--large-text .pv-pay__figure,
+.modal-dialog.modal-pago-w.tmh-payment-modal--resizable.tmh-payment-modal--large-text .pv-pay__symbol,
+.modal-dialog.modal-pago-w.tmh-payment-modal--resizable.tmh-payment-modal--large-text .pv-credit-field__label,
+.modal-dialog.modal-pago-w.tmh-payment-modal--resizable.tmh-payment-modal--large-text .pv-credit-line__sub-label,
+.modal-dialog.modal-pago-w.tmh-payment-modal--resizable.tmh-payment-modal--large-text .pv-credit-summary__value {
+  font-size: var(--tmh-payment-modal-effective-font-size, 18px) !important;
+}
+
+.modal-dialog.modal-pago-w.tmh-payment-modal--resizable {
+  max-width: calc(100vw - 32px) !important;
+  max-height: calc(100vh - 32px) !important;
+  overflow: auto !important;
+  resize: both;
+}
+
+.modal-dialog.modal-pago-w.tmh-payment-modal--resizable > .modal-content {
+  display: flex;
+  height: 100%;
+  min-height: 100%;
+  flex-direction: column;
+}
+
+.modal-dialog.modal-pago-w.tmh-payment-modal--resizable .pv-pay__body {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+
+.modal-dialog.modal-pago-w.tmh-payment-modal--resizable .pv-pay__body > form,
+.modal-dialog.modal-pago-w.tmh-payment-modal--resizable .pv-pay__sheet {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.modal-dialog.modal-pago-w.tmh-payment-modal--resizable .pv-pay__methods {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: space-evenly;
+}
+
+.modal-dialog.modal-pago-w.tmh-payment-modal--resizable .pv-pay__methods > .pv-pay__row {
+  min-height: var(--tmh-payment-modal-effective-input-height, 40px);
+  flex: 1 1 0%;
+  align-items: center;
+}

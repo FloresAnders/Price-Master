@@ -1,4 +1,4 @@
-TIMEMASTER HERRAMIENTAS 1.2.6
+TIMEMASTER HERRAMIENTAS 1.2.12
 ================================
 
 Esta extensión reúne CambioTab, división de efectivo, movimiento entre medios
@@ -22,6 +22,7 @@ CONTROLES Y VALORES INICIALES
 - Cierre del modal de impresión en Contica: desactivado.
 - División de efectivo en Contica: desactivada.
 - Movimiento entre medios de pago en Contica: desactivado.
+- Modal de monto de pago en Contica: desactivado; sus cuatro opciones también.
 - SumaTiempos en Gente Crystal: activado.
 - Ingresar venta con Ctrl+Enter en Gente Crystal: desactivado.
 - Impresión automática en Gente Crystal: desactivada.
@@ -84,6 +85,28 @@ Al activarlo, pulse E, T o S dentro de un campo de pago para mover su monto a
 efectivo, tarjeta o SINPE, respectivamente, conservando la moneda. El destino
 reemplaza cualquier monto anterior. Si el origen está vacío, solamente mueve
 el cursor al campo de destino.
+
+MODAL DE MONTO DE PAGO EN CONTICA
+---------------------------------
+Sitio: https://contica.app/app/modules/punto_de_venta/*
+
+Desactivado por defecto. Al activar la opción principal, el popup muestra una
+lista con cuatro características independientes: texto más grande, inputs más
+altos, redimensionar el modal desde sus esquinas y formato de montos en colones.
+El tamaño del texto puede ajustarse entre 12 y 36 px. Los inputs permiten elegir
+la altura Actual, Alto (52 px) o Muy alto (64 px).
+
+El redimensionado guarda el último ancho y alto usados para las siguientes
+aperturas y aumenta proporcionalmente el texto y los campos al agrandar el
+modal. Al aumentar la altura, distribuye las filas por todo el espacio
+disponible y también escala el texto y los inputs. El formato CRC inserta
+espacios entre miles mientras se escribe, pero
+entrega a Contica el valor numérico sin espacios, y no permite superar
+₡1 000 000. No modifica dólares, números de comprobante ni referencias. Las
+expresiones de Dividir efectivo, como 7500/2, se conservan para que esa
+herramienta pueda resolverlas.
+Cuando el resultado es negativo, Faltante, el simbolo y el monto se muestran
+en rojo intenso; Vuelto conserva su color normal.
 
 SUMATIEMPOS EN GENTE CRYSTAL
 ----------------------------
