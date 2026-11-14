@@ -28,7 +28,10 @@ import {
 } from "@/components/business/cash-counter-tabs/paymentSuggestion";
 import { openCashCounterForAccount } from "@/components/business/cash-counter-tabs/accountCounters";
 import type { MovementAccountKey } from "@/services/movimientos-fondos";
-import { IncomeCashBreakdownModal } from "./IncomeCashBreakdownModal";
+import {
+  CashBreakdownModal,
+  IncomeCashBreakdownModal,
+} from "./IncomeCashBreakdownModal";
 
 type MovementDrawerProps = ComponentProps<typeof AgregarMovimiento> & {
   open: boolean;
@@ -58,9 +61,8 @@ export function MovementDrawer({
     useState<FondoGeneralPaymentSuggestion | null>(null);
   const [preparedIncomeSuggestion, setPreparedIncomeSuggestion] =
     useState<FondoGeneralIncomeSuggestion | null>(null);
+  const [showPaymentCashEditor, setShowPaymentCashEditor] = useState(false);
   const [showIncomeCashEditor, setShowIncomeCashEditor] = useState(false);
-  const [skipCashCounterDeduction, setSkipCashCounterDeduction] =
-    useState(false);
   const confirmSaveLockedRef = useRef(false);
   const preparationRequestRef = useRef(0);
   useFloatingActionsSuppression("movement-drawer", open);
@@ -222,8 +224,8 @@ export function MovementDrawer({
     setConfirmInvoiceIndex(0);
     setPreparedPaymentSuggestion(null);
     setPreparedIncomeSuggestion(null);
+    setShowPaymentCashEditor(false);
     setShowIncomeCashEditor(false);
-    setSkipCashCounterDeduction(false);
     try {
       const paymentEligible =
         !editingEntry &&
@@ -299,28 +301,17 @@ export function MovementDrawer({
             return;
           }
           if (!paymentSuggestion) return;
-          if (skipCashCounterDeduction) {
-            const accountKey = agregarMovimientoProps.accountKey as MovementAccountKey;
-            if (accountKey) {
-              openCashCounterForAccount(accountKey);
-            }
+          const applied = await applyFondoGeneralPaymentSuggestion(
+            paymentSuggestion,
+          );
+          if (!applied) {
+            onCashCounterUpdateError?.();
+          } else if (paymentSuggestion.changeRequired > 0) {
+            openCashCounterForAccount(paymentSuggestion.accountId);
             onCashCounterManualUpdate?.(
               paymentSuggestion.changeRequired,
               paymentSuggestion.suggestedAmount,
             );
-          } else {
-            const applied = await applyFondoGeneralPaymentSuggestion(
-              paymentSuggestion,
-            );
-            if (!applied) {
-              onCashCounterUpdateError?.();
-            } else if (paymentSuggestion.changeRequired > 0) {
-              openCashCounterForAccount(paymentSuggestion.accountId);
-              onCashCounterManualUpdate?.(
-                paymentSuggestion.changeRequired,
-                paymentSuggestion.suggestedAmount,
-              );
-            }
           }
         } catch (error) {
           console.error(
@@ -336,6 +327,7 @@ export function MovementDrawer({
         setShowConfirmModal(false);
         setPreparedPaymentSuggestion(null);
         setPreparedIncomeSuggestion(null);
+        setShowPaymentCashEditor(false);
         setShowIncomeCashEditor(false);
       });
   };
@@ -515,7 +507,17 @@ export function MovementDrawer({
                 </div>
                 {preparedPaymentSuggestion && (
                   <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-emerald-100">
-                    <div className="font-semibold">Sugerencia de billetes</div>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="font-semibold">Sugerencia de billetes</div>
+                      <button
+                        type="button"
+                        onClick={() => setShowPaymentCashEditor(true)}
+                        disabled={confirmSaveLocked || isSaving}
+                        className="shrink-0 rounded-md border border-emerald-400/35 px-2.5 py-1.5 text-xs font-bold text-emerald-100 hover:bg-emerald-500/15 disabled:opacity-50"
+                      >
+                        Editar billetes
+                      </button>
+                    </div>
                     <div className="mt-2 flex justify-between text-sm">
                       <span>Total a guardar</span>
                       <span className="font-semibold">
@@ -556,23 +558,6 @@ export function MovementDrawer({
                     <p className="mt-2 text-xs text-emerald-100/75">
                       Al guardar, estos billetes se descontarán del contador de Fondo General.
                     </p>
-                    <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm font-semibold text-amber-100">
-                      <input
-                        type="checkbox"
-                        checked={skipCashCounterDeduction}
-                        onChange={(event) =>
-                          setSkipCashCounterDeduction(event.target.checked)
-                        }
-                        disabled={confirmSaveLocked || isSaving}
-                        className="h-4 w-4 accent-amber-500"
-                      />
-                      No rebajar
-                    </label>
-                    {skipCashCounterDeduction && (
-                      <p className="mt-1 text-xs text-amber-100/80">
-                        El contador se actualizará manualmente después de guardar.
-                      </p>
-                    )}
                   </div>
                 )}
                 {preparedIncomeSuggestion && (
@@ -657,10 +642,26 @@ export function MovementDrawer({
             setShowConfirmModal(false);
             setPreparedPaymentSuggestion(null);
             setPreparedIncomeSuggestion(null);
+            setShowPaymentCashEditor(false);
             setShowIncomeCashEditor(false);
           }}
         />,
         document.body,
+      )}
+      {showPaymentCashEditor && preparedPaymentSuggestion && (
+        <CashBreakdownModal
+          title="Billetes a rebajar"
+          targetAmount={preparedPaymentSuggestion.suggestedAmount}
+          bills={preparedPaymentSuggestion.bills}
+          availableBills={preparedPaymentSuggestion.availableBills}
+          disabled={confirmSaveLocked || isSaving}
+          onClose={() => setShowPaymentCashEditor(false)}
+          onApply={(bills) =>
+            setPreparedPaymentSuggestion((current) =>
+              current ? { ...current, bills } : current,
+            )
+          }
+        />
       )}
       {showIncomeCashEditor && preparedIncomeSuggestion && (
         <IncomeCashBreakdownModal

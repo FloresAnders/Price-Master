@@ -16,7 +16,17 @@ import {
 const HOLD_DELAY_MS = 400;
 const HOLD_REPEAT_MS = 100;
 
-type Props = {
+type CashBreakdownModalProps = {
+  title: string;
+  targetAmount: number;
+  bills: BillsMap;
+  availableBills?: BillsMap;
+  disabled?: boolean;
+  onClose: () => void;
+  onApply: (bills: BillsMap) => void;
+};
+
+type IncomeProps = {
   suggestion: FondoGeneralIncomeSuggestion;
   disabled?: boolean;
   onClose: () => void;
@@ -26,14 +36,17 @@ type Props = {
 const formatCRC = (value: number) =>
   `₡${String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 
-export function IncomeCashBreakdownModal({
-  suggestion,
+export function CashBreakdownModal({
+  title,
+  targetAmount,
+  bills,
+  availableBills,
   disabled = false,
   onClose,
   onApply,
-}: Props) {
+}: CashBreakdownModalProps) {
   const [draftBills, setDraftBills] = useState<BillsMap>(() => ({
-    ...suggestion.bills,
+    ...bills,
   }));
   const [quantityDrafts, setQuantityDrafts] = useState<Record<number, string>>(
     {},
@@ -48,12 +61,17 @@ export function IncomeCashBreakdownModal({
       Object.fromEntries(
         CRC_CASH_BILL_DENOMINATIONS.map((denomination) => [
           denomination,
-          quantityDrafts[denomination] === undefined
-            ? Math.max(0, Math.trunc(draftBills[denomination] ?? 0))
-            : parseBillCountInput(quantityDrafts[denomination]),
+          Math.min(
+            availableBills
+              ? Math.max(0, Math.trunc(availableBills[denomination] ?? 0))
+              : Number.POSITIVE_INFINITY,
+            quantityDrafts[denomination] === undefined
+              ? Math.max(0, Math.trunc(draftBills[denomination] ?? 0))
+              : parseBillCountInput(quantityDrafts[denomination]),
+          ),
         ]),
       ) as BillsMap,
-    [draftBills, quantityDrafts],
+    [availableBills, draftBills, quantityDrafts],
   );
 
   const total = useMemo(
@@ -75,23 +93,35 @@ export function IncomeCashBreakdownModal({
     });
   }, []);
 
-  const updateCount = useCallback((denomination: number, delta: 1 | -1) => {
-    clearQuantityDraft(denomination);
-    setDraftBills((current) => ({
-      ...current,
-      [denomination]: Math.max(
-        0,
-        Math.trunc(current[denomination] ?? 0) + delta,
-      ),
-    }));
-  }, [clearQuantityDraft]);
+  const updateCount = useCallback(
+    (denomination: number, delta: 1 | -1) => {
+      const maximum = availableBills
+        ? Math.max(0, Math.trunc(availableBills[denomination] ?? 0))
+        : Number.POSITIVE_INFINITY;
+      clearQuantityDraft(denomination);
+      setDraftBills((current) => {
+        const nextCount = Math.min(
+          maximum,
+          Math.max(0, Math.trunc(current[denomination] ?? 0) + delta),
+        );
+        return {
+          ...current,
+          [denomination]: nextCount,
+        };
+      });
+    },
+    [availableBills, clearQuantityDraft],
+  );
 
   const commitQuantity = (denomination: number) => {
     const value = quantityDrafts[denomination];
     if (value === undefined) return;
+    const maximum = availableBills
+      ? Math.max(0, Math.trunc(availableBills[denomination] ?? 0))
+      : Number.POSITIVE_INFINITY;
     setDraftBills((current) => ({
       ...current,
-      [denomination]: parseBillCountInput(value),
+      [denomination]: Math.min(maximum, parseBillCountInput(value)),
     }));
     clearQuantityDraft(denomination);
   };
@@ -193,11 +223,11 @@ export function IncomeCashBreakdownModal({
   }, [stopHolding]);
 
   const applyDraft = () => {
-    if (total !== suggestion.amount) return;
-    const bills = Object.fromEntries(
+    if (total !== targetAmount) return;
+    const selectedBills = Object.fromEntries(
       Object.entries(effectiveBills).filter(([, count]) => count > 0),
     ) as BillsMap;
-    onApply({ ...suggestion, bills });
+    onApply(selectedBills);
     onClose();
   };
 
@@ -208,19 +238,19 @@ export function IncomeCashBreakdownModal({
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby="income-cash-breakdown-title"
+        aria-labelledby="cash-breakdown-title"
         className="w-full max-w-xs rounded-xl border border-emerald-400/30 bg-[#0d1117] p-4 text-white shadow-2xl"
       >
         <div className="flex items-center justify-between gap-3">
           <div>
             <h3
-              id="income-cash-breakdown-title"
+              id="cash-breakdown-title"
               className="font-semibold text-emerald-100"
             >
-              Billetes a agregar
+              {title}
             </h3>
             <p className="text-xs text-slate-400">
-              Meta: {formatCRC(suggestion.amount)}
+              Meta: {formatCRC(targetAmount)}
             </p>
           </div>
           <button
@@ -236,7 +266,13 @@ export function IncomeCashBreakdownModal({
 
         <div className="mt-3 space-y-1.5">
           {CRC_CASH_BILL_DENOMINATIONS.map((denomination, index) => {
-            const count = Math.max(0, Math.trunc(draftBills[denomination] ?? 0));
+            const count = Math.max(
+              0,
+              Math.trunc(effectiveBills[denomination] ?? 0),
+            );
+            const maximum = availableBills
+              ? Math.max(0, Math.trunc(availableBills[denomination] ?? 0))
+              : Number.POSITIVE_INFINITY;
             return (
               <div
                 key={denomination}
@@ -254,7 +290,7 @@ export function IncomeCashBreakdownModal({
                   onClick={(event) =>
                     handleHoldClick(event, () => updateCount(denomination, -1))
                   }
-                  disabled={disabled}
+                  disabled={disabled || count <= 0}
                   className="flex h-7 w-7 touch-manipulation items-center justify-center rounded-md border border-white/15 text-slate-200 hover:bg-white/10 disabled:opacity-30"
                 >
                   <Minus className="h-3.5 w-3.5" />
@@ -292,7 +328,7 @@ export function IncomeCashBreakdownModal({
                   onClick={(event) =>
                     handleHoldClick(event, () => updateCount(denomination, 1))
                   }
-                  disabled={disabled}
+                  disabled={disabled || count >= maximum}
                   className="flex h-7 w-7 touch-manipulation items-center justify-center rounded-md border border-emerald-400/35 text-emerald-200 hover:bg-emerald-500/15 disabled:opacity-30"
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -304,7 +340,7 @@ export function IncomeCashBreakdownModal({
 
         <div
           className={`mt-3 flex items-center justify-between rounded-lg border px-3 py-2 text-sm ${
-            total === suggestion.amount
+            total === targetAmount
               ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-100"
               : "border-amber-400/35 bg-amber-500/10 text-amber-100"
           }`}
@@ -312,9 +348,9 @@ export function IncomeCashBreakdownModal({
           <span>Total seleccionado</span>
           <span className="font-bold">{formatCRC(total)}</span>
         </div>
-        {total !== suggestion.amount && (
+        {total !== targetAmount && (
           <p className="mt-1 text-xs text-amber-200">
-            El total debe coincidir con {formatCRC(suggestion.amount)}.
+            El total debe coincidir con {formatCRC(targetAmount)}.
           </p>
         )}
 
@@ -330,7 +366,7 @@ export function IncomeCashBreakdownModal({
           <button
             type="button"
             onClick={applyDraft}
-            disabled={disabled || total !== suggestion.amount}
+            disabled={disabled || total !== targetAmount}
             className="rounded-md bg-emerald-500 px-3 py-1.5 text-sm font-bold text-slate-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Aplicar billetes
@@ -339,5 +375,23 @@ export function IncomeCashBreakdownModal({
       </div>
     </div>,
     document.body,
+  );
+}
+
+export function IncomeCashBreakdownModal({
+  suggestion,
+  disabled = false,
+  onClose,
+  onApply,
+}: IncomeProps) {
+  return (
+    <CashBreakdownModal
+      title="Billetes a agregar"
+      targetAmount={suggestion.amount}
+      bills={suggestion.bills}
+      disabled={disabled}
+      onClose={onClose}
+      onApply={(selectedBills) => onApply({ ...suggestion, bills: selectedBills })}
+    />
   );
 }

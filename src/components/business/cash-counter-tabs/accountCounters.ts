@@ -7,6 +7,7 @@ import {
   updateCashCounterSnapshotAtomically,
   type CashCounterSnapshot,
 } from "@/services/cashCounterDb";
+import { CRC_CASH_BILL_DENOMINATIONS } from "./paymentSuggestion";
 
 export type AccountCashCounterTotal = {
   total: number;
@@ -101,33 +102,76 @@ export type CashTransferBreakdown = {
   total: number;
 };
 
+export type AvailableCashTransferBreakdown = CashTransferBreakdown & {
+  shortfall: number;
+  exact: boolean;
+};
+
+export function resolveAvailableCashTransferBreakdown(
+  counter: CashCounterData | undefined,
+  amount: number,
+): AvailableCashTransferBreakdown | null {
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+
+  const amountInCents = Math.round(amount * 100);
+  const available = CRC_CASH_BILL_DENOMINATIONS.map((denomination) => ({
+    denomination,
+    denominationInCents: denomination * 100,
+    count: Math.max(0, Math.trunc(counter?.bills[denomination] ?? 0)),
+  }));
+  type Selection = { totalInCents: number; bills: Record<number, number> };
+  const memo = new Map<string, Selection>();
+  const findClosest = (index: number, remainingInCents: number): Selection => {
+    if (remainingInCents === 0 || index >= available.length) {
+      return { totalInCents: 0, bills: {} };
+    }
+    const memoKey = `${index}:${remainingInCents}`;
+    const memoized = memo.get(memoKey);
+    if (memoized) return memoized;
+
+    const { denomination, denominationInCents, count } = available[index];
+    const maximum = Math.min(
+      count,
+      Math.floor(remainingInCents / denominationInCents),
+    );
+    let best: Selection = { totalInCents: 0, bills: {} };
+    for (let used = maximum; used >= 0; used -= 1) {
+      const lower = findClosest(
+        index + 1,
+        remainingInCents - used * denominationInCents,
+      );
+      const totalInCents = used * denominationInCents + lower.totalInCents;
+      if (totalInCents > best.totalInCents) {
+        best = {
+          totalInCents,
+          bills: used > 0
+            ? { [denomination]: used, ...lower.bills }
+            : lower.bills,
+        };
+      }
+      if (best.totalInCents === remainingInCents) break;
+    }
+    memo.set(memoKey, best);
+    return best;
+  };
+
+  const selection = findClosest(0, amountInCents);
+  return {
+    bills: selection.bills,
+    total: selection.totalInCents / 100,
+    shortfall: (amountInCents - selection.totalInCents) / 100,
+    exact: selection.totalInCents === amountInCents,
+  };
+}
+
 export function resolveCashTransferBreakdown(
   counter: CashCounterData | undefined,
   amount: number,
 ): CashTransferBreakdown | null {
-  if (!counter || !Number.isFinite(amount) || amount <= 0) return null;
-  let remaining = Math.round(amount * 100) / 100;
-  const bills: Record<number, number> = {};
-  const denominations = Object.keys(counter.bills)
-    .map(Number)
-    .filter((denomination) => denomination > 0 && Number.isFinite(denomination))
-    .sort((a, b) => b - a);
-
-  for (const denomination of denominations) {
-    const available = Math.max(0, Math.trunc(counter.bills[denomination] ?? 0));
-    const needed = Math.min(
-      available,
-      Math.floor((remaining + 0.0001) / denomination),
-    );
-    if (needed > 0) {
-      bills[denomination] = needed;
-      remaining = Math.round((remaining - needed * denomination) * 100) / 100;
-    }
-  }
-
-  return remaining > 0.001
-    ? null
-    : { bills, total: Math.round(amount * 100) / 100 };
+  const resolved = resolveAvailableCashTransferBreakdown(counter, amount);
+  return resolved?.exact
+    ? { bills: resolved.bills, total: resolved.total }
+    : null;
 }
 
 export async function transferCashCounterAmount(input: {

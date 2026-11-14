@@ -5,9 +5,11 @@ import { ArrowRight, ArrowDownRight, ArrowUpRight, X } from "lucide-react";
 import type { FondoAccountTab } from "@/lib/fondoAccountTabs";
 import type { MovementAccountKey } from "@/services/movimientos-fondos";
 import {
-  resolveCashTransferBreakdown,
+  resolveAvailableCashTransferBreakdown,
   transferCashCounterAmount,
 } from "@/components/business/cash-counter-tabs/accountCounters";
+import { CRC_CASH_BILL_DENOMINATIONS } from "@/components/business/cash-counter-tabs/paymentSuggestion";
+import { CashBreakdownModal } from "./drawers/IncomeCashBreakdownModal";
 import {
   getOrCreateCashCounterSnapshot,
   type CashCounterSnapshot,
@@ -88,6 +90,12 @@ export function FondoTransferModal({
   const [withinSchedule, setWithinSchedule] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [showCashEditor, setShowCashEditor] = useState(false);
+  const [editedBreakdown, setEditedBreakdown] = useState<{
+    sourceId: MovementAccountKey;
+    amount: number;
+    bills: Record<number, number>;
+  } | null>(null);
 
   const sourceAccount = accounts.find((account) => account.accountId === sourceId);
   const destinationAccount = accounts.find(
@@ -253,8 +261,27 @@ export function FondoTransferModal({
   );
   const breakdown = useMemo(() => {
     if (!Number.isFinite(amountNumber) || amountNumber <= 0) return null;
-    return resolveCashTransferBreakdown(sourceCounter, amountNumber);
+    return resolveAvailableCashTransferBreakdown(sourceCounter, amountNumber);
   }, [amountNumber, sourceCounter]);
+  const activeBreakdownBills =
+    editedBreakdown?.sourceId === sourceId &&
+    editedBreakdown.amount === amountNumber
+      ? editedBreakdown.bills
+      : breakdown?.bills ?? {};
+  const availableSourceBills = useMemo(
+    () =>
+      Object.fromEntries(
+        CRC_CASH_BILL_DENOMINATIONS.map((denomination) => [
+          denomination,
+          Math.max(0, Math.trunc(sourceCounter?.bills[denomination] ?? 0)),
+        ]).filter(([, count]) => count > 0),
+      ),
+    [sourceCounter],
+  );
+  useEffect(() => {
+    setEditedBreakdown(null);
+    setShowCashEditor(false);
+  }, [amountNumber, sourceId]);
 
   if (!open) return null;
 
@@ -282,11 +309,19 @@ export function FondoTransferModal({
       const source = currentSnapshot.counters.find(
         (counter) => counter.accountId === sourceId,
       );
-      const resolvedBreakdown = resolveCashTransferBreakdown(source, amountNumber);
+      const resolvedBreakdown = resolveAvailableCashTransferBreakdown(
+        source,
+        amountNumber,
+      );
       if (!resolvedBreakdown) {
-        setError("No existen billetes disponibles para entregar monto exacto.");
+        setError("No se pudo calcular la disponibilidad de billetes.");
         return;
       }
+      const selectedBills =
+        editedBreakdown?.sourceId === sourceId &&
+        editedBreakdown.amount === amountNumber
+          ? editedBreakdown.bills
+          : resolvedBreakdown.bills;
       const company =
         window.localStorage.getItem(COMPANY_STORAGE_KEY)?.trim() ||
         companyKey.trim() ||
@@ -306,7 +341,7 @@ export function FondoTransferModal({
         createdAt,
         accountId: sourceId,
         currency: "CRC",
-        breakdown: resolvedBreakdown.bills,
+        breakdown: selectedBills,
         empresa: company,
       };
       const destinationMovement: FondoEntry = {
@@ -322,7 +357,7 @@ export function FondoTransferModal({
         createdAt,
         accountId: destinationId,
         currency: "CRC",
-        breakdown: resolvedBreakdown.bills,
+        breakdown: selectedBills,
         empresa: company,
       };
       const docId = MovimientosFondosService.buildCompanyMovementsKey(company);
@@ -352,7 +387,7 @@ export function FondoTransferModal({
           sourceAccountId: sourceId,
           destinationAccountId: destinationId,
           amount: amountNumber,
-          breakdown: resolvedBreakdown.bills,
+          breakdown: selectedBills,
         });
       } catch (counterError) {
         console.error(
@@ -367,6 +402,8 @@ export function FondoTransferModal({
       }
       onClose();
       setAmount("");
+      setEditedBreakdown(null);
+      setShowCashEditor(false);
     } catch (caught) {
       console.error("Error guardando transferencia entre fondos:", caught);
       setError("No se pudo guardar transferencia.");
@@ -554,7 +591,7 @@ export function FondoTransferModal({
               />
             )}
           </label>
-          {breakdown && (
+          {breakdown?.exact && (
             <div className="rounded-xl border border-cyan-400/30 bg-cyan-500/10 p-4">
               <p className="font-semibold">Billetes requeridos: ₡ {formatAmount(breakdown.total)}</p>
               <div className="mt-2 flex flex-wrap gap-2 text-sm text-cyan-100">
@@ -568,6 +605,44 @@ export function FondoTransferModal({
               </div>
             </div>
           )}
+          {breakdown && !breakdown.exact && (
+            <div className="rounded-xl border border-amber-400/40 bg-amber-500/10 p-4 text-amber-100">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold">
+                    Billetes disponibles: ₡ {formatAmount(breakdown.total)}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold">
+                    Faltante: ₡ {formatAmount(breakdown.shortfall)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCashEditor(true)}
+                  disabled={saving}
+                  className="shrink-0 rounded-md border border-amber-300/40 px-3 py-1.5 text-xs font-bold hover:bg-amber-400/10 disabled:opacity-50"
+                >
+                  Editar billetes
+                </button>
+              </div>
+              {Object.keys(activeBreakdownBills).length > 0 ? (
+                <div className="mt-3 flex flex-wrap gap-2 text-sm">
+                  {Object.entries(activeBreakdownBills)
+                    .sort(([a], [b]) => Number(b) - Number(a))
+                    .map(([denomination, count]) => (
+                      <span
+                        key={denomination}
+                        className="rounded-md border border-amber-300/25 px-2 py-1"
+                      >
+                        {count} x ₡ {formatAmount(Number(denomination))}
+                      </span>
+                    ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-sm">Sin billetes disponibles</p>
+              )}
+            </div>
+          )}
           {error && <p className="rounded-md border border-red-400/40 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
         </div>
         <footer className="flex justify-end gap-3 border-t border-white/10 p-5">
@@ -577,6 +652,19 @@ export function FondoTransferModal({
           </button>
         </footer>
       </div>
+      {showCashEditor && breakdown && !breakdown.exact && (
+        <CashBreakdownModal
+          title="Billetes disponibles para transferir"
+          targetAmount={breakdown.total}
+          bills={activeBreakdownBills}
+          availableBills={availableSourceBills}
+          disabled={saving}
+          onClose={() => setShowCashEditor(false)}
+          onApply={(bills) =>
+            setEditedBreakdown({ sourceId, amount: amountNumber, bills })
+          }
+        />
+      )}
     </div>
   );
 }

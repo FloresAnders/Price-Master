@@ -23,6 +23,7 @@ export type FondoGeneralPaymentSuggestion = {
   suggestedAmount: number;
   changeRequired: number;
   bills: BillsMap;
+  availableBills: BillsMap;
 };
 
 export type FondoGeneralIncomeSuggestion = {
@@ -133,6 +134,11 @@ export function buildFondoGeneralPaymentSuggestion(
   };
 
   const selection = findClosestBills(0, amount);
+  const availableBills = Object.fromEntries(
+    available
+      .filter(({ count }) => count > 0)
+      .map(({ denomination, count }) => [denomination, count]),
+  ) as BillsMap;
 
   return {
     accountId,
@@ -142,6 +148,7 @@ export function buildFondoGeneralPaymentSuggestion(
     suggestedAmount: selection.total,
     changeRequired: amount - selection.total,
     bills: selection.bills,
+    availableBills,
   };
 }
 

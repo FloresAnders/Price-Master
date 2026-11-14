@@ -49,6 +49,12 @@ describe("sugerencia de billetes para pagos del Fondo General", () => {
       expectedCounterTotal: 1_363_000,
       amount: 27_000,
       bills: { 20000: 1, 5000: 1, 1000: 2 },
+      availableBills: {
+        20000: 12,
+        10000: 81,
+        5000: 51,
+        1000: 40,
+      },
     });
   });
 

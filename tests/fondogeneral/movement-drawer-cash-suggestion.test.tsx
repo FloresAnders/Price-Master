@@ -31,7 +31,10 @@ const suggestion = {
   expectedCounterTotal: 643_000,
   expectedCounterFingerprint: "fondo-general-643000",
   amount: 25_000,
+  suggestedAmount: 25_000,
+  changeRequired: 0,
   bills: { 20000: 1, 5000: 1 },
+  availableBills: { 20000: 1, 10000: 2, 5000: 1 },
 };
 
 const renderDrawer = (onSubmit: () => Promise<boolean>) =>
@@ -74,7 +77,7 @@ describe("sugerencia del contador al confirmar un movimiento", () => {
     applyIncomeSuggestion.mockReset().mockResolvedValue(true);
   });
 
-  it("muestra denominaciones y las descuenta tras guardar el movimiento", async () => {
+  it("permite editar las denominaciones y las descuenta tras guardar el movimiento", async () => {
     const onSubmit = vi.fn().mockResolvedValue(true);
     renderDrawer(onSubmit);
 
@@ -83,16 +86,36 @@ describe("sugerencia del contador al confirmar un movimiento", () => {
     expect(await screen.findByText("Sugerencia de billetes")).toBeTruthy();
     expect(screen.getByText("1 × ₡20.000")).toBeTruthy();
     expect(screen.getByText("1 × ₡5.000")).toBeTruthy();
+    expect(screen.queryByRole("checkbox", { name: "No rebajar" })).toBeNull();
     expect(loadSuggestion).toHaveBeenCalledWith({
       accountId: "FondoGeneral",
       currentBalance: 643_000,
       paymentAmount: 25_000,
     });
 
+    fireEvent.click(screen.getByRole("button", { name: "Editar billetes" }));
+    expect(screen.getByRole("dialog", { name: "Billetes a rebajar" })).toBeTruthy();
+
+    const twentyThousandInput = screen.getByRole("textbox", {
+      name: "Cantidad de billetes de ₡20.000",
+    });
+    const tenThousandInput = screen.getByRole("textbox", {
+      name: "Cantidad de billetes de ₡10.000",
+    });
+    fireEvent.change(twentyThousandInput, { target: { value: "0" } });
+    fireEvent.blur(twentyThousandInput);
+    fireEvent.change(tenThousandInput, { target: { value: "2" } });
+    fireEvent.blur(tenThousandInput);
+    fireEvent.click(screen.getByRole("button", { name: "Aplicar billetes" }));
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
-    await waitFor(() => expect(applySuggestion).toHaveBeenCalledWith(suggestion));
+    await waitFor(() =>
+      expect(applySuggestion).toHaveBeenCalledWith({
+        ...suggestion,
+        bills: { 10000: 2, 5000: 1 },
+      }),
+    );
   });
 
   it("no descuenta billetes cuando guardar falla", async () => {
