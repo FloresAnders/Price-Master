@@ -103,13 +103,15 @@ const nextConfig: NextConfig & { turbopack?: { root?: string } } = {
           const name = it.name.toLowerCase();
           let cache = 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800';
 
-          // Specific long-term cache for the Delikor footer logo.
-          // If the image ever changes, rename the file to bust caches.
-          if (name === 'delikor.png') {
+          // A service worker must revalidate promptly so a deployment cannot
+          // leave clients controlled by an obsolete cache policy.
+          if (name === 'sw.js') {
+            cache = 'no-cache, no-store, must-revalidate';
+          // Specific long-term cache for the Delikor footer logo. If the
+          // image ever changes, rename the file to bust caches.
+          } else if (name === 'delikor.png') {
             cache = 'public, max-age=31536000, immutable, s-maxage=31536000';
-          }
-
-          if (/favicon|android-chrome|apple-touch|mask-icon|mstile|logo/.test(name)) {
+          } else if (/favicon|android-chrome|apple-touch|mask-icon|mstile|logo/.test(name)) {
             cache = 'public, max-age=31536000, immutable, s-maxage=31536000';
           } else if (name.endsWith('.png') || name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.webp') || name.endsWith('.avif') || name.endsWith('.svg')) {
             cache = 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800';
@@ -133,6 +135,7 @@ const nextConfig: NextConfig & { turbopack?: { root?: string } } = {
       if (entries.length === 0) {
         return [
           securityHeadersEntry,
+          { source: '/sw.js', headers: [{ key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' }] },
           { source: '/favicon-32x32.png', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable, s-maxage=31536000' }] },
           { source: '/site.webmanifest', headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800' }] }
         ];
@@ -154,6 +157,7 @@ const nextConfig: NextConfig & { turbopack?: { root?: string } } = {
             },
           ],
         },
+        { source: '/sw.js', headers: [{ key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' }] },
         { source: '/favicon-32x32.png', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable, s-maxage=31536000' }] },
         { source: '/site.webmanifest', headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800' }] }
       ];

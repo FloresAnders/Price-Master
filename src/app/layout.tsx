@@ -27,6 +27,7 @@ import {
   SeasonalEffectsHost,
   SeasonalEffectsProvider,
 } from "../components/celebraciones";
+import ServiceWorkerRegistrar from "../components/pwa/ServiceWorkerRegistrar";
 
 export const metadata = {
   title: "Time Master",
@@ -137,6 +138,7 @@ export default function RootLayout({
         className="bg-background text-foreground transition-colors duration-500 min-h-screen flex flex-col"
         suppressHydrationWarning
       >
+        <ServiceWorkerRegistrar />
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <AuthWrapper>
             <SessionListenerPreferencesProvider>
