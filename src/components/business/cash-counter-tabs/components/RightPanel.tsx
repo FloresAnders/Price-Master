@@ -13,6 +13,7 @@ import {
   Trash2,
   FileJson,
   FileText,
+  Wrench,
 } from "lucide-react";
 import type { RightPanelProps, BillsMap } from "../types";
 import {
@@ -353,10 +354,15 @@ export function RightPanel({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-[#0d1117] p-4">
-          <p className="text-[10px] text-white/30 uppercase tracking-[0.16em] mb-3">
-            Herramientas
-          </p>
+        <div className="fixed inset-x-3 top-3 z-[60] rounded-2xl border border-cyan-400/25 bg-[#0d1117]/95 p-2.5 shadow-[0_12px_40px_rgba(0,0,0,0.55)] backdrop-blur-xl lg:static lg:rounded-2xl lg:border-white/10 lg:bg-[#0d1117] lg:p-4 lg:shadow-none lg:backdrop-blur-none">
+          <div className="mb-2 flex items-center gap-2 border-b border-white/10 pb-2 lg:mb-3 lg:border-0 lg:pb-0">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-cyan-400/25 bg-cyan-500/10 text-cyan-300">
+              <Wrench className="h-3.5 w-3.5" />
+            </div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/60">
+              Herramientas
+            </p>
+          </div>
           <div className="flex items-center justify-center gap-2">
             {[
               {

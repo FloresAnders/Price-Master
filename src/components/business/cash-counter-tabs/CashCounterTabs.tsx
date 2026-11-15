@@ -166,7 +166,7 @@ export default function CashCounterTabs({ requestedAccountId }: CashCounterTabsP
           onDragEnd={hDE}
         />
 
-        <div className="flex-1 min-w-0 order-1 lg:order-2">
+        <div className="order-3 min-w-0 flex-1 lg:order-2">
           {activeEntry ? (
             <CashCounter id={activeEntry.index} data={activeEntry.counter} showBD={showBD} onUpdate={upd} />
           ) : (
@@ -178,18 +178,20 @@ export default function CashCounterTabs({ requestedAccountId }: CashCounterTabsP
         </div>
 
         {activeEntry && (
-          <RightPanel
-            data={activeEntry.counter}
-            showExtra={showExtra}
-            setShowExtra={setShowExtra}
-            showBD={showBD}
-            setShowBD={setShowBD}
-            onUpdate={(d) => upd(activeEntry.index, d)}
-            onReplace={(d) => replace(activeEntry.index, d)}
-            onCurrencyOpen={() => setCurrencyOpen(true)}
-            onDelete={() => del(activeEntry.index)}
-            canDelete={!activeEntry.counter.accountId}
-          />
+          <div className="order-2 lg:order-3">
+            <RightPanel
+              data={activeEntry.counter}
+              showExtra={showExtra}
+              setShowExtra={setShowExtra}
+              showBD={showBD}
+              setShowBD={setShowBD}
+              onUpdate={(d) => upd(activeEntry.index, d)}
+              onReplace={(d) => replace(activeEntry.index, d)}
+              onCurrencyOpen={() => setCurrencyOpen(true)}
+              onDelete={() => del(activeEntry.index)}
+              canDelete={!activeEntry.counter.accountId}
+            />
+          </div>
         )}
       </div>
 
