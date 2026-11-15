@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: "Time Master",
   webDir: "capacitor-web",
   server: {
-    url: "https://www.timemasters.org",
+    url: "https://www.timemaster.es/",
     androidScheme: "https",
     cleartext: false,
   },
