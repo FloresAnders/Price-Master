@@ -17,6 +17,7 @@
     "build:export": "next build && echo 'Build completed for Capacitor'",
     "open:android": "npx cap open android",
     "sync:android": "npx cap sync android",
+    "verify:android-passkeys": "node scripts/verify-android-passkeys.mjs",
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",

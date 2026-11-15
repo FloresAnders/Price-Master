@@ -1485,7 +1485,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             {showPatrioticTheme && <PatrioticSeptemberBadge />}
             {/* User dropdown menu - solo mostrar si hay usuario O si estamos en /home */}
             {(user || pathname === "/home") && (
-              <div className="hidden md:flex items-center gap-2">
+              <div className="hidden lg:flex items-center gap-2">
                 {/* User button with dropdown - solo si hay usuario autenticado */}
                 {user && (
                   <div className="relative" style={{ zIndex: "auto" }}>

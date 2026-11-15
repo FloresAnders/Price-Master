@@ -30,6 +30,12 @@ if ($LASTEXITCODE -ne 0) {
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $launcherSource = Join-Path $projectRoot "public\android-chrome-512x512.png"
 $androidResources = Join-Path $projectRoot "android\app\src\main\res"
+$nativeSyncScript = Join-Path $PSScriptRoot "sync-android-passkey-files.ps1"
+
+& $nativeSyncScript -ProjectRoot $projectRoot
+if ($LASTEXITCODE -ne 0) {
+  exit $LASTEXITCODE
+}
 
 if (-not (Test-Path -LiteralPath $launcherSource)) {
   throw "Logo Android no encontrado: $launcherSource"

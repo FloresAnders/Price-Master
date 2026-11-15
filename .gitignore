@@ -62,6 +62,10 @@ client_secret_*.apps.googleusercontent.com.json
 next-env.d.ts
 firestore-debug.log
 /tests/*
+!/tests/android/
+!/tests/android/**
+!/tests/layout/
+!/tests/layout/header-mobile-logout.test.ts
 !/tests/pwa/
 !/tests/pwa/**
 !/tests/auth/
