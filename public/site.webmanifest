@@ -1,7 +1,15 @@
 {
     "name": "Time Master",
     "short_name": "TimeMaster",
+    "id": "/",
+    "lang": "es-CR",
+    "dir": "ltr",
     "description": "Plataforma para gestión de precios, escaneo de códigos de barras, control de inventario y horarios laborales",
+    "categories": [
+        "business",
+        "finance",
+        "productivity"
+    ],
     "icons": [
         {
             "src": "/android-chrome-192x192.png",
@@ -30,9 +38,23 @@
         }
     ],
     "theme_color": "#2563eb",
-    "background_color": "#ffffff",
+    "background_color": "#0d1117",
     "display": "standalone",
     "start_url": "/",
     "scope": "/",
+    "shortcuts": [
+        {
+            "name": "Inicio",
+            "short_name": "Inicio",
+            "description": "Abrir el inicio de Time Master",
+            "url": "/home"
+        },
+        {
+            "name": "Fondo General",
+            "short_name": "Fondos",
+            "description": "Abrir la gestión de Fondo General",
+            "url": "/fondogeneral"
+        }
+    ],
     "orientation": "portrait"
 }

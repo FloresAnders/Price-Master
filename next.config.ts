@@ -107,6 +107,8 @@ const nextConfig: NextConfig & { turbopack?: { root?: string } } = {
           // leave clients controlled by an obsolete cache policy.
           if (name === 'sw.js') {
             cache = 'no-cache, no-store, must-revalidate';
+          } else if (name === 'site.webmanifest') {
+            cache = 'no-cache, must-revalidate';
           // Specific long-term cache for the Delikor footer logo. If the
           // image ever changes, rename the file to bust caches.
           } else if (name === 'delikor.png') {
@@ -137,7 +139,7 @@ const nextConfig: NextConfig & { turbopack?: { root?: string } } = {
           securityHeadersEntry,
           { source: '/sw.js', headers: [{ key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' }] },
           { source: '/favicon-32x32.png', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable, s-maxage=31536000' }] },
-          { source: '/site.webmanifest', headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800' }] }
+          { source: '/site.webmanifest', headers: [{ key: 'Cache-Control', value: 'no-cache, must-revalidate' }] }
         ];
       }
 
@@ -159,7 +161,7 @@ const nextConfig: NextConfig & { turbopack?: { root?: string } } = {
         },
         { source: '/sw.js', headers: [{ key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' }] },
         { source: '/favicon-32x32.png', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable, s-maxage=31536000' }] },
-        { source: '/site.webmanifest', headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800' }] }
+        { source: '/site.webmanifest', headers: [{ key: 'Cache-Control', value: 'no-cache, must-revalidate' }] }
       ];
     }
   }
