@@ -2011,14 +2011,12 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                       <Fingerprint className="w-4 h-4 text-[var(--muted-foreground)]" />
                     </button>
                     <button
-                      type="button"
                       onClick={() => {
                         setShowMobileMenu(false);
                         handleLogoutClick();
                       }}
-                      className="inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                      className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
                       title="Cerrar Sesión"
-                      aria-label="Cerrar Sesión"
                     >
                       <LogOut className="w-4 h-4 text-red-600 dark:text-red-400" />
                     </button>
