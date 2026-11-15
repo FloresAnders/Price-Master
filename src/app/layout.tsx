@@ -28,6 +28,7 @@ import {
   SeasonalEffectsProvider,
 } from "../components/celebraciones";
 import ServiceWorkerRegistrar from "../components/pwa/ServiceWorkerRegistrar";
+import NativeNotificationsInitializer from "../components/notifications/NativeNotificationsInitializer";
 
 export const metadata = {
   title: "Time Master",
@@ -151,6 +152,7 @@ export default function RootLayout({
                       <VersionCheckInitializer />
                       <ReminderNotificationsInitializer />
                       <SinpeNotificationsInitializer />
+                      <NativeNotificationsInitializer />
                       <SystemNotesInitializer />
                       <SubscriptionNotice />
                       <SeasonalEffectsHost />

@@ -86,6 +86,7 @@ import { OPEN_CASH_COUNTER_EVENT } from "@/components/business/cash-counter-tabs
 import { useSessionListenerPreferences } from "@/contexts/SessionListenerPreferencesContext";
 import { shouldSubscribePendingCompanyRequests } from "@/services/layoutPrefsDb";
 import SystemAnnouncementsBanner from "@/components/announcements/SystemAnnouncementsBanner";
+import { showNativeCompanyRequestNotification } from "@/lib/nativeNotifications";
 
 const ADMIN_SIDEBAR_EXPANDED_WIDTH_PREF_KEY = "adminSidebarWidth";
 const ADMIN_SIDEBAR_COLLAPSED_WIDTH_PREF_KEY = "adminSidebarCollapsedWidth";
@@ -532,6 +533,32 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 }
               } catch (err) {
                 console.warn("Unable to play notification sound:", err);
+              }
+
+              const newestRequest = safeDocs.find((doc) => {
+                const id = doc?.id;
+                return (
+                  typeof id === "string" &&
+                  !previousIds.has(id) &&
+                  !seenIds.has(id)
+                );
+              });
+              if (newestRequest?.id) {
+                void showNativeCompanyRequestNotification({
+                  id: newestRequest.id,
+                  companyName: company || "Tu empresa",
+                  requesterName:
+                    typeof newestRequest.nombreSolicitante === "string"
+                      ? newestRequest.nombreSolicitante
+                      : typeof newestRequest.requestedBy === "string"
+                        ? newestRequest.requestedBy
+                        : undefined,
+                }).catch((error) => {
+                  console.error(
+                    "Native company request notification failed:",
+                    error,
+                  );
+                });
               }
             }
           }

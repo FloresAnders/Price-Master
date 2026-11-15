@@ -31,6 +31,7 @@ import {
   type SinpeSystemNotificationApi,
 } from "./sinpeBrowserNotifications";
 import { canReceiveSinpeNotifications } from "./sinpeNotificationPreference";
+import { showNativeSinpeNotification } from "@/lib/nativeNotifications";
 
 const STORAGE_KEY = "timemaster_seen_sinpe_events_v1";
 const REPLAY_WINDOW_MS = 2 * 60 * 1000;
@@ -296,6 +297,9 @@ export default function SinpeNotificationsInitializer() {
                   isDocumentHidden: document.hidden,
                   notificationApi: getSystemNotificationApi(),
                   focusWindow: () => window.focus(),
+                });
+                void showNativeSinpeNotification(event).catch((error) => {
+                  console.error("Native SINPE notification failed:", error);
                 });
                 toast.custom(
                   (toastId) => (

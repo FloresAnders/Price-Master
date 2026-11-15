@@ -22,6 +22,11 @@ $env:Path = "$(Join-Path $jdk21 'bin');$env:Path"
 
 Write-Output "Usando JAVA_HOME=$env:JAVA_HOME"
 
+& node (Join-Path $PSScriptRoot "bump-android-version.mjs")
+if ($LASTEXITCODE -ne 0) {
+  exit $LASTEXITCODE
+}
+
 & npm.cmd run sync:android
 if ($LASTEXITCODE -ne 0) {
   exit $LASTEXITCODE
