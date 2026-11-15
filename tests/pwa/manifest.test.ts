@@ -46,7 +46,7 @@ describe("Time Master web app manifest", () => {
         name: "Inicio",
         short_name: "Inicio",
         description: "Abrir el inicio de Time Master",
-        url: "/home",
+        url: "/",
       },
       {
         name: "Fondo General",

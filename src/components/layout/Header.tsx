@@ -1137,7 +1137,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     ],
   );
 
-  const isHomeRoute = pathname === "/" || pathname === "/home";
+  const isHomeRoute = pathname === "/";
   const canShowFondoActions = Boolean(
     isFondoSection &&
       (canUseFondoAccounts ||
@@ -1291,7 +1291,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 />
               </Link>
             )}
-            {!canShowAdminSidebar && pathname !== "/home" && (
+            {!canShowAdminSidebar && (
               <div className="hidden lg:block">
                 <Link
                   href="/#"
@@ -1316,7 +1316,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           </div>
 
           {/* If we're on fondo-related sections, show quick actions in the header */}
-          {pathname !== "/home" && canShowFondoActions && (
+          {canShowFondoActions && (
             <nav className="hidden lg:flex items-center gap-1">
               {/* Agregar proveedor */}
               {canUseFondoAccounts && (
@@ -1464,7 +1464,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           )}
 
           {/* If we're on recetas-related sections, show only recetas sub-navigation in the header */}
-          {pathname !== "/home" && isRecetasSection && canUseRecetas && (
+          {isRecetasSection && canUseRecetas && (
             <nav className="hidden lg:flex items-center gap-1">
               {canAgregarProducto && (
                 <button
@@ -1510,8 +1510,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
 
           <div className="flex shrink-0 items-center gap-2" suppressHydrationWarning>
             {showPatrioticTheme && <PatrioticSeptemberBadge />}
-            {/* User dropdown menu - solo mostrar si hay usuario O si estamos en /home */}
-            {(user || pathname === "/home") && (
+            {/* User dropdown menu - solo mostrar si hay usuario autenticado */}
+            {user && (
               <div className="hidden lg:flex items-center gap-2">
                 {/* User button with dropdown - solo si hay usuario autenticado */}
                 {user && (

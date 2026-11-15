@@ -169,7 +169,7 @@ export default function DeviceLinkClient() {
           <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center p-4">
             <div className="rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] shadow-xl w-full max-w-sm p-6 relative">
               <button
-                onClick={() => { window.location.href = '/home'; }}
+                onClick={() => { window.location.href = '/'; }}
                 className="absolute top-3 right-3 p-1 rounded-md hover:bg-[var(--muted)]/10 transition-colors"
                 aria-label="Cerrar"
               >
@@ -185,7 +185,7 @@ export default function DeviceLinkClient() {
 
               <div className="flex justify-center">
                 <button
-                  onClick={() => { window.location.href = '/home'; }}
+                  onClick={() => { window.location.href = '/'; }}
                   className="px-4 py-2 bg-[var(--accent)] text-white rounded"
                 >
                   OK

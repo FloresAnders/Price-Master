@@ -81,7 +81,7 @@ export default function PruebasPage() {
               void unlock();
             }}
             onCancel={() => {
-              router.push("/home");
+              router.push("/");
             }}
             actionType="change"
           />
