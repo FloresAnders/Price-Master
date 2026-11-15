@@ -132,7 +132,7 @@ firestore-debug.log
 !/tests/fixtures/smartprint/
 !/tests/fixtures/smartprint/*.html
 # mobile setup - Android
-/android/*
+android/*
 
 # Pero incluir configuración importante y recursos
 !/android/app/
@@ -158,3 +158,6 @@ firestore-debug.log
 !/android/capacitor-cordova-android-plugins/
 /android/capacitor-cordova-android-plugins/*
 !/android/capacitor-cordova-android-plugins/build.gradle
+
+# Omitir codigo y recursos Android generados/locales
+/android/app/src/
