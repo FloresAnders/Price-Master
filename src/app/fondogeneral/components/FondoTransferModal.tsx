@@ -22,6 +22,7 @@ import { getControlHorarioShiftTiming } from "@/utils/controlHorarioManager";
 import { ProvidersService } from "@/services/providers";
 import type { ProviderEntry } from "@/types/firestore";
 import useToast from "@/hooks/useToast";
+import { ModalDialog } from "@/components/ui/ModalDialog";
 
 type Props = {
   open: boolean;
@@ -413,24 +414,29 @@ export function FondoTransferModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-3xl rounded-2xl border border-white/20 bg-[#0b1016] text-white shadow-2xl">
+    <ModalDialog
+      open={open}
+      onRequestClose={onClose}
+      aria-labelledby="fondo-transfer-modal-title"
+      data-backdrop-blur="true"
+      className="m-auto max-h-[95vh] w-[calc(100%_-_2rem)] max-w-3xl overflow-y-auto rounded-2xl border border-white/20 bg-[#0b1016] p-0 text-white shadow-2xl"
+    >
         <header className="flex items-start justify-between border-b border-white/10 p-6">
           <div>
-            <h2 className="text-xl font-bold uppercase">Movimiento entre fondos</h2>
+            <h2 id="fondo-transfer-modal-title" className="text-xl font-bold uppercase">Movimiento entre fondos</h2>
             <p className="mt-1 text-sm text-slate-400">
               Transferir dinero entre fondos de la empresa
             </p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-full border border-white/20 p-2">
-            <X className="h-4 w-4" />
+          <button type="button" onClick={onClose} aria-label="Cerrar transferencia" className="rounded-full border border-white/20 p-2">
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </header>
         <div className="space-y-5 p-6">
           <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-end">
             <label className="rounded-xl border border-orange-400/60 p-4">
               <span className="mb-2 flex items-center gap-2 font-semibold"><ArrowUpRight className="text-orange-300" /> Fondo de origen</span>
-              <select value={sourceId} onChange={(event) => {
+              <select autoFocus value={sourceId} onChange={(event) => {
                 setSourceId(event.target.value as MovementAccountKey);
                 setSourceProviderCode("");
                 setSourceProviderSearch("");
@@ -651,7 +657,6 @@ export function FondoTransferModal({
             {saving ? "Guardando..." : "Guardar movimiento"}
           </button>
         </footer>
-      </div>
       {showCashEditor && breakdown && !breakdown.exact && (
         <CashBreakdownModal
           title="Billetes disponibles para transferir"
@@ -665,6 +670,6 @@ export function FondoTransferModal({
           }
         />
       )}
-    </div>
+    </ModalDialog>
   );
 }

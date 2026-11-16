@@ -4,6 +4,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type KeyboardEvent,
   type PointerEvent,
   type ReactNode,
 } from "react";
@@ -11,6 +12,7 @@ import {
 const STORAGE_KEY = "fondogeneral-movements-height";
 const MIN_HEIGHT = 280;
 const MAX_HEIGHT = 1200;
+const KEYBOARD_STEP = 10;
 
 const clampHeight = (height: number) =>
   Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, Math.round(height)));
@@ -108,6 +110,29 @@ export function ResizableMovementsViewport({
     document.body.style.userSelect = "none";
   };
 
+  const persistHeight = (nextHeight: number) => {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, String(nextHeight));
+    } catch {
+      // El ajuste sigue funcionando durante la sesiÃ³n aunque no se pueda guardar.
+    }
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    let nextHeight: number | null = null;
+    const currentHeight = height ?? MIN_HEIGHT;
+    if (event.key === "ArrowUp") nextHeight = currentHeight - KEYBOARD_STEP;
+    if (event.key === "ArrowDown") nextHeight = currentHeight + KEYBOARD_STEP;
+    if (event.key === "Home") nextHeight = MIN_HEIGHT;
+    if (event.key === "End") nextHeight = MAX_HEIGHT;
+    if (nextHeight === null) return;
+
+    event.preventDefault();
+    const clampedHeight = clampHeight(nextHeight);
+    setHeight(clampedHeight);
+    persistHeight(clampedHeight);
+  };
+
   return (
     <>
       <div
@@ -125,11 +150,17 @@ export function ResizableMovementsViewport({
       <div
         aria-label="Ajustar altura de movimientos"
         aria-orientation="horizontal"
+        aria-valuemin={MIN_HEIGHT}
+        aria-valuemax={MAX_HEIGHT}
+        aria-valuenow={height ?? MIN_HEIGHT}
+        aria-valuetext={`${height ?? MIN_HEIGHT} pixeles`}
         role="separator"
-        title="Arrastra para cambiar la altura de los movimientos"
+        tabIndex={0}
+        title="Arrastra o usa las flechas arriba y abajo para cambiar la altura"
         onPointerDown={handlePointerDown}
-        className="group flex h-3 cursor-row-resize touch-none items-center justify-center border-t border-[var(--input-border)] bg-[var(--card-bg)]/90 transition-colors hover:bg-cyan-950/45"
-        style={{ touchAction: "none" }}
+        onKeyDown={handleKeyDown}
+        className="group flex h-6 cursor-row-resize touch-pan-x items-center justify-center border-t border-[var(--input-border)] bg-[var(--card-bg)]/90 transition-colors hover:bg-cyan-950/45 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-300"
+        style={{ touchAction: "pan-x" }}
       >
         <span className="h-1 w-12 rounded-full bg-[var(--muted-foreground)]/45 transition-colors group-hover:bg-cyan-300/70" />
       </div>

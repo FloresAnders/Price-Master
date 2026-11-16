@@ -62,6 +62,8 @@ client_secret_*.apps.googleusercontent.com.json
 next-env.d.ts
 firestore-debug.log
 /tests/*
+!/tests/accessibility/
+!/tests/accessibility/**
 !/tests/android/
 !/tests/android/**
 !/tests/layout/

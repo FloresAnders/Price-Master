@@ -370,7 +370,7 @@ export default function FondoPage() {
                 }`}
               >
                 <div
-                  role="tablist"
+                  role="group"
                   aria-label="Cuentas"
                   className="flex min-w-0 flex-1 gap-2 overflow-x-auto overscroll-x-contain scroll-px-2 pb-2 lg:flex-wrap lg:overflow-visible lg:pb-0"
                 >
@@ -397,9 +397,7 @@ export default function FondoPage() {
                       >
                         <button
                           type="button"
-                          role="tab"
-                          tabIndex={isActive ? 0 : -1}
-                          aria-selected={isActive}
+                          aria-pressed={isActive}
                           onClick={() => handleAccountTabClick(tab.id)}
                           className="flex min-h-[68px] w-full items-center gap-3 rounded-lg px-3 py-2 pr-20 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--card-bg)]"
                         >
@@ -510,7 +508,7 @@ export default function FondoPage() {
         >
           <div className="mx-auto flex max-w-6xl flex-col gap-2 xl:flex-row xl:items-center">
             <div
-              role="tablist"
+              role="group"
               aria-label="Acceso rapido a cuentas"
               className="flex min-w-0 flex-1 flex-wrap gap-2"
             >
@@ -522,9 +520,8 @@ export default function FondoPage() {
                   <button
                     key={`dock-${tab.id}`}
                     type="button"
-                    role="tab"
                     tabIndex={accountDockVisible ? 0 : -1}
-                    aria-selected={isActive}
+                    aria-pressed={isActive}
                     onClick={() => handleAccountTabClick(tab.id)}
                     className={`group relative flex min-h-[48px] min-w-[132px] flex-1 basis-[132px] items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[#0b1115] xl:max-w-[160px] ${
                       isActive

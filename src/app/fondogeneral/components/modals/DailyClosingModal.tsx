@@ -17,6 +17,7 @@ import {
 import type { Driver } from "driver.js";
 
 import ConfirmModal from "../../../../components/ui/ConfirmModal";
+import { ModalDialog } from "@/components/ui/ModalDialog";
 import FondoGeneralTutorialModal from "@/components/tutorials/fondo-general/FondoGeneralTutorialModal";
 import { loadFondoGeneralDriver } from "@/components/tutorials/fondo-general/fondoGeneralDriver";
 import { useFloatingActionsSuppression } from "@/components/ui/FloatingActionsDock";
@@ -301,7 +302,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   cumulativeContica,
   systemVerificationEnabled = true,
 }) => {
-  const modalRef = useRef<HTMLDivElement | null>(null);
+  const modalRef = useRef<HTMLDialogElement | null>(null);
   const openTurnoResetRef = useRef(false);
   const managerFieldRef = useRef<HTMLSelectElement | HTMLInputElement | null>(
     null,
@@ -819,27 +820,15 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
           : undefined,
       );
     }
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || tutorialOpen || tutorialHighlightActive) return;
-      if (event.key === "Escape" && dismissible) {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
       if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
     };
   }, [
     editId,
-    dismissible,
     initialValues,
-    onClose,
     onTurnoChange,
     open,
     requireTurnoSelection,
-    tutorialHighlightActive,
-    tutorialOpen,
     turno,
   ]);
 
@@ -1359,20 +1348,20 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
       setTutorialOpen(true);
     }
   };
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+    <ModalDialog
+      ref={modalRef}
+      open={open}
+      dismissible={
+        dismissible && !tutorialOpen && !tutorialHighlightActive
+      }
+      onRequestClose={onClose}
+      aria-labelledby="daily-closing-modal-title"
+      className="m-auto flex max-h-[95vh] w-[calc(100%_-_2rem)] max-w-full flex-col overflow-hidden rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-0 text-[var(--foreground)] shadow-lg sm:max-w-4xl"
     >
-      <div
-        className="w-full max-w-full sm:max-w-4xl rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] shadow-lg max-h-[95vh] overflow-hidden flex flex-col"
-        onClick={(event) => event.stopPropagation()}
-        ref={modalRef}
-      >
         <div className="flex items-center justify-between gap-4 p-5 pb-0">
           <div className="flex-1" />
-          <h3 className="text-lg font-semibold text-center">
+          <h3 id="daily-closing-modal-title" className="text-lg font-semibold text-center">
             Cierre diario del fondo
           </h3>
           <div className="flex flex-1 justify-end">
@@ -1429,6 +1418,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                       color: "var(--foreground)",
                     }}
                     disabled={loadingEmployees || managerReadonly}
+                    autoFocus={!loadingEmployees && !managerReadonly}
                     ref={(el) => {
                       managerFieldRef.current = el;
                     }}
@@ -1451,6 +1441,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                     }}
                     placeholder="Nombre del encargado"
                     readOnly={managerReadonly}
+                    autoFocus={!managerReadonly}
                     ref={(el) => {
                       managerFieldRef.current = el;
                     }}
@@ -1999,6 +1990,15 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
             )}
           </div>
           <div className="flex gap-3">
+            {dismissible && (
+              <button
+                type="button"
+                onClick={onClose}
+                className={secondaryButtonClass}
+              >
+                Cancelar
+              </button>
+            )}
             <div className="relative group">
               <button
                 type="button"
@@ -2024,8 +2024,6 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
             </div>
           </div>
         </div>
-      </div>
-
       <ConfirmModal
         open={confirmDiffOpen}
         title="Confirmar cierre con diferencias"
@@ -2056,7 +2054,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
         }}
         onClose={handleCloseTutorial}
       />
-    </div>
+    </ModalDialog>
   );
 };
 

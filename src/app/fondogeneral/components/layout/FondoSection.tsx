@@ -208,6 +208,11 @@ import {
 import { useFondoMovementTypes } from "../../hooks/fondo/useFondoMovementTypes";
 import { useSuperAdminUsers } from "../../hooks/movements/useSuperAdminUsers";
 import { useFondoFilters } from "../../hooks/fondo/useFondoFilters";
+import {
+  COLUMN_MAX_WIDTH,
+  COLUMN_MIN_WIDTH,
+  ColumnResizeHandle,
+} from "../ColumnResizeHandle";
 import { useDailyClosingState } from "../../hooks/closing/useDailyClosingState";
 import { useMovementForm } from "../../hooks/movements/useMovementForm";
 import { useClosingInvoicePayment } from "../../hooks/closing/useClosingInvoicePayment";
@@ -1673,23 +1678,32 @@ export function FondoSection({
   }, []);
 
   useEffect(() => {
-    const onMove = (e: MouseEvent) => {
+    const onMove = (e: PointerEvent) => {
       const r = resizingRef.current;
       if (!r) return;
       const delta = e.clientX - r.startX;
-      const newW = Math.max(40, r.startWidth + delta);
+      const newW = Math.min(
+        COLUMN_MAX_WIDTH,
+        Math.max(COLUMN_MIN_WIDTH, r.startWidth + delta),
+      );
       setColumnWidths((prev) => ({ ...prev, [r.key]: `${newW}px` }));
     };
     const onUp = () => {
       resizingRef.current = null;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
     };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
     return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
     };
-  }, [columnWidths]);
+  }, [resizingRef, setColumnWidths]);
 
   // Close calendars when clicking outside them (but don't close when clicking the toggle buttons)
   useEffect(() => {
@@ -6832,20 +6846,17 @@ export function FondoSection({
                               <Clock className="w-4 h-4" />
                               Hora
                             </div>
-                            <div
-                              onMouseDown={(e) => startResizing(e, "hora")}
-                              className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                              style={{ touchAction: "none" }}
-                            >
-                              <div
-                                style={{
-                                  width: 2,
-                                  height: "70%",
-                                  background: "rgba(255,255,255,0.18)",
-                                  borderRadius: 3,
-                                }}
-                              />
-                            </div>
+                            <ColumnResizeHandle
+                              label="Ajustar columna Hora"
+                              value={parseInt(columnWidths.hora, 10)}
+                              onPointerStart={(event) => startResizing(event, "hora")}
+                              onChange={(width) =>
+                                setColumnWidths((previous) => ({
+                                  ...previous,
+                                  hora: `${width}px`,
+                                }))
+                              }
+                            />
                           </div>
                         </th>
                         <th className="px-3 py-2 text-left font-semibold">
@@ -6854,20 +6865,17 @@ export function FondoSection({
                               <Layers className="w-4 h-4" />
                               Motivo
                             </div>
-                            <div
-                              onMouseDown={(e) => startResizing(e, "motivo")}
-                              className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                              style={{ touchAction: "none" }}
-                            >
-                              <div
-                                style={{
-                                  width: 2,
-                                  height: "70%",
-                                  background: "rgba(255,255,255,0.18)",
-                                  borderRadius: 3,
-                                }}
-                              />
-                            </div>
+                            <ColumnResizeHandle
+                              label="Ajustar columna Motivo"
+                              value={parseInt(columnWidths.motivo, 10)}
+                              onPointerStart={(event) => startResizing(event, "motivo")}
+                              onChange={(width) =>
+                                setColumnWidths((previous) => ({
+                                  ...previous,
+                                  motivo: `${width}px`,
+                                }))
+                              }
+                            />
                           </div>
                         </th>
                         <th className="px-3 py-2 text-left font-semibold">
@@ -6876,20 +6884,17 @@ export function FondoSection({
                               <Tag className="w-4 h-4" />
                               Tipo
                             </div>
-                            <div
-                              onMouseDown={(e) => startResizing(e, "tipo")}
-                              className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                              style={{ touchAction: "none" }}
-                            >
-                              <div
-                                style={{
-                                  width: 2,
-                                  height: "70%",
-                                  background: "rgba(255,255,255,0.18)",
-                                  borderRadius: 3,
-                                }}
-                              />
-                            </div>
+                            <ColumnResizeHandle
+                              label="Ajustar columna Tipo"
+                              value={parseInt(columnWidths.tipo, 10)}
+                              onPointerStart={(event) => startResizing(event, "tipo")}
+                              onChange={(width) =>
+                                setColumnWidths((previous) => ({
+                                  ...previous,
+                                  tipo: `${width}px`,
+                                }))
+                              }
+                            />
                           </div>
                         </th>
                         <th className="px-3 py-2 text-left font-semibold">
@@ -6898,20 +6903,17 @@ export function FondoSection({
                               <FileText className="w-4 h-4" />
                                Nro. factura
                             </div>
-                            <div
-                              onMouseDown={(e) => startResizing(e, "factura")}
-                              className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                              style={{ touchAction: "none" }}
-                            >
-                              <div
-                                style={{
-                                  width: 2,
-                                  height: "70%",
-                                  background: "rgba(255,255,255,0.18)",
-                                  borderRadius: 3,
-                                }}
-                              />
-                            </div>
+                            <ColumnResizeHandle
+                              label="Ajustar columna Nro. factura"
+                              value={parseInt(columnWidths.factura, 10)}
+                              onPointerStart={(event) => startResizing(event, "factura")}
+                              onChange={(width) =>
+                                setColumnWidths((previous) => ({
+                                  ...previous,
+                                  factura: `${width}px`,
+                                }))
+                              }
+                            />
                           </div>
                         </th>
                         <th className="px-3 py-2 text-left font-semibold">
@@ -6920,20 +6922,17 @@ export function FondoSection({
                               <Banknote className="w-4 h-4" />
                               Monto
                             </div>
-                            <div
-                              onMouseDown={(e) => startResizing(e, "monto")}
-                              className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                              style={{ touchAction: "none" }}
-                            >
-                              <div
-                                style={{
-                                  width: 2,
-                                  height: "70%",
-                                  background: "rgba(255,255,255,0.18)",
-                                  borderRadius: 3,
-                                }}
-                              />
-                            </div>
+                            <ColumnResizeHandle
+                              label="Ajustar columna Monto"
+                              value={parseInt(columnWidths.monto, 10)}
+                              onPointerStart={(event) => startResizing(event, "monto")}
+                              onChange={(width) =>
+                                setColumnWidths((previous) => ({
+                                  ...previous,
+                                  monto: `${width}px`,
+                                }))
+                              }
+                            />
                           </div>
                         </th>
                         <th className="px-3 py-2 text-left font-semibold">
@@ -6942,20 +6941,17 @@ export function FondoSection({
                               <UserCircle className="w-4 h-4" />
                               Encargado
                             </div>
-                            <div
-                              onMouseDown={(e) => startResizing(e, "encargado")}
-                              className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                              style={{ touchAction: "none" }}
-                            >
-                              <div
-                                style={{
-                                  width: 2,
-                                  height: "70%",
-                                  background: "rgba(255,255,255,0.18)",
-                                  borderRadius: 3,
-                                }}
-                              />
-                            </div>
+                            <ColumnResizeHandle
+                              label="Ajustar columna Encargado"
+                              value={parseInt(columnWidths.encargado, 10)}
+                              onPointerStart={(event) => startResizing(event, "encargado")}
+                              onChange={(width) =>
+                                setColumnWidths((previous) => ({
+                                  ...previous,
+                                  encargado: `${width}px`,
+                                }))
+                              }
+                            />
                           </div>
                         </th>
                         <th className="px-3 py-2 text-left font-semibold">
@@ -6987,20 +6983,17 @@ export function FondoSection({
                                 <ArrowUpDown className="w-4 h-4" />
                               </button>
                             </div>
-                            <div
-                              onMouseDown={(e) => startResizing(e, "editar")}
-                              className="absolute top-0 right-0 h-full w-8 -mr-3 cursor-col-resize flex items-center justify-center"
-                              style={{ touchAction: "none" }}
-                            >
-                              <div
-                                style={{
-                                  width: 2,
-                                  height: "70%",
-                                  background: "rgba(255,255,255,0.18)",
-                                  borderRadius: 3,
-                                }}
-                              />
-                            </div>
+                            <ColumnResizeHandle
+                              label="Ajustar columna Acciones"
+                              value={parseInt(columnWidths.editar, 10)}
+                              onPointerStart={(event) => startResizing(event, "editar")}
+                              onChange={(width) =>
+                                setColumnWidths((previous) => ({
+                                  ...previous,
+                                  editar: `${width}px`,
+                                }))
+                              }
+                            />
                           </div>
                         </th>
                       </tr>

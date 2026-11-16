@@ -1,5 +1,6 @@
 import React from "react";
 import { CheckCircle2, Trash2, AlertTriangle, XCircle } from "lucide-react";
+import { ModalDialog } from "./ModalDialog";
 
 interface ConfirmModalProps {
   open: boolean;
@@ -31,21 +32,8 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   singleButton = false,
   singleButtonText,
 }) => {
-  React.useEffect(() => {
-    if (!open) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onCancel();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onCancel]);
-
-  if (!open) return null;
+  const titleId = React.useId();
+  const messageId = React.useId();
 
   let icon = <CheckCircle2 className="h-5 w-5 text-[var(--foreground)]" />;
   let confirmIcon = (
@@ -64,17 +52,14 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 dark:bg-black/80"
-      style={{ pointerEvents: "auto" }}
-      onClick={(e) => e.stopPropagation()}
+    <ModalDialog
+      open={open}
+      onRequestClose={onCancel}
+      aria-labelledby={titleId}
+      aria-describedby={messageId}
+      className="m-auto w-[calc(100%_-_1.5rem)] max-w-md rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-6 text-[var(--foreground)] shadow-lg"
     >
-      <div
-        className="bg-[var(--card-bg)] text-[var(--foreground)] rounded-xl shadow-lg p-6 w-full max-w-md border border-[var(--input-border)] flex flex-col items-stretch mx-3 relative"
-        style={{ zIndex: 100000 }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start gap-3 mb-3">
+      <div className="flex items-start gap-3 mb-3">
           <span
             className={`flex items-center justify-center h-9 w-9 rounded-full shrink-0 text-white ${
               actionType === "delete"
@@ -87,8 +72,8 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
             {icon}
           </span>
           <div className="flex-1">
-            <h2 className="text-lg font-semibold">{title}</h2>
-            <div className="mt-1 text-sm text-[var(--muted-foreground)] break-words whitespace-pre-line">
+            <h2 id={titleId} className="text-lg font-semibold">{title}</h2>
+            <div id={messageId} className="mt-1 text-sm text-[var(--muted-foreground)] break-words whitespace-pre-line">
               {message}
             </div>
           </div>
@@ -102,6 +87,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
               onClick={onCancel}
               disabled={loading}
               type="button"
+              autoFocus
             >
               {confirmIcon}
               {singleButtonText || "Cerrar"}
@@ -113,6 +99,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                 onClick={onCancel}
                 disabled={loading}
                 type="button"
+                autoFocus
               >
                 {cancelIcon}
                 {cancelText}
@@ -157,8 +144,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
             </>
           )}
         </div>
-      </div>
-    </div>
+    </ModalDialog>
   );
 };
 

@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import {
   FONDO_INGRESO_TYPES,
   FONDO_EGRESO_TYPES,
@@ -185,10 +192,15 @@ export function useFondoFilters({
   const fromButtonRef = useRef<HTMLButtonElement | null>(null);
   const toButtonRef = useRef<HTMLButtonElement | null>(null);
 
-  const startResizing = (event: React.MouseEvent, key: string) => {
+  const startResizing = (
+    event: ReactPointerEvent<HTMLDivElement>,
+    key: string,
+  ) => {
     event.preventDefault();
     const startWidth = parseInt(columnWidths[key] || "100", 10) || 100;
     resizingRef.current = { key, startX: event.clientX, startWidth };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
   };
 
   useEffect(() => {

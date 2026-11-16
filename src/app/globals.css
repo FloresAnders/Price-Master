@@ -524,3 +524,16 @@
     display: none;
   }
 }
+dialog[data-app-modal="true"]:modal {
+  overscroll-behavior: contain;
+}
+
+dialog[data-app-modal="true"]::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: rgb(0 0 0 / 0.7);
+}
+
+dialog[data-app-modal="true"][data-backdrop-blur="true"]::backdrop {
+  backdrop-filter: blur(4px);
+}
