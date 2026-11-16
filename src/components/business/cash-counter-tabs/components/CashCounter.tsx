@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { PlusCircle, MinusCircle, Banknote, Copy } from "lucide-react";
+import { PlusCircle, MinusCircle, Banknote, Copy, CheckCircle2, CircleX } from "lucide-react";
 import { usePermissions } from "@/hooks/usePermissions";
 import type { CashCounterProps } from "../types";
 import { badgeColor, badgeLabel, denomsByCurrency, calcBDBreakdown, fmtCurrency, calcTotal, calcCashDifference, parseBillCountInput, getBillCountKeyAction, parseCashCountClipboard, serializeCashCountClipboard } from "../utils";
@@ -20,10 +20,12 @@ export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
   const vt = data.ventaActual;
   const [saleToAdd, setSaleToAdd] = useState("");
   const [quantityDrafts, setQuantityDrafts] = useState<Record<number, string>>({});
-  const [copied, setCopied] = useState(false);
+  const [copyFeedback, setCopyFeedback] = useState<"success" | "error" | null>(null);
+  const [repeatAnnouncementSuffix, setRepeatAnnouncementSuffix] = useState("");
   const { copyToClipboard } = usePermissions();
   const refs = useRef<(HTMLInputElement | null)[]>([]);
-  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copyFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastCopyFeedbackRef = useRef<"success" | "error" | null>(null);
   const holdDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const holdRepeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const heldActionRef = useRef<(() => void) | null>(null);
@@ -124,14 +126,18 @@ export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
     const success = await copyToClipboard(
       serializeCashCountClipboard(cur, bills),
     );
-    if (!success) {
-      alert("No se pudieron copiar las denominaciones.");
-      return;
-    }
+    const nextFeedback = success ? "success" : "error";
 
-    setCopied(true);
-    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
-    copiedTimerRef.current = setTimeout(() => setCopied(false), 2000);
+    setRepeatAnnouncementSuffix((current) =>
+      lastCopyFeedbackRef.current === nextFeedback
+        ? current === "" ? "\u00a0" : ""
+        : "",
+    );
+    lastCopyFeedbackRef.current = nextFeedback;
+    setCopyFeedback(nextFeedback);
+
+    if (copyFeedbackTimerRef.current) clearTimeout(copyFeedbackTimerRef.current);
+    copyFeedbackTimerRef.current = setTimeout(() => setCopyFeedback(null), 2000);
   };
 
   const pasteDenominations = (event: React.ClipboardEvent<HTMLInputElement>) => {
@@ -192,7 +198,7 @@ export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
     };
   }, [stopHolding]);
   useEffect(() => () => {
-    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    if (copyFeedbackTimerRef.current) clearTimeout(copyFeedbackTimerRef.current);
   }, []);
 
   const diffMsg = (cn = "") => {
@@ -260,21 +266,51 @@ export function CashCounter({ id, data, showBD, onUpdate }: CashCounterProps) {
             </div>
           </div>
           <div className="rounded-xl border border-white/10 bg-[#050816] px-4 py-3 text-center lg:w-52">
-            <div className="mb-1 flex items-center justify-center gap-2">
-              <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-white/30">Estado</p>
-              <button
-                type="button"
-                onClick={() => { void copyDenominations(); }}
-                aria-label="Copiar denominaciones"
-                title="Copiar cantidades de las denominaciones"
-                className="inline-flex h-6 items-center gap-1 rounded-md border border-cyan-400/20 bg-cyan-500/10 px-1.5 text-[10px] font-medium text-cyan-200/75 transition-colors hover:border-cyan-400/40 hover:bg-cyan-500/20 hover:text-cyan-100"
-              >
-                <Copy className="h-3 w-3" />
-                {copied ? "Copiado" : "Copiar"}
-              </button>
-            </div>
+            <p className="mb-1 text-[10px] font-medium uppercase tracking-[0.16em] text-white/30">Estado</p>
             {diffMsg("") || <span className="text-xs font-medium text-white/25">Sin datos</span>}
             <p className="mt-1 text-[11px] text-white/25">{fmtCurrency(ap, cur)} / {fmtCurrency(vt, cur)}</p>
+            <button
+              type="button"
+              onClick={() => { void copyDenominations(); }}
+              title="Copiar cantidades de las denominaciones"
+              className={`mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border px-3 text-xs font-semibold transition-[transform,background-color,border-color,color] duration-150 active:scale-[0.97] motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050816] ${
+                copyFeedback === "success"
+                  ? "border-emerald-400/35 bg-emerald-500/15 text-emerald-200 focus-visible:ring-emerald-400/70"
+                  : copyFeedback === "error"
+                    ? "border-red-400/35 bg-red-500/15 text-red-200 focus-visible:ring-red-400/70"
+                    : "border-cyan-400/25 bg-cyan-500/10 text-cyan-100 hover:border-cyan-400/50 hover:bg-cyan-500/20 focus-visible:ring-cyan-400/70"
+              }`}
+            >
+              {copyFeedback === "success" ? (
+                <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+              ) : copyFeedback === "error" ? (
+                <CircleX className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <Copy className="h-4 w-4" aria-hidden="true" />
+              )}
+              {copyFeedback === "success"
+                ? "Copiado"
+                : copyFeedback === "error"
+                  ? "No se pudo copiar"
+                  : "Copiar denominaciones"}
+            </button>
+            <p
+              role="status"
+              aria-atomic="true"
+              className={`mt-1 min-h-4 text-[11px] font-medium ${
+                copyFeedback === "success"
+                  ? "text-emerald-300"
+                  : copyFeedback === "error"
+                    ? "text-red-300"
+                    : "text-transparent"
+              }`}
+            >
+              {copyFeedback === "success"
+                ? `Copiado${repeatAnnouncementSuffix}`
+                : copyFeedback === "error"
+                  ? `No se pudo copiar${repeatAnnouncementSuffix}`
+                  : ""}
+            </p>
           </div>
         </div>
       </motion.div>

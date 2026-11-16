@@ -3002,9 +3002,9 @@ export default function FacturasCreditoPage() {
                   type="search"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="NÃºmero de factura"
+                  placeholder="Número de factura"
                   className="h-11 w-full rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] px-4 pr-11 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] focus:border-cyan-500/45 focus:ring-2 focus:ring-cyan-500/20"
-                  aria-label="NÃºmero de factura"
+                  aria-label="Número de factura"
                 />
                 <span className="pointer-events-none absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg border border-cyan-500/25 bg-cyan-500/8 text-cyan-300/90">
                   <Search className="h-4 w-4" />

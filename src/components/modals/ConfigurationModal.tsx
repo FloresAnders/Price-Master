@@ -485,7 +485,7 @@ export default function ConfigurationModal({
                       </div>
                       <div className="text-sm text-slate-400">
                         {showCashCounterFloating
-                          ? "Contador disponible como botÃ³n flotante"
+                          ? "Contador disponible como botón flotante"
                           : "Contador flotante oculto"}
                       </div>
                     </div>
@@ -519,8 +519,8 @@ export default function ConfigurationModal({
                 </div>
                 <div className="mt-3 text-xs text-slate-400">
                   {showCashCounterFloating
-                    ? "Abre el contador de efectivo en un modal desde cualquier secciÃ³n"
-                    : "Activa para mostrar el contador flotante en toda la aplicaciÃ³n"}
+                    ? "Abre el contador de efectivo en un modal desde cualquier sección"
+                    : "Activa para mostrar el contador flotante en toda la aplicación"}
                 </div>
               </div>
 

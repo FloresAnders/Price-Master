@@ -38,7 +38,16 @@ import {
   serializeCashCountClipboard,
   parseBillCountInput,
 } from "@/components/business/cash-counter-tabs/utils";
+import {
+  CASH_COUNTER_SNAPSHOT_EVENT,
+  getOrCreateCashCounterSnapshot,
+  type CashCounterSnapshot,
+} from "@/services/cashCounterDb";
 import type { DailyClosingRecord } from "@/services/daily-closings";
+import {
+  resolveFondoGeneralCounterLoad,
+  type DailyClosingCounterLoad,
+} from "../../utils/closing/dailyClosingCounterLoad";
 import {
   formatSystemVerificationMoneyInput as formatMoneyInput,
   normalizeSystemVerificationMoneyInput as normalizeMoneyInput,
@@ -359,6 +368,9 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
   const [submitting, setSubmitting] = useState(false);
 
   const [copiedBlock, setCopiedBlock] = useState<"CRC" | "USD" | null>(null);
+  const [loadingFondoCounter, setLoadingFondoCounter] = useState(false);
+  const [cashCounterSnapshot, setCashCounterSnapshot] =
+    useState<CashCounterSnapshot | null>(null);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const [tutorialStepIndex, setTutorialStepIndex] = useState(0);
@@ -371,6 +383,16 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     tutorialOpen || tutorialHighlightActive,
   );
   const { copyToClipboard } = usePermissions();
+  const fondoCounterLoad = useMemo<DailyClosingCounterLoad | null>(
+    () =>
+      cashCounterSnapshot
+        ? resolveFondoGeneralCounterLoad(cashCounterSnapshot.counters, {
+            CRC: currentBalanceCRC,
+            USD: currentBalanceUSD,
+          })
+        : null,
+    [cashCounterSnapshot, currentBalanceCRC, currentBalanceUSD],
+  );
 
   const secondaryButtonClass =
     "inline-flex h-11 items-center justify-center rounded-lg border border-[var(--input-border)] px-4 text-sm font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--muted)]/20 disabled:cursor-not-allowed disabled:opacity-60";
@@ -758,6 +780,28 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     formatCurrency,
     differenceLabel,
   ]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const applySnapshot = (snapshot: CashCounterSnapshot) => {
+      if (!cancelled) setCashCounterSnapshot(snapshot);
+    };
+    const handleSnapshot = (event: Event) => {
+      const snapshot = (event as CustomEvent<CashCounterSnapshot>).detail;
+      if (snapshot) applySnapshot(snapshot);
+    };
+
+    window.addEventListener(CASH_COUNTER_SNAPSHOT_EVENT, handleSnapshot);
+    if (open) {
+      void getOrCreateCashCounterSnapshot().then(applySnapshot).catch(() => {});
+    }
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener(CASH_COUNTER_SNAPSHOT_EVENT, handleSnapshot);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -1164,6 +1208,34 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
     copiedTimerRef.current = setTimeout(() => setCopiedBlock(null), 2000);
   };
 
+  const handleLoadFondoCounter = async () => {
+    if (loadingFondoCounter) return;
+    setLoadingFondoCounter(true);
+
+    try {
+      const snapshot = await getOrCreateCashCounterSnapshot();
+      const counterLoad = resolveFondoGeneralCounterLoad(snapshot.counters, {
+        CRC: currentBalanceCRC,
+        USD: currentBalanceUSD,
+      });
+      setCashCounterSnapshot(snapshot);
+      if (!counterLoad) {
+        alert("El contador de Fondo General ya no coincide con el saldo.");
+        return;
+      }
+
+      if (counterLoad.currency === "CRC") {
+        setCrcCounts(counterLoad.counts);
+      } else {
+        setUsdCounts(counterLoad.counts);
+      }
+    } catch {
+      alert("No se pudo cargar el contador de Fondo General.");
+    } finally {
+      setLoadingFondoCounter(false);
+    }
+  };
+
   const handleClearCounts = () => {
     setNotes("");
     setSingleClosingReason("");
@@ -1480,15 +1552,29 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                   Saldo registrado: {formatCurrency("CRC", currentBalanceCRC)} ·
                   Diferencia: {differenceLabel("CRC", diffCRC)}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => copyBlock("CRC", crcCounts, CRC_DENOMINATIONS)}
-                  aria-label={`Copiar ${formatCurrency("CRC", totalCRC).trimStart()}`}
-                  title="Copiar denominaciones"
-                  className={`ml-auto shrink-0 rounded-md border px-2 py-1 text-[10px] font-medium transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 ${copiedBlock === "CRC" ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-200" : "border-[var(--input-border)] bg-[var(--muted)]/10 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"}`}
-                >
-                  {copiedBlock === "CRC" ? "Copiado" : "Copiar"}
-                </button>
+                <div className="mt-2 flex justify-end gap-2">
+                  {fondoCounterLoad?.currency === "CRC" && (
+                    <button
+                      type="button"
+                      onClick={() => void handleLoadFondoCounter()}
+                      disabled={loadingFondoCounter}
+                      aria-label="Cargar denominaciones del contador de Fondo General"
+                      title="Cargar contador de Fondo General"
+                      className="shrink-0 rounded-md border border-[var(--input-border)] bg-[var(--muted)]/10 px-2 py-1 text-[10px] font-medium text-[var(--muted-foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {loadingFondoCounter ? "Cargando..." : "Cargar contador"}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => copyBlock("CRC", crcCounts, CRC_DENOMINATIONS)}
+                    aria-label={`Copiar ${formatCurrency("CRC", totalCRC).trimStart()}`}
+                    title="Copiar denominaciones"
+                    className={`shrink-0 rounded-md border px-2 py-1 text-[10px] font-medium transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 ${copiedBlock === "CRC" ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-200" : "border-[var(--input-border)] bg-[var(--muted)]/10 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"}`}
+                  >
+                    {copiedBlock === "CRC" ? "Copiado" : "Copiar"}
+                  </button>
+                </div>
               </section>
               <section className="md:border-l md:border-[var(--input-border)] md:pl-6">
                 <h4 className="text-sm font-semibold text-[var(--foreground)] mb-3">
@@ -1566,15 +1652,29 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
                   Saldo registrado: {formatCurrency("USD", currentBalanceUSD)} ·
                   Diferencia: {differenceLabel("USD", diffUSD)}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => copyBlock("USD", usdCounts, USD_DENOMINATIONS)}
-                  aria-label={`Copiar ${formatCurrency("USD", totalUSD).trimStart()}`}
-                  title="Copiar denominaciones"
-                  className={`ml-auto shrink-0 rounded-md border px-2 py-1 text-[10px] font-medium transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 ${copiedBlock === "USD" ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-200" : "border-[var(--input-border)] bg-[var(--muted)]/10 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"}`}
-                >
-                  {copiedBlock === "USD" ? "Copiado" : "Copiar"}
-                </button>
+                <div className="mt-2 flex justify-end gap-2">
+                  {fondoCounterLoad?.currency === "USD" && (
+                    <button
+                      type="button"
+                      onClick={() => void handleLoadFondoCounter()}
+                      disabled={loadingFondoCounter}
+                      aria-label="Cargar denominaciones del contador de Fondo General"
+                      title="Cargar contador de Fondo General"
+                      className="shrink-0 rounded-md border border-[var(--input-border)] bg-[var(--muted)]/10 px-2 py-1 text-[10px] font-medium text-[var(--muted-foreground)] transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {loadingFondoCounter ? "Cargando..." : "Cargar contador"}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => copyBlock("USD", usdCounts, USD_DENOMINATIONS)}
+                    aria-label={`Copiar ${formatCurrency("USD", totalUSD).trimStart()}`}
+                    title="Copiar denominaciones"
+                    className={`shrink-0 rounded-md border px-2 py-1 text-[10px] font-medium transition-colors hover:border-[var(--accent)]/60 hover:bg-[var(--muted)]/20 ${copiedBlock === "USD" ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-200" : "border-[var(--input-border)] bg-[var(--muted)]/10 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"}`}
+                  >
+                    {copiedBlock === "USD" ? "Copiado" : "Copiar"}
+                  </button>
+                </div>
               </section>
             </div>
             {verificationActive && (
