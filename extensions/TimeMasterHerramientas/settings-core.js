@@ -11,6 +11,8 @@
   const TICKET_FONT_SIZE_MAX = 72;
   const MODAL_PAYMENT_FONT_SIZE_MIN = 12;
   const MODAL_PAYMENT_FONT_SIZE_MAX = 36;
+  const MODAL_PAYMENT_CARRYOVER_FONT_SIZE_MIN = 12;
+  const MODAL_PAYMENT_CARRYOVER_FONT_SIZE_MAX = 72;
   const MODAL_PAYMENT_INPUT_HEIGHT_LEVELS = Object.freeze([
     "normal",
     "alto",
@@ -59,7 +61,9 @@
     tmhModalPagoInputsGrandesEnabled: false,
     tmhModalPagoRedimensionarEnabled: false,
     tmhModalPagoFormatoColonesEnabled: false,
+    tmhModalPagoVueltoAnteriorGrandeEnabled: false,
     tmhModalPagoFontSizePx: 18,
+    tmhModalPagoVueltoAnteriorFontSizePx: 32,
     tmhModalPagoInputHeightLevel: "alto",
     tmhModalPagoWidthPx: 0,
     tmhModalPagoHeightPx: 0,
@@ -119,6 +123,14 @@
       : fallback;
   }
 
+  function normalizeModalPaymentCarryoverFontSizePx(value, fallback = 32) {
+    return Number.isInteger(value) &&
+      value >= MODAL_PAYMENT_CARRYOVER_FONT_SIZE_MIN &&
+      value <= MODAL_PAYMENT_CARRYOVER_FONT_SIZE_MAX
+      ? value
+      : fallback;
+  }
+
   function normalizeModalPaymentInputHeightLevel(value, fallback = "alto") {
     return MODAL_PAYMENT_INPUT_HEIGHT_LEVELS.includes(value) ? value : fallback;
   }
@@ -136,6 +148,8 @@
           ? normalizeTicketFontSizePx(raw?.[key], fallback)
           : key === "tmhModalPagoFontSizePx"
             ? normalizeModalPaymentFontSizePx(raw?.[key], fallback)
+            : key === "tmhModalPagoVueltoAnteriorFontSizePx"
+              ? normalizeModalPaymentCarryoverFontSizePx(raw?.[key], fallback)
             : key === "tmhModalPagoInputHeightLevel"
               ? normalizeModalPaymentInputHeightLevel(raw?.[key], fallback)
           : TICKET_FONT_WEIGHT_KEYS.has(key)
@@ -184,6 +198,15 @@
     return normalizeModalPaymentFontSizePx(next, undefined);
   }
 
+  function readChangedModalPaymentCarryoverFontSizePx(changes, key) {
+    const next = changes?.[key]?.newValue;
+    return Number.isInteger(next) &&
+      next >= MODAL_PAYMENT_CARRYOVER_FONT_SIZE_MIN &&
+      next <= MODAL_PAYMENT_CARRYOVER_FONT_SIZE_MAX
+      ? next
+      : undefined;
+  }
+
   function readChangedModalPaymentInputHeightLevel(changes, key) {
     const next = changes?.[key]?.newValue;
     return normalizeModalPaymentInputHeightLevel(next, undefined);
@@ -195,6 +218,8 @@
     TICKET_FONT_SIZE_MAX,
     MODAL_PAYMENT_FONT_SIZE_MIN,
     MODAL_PAYMENT_FONT_SIZE_MAX,
+    MODAL_PAYMENT_CARRYOVER_FONT_SIZE_MIN,
+    MODAL_PAYMENT_CARRYOVER_FONT_SIZE_MAX,
     MODAL_PAYMENT_INPUT_HEIGHT_LEVELS,
     TICKET_FONT_WEIGHTS,
     TICKET_FONT_FAMILIES,
@@ -203,6 +228,7 @@
     normalizeTicketFontWeight,
     normalizeTicketFontFamily,
     normalizeModalPaymentFontSizePx,
+    normalizeModalPaymentCarryoverFontSizePx,
     normalizeModalPaymentInputHeightLevel,
     normalizeStringArray,
     readChangedSetting,
@@ -210,6 +236,7 @@
     readChangedNonNegativeInteger,
     readChangedNonEmptyString,
     readChangedModalPaymentFontSizePx,
+    readChangedModalPaymentCarryoverFontSizePx,
     readChangedModalPaymentInputHeightLevel,
   };
 });

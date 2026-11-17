@@ -37,11 +37,14 @@
   const PAYMENT_MODAL_OPTION_KEYS = Object.freeze([
     "tmhModalPagoTextoGrandeEnabled",
     "tmhModalPagoInputsGrandesEnabled",
+    "tmhModalPagoVueltoAnteriorGrandeEnabled",
     "tmhModalPagoRedimensionarEnabled",
     "tmhModalPagoFormatoColonesEnabled",
   ]);
   const PAYMENT_MODAL_FONT_SIZE_KEY = "tmhModalPagoFontSizePx";
   const PAYMENT_MODAL_INPUT_HEIGHT_KEY = "tmhModalPagoInputHeightLevel";
+  const PAYMENT_MODAL_CARRYOVER_FONT_SIZE_KEY =
+    "tmhModalPagoVueltoAnteriorFontSizePx";
   const TICKET_ENABLED_KEY = "tmhResaltarCodigoTiqueteEnabled";
   const TICKET_SIZE_KEY = "tmhResaltarCodigoTiqueteFontSizePx";
   const TICKET_WEIGHT_KEY = "tmhResaltarCodigoTiqueteFontWeight";
@@ -129,6 +132,9 @@
       const inputHeight = documentRef.getElementById(
         `${PAYMENT_MODAL_INPUT_HEIGHT_KEY}-input`,
       );
+      const carryoverFontSize = documentRef.getElementById(
+        `${PAYMENT_MODAL_CARRYOVER_FONT_SIZE_KEY}-input`,
+      );
       if (fontSize) {
         fontSize.value = String(values[PAYMENT_MODAL_FONT_SIZE_KEY]);
         fontSize.disabled =
@@ -139,6 +145,14 @@
         inputHeight.disabled =
           !enabled || values.tmhModalPagoInputsGrandesEnabled !== true;
       }
+      if (carryoverFontSize) {
+        carryoverFontSize.value = String(
+          values[PAYMENT_MODAL_CARRYOVER_FONT_SIZE_KEY],
+        );
+        carryoverFontSize.disabled =
+          !enabled ||
+          values.tmhModalPagoVueltoAnteriorGrandeEnabled !== true;
+      }
     }
 
     function bindPaymentModalEditors() {
@@ -147,6 +161,9 @@
       );
       const inputHeight = documentRef.getElementById(
         `${PAYMENT_MODAL_INPUT_HEIGHT_KEY}-input`,
+      );
+      const carryoverFontSize = documentRef.getElementById(
+        `${PAYMENT_MODAL_CARRYOVER_FONT_SIZE_KEY}-input`,
       );
       if (fontSize) {
         const handleFontSizeChange = () => {
@@ -200,6 +217,41 @@
         };
         inputHeight.addEventListener("change", handleInputHeightChange);
         listeners.set(PAYMENT_MODAL_INPUT_HEIGHT_KEY, handleInputHeightChange);
+      }
+      if (carryoverFontSize) {
+        const handleCarryoverFontSizeChange = () => {
+          const previous = values[PAYMENT_MODAL_CARRYOVER_FONT_SIZE_KEY];
+          const requested = Number(carryoverFontSize.value);
+          const next = settings.normalizeModalPaymentCarryoverFontSizePx(
+            requested,
+            previous,
+          );
+          if (next !== requested) {
+            renderPaymentModalOptions();
+            return;
+          }
+          if (!settingsLoaded) {
+            changedDuringInitialLoad.add(PAYMENT_MODAL_CARRYOVER_FONT_SIZE_KEY);
+          }
+          carryoverFontSize.disabled = true;
+          chromeApi.storage.local.set(
+            { [PAYMENT_MODAL_CARRYOVER_FONT_SIZE_KEY]: next },
+            () => {
+              if (!chromeApi.runtime.lastError) {
+                values[PAYMENT_MODAL_CARRYOVER_FONT_SIZE_KEY] = next;
+              }
+              renderPaymentModalOptions();
+            },
+          );
+        };
+        carryoverFontSize.addEventListener(
+          "change",
+          handleCarryoverFontSizeChange,
+        );
+        listeners.set(
+          PAYMENT_MODAL_CARRYOVER_FONT_SIZE_KEY,
+          handleCarryoverFontSizeChange,
+        );
       }
     }
 
@@ -665,6 +717,18 @@
         values[PAYMENT_MODAL_INPUT_HEIGHT_KEY] = nextInputHeight;
         renderPaymentModalOptions();
       }
+      const nextCarryoverFontSize =
+        settings.readChangedModalPaymentCarryoverFontSizePx(
+          changes,
+          PAYMENT_MODAL_CARRYOVER_FONT_SIZE_KEY,
+        );
+      if (nextCarryoverFontSize !== undefined) {
+        if (!settingsLoaded) {
+          changedDuringInitialLoad.add(PAYMENT_MODAL_CARRYOVER_FONT_SIZE_KEY);
+        }
+        values[PAYMENT_MODAL_CARRYOVER_FONT_SIZE_KEY] = nextCarryoverFontSize;
+        renderPaymentModalOptions();
+      }
       for (const { enabledKey } of LINE_CONFIG_LAUNCHERS) {
         const next = changes?.[enabledKey]?.newValue;
         if (typeof next !== "boolean") continue;
@@ -726,6 +790,10 @@
         } else if (key === PAYMENT_MODAL_INPUT_HEIGHT_KEY) {
           documentRef
             .getElementById(`${PAYMENT_MODAL_INPUT_HEIGHT_KEY}-input`)
+            ?.removeEventListener("change", listener);
+        } else if (key === PAYMENT_MODAL_CARRYOVER_FONT_SIZE_KEY) {
+          documentRef
+            .getElementById(`${PAYMENT_MODAL_CARRYOVER_FONT_SIZE_KEY}-input`)
             ?.removeEventListener("change", listener);
         } else if (key === TICKET_ENABLED_KEY) {
           elements(TICKET_ENABLED_KEY).toggle?.removeEventListener(

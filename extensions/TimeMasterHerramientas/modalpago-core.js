@@ -8,6 +8,7 @@
   "use strict";
 
   const MODAL_SELECTOR = ".modal-dialog.modal-pago-w";
+  const CARRYOVER_VALUE_SELECTOR = ".pv-sale-summary__carryover-value";
   const MAX_CRC_AMOUNT = 1000000;
   const INPUT_HEIGHT_BY_LEVEL = Object.freeze({
     alto: 52,
@@ -51,6 +52,7 @@
     const baseMeasurements = new WeakMap();
     const formattedInputStates = new WeakMap();
     const formattedInputs = new Set();
+    const styledCarryoverValues = new Set();
     const inputsDispatchingNativeValue = new WeakSet();
     let started = false;
     let mutationObserver = null;
@@ -58,8 +60,10 @@
     let inputScaleEnabled = false;
     let resizeEnabled = false;
     let currencyFormatEnabled = false;
+    let carryoverValueScaleEnabled = false;
     let textFontSizePx = 18;
     let inputHeightLevel = "alto";
+    let carryoverValueFontSizePx = 32;
     let savedSize = { widthPx: 0, heightPx: 0 };
 
     function normalizeDimension(value) {
@@ -237,7 +241,35 @@
       for (const dialog of documentRef.querySelectorAll(MODAL_SELECTOR)) {
         applyDialogFeatures(dialog);
       }
+      syncCarryoverValues();
       syncFormattedInputs();
+    }
+
+    function clearCarryoverValue(value) {
+      value.classList.remove("tmh-sale-carryover--large-value");
+      value.style.removeProperty("--tmh-sale-carryover-value-font-size");
+      styledCarryoverValues.delete(value);
+    }
+
+    function syncCarryoverValues() {
+      for (const value of [...styledCarryoverValues]) {
+        if (
+          !started ||
+          !carryoverValueScaleEnabled ||
+          !value.matches(CARRYOVER_VALUE_SELECTOR)
+        ) {
+          clearCarryoverValue(value);
+        }
+      }
+      if (!started || !carryoverValueScaleEnabled) return;
+      for (const value of documentRef.querySelectorAll(CARRYOVER_VALUE_SELECTOR)) {
+        value.classList.add("tmh-sale-carryover--large-value");
+        value.style.setProperty(
+          "--tmh-sale-carryover-value-font-size",
+          `${carryoverValueFontSizePx}px`,
+        );
+        styledCarryoverValues.add(value);
+      }
     }
 
     function isCrcAmountInput(input) {
@@ -398,6 +430,7 @@
       }
       for (const dialog of [...modifiedDialogs]) restoreSize(dialog);
       for (const input of [...formattedInputs]) uninstallValueProxy(input);
+      for (const value of [...styledCarryoverValues]) clearCarryoverValue(value);
     }
 
     function setTextScaleEnabled(enabled) {
@@ -434,6 +467,18 @@
       syncFormattedInputs();
     }
 
+    function setCarryoverValueScaleEnabled(enabled) {
+      carryoverValueScaleEnabled = enabled === true;
+      syncCarryoverValues();
+    }
+
+    function setCarryoverValueFontSizePx(sizePx) {
+      if (Number.isInteger(sizePx) && sizePx >= 12 && sizePx <= 72) {
+        carryoverValueFontSizePx = sizePx;
+        syncCarryoverValues();
+      }
+    }
+
     function setSavedSize(size = {}) {
       savedSize = {
         widthPx: normalizeDimension(size.widthPx),
@@ -460,6 +505,8 @@
       setInputHeightLevel,
       setResizeEnabled,
       setCurrencyFormatEnabled,
+      setCarryoverValueScaleEnabled,
+      setCarryoverValueFontSizePx,
       setSavedSize,
     };
   }

@@ -90,7 +90,11 @@
   const MODAL_PAGO_INPUTS_SETTING_KEY = "tmhModalPagoInputsGrandesEnabled";
   const MODAL_PAGO_RESIZE_SETTING_KEY = "tmhModalPagoRedimensionarEnabled";
   const MODAL_PAGO_FORMAT_SETTING_KEY = "tmhModalPagoFormatoColonesEnabled";
+  const MODAL_PAGO_CARRYOVER_SETTING_KEY =
+    "tmhModalPagoVueltoAnteriorGrandeEnabled";
   const MODAL_PAGO_FONT_SIZE_SETTING_KEY = "tmhModalPagoFontSizePx";
+  const MODAL_PAGO_CARRYOVER_FONT_SIZE_SETTING_KEY =
+    "tmhModalPagoVueltoAnteriorFontSizePx";
   const MODAL_PAGO_INPUT_HEIGHT_SETTING_KEY = "tmhModalPagoInputHeightLevel";
   const MODAL_PAGO_WIDTH_SETTING_KEY = "tmhModalPagoWidthPx";
   const MODAL_PAGO_HEIGHT_SETTING_KEY = "tmhModalPagoHeightPx";
@@ -129,6 +133,8 @@
       setInputHeightLevel() {},
       setResizeEnabled() {},
       setCurrencyFormatEnabled() {},
+      setCarryoverValueScaleEnabled() {},
+      setCarryoverValueFontSizePx() {},
       setSavedSize() {},
     };
     const printShortcut = printShortcutBridge || { setEnabled() {} };
@@ -199,8 +205,16 @@
       syncPaymentModalFormat();
     }
 
+    function applyModalPagoCarryoverEnabled(enabled) {
+      paymentModal.setCarryoverValueScaleEnabled(enabled === true);
+    }
+
     function applyModalPagoFontSize(sizePx) {
       paymentModal.setTextFontSizePx(sizePx);
+    }
+
+    function applyModalPagoCarryoverFontSize(sizePx) {
+      paymentModal.setCarryoverValueFontSizePx(sizePx);
     }
 
     function applyModalPagoInputHeight(level) {
@@ -288,6 +302,7 @@
         [MODAL_PAGO_INPUTS_SETTING_KEY, applyModalPagoInputsEnabled],
         [MODAL_PAGO_RESIZE_SETTING_KEY, applyModalPagoResizeEnabled],
         [MODAL_PAGO_FORMAT_SETTING_KEY, applyModalPagoFormatEnabled],
+        [MODAL_PAGO_CARRYOVER_SETTING_KEY, applyModalPagoCarryoverEnabled],
       ];
       for (const [key, apply] of modalPagoSettings) {
         const enabled = settingsCore.readChangedSetting(changes, key);
@@ -319,6 +334,19 @@
       if (modalFontSize !== undefined) {
         if (!settingsLoaded) changedDuringInitialLoad.add(MODAL_PAGO_FONT_SIZE_SETTING_KEY);
         applyModalPagoFontSize(modalFontSize);
+      }
+      const modalCarryoverFontSize =
+        settingsCore.readChangedModalPaymentCarryoverFontSizePx(
+          changes,
+          MODAL_PAGO_CARRYOVER_FONT_SIZE_SETTING_KEY,
+        );
+      if (modalCarryoverFontSize !== undefined) {
+        if (!settingsLoaded) {
+          changedDuringInitialLoad.add(
+            MODAL_PAGO_CARRYOVER_FONT_SIZE_SETTING_KEY,
+          );
+        }
+        applyModalPagoCarryoverFontSize(modalCarryoverFontSize);
       }
       const modalInputHeight =
         settingsCore.readChangedModalPaymentInputHeightLevel(
@@ -385,12 +413,22 @@
           [MODAL_PAGO_INPUTS_SETTING_KEY, applyModalPagoInputsEnabled],
           [MODAL_PAGO_RESIZE_SETTING_KEY, applyModalPagoResizeEnabled],
           [MODAL_PAGO_FORMAT_SETTING_KEY, applyModalPagoFormatEnabled],
+          [MODAL_PAGO_CARRYOVER_SETTING_KEY, applyModalPagoCarryoverEnabled],
         ];
         for (const [key, apply] of modalPagoSettings) {
           if (!changedDuringInitialLoad.has(key)) apply(normalized[key]);
         }
         if (!changedDuringInitialLoad.has(MODAL_PAGO_FONT_SIZE_SETTING_KEY)) {
           applyModalPagoFontSize(normalized[MODAL_PAGO_FONT_SIZE_SETTING_KEY]);
+        }
+        if (
+          !changedDuringInitialLoad.has(
+            MODAL_PAGO_CARRYOVER_FONT_SIZE_SETTING_KEY,
+          )
+        ) {
+          applyModalPagoCarryoverFontSize(
+            normalized[MODAL_PAGO_CARRYOVER_FONT_SIZE_SETTING_KEY],
+          );
         }
         if (!changedDuringInitialLoad.has(MODAL_PAGO_INPUT_HEIGHT_SETTING_KEY)) {
           applyModalPagoInputHeight(normalized[MODAL_PAGO_INPUT_HEIGHT_SETTING_KEY]);

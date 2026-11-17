@@ -62,6 +62,11 @@
   font-size: revert !important;
 }
 
+.pv-sale-summary__carryover-value.tmh-sale-carryover--large-value {
+  font-size: var(--tmh-sale-carryover-value-font-size, 32px) !important;
+  line-height: 1.2 !important;
+}
+
 .modal-dialog.modal-pago-w.tmh-payment-modal--shortfall .pv-pay__change .pv-pay__label,
 .modal-dialog.modal-pago-w.tmh-payment-modal--shortfall .pv-pay__change .pv-pay__symbol,
 .modal-dialog.modal-pago-w.tmh-payment-modal--shortfall .pv-pay__change .pv-pay__figure--change {

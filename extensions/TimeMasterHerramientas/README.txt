@@ -1,4 +1,4 @@
-TIMEMASTER HERRAMIENTAS 1.2.12
+TIMEMASTER HERRAMIENTAS 1.2.13
 ================================
 
 Esta extensión reúne CambioTab, división de efectivo, movimiento entre medios
@@ -22,7 +22,7 @@ CONTROLES Y VALORES INICIALES
 - Cierre del modal de impresión en Contica: desactivado.
 - División de efectivo en Contica: desactivada.
 - Movimiento entre medios de pago en Contica: desactivado.
-- Modal de monto de pago en Contica: desactivado; sus cuatro opciones también.
+- Modal de monto de pago en Contica: desactivado; sus cinco opciones también.
 - SumaTiempos en Gente Crystal: activado.
 - Ingresar venta con Ctrl+Enter en Gente Crystal: desactivado.
 - Impresión automática en Gente Crystal: desactivada.
@@ -91,10 +91,15 @@ MODAL DE MONTO DE PAGO EN CONTICA
 Sitio: https://contica.app/app/modules/punto_de_venta/*
 
 Desactivado por defecto. Al activar la opción principal, el popup muestra una
-lista con cuatro características independientes: texto más grande, inputs más
-altos, redimensionar el modal desde sus esquinas y formato de montos en colones.
+lista con cinco características independientes: texto más grande, inputs más
+altos, monto de vuelto anterior más grande, redimensionar el modal desde sus
+esquinas y formato de montos en colones.
 El tamaño del texto puede ajustarse entre 12 y 36 px. Los inputs permiten elegir
 la altura Actual, Alto (52 px) o Muy alto (64 px).
+
+El tamaño del monto “Vuelto de la factura anterior” puede ajustarse entre 12 y
+72 px; el valor inicial es 32 px. Solo cambia
+`.pv-sale-summary__carryover-value`, no su título ni otros totales.
 
 El redimensionado guarda el último ancho y alto usados para las siguientes
 aperturas y aumenta proporcionalmente el texto y los campos al agrandar el
