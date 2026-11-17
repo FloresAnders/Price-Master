@@ -1357,7 +1357,7 @@ const DailyClosingModal: React.FC<DailyClosingModalProps> = ({
       }
       onRequestClose={onClose}
       aria-labelledby="daily-closing-modal-title"
-      className="m-auto flex max-h-[95vh] w-[calc(100%_-_2rem)] max-w-full flex-col overflow-hidden rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-0 text-[var(--foreground)] shadow-lg sm:max-w-4xl"
+      className="m-auto open:flex max-h-[95vh] w-[calc(100%_-_2rem)] max-w-full flex-col overflow-hidden rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-0 text-[var(--foreground)] shadow-lg sm:max-w-4xl"
     >
         <div className="flex items-center justify-between gap-4 p-5 pb-0">
           <div className="flex-1" />

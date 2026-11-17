@@ -169,3 +169,9 @@ android/*
 
 # Omitir codigo y recursos Android generados/locales
 /android/app/src/
+
+# Archivos locales omitidos del repositorio
+/data/
+/extensions/
+*.test
+*.test.*
