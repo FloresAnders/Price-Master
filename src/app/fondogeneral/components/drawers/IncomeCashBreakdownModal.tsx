@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Minus, Plus, X } from "lucide-react";
+import { ModalDialog } from "@/components/ui/ModalDialog";
 import {
   CRC_CASH_BILL_DENOMINATIONS,
   type FondoGeneralIncomeSuggestion,
@@ -52,6 +52,7 @@ export function CashBreakdownModal({
     {},
   );
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const titleId = useId();
   const holdDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const holdRepeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const heldActionRef = useRef<(() => void) | null>(null);
@@ -231,20 +232,19 @@ export function CashBreakdownModal({
     onClose();
   };
 
-  if (typeof document === "undefined") return null;
-
-  return createPortal(
-    <div className="fixed inset-0 z-[100001] flex items-center justify-center bg-black/70 p-3">
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="cash-breakdown-title"
-        className="w-full max-w-xs rounded-xl border border-emerald-400/30 bg-[#0d1117] p-4 text-white shadow-2xl"
+  return (
+      <ModalDialog
+        open
+        dismissible={!disabled}
+        onRequestClose={onClose}
+        aria-labelledby={titleId}
+        data-backdrop-blur="true"
+        className="m-auto w-[calc(100%_-_1.5rem)] max-w-xs rounded-xl border border-emerald-400/30 bg-[#0d1117] p-4 text-white shadow-2xl"
       >
         <div className="flex items-center justify-between gap-3">
           <div>
             <h3
-              id="cash-breakdown-title"
+              id={titleId}
               className="font-semibold text-emerald-100"
             >
               {title}
@@ -300,6 +300,7 @@ export function CashBreakdownModal({
                     inputRefs.current[index] = element;
                   }}
                   type="text"
+                  autoFocus={index === 0}
                   inputMode="numeric"
                   aria-label={`Cantidad de billetes de ${formatCRC(denomination)}`}
                   value={
@@ -372,9 +373,7 @@ export function CashBreakdownModal({
             Aplicar billetes
           </button>
         </div>
-      </div>
-    </div>,
-    document.body,
+      </ModalDialog>
   );
 }
 

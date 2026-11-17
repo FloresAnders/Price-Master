@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -118,5 +118,23 @@ describe("FondoFiltersToolbar accessibility", () => {
     expect(viewButton.hasAttribute("aria-haspopup")).toBe(false);
     expect(viewButton.getAttribute("aria-expanded")).toBe("true");
     expect(viewButton.getAttribute("aria-controls")).toBeTruthy();
+  });
+
+  it("navigates and selects combobox options from the keyboard", () => {
+    const props = createProps();
+    render(<FondoFiltersToolbar {...props} />);
+
+    const provider = screen.getByRole("combobox", { name: "Proveedor" });
+    fireEvent.keyDown(provider, { key: "ArrowDown" });
+    expect(provider.getAttribute("aria-activedescendant")).toBeTruthy();
+    fireEvent.keyDown(provider, { key: "Enter" });
+    expect(props.setFilterProviderCode).toHaveBeenCalledWith("P001");
+    expect(props.setIsProviderDropdownOpen).toHaveBeenCalledWith(false);
+
+    const movementType = screen.getByRole("combobox", {
+      name: "Tipo de movimiento",
+    });
+    fireEvent.keyDown(movementType, { key: "Escape" });
+    expect(props.setIsTypeDropdownOpen).toHaveBeenCalledWith(false);
   });
 });

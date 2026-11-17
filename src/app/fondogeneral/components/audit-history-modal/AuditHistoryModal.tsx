@@ -5,6 +5,7 @@ import { X, History } from "lucide-react";
 import type { AuditHistoryModalProps } from "./AuditHistoryModal.types";
 import { LEGEND } from "./AuditHistoryModal.utils";
 import { AuditHistoryItem } from "./AuditHistoryModalItem";
+import { ModalDialog } from "@/components/ui/ModalDialog";
 
 // ── Legend ─────────────────────────────────────────────
 
@@ -48,6 +49,7 @@ function Header({ onClose, subtitle }: { onClose: () => void; subtitle: string }
       </div>
       <button
         type="button" onClick={onClose}
+        aria-label="Cerrar historial de ediciÃ³n"
         className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--muted-foreground)] transition-colors hover:border-[var(--accent)]/60 hover:text-[var(--foreground)]"
       >
         <X className="h-4 w-4" strokeWidth={1.5} />
@@ -85,12 +87,14 @@ export function AuditHistoryModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 pt-10 pb-8" onClick={onClose}>
-      <div className="fixed inset-0 -z-10 bg-black/60 backdrop-blur-sm" />
-      <div
-        className="relative w-full max-w-2xl overflow-hidden rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)] shadow-[0_18px_60px_rgba(0,0,0,0.35)]"
-        onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="audit-modal-title"
-      >
+    <ModalDialog
+      open={open}
+      lightDismiss
+      onRequestClose={onClose}
+      aria-labelledby="audit-modal-title"
+      data-backdrop-blur="true"
+      className="m-auto max-h-[calc(100vh-2rem)] w-[calc(100%_-_2rem)] max-w-2xl overflow-hidden rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)] p-0 shadow-[0_18px_60px_rgba(0,0,0,0.35)]"
+    >
         <Header onClose={onClose} subtitle={subtitle} />
 
         <div className="max-h-[70vh] overflow-y-auto p-5 sm:p-6">
@@ -117,7 +121,6 @@ export function AuditHistoryModal({
         </div>
 
         <Footer onClose={onClose} />
-      </div>
-    </div>
+    </ModalDialog>
   );
 }

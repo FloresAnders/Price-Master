@@ -7,6 +7,7 @@ import {
   parseCashCountClipboard,
   parseBillCountInput,
 } from "@/components/business/cash-counter-tabs/utils";
+import { ModalDialog } from "@/components/ui/ModalDialog";
 
 const CRC_DENOMINATIONS: readonly number[] = [
   20000, 10000, 5000, 2000, 1000, 500, 100, 50, 25,
@@ -123,7 +124,7 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
   persistDraft = true,
   draftStorageKey = CASH_OPENING_MODAL_DRAFT_KEY,
 }) => {
-  const modalRef = useRef<HTMLDivElement | null>(null);
+  const modalRef = useRef<HTMLDialogElement | null>(null);
   const managerFieldRef = useRef<HTMLSelectElement | HTMLInputElement | null>(null);
   const openingDraftLoadedRef = useRef(false);
   const skipNextOpeningDraftWriteRef = useRef(false);
@@ -492,42 +493,18 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
     }
   }, [open, persistDraft, draftStorageKey, manager, notes, crcCounts, usdCounts]);
 
-  useEffect(() => {
-    if (!open) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      event.stopPropagation();
-      if (!required) onClose();
-    };
-
-    window.addEventListener("keydown", handleKeyDown, true);
-    return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [open, onClose, required]);
-
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
-      onClick={required ? undefined : onClose}
+    <ModalDialog
+      ref={modalRef}
+      open={open}
+      dismissible={!required}
+      lightDismiss={!required}
+      onRequestClose={onClose}
+      aria-labelledby="cash-opening-title"
+      className="m-auto flex max-h-[95vh] w-[calc(100%_-_2rem)] max-w-6xl flex-col overflow-hidden rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)] p-0 text-[var(--foreground)] shadow-2xl shadow-black/40"
     >
-      <div
-        ref={modalRef}
-        tabIndex={-1}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="cash-opening-title"
-        className="flex max-h-[95vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] shadow-2xl shadow-black/40"
-        onClick={(event) => event.stopPropagation()}
-        onKeyDownCapture={(event) => {
-          if (event.key !== "Escape") return;
-          event.preventDefault();
-          event.stopPropagation();
-          if (!required) onClose();
-        }}
-      >
         <div className="relative border-b border-[var(--input-border)] px-6 py-5">
           {!required ? (
             <button
@@ -826,8 +803,7 @@ const CashOpeningModal: React.FC<CashOpeningModalProps> = ({
             </div>
           </div>
         </div>
-      </div>
-    </div>
+    </ModalDialog>
   );
 };
 

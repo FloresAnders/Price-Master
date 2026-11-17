@@ -2,7 +2,9 @@ import {
   type Dispatch,
   type MutableRefObject,
   type SetStateAction,
+  useEffect,
   useId,
+  useState,
 } from "react";
 import {
   Banknote,
@@ -179,6 +181,82 @@ export function FondoFiltersToolbar({
   const typeInputId = useId();
   const typeListboxId = useId();
   const viewPanelId = useId();
+  const [providerActiveIndex, setProviderActiveIndex] = useState(-1);
+  const [typeActiveIndex, setTypeActiveIndex] = useState(-1);
+  const providerOptions = [
+    ...(providerSearchInput.trim() === ""
+      ? [{ code: "all", name: "Todos los proveedores" }]
+      : []),
+    ...filteredProvidersForFilter,
+  ];
+  const typeSearch = typeSearchInput.toLowerCase().trim();
+  const visibleTypeGroups = [
+    { group: "Ingresos", types: FONDO_INGRESO_TYPES },
+    { group: "Gastos", types: FONDO_GASTO_TYPES },
+    { group: "Egresos", types: FONDO_EGRESO_TYPES },
+  ].map(({ group, types }) => ({
+    group,
+    types: typeSearch
+      ? types.filter(
+          (type) =>
+            formatMovementType(type).toLowerCase().includes(typeSearch) ||
+            type.toLowerCase().includes(typeSearch),
+        )
+      : types,
+  }));
+  const typeOptions = [
+    ...(typeSearch === "" ? ["all"] : []),
+    ...visibleTypeGroups.flatMap(({ types }) => types),
+  ];
+  const providerOptionId = (index: number) =>
+    `${providerListboxId}-option-${index}`;
+  const typeOptionId = (index: number) => `${typeListboxId}-option-${index}`;
+
+  useEffect(() => {
+    if (providerActiveIndex < 0) return;
+    document
+      .getElementById(`${providerListboxId}-option-${providerActiveIndex}`)
+      ?.scrollIntoView?.({ block: "nearest" });
+  }, [providerActiveIndex, providerListboxId]);
+
+  useEffect(() => {
+    if (typeActiveIndex < 0) return;
+    document
+      .getElementById(`${typeListboxId}-option-${typeActiveIndex}`)
+      ?.scrollIntoView?.({ block: "nearest" });
+  }, [typeActiveIndex, typeListboxId]);
+
+  const selectProviderOption = (index: number) => {
+    const option = providerOptions[index];
+    if (!option) return;
+    if (option.code === "all") {
+      setFilterProviderCode("all");
+      setProviderFilter("");
+      setProviderSearchInput("");
+    } else {
+      setFilterProviderCode(option.code);
+      setProviderFilter(`${option.name} (${option.code})`);
+      setProviderSearchInput(`${option.name} (${option.code})`);
+    }
+    setIsProviderDropdownOpen(false);
+    setProviderActiveIndex(-1);
+  };
+
+  const selectTypeOption = (index: number) => {
+    const option = typeOptions[index];
+    if (!option) return;
+    if (option === "all") {
+      setFilterPaymentType("all");
+      setTypeFilter("");
+      setTypeSearchInput("");
+    } else {
+      setFilterPaymentType(option);
+      setTypeFilter(formatMovementType(option));
+      setTypeSearchInput(formatMovementType(option));
+    }
+    setIsTypeDropdownOpen(false);
+    setTypeActiveIndex(-1);
+  };
 
   return (
     <section className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/70 p-2 sm:p-3 md:p-4 space-y-3 sm:space-y-4">
@@ -210,20 +288,47 @@ export function FondoFiltersToolbar({
               aria-autocomplete="list"
               aria-controls={providerListboxId}
               aria-expanded={isProviderDropdownOpen && !movementProvidersLoading}
+              aria-activedescendant={
+                isProviderDropdownOpen && providerActiveIndex >= 0
+                  ? providerOptionId(providerActiveIndex)
+                  : undefined
+              }
               value={providerSearchInput}
               onChange={(e) => {
                 const value = e.target.value;
                 setProviderSearchInput(value);
                 setIsProviderDropdownOpen(true);
+                setProviderActiveIndex(-1);
                 if (value.trim() === "") {
                   setFilterProviderCode("all");
                   setProviderFilter("");
                 }
               }}
               onFocus={() => setIsProviderDropdownOpen(true)}
-              onBlur={() => {
-                setTimeout(() => setIsProviderDropdownOpen(false), 200);
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  setIsProviderDropdownOpen(false);
+                  setProviderActiveIndex(-1);
+                  return;
+                }
+                if (event.key === "Enter" && isProviderDropdownOpen) {
+                  event.preventDefault();
+                  selectProviderOption(providerActiveIndex);
+                  return;
+                }
+                if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+                event.preventDefault();
+                setIsProviderDropdownOpen(true);
+                setProviderActiveIndex((current) => {
+                  if (providerOptions.length === 0) return -1;
+                  if (event.key === "ArrowDown") {
+                    return current < providerOptions.length - 1 ? current + 1 : 0;
+                  }
+                  return current > 0 ? current - 1 : providerOptions.length - 1;
+                });
               }}
+              onBlur={() => setIsProviderDropdownOpen(false)}
               className={`h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)] ${
                 filterProviderCode !== "all" ? "pl-10 pr-11" : "pr-11"
               }`}
@@ -246,44 +351,49 @@ export function FondoFiltersToolbar({
             >
               {providerSearchInput.trim() === "" && (
                 <button
+                  id={providerOptionId(0)}
                   type="button"
                   role="option"
+                  tabIndex={-1}
                   aria-selected={filterProviderCode === "all"}
                   className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
-                    filterProviderCode === "all"
+                    providerActiveIndex === 0
+                      ? "bg-cyan-950/80 text-cyan-50 outline outline-1 outline-cyan-400/60"
+                      : filterProviderCode === "all"
                       ? "bg-cyan-500/20 text-cyan-50"
                       : "text-cyan-100/70"
                   }`}
                   onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => {
-                    setFilterProviderCode("all");
-                    setProviderFilter("");
-                    setProviderSearchInput("");
-                    setIsProviderDropdownOpen(false);
-                  }}
+                  onClick={() => selectProviderOption(0)}
                 >
                   Todos los proveedores
                 </button>
               )}
               {filteredProvidersForFilter.length > 0 ? (
-                filteredProvidersForFilter.map((p) => (
+                filteredProvidersForFilter.map((p, index) => (
                   <button
+                    id={providerOptionId(
+                      index + (providerSearchInput.trim() === "" ? 1 : 0),
+                    )}
                     key={p.code}
                     type="button"
                     role="option"
+                    tabIndex={-1}
                     aria-selected={filterProviderCode === p.code}
                     className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
-                      filterProviderCode === p.code
+                      providerActiveIndex ===
+                      index + (providerSearchInput.trim() === "" ? 1 : 0)
+                        ? "bg-cyan-950/80 text-cyan-50 outline outline-1 outline-cyan-400/60"
+                        : filterProviderCode === p.code
                         ? "bg-cyan-500/20 text-cyan-50"
                         : "text-[var(--foreground)]"
                     }`}
                     onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => {
-                      setFilterProviderCode(p.code);
-                      setProviderFilter(`${p.name} (${p.code})`);
-                      setProviderSearchInput(`${p.name} (${p.code})`);
-                      setIsProviderDropdownOpen(false);
-                    }}
+                    onClick={() =>
+                      selectProviderOption(
+                        index + (providerSearchInput.trim() === "" ? 1 : 0),
+                      )
+                    }
                   >
                     {p.name} ({p.code})
                   </button>
@@ -324,20 +434,47 @@ export function FondoFiltersToolbar({
               aria-autocomplete="list"
               aria-controls={typeListboxId}
               aria-expanded={isTypeDropdownOpen}
+              aria-activedescendant={
+                isTypeDropdownOpen && typeActiveIndex >= 0
+                  ? typeOptionId(typeActiveIndex)
+                  : undefined
+              }
               value={typeSearchInput}
               onChange={(e) => {
                 const value = e.target.value;
                 setTypeSearchInput(value);
                 setIsTypeDropdownOpen(true);
+                setTypeActiveIndex(-1);
                 if (value.trim() === "") {
                   setFilterPaymentType("all");
                   setTypeFilter("");
                 }
               }}
               onFocus={() => setIsTypeDropdownOpen(true)}
-              onBlur={() => {
-                setTimeout(() => setIsTypeDropdownOpen(false), 200);
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  setIsTypeDropdownOpen(false);
+                  setTypeActiveIndex(-1);
+                  return;
+                }
+                if (event.key === "Enter" && isTypeDropdownOpen) {
+                  event.preventDefault();
+                  selectTypeOption(typeActiveIndex);
+                  return;
+                }
+                if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+                event.preventDefault();
+                setIsTypeDropdownOpen(true);
+                setTypeActiveIndex((current) => {
+                  if (typeOptions.length === 0) return -1;
+                  if (event.key === "ArrowDown") {
+                    return current < typeOptions.length - 1 ? current + 1 : 0;
+                  }
+                  return current > 0 ? current - 1 : typeOptions.length - 1;
+                });
               }}
+              onBlur={() => setIsTypeDropdownOpen(false)}
               className={`h-11 w-full rounded border border-cyan-700/35 bg-cyan-950/25 text-sm text-[var(--foreground)] outline-none transition-colors placeholder:text-cyan-100/70 hover:border-cyan-500/45 focus:border-[var(--accent)] ${
                 filterPaymentType !== "all" ? "pl-10 pr-11" : "pr-11"
               }`}
@@ -356,43 +493,27 @@ export function FondoFiltersToolbar({
             >
               {typeSearchInput.trim() === "" && (
                 <button
+                  id={typeOptionId(0)}
                   type="button"
                   role="option"
+                  tabIndex={-1}
                   aria-selected={filterPaymentType === "all"}
                   className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
-                    filterPaymentType === "all"
+                    typeActiveIndex === 0
+                      ? "bg-cyan-950/80 text-cyan-50 outline outline-1 outline-cyan-400/60"
+                      : filterPaymentType === "all"
                       ? "bg-cyan-500/20 text-cyan-50"
                       : "text-cyan-100/70"
                   }`}
                   onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => {
-                    setFilterPaymentType("all");
-                    setTypeFilter("");
-                    setTypeSearchInput("");
-                    setIsTypeDropdownOpen(false);
-                  }}
+                  onClick={() => selectTypeOption(0)}
                 >
                   Todos los tipos
                 </button>
               )}
-              {(() => {
-                const search = typeSearchInput.toLowerCase().trim();
-                const hasFilter = search !== "";
-                const groups = [
-                  { group: "Ingresos", types: FONDO_INGRESO_TYPES },
-                  { group: "Gastos", types: FONDO_GASTO_TYPES },
-                  { group: "Egresos", types: FONDO_EGRESO_TYPES },
-                ];
-                return groups.map(({ group, types }) => {
-                  const filtered = hasFilter
-                    ? types.filter(
-                        (t) =>
-                          formatMovementType(t).toLowerCase().includes(search) ||
-                          t.toLowerCase().includes(search),
-                      )
-                    : types;
-                  if (filtered.length === 0) return null;
-                  return (
+              {visibleTypeGroups.map(({ group, types }) => {
+                if (types.length === 0) return null;
+                return (
                     <div key={group} role="group" aria-label={group}>
                       <div
                         aria-hidden="true"
@@ -400,32 +521,33 @@ export function FondoFiltersToolbar({
                       >
                         {group}
                       </div>
-                      {filtered.map((t) => (
-                        <button
-                          key={t}
-                          type="button"
-                          role="option"
-                          aria-selected={filterPaymentType === t}
-                          className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
-                            filterPaymentType === t
-                              ? "bg-cyan-500/20 text-cyan-50"
-                              : "text-[var(--foreground)]"
-                          }`}
-                          onMouseDown={(event) => event.preventDefault()}
-                          onClick={() => {
-                            setFilterPaymentType(t);
-                            setTypeFilter(formatMovementType(t));
-                            setTypeSearchInput(formatMovementType(t));
-                            setIsTypeDropdownOpen(false);
-                          }}
-                        >
-                          {formatMovementType(t)}
-                        </button>
-                      ))}
+                      {types.map((t) => {
+                        const optionIndex = typeOptions.indexOf(t);
+                        return (
+                          <button
+                            id={typeOptionId(optionIndex)}
+                            key={t}
+                            type="button"
+                            role="option"
+                            tabIndex={-1}
+                            aria-selected={filterPaymentType === t}
+                            className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
+                              typeActiveIndex === optionIndex
+                                ? "bg-cyan-950/80 text-cyan-50 outline outline-1 outline-cyan-400/60"
+                                : filterPaymentType === t
+                                ? "bg-cyan-500/20 text-cyan-50"
+                                : "text-[var(--foreground)]"
+                            }`}
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => selectTypeOption(optionIndex)}
+                          >
+                            {formatMovementType(t)}
+                          </button>
+                        );
+                      })}
                     </div>
                   );
-                });
-              })()}
+              })}
             </div>
           )}
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import ConfirmModal from "../../../components/ui/ConfirmModal";
+import { ModalDialog } from "../../../components/ui/ModalDialog";
 import { AlertCircle, CheckCircle2, X } from "lucide-react";
 
 type ConfirmDeleteEntry = {
@@ -34,25 +35,13 @@ export function FondoConfirmModals({
   return (
     <>
       {confirmPhysicalCountOpen ? (
-        <div
-          className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 px-3"
-          onClick={handleCancelPhysicalCount}
-          role="presentation"
+        <ModalDialog
+          open
+          lightDismiss
+          onRequestClose={handleCancelPhysicalCount}
+          aria-labelledby="confirm-physical-title"
+          className="m-auto flex min-h-[calc(100vh-2rem)] w-[calc(100%_-_1.5rem)] max-w-xl items-center justify-center rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)] p-5 text-[var(--foreground)] shadow-2xl shadow-black/40 sm:min-h-0 sm:p-6"
         >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="confirm-physical-title"
-            className="relative w-full max-w-xl rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)] p-5 text-[var(--foreground)] shadow-2xl shadow-black/40 sm:p-6 flex items-center justify-center min-h-screen md:min-h-0"
-            onClick={(event) => event.stopPropagation()}
-            onKeyDownCapture={(event) => {
-              if (event.key !== "Escape") return;
-              event.preventDefault();
-              event.stopPropagation();
-              handleCancelPhysicalCount();
-            }}
-            tabIndex={-1}
-          >
             <button
               type="button"
               onClick={handleCancelPhysicalCount}
@@ -83,6 +72,7 @@ export function FondoConfirmModals({
               <div className="flex items-center justify-center gap-3 mt-2">
                 <button
                   type="button"
+                  autoFocus
                   onClick={handleOpenCashOpening}
                   className="inline-flex h-11 w-full max-w-[120%] min-w-[160px] items-center justify-center rounded-xl border border-orange-500/30 bg-gradient-to-r from-orange-600 to-yellow-600 px-8 py-2.5 text-sm font-semibold text-white shadow-lg transition-all hover:shadow-xl hover:brightness-110 active:scale-[0.98]"
                   title="Proceder con apertura de fondo"
@@ -92,8 +82,7 @@ export function FondoConfirmModals({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+        </ModalDialog>
       ) : null}
 
       <ConfirmModal

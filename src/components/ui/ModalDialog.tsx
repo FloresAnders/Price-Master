@@ -8,6 +8,7 @@ type ModalDialogProps = Omit<
 > & {
   open: boolean;
   dismissible?: boolean;
+  lightDismiss?: boolean;
   onRequestClose: () => void;
 };
 
@@ -16,6 +17,7 @@ export const ModalDialog = forwardRef<HTMLDialogElement, ModalDialogProps>(
     {
       open,
       dismissible = true,
+      lightDismiss = false,
       onRequestClose,
       children,
       ...dialogProps
@@ -23,6 +25,7 @@ export const ModalDialog = forwardRef<HTMLDialogElement, ModalDialogProps>(
     forwardedRef,
   ) {
     const dialogRef = useRef<HTMLDialogElement | null>(null);
+    const pressedOutsideRef = useRef(false);
 
     useEffect(() => {
       const dialog = dialogRef.current;
@@ -45,6 +48,47 @@ export const ModalDialog = forwardRef<HTMLDialogElement, ModalDialogProps>(
           else if (forwardedRef) forwardedRef.current = dialog;
         }}
         data-app-modal="true"
+        closedby={
+          dismissible ? (lightDismiss ? "any" : "closerequest") : "none"
+        }
+        onPointerDown={(event) => {
+          dialogProps.onPointerDown?.(event);
+          const dialog = dialogRef.current;
+          if (
+            !dialog ||
+            !dismissible ||
+            !lightDismiss ||
+            "closedBy" in HTMLDialogElement.prototype
+          ) {
+            return;
+          }
+          const bounds = dialog.getBoundingClientRect();
+          pressedOutsideRef.current =
+            event.clientX < bounds.left ||
+            event.clientX > bounds.right ||
+            event.clientY < bounds.top ||
+            event.clientY > bounds.bottom;
+        }}
+        onPointerUp={(event) => {
+          dialogProps.onPointerUp?.(event);
+          const dialog = dialogRef.current;
+          if (
+            !dialog ||
+            !pressedOutsideRef.current ||
+            "closedBy" in HTMLDialogElement.prototype
+          ) {
+            pressedOutsideRef.current = false;
+            return;
+          }
+          const bounds = dialog.getBoundingClientRect();
+          const releasedOutside =
+            event.clientX < bounds.left ||
+            event.clientX > bounds.right ||
+            event.clientY < bounds.top ||
+            event.clientY > bounds.bottom;
+          pressedOutsideRef.current = false;
+          if (releasedOutside) onRequestClose();
+        }}
         onCancel={(event) => {
           event.preventDefault();
           if (dismissible) onRequestClose();

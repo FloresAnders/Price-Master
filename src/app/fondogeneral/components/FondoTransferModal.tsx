@@ -96,11 +96,16 @@ export function FondoTransferModal({
   const destinationAccountId = useId();
   const sourceProviderId = useId();
   const destinationProviderId = useId();
+  const sourceProviderListboxId = useId();
+  const destinationProviderListboxId = useId();
   const amountId = useId();
   const managerId = useId();
   const managerSelectionId = useId();
   const manualManagerId = useId();
   const errorId = useId();
+  const [sourceProviderActiveIndex, setSourceProviderActiveIndex] = useState(-1);
+  const [destinationProviderActiveIndex, setDestinationProviderActiveIndex] =
+    useState(-1);
   const [editedBreakdown, setEditedBreakdown] = useState<{
     sourceId: MovementAccountKey;
     amount: number;
@@ -160,6 +165,81 @@ export function FondoTransferModal({
       );
     },
   );
+  const selectProvider = (
+    direction: "source" | "destination",
+    provider: ProviderEntry,
+  ) => {
+    const label = `${provider.name} (${provider.code})`;
+    if (direction === "source") {
+      setSourceProviderCode(provider.code);
+      setSourceProviderSearch(label);
+      setSourceProviderMenuOpen(false);
+      setSourceProviderActiveIndex(-1);
+      return;
+    }
+    setDestinationProviderCode(provider.code);
+    setDestinationProviderSearch(label);
+    setDestinationProviderMenuOpen(false);
+    setDestinationProviderActiveIndex(-1);
+  };
+  const handleProviderKeyDown = (
+    event: React.KeyboardEvent<HTMLInputElement>,
+    direction: "source" | "destination",
+  ) => {
+    const isSource = direction === "source";
+    const options = isSource
+      ? filteredSourceProviders
+      : filteredDestinationProviders;
+    const open = isSource ? sourceProviderMenuOpen : destinationProviderMenuOpen;
+    const activeIndex = isSource
+      ? sourceProviderActiveIndex
+      : destinationProviderActiveIndex;
+    const setOpen = isSource
+      ? setSourceProviderMenuOpen
+      : setDestinationProviderMenuOpen;
+    const setActiveIndex = isSource
+      ? setSourceProviderActiveIndex
+      : setDestinationProviderActiveIndex;
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setOpen(false);
+      setActiveIndex(-1);
+      return;
+    }
+    if (event.key === "Enter" && open) {
+      event.preventDefault();
+      const option = options[activeIndex];
+      if (option) selectProvider(direction, option);
+      return;
+    }
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    event.preventDefault();
+    setOpen(true);
+    setActiveIndex((current) => {
+      if (options.length === 0) return -1;
+      if (event.key === "ArrowDown") {
+        return current < options.length - 1 ? current + 1 : 0;
+      }
+      return current > 0 ? current - 1 : options.length - 1;
+    });
+  };
+  useEffect(() => {
+    if (sourceProviderActiveIndex < 0) return;
+    document
+      .getElementById(
+        `${sourceProviderListboxId}-option-${sourceProviderActiveIndex}`,
+      )
+      ?.scrollIntoView?.({ block: "nearest" });
+  }, [sourceProviderActiveIndex, sourceProviderListboxId]);
+  useEffect(() => {
+    if (destinationProviderActiveIndex < 0) return;
+    document
+      .getElementById(
+        `${destinationProviderListboxId}-option-${destinationProviderActiveIndex}`,
+      )
+      ?.scrollIntoView?.({ block: "nearest" });
+  }, [destinationProviderActiveIndex, destinationProviderListboxId]);
   const amountNumber = parseCRCInput(amount) ?? 0;
   const sameFundsError = error === "Selecciona fondos distintos.";
   const amountError = error === "Ingresa monto válido.";
@@ -483,35 +563,58 @@ export function FondoTransferModal({
                     setSourceProviderSearch(event.target.value);
                     setSourceProviderCode("");
                     setSourceProviderMenuOpen(true);
+                    setSourceProviderActiveIndex(-1);
                   }}
                   onFocus={() => setSourceProviderMenuOpen(true)}
-                  onBlur={() =>
-                    window.setTimeout(() => setSourceProviderMenuOpen(false), 200)
-                  }
+                  onKeyDown={(event) => handleProviderKeyDown(event, "source")}
+                  onBlur={() => setSourceProviderMenuOpen(false)}
                   className="w-full rounded-md border border-white/20 bg-[#111923] p-3"
                   aria-invalid={providerError}
                   aria-describedby={providerError ? errorId : undefined}
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-controls={sourceProviderListboxId}
+                  aria-expanded={sourceProviderMenuOpen}
+                  aria-activedescendant={
+                    sourceProviderMenuOpen && sourceProviderActiveIndex >= 0
+                      ? `${sourceProviderListboxId}-option-${sourceProviderActiveIndex}`
+                      : undefined
+                  }
                   placeholder={
                     providersLoading ? "Cargando proveedores..." : "Buscar proveedor"
                   }
                 />
-                {sourceProviderMenuOpen && filteredSourceProviders.length > 0 && (
-                  <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-cyan-600/45 bg-[#0d1117] shadow-xl">
-                    {filteredSourceProviders.map((provider) => (
+                {sourceProviderMenuOpen && (
+                  <div
+                    id={sourceProviderListboxId}
+                    role="listbox"
+                    aria-label="Proveedores de salida"
+                    className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-cyan-600/45 bg-[#0d1117] shadow-xl"
+                  >
+                    {filteredSourceProviders.map((provider, index) => (
                       <button
+                        id={`${sourceProviderListboxId}-option-${index}`}
                         key={provider.code}
                         type="button"
-                        onMouseDown={(event) => {
-                          event.preventDefault();
-                          setSourceProviderCode(provider.code);
-                          setSourceProviderSearch(`${provider.name} (${provider.code})`);
-                          setSourceProviderMenuOpen(false);
-                        }}
-                        className="block w-full border-b border-white/10 p-3 text-left text-sm hover:bg-cyan-950/70"
+                        role="option"
+                        aria-selected={sourceProviderCode === provider.code}
+                        tabIndex={-1}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => selectProvider("source", provider)}
+                        className={`block w-full border-b border-white/10 p-3 text-left text-sm hover:bg-cyan-950/70 ${
+                          sourceProviderActiveIndex === index
+                            ? "bg-cyan-950/80 outline outline-1 outline-cyan-400/60"
+                            : ""
+                        }`}
                       >
                         {provider.name} ({provider.code})
                       </button>
                     ))}
+                    {filteredSourceProviders.length === 0 && (
+                      <div className="p-3 text-sm text-slate-400">
+                        No se encontraron proveedores
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -528,41 +631,61 @@ export function FondoTransferModal({
                     setDestinationProviderSearch(event.target.value);
                     setDestinationProviderCode("");
                     setDestinationProviderMenuOpen(true);
+                    setDestinationProviderActiveIndex(-1);
                   }}
                   onFocus={() => setDestinationProviderMenuOpen(true)}
-                  onBlur={() =>
-                    window.setTimeout(
-                      () => setDestinationProviderMenuOpen(false),
-                      200,
-                    )
+                  onKeyDown={(event) =>
+                    handleProviderKeyDown(event, "destination")
                   }
+                  onBlur={() => setDestinationProviderMenuOpen(false)}
                   className="w-full rounded-md border border-white/20 bg-[#111923] p-3"
                   aria-invalid={providerError}
                   aria-describedby={providerError ? errorId : undefined}
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-controls={destinationProviderListboxId}
+                  aria-expanded={destinationProviderMenuOpen}
+                  aria-activedescendant={
+                    destinationProviderMenuOpen &&
+                    destinationProviderActiveIndex >= 0
+                      ? `${destinationProviderListboxId}-option-${destinationProviderActiveIndex}`
+                      : undefined
+                  }
                   placeholder={
                     providersLoading ? "Cargando proveedores..." : "Buscar proveedor"
                   }
                 />
-                {destinationProviderMenuOpen &&
-                  filteredDestinationProviders.length > 0 && (
-                  <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-cyan-600/45 bg-[#0d1117] shadow-xl">
-                    {filteredDestinationProviders.map((provider) => (
+                {destinationProviderMenuOpen && (
+                  <div
+                    id={destinationProviderListboxId}
+                    role="listbox"
+                    aria-label="Proveedores de destino"
+                    className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-cyan-600/45 bg-[#0d1117] shadow-xl"
+                  >
+                    {filteredDestinationProviders.map((provider, index) => (
                       <button
+                        id={`${destinationProviderListboxId}-option-${index}`}
                         key={provider.code}
                         type="button"
-                        onMouseDown={(event) => {
-                          event.preventDefault();
-                          setDestinationProviderCode(provider.code);
-                          setDestinationProviderSearch(
-                            `${provider.name} (${provider.code})`,
-                          );
-                          setDestinationProviderMenuOpen(false);
-                        }}
-                        className="block w-full border-b border-white/10 p-3 text-left text-sm hover:bg-cyan-950/70"
+                        role="option"
+                        aria-selected={destinationProviderCode === provider.code}
+                        tabIndex={-1}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => selectProvider("destination", provider)}
+                        className={`block w-full border-b border-white/10 p-3 text-left text-sm hover:bg-cyan-950/70 ${
+                          destinationProviderActiveIndex === index
+                            ? "bg-cyan-950/80 outline outline-1 outline-cyan-400/60"
+                            : ""
+                        }`}
                       >
                         {provider.name} ({provider.code})
                       </button>
                     ))}
+                    {filteredDestinationProviders.length === 0 && (
+                      <div className="p-3 text-sm text-slate-400">
+                        No se encontraron proveedores
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

@@ -40,6 +40,7 @@ import { SchedulesService } from "@/services/schedules";
 import CreateInvoiceDrawer from "../components/drawers/CreateInvoiceDrawer";
 import { ManualCreditNoteDrawer } from "../components/drawers/ManualCreditNoteDrawer";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import { ModalDialog } from "@/components/ui/ModalDialog";
 import {
   resolveEmployeesFromControlHorario,
   resolveManagerFromControlHorario,
@@ -4115,14 +4116,20 @@ export default function FacturasCreditoPage() {
         </section>
 
         {paymentModalOpen && paymentTarget && !manualCreditNoteOpen && (
-          <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/65 px-3 py-6 backdrop-blur-sm">
-            <div className="max-h-[calc(100vh-3rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)] shadow-2xl shadow-black/60">
+          <ModalDialog
+            open
+            dismissible={!paymentSubmitting}
+            onRequestClose={closePaymentModal}
+            aria-labelledby="factura-payment-modal-title"
+            data-backdrop-blur="true"
+            className="m-auto max-h-[calc(100vh-3rem)] w-[calc(100%_-_1.5rem)] max-w-2xl overflow-y-auto rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)] p-0 shadow-2xl shadow-black/60"
+          >
               <div className="flex items-start justify-between gap-4 border-b border-[var(--input-border)] px-4 py-4 sm:px-5">
                 <div>
                   <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
                     Pago de factura crédito
                   </div>
-                  <h3 className="mt-1 text-lg font-semibold text-[var(--foreground)]">
+                  <h3 id="factura-payment-modal-title" className="mt-1 text-lg font-semibold text-[var(--foreground)]">
                     {paymentTarget.invoiceNumber}
                   </h3>
                   <p className="text-sm text-[var(--muted-foreground)]">
@@ -4246,6 +4253,7 @@ export default function FacturasCreditoPage() {
                       Monto a pagar o abonar
                     </span>
                     <input
+                      autoFocus
                       type="text"
                       inputMode="decimal"
                       value={
@@ -4539,8 +4547,7 @@ export default function FacturasCreditoPage() {
                   </button>
                 </div>
               </form>
-            </div>
-          </div>
+          </ModalDialog>
         )}
 
         <ManualCreditNoteDrawer
@@ -4561,14 +4568,20 @@ export default function FacturasCreditoPage() {
         />
 
         {editZeroNCTarget && (
-          <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/65 px-3 py-6 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)] shadow-2xl shadow-black/60">
+          <ModalDialog
+            open
+            dismissible={!editZeroNCSubmitting}
+            onRequestClose={closeEditZeroNCModal}
+            aria-labelledby="edit-zero-nc-modal-title"
+            data-backdrop-blur="true"
+            className="m-auto w-[calc(100%_-_1.5rem)] max-w-md rounded-2xl border border-[var(--input-border)] bg-[var(--card-bg)] p-0 shadow-2xl shadow-black/60"
+          >
               <div className="flex items-start justify-between gap-4 border-b border-[var(--input-border)] px-4 py-4">
                 <div>
                   <div className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
                     Nota de credito pendiente
                   </div>
-                  <h3 className="mt-1 text-lg font-semibold text-[var(--foreground)]">
+                  <h3 id="edit-zero-nc-modal-title" className="mt-1 text-lg font-semibold text-[var(--foreground)]">
                     {editZeroNCTarget.invoiceNumber}
                   </h3>
                 </div>
@@ -4598,6 +4611,7 @@ export default function FacturasCreditoPage() {
                     Monto
                   </span>
                   <input
+                    autoFocus
                     type="text"
                     inputMode="numeric"
                     value={editZeroNCAmount}
@@ -4628,8 +4642,7 @@ export default function FacturasCreditoPage() {
                   </button>
                 </div>
               </form>
-            </div>
-          </div>
+          </ModalDialog>
         )}
 
         {pendingCierreModalOpen && (
@@ -4679,10 +4692,21 @@ export default function FacturasCreditoPage() {
         )}
 
         {deletionRequestTarget && (
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 px-3 py-6 dark:bg-black/80">
-            <div className="w-full max-w-md rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-6 text-[var(--foreground)] shadow-lg">
+          <ModalDialog
+            open
+            dismissible={
+              deletionRequestSubmittingId !== deletionRequestTarget.id
+            }
+            onRequestClose={() => {
+              setDeletionRequestTarget(null);
+              setDeletionRequestReason("");
+              setDeletionRequestError(null);
+            }}
+            aria-labelledby="deletion-request-modal-title"
+            className="m-auto w-[calc(100%_-_1.5rem)] max-w-md rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-6 text-[var(--foreground)] shadow-lg"
+          >
               <div className="mb-4">
-                <h2 className="text-lg font-semibold">
+                <h2 id="deletion-request-modal-title" className="text-lg font-semibold">
                   Solicitar eliminacion
                 </h2>
                 <p className="mt-1 text-sm text-[var(--muted-foreground)]">
@@ -4695,6 +4719,7 @@ export default function FacturasCreditoPage() {
                   Motivo de eliminacion
                 </span>
                 <textarea
+                  autoFocus
                   value={deletionRequestReason}
                   onChange={(event) => {
                     setDeletionRequestReason(event.target.value);
@@ -4741,8 +4766,7 @@ export default function FacturasCreditoPage() {
                   Cancelar
                 </button>
               </div>
-            </div>
-          </div>
+          </ModalDialog>
         )}
 
         <ConfirmModal

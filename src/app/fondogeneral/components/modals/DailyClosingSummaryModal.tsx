@@ -19,6 +19,7 @@ import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage
 
 import type { DailyClosingRecord } from "@/services/daily-closings";
 import { storage } from "@/config/firebase";
+import { ModalDialog } from "@/components/ui/ModalDialog";
 
 type Currency = "CRC" | "USD";
 
@@ -283,20 +284,6 @@ const DailyClosingSummaryModal: React.FC<DailyClosingSummaryModalProps> = ({
     openRef.current = open;
   }, [open]);
 
-  React.useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      if (showQRModal) {
-        handleCloseQRModal();
-        return;
-      }
-      handleCloseSummary();
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [handleCloseQRModal, handleCloseSummary, open, showQRModal]);
-
   if (!open || !record) return null;
 
   const closingDate = new Date(record.closingDate);
@@ -443,14 +430,18 @@ const DailyClosingSummaryModal: React.FC<DailyClosingSummaryModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 px-4">
+    <>
       {showQRModal ? (
-        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 p-4">
-          <div className="w-[96vw] max-w-md rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-6 text-[var(--foreground)] shadow-2xl">
+        <ModalDialog
+          open
+          onRequestClose={handleCloseQRModal}
+          aria-labelledby="daily-closing-qr-title"
+          className="m-auto w-[96vw] max-w-md rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-6 text-[var(--foreground)] shadow-2xl"
+        >
             <div className="mb-4 flex items-start justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Smartphone className="h-5 w-5 text-[var(--accent)]" strokeWidth={1.8} />
-                <h3 className="text-lg font-semibold">Descarga movil</h3>
+                <h3 id="daily-closing-qr-title" className="text-lg font-semibold">Descarga movil</h3>
               </div>
               <button
                 type="button"
@@ -491,13 +482,17 @@ const DailyClosingSummaryModal: React.FC<DailyClosingSummaryModalProps> = ({
                 Cerrar
               </button>
             </div>
-          </div>
-        </div>
+        </ModalDialog>
       ) : null}
-      <div className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] text-[var(--foreground)] shadow-lg">
+      <ModalDialog
+        open={open}
+        onRequestClose={handleCloseSummary}
+        aria-labelledby="daily-closing-summary-title"
+        className="m-auto flex max-h-[92vh] w-[calc(100%_-_2rem)] max-w-4xl flex-col overflow-hidden rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-0 text-[var(--foreground)] shadow-lg"
+      >
         <div className="flex items-start justify-between gap-4 border-b border-[var(--input-border)] px-5 py-4">
           <div>
-            <h2 className="text-lg font-semibold">Resumen del cierre guardado</h2>
+            <h2 id="daily-closing-summary-title" className="text-lg font-semibold">Resumen del cierre guardado</h2>
             <div className="mt-1 text-xs text-[var(--muted-foreground)]">
               Fondo General{" "}
               {record.sinTurno
@@ -699,8 +694,8 @@ const DailyClosingSummaryModal: React.FC<DailyClosingSummaryModalProps> = ({
             Cerrar
           </button>
         </div>
-      </div>
-    </div>
+      </ModalDialog>
+    </>
   );
 };
 
