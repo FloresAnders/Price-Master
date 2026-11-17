@@ -1,8 +1,8 @@
 import {
-  Fragment,
   type Dispatch,
   type MutableRefObject,
   type SetStateAction,
+  useId,
 } from "react";
 import {
   Banknote,
@@ -174,28 +174,42 @@ export function FondoFiltersToolbar({
   resetAppliedSearchFilters,
   onQuickRangeResolved,
 }: Props) {
+  const providerInputId = useId();
+  const providerListboxId = useId();
+  const typeInputId = useId();
+  const typeListboxId = useId();
+  const viewPanelId = useId();
+
   return (
     <section className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)]/70 p-2 sm:p-3 md:p-4 space-y-3 sm:space-y-4">
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-[repeat(4,minmax(0,1fr))_auto] xl:items-center">
         {/* Proveedor: busqueda con autocomplete como en el drawer de agregar movimiento */}
         <div className="relative min-w-0">
           <div className="relative">
+            <label htmlFor={providerInputId} className="sr-only">
+              Proveedor
+            </label>
             {filterProviderCode !== "all" && (
               <button
                 type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
+                onClick={() => {
                   setFilterProviderCode("all");
                   setProviderFilter("");
                   setProviderSearchInput("");
                 }}
                 className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-red-400 transition-colors hover:text-red-300"
-                tabIndex={-1}
+                aria-label="Limpiar proveedor"
+                title="Limpiar proveedor"
               >
                 <XCircle className="h-4 w-4" />
               </button>
             )}
             <input
+              id={providerInputId}
+              role="combobox"
+              aria-autocomplete="list"
+              aria-controls={providerListboxId}
+              aria-expanded={isProviderDropdownOpen && !movementProvidersLoading}
               value={providerSearchInput}
               onChange={(e) => {
                 const value = e.target.value;
@@ -224,16 +238,24 @@ export function FondoFiltersToolbar({
             </span>
           </div>
           {isProviderDropdownOpen && !movementProvidersLoading && (
-            <div className="absolute z-[9999] mt-2 w-full max-h-64 overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] shadow-2xl shadow-black/70">
+            <div
+              id={providerListboxId}
+              role="listbox"
+              aria-label="Opciones de proveedor"
+              className="absolute z-[9999] mt-2 w-full max-h-64 overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] shadow-2xl shadow-black/70"
+            >
               {providerSearchInput.trim() === "" && (
                 <button
                   type="button"
+                  role="option"
+                  aria-selected={filterProviderCode === "all"}
                   className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
                     filterProviderCode === "all"
                       ? "bg-cyan-500/20 text-cyan-50"
                       : "text-cyan-100/70"
                   }`}
-                  onMouseDown={() => {
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
                     setFilterProviderCode("all");
                     setProviderFilter("");
                     setProviderSearchInput("");
@@ -248,12 +270,15 @@ export function FondoFiltersToolbar({
                   <button
                     key={p.code}
                     type="button"
+                    role="option"
+                    aria-selected={filterProviderCode === p.code}
                     className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
                       filterProviderCode === p.code
                         ? "bg-cyan-500/20 text-cyan-50"
                         : "text-[var(--foreground)]"
                     }`}
-                    onMouseDown={() => {
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
                       setFilterProviderCode(p.code);
                       setProviderFilter(`${p.name} (${p.code})`);
                       setProviderSearchInput(`${p.name} (${p.code})`);
@@ -275,22 +300,30 @@ export function FondoFiltersToolbar({
         {/* Tipo de movimiento: busqueda con autocomplete */}
         <div className="relative min-w-0">
           <div className="relative">
+            <label htmlFor={typeInputId} className="sr-only">
+              Tipo de movimiento
+            </label>
             {filterPaymentType !== "all" && (
               <button
                 type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
+                onClick={() => {
                   setFilterPaymentType("all");
                   setTypeFilter("");
                   setTypeSearchInput("");
                 }}
                 className="absolute left-3 top-1/2 z-10 -translate-y-1/2 text-red-400 transition-colors hover:text-red-300"
-                tabIndex={-1}
+                aria-label="Limpiar tipo de movimiento"
+                title="Limpiar tipo de movimiento"
               >
                 <XCircle className="h-4 w-4" />
               </button>
             )}
             <input
+              id={typeInputId}
+              role="combobox"
+              aria-autocomplete="list"
+              aria-controls={typeListboxId}
+              aria-expanded={isTypeDropdownOpen}
               value={typeSearchInput}
               onChange={(e) => {
                 const value = e.target.value;
@@ -315,16 +348,24 @@ export function FondoFiltersToolbar({
             </span>
           </div>
           {isTypeDropdownOpen && (
-            <div className="absolute z-[9999] mt-2 w-full max-h-64 overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] shadow-2xl shadow-black/70">
+            <div
+              id={typeListboxId}
+              role="listbox"
+              aria-label="Opciones de tipo de movimiento"
+              className="absolute z-[9999] mt-2 w-full max-h-64 overflow-y-auto rounded-lg border border-cyan-600/45 bg-[#0d1117] shadow-2xl shadow-black/70"
+            >
               {typeSearchInput.trim() === "" && (
                 <button
                   type="button"
+                  role="option"
+                  aria-selected={filterPaymentType === "all"}
                   className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
                     filterPaymentType === "all"
                       ? "bg-cyan-500/20 text-cyan-50"
                       : "text-cyan-100/70"
                   }`}
-                  onMouseDown={() => {
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
                     setFilterPaymentType("all");
                     setTypeFilter("");
                     setTypeSearchInput("");
@@ -352,20 +393,26 @@ export function FondoFiltersToolbar({
                     : types;
                   if (filtered.length === 0) return null;
                   return (
-                    <Fragment key={group}>
-                      <div className="px-3 py-1.5 text-xs font-semibold text-cyan-100/50 uppercase tracking-wider">
+                    <div key={group} role="group" aria-label={group}>
+                      <div
+                        aria-hidden="true"
+                        className="px-3 py-1.5 text-xs font-semibold text-cyan-100/50 uppercase tracking-wider"
+                      >
                         {group}
                       </div>
                       {filtered.map((t) => (
                         <button
                           key={t}
                           type="button"
+                          role="option"
+                          aria-selected={filterPaymentType === t}
                           className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-950/80 ${
                             filterPaymentType === t
                               ? "bg-cyan-500/20 text-cyan-50"
                               : "text-[var(--foreground)]"
                           }`}
-                          onMouseDown={() => {
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => {
                             setFilterPaymentType(t);
                             setTypeFilter(formatMovementType(t));
                             setTypeSearchInput(formatMovementType(t));
@@ -375,7 +422,7 @@ export function FondoFiltersToolbar({
                           {formatMovementType(t)}
                         </button>
                       ))}
-                    </Fragment>
+                    </div>
                   );
                 });
               })()}
@@ -421,15 +468,20 @@ export function FondoFiltersToolbar({
                 type="button"
                 onClick={() => setFiltersDropdownOpen((prev) => !prev)}
                 className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--input-border)] bg-transparent px-3 text-xs font-semibold tracking-wide text-[var(--foreground)] transition-all duration-150 hover:border-[var(--accent)] hover:bg-[var(--muted)]/20 active:scale-[0.98] sm:w-auto"
-                aria-haspopup="menu"
                 aria-expanded={filtersDropdownOpen}
+                aria-controls={viewPanelId}
                 title="Mostrar facturas en especifico estado o editados"
               >
                 <EyeIcon className="h-3.5 w-3.5" />
                 <span>Vista</span>
               </button>
               {filtersDropdownOpen && (
-                <div className="absolute left-1/2 top-full z-[9999] mt-2 w-[260px] -translate-x-1/2 rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] shadow-2xl">
+                <div
+                  id={viewPanelId}
+                  role="group"
+                  aria-label="Opciones de vista"
+                  className="absolute left-1/2 top-full z-[9999] mt-2 w-[260px] -translate-x-1/2 rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] shadow-2xl"
+                >
                   <div className="flex flex-col py-1">
                     <button
                       type="button"

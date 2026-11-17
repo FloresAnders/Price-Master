@@ -6827,8 +6827,14 @@ export function FondoSection({
                     </div>
                   </div>
                 )}
-                <div className="overflow-x-auto">
+                <div
+                  className="overflow-x-auto"
+                  role="region"
+                  aria-label="Tabla de movimientos de fondos"
+                  tabIndex={0}
+                >
                   <table className="w-full min-w-[900px] border-separate border-spacing-0 text-xs sm:text-sm">
+                    <caption className="sr-only">Movimientos de fondos</caption>
                     <colgroup>
                       <col style={{ width: columnWidths.hora }} />
                       <col style={{ width: columnWidths.motivo }} />
@@ -6840,7 +6846,7 @@ export function FondoSection({
                     </colgroup>
                     <thead className="sticky top-0 z-10 bg-cyan-950/35 text-xs uppercase tracking-wide text-cyan-50/80">
                       <tr>
-                        <th className="px-3 py-2 text-left font-semibold">
+                        <th scope="col" className="px-3 py-2 text-left font-semibold">
                           <div className="relative pr-2">
                             <div className="flex items-center gap-2">
                               <Clock className="w-4 h-4" />
@@ -6859,7 +6865,7 @@ export function FondoSection({
                             />
                           </div>
                         </th>
-                        <th className="px-3 py-2 text-left font-semibold">
+                        <th scope="col" className="px-3 py-2 text-left font-semibold">
                           <div className="relative pr-2">
                             <div className="flex items-center gap-2">
                               <Layers className="w-4 h-4" />
@@ -6878,7 +6884,7 @@ export function FondoSection({
                             />
                           </div>
                         </th>
-                        <th className="px-3 py-2 text-left font-semibold">
+                        <th scope="col" className="px-3 py-2 text-left font-semibold">
                           <div className="relative pr-2">
                             <div className="flex items-center gap-2">
                               <Tag className="w-4 h-4" />
@@ -6897,7 +6903,7 @@ export function FondoSection({
                             />
                           </div>
                         </th>
-                        <th className="px-3 py-2 text-left font-semibold">
+                        <th scope="col" className="px-3 py-2 text-left font-semibold">
                           <div className="relative pr-2">
                             <div className="flex items-center gap-2">
                               <FileText className="w-4 h-4" />
@@ -6916,7 +6922,7 @@ export function FondoSection({
                             />
                           </div>
                         </th>
-                        <th className="px-3 py-2 text-left font-semibold">
+                        <th scope="col" className="px-3 py-2 text-left font-semibold">
                           <div className="relative pr-2">
                             <div className="flex items-center gap-2">
                               <Banknote className="w-4 h-4" />
@@ -6935,7 +6941,7 @@ export function FondoSection({
                             />
                           </div>
                         </th>
-                        <th className="px-3 py-2 text-left font-semibold">
+                        <th scope="col" className="px-3 py-2 text-left font-semibold">
                           <div className="relative pr-2">
                             <div className="flex items-center gap-2">
                               <UserCircle className="w-4 h-4" />
@@ -6954,7 +6960,7 @@ export function FondoSection({
                             />
                           </div>
                         </th>
-                        <th className="px-3 py-2 text-left font-semibold">
+                        <th scope="col" className="px-3 py-2 text-left font-semibold">
                           <div className="relative pr-2">
                             <div className="flex items-center justify-end gap-2">
                               <button

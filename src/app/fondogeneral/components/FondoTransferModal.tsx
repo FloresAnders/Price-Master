@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { ArrowRight, ArrowDownRight, ArrowUpRight, X } from "lucide-react";
 import type { FondoAccountTab } from "@/lib/fondoAccountTabs";
 import type { MovementAccountKey } from "@/services/movimientos-fondos";
@@ -92,6 +92,15 @@ export function FondoTransferModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showCashEditor, setShowCashEditor] = useState(false);
+  const sourceAccountId = useId();
+  const destinationAccountId = useId();
+  const sourceProviderId = useId();
+  const destinationProviderId = useId();
+  const amountId = useId();
+  const managerId = useId();
+  const managerSelectionId = useId();
+  const manualManagerId = useId();
+  const errorId = useId();
   const [editedBreakdown, setEditedBreakdown] = useState<{
     sourceId: MovementAccountKey;
     amount: number;
@@ -152,6 +161,11 @@ export function FondoTransferModal({
     },
   );
   const amountNumber = parseCRCInput(amount) ?? 0;
+  const sameFundsError = error === "Selecciona fondos distintos.";
+  const amountError = error === "Ingresa monto válido.";
+  const managerError = error === "Selecciona encargado.";
+  const providerError =
+    error === "Selecciona proveedor de origen y proveedor de destino.";
   const [snapshot, setSnapshot] = useState<CashCounterSnapshot | null>(null);
   useEffect(() => {
     if (!open) return;
@@ -434,35 +448,36 @@ export function FondoTransferModal({
         </header>
         <div className="space-y-5 p-6">
           <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-end">
-            <label className="rounded-xl border border-orange-400/60 p-4">
+            <label htmlFor={sourceAccountId} className="rounded-xl border border-orange-400/60 p-4">
               <span className="mb-2 flex items-center gap-2 font-semibold"><ArrowUpRight className="text-orange-300" /> Fondo de origen</span>
-              <select autoFocus value={sourceId} onChange={(event) => {
+              <select id={sourceAccountId} autoFocus value={sourceId} onChange={(event) => {
                 setSourceId(event.target.value as MovementAccountKey);
                 setSourceProviderCode("");
                 setSourceProviderSearch("");
-              }} className="w-full rounded-md border border-white/20 bg-[#111923] p-2">
+              }} aria-invalid={sameFundsError} aria-describedby={sameFundsError ? errorId : undefined} className="w-full rounded-md border border-white/20 bg-[#111923] p-2">
                 {accounts.map((account) => <option key={account.accountId} value={account.accountId}>{account.label}</option>)}
               </select>
             </label>
             <ArrowRight className="mx-auto hidden h-7 w-7 text-cyan-300 md:block" />
-            <label className="rounded-xl border border-emerald-400/60 p-4">
+            <label htmlFor={destinationAccountId} className="rounded-xl border border-emerald-400/60 p-4">
               <span className="mb-2 flex items-center gap-2 font-semibold"><ArrowDownRight className="text-emerald-300" /> Fondo de destino</span>
-              <select value={destinationId} onChange={(event) => {
+              <select id={destinationAccountId} value={destinationId} onChange={(event) => {
                 setDestinationId(event.target.value as MovementAccountKey);
                 setDestinationProviderCode("");
                 setDestinationProviderSearch("");
-              }} className="w-full rounded-md border border-white/20 bg-[#111923] p-2">
+              }} aria-invalid={sameFundsError} aria-describedby={sameFundsError ? errorId : undefined} className="w-full rounded-md border border-white/20 bg-[#111923] p-2">
                 {accounts.map((account) => <option key={account.accountId} value={account.accountId}>{account.label}</option>)}
               </select>
             </label>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold uppercase text-slate-300">
+            <div className="block">
+              <label htmlFor={sourceProviderId} className="mb-2 block text-sm font-semibold uppercase text-slate-300">
                 Proveedor de salida
-              </span>
+              </label>
               <div className="relative">
                 <input
+                  id={sourceProviderId}
                   value={sourceProviderSearch}
                   onChange={(event) => {
                     setSourceProviderSearch(event.target.value);
@@ -474,6 +489,8 @@ export function FondoTransferModal({
                     window.setTimeout(() => setSourceProviderMenuOpen(false), 200)
                   }
                   className="w-full rounded-md border border-white/20 bg-[#111923] p-3"
+                  aria-invalid={providerError}
+                  aria-describedby={providerError ? errorId : undefined}
                   placeholder={
                     providersLoading ? "Cargando proveedores..." : "Buscar proveedor"
                   }
@@ -498,13 +515,14 @@ export function FondoTransferModal({
                   </div>
                 )}
               </div>
-            </label>
-            <label className="block">
-              <span className="mb-2 block text-sm font-semibold uppercase text-slate-300">
+            </div>
+            <div className="block">
+              <label htmlFor={destinationProviderId} className="mb-2 block text-sm font-semibold uppercase text-slate-300">
                 Proveedor de destino
-              </span>
+              </label>
               <div className="relative">
                 <input
+                  id={destinationProviderId}
                   value={destinationProviderSearch}
                   onChange={(event) => {
                     setDestinationProviderSearch(event.target.value);
@@ -519,6 +537,8 @@ export function FondoTransferModal({
                     )
                   }
                   className="w-full rounded-md border border-white/20 bg-[#111923] p-3"
+                  aria-invalid={providerError}
+                  aria-describedby={providerError ? errorId : undefined}
                   placeholder={
                     providersLoading ? "Cargando proveedores..." : "Buscar proveedor"
                   }
@@ -546,11 +566,12 @@ export function FondoTransferModal({
                   </div>
                 )}
               </div>
-            </label>
+            </div>
           </div>
-          <label className="block">
+          <label htmlFor={amountId} className="block">
             <span className="mb-2 block text-sm font-semibold uppercase text-slate-300">Monto a transferir</span>
             <input
+              id={amountId}
               value={amount}
               onChange={(event) => {
                 const nextValue = event.target.value;
@@ -561,19 +582,30 @@ export function FondoTransferModal({
               }}
               inputMode="decimal"
               className="w-full rounded-md border border-white/20 bg-[#111923] p-3 text-lg"
+              aria-invalid={amountError}
+              aria-describedby={amountError ? errorId : undefined}
               placeholder="₡ 0,00"
             />
           </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-semibold uppercase text-slate-300">Encargado</span>
+          <div className="block">
+            <label
+              htmlFor={withinSchedule ? managerId : managerSelectionId}
+              className="mb-2 block text-sm font-semibold uppercase text-slate-300"
+            >
+              Encargado
+            </label>
             {withinSchedule ? (
               <input
+                id={managerId}
                 value={manager}
                 readOnly
                 className="w-full rounded-md border border-white/20 bg-[#111923] p-3 text-slate-300"
+                aria-invalid={managerError}
+                aria-describedby={managerError ? errorId : undefined}
               />
             ) : (
               <select
+                id={managerSelectionId}
                 value={managerSelection}
                 onChange={(event) => {
                   const next = event.target.value;
@@ -581,6 +613,8 @@ export function FondoTransferModal({
                   setManager(next);
                 }}
                 className="w-full rounded-md border border-white/20 bg-[#111923] p-3"
+                aria-invalid={managerError}
+                aria-describedby={managerError ? errorId : undefined}
               >
                 <option value="">Seleccionar encargado</option>
                 {managerOptions.map((option) => (
@@ -589,14 +623,22 @@ export function FondoTransferModal({
               </select>
             )}
             {!withinSchedule && managerSelection === "" && (
-              <input
-                value={manager}
-                onChange={(event) => setManager(event.target.value)}
-                className="mt-2 w-full rounded-md border border-white/20 bg-[#111923] p-3"
-                placeholder="Nombre del encargado"
-              />
+              <>
+                <label htmlFor={manualManagerId} className="sr-only">
+                  Nombre del encargado
+                </label>
+                <input
+                  id={manualManagerId}
+                  value={manager}
+                  onChange={(event) => setManager(event.target.value)}
+                  className="mt-2 w-full rounded-md border border-white/20 bg-[#111923] p-3"
+                  placeholder="Nombre del encargado"
+                  aria-invalid={managerError}
+                  aria-describedby={managerError ? errorId : undefined}
+                />
+              </>
             )}
-          </label>
+          </div>
           {breakdown?.exact && (
             <div className="rounded-xl border border-cyan-400/30 bg-cyan-500/10 p-4">
               <p className="font-semibold">Billetes requeridos: ₡ {formatAmount(breakdown.total)}</p>
@@ -649,7 +691,15 @@ export function FondoTransferModal({
               )}
             </div>
           )}
-          {error && <p className="rounded-md border border-red-400/40 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}
+          {error && (
+            <p
+              id={errorId}
+              role="alert"
+              className="rounded-md border border-red-400/40 bg-red-500/10 p-3 text-sm text-red-200"
+            >
+              {error}
+            </p>
+          )}
         </div>
         <footer className="flex justify-end gap-3 border-t border-white/10 p-5">
           <button type="button" onClick={onClose} className="rounded-lg border border-white/30 px-5 py-2">Cancelar</button>

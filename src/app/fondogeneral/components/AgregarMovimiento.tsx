@@ -238,6 +238,12 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   closingTurnoSelection = "",
   onClosingTurnoSelectionChange,
 }) => {
+  const providerInputId = React.useId();
+  const providerErrorId = React.useId();
+  const invoiceInputId = React.useId();
+  const invoiceErrorId = React.useId();
+  const amountInputId = React.useId();
+  const amountErrorId = React.useId();
   const invoiceBorderClass =
     invoiceValid || invoiceNumber.length === 0
       ? "border-cyan-700/35"
@@ -762,7 +768,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
         <div className="grid gap-4">
           <div>
             <div className="mb-1.5 flex items-center justify-between gap-2">
-              <label className={labelClass}>
+              <label htmlFor={providerInputId} className={labelClass}>
                 <Search className="h-3.5 w-3.5" />
                 Proveedor
               </label>
@@ -815,6 +821,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                 </button>
               )}
               <input
+                id={providerInputId}
                 value={filter}
                 onChange={(e) => {
                   const value = e.target.value;
@@ -839,6 +846,8 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                     : ""
                 }`}
                 disabled={isProviderSelectDisabled}
+                aria-invalid={Boolean(providerError)}
+                aria-describedby={providerError ? providerErrorId : undefined}
                 placeholder={
                   providersLoading
                     ? "Cargando proveedores..."
@@ -927,7 +936,9 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                 )}
             </div>
             {providerError && (
-              <p className="mt-1 text-xs text-red-400">{providerError}</p>
+              <p id={providerErrorId} className="mt-1 text-xs text-red-400">
+                {providerError}
+              </p>
             )}
             {pendingCreditInvoicesCount > 0 && (
               <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
@@ -988,7 +999,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
           </div>
 
           <div>
-            <label className={labelClass}>
+            <label htmlFor={invoiceInputId} className={labelClass}>
               <FileText className="h-3.5 w-3.5" />
               Numero factura
             </label>
@@ -998,6 +1009,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                   Factura #1
                 </span>
                 <input
+                  id={invoiceInputId}
                   placeholder="0000"
                   value={invoiceNumber}
                   onChange={(event) =>
@@ -1008,6 +1020,8 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                     invoiceError ? "border-red-500" : invoiceBorderClass
                   } ${invoiceDisabled ? "cursor-not-allowed opacity-60" : ""}`}
                   disabled={invoiceDisabled}
+                  aria-invalid={Boolean(invoiceError)}
+                  aria-describedby={invoiceError ? invoiceErrorId : undefined}
                 />
                 {canAddExtraInvoice && (
                   <button
@@ -1023,10 +1037,14 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
               </div>
               {extraInvoices.map((extraInvoice, index) => (
                 <div key={index} className="flex items-center gap-2">
-                  <span className="w-[78px] shrink-0 text-[10px] font-semibold uppercase tracking-wide text-cyan-100/60">
+                  <label
+                    htmlFor={`extra-invoice-number-${index}`}
+                    className="w-[78px] shrink-0 text-[10px] font-semibold uppercase tracking-wide text-cyan-100/60"
+                  >
                     Factura #{index + 2}
-                  </span>
+                  </label>
                   <input
+                    id={`extra-invoice-number-${index}`}
                     placeholder="0000"
                     value={extraInvoice.invoiceNumber}
                     onChange={(event) =>
@@ -1052,14 +1070,16 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
               ))}
             </div>
             {invoiceError && (
-              <p className="mt-1 text-xs text-red-400">{invoiceError}</p>
+              <p id={invoiceErrorId} className="mt-1 text-xs text-red-400">
+                {invoiceError}
+              </p>
             )}
           </div>
         </div>
       </section>
 
       <section className={sectionClass}>
-        <label className={labelClass}>
+        <label htmlFor={amountInputId} className={labelClass}>
           <WalletCards className="h-3.5 w-3.5" />
           Monto
         </label>
@@ -1127,6 +1147,7 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
               Factura #1
             </span>
             <input
+              id={amountInputId}
               ref={montoRef}
               placeholder="0"
               value={formatInputDisplay(isEgreso ? egreso : ingreso)}
@@ -1145,6 +1166,8 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
               } ${currencyEnabled[currency] ? "" : "cursor-not-allowed opacity-50"}`}
               inputMode="decimal"
               disabled={!currencyEnabled[currency]}
+              aria-invalid={Boolean(amountError)}
+              aria-describedby={amountError ? amountErrorId : undefined}
             />
             {canAddCreditNoteToInvoice && (
               <button
@@ -1170,10 +1193,14 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
           {extraInvoices.map((extraInvoice, index) => (
             <div key={index}>
               <div className="flex items-center gap-2">
-                <span className="w-[78px] shrink-0 text-[10px] font-semibold uppercase tracking-wide text-cyan-100/60">
+                <label
+                  htmlFor={`extra-invoice-amount-${index}`}
+                  className="w-[78px] shrink-0 text-[10px] font-semibold uppercase tracking-wide text-cyan-100/60"
+                >
                   Factura #{index + 2}
-                </span>
+                </label>
                 <input
+                  id={`extra-invoice-amount-${index}`}
                   placeholder="0"
                   value={formatInputDisplay(extraInvoice.amount)}
                   onChange={(event) =>
@@ -1245,7 +1272,9 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
           ))}
         </div>
         {amountError && (
-          <p className="mt-1 text-xs text-red-400">{amountError}</p>
+          <p id={amountErrorId} className="mt-1 text-xs text-red-400">
+            {amountError}
+          </p>
         )}
         {isEgreso && pendingCreditNotes.length > 0 && !editingEntryId && (
           <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">

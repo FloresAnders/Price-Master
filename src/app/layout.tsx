@@ -31,7 +31,7 @@ import ServiceWorkerRegistrar from "../components/pwa/ServiceWorkerRegistrar";
 import NativeNotificationsInitializer from "../components/notifications/NativeNotificationsInitializer";
 
 export const metadata = {
-  title: "Time Master",
+  title: "Inicio | Time Master",
   description:
     "Plataforma para gestión de precios, escaneo de códigos de barras, control de inventario y horarios laborales",
   icons: {
@@ -97,7 +97,7 @@ export default function RootLayout({
 }) {
   return (
     <html
-      lang="en"
+      lang="es"
       suppressHydrationWarning
       className="min-h-full bg-white dark:bg-[#0d1117]"
     >

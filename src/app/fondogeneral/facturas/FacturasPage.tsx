@@ -3796,35 +3796,41 @@ export default function FacturasCreditoPage() {
             )}
           </div>
 
-          <div className="overflow-x-auto">
+          <div
+            className="overflow-x-auto"
+            role="region"
+            aria-label="Tabla de facturas y notas de crédito"
+            tabIndex={0}
+          >
             <table className="w-full min-w-[1120px] border-separate border-spacing-0 text-sm">
+              <caption className="sr-only">Facturas y notas de crédito</caption>
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
-                  <th className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">
+                  <th scope="col" className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">
                     Fecha
                   </th>
-                  <th className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">
+                  <th scope="col" className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">
                     Proveedor
                   </th>
-                  <th className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">
+                  <th scope="col" className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">
                     N° Factura
                   </th>
-                  <th className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">
+                  <th scope="col" className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">
                     Encargado
                   </th>
-                  <th className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">
+                  <th scope="col" className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">
                     Observación
                   </th>
-                  <th className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">
+                  <th scope="col" className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">
                     Tipo pago
                   </th>
-                  <th className="border-b border-[var(--input-border)] px-4 py-3 text-right font-semibold">
+                  <th scope="col" className="border-b border-[var(--input-border)] px-4 py-3 text-right font-semibold">
                     Monto
                   </th>
-                  <th className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">
+                  <th scope="col" className="border-b border-[var(--input-border)] px-4 py-3 font-semibold">
                     Estado
                   </th>
-                  <th className="border-b border-[var(--input-border)] px-4 py-3 text-right font-semibold">
+                  <th scope="col" className="border-b border-[var(--input-border)] px-4 py-3 text-right font-semibold">
                     Acción
                   </th>
                 </tr>
