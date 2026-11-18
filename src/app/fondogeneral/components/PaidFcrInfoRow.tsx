@@ -3,6 +3,7 @@ import type { AppliedCreditNote } from "@/services/facturas";
 import { AppliedCreditNotesDetails } from "./AppliedCreditNotesDetails";
 
 type PaidFcrInfoRowProps = {
+  variant?: "table" | "mobile";
   primaryManager: string | null | undefined;
   formattedDate: string;
   manager: string | null | undefined;
@@ -19,6 +20,7 @@ type PaidFcrInfoRowProps = {
 };
 
 export function PaidFcrInfoRow({
+  variant = "table",
   primaryManager,
   formattedDate,
   manager,
@@ -33,10 +35,8 @@ export function PaidFcrInfoRow({
   formatByCurrency,
   colSpan,
 }: PaidFcrInfoRowProps) {
-  return (
-    <tr className="bg-emerald-500/5 [&>td]:border-b [&>td]:border-cyan-900/35">
-      <td colSpan={colSpan} className="px-3 py-2">
-        <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 p-3 text-xs text-[var(--foreground)]">
+  const content = (
+    <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 p-3 text-xs text-[var(--foreground)]">
           <div className="mb-2 flex items-center gap-2 text-emerald-300">
             <Info className="w-4 h-4" />
             <span className="font-semibold">
@@ -102,7 +102,17 @@ export function PaidFcrInfoRow({
               />
             </div>
           )}
-        </div>
+    </div>
+  );
+
+  if (variant === "mobile") {
+    return content;
+  }
+
+  return (
+    <tr className="bg-emerald-500/5 [&>td]:border-b [&>td]:border-cyan-900/35">
+      <td colSpan={colSpan} className="px-3 py-2">
+        {content}
       </td>
     </tr>
   );

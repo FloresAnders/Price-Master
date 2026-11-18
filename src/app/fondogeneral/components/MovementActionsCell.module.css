@@ -1,0 +1,83 @@
+.mobileRoot {
+  min-inline-size: 0;
+  inline-size: 100%;
+}
+
+.mobileGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  inline-size: 100%;
+}
+
+.mobileAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-inline-size: 2.75rem;
+  min-block-size: 2.75rem;
+  padding: 0.55rem 0.75rem;
+  color: var(--foreground);
+  background: transparent;
+  border: 1px solid var(--input-border);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 650;
+  line-height: 1.2;
+  transition: background-color 150ms ease, border-color 150ms ease,
+    color 150ms ease;
+}
+
+.mobileAction:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.editAction {
+  color: var(--foreground);
+}
+
+.deleteAction {
+  color: #fb7185;
+  border-color: rgb(244 63 94 / 75%);
+}
+
+.infoAction {
+  color: #6ee7b7;
+  border-color: rgb(16 185 129 / 55%);
+}
+
+.creditAction {
+  color: #7dd3fc;
+  border-color: rgb(14 165 233 / 55%);
+}
+
+.activeAction {
+  background: rgb(14 165 233 / 16%);
+}
+
+.mobileIcon {
+  inline-size: 1rem;
+  block-size: 1rem;
+  flex: none;
+}
+
+@media (hover: hover) {
+  .mobileAction:hover:not(:disabled) {
+    background: color-mix(in srgb, currentColor 10%, transparent);
+    border-color: currentColor;
+  }
+}
+
+.mobileAction:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (forced-colors: active) {
+  .mobileAction {
+    border-color: ButtonText;
+  }
+}

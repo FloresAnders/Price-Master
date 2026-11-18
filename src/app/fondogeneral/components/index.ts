@@ -20,3 +20,11 @@ export { default as CreateInvoiceDrawer } from "./drawers/CreateInvoiceDrawer";
 export { PendingCreditInvoicesSection } from "./invoices/PendingCreditInvoicesSection";
 export { default as CashOpeningModal } from "./modals/CashOpeningModal";
 export { AuditHistoryModal } from "./audit-history-modal";
+export {
+  MobileRecordCard,
+  type MobileRecordDetail,
+} from "./MobileRecordCard";
+export {
+  FondoMovementMobileCard,
+  type FondoMovementMobileCardProps,
+} from "./FondoMovementMobileCard";

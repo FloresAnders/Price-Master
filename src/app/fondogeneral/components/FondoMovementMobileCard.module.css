@@ -1,0 +1,405 @@
+.card {
+  container: fondo-movement-card / inline-size;
+  display: grid;
+  min-inline-size: 0;
+  min-block-size: 16.25rem;
+  gap: 1rem;
+  padding: 1rem;
+  overflow-wrap: break-word;
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--card-bg) 94%, #07101e);
+  border: 1px solid color-mix(in srgb, var(--input-border) 82%, transparent);
+  border-radius: 1.25rem;
+  box-shadow: 0 0.75rem 2rem rgb(0 0 0 / 18%);
+}
+
+.dimmed {
+  opacity: 0.68;
+}
+
+.header {
+  display: grid;
+  grid-template-columns: 2.625rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+  min-inline-size: 0;
+}
+
+.directionIcon {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 2.625rem;
+  block-size: 2.625rem;
+  border-radius: 0.7rem;
+}
+
+.directionIcon svg {
+  inline-size: 1.1rem;
+  block-size: 1.1rem;
+  stroke-width: 2.25;
+}
+
+.card[data-direction="income"] .directionIcon {
+  color: #36d9aa;
+  background: rgb(16 185 129 / 20%);
+}
+
+.card[data-direction="expense"] .directionIcon {
+  color: #fb7185;
+  background: rgb(244 63 94 / 20%);
+}
+
+.card[data-direction="neutral"] .directionIcon {
+  color: #93c5fd;
+  background: rgb(59 130 246 / 18%);
+}
+
+.headingCopy {
+  min-inline-size: 0;
+}
+
+.titleRow {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  min-inline-size: 0;
+}
+
+.title {
+  flex: 1;
+  min-inline-size: 0;
+  margin: 0;
+  overflow-wrap: break-word;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.dateTime {
+  margin: 0.3rem 0 0;
+  color: var(--muted-foreground);
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+
+.badges {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
+  max-inline-size: 55%;
+  min-inline-size: 0;
+}
+
+.badges:empty {
+  display: none;
+}
+
+.badges > :where(span, button) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-block-size: 2rem;
+  padding: 0.25rem 0.65rem;
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--muted) 38%, transparent);
+  border: 1px solid color-mix(in srgb, var(--input-border) 72%, transparent);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.badges > button {
+  cursor: pointer;
+}
+
+.badges > [data-tone="audit"] {
+  color: #fde047;
+  background: rgb(234 179 8 / 10%);
+  border-color: rgb(234 179 8 / 35%);
+}
+
+.badges > [data-tone="credit"] {
+  color: #fcd34d;
+  background: rgb(245 158 11 / 12%);
+  border-color: rgb(245 158 11 / 38%);
+}
+
+.badges > [data-tone="locked"] {
+  color: #cbd5e1;
+  background: rgb(100 116 139 / 12%);
+  border-color: rgb(100 116 139 / 38%);
+}
+
+.badges svg {
+  inline-size: 0.85rem;
+  block-size: 0.85rem;
+  flex: none;
+}
+
+.amountSection {
+  min-inline-size: 0;
+}
+
+.eyebrow {
+  margin: 0 0 0.4rem;
+  color: var(--muted-foreground);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.amountRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+  align-items: center;
+  justify-content: space-between;
+  min-inline-size: 0;
+}
+
+.amountValue {
+  min-inline-size: 0;
+  overflow-wrap: break-word;
+  font-size: clamp(1.45rem, 7cqi, 1.85rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.card[data-direction="income"] .amountValue {
+  color: #36d9aa;
+}
+
+.card[data-direction="expense"] .amountValue {
+  color: #fb7185;
+}
+
+.movementType {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 1.65rem;
+  max-inline-size: 100%;
+  padding: 0.2rem 0.55rem;
+  overflow-wrap: break-word;
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--muted) 52%, transparent);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.balances {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0;
+}
+
+.balanceBlock {
+  min-inline-size: 0;
+  padding: 0.85rem;
+  background: rgb(2 8 23 / 42%);
+  border-radius: 0.9rem;
+}
+
+.balanceBlock dt,
+.details dt {
+  color: var(--muted-foreground);
+  font-size: 0.68rem;
+  font-weight: 500;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.balanceBlock dd {
+  margin: 0.45rem 0 0;
+  overflow-wrap: break-word;
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+}
+
+.balanceSummary {
+  min-inline-size: 0;
+  padding: 0.85rem;
+  background: rgb(2 8 23 / 32%);
+  border-radius: 0.9rem;
+}
+
+.balanceSummary > div:first-child {
+  margin-block-end: 0.55rem;
+  color: var(--muted-foreground);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem 1rem;
+  margin: 0;
+}
+
+.detail {
+  min-inline-size: 0;
+}
+
+.observationDetail {
+  grid-column: 1 / -1;
+}
+
+.details dd {
+  margin: 0.3rem 0 0;
+  overflow-wrap: break-word;
+  font-size: 0.9rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.observationDisclosure {
+  min-inline-size: 0;
+}
+
+.observationSummary {
+  display: flex;
+  gap: 0.55rem;
+  align-items: center;
+  justify-content: space-between;
+  min-block-size: 2.75rem;
+  min-inline-size: 0;
+  padding: 0.55rem 0.7rem;
+  overflow-wrap: anywhere;
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--muted) 34%, transparent);
+  border: 1px solid color-mix(in srgb, var(--input-border) 70%, transparent);
+  border-radius: 0.75rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.observationSummary::-webkit-details-marker {
+  display: none;
+}
+
+.observationSummary::marker {
+  content: "";
+}
+
+.observationChevron {
+  inline-size: 1rem;
+  block-size: 1rem;
+  flex: none;
+  transition: transform 150ms ease;
+}
+
+.observationDisclosure[open] .observationChevron {
+  transform: rotate(180deg);
+}
+
+.observationContent {
+  display: grid;
+  gap: 0.5rem;
+  margin-block-start: 0.55rem;
+  padding: 0.7rem;
+  background: rgb(2 8 23 / 32%);
+  border-radius: 0.75rem;
+}
+
+.observationLine {
+  display: flex;
+  gap: 0.45rem;
+  align-items: flex-start;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  color: var(--foreground);
+  font-size: 0.84rem;
+  font-weight: 550;
+  line-height: 1.4;
+}
+
+.observationLine svg {
+  inline-size: 1rem;
+  block-size: 1rem;
+  flex: none;
+  margin-block-start: 0.08rem;
+}
+
+.observationLine[data-tone="alert"] svg {
+  color: #fbbf24;
+}
+
+.observationLine[data-tone="check"] svg {
+  color: #34d399;
+}
+
+.expanded {
+  min-inline-size: 0;
+  padding-block-start: 0.9rem;
+  border-block-start: 1px solid color-mix(in srgb, var(--input-border) 60%, transparent);
+}
+
+.expanded > div {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  min-inline-size: 0;
+  padding-block-start: 0.85rem;
+  border-block-start: 1px solid color-mix(in srgb, var(--input-border) 60%, transparent);
+}
+
+.actions:empty {
+  display: none;
+}
+
+.actions > button {
+  min-block-size: 2.75rem;
+  min-inline-size: 0;
+}
+
+.card :where(button, summary):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  .card :where(button, summary, [role="button"]) {
+    min-block-size: 2.75rem;
+    min-inline-size: 2.75rem;
+  }
+}
+
+@container fondo-movement-card (inline-size < 20rem) {
+  .balances,
+  .details {
+    gap: 0.6rem;
+  }
+
+  .balanceBlock {
+    padding: 0.72rem;
+  }
+}
+
+@media (forced-colors: active) {
+  .directionIcon,
+  .movementType,
+  .balanceBlock,
+  .balanceSummary {
+    border: 1px solid CanvasText;
+  }
+}

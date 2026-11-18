@@ -63,6 +63,7 @@ import {
   type FacturaViewFilter,
 } from "./facturaSearchFilters";
 import { resolveCreateInvoiceOpeningDecision } from "./createInvoiceShiftManager";
+import { FacturaMobileCard } from "./FacturaMobileCard";
 import { validateFondoGeneralOpeningRequirement } from "../utils/fondo/openingRequirement";
 import { shouldBypassPendingNightDailyClosing } from "../utils/closing/pendingNightDailyClosing";
 import { resolveFcrPaymentAmounts } from "../utils/fondo/fcrPaymentAmounts";
@@ -3644,10 +3645,10 @@ export default function FacturasCreditoPage() {
               </p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2 text-sm text-[var(--foreground)]">
-              <span className="self-start rounded-full border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-1.5 text-xs font-semibold tracking-wide text-[var(--foreground)]/90">
+              <span className="inline-flex min-h-11 self-start items-center rounded-full border border-[var(--input-border)] bg-[var(--muted)]/20 px-3 py-1.5 text-xs font-semibold tracking-wide text-[var(--foreground)]/90">
                 {movementsLoading ? "Cargando..." : currentCompanyLabel}
               </span>
-              <div className="flex w-full items-center gap-1.5 rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] px-1.5 py-1 sm:w-auto sm:gap-2 sm:px-2 sm:py-1.5">
+              <div className="flex w-full flex-wrap items-center gap-2 rounded-xl border border-[var(--input-border)] bg-[var(--card-bg)] p-2 sm:w-auto">
                 <select
                   value={isDailyView ? "daily" : String(effectiveRowsPerPage)}
                   onChange={(e) => {
@@ -3660,7 +3661,7 @@ export default function FacturasCreditoPage() {
                     }
                     setPageIndex(0);
                   }}
-                  className="h-7 min-w-0 flex-1 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-1.5 text-[10px] text-[var(--foreground)] outline-none transition-colors hover:border-cyan-500/45 sm:h-8 sm:flex-initial sm:px-2 sm:text-xs"
+                  className="h-11 min-w-0 flex-1 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-xs text-[var(--foreground)] outline-none transition-colors hover:border-cyan-500/45 sm:flex-initial"
                   aria-label="Filas por pagina"
                 >
                   <option value="daily" disabled={hasDateRangeFilter}>
@@ -3672,7 +3673,7 @@ export default function FacturasCreditoPage() {
                     </option>
                   ))}
                 </select>
-                <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+                <div className="flex min-w-0 flex-1 items-center justify-end gap-1 sm:flex-initial">
                   <button
                     type="button"
                     onClick={() => {
@@ -3692,11 +3693,12 @@ export default function FacturasCreditoPage() {
                         ? currentDailyKey <= "1970-01-01"
                         : pageIndex === 0
                     }
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--input-border)] text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/45 disabled:cursor-not-allowed disabled:opacity-40 sm:h-8 sm:w-8"
+                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[var(--input-border)] text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/45 disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label={isDailyView ? "Día anterior" : "Página anterior"}
                   >
                     <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
                   </button>
-                  <span className="min-w-[52px] text-center text-[10px] text-[var(--muted-foreground)] sm:min-w-[96px] sm:text-xs">
+                  <span className="min-w-0 flex-1 text-center text-xs text-[var(--muted-foreground)] sm:min-w-[96px]">
                     {isDailyView
                       ? formatKeyToDisplay(currentDailyKey)
                       : `${pageIndex + 1} / ${totalPages}`}
@@ -3723,7 +3725,8 @@ export default function FacturasCreditoPage() {
                         ? currentDailyKey >= effectiveTodayKey
                         : pageIndex >= totalPages - 1
                     }
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--input-border)] text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/45 disabled:cursor-not-allowed disabled:opacity-40 sm:h-8 sm:w-8"
+                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[var(--input-border)] text-[var(--foreground)] transition-colors hover:border-[var(--accent)]/45 disabled:cursor-not-allowed disabled:opacity-40"
+                    aria-label={isDailyView ? "Día siguiente" : "Página siguiente"}
                   >
                     <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
                   </button>
@@ -3798,7 +3801,178 @@ export default function FacturasCreditoPage() {
           </div>
 
           <div
-            className="overflow-x-auto"
+            className="space-y-3 px-3 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-3 sm:hidden"
+            aria-label="Facturas y notas de crédito"
+          >
+            {movementsLoading
+              ? Array.from({ length: 3 }, (_, index) => (
+                  <div
+                    key={index}
+                    className="min-h-52 animate-pulse rounded-2xl border border-[var(--input-border)] bg-cyan-100/5"
+                    aria-hidden="true"
+                  />
+                ))
+              : pagedMovements.map((movement) => {
+                  const amount = Math.abs(Number(movement.amount) || 0);
+                  const signedAmount =
+                    String(movement.invoiceDocType || "")
+                      .trim()
+                      .toUpperCase() === "NC"
+                      ? -amount
+                      : amount;
+                  const amountLabel = signedAmount.toLocaleString("es-CR", {
+                    style: "currency",
+                    currency: movement.currency,
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  });
+                  const paymentStatus = resolveFacturaStatus(movement);
+                  const paymentStatusLabel =
+                    resolveFacturaStatusLabel(movement);
+                  const paymentBalance = resolveFacturaBalance(movement);
+                  const isPaid = paymentBalance === 0;
+                  const isPendingDeletionCandidate =
+                    (movement.invoiceDocType === "FCO" ||
+                      movement.invoiceDocType === "FCR" ||
+                      movement.invoiceDocType === "NC") &&
+                    paymentStatus === "PENDIENTE";
+                  const hasPendingDeletionRequest =
+                    pendingDeletionRequestIds.has(movement.id);
+                  const canEditZeroNC =
+                    String(movement.invoiceDocType || "")
+                      .trim()
+                      .toUpperCase() === "NC" &&
+                    Math.max(0, Math.trunc(Number(movement.amount) || 0)) ===
+                      0 &&
+                    paymentStatus === "PENDIENTE" &&
+                    Math.max(
+                      0,
+                      Math.trunc(Number(movement.zeroAmountEditCount) || 0),
+                    ) === 0;
+                  const providerName =
+                    providerNameByCode.get(movement.providerCode) ||
+                    movement.providerCode;
+                  const dateParts = formatMovementDateTime(
+                    movement.createdAt,
+                  );
+                  const hasActions =
+                    (movement.invoiceDocType === "FCR" && !isPaid) ||
+                    canEditZeroNC ||
+                    isPendingDeletionCandidate;
+
+                  return (
+                    <FacturaMobileCard
+                      key={movement.id}
+                      ariaLabel={`${formatInvoiceDocTypeLabel(
+                        movement.invoiceDocType,
+                      )} ${movement.invoiceNumber || "sin número"} de ${
+                        providerName || "proveedor sin nombre"
+                      }`}
+                      providerName={providerName || "Proveedor sin nombre"}
+                      providerCode={movement.providerCode || "-"}
+                      date={dateParts.date}
+                      time={dateParts.time}
+                      amountLabel={amountLabel}
+                      currency={movement.currency}
+                      documentTypeLabel={formatInvoiceDocTypeLabel(
+                        movement.invoiceDocType,
+                      )}
+                      statusLabel={paymentStatusLabel}
+                      statusToneClassName={statusTone(paymentStatus)}
+                      balanceLabel={
+                        movement.invoiceDocType === "FCR" &&
+                        paymentBalance > 0
+                          ? paymentBalance.toLocaleString("es-CR", {
+                              style: "currency",
+                              currency: movement.currency,
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 0,
+                            })
+                          : undefined
+                      }
+                      invoiceNumber={movement.invoiceNumber || "-"}
+                      manager={movement.manager || "-"}
+                      notes={movement.notes || "-"}
+                      paymentTypeLabel={formatMovementType(
+                        movement.paymentType,
+                      )}
+                      actions={
+                        hasActions ? (
+                          <>
+                            {movement.invoiceDocType === "FCR" && !isPaid ? (
+                              <button
+                                type="button"
+                                onClick={() => openPaymentModal(movement)}
+                                disabled={pendingCierreDeCaja}
+                                className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors ${registerPaymentTone}`}
+                              >
+                                <CreditCard className="h-4 w-4" />
+                                {pendingCierreDeCaja
+                                  ? "Bloqueado"
+                                  : "Registrar Abono"}
+                              </button>
+                            ) : canEditZeroNC ? (
+                              <button
+                                type="button"
+                                onClick={() => openEditZeroNCModal(movement)}
+                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-amber-400/45 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-200 transition-colors hover:bg-amber-500/20"
+                              >
+                                <Pencil className="h-4 w-4" />
+                                Editar monto
+                              </button>
+                            ) : null}
+                            {isAdminOrSuperAdmin &&
+                              isPendingDeletionCandidate && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setDeleteTarget(movement);
+                                    setDeleteConfirmOpen(true);
+                                  }}
+                                  disabled={deleteSubmitting}
+                                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-red-400/40 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-300 transition-colors hover:bg-red-500/20 disabled:opacity-60"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  Eliminar
+                                </button>
+                              )}
+                            {!isAdminOrSuperAdmin &&
+                              isPendingDeletionCandidate && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    void handleRequestInvoiceDeletion(movement)
+                                  }
+                                  disabled={
+                                    hasPendingDeletionRequest ||
+                                    deletionRequestSubmittingId === movement.id
+                                  }
+                                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-amber-400/45 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-200 transition-colors hover:bg-amber-500/20 disabled:opacity-60"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  {hasPendingDeletionRequest
+                                    ? "Eliminación solicitada"
+                                    : deletionRequestSubmittingId === movement.id
+                                      ? "Enviando"
+                                      : "Solicitar eliminación"}
+                                </button>
+                              )}
+                          </>
+                        ) : undefined
+                      }
+                    />
+                  );
+                })}
+
+            {!movementsLoading && filteredMovements.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-[var(--input-border)] px-4 py-10 text-center text-sm text-[var(--muted-foreground)]">
+                No hay facturas para los filtros seleccionados.
+              </div>
+            )}
+          </div>
+
+          <div
+            className="hidden overflow-x-auto sm:block"
             role="region"
             aria-label="Tabla de facturas y notas de crédito"
             tabIndex={0}

@@ -1,7 +1,9 @@
 import { Banknote, CheckCircle, FileText, MessageSquare } from "lucide-react";
 import type { FacturaMovement } from "../../../../services/facturas";
+import { MobileRecordCard } from "../MobileRecordCard";
 
 type PendingCreditInvoicesSectionProps = {
+  variant?: "table" | "mobile";
   showPendingClosingCreditInvoices: boolean;
   pendingClosingCreditInvoices: FacturaMovement[];
   providersMap: Map<string, string>;
@@ -16,6 +18,7 @@ type PendingCreditInvoicesSectionProps = {
 };
 
 export function PendingCreditInvoicesSection({
+  variant = "table",
   showPendingClosingCreditInvoices,
   pendingClosingCreditInvoices,
   providersMap,
@@ -30,6 +33,129 @@ export function PendingCreditInvoicesSection({
 }: PendingCreditInvoicesSectionProps) {
   if (!showPendingClosingCreditInvoices) {
     return null;
+  }
+
+  if (variant === "mobile") {
+    return (
+      <section aria-labelledby="pending-credit-mobile-title" className="space-y-3">
+        <h3
+          id="pending-credit-mobile-title"
+          className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-100"
+        >
+          Facturas crédito pendientes
+        </h3>
+
+        {pendingClosingCreditInvoices.map((invoice) => {
+          const providerName =
+            providersMap.get(invoice.providerCode) ?? invoice.providerCode;
+          const totalAmount = Math.max(
+            0,
+            Math.trunc(Number(invoice.originalAmount ?? invoice.amount) || 0),
+          );
+          const paidAmount = Math.max(
+            0,
+            Math.trunc(Number(invoice.paidAmount) || 0),
+          );
+          const balanceAmount = Math.max(
+            0,
+            Math.trunc(
+              Number(invoice.balanceDue ?? totalAmount - paidAmount) || 0,
+            ),
+          );
+          const recordedAt = new Date(invoice.createdAt);
+          const formattedInvoiceDate = Number.isNaN(recordedAt.getTime())
+            ? "Sin fecha"
+            : dateTimeFormatter.format(recordedAt);
+
+          return (
+            <MobileRecordCard
+              key={invoice.id}
+              ariaLabel={`Factura pendiente ${invoice.invoiceNumber || "sin número"} de ${providerName || "proveedor sin nombre"}`}
+              title={providerName || "Proveedor sin nombre"}
+              subtitle={invoice.providerCode || "-"}
+              dateTime={formattedInvoiceDate}
+              amount={formatByCurrency(invoice.currency, totalAmount)}
+              badges={
+                <>
+                  <span className="inline-flex min-h-8 items-center rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-100">
+                    FCR
+                  </span>
+                  <span className="inline-flex min-h-8 items-center rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-100">
+                    {String(invoice.paymentStatus || "PENDIENTE")}
+                  </span>
+                  {balanceAmount > 0 ? (
+                    <span className="inline-flex min-h-8 items-center gap-1 rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-100">
+                      <Banknote className="h-3.5 w-3.5" />
+                      <span>Saldo</span>
+                      <span>
+                        {formatByCurrency(invoice.currency, balanceAmount)}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex min-h-8 items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300">
+                      <CheckCircle className="h-3.5 w-3.5" />
+                      Saldado
+                    </span>
+                  )}
+                </>
+              }
+              details={[
+                { label: "N.º factura", value: invoice.invoiceNumber || "-" },
+                { label: "Encargado", value: invoice.manager || "-" },
+                {
+                  label: "Pagado",
+                  value: formatByCurrency(invoice.currency, paidAmount),
+                },
+                { label: "Observación", value: invoice.notes || "-" },
+              ]}
+              actions={
+                <button
+                  type="button"
+                  onClick={() => onOpenPaymentModal(invoice)}
+                  title="Gestionar esta factura desde Facturas de crédito y notas de crédito"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-amber-400/35 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-100 transition-colors hover:border-amber-300 hover:bg-amber-500/20"
+                >
+                  <FileText className="h-4 w-4" />
+                  Gestionar
+                </button>
+              }
+            />
+          );
+        })}
+
+        {loading ? (
+          <div className="rounded-xl border border-[var(--input-border)] px-4 py-5 text-center text-sm text-amber-100/80">
+            Cargando facturas pendientes...
+          </div>
+        ) : null}
+        {!loading && error ? (
+          <div className="rounded-xl border border-red-400/30 px-4 py-4 text-center text-sm text-red-300">
+            <p>{error}</p>
+            <button
+              type="button"
+              onClick={() => void onRetry()}
+              className="mt-3 min-h-11 rounded-lg border border-red-400/40 px-4 py-2 text-sm font-semibold hover:bg-red-500/10"
+            >
+              Reintentar
+            </button>
+          </div>
+        ) : null}
+        {!loading && !error && pendingClosingCreditInvoices.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-[var(--input-border)] px-4 py-5 text-center text-sm text-[var(--muted-foreground)]">
+            No hay facturas de crédito pendientes.
+          </div>
+        ) : null}
+        {!loading && !error && hasMore ? (
+          <button
+            type="button"
+            onClick={() => void onLoadMore()}
+            className="min-h-11 w-full rounded-xl border border-amber-400/35 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-500/20"
+          >
+            Cargar más
+          </button>
+        ) : null}
+      </section>
+    );
   }
 
   return (

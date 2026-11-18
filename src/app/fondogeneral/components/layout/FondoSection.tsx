@@ -95,6 +95,7 @@ import { FondoMovementsSkeleton } from "../FondoMovementsSkeleton";
 import { MovementActionsCell } from "../MovementActionsCell";
 import { AppliedCreditNotesDetails } from "../AppliedCreditNotesDetails";
 import { PaidFcrInfoRow } from "../PaidFcrInfoRow";
+import { FondoMovementMobileCard } from "../FondoMovementMobileCard";
 import { CompanySelectorContent } from "../CompanySelectorContent";
 import { FondoFiltersToolbar } from "../FondoFiltersToolbar";
 import { MovementDrawer } from "../drawers/MovementDrawer";
@@ -6707,8 +6708,8 @@ export function FondoSection({
                     {filteredEntries.length}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5 sm:gap-2">
+                <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center sm:gap-2">
+                  <div className="flex w-full items-center gap-2 sm:w-auto">
                     <span className="text-xs font-semibold uppercase tracking-wide">
                       Mostrar
                     </span>
@@ -6726,7 +6727,7 @@ export function FondoSection({
                         else if (v === "daily") setPageSize("daily");
                         else setPageSize(Number.parseInt(v, 10) || 10);
                       }}
-                      className="h-9 min-w-0 flex-1 rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-2 text-xs text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/60 sm:flex-initial"
+                      className="h-11 min-w-0 flex-1 rounded border border-[var(--input-border)] bg-[var(--card-bg)] px-3 text-xs text-[var(--foreground)] outline-none transition-colors hover:border-[var(--accent)]/60 sm:flex-initial"
                     >
                       <option value="daily">Diariamente</option>
                       <option value="5">5</option>
@@ -6735,9 +6736,9 @@ export function FondoSection({
                       <option value="all">Todos</option>
                     </select>
                   </div>
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-                    <div className="flex flex-col items-start gap-2 text-[var(--muted-foreground)] sm:flex-row sm:items-center sm:gap-3">
-                      <label className="flex cursor-pointer items-center gap-2 rounded border border-cyan-700/35 bg-cyan-950/25 px-2.5 py-2 transition-colors hover:border-cyan-500/45">
+                  <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:items-center">
+                    <div className="flex flex-col items-stretch gap-2 text-[var(--muted-foreground)] sm:flex-row sm:items-center sm:gap-3">
+                      <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded border border-cyan-700/35 bg-cyan-950/25 px-3 py-2 transition-colors hover:border-cyan-500/45">
                         <input
                           aria-label="Recordar filtros"
                           title="Recordar filtros"
@@ -6751,7 +6752,7 @@ export function FondoSection({
                         </span>
                       </label>
                       {isAdminUser && (
-                        <label className="flex cursor-pointer items-center gap-2 rounded border border-cyan-700/35 bg-cyan-950/25 px-2.5 py-2 transition-colors hover:border-cyan-500/45">
+                        <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded border border-cyan-700/35 bg-cyan-950/25 px-3 py-2 transition-colors hover:border-cyan-500/45">
                           <input
                             aria-label="Mantener filtros entre empresas"
                             title="Mantener filtros entre empresas"
@@ -6768,16 +6769,16 @@ export function FondoSection({
                         </label>
                       )}
                     </div>
-                    <div className="flex items-center gap-1.5 sm:gap-2">
+                    <div className="flex w-full items-center gap-2 sm:w-auto">
                       <button
                         type="button"
                         onClick={handlePrevPage}
                         disabled={disablePrevButton}
-                        className="h-9 flex-1 rounded border border-[var(--input-border)] px-3 text-xs font-medium transition-colors hover:border-[var(--accent)] hover:bg-[var(--muted)] disabled:cursor-not-allowed disabled:opacity-45 sm:flex-initial"
+                        className="h-11 min-w-11 flex-1 rounded border border-[var(--input-border)] px-3 text-xs font-medium transition-colors hover:border-[var(--accent)] hover:bg-[var(--muted)] disabled:cursor-not-allowed disabled:opacity-45 sm:flex-initial"
                       >
                         Ant
                       </button>
-                      <div className="rounded border border-cyan-700/35 bg-cyan-950/25 px-2 py-2 text-[10px] font-medium text-[var(--foreground)] sm:text-xs whitespace-nowrap">
+                      <div className="flex min-h-11 min-w-0 flex-1 items-center justify-center rounded border border-cyan-700/35 bg-cyan-950/25 px-2 py-2 text-[10px] font-medium text-[var(--foreground)] whitespace-nowrap sm:min-w-24 sm:flex-initial sm:text-xs">
                         {isDailyMode
                           ? formatGroupLabel(currentDailyKey)
                           : `${Math.min(pageIndex + 1, totalPages)}/${totalPages}`}
@@ -6786,7 +6787,7 @@ export function FondoSection({
                         type="button"
                         onClick={handleNextPage}
                         disabled={disableNextButton}
-                        className="h-9 flex-1 rounded border border-[var(--input-border)] px-3 text-xs font-medium transition-colors hover:border-[var(--accent)] hover:bg-[var(--muted)] disabled:cursor-not-allowed disabled:opacity-45 sm:flex-initial"
+                        className="h-11 min-w-11 flex-1 rounded border border-[var(--input-border)] px-3 text-xs font-medium transition-colors hover:border-[var(--accent)] hover:bg-[var(--muted)] disabled:cursor-not-allowed disabled:opacity-45 sm:flex-initial"
                       >
                         Sig
                       </button>
@@ -6794,7 +6795,521 @@ export function FondoSection({
                   </div>
                 </div>
               </div>
-              <ResizableMovementsViewport>
+              <div className="space-y-3 px-3 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-3 sm:hidden">
+                <PendingCreditInvoicesSection
+                  variant="mobile"
+                  showPendingClosingCreditInvoices={showPendingClosingCreditInvoices}
+                  pendingClosingCreditInvoices={pendingClosingCreditInvoices}
+                  providersMap={providersMap}
+                  dateTimeFormatter={dateTimeFormatter}
+                  formatByCurrency={formatByCurrency}
+                  onOpenPaymentModal={openClosingInvoicePaymentModal}
+                  loading={pendingInvoicesLoading}
+                  error={pendingInvoicesError}
+                  hasMore={hasMorePendingInvoices}
+                  onLoadMore={loadMorePendingInvoices}
+                  onRetry={reloadPendingInvoices}
+                />
+
+                <div role="list" aria-label="Movimientos de fondos" className="space-y-3">
+                  {Array.from(groupedByDay.entries()).flatMap(
+                    ([, entries]) =>
+                      entries.map((fe) => {
+                        const providerName =
+                          providersMap.get(fe.providerCode) ?? fe.providerCode;
+                        const providerType = providerTypesMap.get(
+                          fe.providerCode,
+                        );
+                        const entryCurrency =
+                          (fe.currency as "CRC" | "USD") || "CRC";
+                        const normalizedIngreso = roundMoney2(
+                          fe.amountIngreso || 0,
+                        );
+                        const normalizedEgreso = roundMoney2(
+                          resolveEffectiveEgresoAmount(fe),
+                        );
+                        const invoiceEgresoAmount = roundMoney2(
+                          String(fe.id || "").startsWith("fcr-pago-")
+                            ? (fe.originalAmount ?? fe.amountEgreso) || 0
+                            : fe.amountEgreso || 0,
+                        );
+                        let isEntryEgreso =
+                          isEgresoType(fe.paymentType) ||
+                          isGastoType(fe.paymentType);
+                        if (
+                          normalizedIngreso > 0 &&
+                          normalizedEgreso === 0
+                        ) {
+                          isEntryEgreso = false;
+                        } else if (
+                          normalizedEgreso > 0 &&
+                          normalizedIngreso === 0
+                        ) {
+                          isEntryEgreso = true;
+                        }
+                        const movementAmount = isEntryEgreso
+                          ? normalizedEgreso
+                          : normalizedIngreso;
+                        const balanceAfter =
+                          entryCurrency === "USD"
+                            ? (balanceAfterByIdUSD.get(fe.id) ??
+                              roundMoney2(currentBalanceUSD))
+                            : (balanceAfterByIdCRC.get(fe.id) ??
+                              roundMoney2(currentBalanceCRC));
+                        const previousBalance = isEntryEgreso
+                          ? balanceAfter + normalizedEgreso
+                          : balanceAfter - normalizedIngreso;
+                        const isPaidFcrEntry = isPaidFcrMovement(fe);
+                        const isLockedMovement = isMovementLocked(fe);
+                        const primaryManager = getPrimaryMovementManager(fe);
+                        const primaryDateIso = getPrimaryMovementDateISO(fe);
+                        const recordedAt = new Date(primaryDateIso);
+                        const formattedDate = Number.isNaN(recordedAt.getTime())
+                          ? "Sin fecha"
+                          : dateTimeFormatter.format(recordedAt);
+                        const originalRegisteredAt = new Date(
+                          fe.invoiceCreatedAt || fe.createdAt,
+                        );
+                        const formattedOriginalRegisteredAt = Number.isNaN(
+                          originalRegisteredAt.getTime(),
+                        )
+                          ? "Sin fecha"
+                          : dateTimeFormatter.format(originalRegisteredAt);
+                        const isFcrInfoExpanded = expandedFcrInfoRows.has(fe.id);
+                        const owedFcrAmountRaw = fe.amountDue ?? fe.balanceDue;
+                        const owedFcrAmount = Number.isFinite(
+                          Number(owedFcrAmountRaw),
+                        )
+                          ? Math.max(0, roundMoney2(owedFcrAmountRaw))
+                          : null;
+                        const originalFcrAmount = Number.isFinite(
+                          Number(fe.originalAmount),
+                        )
+                          ? Math.max(0, roundMoney2(fe.originalAmount))
+                          : null;
+                        const isAppliedCreditNotesExpanded =
+                          expandedAppliedCreditNotesRows.has(fe.id);
+                        const hasAppliedCreditNotes =
+                          Array.isArray(fe.appliedCreditNotes) &&
+                          fe.appliedCreditNotes.length > 0;
+                        const appliedCreditNotesTotal = hasAppliedCreditNotes
+                          ? fe.appliedCreditNotes!.reduce(
+                              (sum, note) =>
+                                sum +
+                                Math.max(
+                                  0,
+                                  roundMoney2(note.appliedAmount),
+                                ),
+                              0,
+                            )
+                          : 0;
+                        const individualRoundingAdjustment =
+                          resolveIndividualMovementRoundingAdjustment(fe);
+                        const totalRoundingAdjustment =
+                          resolveTotalMovementRoundingAdjustment(fe);
+                        const storedRoundingAbsorbed =
+                          typeof fe.roundingAbsorbed === "number" &&
+                          fe.roundingAbsorbed > 0
+                            ? Math.max(0, roundMoney2(fe.roundingAbsorbed))
+                            : 0;
+                        const hasStoredRoundingBreakdown =
+                          (typeof fe.roundingAdjustment === "number" &&
+                            Number.isFinite(fe.roundingAdjustment)) ||
+                          totalRoundingAdjustment !== 0 ||
+                          storedRoundingAbsorbed > 0;
+                        const appliedCreditNotesAdjustment =
+                          hasStoredRoundingBreakdown
+                            ? Math.abs(individualRoundingAdjustment)
+                            : Math.max(
+                                0,
+                                Math.abs(
+                                  invoiceEgresoAmount -
+                                    appliedCreditNotesTotal -
+                                    normalizedEgreso,
+                                ),
+                              );
+                        const appliedCreditNotesAdjustmentIsPositive =
+                          hasStoredRoundingBreakdown
+                            ? individualRoundingAdjustment > 0
+                            : normalizedEgreso >
+                              Math.max(
+                                0,
+                                invoiceEgresoAmount -
+                                  appliedCreditNotesTotal,
+                              );
+                        const isAutoAdjustment = isAutoAdjustmentProvider(
+                          fe.providerCode,
+                        );
+                        const providerNameUpper = String(providerName)
+                          .trim()
+                          .toUpperCase();
+                        const isGeneralClosingRow =
+                          providerNameUpper === AUTO_ADJUSTMENT_PROVIDER_CODE ||
+                          providerNameUpper ===
+                            AUTO_ADJUSTMENT_PROVIDER_CODE_LEGACY ||
+                          hasGeneralClosingAdjustmentNotes(fe.notes);
+                        const isCashOpeningRow =
+                          fe.providerCode === APERTURA_FONDO_PROVIDER_CODE ||
+                          providerNameUpper === APERTURA_FONDO_PROVIDER_CODE;
+                        const isCashOpeningAdjustment =
+                          isCashOpeningRow &&
+                          String(fe.notes || "")
+                            .toUpperCase()
+                            .includes(
+                              "AJUSTE APLICADO AL SALDO DE APERTURA",
+                            );
+                        const displayPaymentType = isCashOpeningAdjustment
+                          ? AUTO_ADJUSTMENT_OPENING_TYPE
+                          : (isAutoAdjustment || isGeneralClosingRow) &&
+                              !hasGeneralClosingNoDiffNotes(fe.notes) &&
+                              fe.paymentType !== "INFORMATIVO"
+                            ? "AJUSTE CIERRE"
+                            : fe.paymentType === "INFORMATIVO" && providerType
+                              ? providerType
+                              : !providerType
+                                ? "INFORMATIVO"
+                                : fe.paymentType;
+                        const closingRecord = fe.originalEntryId
+                          ? dailyClosings.find(
+                              (closing) => closing.id === fe.originalEntryId,
+                            )
+                          : null;
+                        const hasPersistedClosingBalance =
+                          fe.closingBalanceCRC !== undefined ||
+                          fe.closingBalanceUSD !== undefined ||
+                          Boolean(closingRecord);
+
+                        const isClosingBalanceRow =
+                          (isAutoAdjustment || isGeneralClosingRow) &&
+                          hasPersistedClosingBalance;
+                        const cardDirection = isCashOpeningRow
+                          ? "neutral"
+                          : isEntryEgreso
+                            ? "expense"
+                            : "income";
+                        const cardMovementType = isCashOpeningRow
+                          ? "Apertura"
+                          : isEntryEgreso
+                            ? "Egreso"
+                            : "Ingreso";
+                        const cardAmountLabel = isCashOpeningRow
+                          ? "Saldo de apertura"
+                          : "Monto del movimiento";
+                        const cardAmount = isCashOpeningRow ? (
+                          <>
+                            {currencyEnabled.CRC
+                              ? formatByCurrency(
+                                  "CRC",
+                                  Math.trunc(fe.openingBalanceCRC ?? 0),
+                                )
+                              : null}
+                            {currencyEnabled.CRC && currencyEnabled.USD ? (
+                              <br />
+                            ) : null}
+                            {currencyEnabled.USD
+                              ? formatByCurrency(
+                                  "USD",
+                                  Math.trunc(fe.openingBalanceUSD ?? 0),
+                                )
+                              : null}
+                          </>
+                        ) : (
+                          `${isEntryEgreso ? "-" : "+"} ${formatByCurrency(
+                            entryCurrency,
+                            movementAmount,
+                          )}`
+                        );
+                        const cardBalanceSummary = isClosingBalanceRow ? (
+                          <>
+                            <div>Saldo al cierre</div>
+                            <ClosingBalanceDisplay
+                              currencyEnabled={currencyEnabled}
+                              closingCRC={Math.trunc(
+                                fe.closingBalanceCRC ??
+                                  closingRecord?.totalCRC ??
+                                  closingRecord?.recordedBalanceCRC ??
+                                  0,
+                              )}
+                              closingUSD={Math.trunc(
+                                fe.closingBalanceUSD ??
+                                  closingRecord?.totalUSD ??
+                                  closingRecord?.recordedBalanceUSD ??
+                                  0,
+                              )}
+                              breakdownCRC={
+                                closingRecord?.breakdownCRC ?? null
+                              }
+                              breakdownUSD={
+                                closingRecord?.breakdownUSD ?? null
+                              }
+                              formatByCurrency={formatByCurrency}
+                              copyToClipboard={copyToClipboard}
+                              onCopyError={() =>
+                                showToast(
+                                  "No se pudieron copiar las denominaciones.",
+                                  "error",
+                                )
+                              }
+                            />
+                          </>
+                        ) : undefined;
+
+                        const expandedContent =
+                          (hasAppliedCreditNotes &&
+                            isAppliedCreditNotesExpanded &&
+                            !isPaidFcrEntry) ||
+                          (isPaidFcrEntry && isFcrInfoExpanded) ? (
+                            <div>
+                              {hasAppliedCreditNotes &&
+                              isAppliedCreditNotesExpanded &&
+                              !isPaidFcrEntry ? (
+                                <AppliedCreditNotesDetails
+                                  notes={fe.appliedCreditNotes!}
+                                  currency={entryCurrency}
+                                  appliedCreditNotesTotal={
+                                    appliedCreditNotesTotal
+                                  }
+                                  formatByCurrency={formatByCurrency}
+                                  variant="sky"
+                                />
+                              ) : null}
+                              {isPaidFcrEntry && isFcrInfoExpanded ? (
+                                <PaidFcrInfoRow
+                                  variant="mobile"
+                                  primaryManager={primaryManager}
+                                  formattedDate={formattedDate}
+                                  manager={fe.manager}
+                                  formattedOriginalRegisteredAt={
+                                    formattedOriginalRegisteredAt
+                                  }
+                                  originalFcrAmount={originalFcrAmount}
+                                  owedFcrAmount={owedFcrAmount}
+                                  entryCurrency={entryCurrency}
+                                  hasAppliedCreditNotes={
+                                    hasAppliedCreditNotes
+                                  }
+                                  appliedCreditNotes={
+                                    fe.appliedCreditNotes ?? []
+                                  }
+                                  appliedCreditNotesTotal={
+                                    appliedCreditNotesTotal
+                                  }
+                                  appliedCreditNotesAdjustment={
+                                    appliedCreditNotesAdjustment
+                                  }
+                                  formatByCurrency={formatByCurrency}
+                                  colSpan={7}
+                                />
+                              ) : null}
+                            </div>
+                          ) : undefined;
+
+                        return (
+                          <div key={fe.id} role="listitem">
+                            <FondoMovementMobileCard
+                              ariaLabel={`Movimiento ${fe.invoiceNumber || "sin factura"} de ${providerName || "proveedor sin nombre"}`}
+                              title={providerName || "Proveedor sin nombre"}
+                              dateTime={formattedDate}
+                              direction={cardDirection}
+                              movementType={cardMovementType}
+                              amountLabel={cardAmountLabel}
+                              amount={cardAmount}
+                              balanceBefore={
+                                !isCashOpeningRow && !isClosingBalanceRow
+                                  ? formatByCurrency(
+                                      entryCurrency,
+                                      previousBalance,
+                                    )
+                                  : undefined
+                              }
+                              balanceAfter={
+                                !isCashOpeningRow && !isClosingBalanceRow
+                                  ? formatByCurrency(
+                                      entryCurrency,
+                                      balanceAfter,
+                                    )
+                                  : undefined
+                              }
+                              balanceSummary={cardBalanceSummary}
+                              observation={fe.notes}
+                              badges={
+                                <>
+                                  {fe.isAudit ? (
+                                    <button
+                                      type="button"
+                                      data-tone="audit"
+                                      onClick={() => {
+                                        if (!fe.auditDetails) return;
+                                        try {
+                                          const parsed = JSON.parse(
+                                            fe.auditDetails,
+                                          );
+                                          const history = Array.isArray(
+                                            parsed?.history,
+                                          )
+                                            ? parsed.history
+                                            : parsed?.before && parsed?.after
+                                              ? [
+                                                  {
+                                                    at:
+                                                      parsed.at ?? fe.createdAt,
+                                                    before: parsed.before,
+                                                    after: parsed.after,
+                                                  },
+                                                ]
+                                              : [];
+                                          setAuditModalData({ history });
+                                          setAuditModalOpen(true);
+                                        } catch {
+                                          // El distintivo permanece informativo si el historial es inválido.
+                                        }
+                                      }}
+                                    >
+                                      <Pencil aria-hidden="true" />
+                                      Editado
+                                    </button>
+                                  ) : null}
+                                  {isPaidFcrEntry ? (
+                                    <span data-tone="credit">
+                                      FC
+                                    </span>
+                                  ) : null}
+                                  {isLockedMovement ? (
+                                    <span data-tone="locked">
+                                      <Lock aria-hidden="true" />
+                                      Bloqueado
+                                    </span>
+                                  ) : null}
+                                </>
+                              }
+                              details={[
+                                {
+                                  label: "Factura / referencia",
+                                  value: fe.invoiceNumber
+                                    ? `#${fe.invoiceNumber}`
+                                    : "-",
+                                },
+                                {
+                                  label: "Encargado",
+                                  value: primaryManager || "-",
+                                },
+                                {
+                                  label: "Moneda",
+                                  value: entryCurrency,
+                                },
+                                {
+                                  label: "Tipo",
+                                  value:
+                                    displayPaymentType === "INFORMATIVO"
+                                      ? "Informativo"
+                                      : formatMovementType(displayPaymentType),
+                                },
+                                ...(appliedCreditNotesTotal > 0
+                                  ? [
+                                      {
+                                        label: "NC aplicadas",
+                                        value: formatByCurrency(
+                                          entryCurrency,
+                                          appliedCreditNotesTotal,
+                                        ),
+                                      },
+                                    ]
+                                  : []),
+                                ...(appliedCreditNotesAdjustment > 0
+                                  ? [
+                                      {
+                                        label:
+                                          totalRoundingAdjustment !== 0
+                                            ? "Redondeo individual"
+                                            : "Redondeo",
+                                        value: `${
+                                          appliedCreditNotesAdjustmentIsPositive
+                                            ? "+"
+                                            : "-"
+                                        }${formatByCurrency(
+                                          entryCurrency,
+                                          appliedCreditNotesAdjustment,
+                                        )}`,
+                                      },
+                                    ]
+                                  : []),
+                                ...(totalRoundingAdjustment !== 0
+                                  ? [
+                                      {
+                                        label: "Redondeo total",
+                                        value: `${
+                                          totalRoundingAdjustment > 0
+                                            ? "+"
+                                            : "-"
+                                        }${formatByCurrency(
+                                          entryCurrency,
+                                          Math.abs(totalRoundingAdjustment),
+                                        )}`,
+                                      },
+                                    ]
+                                  : []),
+                              ]}
+                              expandedContent={expandedContent}
+                              actions={
+                                <MovementActionsCell
+                                  variant="mobile"
+                                  entry={fe}
+                                  isCashOpeningMovement={
+                                    isCashOpeningMovement(fe)
+                                  }
+                                  isLockedMovement={isLockedMovement}
+                                  isPaidFcrEntry={isPaidFcrEntry}
+                                  hasAppliedCreditNotes={
+                                    hasAppliedCreditNotes
+                                  }
+                                  isAppliedCreditNotesExpanded={
+                                    isAppliedCreditNotesExpanded
+                                  }
+                                  isFcrInfoExpanded={isFcrInfoExpanded}
+                                  isAutoAdjustment={isAutoAdjustment}
+                                  isPrincipalAdmin={isPrincipalAdmin}
+                                  isSuperAdminUser={isSuperAdminUser}
+                                  latestCierreFondoVentasMovementId={
+                                    latestCierreFondoVentasMovementId
+                                  }
+                                  editingEntryId={editingEntryId}
+                                  isCierreFondoVentasMovement={
+                                    isCierreFondoVentasMovement
+                                  }
+                                  onEdit={handleEditMovement}
+                                  onDelete={handleDeleteMovement}
+                                  onToggleFcrInfo={(entryId) => {
+                                    setExpandedFcrInfoRows((previous) => {
+                                      const next = new Set(previous);
+                                      if (next.has(entryId)) next.delete(entryId);
+                                      else next.add(entryId);
+                                      return next;
+                                    });
+                                  }}
+                                  onToggleAppliedCreditNotes={(entryId) => {
+                                    setExpandedAppliedCreditNotesRows(
+                                      (previous) => {
+                                        const next = new Set(previous);
+                                        if (next.has(entryId))
+                                          next.delete(entryId);
+                                        else next.add(entryId);
+                                        return next;
+                                      },
+                                    );
+                                  }}
+                                />
+                              }
+                              dimmed={isLockedMovement}
+                            />
+                          </div>
+                        );
+                      }),
+                  )}
+                </div>
+              </div>
+
+              <div className="hidden sm:block">
+                <ResizableMovementsViewport>
                 {(effectiveFromFilter || effectiveToFilter) && (
                   <div className="px-2 sm:px-3 py-2">
                     <div className="text-xs sm:text-sm text-[var(--muted-foreground)] flex flex-col sm:flex-row sm:items-center gap-2">
@@ -7897,7 +8412,8 @@ export function FondoSection({
                     )}
                   </table>
                 </div>
-              </ResizableMovementsViewport>
+                </ResizableMovementsViewport>
+              </div>
             </div>
           )}
 
