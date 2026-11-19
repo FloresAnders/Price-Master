@@ -322,7 +322,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const [showSupplierWeekInMenu, setShowSupplierWeekInMenu] = useState(true);
   const [enableHomeMenuSortMobile, setEnableHomeMenuSortMobile] =
     useState(false);
-  const [homeMenuColumns, setHomeMenuColumns] = useState(2);
+  const [homeMenuColumns, setHomeMenuColumns] = useState(0);
   const [showFavoritesView, setShowFavoritesView] = useState(false);
   const [isDesktopViewport, setIsDesktopViewport] = useState(false);
   const [favoritesPreferenceHydrated, setFavoritesPreferenceHydrated] =
@@ -466,9 +466,9 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
         localStorage.getItem("home-menu-columns"),
       );
       setHomeMenuColumns(
-        Number.isInteger(savedColumns) && savedColumns >= 1 && savedColumns <= 6
+        Number.isInteger(savedColumns) && savedColumns >= 0 && savedColumns <= 10
           ? savedColumns
-          : 2,
+          : 0,
       );
     };
 
@@ -1823,7 +1823,13 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
         <div
           className="grid w-full max-w-screen-xl gap-2 px-1 pt-2 sm:gap-6 sm:px-4 sm:pt-4"
           style={{
-            gridTemplateColumns: `repeat(${homeMenuColumns}, minmax(0, 1fr))`,
+            gridTemplateColumns: `repeat(${
+              homeMenuColumns === 0
+                ? isDesktopViewport
+                  ? 5
+                  : 2
+                : homeMenuColumns
+            }, minmax(0, 1fr))`,
           }}
         >
           {shouldShowSupplierWeekCard && (

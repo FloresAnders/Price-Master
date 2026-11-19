@@ -213,7 +213,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
   );
   const [homeMenuColumns, setHomeMenuColumns] = useState(() => {
     const saved = Number(safeLocalStorage.getItem("home-menu-columns"));
-    return Number.isInteger(saved) && saved >= 1 && saved <= 6 ? saved : 2;
+    return Number.isInteger(saved) && saved >= 0 && saved <= 10 ? saved : 0;
   });
   const [showCalculatorModal, setShowCalculatorModal] = useState(false);
   const [showCashCounterModal, setShowCashCounterModal] = useState(false);

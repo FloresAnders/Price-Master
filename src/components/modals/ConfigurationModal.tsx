@@ -639,7 +639,9 @@ export default function ConfigurationModal({
                         Columnas del HomeMenu
                       </div>
                       <div className="text-sm text-slate-400">
-                        {homeMenuColumns} {homeMenuColumns === 1 ? "columna" : "columnas"}
+                        {homeMenuColumns === 0
+                          ? "Desactivado (automático)"
+                          : `${homeMenuColumns} ${homeMenuColumns === 1 ? "columna" : "columnas"}`}
                       </div>
                     </div>
                   </div>
@@ -652,9 +654,9 @@ export default function ConfigurationModal({
                       }
                       className="rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-cyan-500"
                     >
-                      {[1, 2, 3, 4, 5, 6].map((columns) => (
+                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((columns) => (
                         <option key={columns} value={columns}>
-                          {columns}
+                          {columns === 0 ? "0 - Desactivado" : columns}
                         </option>
                       ))}
                     </select>
