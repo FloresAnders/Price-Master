@@ -30,6 +30,7 @@ import {
 import ServiceWorkerRegistrar from "../components/pwa/ServiceWorkerRegistrar";
 import NativeNotificationsInitializer from "../components/notifications/NativeNotificationsInitializer";
 import OfflineStatusOverlay from "../components/OfflineStatusOverlay";
+import RegistroTucanSyncInitializer from "../components/RegistroTucanSyncInitializer";
 
 export const metadata = {
   title: "Inicio | Time Master",
@@ -155,6 +156,7 @@ export default function RootLayout({
                       <SinpeNotificationsInitializer />
                       <NativeNotificationsInitializer />
                       <SystemNotesInitializer />
+                      <RegistroTucanSyncInitializer />
                       <SubscriptionNotice />
                       <SeasonalEffectsHost />
                       <HeaderWrapper />

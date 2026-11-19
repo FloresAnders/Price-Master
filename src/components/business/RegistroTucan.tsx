@@ -17,7 +17,10 @@ import {
   type MovementStorage,
 } from "../../services/movimientos-fondos";
 import { EmpresasService } from "../../services/empresas";
-import { RegistroTucanService } from "../../services/registro-tucan";
+import {
+  REGISTRO_TUCAN_PENDING_EVENT,
+  RegistroTucanService,
+} from "../../services/registro-tucan";
 import type { Empresas, RegistroTucanRecord } from "../../types/firestore";
 import { useShiftScheduleResolver } from "../../app/fondogeneral/hooks/useShiftScheduleResolver";
 import {
@@ -304,37 +307,28 @@ export default function RegistroTucan() {
   }, [loadTucanBalance, loadRecentRecords]);
 
   useEffect(() => {
-    let cancelled = false;
-    void RegistroTucanService.getPendingCount().then((count) => {
-      if (!cancelled) setPendingCount(count);
-    });
+    const refreshPendingCount = (event: Event) => {
+      const detail = (event as CustomEvent<{ count?: number }>).detail;
+      if (typeof detail?.count === "number") {
+        setPendingCount(detail.count);
+      }
+    };
+    const refresh = () => {
+      void RegistroTucanService.getPendingCount().then(setPendingCount);
+    };
+    refresh();
+    window.addEventListener(REGISTRO_TUCAN_PENDING_EVENT, refreshPendingCount);
     return () => {
-      cancelled = true;
+      window.removeEventListener(
+        REGISTRO_TUCAN_PENDING_EVENT,
+        refreshPendingCount,
+      );
     };
   }, []);
 
   useEffect(() => {
     if (!isOnline) return;
-    let cancelled = false;
-    const sync = async () => {
-      await RegistroTucanService.syncPending();
-      const count = await RegistroTucanService.getPendingCount();
-      if (!cancelled) setPendingCount(count);
-      if (!cancelled) await loadRecentRecords();
-    };
-    void sync();
-    const interval = window.setInterval(() => void sync(), 15_000);
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") void sync();
-    };
-    window.addEventListener("online", sync);
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-      window.removeEventListener("online", sync);
-      document.removeEventListener("visibilitychange", handleVisibility);
-    };
+    void loadRecentRecords();
   }, [isOnline, loadRecentRecords]);
 
   useEffect(() => {

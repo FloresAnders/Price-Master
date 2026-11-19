@@ -18,6 +18,8 @@ const RECORDS_STORE = "records";
 const PENDING_CREATE_STORE = "pendingCreates";
 const PENDING_DELETE_STORE = "pendingDeletes";
 const LEGACY_RECORDS_KEY = "registro-tucan-offline-records";
+export const REGISTRO_TUCAN_PENDING_EVENT =
+  "price-master:registro-tucan-pending";
 
 type OfflineRecord = RegistroTucanRecord & { id: string; offline?: boolean };
 type PendingCreate = { key: string; input: OfflineRecord };
@@ -88,6 +90,18 @@ function normalizeCachedRecord(record: unknown): OfflineRecord | null {
   return value as unknown as OfflineRecord;
 }
 
+async function publishPendingCount(): Promise<void> {
+  if (typeof window === "undefined") return;
+  try {
+    const count = await RegistroTucanService.getPendingCount();
+    window.dispatchEvent(
+      new CustomEvent(REGISTRO_TUCAN_PENDING_EVENT, { detail: { count } }),
+    );
+  } catch {
+    // Pending status is auxiliary.
+  }
+}
+
 export type RegistroTucanInput = Omit<
   RegistroTucanRecord,
   "id" | "currency" | "createdAt" | "updatedAt"
@@ -148,6 +162,7 @@ export class RegistroTucanService {
     };
     await this.queueCreate(offlineRecord);
     await this.cacheRecord(offlineRecord);
+    await publishPendingCount();
     return offlineId;
   }
 
@@ -189,6 +204,7 @@ export class RegistroTucanService {
     await this.removeCachedRecord(normalizedEmpresa, normalizedRecordId);
     if (normalizedRecordId.startsWith("offline-")) {
       await this.removePendingCreate(normalizedEmpresa, normalizedRecordId);
+      await publishPendingCount();
       return;
     }
 
@@ -201,6 +217,7 @@ export class RegistroTucanService {
       }
     }
     await this.queueDelete(normalizedEmpresa, normalizedRecordId);
+    await publishPendingCount();
   }
 
   private static async cacheRecord(record: OfflineRecord): Promise<void> {
@@ -508,9 +525,11 @@ export class RegistroTucanService {
           console.warn("No se pudo sincronizar registro Registro Tucan.", error);
         }
       }
+      await publishPendingCount();
       db.close();
     } catch (error) {
       console.warn("No se pudo sincronizar Registro Tucan pendiente.", error);
+      await publishPendingCount();
     }
   }
 }
