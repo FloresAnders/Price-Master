@@ -175,3 +175,5 @@ android/*
 /extensions/
 *.test
 *.test.*
+!/tests/passkeys/
+!/tests/passkeys/config.server.test.ts

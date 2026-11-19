@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const gradlePath = path.join(root, "android", "app", "build.gradle");
+const gradlePath = path.join(root, "capacitor-android", "build.gradle");
 const versionPath = path.join(root, "src", "data", "version.json");
 
 const gradle = fs.readFileSync(gradlePath, "utf8");
@@ -18,7 +18,9 @@ if (!/^\d+\.\d+\.\d+$/.test(versionName)) {
 
 const versionCodeMatch = gradle.match(/versionCode\s+(\d+)/);
 if (!versionCodeMatch) {
-  throw new Error("No se encontró versionCode en android/app/build.gradle");
+  throw new Error(
+    "No se encontró versionCode en capacitor-android/build.gradle",
+  );
 }
 
 const currentVersionCode = Number(versionCodeMatch[1]);

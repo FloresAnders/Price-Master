@@ -7,12 +7,17 @@ export interface WebAuthnConfig {
 
 type Environment = Record<string, string | undefined>;
 
+const ANDROID_APK_ORIGIN_PATTERN =
+  /^android:apk-key-hash:[A-Za-z0-9_-]{43}$/;
+
 const normalizeOrigins = (raw: string, production: boolean) => {
   const origins = raw
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean)
     .map((value) => {
+      if (ANDROID_APK_ORIGIN_PATTERN.test(value)) return value;
+
       const url = new URL(value);
       if (!['http:', 'https:'].includes(url.protocol)) {
         throw new Error("TIMEMASTER_WEBAUTHN_ORIGINS contains an invalid protocol.");
