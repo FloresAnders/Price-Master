@@ -97,6 +97,7 @@ export default function RegistroTucan() {
   const [empresaLoading, setEmpresaLoading] = useState(true);
   const [serverTimeLoading, setServerTimeLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
   const [error, setError] = useState("");
   const [records, setRecords] = useState<RegistroTucanRecord[]>([]);
   const [sortOrder, setSortOrder] = useState<RegistroTucanSortOrder>("desc");
@@ -303,10 +304,37 @@ export default function RegistroTucan() {
   }, [loadTucanBalance, loadRecentRecords]);
 
   useEffect(() => {
-    if (!isOnline) return;
-    void RegistroTucanService.syncPending().finally(() => {
-      void loadRecentRecords();
+    let cancelled = false;
+    void RegistroTucanService.getPendingCount().then((count) => {
+      if (!cancelled) setPendingCount(count);
     });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isOnline) return;
+    let cancelled = false;
+    const sync = async () => {
+      await RegistroTucanService.syncPending();
+      const count = await RegistroTucanService.getPendingCount();
+      if (!cancelled) setPendingCount(count);
+      if (!cancelled) await loadRecentRecords();
+    };
+    void sync();
+    const interval = window.setInterval(() => void sync(), 15_000);
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") void sync();
+    };
+    window.addEventListener("online", sync);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener("online", sync);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [isOnline, loadRecentRecords]);
 
   useEffect(() => {
@@ -560,6 +588,9 @@ export default function RegistroTucan() {
           : "Registro guardado.",
         "success",
       );
+      if (recordId.startsWith("offline-")) {
+        setPendingCount((count) => count + 1);
+      }
       await loadRecentRecords();
     } catch (err) {
       console.error("Error saving Registro Tucan record:", err);
@@ -640,6 +671,17 @@ export default function RegistroTucan() {
         saving={saving}
         onEmpresaChange={handleEmpresaChange}
       />
+
+      {pendingCount > 0 && (
+        <div
+          role="status"
+          className="rounded-lg border border-amber-500/35 bg-amber-950/25 px-4 py-3 text-sm text-amber-100"
+        >
+          {isOnline
+            ? `Sincronizando ${pendingCount} registro${pendingCount === 1 ? "" : "s"} pendiente${pendingCount === 1 ? "" : "s"}...`
+            : `${pendingCount} registro${pendingCount === 1 ? "" : "s"} pendiente${pendingCount === 1 ? "" : "s"} por sincronizar.`}
+        </div>
+      )}
 
       <RegistroTucanMetrics cards={metricCards} formatCRC={formatCRC} />
 

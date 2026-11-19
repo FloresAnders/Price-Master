@@ -303,13 +303,43 @@ export class RegistroTucanService {
     limitCount: number,
   ): Promise<RegistroTucanRecord[]> {
     const cached = await this.getCachedRecords(empresa, limitCount);
+    const pending = await this.getPendingCreates(empresa);
     const serverIds = new Set(serverRecords.map((record) => record.id).filter(Boolean));
-    const offlineOnly = cached.filter(
+    const pendingOnly = pending.filter(
+      (record) => record.id && !serverIds.has(record.id),
+    );
+    const cachedOnly = cached.filter(
       (record) =>
         record.id?.startsWith("offline-") &&
-        !serverIds.has(record.id),
+        !serverIds.has(record.id) &&
+        !pendingOnly.some((pendingRecord) => pendingRecord.id === record.id),
     );
-    return this.sortAndLimit([...serverRecords, ...offlineOnly], limitCount);
+    return this.sortAndLimit(
+      [...serverRecords, ...pendingOnly, ...cachedOnly],
+      limitCount,
+    );
+  }
+
+  private static async getPendingCreates(
+    empresa: string,
+  ): Promise<RegistroTucanRecord[]> {
+    try {
+      const db = await openDb();
+      const tx = db.transaction(PENDING_CREATE_STORE, "readonly");
+      const store = tx.objectStore(PENDING_CREATE_STORE);
+      const pending = await requestPromise(store.getAll()) as PendingCreate[];
+      await txDone(tx);
+      db.close();
+      return pending
+        .map((item) => item.input)
+        .filter(
+          (record) =>
+            buildRegistroTucanEmpresaDocId(record.empresa) ===
+            buildRegistroTucanEmpresaDocId(empresa),
+        );
+    } catch {
+      return [];
+    }
   }
 
   private static sortAndLimit(
@@ -413,6 +443,27 @@ export class RegistroTucanService {
     }
   }
 
+  static async getPendingCount(): Promise<number> {
+    if (!hasIndexedDb()) return 0;
+    try {
+      const db = await openDb();
+      const createTx = db.transaction(PENDING_CREATE_STORE, "readonly");
+      const createCount = await requestPromise(
+        createTx.objectStore(PENDING_CREATE_STORE).count(),
+      );
+      await txDone(createTx);
+      const deleteTx = db.transaction(PENDING_DELETE_STORE, "readonly");
+      const deleteCount = await requestPromise(
+        deleteTx.objectStore(PENDING_DELETE_STORE).count(),
+      );
+      await txDone(deleteTx);
+      db.close();
+      return createCount + deleteCount;
+    } catch {
+      return 0;
+    }
+  }
+
   static async syncPending(): Promise<void> {
     if (!isOnline()) return;
     try {
@@ -423,11 +474,15 @@ export class RegistroTucanService {
       await txDone(deleteTx);
 
       for (const pending of pendingDeletes) {
-        await deleteDoc(this.recordDocRef(pending.empresa, pending.recordId));
-        await this.removeCachedRecord(pending.empresa, pending.recordId);
-        const tx = db.transaction(PENDING_DELETE_STORE, "readwrite");
-        tx.objectStore(PENDING_DELETE_STORE).delete(pending.key);
-        await txDone(tx);
+        try {
+          await deleteDoc(this.recordDocRef(pending.empresa, pending.recordId));
+          await this.removeCachedRecord(pending.empresa, pending.recordId);
+          const tx = db.transaction(PENDING_DELETE_STORE, "readwrite");
+          tx.objectStore(PENDING_DELETE_STORE).delete(pending.key);
+          await txDone(tx);
+        } catch (error) {
+          console.warn("No se pudo sincronizar eliminacion Registro Tucan.", error);
+        }
       }
 
       const createTx = db.transaction(PENDING_CREATE_STORE, "readonly");
@@ -436,18 +491,22 @@ export class RegistroTucanService {
       await txDone(createTx);
 
       for (const pending of pendingCreates) {
-        const { offline, id, ...input } = pending.input;
-        const payload = {
-          ...input,
-          empresaId: this.buildEmpresaDocId(input.empresa),
-          currency: "CRC",
-          createdAt: input.createdAt ? new Date(input.createdAt) : new Date(),
-          updatedAt: new Date(),
-        } satisfies Omit<RegistroTucanRecord, "id">;
-        const docRef = await addDoc(this.recordsCollectionRef(input.empresa), payload);
-        await this.removeCachedRecord(input.empresa, id);
-        await this.removePendingCreate(input.empresa, id);
-        await this.cacheRecord({ ...payload, id: docRef.id });
+        try {
+          const { offline, id, ...input } = pending.input;
+          const payload = {
+            ...input,
+            empresaId: this.buildEmpresaDocId(input.empresa),
+            currency: "CRC",
+            createdAt: input.createdAt ? new Date(input.createdAt) : new Date(),
+            updatedAt: new Date(),
+          } satisfies Omit<RegistroTucanRecord, "id">;
+          const docRef = await addDoc(this.recordsCollectionRef(input.empresa), payload);
+          await this.removeCachedRecord(input.empresa, id);
+          await this.removePendingCreate(input.empresa, id);
+          await this.cacheRecord({ ...payload, id: docRef.id });
+        } catch (error) {
+          console.warn("No se pudo sincronizar registro Registro Tucan.", error);
+        }
       }
       db.close();
     } catch (error) {
