@@ -211,6 +211,10 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       );
     },
   );
+  const [homeMenuColumns, setHomeMenuColumns] = useState(() => {
+    const saved = Number(safeLocalStorage.getItem("home-menu-columns"));
+    return Number.isInteger(saved) && saved >= 1 && saved <= 6 ? saved : 2;
+  });
   const [showCalculatorModal, setShowCalculatorModal] = useState(false);
   const [showCashCounterModal, setShowCashCounterModal] = useState(false);
   const [cashCounterAccountId, setCashCounterAccountId] =
@@ -433,6 +437,17 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       );
     }
   }, [enableHomeMenuSortMobile]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("home-menu-columns", homeMenuColumns.toString());
+      window.dispatchEvent(
+        new CustomEvent("timemaster:preference-change", {
+          detail: { key: "home-menu-columns" },
+        }),
+      );
+    }
+  }, [homeMenuColumns]);
 
   // Keep currentHash in sync in case some code manipulates history.hash
   useEffect(() => {
@@ -2190,6 +2205,8 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         onToggleSupplierWeekInMenu={setShowSupplierWeekInMenu}
         enableHomeMenuSortMobile={enableHomeMenuSortMobile}
         onToggleHomeMenuSortMobile={setEnableHomeMenuSortMobile}
+        homeMenuColumns={homeMenuColumns}
+        onChangeHomeMenuColumns={setHomeMenuColumns}
         onLogoutClick={handleLogoutClick}
       />
 

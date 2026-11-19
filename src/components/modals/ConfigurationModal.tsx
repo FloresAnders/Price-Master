@@ -38,6 +38,8 @@ interface ConfigurationModalProps {
   onToggleSupplierWeekInMenu: (show: boolean) => void;
   enableHomeMenuSortMobile: boolean;
   onToggleHomeMenuSortMobile: (enabled: boolean) => void;
+  homeMenuColumns: number;
+  onChangeHomeMenuColumns: (columns: number) => void;
   onLogoutClick: () => void;
 }
 
@@ -54,6 +56,8 @@ export default function ConfigurationModal({
   onToggleSupplierWeekInMenu,
   enableHomeMenuSortMobile,
   onToggleHomeMenuSortMobile,
+  homeMenuColumns,
+  onChangeHomeMenuColumns,
   onLogoutClick,
 }: ConfigurationModalProps) {
   const { user, updateCurrentUser } = useAuth();
@@ -623,6 +627,41 @@ export default function ConfigurationModal({
                 </div>
                 <div className="mt-3 text-xs text-slate-400">
                   Aplica en todas las pantallas.
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-white/10 bg-slate-900/50 p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <Settings className="h-5 w-5 text-cyan-400" />
+                    <div>
+                      <div className="font-medium text-slate-200">
+                        Columnas del HomeMenu
+                      </div>
+                      <div className="text-sm text-slate-400">
+                        {homeMenuColumns} {homeMenuColumns === 1 ? "columna" : "columnas"}
+                      </div>
+                    </div>
+                  </div>
+                  <label className="shrink-0">
+                    <span className="sr-only">Cantidad de columnas del HomeMenu</span>
+                    <select
+                      value={homeMenuColumns}
+                      onChange={(event) =>
+                        onChangeHomeMenuColumns(Number(event.target.value))
+                      }
+                      className="rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-cyan-500"
+                    >
+                      {[1, 2, 3, 4, 5, 6].map((columns) => (
+                        <option key={columns} value={columns}>
+                          {columns}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="mt-3 text-xs text-slate-400">
+                  Ajusta la cantidad de tarjetas mostradas por fila.
                 </div>
               </div>
             </div>

@@ -322,6 +322,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   const [showSupplierWeekInMenu, setShowSupplierWeekInMenu] = useState(true);
   const [enableHomeMenuSortMobile, setEnableHomeMenuSortMobile] =
     useState(false);
+  const [homeMenuColumns, setHomeMenuColumns] = useState(2);
   const [showFavoritesView, setShowFavoritesView] = useState(false);
   const [isDesktopViewport, setIsDesktopViewport] = useState(false);
   const [favoritesPreferenceHydrated, setFavoritesPreferenceHydrated] =
@@ -453,6 +454,46 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
       window.removeEventListener(
         "timemaster:preference-change",
         handlePrefChange,
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const readColumns = () => {
+      const savedColumns = Number(
+        localStorage.getItem("home-menu-columns"),
+      );
+      setHomeMenuColumns(
+        Number.isInteger(savedColumns) && savedColumns >= 1 && savedColumns <= 6
+          ? savedColumns
+          : 2,
+      );
+    };
+
+    readColumns();
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === "home-menu-columns") readColumns();
+    };
+    const handlePreferenceChange = (event: Event) => {
+      if (
+        (event as CustomEvent)?.detail?.key === "home-menu-columns"
+      ) {
+        readColumns();
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener(
+      "timemaster:preference-change",
+      handlePreferenceChange,
+    );
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(
+        "timemaster:preference-change",
+        handlePreferenceChange,
       );
     };
   }, []);
@@ -1779,7 +1820,12 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
           </div>
         </div>
       ) : (
-        <div className="grid w-full max-w-screen-xl grid-cols-1 gap-3 px-1 pt-2 sm:grid-cols-2 sm:gap-6 sm:px-4 sm:pt-4 md:grid-cols-3 lg:grid-cols-4">
+        <div
+          className="grid w-full max-w-screen-xl gap-2 px-1 pt-2 sm:gap-6 sm:px-4 sm:pt-4"
+          style={{
+            gridTemplateColumns: `repeat(${homeMenuColumns}, minmax(0, 1fr))`,
+          }}
+        >
           {shouldShowSupplierWeekCard && (
             <SupplierWeekSection
               isSupplierWeekRoute={isSupplierWeekRoute}
