@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ComponentProps } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FondoFiltersToolbar } from "@/app/fondogeneral/components/FondoFiltersToolbar";
+import { ResponsiveMovementViews } from "@/app/fondogeneral/components/ResponsiveMovementViews";
 
 vi.mock("@/app/fondogeneral/components/FondoDateRangeFilters", () => ({
   FondoDateRangeFilters: () => null,
@@ -136,5 +137,98 @@ describe("FondoFiltersToolbar accessibility", () => {
     });
     fireEvent.keyDown(movementType, { key: "Escape" });
     expect(props.setIsTypeDropdownOpen).toHaveBeenCalledWith(false);
+  });
+
+  it("shows immediate validation feedback while opening a movement", () => {
+    render(
+      <FondoFiltersToolbar
+        {...createProps()}
+        createMovementOpening
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: "Validando movimiento" });
+    expect(button).toHaveProperty("disabled", true);
+    expect(button.getAttribute("aria-busy")).toBe("true");
+    expect(button.textContent).toContain("Validando...");
+  });
+
+  it("shows immediate validation feedback while opening a daily closing", () => {
+    render(
+      <FondoFiltersToolbar
+        {...createProps()}
+        dailyClosingOpening
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: "Validando cierre" });
+    expect(button).toHaveProperty("disabled", true);
+    expect(button.getAttribute("aria-busy")).toBe("true");
+    expect(button.textContent).toContain("Validando...");
+  });
+});
+
+describe("ResponsiveMovementViews", () => {
+  const listeners = new Set<(event: MediaQueryListEvent) => void>();
+  let matches = false;
+
+  beforeEach(() => {
+    matches = false;
+    listeners.clear();
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn().mockImplementation((media: string) => ({
+        media,
+        get matches() {
+          return matches;
+        },
+        onchange: null,
+        addEventListener: (
+          _type: string,
+          listener: (event: MediaQueryListEvent) => void,
+        ) => listeners.add(listener),
+        removeEventListener: (
+          _type: string,
+          listener: (event: MediaQueryListEvent) => void,
+        ) => listeners.delete(listener),
+        addListener: (listener: (event: MediaQueryListEvent) => void) =>
+          listeners.add(listener),
+        removeListener: (listener: (event: MediaQueryListEvent) => void) =>
+          listeners.delete(listener),
+        dispatchEvent: () => true,
+      })),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("invokes and mounts only the renderer for the active breakpoint", () => {
+    const renderMobile = vi.fn(() => <p>Vista móvil</p>);
+    const renderDesktop = vi.fn(() => <p>Vista escritorio</p>);
+
+    render(
+      <ResponsiveMovementViews
+        renderMobile={renderMobile}
+        renderDesktop={renderDesktop}
+      />,
+    );
+
+    expect(screen.getByText("Vista escritorio")).toBeTruthy();
+    expect(screen.queryByText("Vista móvil")).toBeNull();
+    expect(renderDesktop).toHaveBeenCalledTimes(1);
+    expect(renderMobile).not.toHaveBeenCalled();
+
+    matches = true;
+    act(() => {
+      listeners.forEach((listener) =>
+        listener({ matches: true } as MediaQueryListEvent),
+      );
+    });
+
+    expect(screen.getByText("Vista móvil")).toBeTruthy();
+    expect(screen.queryByText("Vista escritorio")).toBeNull();
+    expect(renderMobile).toHaveBeenCalledTimes(1);
   });
 });

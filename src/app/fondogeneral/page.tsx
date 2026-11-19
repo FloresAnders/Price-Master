@@ -211,9 +211,9 @@ export default function FondoPage() {
   const canRenderActiveAccount =
     effectiveActive !== "fondo" || fondoGeneralTabLockStatus === "owner";
 
-  const getCardEntranceStyle = useCallback((index: number) => {
+  const getCardEntranceStyle = useCallback((index: number, visible: boolean) => {
     return {
-      transitionDelay: `${Math.min(index * 70, 280)}ms`,
+      transitionDelay: visible ? "0ms" : `${Math.min(index * 70, 280)}ms`,
     };
   }, []);
 
@@ -384,11 +384,14 @@ export default function FondoPage() {
                     return (
                       <div
                         key={tab.id}
-                        style={getCardEntranceStyle(index)}
-                        className={`group relative min-h-[68px] w-[230px] max-w-[calc(100vw-2.5rem)] flex-none rounded-lg border text-left transition-all duration-700 ease-out motion-reduce:transition-none lg:min-w-[210px] lg:max-w-[260px] lg:flex-1 lg:basis-[210px] ${
+                        style={getCardEntranceStyle(
+                          index,
+                          accountsSectionVisible,
+                        )}
+                        className={`group relative min-h-[68px] w-[230px] max-w-[calc(100vw-2.5rem)] flex-none rounded-lg border text-left transition-[background-color,border-color,color,box-shadow,opacity,transform] ease-out motion-reduce:transition-none lg:min-w-[210px] lg:max-w-[260px] lg:flex-1 lg:basis-[210px] ${
                           accountsSectionVisible
-                            ? "opacity-100 translate-y-0"
-                            : "opacity-0 translate-y-4"
+                            ? "duration-150 opacity-100 translate-y-0"
+                            : "duration-700 opacity-0 translate-y-4"
                         } ${
                           isActive
                             ? "border-[var(--accent)] bg-[#131b21] text-[var(--foreground)] shadow-sm"

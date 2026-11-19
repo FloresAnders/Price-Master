@@ -1,6 +1,13 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import FondoPage from "@/app/fondogeneral/page";
@@ -47,7 +54,24 @@ vi.mock("@/app/fondogeneral/components/FondoTransferModal", () => ({
 describe("Fondo account selection", () => {
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
     window.localStorage.clear();
+  });
+
+  it("removes the entrance delay before account selection interactions", () => {
+    vi.useFakeTimers();
+    render(<FondoPage />);
+
+    const group = screen.getByRole("group", { name: "Cuentas" });
+    const bcrButton = within(group)
+      .getAllByRole("button")
+      .find((button) => button.textContent?.includes("BCR"));
+
+    expect(bcrButton?.parentElement?.style.transitionDelay).toBe("70ms");
+
+    act(() => vi.advanceTimersByTime(80));
+
+    expect(bcrButton?.parentElement?.style.transitionDelay).toBe("0ms");
   });
 
   it("keeps every account keyboard-reachable without claiming tab semantics", () => {

@@ -101,6 +101,7 @@ import { FondoFiltersToolbar } from "../FondoFiltersToolbar";
 import { MovementDrawer } from "../drawers/MovementDrawer";
 import { MovementNotesBlock } from "../MovementNotesBlock";
 import { ResizableMovementsViewport } from "../ResizableMovementsViewport";
+import { ResponsiveMovementViews } from "../ResponsiveMovementViews";
 import type { ExtraInvoice } from "../../hooks/movements/useMovementForm";
 import { handleSaveManualCreditNote as handleSaveManualCreditNoteFn } from "../../utils/fondo/manualCreditNote";
 import { shouldKeepPendingCreditNotesLoaded } from "../../utils/invoicePayment/creditNotes";
@@ -492,6 +493,8 @@ export function FondoSection({
   const [configuredShiftEmployeesLoading, setConfiguredShiftEmployeesLoading] =
     useState(false);
   const createMovementValidationIdRef = useRef(0);
+  const [createMovementOpening, setCreateMovementOpening] = useState(false);
+  const [dailyClosingOpening, setDailyClosingOpening] = useState(false);
   const [dailyClosingSingleReasonRequired, setDailyClosingSingleReasonRequired] =
     useState(false);
 
@@ -4625,6 +4628,10 @@ export function FondoSection({
       return;
     }
 
+    if (createMovementOpening) return;
+    setCreateMovementOpening(true);
+    try {
+
     let configuredEmployeesForOpen: string[] | null = null;
     if (
       usesConfiguredShiftHours &&
@@ -4745,10 +4752,15 @@ export function FondoSection({
         setMissingShiftModalOpen(true);
       });
     }
+    } finally {
+      setCreateMovementOpening(false);
+    }
   };
 
   const handleOpenDailyClosing = async () => {
-    if (accountKey !== "FondoGeneral") return;
+    if (accountKey !== "FondoGeneral" || dailyClosingOpening) return;
+    setDailyClosingOpening(true);
+    try {
     setEditingDailyClosingId(null);
 
     let defaultManager = (user?.name || user?.email || "").trim();
@@ -4960,6 +4972,9 @@ export function FondoSection({
     setDailyClosingSingleReasonRequired(requireSingleReason);
     setDailyClosingInitialValues(initialValues);
     setDailyClosingModalOpen(true);
+    } finally {
+      setDailyClosingOpening(false);
+    }
   };
 
   const handleOpenRequiredNightDailyClosing = useCallback(
@@ -6399,6 +6414,8 @@ export function FondoSection({
         setDailyClosingHistoryOpen={setDailyClosingHistoryOpen}
         closingsAreLoading={closingsAreLoading}
         pendingCierreDeCaja={pendingCierreDeCaja}
+        dailyClosingOpening={dailyClosingOpening}
+        createMovementOpening={createMovementOpening}
         handleOpenDailyClosing={handleOpenDailyClosing}
         handleOpenCreateMovement={handleOpenCreateMovement}
         entriesHydrated={entriesHydrated}
@@ -6795,7 +6812,9 @@ export function FondoSection({
                   </div>
                 </div>
               </div>
-              <div className="space-y-3 px-3 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-3 sm:hidden">
+              <ResponsiveMovementViews
+                renderMobile={() => (
+              <div className="space-y-3 px-3 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-3">
                 <PendingCreditInvoicesSection
                   variant="mobile"
                   showPendingClosingCreditInvoices={showPendingClosingCreditInvoices}
@@ -7307,8 +7326,10 @@ export function FondoSection({
                   )}
                 </div>
               </div>
+                )}
+                renderDesktop={() => (
 
-              <div className="hidden sm:block">
+              <div>
                 <ResizableMovementsViewport>
                 {(effectiveFromFilter || effectiveToFilter) && (
                   <div className="px-2 sm:px-3 py-2">
@@ -8414,6 +8435,8 @@ export function FondoSection({
                 </div>
                 </ResizableMovementsViewport>
               </div>
+                )}
+              />
             </div>
           )}
 

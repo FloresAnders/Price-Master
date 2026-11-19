@@ -11,6 +11,7 @@ import {
   Clock,
   EyeIcon,
   FileText,
+  Loader2,
   Pencil,
   Plus,
   RotateCcw,
@@ -93,6 +94,8 @@ interface Props {
   setDailyClosingHistoryOpen: Dispatch<SetStateAction<boolean>>;
   closingsAreLoading: boolean;
   pendingCierreDeCaja: boolean;
+  dailyClosingOpening?: boolean;
+  createMovementOpening?: boolean;
   handleOpenDailyClosing: () => void;
   handleOpenCreateMovement: () => void | Promise<void>;
   entriesHydrated: boolean;
@@ -165,6 +168,8 @@ export function FondoFiltersToolbar({
   setDailyClosingHistoryOpen,
   closingsAreLoading,
   pendingCierreDeCaja,
+  dailyClosingOpening = false,
+  createMovementOpening = false,
   handleOpenDailyClosing,
   handleOpenCreateMovement,
   entriesHydrated,
@@ -765,15 +770,25 @@ export function FondoFiltersToolbar({
                 <button
                   type="button"
                   onClick={handleOpenDailyClosing}
-                  disabled={!pendingCierreDeCaja}
+                  disabled={!pendingCierreDeCaja || dailyClosingOpening}
+                  aria-busy={dailyClosingOpening}
+                  aria-label={
+                    dailyClosingOpening ? "Validando cierre" : undefined
+                  }
                   className={`flex h-11 flex-1 items-center justify-center gap-2 rounded border px-3 text-sm font-semibold shadow-sm transition-all duration-150 ${
-                    !pendingCierreDeCaja
+                    !pendingCierreDeCaja || dailyClosingOpening
                       ? "cursor-not-allowed border-[var(--input-border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)] opacity-70"
                       : "border-yellow-600/40 bg-yellow-500/10 text-yellow-400/80 hover:-translate-y-0.5 hover:border-yellow-500/60 hover:bg-yellow-500/20 hover:shadow-md hover:shadow-yellow-950/20 active:translate-y-0 active:scale-[0.99]"
                   }`}
                 >
-                  <Banknote className="h-4 w-4 flex-shrink-0" />
-                  <span className="truncate">Registrar cierre</span>
+                  {dailyClosingOpening ? (
+                    <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin" />
+                  ) : (
+                    <Banknote className="h-4 w-4 flex-shrink-0" />
+                  )}
+                  <span className="truncate">
+                    {dailyClosingOpening ? "Validando..." : "Registrar cierre"}
+                  </span>
                 </button>
               </div>
               {!pendingCierreDeCaja && (
@@ -790,17 +805,29 @@ export function FondoFiltersToolbar({
               onClick={handleOpenCreateMovement}
               disabled={
                 (accountKey === "FondoGeneral" && pendingCierreDeCaja) ||
-                !entriesHydrated
+                !entriesHydrated ||
+                createMovementOpening
+              }
+              aria-busy={createMovementOpening}
+              aria-label={
+                createMovementOpening ? "Validando movimiento" : undefined
               }
               className={`flex h-11 w-full items-center justify-center gap-2 rounded border px-3 text-sm font-semibold shadow-sm transition-all duration-150 ${
                 (accountKey === "FondoGeneral" && pendingCierreDeCaja) ||
-                !entriesHydrated
+                !entriesHydrated ||
+                createMovementOpening
                   ? "cursor-not-allowed border-[var(--input-border)] bg-[var(--muted)]/30 text-[var(--muted-foreground)] opacity-70"
                   : "border-cyan-500/50 bg-transparent text-cyan-300 hover:-translate-y-0.5 hover:border-cyan-400/70 hover:bg-cyan-500/10 hover:shadow-md hover:shadow-cyan-950/25 active:translate-y-0 active:scale-[0.99]"
               }`}
             >
-              <Plus className="h-4 w-4 flex-shrink-0" />
-              <span className="truncate">Agregar movimiento</span>
+              {createMovementOpening ? (
+                <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4 flex-shrink-0" />
+              )}
+              <span className="truncate">
+                {createMovementOpening ? "Validando..." : "Agregar movimiento"}
+              </span>
             </button>
             {accountKey === "FondoGeneral" &&
               pendingCierreDeCaja &&
