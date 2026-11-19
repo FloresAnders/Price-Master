@@ -10,6 +10,7 @@ import {
 import { useAuth } from "../../hooks/useAuth";
 import { useActorOwnership } from "../../hooks/useActorOwnership";
 import useToast from "../../hooks/useToast";
+import { useNetworkStatus } from "../../hooks/useNetworkStatus";
 import { getDefaultPermissions } from "../../utils/permissions";
 import {
   MovimientosFondosService,
@@ -20,6 +21,7 @@ import { RegistroTucanService } from "../../services/registro-tucan";
 import type { Empresas, RegistroTucanRecord } from "../../types/firestore";
 import { useShiftScheduleResolver } from "../../app/fondogeneral/hooks/useShiftScheduleResolver";
 import {
+  buildRegistroTucanEmpresaDocId,
   calculateRegistroTucanTotal,
   formatRegistroTucanDateInput,
   formatRegistroTucanTimeInput,
@@ -42,6 +44,8 @@ import type {
 } from "./registro-tucan/types";
 
 const REGISTRO_TUCAN_COMPANY_STORAGE_KEY = "fg_selected_company_shared";
+const REGISTRO_TUCAN_EMPRESAS_CACHE_KEY = "registro-tucan-offline-empresas";
+const REGISTRO_TUCAN_BALANCE_CACHE_KEY = "registro-tucan-offline-balances";
 
 const formatCRC = (value: number) =>
   new Intl.NumberFormat("es-CR", {
@@ -78,6 +82,7 @@ export default function RegistroTucan() {
   const { user, loading } = useAuth();
   const { ownerIds } = useActorOwnership(user || {});
   const { showToast } = useToast();
+  const { isOnline } = useNetworkStatus();
   const [fecha, setFecha] = useState(() =>
     formatRegistroTucanDateInput(new Date()),
   );
@@ -257,19 +262,52 @@ export default function RegistroTucan() {
     try {
       const docKey = MovimientosFondosService.buildCompanyMovementsKey(empresa);
       const ledger = await MovimientosFondosService.getDocument(docKey);
-      setSaldoFondoTucan(resolveTucanBalance(ledger));
+      const balance = resolveTucanBalance(ledger);
+      setSaldoFondoTucan(balance);
+      try {
+        const raw = localStorage.getItem(REGISTRO_TUCAN_BALANCE_CACHE_KEY);
+        const cached = raw ? JSON.parse(raw) : {};
+        cached[buildRegistroTucanEmpresaDocId(empresa)] = balance;
+        localStorage.setItem(
+          REGISTRO_TUCAN_BALANCE_CACHE_KEY,
+          JSON.stringify(cached),
+        );
+      } catch {
+        // Cache is optional.
+      }
     } catch (err) {
       console.error("Error loading Fondo Tucan balance:", err);
-      setError("No se pudo cargar el saldo del Fondo Tucan.");
+      try {
+        const raw = localStorage.getItem(REGISTRO_TUCAN_BALANCE_CACHE_KEY);
+        const cached = raw ? JSON.parse(raw) : {};
+        const balance = Number(
+          cached[buildRegistroTucanEmpresaDocId(empresa)] || 0,
+        );
+        setSaldoFondoTucan(balance);
+        setError(
+          isOnline
+            ? "No se pudo cargar el saldo del Fondo Tucan."
+            : "Sin conexión. Se usa el último saldo guardado.",
+        );
+      } catch {
+        setError("No se pudo cargar el saldo del Fondo Tucan.");
+      }
     } finally {
       setBalanceLoading(false);
     }
-  }, [empresa, hasPermission]);
+  }, [empresa, hasPermission, isOnline]);
 
   useEffect(() => {
     void loadTucanBalance();
     void loadRecentRecords();
   }, [loadTucanBalance, loadRecentRecords]);
+
+  useEffect(() => {
+    if (!isOnline) return;
+    void RegistroTucanService.syncPending().finally(() => {
+      void loadRecentRecords();
+    });
+  }, [isOnline, loadRecentRecords]);
 
   useEffect(() => {
     if (!user || !hasPermission) {
@@ -319,6 +357,19 @@ export default function RegistroTucan() {
             : [];
         const nextOptions = mapped.length > 0 ? mapped : fallback;
 
+        try {
+          localStorage.setItem(
+            REGISTRO_TUCAN_EMPRESAS_CACHE_KEY,
+            JSON.stringify(nextOptions.map((item) => ({
+              value: item.value,
+              label: item.label,
+              empresa: item.empresa,
+            }))),
+          );
+        } catch {
+          // Cache is optional.
+        }
+
         setEmpresaOptions(nextOptions);
         setSelectedEmpresa((current) => {
           const currentKey = normalizeKey(current);
@@ -354,9 +405,26 @@ export default function RegistroTucan() {
       .catch((err) => {
         console.error("Error loading Registro Tucan empresas:", err);
         if (cancelled) return;
-        const fallback = assignedEmpresa
-          ? [{ value: assignedEmpresa, label: assignedEmpresa, empresa: null }]
-          : [];
+        let fallback: EmpresaOption[] = [];
+        try {
+          const parsed = JSON.parse(
+            localStorage.getItem(REGISTRO_TUCAN_EMPRESAS_CACHE_KEY) || "[]",
+          );
+          if (Array.isArray(parsed)) {
+            fallback = parsed
+              .filter((item) => item && typeof item.value === "string")
+              .map((item) => ({
+                value: item.value,
+                label: String(item.label || item.value),
+                empresa: item.empresa || null,
+              }));
+          }
+        } catch {
+          fallback = [];
+        }
+        if (fallback.length === 0 && assignedEmpresa) {
+          fallback = [{ value: assignedEmpresa, label: assignedEmpresa, empresa: null }];
+        }
         setEmpresaOptions(fallback);
         setSelectedEmpresa(fallback[0]?.value || "");
       })
@@ -372,6 +440,13 @@ export default function RegistroTucan() {
   const refreshServerDateTime = useCallback(async () => {
     setServerTimeLoading(true);
     setError("");
+    if (!isOnline) {
+      const now = new Date();
+      setFecha(formatRegistroTucanDateInput(now));
+      setHora(formatRegistroTucanTimeInput(now));
+      setServerTimeLoading(false);
+      return now;
+    }
     try {
       const now = await getAuthoritativeNow();
       setFecha(formatRegistroTucanDateInput(now));
@@ -384,7 +459,7 @@ export default function RegistroTucan() {
     } finally {
       setServerTimeLoading(false);
     }
-  }, []);
+  }, [isOnline]);
 
   useEffect(() => {
     void refreshServerDateTime();
@@ -415,37 +490,43 @@ export default function RegistroTucan() {
 
       const serverFecha = formatRegistroTucanDateInput(serverNow);
       const serverHora = formatRegistroTucanTimeInput(serverNow);
-      const shiftResolution = await resolveShiftManagerForNow(
-        serverNow.toISOString(),
-      );
-      if (!shiftResolution) {
-        setError("No se pudo resolver el usuario del turno.");
-        return;
-      }
-      const nightFallback =
-        shiftResolution.mode === "manual" &&
-        shiftResolution.reason === "outside_horario"
-          ? await resolvePreviousNightManagerForNow(serverNow.toISOString())
-          : null;
-      const effectiveManager =
-        shiftResolution.mode === "auto"
-          ? shiftResolution.manager
-          : nightFallback?.mode === "auto"
-            ? nightFallback.manager
-            : "";
-      if (shiftResolution.mode === "missing") {
-        setError(
-          `No se encontro usuario asignado para el turno ${shiftResolution.expectedShift}.`,
+      let effectiveManager = "";
+      if (isOnline) {
+        const shiftResolution = await resolveShiftManagerForNow(
+          serverNow.toISOString(),
         );
-        return;
-      }
-      if (!effectiveManager) {
-        if (nightFallback?.mode === "missing") {
-          setError("No se encontro usuario asignado para el turno N.");
+        if (!shiftResolution) {
+          setError("No se pudo resolver el usuario del turno.");
           return;
         }
-        setError("No se pudo resolver el usuario segun el turno.");
-        return;
+        const nightFallback =
+          shiftResolution.mode === "manual" &&
+          shiftResolution.reason === "outside_horario"
+            ? await resolvePreviousNightManagerForNow(serverNow.toISOString())
+            : null;
+        effectiveManager =
+          shiftResolution.mode === "auto"
+            ? shiftResolution.manager
+            : nightFallback?.mode === "auto"
+              ? nightFallback.manager
+              : "";
+        if (shiftResolution.mode === "missing") {
+          setError(
+            `No se encontro usuario asignado para el turno ${shiftResolution.expectedShift}.`,
+          );
+          return;
+        }
+        if (!effectiveManager) {
+          if (nightFallback?.mode === "missing") {
+            setError("No se encontro usuario asignado para el turno N.");
+            return;
+          }
+          setError("No se pudo resolver el usuario segun el turno.");
+          return;
+        }
+      } else {
+        effectiveManager =
+          user.fullName?.trim() || user.name?.trim() || user.email?.trim() || "Usuario";
       }
       const dateKey = new Date(`${serverFecha}T00:00:00`).getTime();
       if (!Number.isFinite(dateKey)) {
@@ -454,7 +535,7 @@ export default function RegistroTucan() {
       }
       const motivo = motivoInput.trim();
 
-      await RegistroTucanService.createRecord({
+      const recordId = await RegistroTucanService.createRecord({
         empresa,
         dateKey,
         fecha: serverFecha,
@@ -473,7 +554,12 @@ export default function RegistroTucan() {
       setPagosHoyInput("");
       setMotivoInput("");
       setShowMotivoInput(false);
-      showToast("Registro guardado.", "success");
+      showToast(
+        recordId.startsWith("offline-")
+          ? "Registro guardado sin conexión. Se sincronizará al recuperar internet."
+          : "Registro guardado.",
+        "success",
+      );
       await loadRecentRecords();
     } catch (err) {
       console.error("Error saving Registro Tucan record:", err);
@@ -516,7 +602,10 @@ export default function RegistroTucan() {
 
   const saveDisabled =
     saving || balanceLoading || serverTimeLoading || empresaLoading || !fecha || !hora;
-  const dateTimeValue = fecha && hora ? `${fecha.split("-").reverse().join("/")}  ${hora}` : "";
+  const dateTimeValue =
+    fecha && hora
+      ? `${fecha.split("-").reverse().join("/")}  ${hora}${isOnline ? "" : " (hora local)"}`
+      : "";
   const metricCards: RegistroTucanMetricCard[] = [
     {
       label: "Saldo página Tucan",

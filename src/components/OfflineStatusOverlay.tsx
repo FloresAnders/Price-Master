@@ -16,7 +16,6 @@ export const INTERNET_REQUIRED_HASHES = new Set([
   "deudasinternas",
   "scanhistory",
   "solicitud",
-  "registroTucan",
   "registroTiempos",
   "anotaciones",
   "edit",
