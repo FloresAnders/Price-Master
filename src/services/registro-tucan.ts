@@ -229,7 +229,6 @@ export class RegistroTucanService {
         record,
       });
       await txDone(tx);
-      db.close();
     } catch (error) {
       console.warn("No se pudo guardar Registro Tucan en IndexedDB.", error);
     }
@@ -271,7 +270,6 @@ export class RegistroTucanService {
         });
       }
       await txDone(tx);
-      db.close();
     } catch (error) {
       console.warn("No se pudo actualizar cache de Registro Tucan.", error);
     }
@@ -307,7 +305,6 @@ export class RegistroTucanService {
         request.onerror = () => reject(request.error);
       });
       await txDone(tx);
-      db.close();
       return this.sortAndLimit(records, limitCount);
     } catch {
       return this.getLegacyCachedRecords(empresa, limitCount);
@@ -346,7 +343,6 @@ export class RegistroTucanService {
       const store = tx.objectStore(PENDING_CREATE_STORE);
       const pending = await requestPromise(store.getAll()) as PendingCreate[];
       await txDone(tx);
-      db.close();
       return pending
         .map((item) => item.input)
         .filter(
@@ -405,7 +401,6 @@ export class RegistroTucanService {
       const tx = db.transaction(RECORDS_STORE, "readwrite");
       tx.objectStore(RECORDS_STORE).delete(recordKey(empresa, recordId));
       await txDone(tx);
-      db.close();
     } catch (error) {
       console.warn("No se pudo eliminar registro de la cache.", error);
     }
@@ -420,7 +415,6 @@ export class RegistroTucanService {
         input: record,
       } satisfies PendingCreate);
       await txDone(tx);
-      db.close();
     } catch (error) {
       console.warn("No se pudo crear cola offline.", error);
     }
@@ -435,7 +429,6 @@ export class RegistroTucanService {
       const tx = db.transaction(PENDING_CREATE_STORE, "readwrite");
       tx.objectStore(PENDING_CREATE_STORE).delete(recordKey(empresa, recordId));
       await txDone(tx);
-      db.close();
     } catch (error) {
       console.warn("No se pudo limpiar cola offline.", error);
     }
@@ -454,7 +447,6 @@ export class RegistroTucanService {
         recordId,
       } satisfies PendingDelete);
       await txDone(tx);
-      db.close();
     } catch (error) {
       console.warn("No se pudo crear eliminacion offline.", error);
     }
@@ -474,7 +466,6 @@ export class RegistroTucanService {
         deleteTx.objectStore(PENDING_DELETE_STORE).count(),
       );
       await txDone(deleteTx);
-      db.close();
       return createCount + deleteCount;
     } catch {
       return 0;
@@ -526,7 +517,6 @@ export class RegistroTucanService {
         }
       }
       await publishPendingCount();
-      db.close();
     } catch (error) {
       console.warn("No se pudo sincronizar Registro Tucan pendiente.", error);
       await publishPendingCount();
