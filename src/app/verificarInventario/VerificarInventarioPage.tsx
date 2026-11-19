@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import useToast from "@/hooks/useToast";
 import { ScanningService } from "@/services/scanning";
 import { useBarcodeScanner } from "./useBarcodeScanner";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import type {
   CodigoPendiente,
   InventarioItem,
@@ -211,6 +212,7 @@ function normalizeCode(value: string): string {
 
 export default function VerificarInventarioPage() {
   const { user, loading: authLoading } = useAuth();
+  const { isOnline } = useNetworkStatus();
   const hasRestrictedView = user?.role !== "admin" && user?.role !== "superadmin";
   const { showToast } = useToast();
   const [state, setState] = useState<VerificarInventarioState>(EMPTY_STATE);
@@ -972,6 +974,7 @@ export default function VerificarInventarioPage() {
   };
 
   const handleSendPendings = async () => {
+    if (!isOnline) return;
     if (
       !selectedEmpresaId ||
       !selectedEmpresa ||
@@ -1516,7 +1519,7 @@ export default function VerificarInventarioPage() {
             <button
               type="button"
               onClick={() => void handleSendPendings()}
-              disabled={!selectedEmpresaPendientes.length || sendingPendings}
+              disabled={!isOnline || !selectedEmpresaPendientes.length || sendingPendings}
               className="hidden items-center justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 lg:inline-flex"
             >
               {sendingPendings ? "Enviando…" : "Enviar"}

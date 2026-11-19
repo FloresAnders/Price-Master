@@ -29,6 +29,7 @@ import {
 } from "../components/celebraciones";
 import ServiceWorkerRegistrar from "../components/pwa/ServiceWorkerRegistrar";
 import NativeNotificationsInitializer from "../components/notifications/NativeNotificationsInitializer";
+import OfflineStatusOverlay from "../components/OfflineStatusOverlay";
 
 export const metadata = {
   title: "Inicio | Time Master",
@@ -166,6 +167,7 @@ export default function RootLayout({
                       <FloatingActionsDock />
                       <BackToTop />
                       <Footer />
+                      <OfflineStatusOverlay />
                     </FloatingActionsProvider>
                   </XmlEgresosProvider>
                   <Toaster

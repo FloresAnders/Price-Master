@@ -16,6 +16,7 @@ import {
   isHomeTabId,
   TIEMPOS_TUCAN_TAB_ID,
 } from "@/components/layout/fondoNavigation";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 // Dynamic imports for code splitting
 const BarcodeScanner = dynamic(
@@ -210,6 +211,7 @@ type ActiveTab =
 export default function HomePage() {
   // Hook para obtener el usuario autenticado
   const { user } = useAuth();
+  const { isOnline } = useNetworkStatus();
 
   // 2) Estado para la pestaña activa - now managed by URL hash only
   const [activeTab, setActiveTab] = useState<ActiveTab | null>(null);
@@ -232,6 +234,7 @@ export default function HomePage() {
   // Function to check if a code has images in Firebase Storage
   const checkCodeHasImages = useCallback(
     async (barcodeCode: string): Promise<boolean> => {
+      if (!isOnline) return false;
       try {
         const storageRef = ref(storage, "barcode-images/");
         const result = await listAll(storageRef);
@@ -254,7 +257,7 @@ export default function HomePage() {
         return false;
       }
     },
-    [],
+    [isOnline],
   );
 
   // Función para manejar códigos detectados por el escáner

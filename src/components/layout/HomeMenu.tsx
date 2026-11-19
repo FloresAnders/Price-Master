@@ -75,6 +75,8 @@ import {
   removeHomeMenuFavorite,
   setHomeMenuOrder,
 } from "../../services/homeMenuFavoritesDb";
+import { useNetworkStatus } from "../../hooks/useNetworkStatus";
+import { INTERNET_REQUIRED_HASHES } from "../OfflineStatusOverlay";
 
 const MAINTENANCE_TAB_STORAGE_KEY = "timemaster:maintenance-active-tab";
 const MAINTENANCE_TAB_EVENT = "timemaster:maintenance-tab-change";
@@ -264,6 +266,7 @@ function SortableHomeMenuCard({
   className,
   style,
   children,
+  disabled = false,
 }: {
   id: string;
   onClick: () => void;
@@ -271,6 +274,7 @@ function SortableHomeMenuCard({
   className: string;
   style?: React.CSSProperties;
   children: React.ReactNode;
+  disabled?: boolean;
 }) {
   const {
     attributes,
@@ -293,6 +297,7 @@ function SortableHomeMenuCard({
     <button
       ref={setNodeRef}
       type="button"
+      disabled={disabled}
       onClick={() => {
         if (isDragging) return;
         if (lastDragEndAt && Date.now() - lastDragEndAt < 250) return;
@@ -309,6 +314,7 @@ function SortableHomeMenuCard({
 }
 
 export default function HomeMenu({ currentUser }: HomeMenuProps) {
+  const { isOnline } = useNetworkStatus();
   const [homeGreeting, setHomeGreeting] = useState<string>(HOME_GREETINGS[0]);
   const [hovered, setHovered] = useState(false);
   const [clickCount, setClickCount] = useState(0);
@@ -1584,6 +1590,7 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   };
 
   const handleNavigate = (id: string) => {
+    if (!isOnline && INTERNET_REQUIRED_HASHES.has(id)) return;
     if (typeof window !== "undefined") {
       if (id === "verificarInventario") {
         window.location.href = "/#verificarinventario";
@@ -1598,6 +1605,10 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
   };
 
   const handleNavigateFavorite = (favorite: HomeMenuFavoriteOption) => {
+    if (!isOnline && (
+      INTERNET_REQUIRED_HASHES.has(favorite.hash) ||
+      favorite.id === "supplierweek"
+    )) return;
     if (typeof window === "undefined") return;
 
     if (favorite.maintenanceTab) {
@@ -1876,7 +1887,8 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
                         id={item.id}
                         onClick={() => handleNavigate(item.id)}
                         lastDragEndAt={lastDragEndAt}
-                        className={`home-menu-card ${theme.ring} ${item.desktopOnly ? "hidden lg:block" : ""}`}
+                        disabled={!isOnline && INTERNET_REQUIRED_HASHES.has(item.id)}
+                        className={`home-menu-card ${theme.ring} ${item.desktopOnly ? "hidden lg:block" : ""} ${!isOnline && INTERNET_REQUIRED_HASHES.has(item.id) ? "opacity-50 cursor-not-allowed" : ""}`}
                       >
                         <div className={`home-menu-card-glow bg-gradient-to-br ${theme.glow}`} />
                         <div className="home-menu-card-body">
@@ -1903,7 +1915,9 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
                       key={item.id}
                       type="button"
                       onClick={() => handleNavigate(item.id)}
-                      className={`home-menu-card ${theme.ring} ${item.desktopOnly ? "hidden lg:block" : ""}`}
+                      disabled={!isOnline && INTERNET_REQUIRED_HASHES.has(item.id)}
+                      aria-disabled={!isOnline && INTERNET_REQUIRED_HASHES.has(item.id)}
+                      className={`home-menu-card ${theme.ring} ${item.desktopOnly ? "hidden lg:block" : ""} ${!isOnline && INTERNET_REQUIRED_HASHES.has(item.id) ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       <div className={`home-menu-card-glow bg-gradient-to-br ${theme.glow}`} />
                       <div className="home-menu-card-body">
@@ -1946,7 +1960,9 @@ export default function HomeMenu({ currentUser }: HomeMenuProps) {
                         key={item.id}
                         type="button"
                         onClick={() => handleNavigateFavorite(item)}
-                        className={`home-menu-card ${theme.ring}`}
+                         disabled={!isOnline && (INTERNET_REQUIRED_HASHES.has(item.hash) || item.id === "supplierweek")}
+                         aria-disabled={!isOnline && (INTERNET_REQUIRED_HASHES.has(item.hash) || item.id === "supplierweek")}
+                         className={`home-menu-card ${theme.ring} ${!isOnline && (INTERNET_REQUIRED_HASHES.has(item.hash) || item.id === "supplierweek") ? "opacity-50 cursor-not-allowed" : ""}`}
                       >
                         <div className={`home-menu-card-glow bg-gradient-to-br ${theme.glow}`} />
                         <div className="home-menu-card-body">

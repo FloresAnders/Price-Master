@@ -17,6 +17,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "@/config/firebase";
 import QRCode from "qrcode";
 import { useAuth } from "../../hooks/useAuth";
+import { useNetworkStatus } from "../../hooks/useNetworkStatus";
 import { hasPermission } from "../../utils/permissions";
 import {
   createTimingTicket,
@@ -76,6 +77,7 @@ const isTimingMode = (value: unknown): value is TimingMode =>
 export default function TimingControl() {
   /* Verificar permisos del usuario */
   const { user } = useAuth();
+  const { isOnline } = useNetworkStatus();
 
   const [sorteos, setSorteos] = useState<Sorteo[]>([]);
   const [personName, setPersonName] = useState("");
@@ -512,6 +514,7 @@ export default function TimingControl() {
   ]);
   const toast = useToast();
   const exportToPNG = async () => {
+    if (!isOnline) return;
     if (!personName.trim()) {
       toast.showToast(
         "Por favor ingresa el nombre de la persona antes de exportar",
@@ -1377,7 +1380,7 @@ export default function TimingControl() {
                   <button
                     className="w-full rounded-lg bg-[var(--button-bg)] px-4 py-3 text-[var(--button-text)] flex items-center justify-center gap-2 font-semibold hover:bg-[var(--button-hover)] transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
                     onClick={exportToPNG}
-                    disabled={!personName.trim() || isExporting}
+                    disabled={!isOnline || !personName.trim() || isExporting}
                   >
                     <QrCode className="w-5 h-5" />
                     {isExporting ? "Exportando..." : "Exportar + QR"}

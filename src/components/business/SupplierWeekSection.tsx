@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { ArrowRight, Truck } from "lucide-react";
 import ConfirmModal from "../ui/ConfirmModal";
+import { useNetworkStatus } from "../../hooks/useNetworkStatus";
 
 export type SupplierWeekVisitDay = "D" | "L" | "M" | "MI" | "J" | "V" | "S";
 
@@ -60,6 +61,7 @@ export type SupplierWeekSectionProps = {
 };
 
 export function SupplierWeekSection(props: SupplierWeekSectionProps) {
+  const { isOnline } = useNetworkStatus();
   const {
     isSupplierWeekRoute,
     companyForProviders,
@@ -148,7 +150,9 @@ export function SupplierWeekSection(props: SupplierWeekSectionProps) {
       <button
         type="button"
         onClick={onNavigateSupplierWeek}
-        className="home-menu-card border-sky-400/20"
+        disabled={!isOnline}
+        aria-disabled={!isOnline}
+        className={`home-menu-card border-sky-400/20 ${!isOnline ? "opacity-50 cursor-not-allowed" : ""}`}
         aria-label="Abrir Semana actual (proveedores)"
       >
         <div className="home-menu-card-glow bg-gradient-to-br from-sky-500/15 via-transparent to-transparent" />
