@@ -31,6 +31,7 @@ import {
 const AUTH_STATE_EVENT = "timemaster-auth-state";
 const AUTH_SYNC_STORAGE_KEY = "timemaster_auth_sync";
 const STORAGE_VERSION_KEY = "timemaster_storage_version";
+const OFFLINE_AUTH_STATE_KEY = "timemaster_offline_auth_state";
 
 interface ServerSessionPayload {
   ok: boolean;
@@ -135,6 +136,39 @@ function publishAuthSync(
   }
 }
 
+function cacheOfflineAuthState(detail: AuthStateDetail): void {
+  try {
+    if (detail.user) {
+      localStorage.setItem(
+        OFFLINE_AUTH_STATE_KEY,
+        JSON.stringify({
+          user: detail.user,
+          expiresAt: detail.expiresAt,
+        }),
+      );
+    } else {
+      localStorage.removeItem(OFFLINE_AUTH_STATE_KEY);
+    }
+  } catch {
+    // Offline auth cache is auxiliary.
+  }
+}
+
+function readOfflineAuthState(): AuthStateDetail | null {
+  try {
+    const parsed = JSON.parse(
+      localStorage.getItem(OFFLINE_AUTH_STATE_KEY) || "null",
+    ) as { user?: User; expiresAt?: number } | null;
+    if (!parsed?.user) return null;
+    return {
+      user: normalizedUser(parsed.user),
+      expiresAt: Number(parsed.expiresAt || 0) || null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function useAuthState() {
   const sessionCheckGeneration = useRef(0);
   const sessionRequestInFlight = useRef<Promise<ServerSessionResult> | null>(
@@ -145,10 +179,15 @@ function useAuthState() {
       `heartbeat-${Date.now()}-${Math.random().toString(36).slice(2)}`,
   );
   const sessionUserSourceUpdateTime = useRef<string | null | undefined>(undefined);
-  const [user, setUser] = useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const initialOfflineAuth = typeof window !== "undefined"
+    ? readOfflineAuthState()
+    : null;
+  const [user, setUser] = useState<User | null>(initialOfflineAuth?.user || null);
+  const [isAuthenticated, setIsAuthenticated] = useState(Boolean(initialOfflineAuth?.user));
   const [loading, setLoading] = useState(true);
-  const [sessionExpiresAt, setSessionExpiresAt] = useState<number | null>(null);
+  const [sessionExpiresAt, setSessionExpiresAt] = useState<number | null>(
+    initialOfflineAuth?.expiresAt || null,
+  );
   const [sessionWarning, setSessionWarning] = useState(false);
   const [firebaseAuthReady, setFirebaseAuthReady] = useState(false);
   const firebaseAuthClaimsKey = buildFirebaseAuthClaimsKey(user);
@@ -158,6 +197,7 @@ function useAuthState() {
     setIsAuthenticated(Boolean(detail.user));
     setSessionExpiresAt(detail.expiresAt);
     if (!detail.user) setSessionWarning(false);
+    cacheOfflineAuthState(detail);
   }, []);
 
   const updateCurrentUser = useCallback((updates: Partial<User>) => {
@@ -241,7 +281,12 @@ function useAuthState() {
     } catch (error) {
       if (requestGeneration !== sessionCheckGeneration.current) return;
       console.warn("No se pudo verificar la sesión del servidor", error);
-      applyAuthState({ user: null, expiresAt: null });
+      const offlineAuth = readOfflineAuthState();
+      if (navigator.onLine === false && offlineAuth) {
+        applyAuthState(offlineAuth);
+      } else {
+        applyAuthState({ user: null, expiresAt: null });
+      }
     } finally {
       if (requestGeneration === sessionCheckGeneration.current) {
         setLoading(false);

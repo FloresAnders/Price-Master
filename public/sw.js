@@ -1,8 +1,10 @@
 const CACHE_PREFIX = "timemaster-";
-const STATIC_CACHE = `${CACHE_PREFIX}static-v1`;
+const STATIC_CACHE = `${CACHE_PREFIX}static-v2`;
 const OFFLINE_URL = "/offline.html";
+const APP_SHELL_URL = "/";
 const PRECACHE_URLS = [
   OFFLINE_URL,
+  APP_SHELL_URL,
   "/android-chrome-192x192.png",
   "/android-chrome-512x512.png",
   "/apple-touch-icon.png",
@@ -56,8 +58,15 @@ function isCacheableStaticRequest(request, url) {
 
 async function networkFirstNavigation(request) {
   try {
-    return await fetch(request);
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(STATIC_CACHE);
+      await cache.put(APP_SHELL_URL, response.clone());
+    }
+    return response;
   } catch {
+    const appShell = await caches.match(APP_SHELL_URL);
+    if (appShell) return appShell;
     return (await caches.match(OFFLINE_URL)) || Response.error();
   }
 }
