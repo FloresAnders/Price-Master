@@ -199,6 +199,18 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
   const serverNowMs = new Date(nowISO).getTime();
   let effectiveManager = manager;
 
+  // Fondos alternativos: solo colaboradores usan automáticamente su identidad.
+  // Cuenta principal conserva el encargado seleccionado.
+  if (
+    accountKey !== "FondoGeneral" &&
+    user?.accountType === "collaborator"
+  ) {
+    effectiveManager =
+      String(user.fullName || user.name || user.email || user.id || "").trim();
+    setManager(effectiveManager);
+    setManagerError("");
+  }
+
   const effectiveInvoiceNumber =
     isCajaNegra && accountKey !== "Tiempos" && !editingEntryId
       ? getTodayInvoiceMMDD()
@@ -1323,6 +1335,21 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
               : undefined,
           manager: effectiveManager,
           manager2: effectiveManager2 || undefined,
+          createdById:
+            String(user?.id || "").trim() || e.createdById,
+          createdByName:
+            String(
+              user?.accountType === "collaborator"
+                ? user.fullName || user.name
+                : user?.fullName || user?.name,
+            ).trim() || e.createdByName,
+          actorAccountType:
+            user?.accountType === "collaborator"
+              ? "collaborator"
+              : "business",
+          inheritedFromUserId:
+            String(user?.inheritedFromUserId || "").trim() ||
+            e.inheritedFromUserId,
           notes: normalizedPersistedNotes,
           // mark as edited/audited and preserve originalEntryId (point to initial id)
           isAudit: true,
@@ -1720,6 +1747,17 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
         appliedCreditNotes:
            appliedCreditNotes.length > 0 ? appliedCreditNotes : undefined,
         manager: effectiveManager,
+        createdById: String(user?.id || "").trim() || undefined,
+        createdByName:
+          String(
+            user?.accountType === "collaborator"
+              ? user.fullName || user.name
+              : user?.fullName || user?.name,
+          ).trim() || undefined,
+        actorAccountType:
+          user?.accountType === "collaborator" ? "collaborator" : "business",
+        inheritedFromUserId:
+          String(user?.inheritedFromUserId || "").trim() || undefined,
                 notes: normalizedPersistedNotes,
         createdAt: iso,
         currency: movementCurrency,
@@ -2235,6 +2273,19 @@ export async function handleSubmitFondo(deps: SubmitFondoDeps) {
                 ? { appliedCreditNotes: extraAppliedCreditNotes }
                 : {}),
               manager: effectiveManager,
+              createdById: String(user?.id || "").trim() || undefined,
+              createdByName:
+                String(
+                  user?.accountType === "collaborator"
+                    ? user.fullName || user.name
+                    : user?.fullName || user?.name,
+                ).trim() || undefined,
+              actorAccountType:
+                user?.accountType === "collaborator"
+                  ? "collaborator"
+                  : "business",
+              inheritedFromUserId:
+                String(user?.inheritedFromUserId || "").trim() || undefined,
               notes: String(extra.observation || "").trim(),
               createdAt: iso,
               currency: movementCurrency,

@@ -24,6 +24,10 @@ export function buildFirebaseCustomTokenClaims(
     inheritedFromUserId: user.inheritedFromUserId || "",
     collaboratorEmpresaId: user.collaboratorEmpresaId || "",
     collaboratorEmployeeId: user.collaboratorEmployeeId || "",
+    collaboratorName:
+      user.accountType === "collaborator"
+        ? String(user.fullName || user.name || "").trim()
+        : "",
     authPurpose: "timemaster-app",
     permissions: {
       anotaciones: permissions.anotaciones === true,

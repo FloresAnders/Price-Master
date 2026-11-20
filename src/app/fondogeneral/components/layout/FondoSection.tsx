@@ -436,6 +436,20 @@ export function FondoSection({
     () => getAccountKeyFromNamespace(namespace),
     [namespace],
   );
+  const isCollaboratorAlternativeFund =
+    user?.accountType === "collaborator" &&
+    accountKey !== "FondoGeneral";
+  const isSessionLockedAlternativeFund = isCollaboratorAlternativeFund;
+  const isPrincipalAlternativeFund =
+    accountKey !== "FondoGeneral" && !isCollaboratorAlternativeFund;
+  const sessionManager =
+    String(
+      user?.fullName ||
+      user?.name ||
+      user?.email ||
+      user?.id ||
+      "",
+    ).trim();
   const serverMovementFilteringEnabled =
     shouldUseServerMovementFiltering(accountKey);
 
@@ -1772,6 +1786,20 @@ export function FondoSection({
   const isIngreso = isIngresoType(paymentType);
   const isEgreso = isEgresoType(paymentType) || isGastoType(paymentType);
 
+  useEffect(() => {
+    if (!isSessionLockedAlternativeFund) return;
+    if (!movementModalOpen) return;
+    if (!sessionManager) return;
+    if (manager === sessionManager) return;
+    setManager(sessionManager);
+    setManagerError("");
+  }, [
+    sessionManager,
+    isSessionLockedAlternativeFund,
+    manager,
+    movementModalOpen,
+  ]);
+
   // Superadmin: when creating a movement, auto-assign the manager to themselves.
   useEffect(() => {
     if (!isSuperAdminUser) return;
@@ -2318,10 +2346,18 @@ export function FondoSection({
     // Keep legacy validation for non-superadmin actors.
     // Superadmin may select users outside the company employee list when editing.
     if (isSuperAdminUser) return;
+    if (isSessionLockedAlternativeFund) return;
+    if (isPrincipalAlternativeFund) return;
     if (manager && !employeeOptions.includes(manager)) {
       setManager("");
     }
-  }, [manager, employeeOptions, isSuperAdminUser]);
+  }, [
+    manager,
+    employeeOptions,
+    isSuperAdminUser,
+    isSessionLockedAlternativeFund,
+    isPrincipalAlternativeFund,
+  ]);
 
   useEffect(() => {
     if (isIngreso) {
@@ -2640,12 +2676,12 @@ export function FondoSection({
     // Fondo General fija el encargado según el turno (sin poder cambiarlo).
     const isFondoGeneralLocked =
       isRegularUser && accountKey === "FondoGeneral" && namespace === "fg";
-    // Caja Negra, Tucan y Tiempos también auto-ajustan el encargado según el
-    // horario, pero a diferencia de Fondo General permiten cambiarlo manualmente.
+    // Fondos alternativos de cuentas principales son libres. Solo Fondo
+    // General puede fijar automáticamente el encargado por turno.
     const shouldAuto =
       isRegularUser &&
       movementModalOpen &&
-      (isFondoGeneralLocked || isCajaNegra) &&
+      isFondoGeneralLocked &&
       !usesConfiguredShiftHours;
 
     if (!shouldAuto) {
@@ -4531,9 +4567,10 @@ export function FondoSection({
       : employeesLoading;
 
   const managerSelectDisabled =
+    isSessionLockedAlternativeFund ||
     !company ||
-    managerOptionsLoading ||
-    employeeOptions.length === 0 ||
+    (accountKey === "FondoGeneral" &&
+      (managerOptionsLoading || employeeOptions.length === 0)) ||
     (!usesConfiguredShiftHours &&
       isRegularUser &&
       accountKey === "FondoGeneral" &&
@@ -6530,7 +6567,11 @@ export function FondoSection({
         notes={notes}
         onNotesChange={handleNotesChange}
         manager={manager}
-        onManagerChange={handleManagerChange}
+        onManagerChange={(value) => {
+          if (!isSessionLockedAlternativeFund) {
+            handleManagerChange(value);
+          }
+        }}
         manager2={manager2}
         onManager2Change={handleManager2Change}
         accountKey={accountKey}

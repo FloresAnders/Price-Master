@@ -32,6 +32,10 @@ export type FondoEntry = {
   appliedCreditNotes?: AppliedCreditNote[];
   manager: string;
   manager2?: string;
+  createdById?: string;
+  createdByName?: string;
+  actorAccountType?: "business" | "collaborator";
+  inheritedFromUserId?: string;
   notes: string;
   createdAt: string;
   serverCreatedAt?: any;
