@@ -90,7 +90,11 @@ function companyIdentityMatches(companyId, company, data) {
 
 function resolveParentAccount(companyId, company, users) {
   const exact = users.filter((user) => {
-    if (user.role === "superadmin" || user.isActive === false) return false;
+    if (
+      user.role === "superadmin" ||
+      user.isActive === false ||
+      user.accountType === "collaborator"
+    ) return false;
     return companyIdentityMatches(companyId, company, user);
   });
   if (exact.length > 0) {

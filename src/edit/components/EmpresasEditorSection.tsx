@@ -111,6 +111,7 @@ export default function EmpresasEditorSection({
     const exactCompanyAccount = usersData.find(
       (candidate) =>
         candidate.role !== "superadmin" &&
+        candidate.accountType !== "collaborator" &&
         candidate.isActive !== false &&
         companyNames.includes(
           String(candidate.ownercompanie || "")
@@ -123,6 +124,48 @@ export default function EmpresasEditorSection({
     );
     if (exactCompanyAccount) return exactCompanyAccount;
     return undefined;
+  };
+
+  const getCollaboratorAccount = (
+    empresa: any,
+    emp: any,
+  ): User | undefined => {
+    const accountId = String(emp?.accessAccountId || "").trim();
+    if (accountId) {
+      const direct = usersData.find(
+        (candidate) =>
+          candidate.id === accountId &&
+          candidate.accountType === "collaborator",
+      );
+      if (direct) return direct;
+    }
+
+    const employeeName = String(emp?.Empleado || "").trim();
+    const normalizedEmployeeName = employeeName
+      .normalize("NFKC")
+      .trim()
+      .toLocaleLowerCase();
+    const companyId = String(empresa?.id || "").trim();
+    return usersData.find((candidate) => {
+      if (
+        candidate.accountType !== "collaborator" ||
+        candidate.isActive === false
+      ) {
+        return false;
+      }
+      if (
+        companyId &&
+        String(candidate.collaboratorEmpresaId || "").trim() !== companyId
+      ) {
+        return false;
+      }
+      return (
+        String(candidate.fullName || "")
+          .normalize("NFKC")
+          .trim()
+          .toLocaleLowerCase() === normalizedEmployeeName
+      );
+    });
   };
 
   const getColKey = (empresa: any, idx: number, eIdx: number) =>
@@ -1074,6 +1117,11 @@ export default function EmpresasEditorSection({
                                             empresa,
                                             emp,
                                           );
+                                        const collaboratorAccount =
+                                          getCollaboratorAccount(
+                                            empresa,
+                                            emp,
+                                          );
                                         const inheritedName =
                                           inheritedUser?.fullName ||
                                           inheritedUser?.name ||
@@ -1113,7 +1161,9 @@ export default function EmpresasEditorSection({
                                                 type="text"
                                                 autoComplete="username"
                                                 value={
-                                                  emp.accessUsername || ""
+                                                  emp.accessUsername ||
+                                                  collaboratorAccount?.name ||
+                                                  ""
                                                 }
                                                 onChange={(ev) => {
                                                   const copy = [...empresasData];
@@ -1171,7 +1221,8 @@ export default function EmpresasEditorSection({
                                               />
                                             </div>
                                             <div className="sm:col-span-2 flex flex-wrap justify-end gap-2">
-                                              {emp.accessAccountId && (
+                                              {(emp.accessAccountId ||
+                                                collaboratorAccount?.id) && (
                                                 <button
                                                   type="button"
                                                   onClick={async () => {
@@ -1189,7 +1240,8 @@ export default function EmpresasEditorSection({
                                                             empresaId:
                                                               empresa.id,
                                                             accountId:
-                                                              emp.accessAccountId,
+                                                              emp.accessAccountId ||
+                                                              collaboratorAccount?.id,
                                                             employeeId,
                                                           }),
                                                         },
@@ -1268,6 +1320,7 @@ export default function EmpresasEditorSection({
                                                           password,
                                                           accountId:
                                                             emp.accessAccountId ||
+                                                            collaboratorAccount?.id ||
                                                             undefined,
                                                           inheritedFromUserId:
                                                             inheritedUser?.id ||

@@ -130,6 +130,7 @@ export async function POST(request: NextRequest) {
         const data = doc.data();
         return data?.role !== "superadmin" &&
           data?.isActive !== false &&
+          data?.accountType !== "collaborator" &&
           isExactCompanyParent(data);
       }) || null;
 
