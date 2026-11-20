@@ -23,6 +23,7 @@ import {
   clearLoginAttempts,
   consumeLoginAttempt,
 } from "@/lib/auth/login-rate-limit.server";
+import { resolveEffectiveUserServer } from "@/lib/auth/collaborator.server";
 
 export async function POST(request: Request) {
   try {
@@ -87,7 +88,14 @@ export async function POST(request: Request) {
         }
       }
     }
-    const safeUser = serializeSafeUser(user) as any;
+    const effectiveUser = await resolveEffectiveUserServer(user);
+    if (effectiveUser.isActive === false) {
+      return NextResponse.json(
+        { ok: false, error: "Acceso denegado" },
+        { status: 401, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+    const safeUser = serializeSafeUser(effectiveUser) as any;
     // Agregar bandera para superadmin
     const isSuperAdmin = safeUser.role === "superadmin";
     if (!isValid) {

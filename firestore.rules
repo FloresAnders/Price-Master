@@ -1328,12 +1328,22 @@ service cloud.firestore {
           resource.data.get('role', 'user') &&
         request.resource.data.get('ownerId', '') ==
           resource.data.get('ownerId', '') &&
+        request.resource.data.get('ownercompanie', '') ==
+          resource.data.get('ownercompanie', '') &&
         request.resource.data.get('permissions', {}) ==
           resource.data.get('permissions', {}) &&
         request.resource.data.get('eliminate', false) ==
           resource.data.get('eliminate', false) &&
         request.resource.data.get('isActive', true) ==
-          resource.data.get('isActive', true);
+          resource.data.get('isActive', true) &&
+        request.resource.data.get('accountType', 'business') ==
+          resource.data.get('accountType', 'business') &&
+        request.resource.data.get('inheritedFromUserId', '') ==
+          resource.data.get('inheritedFromUserId', '') &&
+        request.resource.data.get('collaboratorEmpresaId', '') ==
+          resource.data.get('collaboratorEmpresaId', '') &&
+        request.resource.data.get('collaboratorEmployeeId', '') ==
+          resource.data.get('collaboratorEmployeeId', '');
     }
 
     match /users/{userId} {

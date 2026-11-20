@@ -2289,6 +2289,7 @@ export default function DataEditor() {
           empresasData={empresasData}
           setEmpresasData={setEmpresasData}
           currentUser={currentUser}
+          usersData={usersData}
           openConfirmModal={openConfirmModal}
           showToast={showToast}
           resolveOwnerIdForActor={resolveOwnerIdForActor}

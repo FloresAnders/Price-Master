@@ -315,12 +315,22 @@ function useAuthState() {
       }
       const expiresAt = Number(payload.session?.expiresAt || 0) || null;
       setSessionExpiresAt(expiresAt);
+      if (payload.user) {
+        applyAuthState({
+          user: withPendingSinpeNotificationPreference(
+            normalizedUser(payload.user),
+          ),
+          expiresAt,
+        });
+        sessionUserSourceUpdateTime.current =
+          payload.session?.userSourceUpdateTime;
+      }
       publishAuthSync({ type: "heartbeat", expiresAt });
     } catch (error) {
       releaseSessionHeartbeatLease(localStorage, heartbeatOwnerId.current);
       console.warn("No se pudo renovar la sesión del servidor", error);
     }
-  }, [clearClientSession]);
+  }, [applyAuthState, clearClientSession]);
 
   useEffect(() => {
     const heartbeatOwner = heartbeatOwnerId.current;
@@ -452,8 +462,14 @@ function useAuthState() {
         console.warn("No se pudo actualizar el usuario autenticado", error),
       baselineSourceUpdateTime: sessionUserSourceUpdateTime.current,
     });
+    const inheritanceSourceId =
+      user.accountType === "collaborator" &&
+      typeof user.inheritedFromUserId === "string" &&
+      user.inheritedFromUserId.trim()
+        ? user.inheritedFromUserId.trim()
+        : user.id;
     const unsubscribe = subscribeToUserStatus(
-      user.id,
+      inheritanceSourceId,
       controller.observe,
       (error) =>
         console.warn("No se pudo escuchar el estado del usuario autenticado", error),

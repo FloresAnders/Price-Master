@@ -65,9 +65,12 @@ export function getAdminAuth() {
 export function resolveAdminFirestoreDatabaseId(
   env: Record<string, string | undefined> = process.env,
 ): string | undefined {
-  const explicitDatabaseId =
-    env.FIRESTORE_DATABASE_ID?.trim() ||
-    env.NEXT_PUBLIC_FIRESTORE_DATABASE_ID?.trim();
+  const explicitDatabaseId = env.VERCEL_ENV
+    ? env.FIRESTORE_DATABASE_ID?.trim() ||
+      env.NEXT_PUBLIC_FIRESTORE_DATABASE_ID?.trim()
+    : env.NEXT_PUBLIC_FIRESTORE_DATABASE_ID?.trim() ||
+      env.FIRESTORE_DATABASE_ID?.trim() ||
+      "restauracion";
 
   return resolveFirestoreDatabaseId({
     nodeEnv: env.NODE_ENV,

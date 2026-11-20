@@ -19,6 +19,7 @@ import type {
   WebAuthnCeremonyRecord,
 } from "@/lib/passkeys/types";
 import type { User } from "@/types/firestore";
+import { resolveEffectiveUserServer } from "@/lib/auth/collaborator.server";
 
 export class PasskeyAuthenticationError extends Error {
   constructor(
@@ -195,9 +196,11 @@ export function getAuthenticationService() {
     ceremonies: getCeremonyService(),
     async getUser(userId) {
       const snapshot = await getAdminDb().collection("users").doc(userId).get();
-      return snapshot.exists
-        ? ({ id: snapshot.id, ...snapshot.data() } as User)
-        : null;
+      if (!snapshot.exists) return null;
+      return resolveEffectiveUserServer({
+        id: snapshot.id,
+        ...snapshot.data(),
+      } as User);
     },
     createSession: createAuthSession,
   });

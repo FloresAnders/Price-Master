@@ -11,6 +11,7 @@ import {
   getBypassDurationMinutes,
   getMaintenanceJwtSecret,
 } from "./token.server";
+import { resolveEffectiveUserServer } from "@/lib/auth/collaborator.server";
 
 export function getMaintenanceTotpService() {
   return createMaintenanceTotpService({
@@ -34,9 +35,10 @@ export function getMaintenanceBypassHandlers() {
     jwtSecret: getMaintenanceJwtSecret(),
     durationMinutes: getBypassDurationMinutes(),
     async createFirebaseToken(user, expiresAt) {
+      const effectiveUser = await resolveEffectiveUserServer(user);
       return getAdminAuth().createCustomToken(
         user.id!,
-        buildFirebaseCustomTokenClaims(user, {
+        buildFirebaseCustomTokenClaims(effectiveUser, {
           maintenanceBypassExpiresAt: expiresAt,
         }),
       );

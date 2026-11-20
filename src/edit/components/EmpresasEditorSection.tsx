@@ -10,10 +10,22 @@ import {
   validateCompanyShiftHours,
 } from "../../utils/companyShiftHours";
 
+function slugifyName(value: unknown): string {
+  return String(value || "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60) || "colaborador";
+}
+
 type Props = {
   empresasData: any[];
   setEmpresasData: React.Dispatch<React.SetStateAction<any[]>>;
   currentUser: User | null;
+  usersData: User[];
   openConfirmModal: (
     title: string,
     message: string,
@@ -33,6 +45,7 @@ export default function EmpresasEditorSection({
   empresasData,
   setEmpresasData,
   currentUser,
+  usersData,
   openConfirmModal,
   showToast,
   resolveOwnerIdForActor,
@@ -74,6 +87,43 @@ export default function EmpresasEditorSection({
   const [colaboradorChangedMap, setColaboradorChangedMap] = React.useState<
     Record<string, boolean>
   >({});
+  const [colaboradorPasswordMap, setColaboradorPasswordMap] =
+    React.useState<Record<string, string>>({});
+
+  const getInheritedBusinessUser = (
+    empresa: any,
+    emp?: any,
+  ): User | undefined => {
+    const inheritedId = String(emp?.inheritedFromUserId || "").trim();
+    const ownerId = String(empresa?.ownerId || "").trim();
+    const companyNames = [
+      empresa?.name,
+      empresa?.ubicacion,
+      empresa?.id,
+    ].map((value) =>
+      String(value || "")
+        .trim()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/gi, "")
+        .toLowerCase(),
+    ).filter(Boolean);
+    const exactCompanyAccount = usersData.find(
+      (candidate) =>
+        candidate.role !== "superadmin" &&
+        candidate.isActive !== false &&
+        companyNames.includes(
+          String(candidate.ownercompanie || "")
+            .trim()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9]+/gi, "")
+            .toLowerCase(),
+        ),
+    );
+    if (exactCompanyAccount) return exactCompanyAccount;
+    return undefined;
+  };
 
   const getColKey = (empresa: any, idx: number, eIdx: number) =>
     `${getEmpresaKey(empresa, idx)}-col-${eIdx}`;
@@ -132,6 +182,27 @@ export default function EmpresasEditorSection({
     setCorreoEmail("");
     setCorreoPassword("");
     setShowCorreoPassword(false);
+  };
+
+  const disableCollaboratorAccess = async (
+    empresa: any,
+    emp: any,
+  ): Promise<void> => {
+    if (!empresa?.id || !emp?.accessAccountId) return;
+    try {
+      await fetch("/api/collaborators", {
+        method: "DELETE",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          empresaId: empresa.id,
+          accountId: emp.accessAccountId,
+          employeeId: emp.accessEmployeeId,
+        }),
+      });
+    } catch (error) {
+      console.warn("No se pudo deshabilitar el acceso del colaborador", error);
+    }
   };
 
   const saveCorreoConfig = async () => {
@@ -820,6 +891,10 @@ export default function EmpresasEditorSection({
                                           "Eliminar Empleado",
                                           `¿Desea eliminar al empleado ${emp.Empleado || `N°${eIdx + 1}`}?`,
                                           () => {
+                                            void disableCollaboratorAccess(
+                                              empresa,
+                                              emp,
+                                            );
                                             const copy = [...empresasData];
                                             copy[idx].empleados = copy[
                                               idx
@@ -969,6 +1044,299 @@ export default function EmpresasEditorSection({
                                       </select>
                                     </div>
 
+                                    <div className="sm:col-span-2 rounded-lg border border-[var(--input-border)] bg-[var(--card-bg)] p-3 space-y-3">
+                                      <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                          <p className="text-xs sm:text-sm font-semibold">
+                                            Acceso individual al sistema
+                                          </p>
+                                          <p className="text-[10px] sm:text-xs text-[var(--muted-foreground)]">
+                                            Hereda todos los permisos de la cuenta empresarial.
+                                          </p>
+                                        </div>
+                                        <input
+                                          type="checkbox"
+                                          checked={Boolean(emp.accessEnabled)}
+                                          onChange={(ev) => {
+                                            const copy = [...empresasData];
+                                            copy[idx].empleados[eIdx].accessEnabled =
+                                              ev.target.checked;
+                                            setEmpresasData(copy);
+                                            setColChanged(empresa, idx, eIdx, true);
+                                          }}
+                                          className="h-4 w-4"
+                                        />
+                                      </div>
+
+                                      {emp.accessEnabled && (() => {
+                                        const inheritedUser =
+                                          getInheritedBusinessUser(
+                                            empresa,
+                                            emp,
+                                          );
+                                        const inheritedName =
+                                          inheritedUser?.fullName ||
+                                          inheritedUser?.name ||
+                                          inheritedUser?.email ||
+                                          emp.inheritedFromUserName ||
+                                          "Usuario empresarial no encontrado";
+                                        const colKey = getColKey(
+                                          empresa,
+                                          idx,
+                                          eIdx,
+                                        );
+                                        const employeeId =
+                                          emp.accessEmployeeId ||
+                                          `${String(empresa.id || empresa.name || "empresa")
+                                            .trim()
+                                            .replace(/[^a-z0-9]+/gi, "-")
+                                            .replace(/^-+|-+$/g, "")
+                                            .toLowerCase()}__${slugifyName(emp.Empleado)}`;
+                                        return (
+                                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                                            <div className="sm:col-span-2 rounded-md border border-blue-500/30 bg-blue-500/5 px-3 py-2">
+                                              <p className="text-[10px] text-[var(--muted-foreground)]">
+                                                Usuario empresarial asociado
+                                              </p>
+                                              <p className="text-xs sm:text-sm font-medium">
+                                                {inheritedName}
+                                              </p>
+                                              <p className="text-[10px] text-[var(--muted-foreground)] mt-1">
+                                                Permisos administrados desde la cuenta empresarial.
+                                              </p>
+                                            </div>
+                                            <div>
+                                              <label className="block text-[10px] sm:text-xs font-medium mb-1">
+                                                Nombre de usuario
+                                              </label>
+                                              <input
+                                                type="text"
+                                                autoComplete="username"
+                                                value={
+                                                  emp.accessUsername || ""
+                                                }
+                                                onChange={(ev) => {
+                                                  const copy = [...empresasData];
+                                                  copy[idx].empleados[
+                                                    eIdx
+                                                  ].accessUsername =
+                                                    ev.target.value;
+                                                  setEmpresasData(copy);
+                                                  setColChanged(
+                                                    empresa,
+                                                    idx,
+                                                    eIdx,
+                                                    true,
+                                                  );
+                                                }}
+                                                className="w-full px-2 sm:px-2.5 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
+                                                style={{
+                                                  background: "var(--input-bg)",
+                                                  color: "var(--foreground)",
+                                                }}
+                                                placeholder="usuario.colaborador"
+                                              />
+                                            </div>
+                                            <div>
+                                              <label className="block text-[10px] sm:text-xs font-medium mb-1">
+                                                Contraseña
+                                              </label>
+                                              <input
+                                                type="password"
+                                                autoComplete="new-password"
+                                                value={
+                                                  colaboradorPasswordMap[
+                                                    colKey
+                                                  ] || ""
+                                                }
+                                                onChange={(ev) =>
+                                                  setColaboradorPasswordMap(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [colKey]:
+                                                        ev.target.value,
+                                                    }),
+                                                  )
+                                                }
+                                                className="w-full px-2 sm:px-2.5 py-1.5 sm:py-2 border border-[var(--input-border)] rounded-md text-xs sm:text-sm"
+                                                style={{
+                                                  background: "var(--input-bg)",
+                                                  color: "var(--foreground)",
+                                                }}
+                                                placeholder={
+                                                  emp.accessAccountId
+                                                    ? "Nueva contraseña"
+                                                    : "Contraseña"
+                                                }
+                                              />
+                                            </div>
+                                            <div className="sm:col-span-2 flex flex-wrap justify-end gap-2">
+                                              {emp.accessAccountId && (
+                                                <button
+                                                  type="button"
+                                                  onClick={async () => {
+                                                    try {
+                                                      const response = await fetch(
+                                                        "/api/collaborators",
+                                                        {
+                                                          method: "DELETE",
+                                                          credentials: "same-origin",
+                                                          headers: {
+                                                            "Content-Type":
+                                                              "application/json",
+                                                          },
+                                                          body: JSON.stringify({
+                                                            empresaId:
+                                                              empresa.id,
+                                                            accountId:
+                                                              emp.accessAccountId,
+                                                            employeeId,
+                                                          }),
+                                                        },
+                                                      );
+                                                      const payload =
+                                                        await response.json();
+                                                      if (!response.ok) {
+                                                        throw new Error(
+                                                          payload.error ||
+                                                            "No se pudo deshabilitar.",
+                                                        );
+                                                      }
+                                                      const copy = [
+                                                        ...empresasData,
+                                                      ];
+                                                      copy[idx].empleados[
+                                                        eIdx
+                                                      ].accessEnabled =
+                                                        false;
+                                                      setEmpresasData(copy);
+                                                      showToast(
+                                                        "Acceso deshabilitado",
+                                                        "success",
+                                                      );
+                                                    } catch (error) {
+                                                      showToast(
+                                                        error instanceof Error
+                                                          ? error.message
+                                                          : "Error al deshabilitar",
+                                                        "error",
+                                                      );
+                                                    }
+                                                  }}
+                                                  className="px-3 py-2 rounded-md border border-red-500/50 text-red-500 text-xs sm:text-sm"
+                                                >
+                                                  Deshabilitar acceso
+                                                </button>
+                                              )}
+                                              <button
+                                                type="button"
+                                                onClick={async () => {
+                                                  const password =
+                                                    colaboradorPasswordMap[
+                                                      colKey
+                                                    ] || "";
+                                                  if (
+                                                    !String(
+                                                      emp.accessUsername ||
+                                                        "",
+                                                    ).trim() ||
+                                                    !password
+                                                  ) {
+                                                    showToast(
+                                                      "Usuario y contraseña son requeridos",
+                                                      "warning",
+                                                    );
+                                                    return;
+                                                  }
+                                                  try {
+                                                    const response = await fetch(
+                                                      "/api/collaborators",
+                                                      {
+                                                        method: "POST",
+                                                        credentials: "same-origin",
+                                                        headers: {
+                                                          "Content-Type":
+                                                            "application/json",
+                                                        },
+                                                        body: JSON.stringify({
+                                                          empresaId: empresa.id,
+                                                          employeeName:
+                                                            emp.Empleado,
+                                                          employeeId,
+                                                          username:
+                                                            emp.accessUsername,
+                                                          password,
+                                                          accountId:
+                                                            emp.accessAccountId ||
+                                                            undefined,
+                                                          inheritedFromUserId:
+                                                            inheritedUser?.id ||
+                                                            emp.inheritedFromUserId ||
+                                                            undefined,
+                                                        }),
+                                                      },
+                                                    );
+                                                    const payload =
+                                                      await response.json();
+                                                    if (!response.ok) {
+                                                      throw new Error(
+                                                        payload.error ||
+                                                          "No se pudo guardar.",
+                                                      );
+                                                    }
+                                                    const copy = [
+                                                      ...empresasData,
+                                                    ];
+                                                    copy[idx].empleados[
+                                                      eIdx
+                                                    ].accessAccountId =
+                                                      payload.accountId;
+                                                    copy[idx].empleados[
+                                                      eIdx
+                                                    ].accessEmployeeId =
+                                                      payload.employeeId;
+                                                    copy[idx].empleados[
+                                                      eIdx
+                                                    ].inheritedFromUserId =
+                                                      payload.inheritedFromUserId;
+                                                    copy[idx].empleados[
+                                                      eIdx
+                                                    ].inheritedFromUserName =
+                                                      payload.inheritedFromUserName;
+                                                    setEmpresasData(copy);
+                                                    setColaboradorPasswordMap(
+                                                      (prev) => ({
+                                                        ...prev,
+                                                        [colKey]: "",
+                                                      }),
+                                                    );
+                                                    showToast(
+                                                      emp.accessAccountId
+                                                        ? "Credenciales restablecidas"
+                                                        : "Acceso habilitado",
+                                                      "success",
+                                                    );
+                                                  } catch (error) {
+                                                    showToast(
+                                                      error instanceof Error
+                                                        ? error.message
+                                                        : "Error al guardar acceso",
+                                                      "error",
+                                                    );
+                                                  }
+                                                }}
+                                                className="px-3 py-2 rounded-md bg-blue-600 text-white text-xs sm:text-sm"
+                                              >
+                                                {emp.accessAccountId
+                                                  ? "Restablecer credenciales"
+                                                  : "Guardar acceso"}
+                                              </button>
+                                            </div>
+                                          </div>
+                                        );
+                                      })()}
+                                    </div>
+
                                     <div className="sm:col-span-2">
                                       <label className="block text-[10px] sm:text-xs font-medium mb-1">
                                         Horarios
@@ -1046,6 +1414,10 @@ export default function EmpresasEditorSection({
                                             "Eliminar Empleado",
                                             `¿Desea eliminar al empleado ${emp.Empleado || `N°${eIdx + 1}`}?`,
                                             () => {
+                                              void disableCollaboratorAccess(
+                                                empresa,
+                                                emp,
+                                              );
                                               const copy = [...empresasData];
                                               copy[idx].empleados = copy[
                                                 idx

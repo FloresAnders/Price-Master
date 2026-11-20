@@ -12,6 +12,7 @@ import type { User } from "@/types/firestore";
 import { SESSION_DURATION_HOURS } from "./session-policy";
 import { getSessionTokenFromCookie } from "./session-cookie.server";
 import { serializeFirestoreUpdateTime } from "./firestore-update-time.server";
+import { resolveEffectiveUserServer } from "./collaborator.server";
 
 const SESSION_DURATION_MS = {
   superadmin: SESSION_DURATION_HOURS.superadmin * 60 * 60 * 1000,
@@ -322,12 +323,15 @@ function productionSessionService() {
     repository: firestoreSessionRepository(),
     async getUser(userId) {
       const snapshot = await getAdminDb().collection("users").doc(userId).get();
-      return snapshot.exists
-        ? {
-            user: { id: snapshot.id, ...snapshot.data() } as User,
-            sourceUpdateTime: serializeFirestoreUpdateTime(snapshot.updateTime),
-          }
-        : null;
+      if (!snapshot.exists) return null;
+      const user = await resolveEffectiveUserServer({
+        id: snapshot.id,
+        ...snapshot.data(),
+      } as User);
+      return {
+        user,
+        sourceUpdateTime: serializeFirestoreUpdateTime(snapshot.updateTime),
+      };
     },
     async isPasskeyActive(credentialIdHash) {
       const snapshot = await getAdminDb()

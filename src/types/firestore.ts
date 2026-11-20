@@ -5,6 +5,12 @@ export interface EmpresaEmpleado {
   hoursPerShift: number;
   extraAmount: number;
   ccssType: "TC" | "MT";
+  accessEnabled?: boolean;
+  accessUsername?: string;
+  accessAccountId?: string;
+  accessEmployeeId?: string;
+  inheritedFromUserId?: string;
+  inheritedFromUserName?: string;
   /**
    * Si es true (y amboshorarios no es true), el empleado se muestra solo en CalculoHorasPrecios
    * y se oculta del ControlHorario normal.
@@ -248,6 +254,10 @@ export interface User {
   // Campo para marcar eliminación lógica; por defecto false
   eliminate?: boolean;
   permissions?: UserPermissions;
+  accountType?: "business" | "collaborator";
+  inheritedFromUserId?: string;
+  collaboratorEmpresaId?: string;
+  collaboratorEmployeeId?: string;
   sinpeNotificationsEnabled?: boolean;
   sinpeNotificationsPreferenceLoaded?: boolean;
   subscription?: UserSubscription;

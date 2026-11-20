@@ -3,6 +3,7 @@ import { readAuthSession } from "@/lib/auth/session-store.server";
 import { getAdminAuth } from "@/lib/firebase-admin";
 import { buildFirebaseCustomTokenClaims } from "@/lib/firebase/custom-token-claims.server";
 import { verifyMaintenanceBypassCookie } from "@/lib/maintenance-totp/token.server";
+import { resolveEffectiveUserServer } from "@/lib/auth/collaborator.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,7 +32,14 @@ export async function GET(request: Request) {
     const bypass = verifyMaintenanceBypassCookie(
       request.headers.get("cookie"),
     );
-    const claims = buildFirebaseCustomTokenClaims(user, {
+    const effectiveUser = await resolveEffectiveUserServer(user);
+    if (effectiveUser.isActive === false) {
+      return NextResponse.json(
+        { ok: false, error: "unauthorized" },
+        { status: 401, headers: noStore },
+      );
+    }
+    const claims = buildFirebaseCustomTokenClaims(effectiveUser, {
       ...(bypass.active
         ? { maintenanceBypassExpiresAt: bypass.expiresAt }
         : {}),
