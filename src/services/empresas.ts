@@ -181,6 +181,12 @@ export class EmpresasService {
           "ambos_horarios",
           "ambos horarios",
         ) ?? false,
+      accessEnabled: getBoolean("accessEnabled") ?? false,
+      accessUsername: getString("accessUsername") || undefined,
+      accessAccountId: getString("accessAccountId") || undefined,
+      accessEmployeeId: getString("accessEmployeeId") || undefined,
+      inheritedFromUserId: getString("inheritedFromUserId") || undefined,
+      inheritedFromUserName: getString("inheritedFromUserName") || undefined,
     };
 
     return normalized;
