@@ -248,6 +248,56 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
   const managerErrorId = React.useId();
   const manager2SelectId = React.useId();
   const manager2ErrorId = React.useId();
+  const managerDropdownId = React.useId();
+  const manager2DropdownId = React.useId();
+  const [isManagerDropdownOpen, setIsManagerDropdownOpen] = React.useState(false);
+  const [isManager2DropdownOpen, setIsManager2DropdownOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!isManagerDropdownOpen && !isManager2DropdownOpen) return;
+
+    const dismissDropdowns = () => {
+      setIsManagerDropdownOpen(false);
+      setIsManager2DropdownOpen(false);
+    };
+
+    const onPointerDown = (event: globalThis.PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) {
+        dismissDropdowns();
+        return;
+      }
+
+      if (
+        !target.closest(`[id="${managerDropdownId}"]`) &&
+        !target.closest(`[id="${managerSelectId}"]`) &&
+        !target.closest(`[id="${manager2DropdownId}"]`) &&
+        !target.closest(`[id="${manager2SelectId}"]`)
+      ) {
+        dismissDropdowns();
+      }
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        dismissDropdowns();
+      }
+    };
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [
+    isManagerDropdownOpen,
+    isManager2DropdownOpen,
+    managerDropdownId,
+    managerSelectId,
+    manager2DropdownId,
+    manager2SelectId,
+  ]);
   const invoiceBorderClass =
     invoiceValid || invoiceNumber.length === 0
       ? "border-cyan-700/35"
@@ -1438,35 +1488,96 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
               <UserCircle className="h-3.5 w-3.5" />
               Encargado
             </label>
-            <select
-              id={managerSelectId}
-              value={manager}
-              onChange={(event) => onManagerChange(event.target.value)}
-              className={`${fieldBase} w-full ${
-                managerError ? "border-red-500" : ""
-              } ${
-                managerSelectDisabled
-                  ? "cursor-not-allowed opacity-60"
-                  : "cursor-pointer"
-              }`}
-              disabled={managerSelectDisabled}
-              aria-invalid={Boolean(managerError)}
-              aria-describedby={managerError ? managerErrorId : undefined}
-            >
-              <option value="">
-                {employeesLoading
-                  ? "Cargando encargados..."
-                  : "Seleccionar encargado"}
-              </option>
-              {manager && !employeeOptions.includes(manager) && (
-                <option value={manager}>{manager}</option>
+            <div className="relative">
+              <button
+                type="button"
+                id={managerSelectId}
+                role="combobox"
+                className={`${fieldBase} flex w-full items-center justify-between text-left ${
+                  managerError ? "border-red-500" : ""
+                } ${
+                  managerSelectDisabled
+                    ? "cursor-not-allowed opacity-60"
+                    : "cursor-pointer"
+                }`}
+                disabled={managerSelectDisabled}
+                aria-invalid={Boolean(managerError)}
+                aria-describedby={managerError ? managerErrorId : undefined}
+                aria-haspopup="listbox"
+                aria-expanded={isManagerDropdownOpen}
+                aria-controls={managerDropdownId}
+                onClick={() => {
+                  setIsManager2DropdownOpen(false);
+                  setIsManagerDropdownOpen((open) => !open);
+                }}
+              >
+                <span className={manager ? "" : "text-cyan-100/70"}>
+                  {manager ||
+                    (employeesLoading
+                      ? "Cargando encargados..."
+                      : "Seleccionar encargado")}
+                </span>
+                {isManagerDropdownOpen ? (
+                  <ChevronUp className="h-4 w-4 text-cyan-100/80" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-cyan-100/80" />
+                )}
+              </button>
+              {isManagerDropdownOpen && !managerSelectDisabled && (
+                <div
+                  id={managerDropdownId}
+                  role="listbox"
+                  aria-label="Encargados"
+                  className="absolute z-[9999] mt-2 max-h-56 w-full overflow-y-auto rounded-lg border border-cyan-600/45 bg-cyan-950/95 p-1 shadow-2xl shadow-black/70"
+                >
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={manager === ""}
+                    className="w-full rounded px-3 py-2 text-left text-sm text-cyan-100/70 transition-colors hover:bg-cyan-800/40"
+                    onClick={() => {
+                      onManagerChange("");
+                      setIsManagerDropdownOpen(false);
+                    }}
+                  >
+                    Seleccionar encargado
+                  </button>
+                  {manager && !employeeOptions.includes(manager) && (
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected
+                      className="w-full rounded bg-cyan-500/20 px-3 py-2 text-left text-sm text-cyan-50 transition-colors hover:bg-cyan-800/40"
+                      onClick={() => {
+                        onManagerChange(manager);
+                        setIsManagerDropdownOpen(false);
+                      }}
+                    >
+                      {manager}
+                    </button>
+                  )}
+                  {employeeOptions.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      role="option"
+                      aria-selected={manager === name}
+                      className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-800/40 ${
+                        manager === name
+                          ? "bg-cyan-500/20 text-cyan-50"
+                          : "text-[var(--foreground)]"
+                      }`}
+                      onClick={() => {
+                        onManagerChange(name);
+                        setIsManagerDropdownOpen(false);
+                      }}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
               )}
-              {employeeOptions.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
+            </div>
             {managerError && (
               <p id={managerErrorId} className="mt-1 text-xs text-red-400">
                 {managerError}
@@ -1481,35 +1592,96 @@ const AgregarMovimiento: React.FC<AgregarMovimientoProps> = ({
                 <UserCircle className="h-3.5 w-3.5" />
                 Encargado pago
               </label>
-              <select
-                id={manager2SelectId}
-                value={manager2}
-                onChange={(event) => onManager2Change(event.target.value)}
-                className={`${fieldBase} w-full ${
-                  manager2Error ? "border-red-500" : ""
-                } ${
-                  manager2SelectDisabled
-                    ? "cursor-not-allowed opacity-60"
-                    : "cursor-pointer"
-                }`}
-                disabled={manager2SelectDisabled}
-                aria-invalid={Boolean(manager2Error)}
-                aria-describedby={manager2Error ? manager2ErrorId : undefined}
-              >
-                <option value="">
-                  {employeesLoading
-                    ? "Cargando encargados..."
-                    : "Seleccionar encargado pago"}
-                </option>
-                {manager2 && !employeeOptions.includes(manager2) && (
-                  <option value={manager2}>{manager2}</option>
+              <div className="relative">
+                <button
+                  type="button"
+                  id={manager2SelectId}
+                  role="combobox"
+                  className={`${fieldBase} flex w-full items-center justify-between text-left ${
+                    manager2Error ? "border-red-500" : ""
+                  } ${
+                    manager2SelectDisabled
+                      ? "cursor-not-allowed opacity-60"
+                      : "cursor-pointer"
+                  }`}
+                  disabled={manager2SelectDisabled}
+                  aria-invalid={Boolean(manager2Error)}
+                  aria-describedby={manager2Error ? manager2ErrorId : undefined}
+                  aria-haspopup="listbox"
+                  aria-expanded={isManager2DropdownOpen}
+                  aria-controls={manager2DropdownId}
+                  onClick={() => {
+                    setIsManagerDropdownOpen(false);
+                    setIsManager2DropdownOpen((open) => !open);
+                  }}
+                >
+                  <span className={manager2 ? "" : "text-cyan-100/70"}>
+                    {manager2 ||
+                      (employeesLoading
+                        ? "Cargando encargados..."
+                        : "Seleccionar encargado pago")}
+                  </span>
+                  {isManager2DropdownOpen ? (
+                    <ChevronUp className="h-4 w-4 text-cyan-100/80" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-cyan-100/80" />
+                  )}
+                </button>
+                {isManager2DropdownOpen && !manager2SelectDisabled && (
+                  <div
+                    id={manager2DropdownId}
+                    role="listbox"
+                    aria-label="Encargados de pago"
+                    className="absolute z-[9999] mt-2 max-h-56 w-full overflow-y-auto rounded-lg border border-cyan-600/45 bg-cyan-950/95 p-1 shadow-2xl shadow-black/70"
+                  >
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={manager2 === ""}
+                      className="w-full rounded px-3 py-2 text-left text-sm text-cyan-100/70 transition-colors hover:bg-cyan-800/40"
+                      onClick={() => {
+                        onManager2Change("");
+                        setIsManager2DropdownOpen(false);
+                      }}
+                    >
+                      Seleccionar encargado pago
+                    </button>
+                    {manager2 && !employeeOptions.includes(manager2) && (
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected
+                        className="w-full rounded bg-cyan-500/20 px-3 py-2 text-left text-sm text-cyan-50 transition-colors hover:bg-cyan-800/40"
+                        onClick={() => {
+                          onManager2Change(manager2);
+                          setIsManager2DropdownOpen(false);
+                        }}
+                      >
+                        {manager2}
+                      </button>
+                    )}
+                    {employeeOptions.map((name) => (
+                      <button
+                        key={name}
+                        type="button"
+                        role="option"
+                        aria-selected={manager2 === name}
+                        className={`w-full rounded px-3 py-2 text-left text-sm transition-colors hover:bg-cyan-800/40 ${
+                          manager2 === name
+                            ? "bg-cyan-500/20 text-cyan-50"
+                            : "text-[var(--foreground)]"
+                        }`}
+                        onClick={() => {
+                          onManager2Change(name);
+                          setIsManager2DropdownOpen(false);
+                        }}
+                      >
+                        {name}
+                      </button>
+                    ))}
+                  </div>
                 )}
-                {employeeOptions.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
+              </div>
               {manager2Error && (
                 <p id={manager2ErrorId} className="mt-1 text-xs text-red-400">
                   {manager2Error}
