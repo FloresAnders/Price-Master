@@ -175,6 +175,7 @@ android/*
 /extensions/
 *.test
 *.test.*
+!/tests/extensions/timemaster-herramientas-cambiotab-observation.test.ts
 !/tests/passkeys/
 !/tests/passkeys/config.server.test.ts
 !/tests/services/registro-tucan-offline-sync.test.ts
