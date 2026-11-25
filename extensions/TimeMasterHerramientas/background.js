@@ -10,6 +10,8 @@
   "use strict";
 
   const MESSAGE_TYPE = "tmh-cache-print-lines";
+  const TAB_LINK_LOCK_PORT = "tmh-vincular-tabs-lock";
+  const TAB_LINK_SAVE_CONFIG = "tmh-vincular-tabs-save-config";
   const ALLOWED_CACHE_KEYS = new Set([
     "tmhDetectedPrintLinesTicket",
     "tmhDetectedPrintLinesBcr",
@@ -40,6 +42,17 @@
       });
     }
     return normalized;
+  }
+
+  function createSerialCoordinator() {
+    let tail = Promise.resolve();
+    return {
+      enqueue(task) {
+        const result = tail.then(task, task);
+        tail = result.catch(() => {});
+        return result;
+      },
+    };
   }
 
   function wordsFromToken(token) {
@@ -88,6 +101,7 @@
 
   function createBackgroundController(chromeApi) {
     let started = false;
+    const tabLinkCoordinator = createSerialCoordinator();
     const catalogQueue = [];
     let catalogUpdateRunning = false;
 
@@ -119,6 +133,42 @@
     }
 
     function handleMessage(message, _sender, sendResponse) {
+      if (message?.type === TAB_LINK_SAVE_CONFIG) {
+        const config = message.config;
+        const valid =
+          typeof config?.enabled === "boolean" &&
+          Number.isSafeInteger(config?.start) &&
+          Number.isSafeInteger(config?.end) &&
+          config.start >= 0 &&
+          config.end >= config.start;
+        if (!valid) {
+          sendResponse({ ok: false, error: "Rango inválido" });
+          return false;
+        }
+        tabLinkCoordinator
+          .enqueue(
+            () =>
+              new Promise((resolve, reject) => {
+                chromeApi.storage.local.set(
+                  {
+                    tmhVincularTabsEnabled: config.enabled,
+                    tmhVincularTabsStart: config.start,
+                    tmhVincularTabsEnd: config.end,
+                  },
+                  () => {
+                    if (chromeApi.runtime.lastError) {
+                      reject(chromeApi.runtime.lastError);
+                    } else resolve();
+                  },
+                );
+              }),
+          )
+          .then(
+            () => sendResponse({ ok: true }),
+            (error) => sendResponse({ ok: false, error: String(error) }),
+          );
+        return true;
+      }
       if (
         message?.type !== MESSAGE_TYPE ||
         !ALLOWED_CACHE_KEYS.has(message.cacheKey) ||
@@ -142,16 +192,86 @@
       return true;
     }
 
+    function handleConnect(port) {
+      if (port.name !== TAB_LINK_LOCK_PORT) return;
+      let disconnected = false;
+      let released = false;
+      let finish = null;
+      let outstanding = 0;
+
+      function maybeFinish() {
+        if ((disconnected || released) && outstanding === 0) finish?.();
+      }
+
+      port.onDisconnect.addListener(() => {
+        disconnected = true;
+        maybeFinish();
+      });
+      port.onMessage.addListener((message) => {
+        if (message?.type === "release") {
+          released = true;
+          maybeFinish();
+          return;
+        }
+        if (message?.type !== "storage-get" && message?.type !== "storage-set") {
+          return;
+        }
+        outstanding += 1;
+        const complete = (ok, value, error) => {
+          outstanding -= 1;
+          if (!disconnected) {
+            try {
+              port.postMessage({
+                type: "storage-response",
+                requestId: message.requestId,
+                ok,
+                value,
+                error,
+              });
+            } catch {}
+          }
+          maybeFinish();
+        };
+        if (message.type === "storage-get") {
+          chromeApi.storage.local.get(message.keys, (value) => {
+            const error = chromeApi.runtime.lastError;
+            complete(!error, value, error ? String(error) : undefined);
+          });
+        } else {
+          chromeApi.storage.local.set(message.values, () => {
+            const error = chromeApi.runtime.lastError;
+            complete(!error, undefined, error ? String(error) : undefined);
+          });
+        }
+      });
+
+      tabLinkCoordinator
+        .enqueue(() => {
+          if (disconnected || released) return;
+          return new Promise((resolve) => {
+            finish = resolve;
+            try {
+              port.postMessage({ type: "granted" });
+            } catch {
+              resolve();
+            }
+          });
+        })
+        .catch((error) => console.error("TimeMaster coordinador:", error));
+    }
+
     function start() {
       if (started) return;
       started = true;
       chromeApi.runtime.onMessage.addListener(handleMessage);
+      chromeApi.runtime.onConnect?.addListener(handleConnect);
     }
 
     function destroy() {
       if (!started) return;
       started = false;
       chromeApi.runtime.onMessage.removeListener(handleMessage);
+      chromeApi.runtime.onConnect?.removeListener(handleConnect);
     }
 
     return { start, destroy };
@@ -159,6 +279,7 @@
 
   return {
     createBackgroundController,
+    createSerialCoordinator,
     logicalLabelForId,
     normalizeCatalog,
     normalizeLines,

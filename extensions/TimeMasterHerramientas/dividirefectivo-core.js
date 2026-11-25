@@ -7,13 +7,15 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function buildDividirEfectivoCore() {
   "use strict";
 
-  const CASH_DIVISION_PATTERN = /^\s*(\d+(?:[.,]\d+)?)\s*\/\s*([2-5])\s*$/;
+  const CASH_DIVISION_PATTERN = /^\s*((?:\d{1,3}(?:[ \u00a0\u202f]\d{3})+|\d+)(?:[.,]\d+)?)\s*\/\s*([2-5])\s*$/;
 
   function calculateCashDivision(value) {
     const match = CASH_DIVISION_PATTERN.exec(String(value ?? ""));
     if (!match) return null;
 
-    const amount = Number(match[1].replace(",", "."));
+    const amount = Number(
+      match[1].replace(/[ \u00a0\u202f]/g, "").replace(",", ".")
+    );
     const divisor = Number(match[2]);
     if (!Number.isFinite(amount)) return null;
 

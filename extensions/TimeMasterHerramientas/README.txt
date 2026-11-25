@@ -1,7 +1,7 @@
-TIMEMASTER HERRAMIENTAS 1.2.13
+TIMEMASTER HERRAMIENTAS 1.2.15
 ================================
 
-Esta extensión reúne CambioTab, división de efectivo, movimiento entre medios
+Esta extensión reúne CambioTab, vinculación de TABs entre cuentas, división de efectivo, movimiento entre medios
 de pago, cierre automático del modal de impresión de Contica, SumaTiempos,
 ingreso de venta con Ctrl+Enter y MoverEnter en una sola instalación. Las tres extensiones originales permanecen
 como respaldo, pero deben estar desactivadas mientras se usa esta versión para
@@ -19,6 +19,7 @@ INSTALACIÓN EN EDGE O CHROME
 CONTROLES Y VALORES INICIALES
 -----------------------------
 - CambioTab en Contica: activado.
+- Vincular TABs entre cuentas: desactivado; rango inicial de 1 a 20.
 - Cierre del modal de impresión en Contica: desactivado.
 - División de efectivo en Contica: desactivada.
 - Movimiento entre medios de pago en Contica: desactivado.
@@ -41,6 +42,20 @@ Sitio: https://contica.app/app/modules/punto_de_venta/*
 - Ctrl+Alt+Flecha izquierda: pestaña disponible anterior entre 1 y 7; de 1 vuelve a 7.
 - Ctrl+Alt+1 a Ctrl+Alt+9: abrir directamente esa pestaña.
 - También acepta los números del teclado numérico.
+
+VINCULAR TABS ENTRE CUENTAS EN CONTICA
+--------------------------------------
+Sitio: https://contica.app/app/modules/punto_de_venta/*
+
+Desactivada por defecto. En el popup, active la herramienta, escriba TAB inicial
+y TAB final, y pulse Guardar. El rango se comparte entre los usuarios de Contica
+que usan esta misma computadora y el mismo perfil del navegador.
+
+La primera cuenta establece los datos compartidos. Cuando otra cuenta entra por
+primera vez, sus productos preexistentes se fusionan una sola vez: productos
+iguales suman cantidad y productos distintos se agregan. Desde ese momento,
+productos, cantidades y eliminaciones del rango se replican a las cuentas ya
+vinculadas. Si la TAB modificada está abierta, Contica recarga sus datos.
 
 CIERRE DEL MODAL DE IMPRESIÓN EN CONTICA
 ----------------------------------------

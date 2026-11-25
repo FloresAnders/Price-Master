@@ -70,6 +70,82 @@ h1 {
   display: block;
 }
 
+.tab-link__range {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #e8ecf3;
+}
+
+.tab-link__range label {
+  display: grid;
+  gap: 4px;
+  color: #596277;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.tab-link__range input {
+  width: 100%;
+  border: 1px solid #c7cfdd;
+  border-radius: 7px;
+  padding: 6px 8px;
+  background: #fff;
+  color: #172033;
+  font: inherit;
+}
+
+.tab-link__range input:focus-visible,
+.tab-link__actions button:focus-visible {
+  outline: 3px solid rgb(22 138 82 / 25%);
+  outline-offset: 2px;
+}
+
+.tab-link__range input[aria-invalid="true"] {
+  border-color: #a32323;
+}
+
+.tab-link__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 9px;
+}
+
+.tab-link__status {
+  min-height: 14px;
+  color: #596277;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.tab-link__status[data-error="true"] {
+  color: #a32323;
+}
+
+.tab-link__status[data-saved="true"] {
+  color: #12713f;
+}
+
+.tab-link__actions button {
+  border: 0;
+  border-radius: 7px;
+  padding: 7px 14px;
+  background: #168a52;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tab-link__actions button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .feature__copy {
   min-width: 0;
 }

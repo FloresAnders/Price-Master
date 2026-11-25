@@ -172,10 +172,19 @@ android/*
 
 # Archivos locales omitidos del repositorio
 /data/
-/extensions/
+!/extensions/
+/extensions/*
+!/extensions/TimeMasterHerramientas/
+/extensions/TimeMasterHerramientas/*
+!/extensions/TimeMasterHerramientas/vinculartabs-core.js
+!/extensions/TimeMasterHerramientas/vinculartabs-content.js
+!/extensions/TimeMasterHerramientas/vinculartabs-page.js
 *.test
 *.test.*
 !/tests/extensions/timemaster-herramientas-cambiotab-observation.test.ts
+!/tests/extensions/timemaster-herramientas-vincular-tabs-settings.test.ts
+!/tests/extensions/timemaster-herramientas-vincular-tabs-sync.test.ts
+!/tests/extensions/timemaster-herramientas-vincular-tabs-indexeddb.test.ts
 !/tests/passkeys/
 !/tests/passkeys/config.server.test.ts
 !/tests/services/registro-tucan-offline-sync.test.ts

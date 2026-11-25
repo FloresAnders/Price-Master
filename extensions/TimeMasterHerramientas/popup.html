@@ -21,6 +21,21 @@
           <span class="feature__control"><span id="tmhCambioTabEnabled-status" class="status" aria-live="polite">Activado</span><span class="switch"><input id="tmhCambioTabEnabled-toggle" type="checkbox" role="switch"><span class="slider" aria-hidden="true"></span></span></span>
         </label>
 
+        <form id="tmhVincularTabs-form" class="feature feature--stacked tab-link" novalidate>
+          <div class="feature__row">
+            <span class="feature__copy"><strong id="tmhVincularTabs-title">Vincular TABs entre cuentas</strong><small>Comparte productos y cantidades del rango entre usuarios de esta computadora.</small></span>
+            <span class="feature__control"><span id="tmhVincularTabsEnabled-status" class="status" aria-live="polite">Desactivado</span><label class="switch" for="tmhVincularTabsEnabled-toggle"><input id="tmhVincularTabsEnabled-toggle" type="checkbox" role="switch" aria-labelledby="tmhVincularTabs-title"><span class="slider" aria-hidden="true"></span></label></span>
+          </div>
+          <div class="tab-link__range">
+            <label for="tmhVincularTabsStart-input">Inicio<input id="tmhVincularTabsStart-input" type="number" min="0" step="1" inputmode="numeric" required></label>
+            <label for="tmhVincularTabsEnd-input">Fin<input id="tmhVincularTabsEnd-input" type="number" min="0" step="1" inputmode="numeric" required></label>
+          </div>
+          <div class="tab-link__actions">
+            <span id="tmhVincularTabs-save-status" class="tab-link__status" aria-live="polite"></span>
+            <button id="tmhVincularTabs-save" type="submit">Guardar</button>
+          </div>
+        </form>
+
         <div class="feature feature--stacked">
           <div class="feature__row">
             <span class="feature__copy"><strong>Cerrar impresión en Contica</strong><small>Pulsa X / ESC después del tiempo configurado.</small></span>

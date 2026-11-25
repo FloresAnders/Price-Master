@@ -25,10 +25,14 @@
         ![
           "tmhResaltarCodigoTiqueteEnabled",
           "tmhFormatoImpresionCompletaEnabled",
+          "tmhVincularTabsEnabled",
         ].includes(key),
     )
     .map(([key]) => key);
   const CLOSE_ENABLED_KEY = "tmhCerrarImpresionConticaEnabled";
+  const TAB_LINK_ENABLED_KEY = "tmhVincularTabsEnabled";
+  const TAB_LINK_START_KEY = "tmhVincularTabsStart";
+  const TAB_LINK_END_KEY = "tmhVincularTabsEnd";
   const CLOSE_DELAY_KEY = "tmhCerrarImpresionConticaDelaySeconds";
   const CLOSE_MESSAGE_KEY = "tmhCerrarImpresionConticaMessage";
   const PRINT_TIMES_ENABLED_KEY = "tmhImpresionTiemposEnabled";
@@ -153,6 +157,111 @@
           !enabled ||
           values.tmhModalPagoVueltoAnteriorGrandeEnabled !== true;
       }
+    }
+
+    function tabLinkElements() {
+      return {
+        form: documentRef.getElementById("tmhVincularTabs-form"),
+        enabled: documentRef.getElementById(`${TAB_LINK_ENABLED_KEY}-toggle`),
+        enabledStatus: documentRef.getElementById(
+          `${TAB_LINK_ENABLED_KEY}-status`,
+        ),
+        start: documentRef.getElementById(`${TAB_LINK_START_KEY}-input`),
+        end: documentRef.getElementById(`${TAB_LINK_END_KEY}-input`),
+        save: documentRef.getElementById("tmhVincularTabs-save"),
+        status: documentRef.getElementById("tmhVincularTabs-save-status"),
+      };
+    }
+
+    function renderTabLinkSettings(message = "", isError = false) {
+      const { enabled, enabledStatus, start, end, status } = tabLinkElements();
+      if (!enabled || !enabledStatus || !start || !end || !status) return;
+      enabled.checked = values[TAB_LINK_ENABLED_KEY] === true;
+      enabledStatus.textContent = enabled.checked ? "Activado" : "Desactivado";
+      enabledStatus.dataset.enabled = String(enabled.checked);
+      start.value = String(values[TAB_LINK_START_KEY]);
+      end.value = String(values[TAB_LINK_END_KEY]);
+      start.disabled = !enabled.checked;
+      end.disabled = !enabled.checked;
+      status.textContent = message;
+      if (isError) status.dataset.error = "true";
+      else delete status.dataset.error;
+      if (message && !isError) status.dataset.saved = "true";
+      else delete status.dataset.saved;
+    }
+
+    function bindTabLinkSettings() {
+      const { form, enabled, start, end, save } = tabLinkElements();
+      if (!form || !enabled || !start || !end || !save) return;
+      const handleSubmit = (event) => {
+        event.preventDefault();
+        const rangeStart = Number(start.value);
+        const rangeEnd = Number(end.value);
+        const valid =
+          start.value.trim() !== "" &&
+          end.value.trim() !== "" &&
+          Number.isSafeInteger(rangeStart) &&
+          Number.isSafeInteger(rangeEnd) &&
+          rangeStart >= 0 &&
+          rangeEnd >= rangeStart;
+        if (!valid) {
+          start.setAttribute("aria-invalid", "true");
+          end.setAttribute("aria-invalid", "true");
+          renderTabLinkSettings("Use un rango válido", true);
+          start.focus();
+          return;
+        }
+        start.removeAttribute("aria-invalid");
+        end.removeAttribute("aria-invalid");
+        const next = {
+          [TAB_LINK_ENABLED_KEY]: enabled.checked === true,
+          [TAB_LINK_START_KEY]: rangeStart,
+          [TAB_LINK_END_KEY]: rangeEnd,
+        };
+        if (!settingsLoaded) {
+          changedDuringInitialLoad.add(TAB_LINK_ENABLED_KEY);
+          changedDuringInitialLoad.add(TAB_LINK_START_KEY);
+          changedDuringInitialLoad.add(TAB_LINK_END_KEY);
+        }
+        save.disabled = true;
+        chromeApi.runtime.sendMessage(
+          {
+            type: "tmh-vincular-tabs-save-config",
+            config: {
+              enabled: next[TAB_LINK_ENABLED_KEY],
+              start: next[TAB_LINK_START_KEY],
+              end: next[TAB_LINK_END_KEY],
+            },
+          },
+          (response) => {
+            save.disabled = false;
+            if (chromeApi.runtime.lastError || response?.ok !== true) {
+              renderTabLinkSettings("Error al guardar", true);
+              return;
+            }
+            Object.assign(values, next);
+            renderTabLinkSettings("Vinculación guardada");
+          },
+        );
+      };
+      const handleEnabledChange = () => {
+        const { enabledStatus, status } = tabLinkElements();
+        start.disabled = !enabled.checked;
+        end.disabled = !enabled.checked;
+        if (enabledStatus) {
+          enabledStatus.textContent = enabled.checked ? "Activado" : "Desactivado";
+          enabledStatus.dataset.enabled = String(enabled.checked);
+        }
+        if (status) {
+          status.textContent = "Pulse Guardar para aplicar";
+          delete status.dataset.error;
+          delete status.dataset.saved;
+        }
+      };
+      form.addEventListener("submit", handleSubmit);
+      enabled.addEventListener("change", handleEnabledChange);
+      listeners.set("tmhVincularTabsForm", handleSubmit);
+      listeners.set("tmhVincularTabsDraft", handleEnabledChange);
     }
 
     function bindPaymentModalEditors() {
@@ -692,6 +801,22 @@
 
     function handleStorageChange(changes, areaName) {
       if (areaName !== "local") return;
+      let tabLinkChanged = false;
+      for (const key of [
+        TAB_LINK_ENABLED_KEY,
+        TAB_LINK_START_KEY,
+        TAB_LINK_END_KEY,
+      ]) {
+        if (!changes?.[key]) continue;
+        if (!settingsLoaded) changedDuringInitialLoad.add(key);
+        const normalized = settings.normalizeSettings({
+          ...values,
+          [key]: changes[key].newValue,
+        });
+        values[key] = normalized[key];
+        tabLinkChanged = true;
+      }
+      if (tabLinkChanged) renderTabLinkSettings();
       for (const key of [PAYMENT_MODAL_ENABLED_KEY, ...PAYMENT_MODAL_OPTION_KEYS]) {
         const next = changes?.[key]?.newValue;
         if (typeof next !== "boolean") continue;
@@ -751,6 +876,7 @@
       bindTicketSettings();
       bindFullPrintSettings();
       bindLineConfigLaunchers();
+      bindTabLinkSettings();
       chromeApi.storage.onChanged.addListener(handleStorageChange);
       chromeApi.storage.local.get(settings.DEFAULT_SETTINGS, (stored) => {
         if (!started || currentEpoch !== lifecycleEpoch) return;
@@ -766,6 +892,7 @@
         renderPrinterName(values[PRINTER_NAME_KEY]);
         renderTicketSettings();
         renderFullPrintSettings();
+        renderTabLinkSettings();
         for (const { enabledKey } of LINE_CONFIG_LAUNCHERS) {
           renderLineConfigLauncher(enabledKey);
         }
@@ -828,6 +955,10 @@
               listener,
             );
           }
+        } else if (key === "tmhVincularTabsForm") {
+          tabLinkElements().form?.removeEventListener("submit", listener);
+        } else if (key === "tmhVincularTabsDraft") {
+          tabLinkElements().enabled?.removeEventListener("change", listener);
         } else {
           elements(key).toggle?.removeEventListener("change", listener);
         }

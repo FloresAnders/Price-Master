@@ -46,9 +46,16 @@
     "tmhResaltarSorteoTiqueteFontFamily",
     "tmhFormatoImpresionCompletaFontFamily",
   ]);
+  const NON_NEGATIVE_INTEGER_KEYS = new Set([
+    "tmhVincularTabsStart",
+    "tmhVincularTabsEnd",
+  ]);
 
   const DEFAULT_SETTINGS = Object.freeze({
     tmhCambioTabEnabled: true,
+    tmhVincularTabsEnabled: false,
+    tmhVincularTabsStart: 1,
+    tmhVincularTabsEnd: 20,
     tmhCerrarImpresionConticaEnabled: false,
     tmhCerrarImpresionConticaDelaySeconds: 5,
     tmhCerrarImpresionConticaMessage:
@@ -163,7 +170,8 @@
             ? raw[key]
             : fallback
           : typeof fallback === "number"
-            ? Number.isInteger(raw?.[key]) && raw[key] >= 1
+            ? Number.isInteger(raw?.[key]) &&
+              raw[key] >= (NON_NEGATIVE_INTEGER_KEYS.has(key) ? 0 : 1)
               ? raw[key]
               : fallback
             : typeof raw?.[key] === "string" && raw[key].trim()
