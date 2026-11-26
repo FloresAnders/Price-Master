@@ -6,6 +6,7 @@ import {
   FileText,
   Loader2,
   MessageSquare,
+  Plus,
   Save,
   Search,
   UserCircle,
@@ -47,6 +48,10 @@ type CreateInvoiceDrawerProps = {
   createPaymentType: string;
   createInvoiceNumber: string;
   setCreateInvoiceNumber: (value: string) => void;
+  createAdditionalInvoices: Array<{ invoiceNumber: string; amount: string }>;
+  setCreateAdditionalInvoices: (
+    value: Array<{ invoiceNumber: string; amount: string }>,
+  ) => void;
   createInvoiceDocType: "FCR" | "NC";
   setCreateInvoiceDocType: (value: "FCR" | "NC") => void;
   createCurrency: MovementCurrencyKey;
@@ -83,6 +88,8 @@ export default function CreateInvoiceDrawer({
   createPaymentType,
   createInvoiceNumber,
   setCreateInvoiceNumber,
+  createAdditionalInvoices,
+  setCreateAdditionalInvoices,
   createInvoiceDocType,
   setCreateInvoiceDocType,
   createCurrency,
@@ -101,6 +108,7 @@ export default function CreateInvoiceDrawer({
   const [displayAmount, setDisplayAmount] = React.useState("");
   const [isManagerDropdownOpen, setIsManagerDropdownOpen] = React.useState(false);
   const [showConfirmModal, setShowConfirmModal] = React.useState(false);
+  const canAddInvoice = createAdditionalInvoices.length < 9;
   useFloatingActionsSuppression("create-invoice-drawer", open);
 
   const providerName = React.useMemo(() => {
@@ -163,6 +171,46 @@ export default function CreateInvoiceDrawer({
     }
     setDisplayAmount(formatAmountInput(createAmount));
   }, [createAmount, formatAmountInput]);
+
+  const invoiceDrafts = React.useMemo(
+    () => [
+      { invoiceNumber: createInvoiceNumber, amount: createAmount },
+      ...createAdditionalInvoices,
+    ],
+    [createAdditionalInvoices, createAmount, createInvoiceNumber],
+  );
+  const totalAmount = React.useMemo(
+    () =>
+      invoiceDrafts.reduce(
+        (total, invoice) => total + (Number(invoice.amount) || 0),
+        0,
+      ),
+    [invoiceDrafts],
+  );
+  const addInvoice = () => {
+    if (!canAddInvoice) return;
+    setCreateAdditionalInvoices([
+      ...createAdditionalInvoices,
+      { invoiceNumber: "", amount: "" },
+    ]);
+  };
+  const updateInvoice = (
+    index: number,
+    patch: Partial<{ invoiceNumber: string; amount: string }>,
+  ) => {
+    setCreateAdditionalInvoices(
+      createAdditionalInvoices.map((invoice, currentIndex) =>
+        currentIndex === index ? { ...invoice, ...patch } : invoice,
+      ),
+    );
+  };
+  const removeInvoice = (index: number) => {
+    setCreateAdditionalInvoices(
+      createAdditionalInvoices.filter(
+        (_, currentIndex) => currentIndex !== index,
+      ),
+    );
+  };
 
   const sectionClass =
     "rounded-xl border border-cyan-700/25 bg-cyan-950/10 p-3 sm:p-4";
@@ -367,23 +415,72 @@ export default function CreateInvoiceDrawer({
                 </div>
 
                 <div>
-                  <label className={labelClass}>
+                  <label htmlFor="create-invoice-number-0" className={labelClass}>
                     <FileText className="h-3.5 w-3.5" strokeWidth={1.5} />
                     Numero factura
                   </label>
-                  <input
-                    value={createInvoiceNumber}
-                    onChange={(event) =>
-                      setCreateInvoiceNumber(
-                        event.target.value.replace(/\D/g, "").slice(0, 4),
-                      )
-                    }
-                    placeholder="0000"
-                    disabled={createSubmitting}
-                    maxLength={4}
-                    inputMode="numeric"
-                    className={fieldBase}
-                  />
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="create-invoice-number-0"
+                        aria-label="Numero factura #1"
+                        value={createInvoiceNumber}
+                        onChange={(event) =>
+                          setCreateInvoiceNumber(
+                            event.target.value.replace(/\D/g, "").slice(0, 4),
+                          )
+                        }
+                        placeholder="Factura #1"
+                        disabled={createSubmitting}
+                        maxLength={4}
+                        inputMode="numeric"
+                        className={fieldBase}
+                      />
+                      {canAddInvoice && (
+                        <button
+                          type="button"
+                          aria-label="Agregar factura"
+                          title="Agregar factura"
+                          onClick={addInvoice}
+                          disabled={createSubmitting}
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded border border-cyan-500/40 bg-cyan-500/10 text-cyan-200 transition-colors hover:bg-cyan-500/20 disabled:opacity-50"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                    {createAdditionalInvoices.map((invoice, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <input
+                          id={`create-invoice-number-${index + 1}`}
+                          aria-label={`Numero factura #${index + 2}`}
+                          value={invoice.invoiceNumber}
+                          onChange={(event) =>
+                            updateInvoice(index, {
+                              invoiceNumber: event.target.value
+                                .replace(/\D/g, "")
+                                .slice(0, 4),
+                            })
+                          }
+                          placeholder={`Factura #${index + 2}`}
+                          disabled={createSubmitting}
+                          maxLength={4}
+                          inputMode="numeric"
+                          className={fieldBase}
+                        />
+                        <button
+                          type="button"
+                          aria-label={`Quitar factura #${index + 2}`}
+                          title="Quitar factura"
+                          onClick={() => removeInvoice(index)}
+                          disabled={createSubmitting}
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded border border-red-500/30 text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-300 disabled:opacity-50"
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </section>
@@ -450,8 +547,12 @@ export default function CreateInvoiceDrawer({
                 </div>
               </div>
 
-              <div>
+              <div className="space-y-2">
+                <label htmlFor="create-invoice-amount-0" className="sr-only">
+                  Monto factura #1
+                </label>
                 <input
+                  id="create-invoice-amount-0"
                   type="text"
                   inputMode="decimal"
                   value={displayAmount}
@@ -464,6 +565,30 @@ export default function CreateInvoiceDrawer({
                   disabled={createSubmitting}
                   className={`${fieldBase} text-lg font-semibold`}
                 />
+                {createAdditionalInvoices.map((invoice, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <label
+                      htmlFor={`create-invoice-amount-${index + 1}`}
+                      className="w-20 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-cyan-100/60"
+                    >
+                      Factura #{index + 2}
+                    </label>
+                    <input
+                      id={`create-invoice-amount-${index + 1}`}
+                      type="text"
+                      inputMode="decimal"
+                      value={formatAmountInput(invoice.amount)}
+                      onChange={(event) =>
+                        updateInvoice(index, {
+                          amount: sanitizeAmountInput(event.target.value),
+                        })
+                      }
+                      placeholder={createCurrency === "CRC" ? "₡0" : "$0"}
+                      disabled={createSubmitting}
+                      className={`${fieldBase} text-lg font-semibold`}
+                    />
+                  </div>
+                ))}
               </div>
             </section>
 
@@ -559,24 +684,30 @@ export default function CreateInvoiceDrawer({
                 <div className="text-xs font-semibold uppercase tracking-wide text-cyan-100/70">
                   Totales
                 </div>
-                <div className="text-[11px] text-cyan-100/50">Resumen de factura</div>
+                <div className="text-[11px] text-cyan-100/50">
+                  {invoiceDrafts.length > 1
+                    ? "Resumen de facturas"
+                    : "Resumen de factura"}
+                </div>
               </div>
               <div className="mt-2 grid gap-2 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-cyan-100/70">
-                    Total {createInvoiceDocType === "NC" ? "nota credito" : "factura"}
-                  </span>
-                  <span className="font-semibold text-[var(--foreground)]">
-                    {formatAmount(createAmount)}
-                  </span>
-                </div>
+                {invoiceDrafts.map((invoice, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <span className="text-cyan-100/70">
+                      Factura #{index + 1}
+                    </span>
+                    <span className="font-semibold text-[var(--foreground)]">
+                      {formatAmount(invoice.amount)}
+                    </span>
+                  </div>
+                ))}
                 <div className="h-px bg-cyan-700/25" />
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-semibold text-[var(--foreground)]">
                     Total a guardar
                   </span>
                   <span className="font-semibold text-cyan-100">
-                    {formatAmount(createAmount)}
+                    {formatAmount(String(totalAmount))}
                   </span>
                 </div>
               </div>
@@ -605,7 +736,9 @@ export default function CreateInvoiceDrawer({
                 ) : (
                   <>
                     <Save className="h-4 w-4" strokeWidth={1.5} />
-                    Guardar FC/NC
+                    {invoiceDrafts.length > 1
+                      ? "Guardar facturas"
+                      : "Guardar FC/NC"}
                   </>
                 )}
               </button>
@@ -621,24 +754,37 @@ export default function CreateInvoiceDrawer({
           title="Confirmar guardado"
           message={
             <>
-              ¿Estás seguro de que deseas guardar esta FC/NC?
+              ¿Estás seguro de que deseas guardar{" "}
+              {invoiceDrafts.length > 1 ? "estas facturas" : "esta FC/NC"}?
               <div className="mt-3 space-y-1 rounded-md border border-[var(--input-border)] bg-[var(--card-bg)] p-3 text-sm">
                 <div className="flex justify-between">
                   <span className="text-[var(--muted-foreground)]">Proveedor:</span>
                   <span className="font-medium text-[var(--foreground)]">{providerName}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-[var(--muted-foreground)]">N° Factura:</span>
-                  <span className="font-medium text-[var(--foreground)]">{createInvoiceNumber || "—"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[var(--muted-foreground)]">Monto:</span>
-                  <span className="font-medium text-[var(--foreground)]">{formatAmount(createAmount)}</span>
+                {invoiceDrafts.map((invoice, index) => (
+                  <div key={index} className="flex justify-between gap-4">
+                    <span className="text-[var(--muted-foreground)]">
+                      Factura #{index + 1}: {invoice.invoiceNumber || "—"}
+                    </span>
+                    <span className="font-medium text-[var(--foreground)]">
+                      {formatAmount(invoice.amount)}
+                    </span>
+                  </div>
+                ))}
+                <div className="flex justify-between border-t border-[var(--input-border)] pt-1">
+                  <span className="font-medium text-[var(--muted-foreground)]">
+                    Total:
+                  </span>
+                  <span className="font-semibold text-[var(--foreground)]">
+                    {formatAmount(String(totalAmount))}
+                  </span>
                 </div>
               </div>
             </>
           }
-          confirmText="Guardar FC/NC"
+          confirmText={
+            invoiceDrafts.length > 1 ? "Guardar facturas" : "Guardar FC/NC"
+          }
           cancelText="Cancelar"
           actionType="assign"
           loading={createSubmitting}

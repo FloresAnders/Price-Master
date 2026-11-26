@@ -9,6 +9,7 @@ import {
   setDoc,
   startAfter,
   where,
+  writeBatch,
   type QueryConstraint,
   type QueryDocumentSnapshot,
   type DocumentData,
@@ -280,6 +281,27 @@ export class FacturasService {
     });
 
     await setDoc(ref, stripUndefinedDeep(payload), { merge: true });
+  }
+
+  static async upsertMovements(
+    empresa: string,
+    movements: FacturaMovement[],
+  ): Promise<void> {
+    if (movements.length === 0) return;
+
+    const batch = writeBatch(db);
+    movements.forEach((movement) => {
+      const ref = this.buildMovementRef(empresa, movement.id);
+      const payload = withFacturaPendingForClosing({
+        ...movement,
+        empresa: String(movement.empresa || empresa).trim(),
+        invoiceDocType: normalizeInvoiceDocType(movement.invoiceDocType),
+        paymentType: String(movement.paymentType || "").trim(),
+      });
+      batch.set(ref, stripUndefinedDeep(payload), { merge: true });
+    });
+
+    await batch.commit();
   }
 
   static async deleteMovement(empresa: string, movementId: string): Promise<void> {

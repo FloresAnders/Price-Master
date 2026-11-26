@@ -229,6 +229,9 @@ export default function FacturasCreditoPage() {
   const [isCreateProviderDropdownOpen, setIsCreateProviderDropdownOpen] =
     useState(false);
   const [createInvoiceNumber, setCreateInvoiceNumber] = useState("");
+  const [createAdditionalInvoices, setCreateAdditionalInvoices] = useState<
+    Array<{ invoiceNumber: string; amount: string }>
+  >([]);
   const [createInvoiceDocType, setCreateInvoiceDocType] = useState<
     "FCR" | "NC"
   >("FCR");
@@ -928,6 +931,7 @@ export default function FacturasCreditoPage() {
     setCreateOnlyInventoryProviders(true);
     setIsCreateProviderDropdownOpen(false);
     setCreateInvoiceNumber("");
+    setCreateAdditionalInvoices([]);
     setCreateInvoiceDocType("FCR");
     setCreateAmount("");
     setCreateCurrency("CRC");
@@ -1058,21 +1062,35 @@ export default function FacturasCreditoPage() {
       return;
     }
 
-    const invoiceNumber = String(createInvoiceNumber || "")
-      .trim()
-      .toUpperCase();
-    if (!invoiceNumber) {
-      setCreateFormError("Ingresa el numero de factura.");
-      return;
+    const invoiceDrafts = [
+      { invoiceNumber: createInvoiceNumber, amount: createAmount },
+      ...createAdditionalInvoices,
+    ].map((invoice) => ({
+      invoiceNumber: String(invoice.invoiceNumber || "").trim().toUpperCase(),
+      amount: Math.max(0, roundMoney2(invoice.amount)),
+    }));
+
+    for (let index = 0; index < invoiceDrafts.length; index += 1) {
+      const invoice = invoiceDrafts[index];
+      if (!/^[0-9]{1,4}$/.test(invoice.invoiceNumber)) {
+        setCreateFormError(
+          `Ingresa un numero de factura valido (1-4 digitos) en la factura #${index + 1}.`,
+        );
+        return;
+      }
+      if (invoice.amount <= 0 && createInvoiceDocType !== "NC") {
+        setCreateFormError(
+          `Ingresa un monto mayor a cero en la factura #${index + 1}.`,
+        );
+        return;
+      }
     }
 
-    const amount = Math.max(0, roundMoney2(createAmount));
-    if (amount <= 0 && createInvoiceDocType !== "NC") {
-      setCreateFormError("Ingresa un monto mayor a cero.");
-      return;
-    }
-
-    if (amount <= 0 && createInvoiceDocType === "NC" && !confirmedZeroNC) {
+    if (
+      createInvoiceDocType === "NC" &&
+      invoiceDrafts.some((invoice) => invoice.amount <= 0) &&
+      !confirmedZeroNC
+    ) {
       setCreateFormError(null);
       setConfirmZeroNCOpen(true);
       return;
@@ -1151,38 +1169,43 @@ export default function FacturasCreditoPage() {
 
     const isCreditNote = createInvoiceDocType === "NC";
 
-    const movement: FacturaMovement = {
+    const movements: FacturaMovement[] = invoiceDrafts.map((invoice) => ({
       id: buildFacturaMovementId(),
       empresa,
       accountId: "FondoGeneral",
-      amount,
-      originalAmount: amount,
-      amountDue: amount,
-      amountEgreso: isCreditNote ? 0 : amount,
-      amountIngreso: isCreditNote ? amount : 0,
+      amount: invoice.amount,
+      originalAmount: invoice.amount,
+      amountDue: invoice.amount,
+      amountEgreso: isCreditNote ? 0 : invoice.amount,
+      amountIngreso: isCreditNote ? invoice.amount : 0,
       createdAt: nowISO,
       currency: createCurrency,
-      invoiceNumber,
+      invoiceNumber: invoice.invoiceNumber,
       manager: effectiveManager,
       notes: String(createNotes || "").trim(),
       invoiceDocType: createInvoiceDocType,
       paymentType: resolveFacturaPaymentType("PENDIENTE"),
       providerCode,
       paidAmount: undefined,
-      balanceDue: amount,
+      balanceDue: invoice.amount,
       paymentStatus: "PENDIENTE",
-      zeroAmountEditCount: isCreditNote && amount === 0 ? 0 : undefined,
-    };
+      zeroAmountEditCount:
+        isCreditNote && invoice.amount === 0 ? 0 : undefined,
+    }));
 
     setCreateSubmitting(true);
     setCreateFormError(null);
     try {
-      await FacturasService.upsertMovement(empresa, movement);
+      await FacturasService.upsertMovements(empresa, movements);
       await loadMovements(empresa);
       showToast(
-        isCreditNote
-          ? "Nota de credito guardada."
-          : "Factura a credito guardada.",
+        movements.length > 1
+          ? isCreditNote
+            ? `${movements.length} notas de credito guardadas.`
+            : `${movements.length} facturas a credito guardadas.`
+          : isCreditNote
+            ? "Nota de credito guardada."
+            : "Factura a credito guardada.",
         "success",
         3500,
       );
@@ -1190,12 +1213,17 @@ export default function FacturasCreditoPage() {
       resetCreateForm();
     } catch (error) {
       console.error("[FACTURAS] Error creating movement:", error);
-      setCreateFormError("No se pudo guardar la factura.");
+      setCreateFormError(
+        movements.length > 1
+          ? "No se pudieron guardar las facturas."
+          : "No se pudo guardar la factura.",
+      );
     } finally {
       setCreateSubmitting(false);
     }
   }, [
     createAmount,
+    createAdditionalInvoices,
     createCurrency,
     createInvoiceDocType,
     createInvoiceNumber,
@@ -4982,6 +5010,8 @@ export default function FacturasCreditoPage() {
           createPaymentType={createPaymentType}
           createInvoiceNumber={createInvoiceNumber}
           setCreateInvoiceNumber={setCreateInvoiceNumber}
+          createAdditionalInvoices={createAdditionalInvoices}
+          setCreateAdditionalInvoices={setCreateAdditionalInvoices}
           createInvoiceDocType={createInvoiceDocType}
           setCreateInvoiceDocType={setCreateInvoiceDocType}
           createCurrency={createCurrency}
