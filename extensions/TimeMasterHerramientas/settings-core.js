@@ -49,6 +49,7 @@
   const NON_NEGATIVE_INTEGER_KEYS = new Set([
     "tmhVincularTabsStart",
     "tmhVincularTabsEnd",
+    "tmhConticaTabsVisiblesCount",
   ]);
 
   const DEFAULT_SETTINGS = Object.freeze({
@@ -56,6 +57,8 @@
     tmhVincularTabsEnabled: false,
     tmhVincularTabsStart: 1,
     tmhVincularTabsEnd: 20,
+    tmhConticaTabsVisiblesEnabled: false,
+    tmhConticaTabsVisiblesCount: 3,
     tmhCerrarImpresionConticaEnabled: false,
     tmhCerrarImpresionConticaDelaySeconds: 5,
     tmhCerrarImpresionConticaMessage:
@@ -171,7 +174,8 @@
             : fallback
           : typeof fallback === "number"
             ? Number.isInteger(raw?.[key]) &&
-              raw[key] >= (NON_NEGATIVE_INTEGER_KEYS.has(key) ? 0 : 1)
+              raw[key] >= (NON_NEGATIVE_INTEGER_KEYS.has(key) ? 0 : 1) &&
+              (key !== "tmhConticaTabsVisiblesCount" || raw[key] <= 12)
               ? raw[key]
               : fallback
             : typeof raw?.[key] === "string" && raw[key].trim()

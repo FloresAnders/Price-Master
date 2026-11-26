@@ -26,6 +26,7 @@
           "tmhResaltarCodigoTiqueteEnabled",
           "tmhFormatoImpresionCompletaEnabled",
           "tmhVincularTabsEnabled",
+          "tmhConticaTabsVisiblesEnabled",
         ].includes(key),
     )
     .map(([key]) => key);
@@ -33,6 +34,8 @@
   const TAB_LINK_ENABLED_KEY = "tmhVincularTabsEnabled";
   const TAB_LINK_START_KEY = "tmhVincularTabsStart";
   const TAB_LINK_END_KEY = "tmhVincularTabsEnd";
+  const CONTICA_TABS_ENABLED_KEY = "tmhConticaTabsVisiblesEnabled";
+  const CONTICA_TABS_COUNT_KEY = "tmhConticaTabsVisiblesCount";
   const CLOSE_DELAY_KEY = "tmhCerrarImpresionConticaDelaySeconds";
   const CLOSE_MESSAGE_KEY = "tmhCerrarImpresionConticaMessage";
   const PRINT_TIMES_ENABLED_KEY = "tmhImpresionTiemposEnabled";
@@ -262,6 +265,140 @@
       enabled.addEventListener("change", handleEnabledChange);
       listeners.set("tmhVincularTabsForm", handleSubmit);
       listeners.set("tmhVincularTabsDraft", handleEnabledChange);
+    }
+
+    function conticaTabsElements() {
+      return {
+        form: documentRef.getElementById("tmhConticaTabsVisibles-form"),
+        enabled: documentRef.getElementById(
+          `${CONTICA_TABS_ENABLED_KEY}-toggle`,
+        ),
+        enabledStatus: documentRef.getElementById(
+          `${CONTICA_TABS_ENABLED_KEY}-status`,
+        ),
+        count: documentRef.getElementById(`${CONTICA_TABS_COUNT_KEY}-input`),
+        save: documentRef.getElementById("tmhConticaTabsVisibles-save"),
+        saveStatus: documentRef.getElementById(
+          "tmhConticaTabsVisibles-save-status",
+        ),
+        pageStatus: documentRef.getElementById(
+          "tmhConticaTabsVisibles-page-status",
+        ),
+      };
+    }
+
+    function renderConticaTabsSettings(message = "", isError = false) {
+      const { enabled, enabledStatus, count, saveStatus } =
+        conticaTabsElements();
+      if (!enabled || !enabledStatus || !count || !saveStatus) return;
+      enabled.checked = values[CONTICA_TABS_ENABLED_KEY] === true;
+      enabledStatus.textContent = enabled.checked ? "Activado" : "Desactivado";
+      enabledStatus.dataset.enabled = String(enabled.checked);
+      count.value = String(values[CONTICA_TABS_COUNT_KEY]);
+      count.disabled = !enabled.checked;
+      saveStatus.textContent = message;
+      if (isError) saveStatus.dataset.error = "true";
+      else delete saveStatus.dataset.error;
+      if (message && !isError) saveStatus.dataset.saved = "true";
+      else delete saveStatus.dataset.saved;
+    }
+
+    function refreshConticaTabsStatus() {
+      const { pageStatus } = conticaTabsElements();
+      if (!pageStatus) return;
+      pageStatus.textContent = "Consultando página…";
+      if (!chromeApi.tabs?.query || !chromeApi.tabs?.sendMessage) {
+        pageStatus.textContent = "Abra o recargue el punto de venta de Contica.";
+        return;
+      }
+      try {
+        chromeApi.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          if (chromeApi.runtime.lastError || !tabs?.[0]?.id) {
+            pageStatus.textContent =
+              "Abra o recargue el punto de venta de Contica.";
+            return;
+          }
+          chromeApi.tabs.sendMessage(
+            tabs[0].id,
+            { type: "tmh-contica-tabs-status" },
+            (result) => {
+              if (chromeApi.runtime.lastError || !result?.found) {
+                pageStatus.textContent = result
+                  ? "No se encontró la barra de facturas."
+                  : "Abra o recargue el punto de venta de Contica.";
+                return;
+              }
+              pageStatus.textContent = `Extras visibles: ${result.shown} · Capacidad estimada: ${result.limit}`;
+            },
+          );
+        });
+      } catch {
+        pageStatus.textContent = "Abra o recargue el punto de venta de Contica.";
+      }
+    }
+
+    function bindConticaTabsSettings() {
+      const { form, enabled, count, save, saveStatus } = conticaTabsElements();
+      if (!form || !enabled || !count || !save || !saveStatus) return;
+      const handleSubmit = (event) => {
+        event.preventDefault();
+        const requested = Number(count.value);
+        const valid =
+          count.value.trim() !== "" &&
+          Number.isInteger(requested) &&
+          requested >= 0 &&
+          requested <= 12;
+        if (!valid) {
+          count.setAttribute("aria-invalid", "true");
+          renderConticaTabsSettings("Use un entero de 0 a 12", true);
+          count.focus();
+          return;
+        }
+        count.removeAttribute("aria-invalid");
+        const next = {
+          [CONTICA_TABS_ENABLED_KEY]: enabled.checked === true,
+          [CONTICA_TABS_COUNT_KEY]: requested,
+        };
+        if (!settingsLoaded) {
+          changedDuringInitialLoad.add(CONTICA_TABS_ENABLED_KEY);
+          changedDuringInitialLoad.add(CONTICA_TABS_COUNT_KEY);
+        }
+        save.disabled = true;
+        chromeApi.storage.local.set(next, () => {
+          save.disabled = false;
+          if (chromeApi.runtime.lastError) {
+            renderConticaTabsSettings("Error al guardar", true);
+            return;
+          }
+          Object.assign(values, next);
+          renderConticaTabsSettings("Configuración guardada");
+          refreshConticaTabsStatus();
+        });
+      };
+      const handleEnabledChange = () => {
+        const { enabledStatus } = conticaTabsElements();
+        count.disabled = !enabled.checked;
+        if (enabledStatus) {
+          enabledStatus.textContent = enabled.checked ? "Activado" : "Desactivado";
+          enabledStatus.dataset.enabled = String(enabled.checked);
+        }
+        saveStatus.textContent = "Pulse Aplicar cambios";
+        delete saveStatus.dataset.error;
+        delete saveStatus.dataset.saved;
+      };
+      const handleCountInput = () => {
+        count.removeAttribute("aria-invalid");
+        if (saveStatus.dataset.error === "true") {
+          saveStatus.textContent = "";
+          delete saveStatus.dataset.error;
+        }
+      };
+      form.addEventListener("submit", handleSubmit);
+      enabled.addEventListener("change", handleEnabledChange);
+      count.addEventListener("input", handleCountInput);
+      listeners.set("tmhConticaTabsForm", handleSubmit);
+      listeners.set("tmhConticaTabsDraft", handleEnabledChange);
+      listeners.set("tmhConticaTabsCount", handleCountInput);
     }
 
     function bindPaymentModalEditors() {
@@ -801,6 +938,18 @@
 
     function handleStorageChange(changes, areaName) {
       if (areaName !== "local") return;
+      let conticaTabsChanged = false;
+      for (const key of [CONTICA_TABS_ENABLED_KEY, CONTICA_TABS_COUNT_KEY]) {
+        if (!changes?.[key]) continue;
+        if (!settingsLoaded) changedDuringInitialLoad.add(key);
+        const normalized = settings.normalizeSettings({
+          ...values,
+          [key]: changes[key].newValue,
+        });
+        values[key] = normalized[key];
+        conticaTabsChanged = true;
+      }
+      if (conticaTabsChanged) renderConticaTabsSettings();
       let tabLinkChanged = false;
       for (const key of [
         TAB_LINK_ENABLED_KEY,
@@ -877,6 +1026,7 @@
       bindFullPrintSettings();
       bindLineConfigLaunchers();
       bindTabLinkSettings();
+      bindConticaTabsSettings();
       chromeApi.storage.onChanged.addListener(handleStorageChange);
       chromeApi.storage.local.get(settings.DEFAULT_SETTINGS, (stored) => {
         if (!started || currentEpoch !== lifecycleEpoch) return;
@@ -893,6 +1043,8 @@
         renderTicketSettings();
         renderFullPrintSettings();
         renderTabLinkSettings();
+        renderConticaTabsSettings();
+        refreshConticaTabsStatus();
         for (const { enabledKey } of LINE_CONFIG_LAUNCHERS) {
           renderLineConfigLauncher(enabledKey);
         }
@@ -959,6 +1111,12 @@
           tabLinkElements().form?.removeEventListener("submit", listener);
         } else if (key === "tmhVincularTabsDraft") {
           tabLinkElements().enabled?.removeEventListener("change", listener);
+        } else if (key === "tmhConticaTabsForm") {
+          conticaTabsElements().form?.removeEventListener("submit", listener);
+        } else if (key === "tmhConticaTabsDraft") {
+          conticaTabsElements().enabled?.removeEventListener("change", listener);
+        } else if (key === "tmhConticaTabsCount") {
+          conticaTabsElements().count?.removeEventListener("input", listener);
         } else {
           elements(key).toggle?.removeEventListener("change", listener);
         }

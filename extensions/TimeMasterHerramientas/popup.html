@@ -36,6 +36,22 @@
           </div>
         </form>
 
+        <form id="tmhConticaTabsVisibles-form" class="feature feature--stacked tab-link" aria-labelledby="tmhConticaTabsVisibles-title" novalidate>
+          <div class="feature__row">
+            <span class="feature__copy"><strong id="tmhConticaTabsVisibles-title">Facturas visibles en Contica</strong><small>Muestra pestañas adicionales según el espacio disponible; las demás quedan en el menú original.</small></span>
+            <span class="feature__control"><span id="tmhConticaTabsVisiblesEnabled-status" class="status" aria-live="polite">Desactivado</span><label class="switch" for="tmhConticaTabsVisiblesEnabled-toggle"><input id="tmhConticaTabsVisiblesEnabled-toggle" name="enabled" type="checkbox" role="switch" aria-labelledby="tmhConticaTabsVisibles-title"><span class="slider" aria-hidden="true"></span></label></span>
+          </div>
+          <div class="tab-link__range contica-tabs__range">
+            <label for="tmhConticaTabsVisiblesCount-input">Pestañas adicionales<input id="tmhConticaTabsVisiblesCount-input" name="count" type="number" min="0" max="12" step="1" inputmode="numeric" aria-describedby="tmhConticaTabsVisibles-help" required></label>
+          </div>
+          <p id="tmhConticaTabsVisibles-help" class="contica-tabs__help">Capacidad máxima: 7 pestañas originales más la cantidad indicada.</p>
+          <div class="tab-link__actions">
+            <span id="tmhConticaTabsVisibles-save-status" class="tab-link__status" aria-live="polite"></span>
+            <button id="tmhConticaTabsVisibles-save" type="submit">Aplicar cambios</button>
+          </div>
+          <span id="tmhConticaTabsVisibles-page-status" class="contica-tabs__page-status" role="status" aria-live="polite"></span>
+        </form>
+
         <div class="feature feature--stacked">
           <div class="feature__row">
             <span class="feature__copy"><strong>Cerrar impresión en Contica</strong><small>Pulsa X / ESC después del tiempo configurado.</small></span>

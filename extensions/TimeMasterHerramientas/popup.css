@@ -107,6 +107,18 @@ h1 {
   border-color: #a32323;
 }
 
+.contica-tabs__range {
+  grid-template-columns: 1fr;
+}
+
+.contica-tabs__help,
+.contica-tabs__page-status {
+  margin: 0;
+  color: #596277;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
 .tab-link__actions {
   display: flex;
   align-items: center;

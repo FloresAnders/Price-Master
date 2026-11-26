@@ -1,4 +1,4 @@
-TIMEMASTER HERRAMIENTAS 1.2.16
+TIMEMASTER HERRAMIENTAS 1.2.17
 ================================
 
 Esta extensión reúne CambioTab, vinculación de TABs entre cuentas, división de efectivo, movimiento entre medios
@@ -20,6 +20,7 @@ CONTROLES Y VALORES INICIALES
 -----------------------------
 - CambioTab en Contica: activado.
 - Vincular TABs entre cuentas: desactivado; rango inicial de 1 a 20.
+- Facturas visibles en Contica: desactivado; 3 pestañas adicionales.
 - Cierre del modal de impresión en Contica: desactivado.
 - Omitir impresión con Ctrl/Shift+Enter en Contica: desactivado.
 - División de efectivo en Contica: desactivada.
@@ -57,6 +58,14 @@ primera vez, sus productos preexistentes se fusionan una sola vez: productos
 iguales suman cantidad y productos distintos se agregan. Desde ese momento,
 productos, cantidades y eliminaciones del rango se replican a las cuentas ya
 vinculadas. Si la TAB modificada está abierta, Contica recarga sus datos.
+
+FACTURAS VISIBLES EN CONTICA
+----------------------------
+Sitio: https://contica.app/app/modules/punto_de_venta/*
+
+Desactivada por defecto. Puede mostrar de 0 a 12 pestañas adicionales después
+de las 7 originales. La cantidad real se limita automáticamente al espacio
+disponible. Las facturas restantes continúan accesibles desde el menú original.
 
 CIERRE DEL MODAL DE IMPRESIÓN EN CONTICA
 ----------------------------------------
