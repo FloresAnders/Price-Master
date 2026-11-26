@@ -10,233 +10,144 @@
   "use strict";
 
   const SETTING_EVENT = "tmh-contica-navedi-print-shortcut-setting";
-  const PAYMENT_MODAL_SELECTOR = "#pv-payment-modal";
-  const PAYMENT_SUBMIT_SELECTOR = "#pay-submit";
-  const WRAPPED_MARKER = "__tmhConticaNavediPrintGate";
+  const NAVEDI_URL = "wss://localhost:8181/";
+  const NAVEDI_ORIGIN = "wss://localhost:8181";
+  const POS_PATH_PATTERN = /^\/app\/modules\/punto_de_venta(?:\/|$)/;
+  const ELECTRONIC_TICKET_PATTERN = /TIQUETE ELECTR[ÓO]NICO/i;
 
   function createNavediPrintGate(windowRef, documentRef, options = {}) {
-    const intentTimeoutMs = options.intentTimeoutMs ?? 45_000;
-    const pollIntervalMs = options.pollIntervalMs ?? 250;
+    const intentTimeoutMs = options.intentTimeoutMs ?? 15_000;
     const now = options.now || (() => Date.now());
+    const WebSocketConstructor = windowRef.WebSocket;
+    const MessageEventConstructor = windowRef.MessageEvent;
     let enabled = false;
-    let pendingIntent = null;
+    let armed = false;
     let expiresAt = 0;
-    let pollTimer = null;
-    let wrappedQz = null;
-    let originalPrintDescriptor = null;
-    let originalPrint = null;
-    let gatedPrint = null;
-    let printAssignmentHooked = false;
-    let originalQzDescriptor = null;
-    let qzValue;
-    let qzAssignmentHooked = false;
+    let resetTimer = null;
+    let originalSend = null;
+    let interceptedSend = null;
     let started = false;
 
-    function clearIntent() {
-      pendingIntent = null;
+    function isPOS() {
+      return POS_PATH_PATTERN.test(windowRef.location?.pathname || "");
+    }
+
+    function reset() {
+      armed = false;
       expiresAt = 0;
+      if (resetTimer !== null) windowRef.clearTimeout?.(resetTimer);
+      resetTimer = null;
     }
 
     function setEnabled(nextEnabled) {
       enabled = nextEnabled === true;
-      if (!enabled) clearIntent();
-    }
-
-    function isInsideOpenPaymentModal(target) {
-      const element = target?.nodeType === 1 ? target : target?.parentElement;
-      const modal = element?.closest?.(PAYMENT_MODAL_SELECTOR);
-      if (!modal || modal.hidden || modal.getAttribute?.("aria-hidden") === "true") {
-        return false;
-      }
-      const style = windowRef.getComputedStyle?.(modal);
-      return style?.display !== "none" && style?.visibility !== "hidden";
+      if (!enabled) reset();
     }
 
     function handleKeydown(event) {
-      const isEnter =
-        event?.key === "Enter" ||
-        event?.code === "Enter" ||
-        event?.code === "NumpadEnter";
-      if (
-        !enabled ||
-        !isEnter ||
-        event.repeat ||
-        event.altKey ||
-        event.shiftKey ||
-        event.metaKey ||
-        !isInsideOpenPaymentModal(event.target)
-      ) {
+      if (!enabled) return;
+      if (!isPOS()) {
+        reset();
         return;
       }
-
-      pendingIntent = event.ctrlKey ? "allow" : "block";
-      expiresAt = now() + intentTimeoutMs;
-      if (!event.ctrlKey) return;
-
-      const submitButton = documentRef.querySelector(PAYMENT_SUBMIT_SELECTOR);
-      if (
-        !submitButton ||
-        typeof submitButton.click !== "function" ||
-        submitButton.disabled ||
-        submitButton.matches?.(":disabled") ||
-        submitButton.getAttribute?.("aria-disabled") === "true"
-      ) {
-        clearIntent();
+      if (event?.repeat || event?.isComposing) return;
+      if (event?.key === "Escape") {
+        reset();
         return;
       }
+      if (event?.key !== "Enter") return;
 
-      event.preventDefault();
-      event.stopImmediatePropagation?.();
-      submitButton.click();
+      reset();
+      if (
+        (event.ctrlKey || event.shiftKey) &&
+        !event.altKey &&
+        !event.metaKey
+      ) {
+        armed = true;
+        expiresAt = now() + intentTimeoutMs;
+        resetTimer = windowRef.setTimeout?.(reset, intentTimeoutMs) ?? null;
+        console.info("[Contica] Próxima impresión será omitida.");
+      }
     }
 
-    function takeIntent() {
-      if (!enabled || !pendingIntent) return null;
+    function hasActiveIntent() {
+      if (!enabled || !armed) return false;
+      if (!isPOS()) {
+        reset();
+        return false;
+      }
       if (now() > expiresAt) {
-        clearIntent();
+        reset();
+        return false;
+      }
+      return true;
+    }
+
+    function isEligibleRequest(data) {
+      if (typeof data !== "string") return null;
+      let request;
+      try {
+        request = JSON.parse(data);
+      } catch {
         return null;
       }
-      const intent = pendingIntent;
-      clearIntent();
-      return intent;
+      const printData = request?.params?.data;
+      if (
+        request?.call !== "print" ||
+        typeof request.uid !== "string" ||
+        !request.uid ||
+        !Array.isArray(printData) ||
+        !ELECTRONIC_TICKET_PATTERN.test(
+          printData.filter((item) => typeof item === "string").join(""),
+        )
+      ) {
+        return null;
+      }
+      return request;
     }
 
-    function createGatedPrint(printFunction) {
-      const controlledPrint = function controlledNavediPrint(...args) {
-        const intent = takeIntent();
-        if (intent === "block") return Promise.resolve(undefined);
-        return Reflect.apply(printFunction, this, args);
-      };
-      Object.defineProperty(controlledPrint, WRAPPED_MARKER, { value: true });
-      return controlledPrint;
-    }
+    function installSendInterceptor() {
+      const prototype = WebSocketConstructor?.prototype;
+      if (!prototype || typeof prototype.send !== "function") return false;
+      if (interceptedSend && prototype.send === interceptedSend) return true;
 
-    function restorePrint() {
-      if (wrappedQz && printAssignmentHooked) {
-        const latestPrint = originalPrint;
-        if (originalPrintDescriptor) {
-          Object.defineProperty(wrappedQz, "print", {
-            ...originalPrintDescriptor,
-            value: latestPrint,
-          });
-        } else {
-          delete wrappedQz.print;
-          if (latestPrint !== undefined) {
-            Object.defineProperty(wrappedQz, "print", {
-              configurable: true,
-              enumerable: true,
-              writable: true,
-              value: latestPrint,
-            });
-          }
+      originalSend = prototype.send;
+      interceptedSend = function controlledNavediSend(data) {
+        if (
+          !hasActiveIntent() ||
+          this.url !== NAVEDI_URL ||
+          this.readyState !== WebSocketConstructor.OPEN
+        ) {
+          return originalSend.apply(this, arguments);
         }
-      } else if (wrappedQz?.print === gatedPrint && originalPrint) {
-        wrappedQz.print = originalPrint;
-      }
-      wrappedQz = null;
-      originalPrintDescriptor = null;
-      originalPrint = null;
-      gatedPrint = null;
-      printAssignmentHooked = false;
-    }
 
-    function observeQz(qz) {
-      if (!qz || (typeof qz !== "object" && typeof qz !== "function")) {
-        restorePrint();
-        return false;
-      }
-      if (qz === wrappedQz && printAssignmentHooked) {
-        return typeof originalPrint === "function";
-      }
+        const request = isEligibleRequest(data);
+        if (!request) return originalSend.apply(this, arguments);
 
-      restorePrint();
-      const descriptor = Object.getOwnPropertyDescriptor(qz, "print");
-      if (!descriptor || ("value" in descriptor && descriptor.configurable)) {
-        originalPrintDescriptor = descriptor || null;
-        originalPrint = descriptor?.value;
-        gatedPrint =
-          typeof originalPrint === "function"
-            ? createGatedPrint(originalPrint)
-            : null;
-        wrappedQz = qz;
-        printAssignmentHooked = true;
-        Object.defineProperty(qz, "print", {
-          configurable: true,
-          enumerable: descriptor?.enumerable ?? true,
-          get() {
-            return gatedPrint || originalPrint;
-          },
-          set(nextPrint) {
-            if (nextPrint?.[WRAPPED_MARKER] === true) return;
-            originalPrint = nextPrint;
-            gatedPrint =
-              typeof nextPrint === "function"
-                ? createGatedPrint(nextPrint)
-                : null;
-          },
-        });
-        return typeof originalPrint === "function";
-      }
-
-      const currentPrint = qz.print;
-      if (typeof currentPrint !== "function") return false;
-      if (currentPrint[WRAPPED_MARKER] === true) return true;
-
-      originalPrint = currentPrint;
-      wrappedQz = qz;
-      gatedPrint = createGatedPrint(currentPrint);
-      qz.print = gatedPrint;
+        reset();
+        const socket = this;
+        windowRef.setTimeout?.(() => {
+          socket.dispatchEvent(
+            new MessageEventConstructor("message", {
+              data: JSON.stringify({ uid: request.uid }),
+              origin: NAVEDI_ORIGIN,
+            }),
+          );
+          console.info("[Contica] Impresión física omitida.", request.uid);
+        }, 0);
+        return undefined;
+      };
+      prototype.send = interceptedSend;
       return true;
     }
 
-    function installQzAssignmentHook() {
-      const descriptor = Object.getOwnPropertyDescriptor(windowRef, "qz");
-      if (descriptor && (!descriptor.configurable || !("value" in descriptor))) {
-        return false;
+    function restoreSend() {
+      const prototype = WebSocketConstructor?.prototype;
+      if (prototype && interceptedSend && prototype.send === interceptedSend) {
+        prototype.send = originalSend;
       }
-
-      originalQzDescriptor = descriptor || null;
-      qzValue = descriptor?.value ?? windowRef.qz;
-      Object.defineProperty(windowRef, "qz", {
-        configurable: true,
-        enumerable: descriptor?.enumerable ?? true,
-        get() {
-          return qzValue;
-        },
-        set(nextQz) {
-          qzValue = nextQz;
-          observeQz(nextQz);
-        },
-      });
-      qzAssignmentHooked = true;
-      observeQz(qzValue);
-      return true;
-    }
-
-    function restoreQzAssignment() {
-      if (!qzAssignmentHooked) return;
-      const latestQz = qzValue;
-      delete windowRef.qz;
-      if (originalQzDescriptor) {
-        Object.defineProperty(windowRef, "qz", {
-          ...originalQzDescriptor,
-          value: latestQz,
-        });
-      } else if (latestQz !== undefined) {
-        Object.defineProperty(windowRef, "qz", {
-          configurable: true,
-          enumerable: true,
-          writable: true,
-          value: latestQz,
-        });
-      }
-      originalQzDescriptor = null;
-      qzValue = undefined;
-      qzAssignmentHooked = false;
-    }
-
-    function installPrintWrapper() {
-      return observeQz(windowRef.qz);
+      originalSend = null;
+      interceptedSend = null;
     }
 
     function handleSetting(event) {
@@ -248,8 +159,8 @@
       started = true;
       documentRef.addEventListener(SETTING_EVENT, handleSetting);
       documentRef.addEventListener("keydown", handleKeydown, true);
-      if (!installQzAssignmentHook()) installPrintWrapper();
-      pollTimer = windowRef.setInterval?.(installPrintWrapper, pollIntervalMs) ?? null;
+      windowRef.addEventListener?.("pagehide", reset);
+      installSendInterceptor();
     }
 
     function stop() {
@@ -257,14 +168,12 @@
       started = false;
       documentRef.removeEventListener(SETTING_EVENT, handleSetting);
       documentRef.removeEventListener("keydown", handleKeydown, true);
-      if (pollTimer !== null) windowRef.clearInterval?.(pollTimer);
-      pollTimer = null;
+      windowRef.removeEventListener?.("pagehide", reset);
       setEnabled(false);
-      restorePrint();
-      restoreQzAssignment();
+      restoreSend();
     }
 
-    return { start, stop, setEnabled, installPrintWrapper };
+    return { start, stop, setEnabled };
   }
 
   return { SETTING_EVENT, createNavediPrintGate };

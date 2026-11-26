@@ -1,4 +1,4 @@
-TIMEMASTER HERRAMIENTAS 1.2.15
+TIMEMASTER HERRAMIENTAS 1.2.16
 ================================
 
 Esta extensión reúne CambioTab, vinculación de TABs entre cuentas, división de efectivo, movimiento entre medios
@@ -21,6 +21,7 @@ CONTROLES Y VALORES INICIALES
 - CambioTab en Contica: activado.
 - Vincular TABs entre cuentas: desactivado; rango inicial de 1 a 20.
 - Cierre del modal de impresión en Contica: desactivado.
+- Omitir impresión con Ctrl/Shift+Enter en Contica: desactivado.
 - División de efectivo en Contica: desactivada.
 - Movimiento entre medios de pago en Contica: desactivado.
 - Modal de monto de pago en Contica: desactivado; sus cinco opciones también.
@@ -71,17 +72,17 @@ Mientras transcurre la espera, muestra un recordatorio lateral con el mensaje
 inicial "Recuerde consultar si desea la factura impresa". El texto puede
 cambiarse desde el popup de la extensión y se guarda para las siguientes ventas.
 
-IMPRESIÓN DE FACTURA CON CTRL+ENTER EN CONTICA
-----------------------------------------------
+OMITIR IMPRESIÓN CON CTRL/SHIFT+ENTER EN CONTICA
+------------------------------------------------
 Sitio: https://contica.app/app/modules/punto_de_venta/*
 
-Desactivada por defecto. Requiere mantener activa en Contica la opción
-"Imprimir automáticamente al generar la factura" y Navedi conectado.
+Desactivada por defecto. Enter funciona normalmente. Ctrl+Enter o Shift+Enter
+arma la omisión del próximo tiquete electrónico enviado a Navedi. La intención
+vence después de 15 segundos, se consume una sola vez y Escape la cancela.
 
-Dentro del modal de pago #pv-payment-modal, Enter genera la factura y bloquea
-solamente el siguiente qz.print enviado a Navedi. Ctrl+Enter genera la factura
-y permite ese trabajo de impresión. La intención vence después de 45 segundos;
-las impresiones manuales fuera de ese flujo no se bloquean.
+Solo actúa en el punto de venta y sobre solicitudes print enviadas a
+wss://localhost:8181/ que contienen TIQUETE ELECTRÓNICO. No cambia el pago, el
+documento fiscal, la impresora configurada ni otros mensajes de Navedi.
 
 DIVISIÓN DE EFECTIVO EN CONTICA
 -------------------------------
